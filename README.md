@@ -1,4 +1,4 @@
-# Prerequisites
+﻿# Prerequisites
 *  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/
 *  ActiViz OpenSource Edition 5.8.0 (64-bit Windows XP or later) (3D library used for graphics - must be installed only on the development PC; users do not need it) - https://prepomax.fs.um.si/downloads/
 
@@ -22,7 +22,18 @@ At last change the active solution platform using the main menu: **Build** -> **
 
 Start the compilation and execution of the project by pressing the Start button...
 
-Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of PrePoMax's base folder. Then copy all folders that are missing in the compiled version from the released version (Models, NetGen, Solver…). Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
+Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of PrePoMax's base folder. Then copy all folders that are missing in the compiled version from the released version (Models, Meshers, Solver…). The mesher executables live in the Meshers subfolder: Meshers\Netgen for NetGenMesher.exe and its OpenCASCADE dlls, and Meshers\Mmg for mmgs.exe and mmg3d.exe. Meshers\Mmg no longer has to be copied from a release - the Mmg binaries are vendored in [ThirdParty/mmg/](ThirdParty/mmg/) and the build deploys them. Releases up to v2.6.1 shipped both meshers together in a single NetGen folder, so when copying from such a release, take only the NetGen part into Meshers\Netgen. Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
+
+# License
+
+PrePoMax is licensed under the GNU General Public License v3 - see [LICENSE](LICENSE).
+
+It also ships third-party mesher binaries that are not built from this repository: Gmsh
+(GPL-2.0-or-later with an exception), Mmg (LGPL-3.0-or-later) and NetGenMesher. Their license texts
+live in [Licenses/](Licenses/) and the build copies them into the output folder next to the binaries
+they cover, so a release built from this repository carries them automatically. See
+[Licenses/README.md](Licenses/README.md) for the inventory, the corresponding-source obligation, and
+the one component whose license is still unresolved.
 
 # Structure
 

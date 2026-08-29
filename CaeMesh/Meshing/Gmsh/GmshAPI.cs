@@ -9,7 +9,6 @@
 
 using CaeGlobals;
 using CaeMesh;
-using CaeMesh.Meshing;
 using CaeMesh.Sweep;
 using GmshCommon;
 using System;

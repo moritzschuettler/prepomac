@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace FileInOut.Input
 {
     [Serializable]
-    enum VolKeywords
+    enum NetgenVolKeywords
     {
         dimension,
         geomtype,

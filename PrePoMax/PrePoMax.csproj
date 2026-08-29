@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -106,8 +106,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common\GeneratedMeshData.cs" />
-    <Compile Include="Common\MeshBatchPerformance.cs" />
+    <Compile Include="Common\ExecutableJobRunner.cs" />
+    <Compile Include="Meshing\Netgen\NetgenMesherRunner.cs" />
+    <Compile Include="Meshing\Mmg\MmgMesherRunner.cs" />
+    <Compile Include="Meshing\Gmsh\GmshMesherRunner.cs" />
+    <Compile Include="Meshing\Base\IMesherRunner.cs" />
+    <Compile Include="Meshing\Base\MesherRegistry.cs" />
+    <Compile Include="Meshing\Base\GeneratedMeshData.cs" />
+    <Compile Include="Meshing\Base\MeshBatchPerformance.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromExtractedEntry.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromMergedHistories.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputXY.cs" />
@@ -451,14 +457,15 @@
     <Compile Include="Forms\11_MeshSetup\FrmMeshSetupItem.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\11_MeshSetup\ViewSweepMesh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewShellGmsh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewTransfiniteMesh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewTetrahedralGmsh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewRevolveMesh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewGmshSetupItem.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewExtrudeMesh.cs" />
-    <Compile Include="Forms\11_MeshSetup\ViewMeshSetupItem.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewSweepMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewShellGmsh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewTransfiniteMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewTetrahedralGmsh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewRevolveMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewGmshSetupItem.cs" />
+    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewExtrudeMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Base\MeshSetupItemTypes.cs" />
+    <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
     <Compile Include="Forms\21_FEModel\FrmSplitPartMeshUsingSurface.cs">
       <SubType>Form</SubType>
@@ -466,7 +473,7 @@
     <Compile Include="Forms\21_FEModel\FrmThickenShellMesh.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\11_MeshSetup\ViewThickenShellMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\Base\ViewThickenShellMesh.cs" />
     <Compile Include="Forms\21_FEModel\ViewSplitPartMeshData.cs" />
     <Compile Include="Forms\22_Node\FrmMergeCoincidentNodes.cs">
       <SubType>Form</SubType>
@@ -543,7 +550,7 @@
     <Compile Include="Forms\03_AnalyzeGeometry\FrmAnalyzeGeometry.Designer.cs">
       <DependentUpon>FrmAnalyzeGeometry.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\11_MeshSetup\ViewLocalMeshSize.cs" />
+    <Compile Include="Forms\11_MeshSetup\Base\ViewLocalMeshSize.cs" />
     <Compile Include="Forms\21_FEModel\FrmBoundaryLayer.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -772,7 +779,7 @@
     <Compile Include="Forms\21_FEModel\FrmCalculixKeywordEditor.Designer.cs">
       <DependentUpon>FrmCalculixKeywordEditor.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\11_MeshSetup\ViewMeshingParameters.cs" />
+    <Compile Include="Forms\11_MeshSetup\Base\ViewMeshingParameters.cs" />
     <Compile Include="Forms\27_Surface\ViewFeSurface.cs" />
     <Compile Include="Forms\31_ReferencePoint\ViewFeReferencePoint.cs" />
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
@@ -869,7 +876,7 @@
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
     <Compile Include="Common\SpatialPointSampler.cs" />
-    <Compile Include="Common\GmshBase.cs" />
+    <Compile Include="Meshing\Gmsh\GmshAPI.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Collections\SectionViewsCollection.cs" />
@@ -1314,6 +1321,28 @@ del *.manifest
 rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
 
 IF NOT EXIST "$(TargetDir)lib\" mkdir "$(TargetDir)lib\"
+
+rem Gmsh runtime dll is vendored in ThirdParty - the sdk it comes from is what GmshCommon links against
+copy "$(SolutionDir)ThirdParty\gmsh-4.13.0-Windows64-sdk\lib\gmsh-4.13.dll" "$(TargetDir)lib\gmsh-4.13.dll"
+
+rem Mmg binaries are vendored in ThirdParty so a build produces a working Meshers\Mmg
+IF NOT EXIST "$(TargetDir)Meshers\Mmg\" mkdir "$(TargetDir)Meshers\Mmg\"
+copy "$(SolutionDir)ThirdParty\mmg\mmgs.exe" "$(TargetDir)Meshers\Mmg\mmgs.exe"
+copy "$(SolutionDir)ThirdParty\mmg\mmg3d.exe" "$(TargetDir)Meshers\Mmg\mmg3d.exe"
+copy "$(SolutionDir)ThirdParty\mmg\vcruntime140.dll" "$(TargetDir)Meshers\Mmg\vcruntime140.dll"
+
+rem License texts that must travel with the distributed binaries
+copy "$(SolutionDir)LICENSE" "$(TargetDir)LICENSE"
+IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\LICENSE.txt" "$(TargetDir)lib\gmsh-LICENSE.txt"
+IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\CREDITS.txt" "$(TargetDir)lib\gmsh-CREDITS.txt"
+IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\LICENSE" "$(TargetDir)Meshers\Mmg\LICENSE"
+IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING.LESSER" "$(TargetDir)Meshers\Mmg\COPYING.LESSER"
+IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING" "$(TargetDir)Meshers\Mmg\COPYING"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\NOTICE.md" "$(TargetDir)Meshers\Netgen\NOTICE.md"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1.txt"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-OCCT.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-OCCT.txt"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\OCCT_LGPL_EXCEPTION.txt" "$(TargetDir)Meshers\Netgen\OCCT_LGPL_EXCEPTION.txt"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-pthreads-win32.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-pthreads-win32.txt"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 

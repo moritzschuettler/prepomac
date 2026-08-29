@@ -112,15 +112,15 @@
     <Compile Include="Geometry\GeomVertex.cs" />
     <Compile Include="Geometry\GeomSurface.cs" />
     <Compile Include="Geometry\GeometryItem.cs" />
-    <Compile Include="Meshing\Common\LocalMeshSize.cs" />
-    <Compile Include="Meshing\Common\SplitPartMeshData.cs" />
-    <Compile Include="Meshing\Common\ThickenShellMesh.cs" />
+    <Compile Include="Meshing\Base\LocalMeshSize.cs" />
+    <Compile Include="Meshing\Base\SplitPartMeshData.cs" />
+    <Compile Include="Meshing\Base\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh3DEnum.cs" />
-    <Compile Include="Meshing\Gmsh\SweepMethods.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepMethods.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\GmshElementType.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlock.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
@@ -131,11 +131,11 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuality.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />
-    <Compile Include="Meshing\Gmsh\RevolveMethods.cs" />
-    <Compile Include="Meshing\Gmsh\Mesher\GmshSurface.cs" />
-    <Compile Include="Meshing\Gmsh\Mesher\GmshEdge.cs" />
-    <Compile Include="Meshing\Gmsh\Mesher\GmshVolume.cs" />
-    <Compile Include="Meshing\Gmsh\Mesher\GmshData.cs" />
+    <Compile Include="Meshing\Gmsh\Revolve\RevolveMethods.cs" />
+    <Compile Include="Meshing\Gmsh\Data\GmshSurface.cs" />
+    <Compile Include="Meshing\Gmsh\Data\GmshEdge.cs" />
+    <Compile Include="Meshing\Gmsh\Data\GmshVolume.cs" />
+    <Compile Include="Meshing\Gmsh\Data\GmshData.cs" />
     <Compile Include="Meshing\Gmsh\GmshAPI.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\SweepMesh.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\ShellGmsh.cs" />
@@ -147,7 +147,8 @@
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
-    <Compile Include="Meshing\Common\MeshSetupItem.cs" />
+    <Compile Include="Meshing\Base\MesherTypeEnum.cs" />
+    <Compile Include="Meshing\Base\MeshSetupItem.cs" />
     <Compile Include="Nodes\MergeCoincidentNodes.cs" />
     <Compile Include="Parts\IStoreAsNameInCommands.cs" />
     <Compile Include="Parts\NodalDataStructures.cs" />
@@ -171,12 +172,12 @@
     <Compile Include="Elements\2D\LinearTriangleElement.cs" />
     <Compile Include="GeometryTools.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="Meshing\Common\MeshingParameters.cs" />
+    <Compile Include="Meshing\Base\MeshingParameters.cs" />
     <Compile Include="Parts\PartType.cs" />
     <Compile Include="Parts\PartProperties.cs" />
     <Compile Include="Parts\VisualizationData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Meshing\Common\RemeshingParameters.cs" />
+    <Compile Include="Meshing\Base\RemeshingParameters.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj">

@@ -45,6 +45,7 @@ namespace CaeGlobals
                 fs.Close();
                 stream.Position = 0;
                 BinaryFormatter formatter = new BinaryFormatter();
+                formatter.Binder = RenamedTypeSerializationBinder.Instance;
                 return (T)formatter.Deserialize(stream);
             }
         }
@@ -57,6 +58,7 @@ namespace CaeGlobals
                 stream.Write(bytes, 0, (int)length);
                 stream.Position = 0;
                 BinaryFormatter formatter = new BinaryFormatter();
+                formatter.Binder = RenamedTypeSerializationBinder.Instance;
                 return (T)formatter.Deserialize(stream);
             }
         }

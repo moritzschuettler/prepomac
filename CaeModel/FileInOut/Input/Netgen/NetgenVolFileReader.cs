@@ -19,7 +19,7 @@ using CaeGlobals;
 namespace FileInOut.Input
 {
     [Serializable]
-    public static class VolFileReader
+    public static class NetgenVolFileReader
     {
         // Methods                                                                                                                  
         static public FeMesh Read(string fileName, ElementsToImport elementsToImport)
@@ -45,23 +45,23 @@ namespace FileInOut.Input
                 foreach (List<string> dataSet in dataSets)
                 {
                     // Nodes
-                    if (dataSet[0] == VolKeywords.points.ToString()) 
+                    if (dataSet[0] == NetgenVolKeywords.points.ToString()) 
                     {
                         nodes = GetNodes(dataSet.ToArray());
                     }
                     // 3D Elements
-                    else if (dataSet[0] == VolKeywords.volumeelements.ToString())           
+                    else if (dataSet[0] == NetgenVolKeywords.volumeelements.ToString())           
                     {
                         AddVolumeElements(dataSet.ToArray(), elements, ref elementStartId);
                     }
                     // 2D Elements
-                    else if (dataSet[0] == VolKeywords.surfaceelements.ToString() ||
-                             dataSet[0] == VolKeywords.surfaceelementsuv.ToString())        
+                    else if (dataSet[0] == NetgenVolKeywords.surfaceelements.ToString() ||
+                             dataSet[0] == NetgenVolKeywords.surfaceelementsuv.ToString())        
                     {
                         AddSurfaceElements(dataSet.ToArray(), elements, ref elementStartId, surfaceIdNodeIds);
                     }
                     // 1D Elements - always import
-                    else if (dataSet[0] == VolKeywords.edgesegmentsgi2.ToString())          
+                    else if (dataSet[0] == NetgenVolKeywords.edgesegmentsgi2.ToString())          
                     {
                         AddLineElements(dataSet.ToArray(), elements, ref elementStartId, edgeIdNodeIds, vertexNodeIds);
                     }
@@ -100,7 +100,7 @@ namespace FileInOut.Input
             List<string> dataSet = new List<string>();
             List<List<string>> dataSets = new List<List<string>>();
 
-            HashSet<string> keywords = new HashSet<string>(Enum.GetNames(typeof(VolKeywords)));
+            HashSet<string> keywords = new HashSet<string>(Enum.GetNames(typeof(NetgenVolKeywords)));
 
             for (int i = 0; i < lines.Length; i++)
             {

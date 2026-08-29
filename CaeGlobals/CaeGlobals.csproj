@@ -153,6 +153,7 @@
     <Compile Include="StringCompressor.cs" />
     <Compile Include="StringSplitter.cs" />
     <Compile Include="MessageBoxes.cs" />
+    <Compile Include="RenamedTypeSerializationBinder.cs" />
     <Compile Include="Tools.cs" />
     <Compile Include="Comparers\CompareObjects.cs" />
     <Compile Include="CommonClasses\UniqueQueue.cs" />

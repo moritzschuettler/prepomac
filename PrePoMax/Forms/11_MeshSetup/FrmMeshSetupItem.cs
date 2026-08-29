@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -56,15 +56,7 @@ namespace PrePoMax.Forms
                     //
                     _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative, advancedView);
                 }
-                else if (value is LocalMeshSize lms) _viewMeshSetupItem = new ViewLocalMeshSize(lms.DeepClone());
-                else if (value is ShellGmsh sg) _viewMeshSetupItem = new ViewShellGmsh(sg.DeepClone());
-                else if (value is ThickenShellMesh tsm) _viewMeshSetupItem = new ViewThickenShellMesh(tsm.DeepClone());
-                else if (value is TetrahedralGmsh tg) _viewMeshSetupItem = new ViewTetrahedralGmsh(tg.DeepClone());
-                else if (value is TransfiniteMesh tm) _viewMeshSetupItem = new ViewTransfiniteMesh(tm.DeepClone());
-                else if (value is ExtrudeMesh em) _viewMeshSetupItem = new ViewExtrudeMesh(em.DeepClone());
-                else if (value is SweepMesh sm) _viewMeshSetupItem = new ViewSweepMesh(sm.DeepClone());
-                else if (value is RevolveMesh rm) _viewMeshSetupItem = new ViewRevolveMesh(rm.DeepClone());
-                else throw new NotImplementedException("MeshSetupItemTypeException");
+                else _viewMeshSetupItem = MeshSetupItemTypes.CreateView(_controller, value);
             }
         }
 
@@ -183,19 +175,11 @@ namespace PrePoMax.Forms
                 ((ViewMeshingParameters)_viewMeshSetupItem).AdvancedView = mp.AdvancedView;  // update advanced view
                 _meshingParametersChanged = false;
             }
-            else if (MeshSetupItem is LocalMeshSize lms) lms.Reset();
-            else if (MeshSetupItem is ShellGmsh sg) sg.Reset();
-            else if (MeshSetupItem is ThickenShellMesh tsm) tsm.Reset();
-            else if (MeshSetupItem is TetrahedralGmsh tg) tg.Reset();
-            else if (MeshSetupItem is TransfiniteMesh tm) tm.Reset();
-            else if (MeshSetupItem is ExtrudeMesh em) em.Reset();
-            else if (MeshSetupItem is SweepMesh sm) sm.Reset();
-            else if (MeshSetupItem is RevolveMesh rm)
+            else
             {
-                rm.Reset();
+                MeshSetupItem.Reset();
                 if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
             }
-            else throw new NotSupportedException("MeshSetupItemTypeException");
             //
             _propertyItemChanged = true;
             //
@@ -376,17 +360,7 @@ namespace PrePoMax.Forms
                     MeshSetupItem.CreationIds = null;
                     MeshSetupItem.Valid = true;
                 }
-                int selectedId;
-                if (_viewMeshSetupItem is ViewMeshingParameters) selectedId = 0;
-                else if (_viewMeshSetupItem is ViewLocalMeshSize) selectedId = 1;
-                else if (_viewMeshSetupItem is ViewShellGmsh) selectedId = 2;
-                else if (_viewMeshSetupItem is ViewThickenShellMesh) selectedId = 3;
-                else if (_viewMeshSetupItem is ViewTetrahedralGmsh) selectedId = 4;
-                else if (_viewMeshSetupItem is ViewTransfiniteMesh) selectedId = 5;
-                else if (_viewMeshSetupItem is ViewExtrudeMesh) selectedId = 6;
-                else if (_viewMeshSetupItem is ViewSweepMesh) selectedId = 7;
-                else if (_viewMeshSetupItem is ViewRevolveMesh) selectedId = 8;
-                else throw new NotSupportedException("MeshSetupItemTypeException");
+                int selectedId = MeshSetupItemTypes.GetIndex(IsTwoD(), _viewMeshSetupItem);
                 //
                 lvTypes.Items[selectedId].Tag = _viewMeshSetupItem;
                 _preselectIndex = selectedId;
@@ -430,56 +404,10 @@ namespace PrePoMax.Forms
         }
         public void SetMeshSetupItem(MeshSetupItem meshSetupItem)
         {
-            int selectedId;
             _meshSetupItemToEditName = meshSetupItem.Name;  // the OnApply checks this name
             //
-            if (meshSetupItem is MeshingParameters mp)
-            {
-                selectedId = 0;
-                bool defaultSizeIsRelative = _controller.Settings.Meshing.MeshingParameters.RelativeSize;
-                _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative);
-            }
-            else if (meshSetupItem is LocalMeshSize lms)
-            {
-                selectedId = 1;
-                _viewMeshSetupItem = new ViewLocalMeshSize(lms.DeepClone());
-            }
-            else if (meshSetupItem is ShellGmsh sg)
-            {
-                selectedId = 2;
-                _viewMeshSetupItem = new ViewShellGmsh(sg.DeepClone());
-            }
-            else if (meshSetupItem is ThickenShellMesh tsm)
-            {
-                selectedId = 3;
-                _viewMeshSetupItem = new ViewThickenShellMesh(tsm.DeepClone());
-            }
-            else if (meshSetupItem is TetrahedralGmsh tg)
-            {
-                selectedId = 4;
-                _viewMeshSetupItem = new ViewTetrahedralGmsh(tg.DeepClone());
-            }
-            else if (meshSetupItem is TransfiniteMesh tm)
-            {
-                selectedId = 5;
-                _viewMeshSetupItem = new ViewTransfiniteMesh(tm.DeepClone());
-            }
-            else if (meshSetupItem is ExtrudeMesh em)
-            {
-                selectedId = 6;
-                _viewMeshSetupItem = new ViewExtrudeMesh(em.DeepClone());
-            }
-            else if (meshSetupItem is SweepMesh sm)
-            {
-                selectedId = 7;
-                _viewMeshSetupItem = new ViewSweepMesh(sm.DeepClone());
-            }
-            else if (meshSetupItem is RevolveMesh rm)
-            {
-                selectedId = 8;
-                _viewMeshSetupItem = new ViewRevolveMesh(rm.DeepClone());
-            }
-            else throw new NotSupportedException("MeshSetupItemTypeException");
+            int selectedId = MeshSetupItemTypes.GetIndex(IsTwoD(), meshSetupItem);
+            _viewMeshSetupItem = MeshSetupItemTypes.CreateView(_controller, meshSetupItem);
             //
             _viewMeshSetupItem.HideName();
             btnOkAddNew.Visible = false;
@@ -492,69 +420,19 @@ namespace PrePoMax.Forms
             ItemSetDataEditor.SelectionForm.Hide();
         }
         //
+        private bool IsTwoD()
+        {
+            return _controller.Model.Properties.ModelSpace.IsTwoD();
+        }
         private void PopulateListOfMeshSetupItems()
         {
-            bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
-            //
             ListViewItem item;
-            // Meshing parameters
-            item = new ListViewItem("Meshing Parameters");
-            MeshingParameters mp = _controller.GetDefaultMeshingParameters(GetMeshSetupItemName("Meshing_Parameters"));
-            bool defaultSizeIsRelative = mp.RelativeSize;
-            ViewMeshingParameters vmp = new ViewMeshingParameters(mp, defaultSizeIsRelative);
-            item.Tag = vmp;
-            lvTypes.Items.Add(item);
-            // Mesh refinement
-            item = new ListViewItem("Local Mesh Size");
-            LocalMeshSize lms = new LocalMeshSize(GetMeshSetupItemName("Local_Mesh_Size"));
-            ViewLocalMeshSize vmr = new ViewLocalMeshSize(lms);
-            item.Tag = vmr;
-            lvTypes.Items.Add(item);
-            // Shell gmsh
-            item = new ListViewItem("Shell Gmsh");
-            ShellGmsh sg = new ShellGmsh(GetMeshSetupItemName("Shell_Gmsh"));
-            ViewShellGmsh vsg = new ViewShellGmsh(sg);
-            item.Tag = vsg;
-            lvTypes.Items.Add(item);
-            // Thicken shell mesh
-            item = new ListViewItem("Thicken Shell Mesh");
-            ThickenShellMesh tsm = new ThickenShellMesh(GetMeshSetupItemName("Thicken_Shell_Mesh"));
-            ViewThickenShellMesh vtsm = new ViewThickenShellMesh(tsm);
-            item.Tag = vtsm;
-            lvTypes.Items.Add(item);
-            // Tetrahedral gmsh
-            item = new ListViewItem("Tetrahedral Gmsh");
-            TetrahedralGmsh tg = new TetrahedralGmsh(GetMeshSetupItemName("Tetrahedral_Gmsh"));
-            ViewTetrahedralGmsh vtg = new ViewTetrahedralGmsh(tg);
-            item.Tag = vtg;
-            lvTypes.Items.Add(item);
             //
-            // Transfinite mesh
-            item = new ListViewItem("Transfinite Mesh");
-            TransfiniteMesh tm = new TransfiniteMesh(GetMeshSetupItemName("Transfinite_Mesh"));
-            ViewTransfiniteMesh vtm = new ViewTransfiniteMesh(tm);
-            item.Tag = vtm;
-            lvTypes.Items.Add(item);
-            //
-            if (!twoD)
+            foreach (var meshSetupItemType in MeshSetupItemTypes.GetAvailable(IsTwoD()))
             {
-                // Extrude mesh
-                item = new ListViewItem("Extrude Mesh");
-                ExtrudeMesh em = new ExtrudeMesh(GetMeshSetupItemName("Extrude_Mesh"));
-                ViewExtrudeMesh vem = new ViewExtrudeMesh(em);
-                item.Tag = vem;
-                lvTypes.Items.Add(item);
-                // Sweep mesh
-                item = new ListViewItem("Sweep Mesh");
-                SweepMesh sm = new SweepMesh(GetMeshSetupItemName("Sweep_Mesh"));
-                ViewSweepMesh vsm = new ViewSweepMesh(sm);
-                item.Tag = vsm;
-                lvTypes.Items.Add(item);
-                // Revolve mesh
-                item = new ListViewItem("Revolve Mesh");
-                RevolveMesh rm = new RevolveMesh(GetMeshSetupItemName("Revolve_Mesh"));
-                ViewRevolveMesh vrm = new ViewRevolveMesh(rm);
-                item.Tag = vrm;
+                item = new ListViewItem(meshSetupItemType.DisplayName);
+                item.Tag = meshSetupItemType.CreateDefaultView(_controller,
+                                                               GetMeshSetupItemName(meshSetupItemType.DefaultNameRoot));
                 lvTypes.Items.Add(item);
             }
         }

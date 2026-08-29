@@ -63,6 +63,7 @@ namespace CaeGlobals
             using (FileStream fs = new FileStream(fileName, FileMode.Open))
             {
                 BinaryFormatter formatter = new BinaryFormatter();
+                formatter.Binder = RenamedTypeSerializationBinder.Instance;
                 return (T)formatter.Deserialize(fs);
             }
         }

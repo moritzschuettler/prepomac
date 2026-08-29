@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -1407,7 +1407,7 @@ namespace CaeModel
         }
         public void ImportMeshFromVolFile(string fileName)
         {
-            FeMesh mesh = VolFileReader.Read(fileName, ElementsToImport.Shell | ElementsToImport.Solid);
+            FeMesh mesh = NetgenVolFileReader.Read(fileName, ElementsToImport.Shell | ElementsToImport.Solid);
             //
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }
@@ -1467,7 +1467,7 @@ namespace CaeModel
             // Called after meshing in PrePoMax - the parts are sorted by id
             FeMesh mesh;
             if (Path.GetExtension(fileName) == ".vol")
-                mesh = VolFileReader.Read(fileName, elementsToImport, convertToSecondOrder);
+                mesh = NetgenVolFileReader.Read(fileName, elementsToImport, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".mesh")
                 mesh = MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".inp")
@@ -2071,10 +2071,10 @@ namespace CaeModel
             extrudeMesh.Direction = null;
             extrudeMesh.ExtrudeCenter = null;
             //
-            if (extrudeMesh.AlgorithmMesh2D == CaeMesh.Meshing.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
+            if (extrudeMesh.AlgorithmMesh2D == CaeMesh.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
                 return "The extrude mesh setup item cannot use the quasi-structured quad algorithm.";
             //
-            if (extrudeMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
+            if (extrudeMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (extrudeMesh.LayerSizes.Length != extrudeMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
             //
@@ -2212,7 +2212,7 @@ namespace CaeModel
             sweepMesh.Direction = null;
             sweepMesh.SweepCenter = null;
             //
-            if (sweepMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
+            if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
             //
@@ -2404,10 +2404,10 @@ namespace CaeModel
             revolveMesh.AngleDeg = -1;
             revolveMesh.MiddleR = -1;
             //
-            //if (revolveMesh.AlgorithmMesh2D == CaeMesh.Meshing.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
+            //if (revolveMesh.AlgorithmMesh2D == CaeMesh.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
             //    return "The revolve mesh setup item cannot use the quasi-structured quad algorithm.";
             //
-            if (revolveMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
+            if (revolveMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (revolveMesh.LayerSizes.Length != revolveMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
             //

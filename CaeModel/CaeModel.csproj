@@ -205,12 +205,12 @@
     <Compile Include="FileInOut\Common\InpFeDescriptor.cs" />
     <Compile Include="FileInOut\Input\InpModel\InpFileReader.cs" />
     <Compile Include="FileInOut\Input\VisFileReader\VisFileReader.cs" />
-    <Compile Include="FileInOut\Input\VolMesh\VolKeywords.cs" />
+    <Compile Include="FileInOut\Input\Netgen\NetgenVolKeywords.cs" />
     <Compile Include="FileInOut\Input\StlGeomFile\StlFileReader.cs" />
     <Compile Include="FileInOut\Common\ElementsToImport.cs" />
     <Compile Include="FileInOut\Input\UnvMesh\UnvFeDescriptorId.cs" />
     <Compile Include="FileInOut\Input\UnvMesh\UnvFileReader.cs" />
-    <Compile Include="FileInOut\Input\VolMesh\VolFileReader.cs" />
+    <Compile Include="FileInOut\Input\Netgen\NetgenVolFileReader.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCentrifLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalBuckleStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalGravityLoad.cs" />

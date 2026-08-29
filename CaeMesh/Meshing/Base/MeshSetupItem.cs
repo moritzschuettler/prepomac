@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -8,7 +8,6 @@
 // Contributors:
 
 using CaeGlobals;
-using CaeMesh.Meshing;
 using Octree;
 using System;
 using System.Collections.Generic;
@@ -30,6 +29,7 @@ namespace CaeMesh
         // Properties                                                                                                               
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
+        public virtual MesherTypeEnum MesherType { get { return MesherTypeEnum.None; } }
 
 
         // Constructors                                                                                                             

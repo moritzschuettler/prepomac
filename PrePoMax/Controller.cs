@@ -10,7 +10,6 @@
 using CaeGlobals;
 using CaeJob;
 using CaeMesh;
-using CaeMesh.Meshing;
 using CaeModel;
 using CaeResults;
 using FileInOut.Output;
@@ -86,7 +85,11 @@ namespace PrePoMax
         [NonSerialized] protected List<string> _deferredKeywordStateMessages;
         //
         protected FeModel _model;
-        [NonSerialized] protected ExecutableJob _executableJob;
+        [NonSerialized] private ExecutableJobRunner _jobRunner;
+        [NonSerialized] private NetgenMesherRunner _netgenRunner;
+        [NonSerialized] private MmgMesherRunner _mmgRunner;
+        [NonSerialized] private GmshMesherRunner _gmshRunner;
+        [NonSerialized] private MesherRegistry _mesherRegistry;
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] protected string[] _lastMeshedPartNames;
         [NonSerialized] protected string[] _lastMeshedModelPartNames;
@@ -100,6 +103,7 @@ namespace PrePoMax
 
         // Properties                                                                                                               
         public FrmMain Form { get { return _form; } }
+        internal ExecutableJobRunner JobRunner { get { return _jobRunner; } }
         public SettingsContainer Settings
         {
             get
@@ -182,7 +186,7 @@ namespace PrePoMax
         {
             get
             {
-                if (_executableJob != null && _executableJob.JobStatus == JobStatus.Running) return false;
+                if (_jobRunner.IsRunning) return false;
                 else return true;
             }
         }
@@ -455,6 +459,11 @@ namespace PrePoMax
             _form = form;
             _form.Controller = this;
             // Jobs
+            _jobRunner = new ExecutableJobRunner();
+            _netgenRunner = new NetgenMesherRunner(this);
+            _mmgRunner = new MmgMesherRunner(this);
+            _gmshRunner = new GmshMesherRunner(this);
+            _mesherRegistry = new MesherRegistry(_netgenRunner, _mmgRunner, _gmshRunner);
             _jobs = new OrderedDictionary<string, AnalysisJob>("Analysis Jobs", StringComparer.OrdinalIgnoreCase);
             // Edges visibilities
             _edgesVisibilities = new EdgesVisibilitiesCollection(this);
@@ -1158,11 +1167,10 @@ namespace PrePoMax
             string argument = "cae noGUI=\"" + scriptFileName + "\" -- \"" + fileName + "\"";
             //
             bool jobCompleted;
-            _executableJob = new ExecutableJob("OdbToFrd", executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run("OdbToFrd", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
-            jobCompleted = _executableJob.JobStatus == JobStatus.OK;
+            jobCompleted = jobStatus == JobStatus.OK;
             //
             if (jobCompleted)
             {
@@ -1751,7 +1759,7 @@ namespace PrePoMax
             //
             UpdateAfterImport(extension);
         }
-        private void UpdateAfterImport(string extension)
+        internal void UpdateAfterImport(string extension)
         {
             UpdateAfterPartsChanged(); // must be here before any drawing
             // Exploded view
@@ -1850,16 +1858,15 @@ namespace PrePoMax
                               " \"" + outFileName.ToUTF8() + "\"" +
                               argumentSplit;
             //
-            _executableJob = new ExecutableJob("SplitStep", executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJob_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run("SplitStep", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             //
             string brepFile;
             List<string> brepFiles = new List<string>();
             string outFileNameNoExtension = Path.GetFileNameWithoutExtension(outFileName);
             string searchPattern = "*" + outFileNameNoExtension + "*";
             //
-            if (_executableJob.JobStatus == JobStatus.OK)
+            if (jobStatus == JobStatus.OK)
             {
                 string[] allFiles = Directory.GetFiles(workDirectory, searchPattern);
                 foreach (var fileName in allFiles)
@@ -1949,16 +1956,15 @@ namespace PrePoMax
             for (int i = 0; i < inFileNames.Length; i++) argument += " \"" + inFileNames[i].ToUTF8() + "\"";
             argument += " \"" + brepFileName.ToUTF8() + "\"";
             //
-            _executableJob = new ExecutableJob("CompoundPart", executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJob_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run("CompoundPart", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             //
             for (int i = 0; i < inFileNames.Length; i++)
             {
                 if (File.Exists(inFileNames[i])) File.Delete(inFileNames[i]);
             }
             //
-            if (_executableJob.JobStatus == JobStatus.OK) return new string[] { brepFileName };
+            if (jobStatus == JobStatus.OK) return new string[] { brepFileName };
             else return null;
         }
         private void ImportBrepCompoundPart(string brepFileName, string[] createdFromPartNames,
@@ -2104,20 +2110,15 @@ namespace PrePoMax
                               Convert.ToInt32(_settings.Graphics.LinearDeflectionRelative) + " " +
                               _settings.Graphics.AngularDeflectionRad.ToString();
             //
-            _executableJob = new ExecutableJob("Brep", executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJob_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run("Brep", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             //
-            if (_executableJob.JobStatus == JobStatus.OK) return visFileName;
+            if (jobStatus == JobStatus.OK) return visFileName;
             else
             {
                 if (showError) MessageBoxes.ShowError("Importing brep file failed.");
                 return null;
             }
-        }
-        private void executableJob_AppendOutput(string data)
-        {
-            _form.WriteDataToOutput(data);
         }
         public void ImportGeneratedMesh(string fileName, BasePart part, bool fromBrep)
         {
@@ -2553,11 +2554,10 @@ namespace PrePoMax
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + fileName.ToUTF8() + "\"";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
+            if (jobStatus == JobStatus.OK)
                 _form.WriteDataToOutput("Part " + part.Name + " exported to file: " + fileName);
             else return;
         }
@@ -3866,13 +3866,12 @@ namespace PrePoMax
                               scaleFactors[0] + " " + scaleFactors[1] + " " + scaleFactors[2];
 
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
             CheckAndUpdateModelValidity();
             //
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
         // End Transform
@@ -4452,13 +4451,12 @@ namespace PrePoMax
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
                               "\"" + outputBrepFileName.ToUTF8() + "\" ";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
             CheckAndUpdateModelValidity();
             //
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
         public void FlipFaceOrientations(GeometrySelection geometrySelection)
@@ -4546,11 +4544,10 @@ namespace PrePoMax
                               "\"" + outputBrepFileName.ToUTF8() + "\" " +
                               faceIdsArgument;
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
         private bool ReplacePartGeometryFromFile(GeometryPart part, string fileName, bool keepGeometrySelections)
@@ -4693,11 +4690,10 @@ namespace PrePoMax
                               node1.X + " " + node1.Y + " " + node1.Z + " " +
                               node2.X + " " + node2.Y + " " + node2.Z;
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
             // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
         //
@@ -4744,7 +4740,7 @@ namespace PrePoMax
             {
                 gp = (GeometryPart)_model.Geometry.GetPartFromId(entry.Key);
                 //
-                brepFileName = Defeature(gp, entry.Value.ToArray());
+                brepFileName = _gmshRunner.Defeature(gp, entry.Value.ToArray());
                 //
                 if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
                 else ClearAllSelection();
@@ -4759,64 +4755,6 @@ namespace PrePoMax
                 MessageBoxes.ShowWarning(warning + Environment.NewLine + "Only defeaturing on CAD solid parts was done.");
             //
             CheckAndUpdateModelValidity();
-        }
-        private string Defeature(GeometryPart part, int[] surfaceIds)
-        {
-            _form.WriteDataToOutput("");
-            //
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return null;
-            }
-            //
-            string executable = Application.StartupPath + Globals.GmshCaller;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            GmshData gmshData = new GmshData();
-            gmshData.GeometryFileName = brepFileName;
-            gmshData.SurfaceIds = surfaceIds;
-            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-            gmshData.WriteToFile(gmshDataFileName);
-            ResumeExplodedViews(false);
-            //
-            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Defeature;
-            //
-            string error = null;
-            bool jobCompleted;
-            if (Debugger.IsAttached)
-            {
-                GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
-                error = gmsh.Defeature();
-                jobCompleted = (error == null);
-            }
-            else
-            {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-                _executableJob.Submit();
-                // Job completed
-                jobCompleted = _executableJob.JobStatus == JobStatus.OK;
-            }
-            //
-            if (jobCompleted)
-            {
-                return brepFileName;
-            }
-            else
-            {
-                string message = "Defeaturing failed.";
-                if (error != null) message += Environment.NewLine + error;
-                throw new CaeException(message);
-            }
         }
         #endregion #################################################################################################################
 
@@ -5217,7 +5155,8 @@ namespace PrePoMax
             //
             bool result;
             if (part.IsCADPart) result = PreviewEdgeMeshFromBrep(part, meshSetupItemsDict);
-            else result = PreviewEdgeMeshFromStl(part, meshSetupItemsDict);
+            else result = _mesherRegistry.GetStlRunner(part, null)
+                                         .PreviewEdgeMeshFromStl(part, null, meshSetupItemsDict);
             // Thicken shell mesh
             if (result)
             {
@@ -5231,230 +5170,12 @@ namespace PrePoMax
             }
             return result;
         }
-        public bool PreviewEdgeMeshFromStl(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
-        {
-            if (part.PartType == PartType.Shell) return false;  // not supported
-            //
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
-            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
-            string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
-            //
-            if (File.Exists(stlFileName)) File.Delete(stlFileName);
-            if (File.Exists(volFileName)) File.Delete(volFileName);
-            if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
-            if (File.Exists(edgeNodesFileName)) File.Delete(edgeNodesFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, new string[] { part.Name });
-            CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
-            MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-            _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
-            ResumeExplodedViews(false);
-            //
-            string argument = "STL_EDGE_MESH " +
-                              "\"" + stlFileName + "\" " +
-                              "\"" + volFileName + "\" " +
-                              "\"" + meshParametersFileName + "\" " +
-                              "\"" + localMeshSizesFileName + "\" " +
-                              "\"" + edgeNodesFileName + "\"";
-
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                ImportGeneratedNodeMesh(volFileName, part, false);
-                return true;
-            }
-            else return false;
-        }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
-            MeshSetupItem[] gmshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name, meshSetupItems);
+            MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name, meshSetupItems);
             //
-            if (gmshSetupItems.Length > 0) return PreviewEdgeMeshFromBrepGmsh(part, gmshSetupItems, meshSetupItems);
-            else return PreviewEdgeMeshFromBrepNetgen(part, meshSetupItems);
-        }
-        public bool PreviewEdgeMeshFromBrepNetgen(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(volFileName)) File.Delete(volFileName);
-            if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
-            MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-            ResumeExplodedViews(false);
-            //
-            string argument = "BREP_EDGE_MESH " +
-                              "\"" + brepFileName.ToUTF8() + "\" " +
-                              "\"" + volFileName + "\" " +
-                              "\"" + meshParametersFileName + "\" " +
-                              "\"" + localMeshSizesFileName + "\"";
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                ImportGeneratedNodeMesh(volFileName, part, false);
-                return true;
-            }
-            else return false;
-        }
-        public bool PreviewEdgeMeshFromBrepGmsh(GeometryPart part, MeshSetupItem[] gmshSetupItems,
-                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
-            string executable = Application.StartupPath + Globals.GmshCaller;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(inpFileName)) File.Delete(inpFileName);
-            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-            GmshData gmshData = new GmshData();
-            gmshData.GeometryFileName = brepFileName;
-            gmshData.InpFileName = inpFileName;
-            gmshData.PartMeshingParameters = partMeshingParameters;
-            gmshData.GmshSetupItems = gmshSetupItems;
-            gmshData.Preview = true;
-            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-            GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
-            gmshData.WriteToFile(gmshDataFileName);
-            ResumeExplodedViews(false);
-            //
-            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
-            //
-            bool jobCompleted;
-            if (Debugger.IsAttached)
-            {
-                CaeMesh.GmshAPI gmsh = new CaeMesh.GmshAPI(gmshData, _form.WriteDataToOutput);
-                string error = gmsh.CreateMesh();
-                jobCompleted = error == null;
-            }
-            else
-            {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-                _executableJob.Submit();
-                // Job completed
-                jobCompleted = _executableJob.JobStatus == JobStatus.OK;
-            }
-            //
-            if (jobCompleted)
-            {
-                int id2;
-                int[] key;
-                FeElement element;
-                CompareIntArray comparer = new CompareIntArray();
-                HashSet<int[]> edgeKeys = new HashSet<int[]>(comparer);
-                List<double[][]> lines = new List<double[][]>();
-                double[][] line;
-                //
-                FileInOut.Input.ElementsToImport elementsToImport;
-                bool importEdges = gmshSetupItems.Length == 1 &&
-                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is SweepMesh ||
-                     gmshSetupItems[0] is RevolveMesh);
-                if (importEdges) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
-                else elementsToImport = FileInOut.Input.ElementsToImport.Beam;
-                // Mesh
-                FeMesh mesh = FileInOut.Input.InpFileReader.ReadMesh(inpFileName, elementsToImport, false);
-                // Exploded view
-                if (IsExplodedViewActive())
-                {
-                    double[] offset;
-                    if (part is CompoundGeometryPart cgp) offset = _model.Geometry.Parts[cgp.SubPartNames[0]].Offset;
-                    else offset = part.Offset;
-                    //
-                    Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
-                    foreach (var entry in mesh.Parts) partOffsets.Add(entry.Key, offset);
-                    mesh.ApplyExplodedView(partOffsets);
-                }
-                // Import edges
-                if (importEdges)
-                {
-                    foreach (var entry in mesh.Elements)
-                    {
-                        element = entry.Value;
-                        int numOfNodes = -1;
-                        if (entry.Value is LinearTriangleElement) numOfNodes = 3;
-                        else if (entry.Value is LinearQuadrilateralElement) numOfNodes = 4;
-                        //
-                        if (numOfNodes > 0)
-                        {
-                            for (int i = 0; i < numOfNodes; i++)
-                            {
-                                id2 = (i + 1) % numOfNodes;
-                                key = Tools.GetSortedKey(element.NodeIds[i], element.NodeIds[id2]);
-                                if (!edgeKeys.Contains(key))
-                                {
-                                    line = new double[2][];
-                                    line[0] = mesh.Nodes[element.NodeIds[i]].Coor;
-                                    line[1] = mesh.Nodes[element.NodeIds[id2]].Coor;
-                                    lines.Add(line);
-                                    edgeKeys.Add(key);
-                                }
-                            }
-                        }
-                        else throw new NotSupportedException();
-                    }
-                    //
-                    HighlightConnectedEdges(lines.ToArray());
-                }
-                // Import nodes
-                else
-                {
-                    double[][] nodeCoor = mesh.GetAllNodeCoor();
-                    HighlightNodes(nodeCoor);
-                }
-                return true;
-            }
-            else return false;
+            return _mesherRegistry.GetBrepRunner(part, mesherSetupItems)
+                                  .PreviewEdgeMeshFromBrep(part, mesherSetupItems, meshSetupItems);
         }
         public void ImportGeneratedNodeMesh(string fileName, GeometryPart part, bool resetCamera)
         {
@@ -5462,7 +5183,7 @@ namespace PrePoMax
                 throw new FileNotFoundException("The file: '" + fileName + "' does not exist." + Environment.NewLine +
                                                 "The reason is a failed mesh generation procedure for part: " + part.Name);
             //
-            FeMesh mesh = FileInOut.Input.VolFileReader.Read(fileName, FileInOut.Input.ElementsToImport.All, false);
+            FeMesh mesh = FileInOut.Input.NetgenVolFileReader.Read(fileName, FileInOut.Input.ElementsToImport.All, false);
             // Exploded view
             if (IsExplodedViewActive())
             {
@@ -5542,7 +5263,7 @@ namespace PrePoMax
                         //
                         if (generatedMesh == null)
                         {
-                            if (_executableJob != null && _executableJob.JobStatus == JobStatus.Killed)
+                            if (_jobRunner.WasKilled)
                             {
                                 errors.Add("Mesh generation canceled.");
                                 break;
@@ -5575,7 +5296,7 @@ namespace PrePoMax
                     catch (Exception ex)
                     {
                         errors.Add(partName + ": " + ex.Message);
-                        if (_executableJob != null && _executableJob.JobStatus == JobStatus.Killed)
+                        if (_jobRunner.WasKilled)
                         {
                             errors.Add("Mesh generation canceled.");
                             break;
@@ -5663,13 +5384,13 @@ namespace PrePoMax
             {
                 nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, generatedMesh.Mesh,
                                                               thickenShellMesh.KeepModelEdges,
-                                                              GeNormalsFromGeometryAtMeshNodes);
+                                                              _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
             }
             else
             {
                 nodeIdNormal = generatedMesh.Mesh.GetNodeNormals(partNames, generatedMesh.Mesh,
                                                                  thickenShellMesh.KeepModelEdges,
-                                                                 GeNormalsFromGeometryAtMeshNodes);
+                                                                 _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
             }
             //
             string[] errors = generatedMesh.Mesh.ThickenShellMesh(partNames, nodeIdNormal,
@@ -5910,7 +5631,7 @@ namespace PrePoMax
             _model.Mesh.Parts.CreateGroup(groupId, groupName, parentGroupId, targetIndex);
             return groupId;
         }
-        private static Guid? GetLastOrderedDictionaryItemParentGroupId(
+        internal static Guid? GetLastOrderedDictionaryItemParentGroupId(
             IOrderedDictionaryItemLayout<string> dictionary, IEnumerable<string> itemNames)
         {
             if (dictionary == null || itemNames == null) return null;
@@ -5964,14 +5685,14 @@ namespace PrePoMax
             int targetIndex = targetChildren.Count - movedFromTargetCount;
             dictionary.MoveItems(existingNames, targetGroupId, targetIndex);
         }
-        private static HashSet<string> CaptureOrderedDictionaryItemNamesForGroupPlacement(
+        internal static HashSet<string> CaptureOrderedDictionaryItemNamesForGroupPlacement(
             IOrderedDictionaryItemLayout<string> dictionary, Guid? targetGroupId)
         {
             return targetGroupId.HasValue
                 ? new HashSet<string>(dictionary.Keys, dictionary.Comparer)
                 : null;
         }
-        private static void MoveAddedOrderedDictionaryItemsToGroup(
+        internal static void MoveAddedOrderedDictionaryItemsToGroup(
             IOrderedDictionaryItemLayout<string> dictionary, HashSet<string> oldItemNames,
             Guid? targetGroupId)
         {
@@ -5994,343 +5715,19 @@ namespace PrePoMax
         }
         private GeneratedMeshData CreateMeshFromStl(GeometryPart part, string workDirectory)
         {
-            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name);
+            MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name);
             //
-            if (meshSetupItems.Length > 0) return CreateMeshFromStlGmsh(part, meshSetupItems, workDirectory);
-            else
-            {
-                if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
-                    return CreateMeshFromSolidStl(part, workDirectory);
-                else if (part.PartType == PartType.Shell) return CreateMeshFromShellStl(part, workDirectory);
-                else throw new NotSupportedException();
-            }
-        }
-        private GeneratedMeshData CreateMeshFromStlGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems,
-                                                        string workDirectory)
-        {
-            _form.WriteDataToOutput("");
-            //
-            string executable = Application.StartupPath + Globals.GmshCaller;
-            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
-            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
-            //
-            if (File.Exists(stlFileName)) File.Delete(stlFileName);
-            if (File.Exists(inpFileName)) File.Delete(inpFileName);
-            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
-            //
-            string[] partNames = new string[] { part.Name };
-            SuppressExplodedView(partNames);
-            GmshData gmshData = new GmshData();
-            try
-            {
-                StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
-                MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
-                gmshData.GeometryFileName = stlFileName;
-                gmshData.InpFileName = inpFileName;
-                gmshData.PartMeshingParameters = partMeshingParameters;
-                gmshData.GmshSetupItems = meshSetupItems;
-                gmshData.Preview = false;
-                gmshData.StlFeatureAngleDeg = _settings.General.EdgeAngle;
-                _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-                GetMeshItemSizes(part.Name, ref gmshData);
-                gmshData.WriteToFile(gmshDataFileName);
-            }
-            finally
-            {
-                ResumeExplodedViews(false);
-            }
-            //
-            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
-            //
-            bool jobCompleted;
-            if (Debugger.IsAttached)
-            {
-                CaeMesh.GmshAPI gmshAPI = new GmshAPI(gmshData, _form.WriteDataToOutput);
-                string error = gmshAPI.CreateMesh();
-                jobCompleted = error == null;
-            }
-            else
-            {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-                _executableJob.Submit();
-                // Job completed
-                jobCompleted = _executableJob.JobStatus == JobStatus.OK;
-            }
-            //
-            if (jobCompleted)
-            {
-                return new GeneratedMeshData()
-                {
-                    GeometryPart = part,
-                    MeshFileName = inpFileName,
-                    SmoothShaded = true
-                };
-            }
-            else return null;
-        }
-        private GeneratedMeshData CreateMeshFromSolidStl(GeometryPart part, string workDirectory)
-        {
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
-            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
-            string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
-            //
-            if (File.Exists(stlFileName)) File.Delete(stlFileName);
-            if (File.Exists(volFileName)) File.Delete(volFileName);
-            if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
-            if (File.Exists(edgeNodesFileName)) File.Delete(edgeNodesFileName);
-            //
-            string[] partNames = new string[] { part.Name };
-            SuppressExplodedView(partNames);
-            try
-            {
-                FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
-                CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-                GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-                _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
-            }
-            finally
-            {
-                ResumeExplodedViews(false);
-            }
-            //
-            string argument = "STL_MESH " +
-                              "\"" + stlFileName + "\" " +
-                              "\"" + volFileName + "\" " +
-                              "\"" + meshParametersFileName + "\" " +
-                              "\"" + localMeshSizesFileName + "\" " +
-                              "\"" + edgeNodesFileName + "\"";
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                return new GeneratedMeshData()
-                {
-                    GeometryPart = part,
-                    MeshFileName = volFileName,
-                    SmoothShaded = false
-                };
-            }
-            else throw new CaeException("Mesh generation failed.");
-        }
-        private GeneratedMeshData CreateMeshFromShellStl(GeometryPart part, string workDirectory)
-        {
-            string executable = Application.StartupPath + Globals.MmgsMesher;
-            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(workDirectory,
-                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".sol");
-            //
-            if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
-            if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
-            if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
-            try
-            {
-                MmgFileWriter.Write(mmgInFileName, part, _model.Geometry, meshingParameters.KeepModelEdges, false);
-            }
-            finally
-            {
-                ResumeExplodedViews(false);
-            }
-            //
-            System.Diagnostics.PerformanceCounter ramCounter;
-            ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
-            double hausdorff = meshingParameters.Hausdorff;
-            if (meshingParameters.RelativeSize) hausdorff = part.BoundingBox.GetDiagonal() * meshingParameters.FactorHausdorff;
-            //
-            string argument = //"-nr " + 
-                              "-m " + ramCounter.NextValue() * 0.9 + " " +
-                              "-ar 0.01 " + // this removes curving of the faces
-                                            //"-hsiz 0.08 " +  
-                              "-hmax " + meshingParameters.MaxH + " " +
-                              "-hmin " + meshingParameters.MinH + " " +
-                              "-hausd " + hausdorff + " " +
-                              "-in \"" + mmgInFileName + "\" " +
-                              "-out \"" + mmgOutFileName + "\" ";
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                FeMesh mesh = FileInOut.Input.MmgFileReader.Read(mmgOutFileName, FileInOut.Input.ElementsToImport.Shell,
-                                                                 MeshRepresentation.Geometry);
-                GeometryPart partOut;
-                if (mesh.Parts.Count == 1) partOut = (GeometryPart)mesh.Parts.First().Value;
-                else mesh.MergeGeometryParts(mesh.Parts.Keys.ToArray(), out partOut, out _);
-                //
-                if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
-                if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
-                if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
-                //
-                MmgFileWriter.Write(mmgInFileName, partOut, mesh, meshingParameters.KeepModelEdges, true);
-                //
-                argument = "-nr " +
-                           "-m " + ramCounter.NextValue() * 0.9 + " " +
-                           //"-ar 0 " +
-                           //"-hsiz 0.08 " +  
-                           "-hmax " + meshingParameters.MaxH + " " +
-                           "-hmin " + meshingParameters.MinH + " " +
-                           "-hausd " + hausdorff + " " +
-                           "-in \"" + mmgInFileName + "\" " +
-                           "-out \"" + mmgOutFileName + "\" ";
-                //
-                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-                _executableJob.Submit();
-                //
-                if (_executableJob.JobStatus == JobStatus.OK)
-                {
-                    return new GeneratedMeshData()
-                    {
-                        GeometryPart = part,
-                        MeshFileName = mmgOutFileName,
-                        SmoothShaded = false
-                    };
-                }
-                else throw new CaeException("Mesh generation failed.");
-            }
-            else throw new CaeException("Mesh generation failed.");
+            return _mesherRegistry.GetStlRunner(part, mesherSetupItems)
+                                  .CreateMeshFromStl(part, mesherSetupItems, workDirectory);
         }
         private GeneratedMeshData CreateMeshFromBrep(GeometryPart part, string workDirectory)
         {
-            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name);
+            MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name);
             //
-            if (meshSetupItems.Length > 0) return CreateMeshFromBrepGmsh(part, meshSetupItems, workDirectory);
-            else return CreateMeshFromBrepNetgen(part, workDirectory);
+            return _mesherRegistry.GetBrepRunner(part, mesherSetupItems)
+                                  .CreateMeshFromBrep(part, mesherSetupItems, workDirectory);
         }
-        private GeneratedMeshData CreateMeshFromBrepNetgen(GeometryPart part, string workDirectory)
-        {
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(volFileName)) File.Delete(volFileName);
-            if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            MeshingParameters meshingParameters;
-            try
-            {
-                File.WriteAllText(brepFileName, part.CADFileData);
-                meshingParameters = GetPartMeshingParameters(part.Name);
-                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-                CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-            }
-            finally
-            {
-                ResumeExplodedViews(false);
-            }
-            //
-            string argument = "BREP_MESH " +
-                              "\"" + brepFileName.ToUTF8() + "\" " +
-                              "\"" + volFileName + "\" " +
-                              "\"" + meshParametersFileName + "\" " +
-                              "\"" + localMeshSizesFileName + "\"";
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                return new GeneratedMeshData()
-                {
-                    GeometryPart = part,
-                    MeshFileName = volFileName,
-                    SmoothShaded = true
-                };
-            }
-            else throw new CaeException("Mesh generation failed.");
-        }
-        private GeneratedMeshData CreateMeshFromBrepGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems,
-                                                         string workDirectory)
-        {
-            _form.WriteDataToOutput("");
-            //
-            string executable = Application.StartupPath + Globals.GmshCaller;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(inpFileName)) File.Delete(inpFileName);
-            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            GmshData gmshData = new GmshData();
-            try
-            {
-                File.WriteAllText(brepFileName, part.CADFileData);
-                MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
-                gmshData.GeometryFileName = brepFileName;
-                gmshData.InpFileName = inpFileName;
-                gmshData.PartMeshingParameters = partMeshingParameters;
-                gmshData.GmshSetupItems = meshSetupItems;
-                gmshData.Preview = false;
-                _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-                GetMeshItemSizes(part.Name, ref gmshData);
-                gmshData.WriteToFile(gmshDataFileName);
-            }
-            finally
-            {
-                ResumeExplodedViews(false);
-            }
-            //
-            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
-            //
-            string error = null;
-            bool jobCompleted;
-            if (Debugger.IsAttached)
-            {
-                GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
-                error = gmsh.CreateMesh();
-                jobCompleted = (error == null);
-            }
-            else
-            {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-                _executableJob.Submit();
-                // Job completed
-                jobCompleted = _executableJob.JobStatus == JobStatus.OK;
-            }
-            //
-            if (jobCompleted)
-            {
-                return new GeneratedMeshData()
-                {
-                    GeometryPart = part,
-                    MeshFileName = inpFileName,
-                    SmoothShaded = true
-                };
-            }
-            else
-            {
-                string message = "Mesh generation failed.";
-                if (error != null) message += Environment.NewLine + error;
-                throw new CaeException(message);
-            }
-        }
-        private void CreateLocalMeshSizeFile(GeometryPart part, string fileName,
+        internal void CreateLocalMeshSizeFile(GeometryPart part, string fileName,
                                              OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             int geometryPartId;
@@ -6482,17 +5879,13 @@ namespace PrePoMax
             File.WriteAllText(fileName, sb.ToString());
         }
         //
+        public bool SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
+        {
+            return _mmgRunner.SplitPartMeshUsingSurface(splitPartMeshData);
+        }
         public void StopExecutableJob()
         {
-            if (_executableJob != null && _executableJob.JobStatus == JobStatus.Running)
-            {
-                _executableJob.Kill("Cancel button clicked.");
-                _form.SetStateReady(Globals.MeshingText);
-            }
-        }
-        void executableJobMeshing_AppendOutput(string data)
-        {
-            _form.WriteDataToOutput(data);
+            if (_jobRunner.Kill("Cancel button clicked.")) _form.SetStateReady(Globals.MeshingText);
         }
 
         #endregion #################################################################################################################
@@ -6555,6 +5948,32 @@ namespace PrePoMax
                 return _model.Geometry.MeshSetupItems.Values.ToArray();
             }
             else return null;
+        }
+        private MeshSetupItem[] GetActiveValidMesherSetupItems(string partName,
+                                                               OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+        {
+            HashSet<int> selectedPartIds;
+            string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
+            int[] meshablePartIds = _model.Geometry.GetPartIdsFomPartNames(meshablePartNames);
+            List<MeshSetupItem> meshSetupItemsToCheck = new List<MeshSetupItem>();
+            //
+            if (meshSetupItems == null) meshSetupItems = _model.Geometry.MeshSetupItems;
+            //
+            foreach (var entry in meshSetupItems)
+            {
+                if (entry.Value.MesherType != MesherTypeEnum.None && entry.Value.Active && entry.Value.Valid)
+                {
+                    if (entry.Value.CreationIds != null && entry.Value.CreationIds.Length > 0)
+                    {
+                        selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(entry.Value.CreationIds));
+                        //
+                        if (selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length)
+                            meshSetupItemsToCheck.Add(entry.Value);
+                    }
+                }
+            }
+            //
+            return meshSetupItemsToCheck.ToArray();
         }
         private MeshSetupItem[] GetActiveValidMeshSetupItems<T>(string partName,
                                                                   OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
@@ -6921,7 +6340,7 @@ namespace PrePoMax
                 foreach (var entry in partIdElementIds)
                 {
                     part = (MeshPart)_model.Mesh.GetPartFromId(entry.Key);
-                    result &= RemeshShellElementsByPart(part, entry.Value.ToArray(), remeshingParameters, preview);
+                    result &= _mmgRunner.RemeshShellElementsByPart(part, entry.Value.ToArray(), remeshingParameters, preview);
                 }
                 return result;
             }
@@ -6933,65 +6352,6 @@ namespace PrePoMax
             {
                 _form.SetStateReady(Globals.PreviewText);
             }
-        }
-        private bool RemeshShellElementsByPart(MeshPart part, int[] elementIds, RemeshingParameters remeshingParameters,
-                                               bool preview)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
-            string executable = Application.StartupPath + Globals.MmgsMesher;
-            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(workDirectory,
-                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".sol");
-            //
-            if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
-            if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
-            if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
-            //
-            Dictionary<(int, int), FeNode> midNodes;
-            MmgFileWriter.WriteShellElements(mmgInFileName, elementIds, part, _model.Mesh,
-                                             remeshingParameters.KeepModelEdges, out midNodes);
-            //
-            System.Diagnostics.PerformanceCounter ramCounter;
-            ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
-            //
-            string argument = "-nr " +
-                              "-optim " +
-                              //"-ar 30 " +
-                              "-m " + ramCounter.NextValue() * 0.9 + " " +
-                              "-hgrad " + 1 + " " +
-                              "-hgradreq " + 1 + " " +
-                              "-hmax " + remeshingParameters.MaxH + " " +
-                              "-hmin " + remeshingParameters.MinH + " " +
-                              "-hausd " + remeshingParameters.Hausdorff + " " +
-                              "-in \"" + mmgInFileName + "\" " +
-                              "-out \"" + mmgOutFileName + "\" " +
-                              "-v 5 ";
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                // Check if all elements are linear or all elements are parabolic
-                HashSet<bool> parabolic = new HashSet<bool>();
-                foreach (var elementType in part.ElementTypes) parabolic.Add(FeElement.IsParabolic(elementType));
-                if (parabolic.Count != 1) throw new NotSupportedException();
-                //
-                ImportGeneratedRemesh(mmgOutFileName, elementIds, part, parabolic.First(), midNodes, preview);
-                return true;
-            }
-            else throw new CaeException("Mesh generation failed.");
         }
         public async Task PreviewThickenShellMeshAsync(string[] partNames, double thickness, int numberOfLayers, double offset,
                                                        bool keepModelEdges)
@@ -7011,12 +6371,12 @@ namespace PrePoMax
             if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
             {
                 nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, DisplayedMesh, keepModelEdges,
-                                                              GeNormalsFromGeometryAtMeshNodes);
+                                                              _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
             }
             else
             {
                 nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
-                                                          GeNormalsFromGeometryAtMeshNodes);
+                                                          _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
             }
             //
             if (_model != null)
@@ -7045,12 +6405,12 @@ namespace PrePoMax
                 if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
                 {
                     nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
-                                                                  GeNormalsFromGeometryAtMeshNodes);
+                                                                  _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
                 }
                 else
                 {
                     nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
-                                                              GeNormalsFromGeometryAtMeshNodes);
+                                                              _gmshRunner.GeNormalsFromGeometryAtMeshNodes);
                 }
                 //
                 if (_model != null)
@@ -7095,48 +6455,6 @@ namespace PrePoMax
             }
             return true;
         }
-        private Dictionary<int, List<Vec3D>> GeNormalsFromGeometryAtMeshNodes(GeometryPart part, FeMesh mesh)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return null;
-            }
-            //
-            string executable = Application.StartupPath + Globals.GmshCaller;
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            //
-            List<FeNode> nodes;
-            HashSet<int> nodeIds;
-            BasePart meshPart = mesh.Parts[part.Name];
-            Dictionary<int, FeNode[]> faceIdNodes = new Dictionary<int, FeNode[]>();
-            for (int i = 0; i < meshPart.Visualization.FaceCount; i++)
-            {
-                nodes = new List<FeNode>();
-                nodeIds = meshPart.Visualization.GetNodeIdsForSurfaceId(i);
-                foreach (var nodeId in nodeIds) nodes.Add(mesh.Nodes[nodeId]);
-                //
-                faceIdNodes.Add(FeMesh.GmshTopologyId(i, part.PartId), nodes.ToArray());
-            }
-            //
-            GmshData gmshData = new GmshData();
-            gmshData.GeometryFileName = brepFileName;
-            gmshData.FaceIdNodes = faceIdNodes;
-            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-            //
-            ResumeExplodedViews(false);
-            //
-            GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
-            string error = gmsh.GetOccNormals();
-            return gmsh.GmshData.NodeIdNormals;
-        }
         public void PreviewSplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
             Dictionary<int, double> nodeIdDistance;
@@ -7150,93 +6468,7 @@ namespace PrePoMax
             //
             _form.ShowSplitMeshResults();
         }
-        public bool SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
-            string executable = Application.StartupPath + Globals.Mmg3DMesher;
-            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(workDirectory,
-                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".sol");
-            string mmgMatFileName = Path.Combine(workDirectory,
-                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
-                                                 ".mmg3d");
-            //
-            if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
-            if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
-            if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
-            if (File.Exists(mmgMatFileName)) File.Delete(mmgMatFileName);
-            //
-            BasePart[] baseParts;
-            Dictionary<int, double> nodeIdDistance;
-            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out baseParts, out nodeIdDistance);
-            // In file
-            string[] basePartNames = new string[baseParts.Length];
-            for (int i = 0; i < baseParts.Length; i++) basePartNames[i] = baseParts[i].Name;
-            Guid? targetGroupId =
-                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, basePartNames);
-            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
-                _model.Mesh.Parts, targetGroupId);
-            ExportPartsAsMmgMesh(basePartNames, mmgInFileName, true);
-            // Sol file
-            FeMesh mesh = DisplayedMesh;
-            MmgFileWriter.WriteSolution(mmgSolFileName, baseParts, mesh, nodeIdDistance);
-            // Mat file
-            MmgFileWriter.WriteMaterial(mmgMatFileName, baseParts);
-            //
-            PerformanceCounter ramCounter;
-            ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-            //
-            string argument = "-ls " + //splitPartMeshData.Offset + " " +  // offset is applied in the signed distance field
-                              "-rmc " +
-                              //"-optim " + // tends to create elements of the same size
-                              "-m " + ramCounter.NextValue() * 0.9 + " " +
-                              "-hmax " + splitPartMeshData.MaxH + " " +
-                              "-hmin " + splitPartMeshData.MinH + " " +
-                              "-hausd " + splitPartMeshData.Hausdorff + " " +
-                              "-hgrad " + "1.5" + " " +
-                              "-nr " +
-                              "-in \"" + mmgInFileName + "\" " +
-                              "-sol \"" + mmgSolFileName + "\" " +
-                              "-out \"" + mmgOutFileName + "\" " +
-                              "-v 5 ";  // this solves the problem of mmg not stopping
-            //
-            _executableJob = new ExecutableJob("SplitMeshPart", executable, argument, workDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                // Check if all elements are linear or all elements are parabolic
-                HashSet<bool> parabolic = new HashSet<bool>();
-                foreach (var part in baseParts)
-                {
-                    foreach (var elementType in part.ElementTypes)
-                        parabolic.Add(FeElement.IsParabolic(elementType));
-                }
-                if (parabolic.Count != 1) throw new NotSupportedException();
-                //
-                _model.ImportMeshFromMmgFile(mmgOutFileName, FileInOut.Input.ElementsToImport.Solid, parabolic.First());
-                MoveAddedOrderedDictionaryItemsToGroup(_model.Mesh.Parts, oldPartNames, targetGroupId);
-                //
-                HideModelParts(basePartNames);
-                //
-                UpdateAfterImport(".mesh"); // calls UpdateAfterPartsChanged();
-                //
-                return true;
-            }
-            else throw new CaeException("Mesh generation failed.");
-        }
-        private void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart[] baseParts,
+        internal void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart[] baseParts,
                                                       out Dictionary<int, double> nodeIdDistance)
         {
             nodeIdDistance = null;
@@ -8368,7 +7600,7 @@ namespace PrePoMax
                 }
             }
         }
-        private void UpdateAfterPartsChanged()
+        internal void UpdateAfterPartsChanged()
         {
             ClearSelectionBuffer();
             //
@@ -15222,17 +14454,13 @@ namespace PrePoMax
                 {
                     if (afterIds == null) { _selection.Add(node); afterIds = GetSelectionIds(); _selection.RemoveLast(false); }
                     HashSet<BasePart> parts = mesh.GetPartsFromSelectionIds(afterIds, _selection.SelectItem);
-                    bool mmg;
-                    HashSet<bool> mmgHash = new HashSet<bool>();
+                    HashSet<MesherTypeEnum> mesherTypes = new HashSet<MesherTypeEnum>();
                     foreach (var part in parts)
                     {
-                        mmg = false;
-                        if (part.PartType == PartType.Shell && part is GeometryPart gp && !gp.IsCADPart) mmg = true;
-                        else if (part.PartType == PartType.Shell && part is MeshPart) mmg = true; // for remeshing
-                        mmgHash.Add(mmg);
-                        if (mmgHash.Count > 1) break;
+                        mesherTypes.Add(_mesherRegistry.GetDefaultMesherType(part));
+                        if (mesherTypes.Count > 1) break;
                     }
-                    if (mmgHash.Count <= 1) add = true;   // 0 : when subtracting the last item
+                    if (mesherTypes.Count <= 1) add = true;   // 0 : when subtracting the last item
                 }
                 else add = true;
             }

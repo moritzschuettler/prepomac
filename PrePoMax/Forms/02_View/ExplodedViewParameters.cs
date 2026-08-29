@@ -101,7 +101,7 @@ namespace PrePoMax
             _scaleFactor = -1;
             _magnification = 2;
             _tolerance = 0;
-            _sequential = true;
+            _sequential = false;
         }
     }
 }

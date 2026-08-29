@@ -80,9 +80,9 @@ namespace PrePoMax
         public static string StatusBlockSettingsName = "Status Block";
         public static string UnitSystemSettingsName = "Unit System";
         // Work files
-        public static string NetGenMesher = @"\NetGen\NetGenMesher.exe";
-        public static string MmgsMesher = @"\NetGen\mmgs.exe";
-        public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
+        public static string NetGenMesher = @"\Meshers\Netgen\NetGenMesher.exe";
+        public static string MmgsMesher = @"\Meshers\Mmg\mmgs.exe";
+        public static string Mmg3DMesher = @"\Meshers\Mmg\mmg3d.exe";
         public static string GmshCaller = @"\lib\GmshCaller.exe";
         public static string PythonDll = @"\Python\python312.dll";
         public static string BidirectionalMeshConverter = @"\Tools\BidirectionalMeshConverter.exe";

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -14,7 +14,6 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
-using CaeMesh.Meshing;
 using DynamicTypeDescriptor;
 using GmshCommon;
 
@@ -43,6 +42,7 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
+        public override MesherTypeEnum MesherType { get { return MesherTypeEnum.Gmsh; } }
         public GmshAlgorithmMesh2DEnum AlgorithmMesh2D { get { return _algorithmMesh2D; } set { _algorithmMesh2D = value; } }
         public GmshAlgorithmMesh3DEnum AlgorithmMesh3D { get { return _algorithmMesh3D; } set { _algorithmMesh3D = value; } }
         public GmshAlgorithmRecombineEnum AlgorithmRecombine
