@@ -1322,6 +1322,11 @@ rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh
 
 IF NOT EXIST "$(TargetDir)lib\" mkdir "$(TargetDir)lib\"
 
+rem NetGenMesher runtime is vendored in ThirdParty (trimmed set: 1 exe + 43 dlls)
+IF NOT EXIST "$(TargetDir)Meshers\Netgen\" mkdir "$(TargetDir)Meshers\Netgen\"
+xcopy /D /Y /I "$(SolutionDir)ThirdParty\netgen\*.exe" "$(TargetDir)Meshers\Netgen"
+xcopy /D /Y /I "$(SolutionDir)ThirdParty\netgen\*.dll" "$(TargetDir)Meshers\Netgen"
+
 rem Gmsh runtime dll is vendored in ThirdParty - the sdk it comes from is what GmshCommon links against
 copy "$(SolutionDir)ThirdParty\gmsh-4.13.0-Windows64-sdk\lib\gmsh-4.13.dll" "$(TargetDir)lib\gmsh-4.13.dll"
 

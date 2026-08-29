@@ -22,22 +22,32 @@ At last change the active solution platform using the main menu: **Build** -> **
 
 Start the compilation and execution of the project by pressing the Start button...
 
-Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of PrePoMax's base folder. Then copy all folders that are missing in the compiled version from the released version (Models, Meshers, Solver…). The mesher executables live in the Meshers subfolder: Meshers\Netgen for NetGenMesher.exe and its OpenCASCADE dlls, and Meshers\Mmg for mmgs.exe and mmg3d.exe. Meshers\Mmg no longer has to be copied from a release - the Mmg binaries are vendored in [ThirdParty/mmg/](ThirdParty/mmg/) and the build deploys them. Releases up to v2.6.1 shipped both meshers together in a single NetGen folder, so when copying from such a release, take only the NetGen part into Meshers\Netgen. Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
+Compiling PrePoMax produces a working meshing setup on its own. The Netgen, Mmg and Gmsh binaries
+are vendored in [ThirdParty/](ThirdParty/) and the build copies them into `Meshers\Netgen`,
+`Meshers\Mmg` and `lib`, together with the license texts from [Licenses/](Licenses/). Nothing has to
+be copied by hand for meshing to work.
+
+The rest of the base folder (Models, Solver, Python, Tools, Help) still has to be taken from the
+latest released version of PrePoMax's base folder. Then set the working folder and the solver
+(CalculiX) executable file name in Settings -> Calculix.
 
 # License
 
 PrePoMax is licensed under the GNU General Public License v3 - see [LICENSE](LICENSE).
 
 It also ships third-party mesher binaries that are not built from this repository: Gmsh
-(GPL-2.0-or-later with an exception), Mmg (LGPL-3.0-or-later) and NetGenMesher. Their license texts
-live in [Licenses/](Licenses/) and the build copies them into the output folder next to the binaries
-they cover, so a release built from this repository carries them automatically. See
-[Licenses/README.md](Licenses/README.md) for the inventory, the corresponding-source obligation, and
-the one component whose license is still unresolved.
+(GPL-2.0-or-later, with an exception), Mmg (LGPL-3.0-or-later), and NetGenMesher (GPL-3.0), which in
+turn links Netgen, OpenCASCADE and pthreads-win32 (all LGPL-2.1). Their license texts live in
+[Licenses/](Licenses/) and the build copies them into the output folder next to the binaries they
+cover, so a build from this repository carries them automatically.
+
+See [Licenses/README.md](Licenses/README.md) for the full inventory, the corresponding-source
+obligation, and the handful of libraries bundled with the OpenCASCADE distribution whose terms are
+still to be established.
 
 # Structure
 
-The PrePoMax is a solution which consists of 11 projects:
+The PrePoMax is a solution which consists of 13 projects:
 *  APIs: classes for interfacing with PrePoMax from other programs (Python, ...)
 *  CaeGlobals: global classes for all other projects to use
 *  CaeJob: classes for running the analysis
@@ -53,6 +63,11 @@ The PrePoMax is a solution which consists of 11 projects:
 *  vtkControl: classes for 3D visualization
 
 PrePoMax is compiled in an exe file all the other projects are compiled in dll files.
+
+Alongside the projects, [ThirdParty/](ThirdParty/) holds the binaries that are not built here and
+are deployed by the build: `netgen/` (NetGenMesher and its OpenCASCADE runtime), `mmg/` (the Mmg
+executables) and `gmsh-4.13.0-Windows64-sdk/` (the Gmsh sdk that GmshCommon links against and whose
+dll is shipped).
 
 The internal structure of the program is quite complex and there are almost no comments in the code (no time to write them) but I am using very descriptive names. Each class has its own file with .cs extension. You can browse the files in the Solution Explorer.
 

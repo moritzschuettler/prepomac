@@ -13,10 +13,10 @@ only when that mesher's binary is actually present in the base folder.
 | Component | Shipped as | License | Verified from |
 |---|---|---|---|
 | PrePoMax | `PrePoMax.exe` | GPL-3.0 | `LICENSE` in this repository |
-| Gmsh 4.13 | `lib\gmsh-4.13.dll` | GPL-2.0-or-later, with an exception permitting combination with Netgen, METIS, OpenCASCADE and ParaView | `share/doc/gmsh/LICENSE.txt` in the vendored SDK under `ThirdParty/` |
+| Gmsh 4.13 | `lib\gmsh-4.13.dll`, vendored in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` | GPL-2.0-or-later, with an exception permitting combination with Netgen, METIS, OpenCASCADE and ParaView | `share/doc/gmsh/LICENSE.txt` in the vendored SDK under `ThirdParty/` |
 | Mmg | `Meshers\Mmg\mmgs.exe` (5.5.2), `Meshers\Mmg\mmg3d.exe` (5.7.0), vendored in `ThirdParty/mmg/` | LGPL-3.0-or-later | `LICENSE` at github.com/MmgTools/mmg |
 | QuadWild-BiMDF 0.0.2 | not yet shipped | GPL-3.0 | `LICENSE` at github.com/cgg-bern/quadwild-bimdf |
-| NetGenMesher | `Meshers\Netgen\NetGenMesher.exe` | GPL-3.0 (own build, same license as PrePoMax) | the author |
+| NetGenMesher | `Meshers\Netgen\NetGenMesher.exe`, vendored in `ThirdParty/netgen/` | GPL-3.0 (own build, same license as PrePoMax) | the author |
 | Netgen 5.3.1 | `Meshers\Netgen\nglib.dll` | LGPL-2.1 | `LICENSE` at github.com/NGSolve/netgen |
 | OpenCASCADE 8.0.0 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | pthreads-win32 2.9.1 | `Meshers\Netgen\pthreadVC2.dll` | LGPL-2.1 | `COPYING.LIB` in the prebuilt package used for the build |
