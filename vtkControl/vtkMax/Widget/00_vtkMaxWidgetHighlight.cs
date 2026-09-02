@@ -16,7 +16,8 @@ namespace vtkControl
 {
     class vtkMaxWidgetHighlight
     {
-        public const double WidgetFillOpacity = 0.1;
+        public const double WidgetFillOpacity = 0.05;
+        public const double WidgetBorderOpacity = 0.5;
         //
         // Variables
         private vtkPolyDataMapper2D _borderMapper;
@@ -51,6 +52,7 @@ namespace vtkControl
             vtkProperty2D borderProperty = vtkProperty2D.New();
             Color borderColor = SystemColors.Highlight;
             borderProperty.SetColor(borderColor.R / 255.0, borderColor.G / 255.0, borderColor.B / 255.0);
+            borderProperty.SetOpacity(WidgetBorderOpacity);
             borderProperty.SetLineWidth(2.0f);
             //
             _borderActor = vtkActor2D.New();

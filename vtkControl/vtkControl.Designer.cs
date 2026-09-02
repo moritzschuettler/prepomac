@@ -187,7 +187,7 @@ namespace vtkControl
 
             if (this._renderWindowInteractor != null)
             {
-                if (_coorSys != null) this._coorSys.SetInteractor(null);
+                if (_coorSysWidget != null) this._coorSysWidget.RemoveInteractor();
                 //if (_statusBlockWidget != null) this._statusBlockWidget.SetInteractor(null, null);
                 //if (_minValueWidget != null) this._minValueWidget.SetInteractor(null, null);
                 //if (_maxValueWidget != null) this._maxValueWidget.SetInteractor(null, null);

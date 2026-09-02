@@ -551,6 +551,7 @@ namespace vtkControl
             int interactionState = this.GetState();
             bool widgetMoved = false;
             bool widgetHighlightChanged = false;
+            bool widgetProximityChanged = false;
             if (interactionState == VTKIS_NONE)
             {
                 // Widgets - Move
@@ -560,9 +561,11 @@ namespace vtkControl
                     PromoteWidget(_capturedWidget);
                     _capturedWidgetPromoted = true;
                 }
+                // Widgets - Proximity - must be before the hover to update the widget content first
+                widgetProximityChanged = UpdateWidgetProximity(_x, _y);
                 // Widgets - Hover
                 widgetHighlightChanged = UpdateWidgetHighlights(_x, _y);
-                if (widgetMoved || widgetHighlightChanged)
+                if (widgetMoved || widgetHighlightChanged || widgetProximityChanged)
                 {
                     this.GetInteractor().Render();
                     return;
@@ -750,6 +753,15 @@ namespace vtkControl
             bool highlightChanged = ClearWidgetHighlightsInternal();
             if (highlightChanged && GetInteractor() != null) GetInteractor().Render();
         }
+        public void ClearWidgetProximity()
+        {
+            bool proximityChanged = false;
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                if (widget.ClearMouseProximity()) proximityChanged = true;
+            }
+            if (proximityChanged && GetInteractor() != null) GetInteractor().Render();
+        }
         public void RefreshWidgetHighlights()
         {
             vtkRenderWindowInteractor interactor = GetInteractor();
@@ -792,6 +804,15 @@ namespace vtkControl
             _widgets.Add(widget);
             _reversedWidgets.Remove(widget);
             _reversedWidgets.Insert(0, widget);
+        }
+        private bool UpdateWidgetProximity(int x, int y)
+        {
+            bool proximityChanged = false;
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                if (widget.UpdateMouseProximity(x, y)) proximityChanged = true;
+            }
+            return proximityChanged;
         }
         private bool UpdateWidgetHighlights(int x, int y)
         {

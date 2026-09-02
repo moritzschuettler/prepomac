@@ -72,7 +72,10 @@ namespace vtkControl
         private int _arrowTipResolution = 21;
         private int _arrowShaftResolution = 15;
         // Widgets
-        private vtkOrientationMarkerWidget _coorSys;
+        private const int VtkCursorDefault = 0;
+        private const int VtkCursorHand = 9;
+        private const int CoorSysWidgetMargin = 24;
+        private vtkMaxCoorSysWidget _coorSysWidget;
         private vtkMaxScaleWidget _scaleWidget;
         private vtkLookupTable _lookupTable;
         private vtkMaxScalarBarWidget _scalarBarWidget;
@@ -443,7 +446,7 @@ namespace vtkControl
             if (_renderWindow != null) _renderWindow.Modified();     // this has to be here in order for the vtkMAx widgets to work on maximize/minimize
             //if (_renderWindowInteractor != null) _renderWindowInteractor.Render();
 
-            if (_coorSys != null) SetCoorSysVisibility(_drawCoorSys);
+            if (_coorSysWidget != null) ResetCoorSysWidgetPosition();
             if (_renderer != null)
             {
                 SetAllCaptionPositions();
@@ -489,6 +492,7 @@ namespace vtkControl
         {
             if (_mouseIn) _mouseIn = false;
             if (!_widgetHighlightLocked) _style.ClearWidgetHighlights();
+            _style.ClearWidgetProximity();
             _renderWindow.SetCurrentCursor(0);  // Default
         }
         private void style_MouseInteractionEvent()
@@ -527,6 +531,26 @@ namespace vtkControl
             {
                 Form_WidgetPicked(e, Keys.None, aw.GetName(), aw.GetRectangle());
             }
+        }
+        private void coorSysWidget_TargetClicked(vtkMaxCoorSysTarget target)
+        {
+            switch (target)
+            {
+                case vtkMaxCoorSysTarget.XPositive: SetAxisView(true, new double[] { 1, 0, 0 }); break;
+                case vtkMaxCoorSysTarget.XNegative: SetAxisView(true, new double[] { -1, 0, 0 }); break;
+                case vtkMaxCoorSysTarget.YPositive: SetAxisView(true, new double[] { 0, 1, 0 }); break;
+                case vtkMaxCoorSysTarget.YNegative: SetAxisView(true, new double[] { 0, -1, 0 }); break;
+                case vtkMaxCoorSysTarget.ZPositive: SetAxisView(true, new double[] { 0, 0, 1 }); break;
+                case vtkMaxCoorSysTarget.ZNegative: SetAxisView(true, new double[] { 0, 0, -1 }); break;
+                case vtkMaxCoorSysTarget.Origin: SetIsometricView(true, true); break;
+                default: break;
+            }
+        }
+        private void coorSysWidget_HoverChanged(bool hovered)
+        {
+            if (_renderWindow == null) return;
+            //
+            _renderWindow.SetCurrentCursor(hovered ? VtkCursorHand : VtkCursorDefault);
         }
 
         // Trackpad                                                                                                                 
@@ -2038,28 +2062,6 @@ namespace vtkControl
             _renderer.AddLight(_light3);
             _overlayRenderer.AddLight(_light3);
             _selectionRenderer.AddLight(_light3);
-            // Coordinate system
-            vtkAxesActor axes = vtkAxesActor.New();
-            axes.GetXAxisTipProperty().SetColor(0.706, 0.016, 0.150);
-            axes.GetXAxisShaftProperty().SetColor(0.706, 0.016, 0.150);
-            axes.GetYAxisTipProperty().SetColor(0.130, 0.806, 0.150);
-            axes.GetYAxisShaftProperty().SetColor(0.130, 0.806, 0.150);
-            axes.GetZAxisTipProperty().SetColor(0.230, 0.299, 0.754);
-            axes.GetZAxisShaftProperty().SetColor(0.230, 0.299, 0.754);
-            //
-            vtkTextProperty tp = CreateNewTextProperty();
-            axes.GetXAxisCaptionActor2D().SetCaptionTextProperty(tp);
-            axes.GetYAxisCaptionActor2D().SetCaptionTextProperty(tp);
-            axes.GetZAxisCaptionActor2D().SetCaptionTextProperty(tp);
-            axes.SetShaftTypeToLine();
-            //
-            _coorSys = vtkOrientationMarkerWidget.New();
-            _coorSys.SetOutlineColor(0.9300, 0.5700, 0.1300);
-            _coorSys.SetOrientationMarker(axes);
-            _coorSys.SetInteractor(_renderWindowInteractor);
-            _coorSys.KeyPressActivationOff();   // char i or I turns off the widget otherwise
-            SetCoorSysVisibility(_drawCoorSys);
-            _coorSys.InteractiveOff();  // must be after enabled ???
             // Interactor style
             _style = vtkInteractorStyleControl.New();
             ApplyNavigationSensitivity();
@@ -2138,6 +2140,15 @@ namespace vtkControl
             _probeWidget.VisibilityOff();
             // Arrow widgets
             _arrowWidgets = new Dictionary<string, vtkMaxTextWithArrowWidget>();
+            // Coordinate system
+            _coorSysWidget = new vtkMaxCoorSysWidget();
+            _coorSysWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
+            _coorSysWidget.SetTextProperty(CreateNewTextProperty());
+            _coorSysWidget.BackgroundVisibilityOff();
+            _coorSysWidget.BorderVisibilityOff();
+            _coorSysWidget.TargetClicked += coorSysWidget_TargetClicked;
+            _coorSysWidget.HoverChanged += coorSysWidget_HoverChanged;
+            SetCoorSysVisibility(_drawCoorSys);
 
             // Add the actors to the scene
             //Hexahedron();
@@ -2830,6 +2841,61 @@ namespace vtkControl
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
+        public void SetAxisView(bool animate, double[] axis)
+        {
+            if (_animating) return;
+            _animating = animate;
+            //
+            if (_drawCameraPath) ClearOverlay();
+            //
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            //
+            double[] viewUp = GetClosestAxisViewUp(camera, axis);
+            //
+            double[] fPos = camera.GetFocalPoint();
+            camera.SetPosition(fPos[0] + axis[0], fPos[1] + axis[1], fPos[2] + axis[2]);
+            camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
+            //
+            ResetCamera();
+            //
+            if (animate) AnimateCamera(cameraStart, camera, camera);
+            else RenderScene();
+        }
+        private double[] GetClosestAxisViewUp(vtkCamera camera, double[] axis)
+        {
+            Vec3D normal = new Vec3D(camera.GetViewPlaneNormal());
+            normal.Normalize();
+            Vec3D right = Vec3D.CrossProduct(new Vec3D(camera.GetViewUp()), normal);
+            right.Normalize();
+            Vec3D up = Vec3D.CrossProduct(normal, right);
+            // Of the four global axes perpendicular to the new view direction take the one
+            // that rotates the current view the least
+            Vec3D axisVector = new Vec3D(axis);
+            double[] closestViewUp = null;
+            double maxScore = -double.MaxValue;
+            //
+            for (int axisId = 0; axisId < 3; axisId++)
+            {
+                for (int signId = 0; signId < 2; signId++)
+                {
+                    double[] viewUp = new double[3];
+                    viewUp[axisId] = signId == 0 ? 1 : -1;
+                    Vec3D viewUpVector = new Vec3D(viewUp);
+                    if (Math.Abs(Vec3D.DotProduct(viewUpVector, axisVector)) > 0.5) continue;
+                    //
+                    Vec3D viewRightVector = Vec3D.CrossProduct(viewUpVector, axisVector);
+                    double score = Vec3D.DotProduct(viewRightVector, right) + Vec3D.DotProduct(viewUpVector, up);
+                    if (closestViewUp == null || score > maxScore)
+                    {
+                        maxScore = score;
+                        closestViewUp = viewUp;
+                    }
+                }
+            }
+            return closestViewUp;
+        }
         //
         public void SetNormalView(bool animate)
         {
@@ -3387,7 +3453,6 @@ namespace vtkControl
                 double[] fpEnd = cameraEnd.GetFocalPoint();
                 double zEnd = cameraEnd.GetParallelScale();
                 double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
-                pq2 = QuaternionHelper.IntPtrFromQuaternion(q2);
                 // Get display (XY) projection of the final focal point (model center) for both cameras
                 double[] fpEndXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
                 _renderer.SetActiveCamera(cameraStart);
@@ -3428,7 +3493,14 @@ namespace vtkControl
                 double[] fpStart = cameraStart.GetFocalPoint();
                 double zStart = cameraStart.GetParallelScale();
                 double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
+                // A quaternion and its negation are the same rotation but only the one in the
+                // same hemisphere as the start is interpolated along the shortest path
+                if (q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3] < 0)
+                {
+                    for (int i = 0; i < q2.Length; i++) q2[i] = -q2[i];
+                }
                 pq1 = QuaternionHelper.IntPtrFromQuaternion(q1);
+                pq2 = QuaternionHelper.IntPtrFromQuaternion(q2);
                 //
                 double[] q;
                 double[][] rOut;
@@ -6165,15 +6237,21 @@ namespace vtkControl
         #region Settings ###########################################################################################################
         public void SetCoorSysVisibility(bool visibility)
         {
-            if (_coorSys == null) return;
+            if (_coorSysWidget == null) return;
             //
             _drawCoorSys = visibility;
             if (_drawCoorSys)
             {
-                _coorSys.SetViewport(1 - 200f / Width, 0, 1, 200f / Height);
-                _coorSys.SetEnabled(1);
+                ResetCoorSysWidgetPosition();
+                _coorSysWidget.VisibilityOn();
             }
-            else _coorSys.SetEnabled(0);
+            else _coorSysWidget.VisibilityOff();
+        }
+        public void ResetCoorSysWidgetPosition()
+        {
+            if (_coorSysWidget == null) return;
+            //
+            _coorSysWidget.SetPosition(Width - _coorSysWidget.GetWidth() - CoorSysWidgetMargin, CoorSysWidgetMargin);
         }
         // Scale bar
         public void SetScaleWidgetVisibility(bool visibility)
@@ -6359,6 +6437,7 @@ namespace vtkControl
                     lineSmoothing != (_renderWindow.GetLineSmoothing() == 1))
                 {
                     List<vtkMaxBorderWidget> widgets = new List<vtkMaxBorderWidget>();
+                    if (_coorSysWidget != null) widgets.Add(_coorSysWidget);
                     if (_scaleWidget != null) widgets.Add(_scaleWidget);
                     if (_scalarBarWidget != null) widgets.Add(_scalarBarWidget);
                     if (_colorBarWidget != null) widgets.Add(_colorBarWidget);
@@ -6369,7 +6448,6 @@ namespace vtkControl
                     // Widgets keep a reference to the interactor. Detach them before disposing it so
                     // they never call through an invalid native VTK pointer after the window is rebuilt.
                     foreach (vtkMaxBorderWidget widget in widgets) widget.RemoveInteractor();
-                    if (_coorSys != null) _coorSys.SetInteractor(null);
                     _renderWindowInteractor.ModifiedEvt -= _renderWindowInteractor_ModifiedEvt;
                     _renderWindowInteractor.Dispose();
                     _renderWindow.Dispose();
@@ -6392,12 +6470,8 @@ namespace vtkControl
                     _renderWindow.SetInteractor(_renderWindowInteractor);
                     _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
 
-                    _coorSys.SetInteractor(_renderWindowInteractor);
                     foreach (vtkMaxBorderWidget widget in widgets)
                         widget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-
-                    if (_drawCoorSys) _coorSys.EnabledOn();
-                    else _coorSys.EnabledOff();
 
                     if (pointSmoothing) _renderWindow.PointSmoothingOn();
                     else _renderWindow.PointSmoothingOff();
@@ -8852,6 +8926,8 @@ namespace vtkControl
         {
             if (_renderingOn)
             {
+                if (_coorSysWidget != null) _coorSysWidget.UpdateGeometry();
+                //
                 this.Invalidate();
                 //
                 foreach (var entry in _actors)

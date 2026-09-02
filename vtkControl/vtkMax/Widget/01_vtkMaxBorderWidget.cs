@@ -357,7 +357,7 @@ namespace vtkControl
                 return false;
             }
         }
-        public bool LeftButtonRelease(int x, int y)
+        public virtual bool LeftButtonRelease(int x, int y)
         {
             if (!_visibility) return false;
             //
@@ -393,7 +393,7 @@ namespace vtkControl
         {
             if (!_visibility) return;
         }
-        public bool RightButtonPress(int x, int y)
+        public virtual bool RightButtonPress(int x, int y)
         {
             if (!_visibility) return false;
 
@@ -441,7 +441,15 @@ namespace vtkControl
             }
             else return false;
         }
-        public bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false)
+        public virtual bool UpdateMouseProximity(int x, int y)
+        {
+            return false;
+        }
+        public virtual bool ClearMouseProximity()
+        {
+            return false;
+        }
+        public virtual bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false)
         {
             Rectangle rectangle = Rectangle.Empty;
             Rectangle displayRectangle = GetDisplayRectangle();
@@ -458,7 +466,7 @@ namespace vtkControl
             double fillOpacity = GetHighlightFillOpacity(rectangle);
             return _highlight.SetRectangle(rectangle, fillOpacity);
         }
-        public bool ClearMouseHover()
+        public virtual bool ClearMouseHover()
         {
             return _highlight.Clear();
         }
@@ -477,7 +485,7 @@ namespace vtkControl
                 _renderer.AddActor(_borderActor);
             }
         }
-        public void BringHighlightToFront()
+        public virtual void BringHighlightToFront()
         {
             if (!_visibility || _highlightRenderer == null) return;
             //
