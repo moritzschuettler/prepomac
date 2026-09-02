@@ -606,7 +606,7 @@ namespace vtkControl
         }
         public override bool RightButtonPress(int x, int y)
         {
-            return false;
+            return MouseOver(x, y);
         }
         public override bool MouseMove(int x, int y)
         {

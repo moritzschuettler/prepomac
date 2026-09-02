@@ -335,6 +335,7 @@ namespace vtkControl
         public Action<MouseEventArgs, Keys, string, Rectangle> Form_WidgetPicked;
         public Action<bool, Rectangle, string, double, double> Form_EditLegendValue;
         public Action<vtkResultWidgetContextMenuTypeEnum, bool, System.Drawing.Point> Form_ShowResultWidgetContextMenu;
+        public Action<System.Drawing.Point> Form_ShowCoorSysContextMenu;
         public Action Form_ShowColorBarSettings;
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
@@ -491,8 +492,11 @@ namespace vtkControl
         void style_LeaveEvt(vtkObject sender, vtkObjectEventArgs e)
         {
             if (_mouseIn) _mouseIn = false;
-            if (!_widgetHighlightLocked) _style.ClearWidgetHighlights();
-            _style.ClearWidgetProximity();
+            if (!_widgetHighlightLocked)
+            {
+                _style.ClearWidgetHighlights();
+                _style.ClearWidgetProximity();
+            }
             _renderWindow.SetCurrentCursor(0);  // Default
         }
         private void style_MouseInteractionEvent()
@@ -892,6 +896,12 @@ namespace vtkControl
         }
         private void style_RightButtonPressEvent(object sender, MouseEventArgs e)
         {
+            // The coordinate system is a navigation widget and is always interactive
+            if (sender is vtkMaxCoorSysWidget)
+            {
+                Form_ShowCoorSysContextMenu?.Invoke(e.Location);
+                return;
+            }
             // Off
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget) return;
@@ -2922,6 +2932,33 @@ namespace vtkControl
             camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
             //
             //SetVerticalView(false, false);
+            //
+            ResetCamera();
+            //
+            if (animate) AnimateCamera(cameraStart, camera, camera);
+            else RenderScene();
+        }
+        public void SetVerticalAxisView(bool animate, double[] axis)
+        {
+            if (_animating) return;
+            _animating = animate;
+            //
+            if (_drawCameraPath) ClearOverlay();
+            //
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            // The axis cannot be vertical while the view looks along it - turn the view
+            // towards the current vertical direction first
+            double[] normal = camera.GetViewPlaneNormal();
+            if (Math.Abs(normal[0] * axis[0] + normal[1] * axis[1] + normal[2] * axis[2]) > 0.999)
+            {
+                double[] direction = GetClosestUpView();
+                double[] fPos = camera.GetFocalPoint();
+                camera.SetPosition(fPos[0] + direction[0], fPos[1] + direction[1], fPos[2] + direction[2]);
+            }
+            camera.SetViewUp(axis[0], axis[1], axis[2]);
+            camera.OrthogonalizeViewUp();
             //
             ResetCamera();
             //

@@ -83,6 +83,8 @@ namespace PrePoMax
         private bool _suppressSymbolChanged;
         private vtkResultWidgetContextMenuTypeEnum _resultWidgetContextMenuType;
         private bool _resultWidgetContextMenuMinimum;
+        private ContextMenuStrip _cmsCoorSysWidget;
+        private ToolStripMenuItem _tsmiCoorSysUserViews;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -235,6 +237,7 @@ namespace PrePoMax
             duplicateResultHistoryOutputMenuItem.Text = "Duplicate";
             duplicateResultHistoryOutputMenuItem.Click += tsmiDuplicateResultHistoryOutput_Click;
             tsmiResultHistoryOutput.DropDownItems.Insert(2, duplicateResultHistoryOutputMenuItem);
+            InitializeCoorSysWidgetContextMenu();
             //SettingsContainer settings = new SettingsContainer();
             //settings.LoadFromFile();
             //if (settings.General.Maximized)
@@ -407,6 +410,7 @@ namespace PrePoMax
                 _vtk.Controller_ActorsPicked = SelectBaseParts;
                 _vtk.Form_EditLegendValue = StartEditLegendValue;
                 _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
+                _vtk.Form_ShowCoorSysContextMenu = ShowCoorSysContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
@@ -7782,6 +7786,164 @@ namespace PrePoMax
         private void cmsViewportWidget_Closed(object sender, ToolStripDropDownClosedEventArgs e)
         {
             _vtk.SetWidgetHighlightLocked(false);
+        }
+        // Coordinate system widget
+        private void InitializeCoorSysWidgetContextMenu()
+        {
+            _cmsCoorSysWidget = new ContextMenuStrip();
+            _cmsCoorSysWidget.Name = "cmsCoorSysWidget";
+            _cmsCoorSysWidget.Closed += cmsViewportWidget_Closed;
+            // The view items are organized as in the main View menu
+            _cmsCoorSysWidget.Items.Add(CreateMirroredSubMenu(tsmiStandardViews));
+            //
+            _tsmiCoorSysUserViews = new ToolStripMenuItem(tsmiUserViews.Text, tsmiUserViews.Image);
+            _tsmiCoorSysUserViews.Tag = tsmiUserViews;   // only to follow the enabled state
+            _cmsCoorSysWidget.Items.Add(_tsmiCoorSysUserViews);
+            //
+            _cmsCoorSysWidget.Items.Add(CreateMirroredMenuItem(tsmiZoomToFit));
+            _cmsCoorSysWidget.Items.Add(CreateMirroredMenuItem(tsmiBoxZoom));
+            _cmsCoorSysWidget.Items.Add(new ToolStripSeparator());
+            // Vertical axis
+            ToolStripMenuItem verticalAxis = new ToolStripMenuItem("Vertical Axis");
+            verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("X", new double[] { 1, 0, 0 }));
+            verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("Y", new double[] { 0, 1, 0 }));
+            verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("Z", new double[] { 0, 0, 1 }));
+            _cmsCoorSysWidget.Items.Add(verticalAxis);
+            _cmsCoorSysWidget.Items.Add(new ToolStripSeparator());
+            // Widget
+            ToolStripMenuItem hideCoorSys = new ToolStripMenuItem("Hide Coordinate System");
+            hideCoorSys.Click += tsmiHideCoorSys_Click;
+            _cmsCoorSysWidget.Items.Add(hideCoorSys);
+            //
+            ToolStripMenuItem coorSysSettings = new ToolStripMenuItem("Settings");
+            coorSysSettings.Tag = tsmiSettings;   // only to follow the enabled state
+            coorSysSettings.Click += tsmiCoorSysSettings_Click;
+            _cmsCoorSysWidget.Items.Add(coorSysSettings);
+        }
+        private ToolStripMenuItem CreateMirroredSubMenu(ToolStripMenuItem sourceItem)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(sourceItem.Text, sourceItem.Image);
+            item.Tag = sourceItem;   // only to follow the enabled state
+            AddMirroredMenuItems(item.DropDownItems, sourceItem.DropDownItems);
+            return item;
+        }
+        private void AddMirroredMenuItems(ToolStripItemCollection items, ToolStripItemCollection sourceItems)
+        {
+            foreach (ToolStripItem sourceItem in sourceItems)
+            {
+                if (sourceItem is ToolStripMenuItem sourceMenuItem) items.Add(CreateMirroredMenuItem(sourceMenuItem));
+                else if (sourceItem is ToolStripSeparator) items.Add(new ToolStripSeparator());
+            }
+        }
+        private ToolStripMenuItem CreateMirroredMenuItem(ToolStripMenuItem sourceItem)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(sourceItem.Text, sourceItem.Image);
+            item.Tag = sourceItem;
+            item.Click += mirroredMenuItem_Click;
+            return item;
+        }
+        private ToolStripMenuItem CreateVerticalAxisMenuItem(string text, double[] axis)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Tag = axis;
+            item.Click += verticalAxisMenuItem_Click;
+            return item;
+        }
+        private void UpdateMirroredMenuItemsState(ToolStripItemCollection items)
+        {
+            foreach (ToolStripItem item in items)
+            {
+                if (item.Tag is ToolStripMenuItem sourceItem) item.Enabled = IsMenuItemUsable(sourceItem);
+                if (item is ToolStripMenuItem menuItem && menuItem.HasDropDownItems)
+                    UpdateMirroredMenuItemsState(menuItem.DropDownItems);
+            }
+        }
+        private static bool IsMenuItemUsable(ToolStripMenuItem menuItem)
+        {
+            ToolStripItem item = menuItem;
+            while (item != null)
+            {
+                if (!item.Enabled) return false;
+                item = item.OwnerItem;
+            }
+            return true;
+        }
+        private void mirroredMenuItem_Click(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem item && item.Tag is ToolStripMenuItem sourceItem) sourceItem.PerformClick();
+        }
+        private void verticalAxisMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (sender is ToolStripMenuItem item && item.Tag is double[] axis) _vtk.SetVerticalAxisView(true, axis);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void UpdateCoorSysUserViews()
+        {
+            _tsmiCoorSysUserViews.DropDownItems.Clear();
+            //
+            ToolStripMenuItem saveUserView = new ToolStripMenuItem("Save Current View");
+            saveUserView.Click += tsmiSaveCurrentUserView_Click;
+            _tsmiCoorSysUserViews.DropDownItems.Add(saveUserView);
+            // The saved views are added to the main View menu as the model changes
+            AddMirroredMenuItems(_tsmiCoorSysUserViews.DropDownItems, tsmiUserViews.DropDownItems);
+        }
+        private void ShowCoorSysContextMenu(Point vtkPoint)
+        {
+            UpdateCoorSysUserViews();
+            UpdateMirroredMenuItemsState(_cmsCoorSysWidget.Items);
+            //
+            int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
+            int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
+            _vtk.SetWidgetHighlightLocked(true);
+            _cmsCoorSysWidget.Show(_vtk, new Point(x, y));
+        }
+        private void tsmiSaveCurrentUserView_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                List<UserViewParameters> userViews = _controller.GetUserViewParameters();
+                HashSet<string> names = new HashSet<string>();
+                foreach (UserViewParameters userView in userViews) names.Add(userView.Name);
+                //
+                UserViewParameters parameters = new UserViewParameters(names.GetNextNumberedKey("User_view"));
+                _controller.GetViewParameters(out double[] position, out double[] focalPoint,
+                                              out double[] upVector, out double parallelScale);
+                parameters.Position = position;
+                parameters.FocalPoint = focalPoint;
+                parameters.UpVector = upVector;
+                parameters.ParallelScale = parallelScale;
+                //
+                userViews.Add(parameters);
+                _controller.SetUserViewParameters(userViews);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiHideCoorSys_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SettingsContainer settings = _controller.Settings;
+                settings.Graphics.CoorSysVisibility = false;
+                _controller.Settings = settings;
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiCoorSysSettings_Click(object sender, EventArgs e)
+        {
+            _frmSettings.SetSettingsToShow(Globals.GraphicsSettingsName);
+            tsmiSettings_Click(null, null);
         }
         private void tsmiEditLegendValue_Click(object sender, EventArgs e)
         {
