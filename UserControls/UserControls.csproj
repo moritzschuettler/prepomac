@@ -129,6 +129,9 @@
     <Compile Include="SidePanel\XYPlot\XYPlotLegendPositionEnum.cs" />
     <Compile Include="SidePanel\XYPlot\XYPlotLineStyleEnum.cs" />
     <Compile Include="SidePanel\XYPlot\XYPlotFontFamilyEnum.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotCurveState.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotPanelState.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotState.cs" />
     <Compile Include="SidePanel\XYPlot\XYPlotSettingsTools.cs" />
     <Compile Include="SidePanel\XYPlot\XYPlotCurveSettings.cs" />
     <Compile Include="SidePanel\XYPlot\XYPlotSettings.cs" />
@@ -147,12 +150,15 @@
     <Compile Include="SidePanel\PythonPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="SidePanel\PythonPanelState.cs" />
     <Compile Include="SidePanel\PythonPanel.Designer.cs">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="SidePanel\SidePanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="SidePanel\SidePanelTypeEnum.cs" />
+    <Compile Include="SidePanel\SidePanelsState.cs" />
     <Compile Include="Panels\BorderColoredPanel.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -279,6 +285,7 @@
     <Compile Include="SidePanel\PanelItemLinkLabel.cs" />
     <Compile Include="SidePanel\PanelItemLabel.cs" />
     <Compile Include="SidePanel\PanelItem.cs" />
+    <Compile Include="SidePanel\AdvisorPanelState.cs" />
     <Compile Include="SidePanel\PanelPage.cs" />
     <Compile Include="SidePanel\AdvisorPanel.cs">
       <SubType>UserControl</SubType>

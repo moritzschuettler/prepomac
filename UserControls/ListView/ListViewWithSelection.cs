@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -235,6 +235,7 @@ namespace UserControls
             {
                 base.OnSelectedIndexChanged(e);
                 //
+                ClearMouseOverSelection();
                 ClearPrevSelection();
                 //
                 if (Enabled)
@@ -255,6 +256,8 @@ namespace UserControls
             //
             Message m = Message.Create(this.Handle, 0x127, new IntPtr(0x10001), new IntPtr(0));
             this.WndProc(ref m);
+            //
+            UpdateMouseOverSelection();
         }
         protected override void OnEnter(EventArgs e)
         {
@@ -295,8 +298,26 @@ namespace UserControls
         }
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            ListViewItem item = this.GetItemAt(e.X, e.Y);
+            SetMouseOverItem(this.GetItemAt(e.X, e.Y));
             //
+            base.OnMouseMove(e);    
+        }
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            ClearMouseOverSelection();
+            //
+            base.OnMouseLeave(e);
+        }
+        private void UpdateMouseOverSelection()
+        {
+            if (!Enabled || !IsHandleCreated) { ClearMouseOverSelection(); return; }
+            //
+            Point pos = PointToClient(MousePosition);
+            if (ClientRectangle.Contains(pos)) SetMouseOverItem(this.GetItemAt(pos.X, pos.Y));
+            else ClearMouseOverSelection();
+        }
+        private void SetMouseOverItem(ListViewItem item)
+        {
             if (item != null && !item.Selected && item != _prevSelectedItem)
             {
                 if (item != _prevMouseOverItem)
@@ -310,18 +331,10 @@ namespace UserControls
                 }
             }
             else ClearMouseOverSelection();
-            //
-            base.OnMouseMove(e);    
-        }
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            ClearMouseOverSelection();
-            //
-            base.OnMouseLeave(e);
         }
         private void ClearMouseOverSelection()
         {
-            if (_prevMouseOverItem != null && !_prevMouseOverItem.Selected)
+            if (_prevMouseOverItem != null && _prevMouseOverItem != _prevSelectedItem && !_prevMouseOverItem.Selected)
             {
                 _prevMouseOverItem.BackColor = _prevMouseOverNodeColors[0];
                 _prevMouseOverItem.ForeColor = _prevMouseOverNodeColors[1];

@@ -147,6 +147,12 @@
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
+    <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeGrid.cs" />
+    <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeRecovery.cs" />
+    <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeRecoveryInfo.cs" />
+    <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildModelEdge.cs" />
+    <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
+    <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
     <Compile Include="Meshing\Base\MesherTypeEnum.cs" />
     <Compile Include="Meshing\Base\MeshSetupItem.cs" />
     <Compile Include="Nodes\MergeCoincidentNodes.cs" />

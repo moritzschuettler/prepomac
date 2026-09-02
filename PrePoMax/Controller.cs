@@ -89,6 +89,7 @@ namespace PrePoMax
         [NonSerialized] private NetgenMesherRunner _netgenRunner;
         [NonSerialized] private MmgMesherRunner _mmgRunner;
         [NonSerialized] private GmshMesherRunner _gmshRunner;
+        [NonSerialized] private QuadWildMesherRunner _quadWildRunner;
         [NonSerialized] private MesherRegistry _mesherRegistry;
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] protected string[] _lastMeshedPartNames;
@@ -463,7 +464,8 @@ namespace PrePoMax
             _netgenRunner = new NetgenMesherRunner(this);
             _mmgRunner = new MmgMesherRunner(this);
             _gmshRunner = new GmshMesherRunner(this);
-            _mesherRegistry = new MesherRegistry(_netgenRunner, _mmgRunner, _gmshRunner);
+            _quadWildRunner = new QuadWildMesherRunner(this, _netgenRunner, _mmgRunner, _gmshRunner);
+            _mesherRegistry = new MesherRegistry(_netgenRunner, _mmgRunner, _gmshRunner, _quadWildRunner);
             _jobs = new OrderedDictionary<string, AnalysisJob>("Analysis Jobs", StringComparer.OrdinalIgnoreCase);
             // Edges visibilities
             _edgesVisibilities = new EdgesVisibilitiesCollection(this);
@@ -883,6 +885,9 @@ namespace PrePoMax
             _form.RegenerateTree(false);
             // Set tree states
             if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
+            // Set pending side panels state; FrmMain restores it after the first draw
+            SidePanelsState sidePanelsState = data.Length > 3 ? data[3] as SidePanelsState : null;
+            _form.SetPendingSidePanelsState(sidePanelsState);
             // Set user views
             _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
         }
@@ -2155,6 +2160,8 @@ namespace PrePoMax
                 // Convert mesh to second order
                 if (Path.GetExtension(fileName) == ".mesh") convertToSecondOrder = meshingParameters.SecondOrder;   // mmg
                 else if (Path.GetExtension(fileName) == ".inp") convertToSecondOrder = false;   // Gmsh already converted it
+                else if (Path.GetExtension(fileName) == ".obj")
+                    convertToSecondOrder = meshingParameters.SecondOrder;
                 else convertToSecondOrder = meshingParameters.SecondOrder && !meshingParameters.MidsideNodesOnGeometry;
                 //
                 if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
@@ -2379,11 +2386,12 @@ namespace PrePoMax
                 CompressionLevel compressionLevel = _settings.General.CompressionLevel;
                 //
                 bool[][] states = _form.GetTreeExpandCollapseState();
+                SidePanelsState sidePanelsState = _form.GetSidePanelsState();
                 OpenedFileName = fileName;
                 //
                 //_commands.SaveToSeparateFiles(Path.GetDirectoryName(fileName));
                 //
-                object[] data = new object[] { this, _jobs, states };
+                object[] data = new object[] { this, _jobs, states, sidePanelsState };
                 // Use a temporary file to save the data and copy it at the end
                 string tmpFileName = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), ".tmp");
                 //
@@ -5154,9 +5162,20 @@ namespace PrePoMax
             }
             //
             bool result;
-            if (part.IsCADPart) result = PreviewEdgeMeshFromBrep(part, meshSetupItemsDict);
-            else result = _mesherRegistry.GetStlRunner(part, null)
-                                         .PreviewEdgeMeshFromStl(part, null, meshSetupItemsDict);
+            if (meshSetupItem is ShellQuadWild)
+            {
+                MeshSetupItem[] quadWildSetupItems = new MeshSetupItem[] { meshSetupItem };
+                if (part.IsCADPart)
+                    result = _quadWildRunner.PreviewEdgeMeshFromBrep(part, quadWildSetupItems, meshSetupItemsDict);
+                else result = _quadWildRunner.PreviewEdgeMeshFromStl(part, quadWildSetupItems, meshSetupItemsDict);
+            }
+            else if (part.IsCADPart) result = PreviewEdgeMeshFromBrep(part, meshSetupItemsDict);
+            else
+            {
+                MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name, meshSetupItemsDict);
+                result = _mesherRegistry.GetStlRunner(part, mesherSetupItems)
+                                        .PreviewEdgeMeshFromStl(part, mesherSetupItems, meshSetupItemsDict);
+            }
             // Thicken shell mesh
             if (result)
             {
@@ -5342,18 +5361,62 @@ namespace PrePoMax
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
             string extension = Path.GetExtension(generatedMesh.MeshFileName);
             bool convertToSecondOrder;
-            if (extension == ".mesh") convertToSecondOrder = meshingParameters.SecondOrder;
+            if (generatedMesh.ConvertToSecondOrder.HasValue)
+                convertToSecondOrder = generatedMesh.ConvertToSecondOrder.Value;
+            else if (extension == ".mesh") convertToSecondOrder = meshingParameters.SecondOrder;
             else if (extension == ".inp") convertToSecondOrder = false;
+            else if (extension == ".obj") convertToSecondOrder = meshingParameters.SecondOrder;
             else convertToSecondOrder = meshingParameters.SecondOrder && !meshingParameters.MidsideNodesOnGeometry;
             //
             if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
             //
             RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
+            Dictionary<int, string> elementIdMaterialName;
             generatedMesh.Mesh = _model.PrepareGeneratedMeshFromMeshFile(generatedMesh.MeshFileName, part,
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
-                                                                          revolveMesh);
+                                                                          revolveMesh, out elementIdMaterialName);
+            if (generatedMesh.QuadWildInputFileInfo != null)
+            {
+                _form.WriteDataToOutput("Recovering QuadWild model edges...");
+                try
+                {
+                    QuadWildEdgeRecoveryInfo recoveryInfo =
+                        QuadWildEdgeRecovery.Restore(generatedMesh.Mesh, part.Name,
+                                                     generatedMesh.QuadWildInputFileInfo.ModelEdges,
+                                                     generatedMesh.QuadWildInputFileInfo.ModelFaceEdgeIds,
+                                                     elementIdMaterialName);
+                    if (recoveryInfo.Success)
+                    {
+                        string fallback = recoveryInfo.UsedFallback
+                                        ? " (adaptive fallback used: " + recoveryInfo.Warning + ")" : "";
+                        _form.WriteDataToOutput("QuadWild model edges: " + recoveryInfo.EdgeCount +
+                                                " edges, " + recoveryInfo.SegmentCount + " mesh segments" +
+                                                fallback + ".");
+                        if (recoveryInfo.FreeEdgeCount > 0)
+                            _form.WriteDataToOutput("QuadWild free boundary: " + recoveryInfo.FreeEdgeCount +
+                                                    " model edge/s recovered from the mesh boundary.");
+                        if (recoveryInfo.FaceCount > 0)
+                            _form.WriteDataToOutput("QuadWild model faces: " + recoveryInfo.FaceCount + " faces.");
+                        if (recoveryInfo.FaceWarning != null)
+                            _form.WriteDataToOutput("Warning: " + recoveryInfo.FaceWarning);
+                    }
+                    else
+                    {
+                        _form.WriteDataToOutput("Warning: QuadWild model edges could not be reconstructed. " +
+                                                recoveryInfo.Warning + " The mesh will use automatically " +
+                                                "detected edges.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Edge recovery is supplementary. Never reject an otherwise valid QuadWild mesh because
+                    // its source-edge topology cannot be mapped back to the final discretization.
+                    _form.WriteDataToOutput("Warning: QuadWild model edges could not be reconstructed. " +
+                                            ex.Message + " The mesh will use automatically detected edges.");
+                }
+            }
             List<string> relatedPartNames = new List<string>();
             if (part is CompoundGeometryPart compoundPart)
             {
@@ -6447,9 +6510,10 @@ namespace PrePoMax
         private bool AreSelectedPartsShells(string[] partNames)
         {
             BasePart part;
+            FeMesh mesh = DisplayedMesh;
             foreach (var partName in partNames)
             {
-                part = _model.Mesh.Parts[partName];
+                part = mesh.Parts[partName];
                 if (part.PartType != PartType.Shell)
                     throw new CaeException("The selected feature can only be performed on shell parts.");
             }
@@ -20772,8 +20836,9 @@ namespace PrePoMax
         public void HighlightMeshSetupItem(MeshSetupItem meshSetupItem, bool highlightNodes = true,
                                            bool useSecondaryHighlightColor = false)
         {
-            if (meshSetupItem is MeshingParameters || meshSetupItem is ShellGmsh || meshSetupItem is ThickenShellMesh ||
-                meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)
+            if (meshSetupItem is MeshingParameters || meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
+                meshSetupItem is ThickenShellMesh || meshSetupItem is TetrahedralGmsh ||
+                meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
             else if (meshSetupItem is LocalMeshSize lms) HighlightLocalMeshSize(lms, highlightNodes, useSecondaryHighlightColor);
             else if (meshSetupItem is ExtrudeMesh em) HighlightExtrudeMesh(em, useSecondaryHighlightColor);

@@ -15,11 +15,12 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
+    [System.Serializable]
     public class XYPlotCurveSettings : IXYPlotSettings
     {
         // Variables                                                                                                                
         private static readonly float[] _lineWidths = new float[] { 0.5f, 1, 1.5f, 2, 2.5f, 3, 4, 5, 6, 8, 10 };
-        protected DynamicCustomTypeDescriptor _dctd = null;
+        [System.NonSerialized] protected DynamicCustomTypeDescriptor _dctd = null;
         private string _name;
         private Color _color;
         private float _lineWidth;

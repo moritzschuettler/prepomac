@@ -243,7 +243,7 @@ namespace PrePoMax.Forms
             return _parameters;
         }
         
-        protected void UpdateVisibility()
+        public void UpdateVisibility()
         {
             bool advanced = _parameters.AdvancedView || _settingsView;
             _dctd.GetProperty(nameof(Relative)).SetIsBrowsable(advanced);

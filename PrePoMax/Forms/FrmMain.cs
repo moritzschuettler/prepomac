@@ -66,7 +66,15 @@ namespace PrePoMax
         private CommandLineOptions _cmdOptions;
         private string[] outputLines;
         private SidePanel _visibleSidePanel;
+        private SplitContainer _sidePanelHost;
         private PythonPanel _pythonPanel;
+        private AdvisorPanel _advisorPanel;
+        private SidePanelsState _sidePanelsState;
+        private SidePanelsState _pendingSidePanelsState;
+        private bool _pythonPanelStateApplied;
+        private bool _xyPlotPanelStateApplied;
+        private bool _advisorPanelStateApplied;
+        private bool _restoringSidePanelsState;
         private KeyboardHook _keyboardHook;
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
@@ -711,10 +719,11 @@ namespace PrePoMax
                         {
                             fileName = _controller.GetHistoryFileNameBin();
                             //
-                            bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Regenerate All",
+                            DialogResult dialogResult = MessageBoxes.ShowWarningQuestionYesNoCancel("Regenerate All",
                                 "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
-                                "All commands can be regenerated later using Edit -> Regenerate All.") == DialogResult.Yes;
-                            if (regenerateAll) parameters = Globals.RegenerateAll;
+                                "All commands can be regenerated later using Edit -> Regenerate All.");
+                            if (dialogResult == DialogResult.Yes) parameters = Globals.RegenerateAll;
+                            else if (dialogResult == DialogResult.Cancel) fileName = null;
                         }
                     }
                     if (fileName == null)
@@ -2142,6 +2151,8 @@ namespace PrePoMax
             else throw new NotSupportedException();
             //
             _controller.Annotations.DrawAnnotations(false, true);
+            //
+            RestorePendingSidePanelsState();
         }
         private void UpdateResultMenus()
         {
@@ -2685,18 +2696,9 @@ namespace PrePoMax
                 // Add Python panel
                 if (tsmiPythonScriptEditor.Checked == true)
                 {
-                    // Lazy initialization of the Python panel
-                    if (_pythonPanel == null)
-                    {
-                        _pythonPanel = new PythonPanel();
-                        _pythonPanel.ExecuteCommand += PythonPanel_ExecuteCommand;
-                        _pythonPanel.ExecuteScript += PythonPanel_ExecuteScript;
-                        _pythonPanel.RecordAndExecuteScript += PythonPanel_RecordAndExecuteScript;
-                        _pythonPanel.AutocompleteRequested += PythonPanel_AutocompleteRequested;
-                        _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
-                    }
+                    PythonPanel pythonPanel = GetPythonPanel();
                     UpdatePythonEngine(true);
-                    ShowSidePanel(_pythonPanel, 0.5, 100, 1000, false);
+                    ShowSidePanel(pythonPanel, 0.5, 100, 1000, false);
                 }
                 else HideSidePanel();
             }
@@ -2712,8 +2714,41 @@ namespace PrePoMax
             tsmiSidePanelAdvisor.Checked = !tsmiSidePanelAdvisor.Checked;
             tsmiHelpAdvisor.Checked = tsmiSidePanelAdvisor.Checked;
             // Add wizard panel
-            if (tsmiSidePanelAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300, true);
+            if (tsmiSidePanelAdvisor.Checked == true) ShowSidePanel(GetAdvisorPanel(), 0.2, 100, 300, true);
             else HideSidePanel();
+        }
+        private PythonPanel GetPythonPanel()
+        {
+            if (_pythonPanel == null)
+            {
+                _pythonPanel = new PythonPanel();
+                _pythonPanel.ExecuteCommand += PythonPanel_ExecuteCommand;
+                _pythonPanel.ExecuteScript += PythonPanel_ExecuteScript;
+                _pythonPanel.RecordAndExecuteScript += PythonPanel_RecordAndExecuteScript;
+                _pythonPanel.AutocompleteRequested += PythonPanel_AutocompleteRequested;
+                _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
+                _pythonPanel.StateChanged += SidePanel_StateChanged;
+            }
+            if (!_pythonPanelStateApplied)
+            {
+                _pythonPanelStateApplied = true;
+                _pythonPanel.RestoreState(_sidePanelsState?.PythonPanelState);
+            }
+            return _pythonPanel;
+        }
+        private AdvisorPanel GetAdvisorPanel()
+        {
+            if (_advisorPanel == null)
+            {
+                _advisorPanel = AdvisorCreator.CreatePanel(this);
+                _advisorPanel.StateChanged += SidePanel_StateChanged;
+            }
+            if (!_advisorPanelStateApplied)
+            {
+                _advisorPanelStateApplied = true;
+                _advisorPanel.RestoreState(_sidePanelsState?.AdvisorPanelState);
+            }
+            return _advisorPanel;
         }
         private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max, bool fixPanelWith)
         {
@@ -2729,32 +2764,179 @@ namespace PrePoMax
             // First remove the splitContainer2
             parent.Controls.Remove(splitContainer2);
             // Add split container
-            SplitContainer splitContainer3 = new SplitContainer();
-            if (fixPanelWith) splitContainer3.FixedPanel = FixedPanel.Panel2;
-            splitContainer3.Dock = DockStyle.Fill;
-            parent.Controls.Add(splitContainer3);
+            _sidePanelHost = new SplitContainer();
+            if (fixPanelWith) _sidePanelHost.FixedPanel = FixedPanel.Panel2;
+            _sidePanelHost.Dock = DockStyle.Fill;
+            parent.Controls.Add(_sidePanelHost);
             // Set the Panel 2 size - min 100 max 300
-            splitContainer3.SplitterDistance = Math.Max(min, Math.Max(parent.Width - max, (int)(parent.Width * relativeSize)));
+            _sidePanelHost.SplitterDistance = Math.Max(min, Math.Max(parent.Width - max,
+                                                                     (int)(parent.Width * relativeSize)));
             // Panel 1 - LEFT
-            splitContainer3.Panel1.Controls.Add(splitContainer2);
+            _sidePanelHost.Panel1.Controls.Add(splitContainer2);
             // Update vtk control size
             UpdateVtkControlSize();
             // Panel 2 - RIGHT
             _visibleSidePanel = sidePanel;
-            splitContainer3.Panel2.Controls.Add(_visibleSidePanel);
+            _sidePanelHost.Panel2.Controls.Add(_visibleSidePanel);
             _visibleSidePanel.Dock = DockStyle.Fill;
             _visibleSidePanel.UpdateDesign();
             _visibleSidePanel.AutoScroll = !(sidePanel is XYPlotPanel);
+            //
+            SetVisibleSidePanelWidthRatio(GetStoredSidePanelWidthRatio());
+            _sidePanelHost.SplitterMoved += sidePanelHost_SplitterMoved;
+            SidePanel_StateChanged();
         }
         private void HideSidePanel()
         {
-            if (_visibleSidePanel == null) return;
-            // Remove all controls
-            splitContainer1.Panel2.Controls.Clear();
-            // Add controls back
-            splitContainer1.Panel2.Controls.Add(splitContainer2);
+            bool wasVisible = _visibleSidePanel != null;
+            if (!wasVisible && _sidePanelHost == null) return;
+            // Save state
+            StoreVisibleSidePanelWidthRatio();
+            // Detach controls before disposing only the temporary host
+            if (_sidePanelHost != null)
+            {
+                _sidePanelHost.SplitterMoved -= sidePanelHost_SplitterMoved;
+                _sidePanelHost.Panel1.Controls.Remove(splitContainer2);
+                if (_visibleSidePanel != null) _sidePanelHost.Panel2.Controls.Remove(_visibleSidePanel);
+                splitContainer1.Panel2.Controls.Remove(_sidePanelHost);
+                _sidePanelHost.Dispose();
+                _sidePanelHost = null;
+            }
+            if (!splitContainer1.Panel2.Controls.Contains(splitContainer2))
+                splitContainer1.Panel2.Controls.Add(splitContainer2);
+            // Reset
+            _visibleSidePanel = null;
+            tsmiSidePanelAdvisor.Checked = false;
+            tsmiHelpAdvisor.Checked = false;
+            tsmiPythonScriptEditor.Checked = false;
+            tsmiXYPlotPanel.Checked = false;
             // Update vtk control size
             UpdateVtkControlSize();
+            if (wasVisible) SidePanel_StateChanged();
+        }
+        private void sidePanelHost_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+            StoreVisibleSidePanelWidthRatio();
+            SidePanel_StateChanged();
+        }
+        private SidePanelTypeEnum GetVisibleSidePanelType()
+        {
+            if (_visibleSidePanel is PythonPanel) return SidePanelTypeEnum.Python;
+            else if (_visibleSidePanel is XYPlotPanel) return SidePanelTypeEnum.XYPlot;
+            else if (_visibleSidePanel is AdvisorPanel) return SidePanelTypeEnum.Advisor;
+            else return SidePanelTypeEnum.None;
+        }
+        private void EnsureSidePanelsState()
+        {
+            if (_sidePanelsState == null) _sidePanelsState = new SidePanelsState();
+        }
+        private double GetStoredSidePanelWidthRatio()
+        {
+            EnsureSidePanelsState();
+            //
+            SidePanelTypeEnum type = GetVisibleSidePanelType();
+            if (type == SidePanelTypeEnum.Python) return _sidePanelsState.PythonPanelWidthRatio;
+            else if (type == SidePanelTypeEnum.XYPlot) return _sidePanelsState.XYPlotPanelWidthRatio;
+            else if (type == SidePanelTypeEnum.Advisor) return _sidePanelsState.AdvisorPanelWidthRatio;
+            else return 0;
+        }
+        private void StoreVisibleSidePanelWidthRatio()
+        {
+            if (_sidePanelHost == null || _sidePanelHost.Width <= 0) return;
+            //
+            EnsureSidePanelsState();
+            double ratio = _sidePanelHost.Panel2.Width / (double)_sidePanelHost.Width;
+            SidePanelTypeEnum type = GetVisibleSidePanelType();
+            if (type == SidePanelTypeEnum.Python) _sidePanelsState.PythonPanelWidthRatio = ratio;
+            else if (type == SidePanelTypeEnum.XYPlot) _sidePanelsState.XYPlotPanelWidthRatio = ratio;
+            else if (type == SidePanelTypeEnum.Advisor) _sidePanelsState.AdvisorPanelWidthRatio = ratio;
+        }
+        private void SetVisibleSidePanelWidthRatio(double ratio)
+        {
+            if (_sidePanelHost == null || ratio <= 0 || ratio >= 1 || _sidePanelHost.Width <= 0) return;
+            //
+            int available = _sidePanelHost.Width - _sidePanelHost.SplitterWidth;
+            if (available < 200) return;
+            //
+            int panel2Width = (int)Math.Round(_sidePanelHost.Width * ratio);
+            panel2Width = Math.Max(100, Math.Min(available - 100, panel2Width));
+            //
+            _sidePanelHost.SplitterDistance = available - panel2Width;
+        }
+        private void SidePanel_StateChanged()
+        {
+            if (!_restoringSidePanelsState && _controller != null && _controller.ModelInitialized)
+                _controller.ModelChanged = true;
+        }
+        public SidePanelsState GetSidePanelsState()
+        {
+            if (InvokeRequired)
+                return (SidePanelsState)Invoke((Func<SidePanelsState>)GetSidePanelsState);
+            //
+            EnsureSidePanelsState();
+            StoreVisibleSidePanelWidthRatio();
+            _sidePanelsState.VisiblePanel = GetVisibleSidePanelType();
+            if (_pythonPanel != null) _sidePanelsState.PythonPanelState = _pythonPanel.CaptureState();
+            if (_xyPlotPanel != null) _sidePanelsState.XYPlotPanelState = _xyPlotPanel.CaptureState();
+            if (_advisorPanel != null) _sidePanelsState.AdvisorPanelState = _advisorPanel.CaptureState();
+            return _sidePanelsState;
+        }
+        public void SetPendingSidePanelsState(SidePanelsState state)
+        {
+            _pendingSidePanelsState = state;
+        }
+        private void RestorePendingSidePanelsState()
+        {
+            if (_pendingSidePanelsState == null) return;
+            //
+            SidePanelsState state = _pendingSidePanelsState;
+            _pendingSidePanelsState = null;
+            InvokeIfRequired(RestoreSidePanelsState, state);
+        }
+        private void RestoreSidePanelsState(SidePanelsState state)
+        {
+            _restoringSidePanelsState = true;
+            try
+            {
+                HideSidePanel();
+                _sidePanelsState = state ?? new SidePanelsState();
+                _pythonPanelStateApplied = false;
+                _xyPlotPanelStateApplied = false;
+                _advisorPanelStateApplied = false;
+                //
+                if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.Python)
+                    ShowSidePanel(GetPythonPanel(), 0.5, 100, 1000, false);
+                else if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.XYPlot) ShowXYPlotPanel();
+                else if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.Advisor)
+                    ShowSidePanel(GetAdvisorPanel(), 0.2, 100, 300, true);
+            }
+            finally
+            {
+                _restoringSidePanelsState = false;
+            }
+        }
+        private void ResetSidePanelsState()
+        {
+            _restoringSidePanelsState = true;
+            try
+            {
+                HideSidePanel();
+                _pythonPanel?.Dispose();
+                _xyPlotPanel?.Dispose();
+                _advisorPanel?.Dispose();
+                _pythonPanel = null;
+                _xyPlotPanel = null;
+                _advisorPanel = null;
+                _sidePanelsState = new SidePanelsState();
+                _pendingSidePanelsState = null;
+                _pythonPanelStateApplied = false;
+                _xyPlotPanelStateApplied = false;
+                _advisorPanelStateApplied = false;
+            }
+            finally
+            {
+                _restoringSidePanelsState = false;
+            }
         }
         private void UpdatePythonEngine(bool forceUpdate = false)
         {
@@ -10400,6 +10582,7 @@ namespace PrePoMax
                 ClearAnnotationStatus();
                 ClearItemIdsStatus();
                 _selectedSymbolIndex = new Dictionary<ViewGeometryModelResults, int>();
+                InvokeIfRequired(ResetSidePanelsState);
             });
         }
         public void ClearResults()

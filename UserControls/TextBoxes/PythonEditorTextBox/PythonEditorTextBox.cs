@@ -354,9 +354,13 @@ namespace UserControls
         }
         public void ClearModifiedFlag()
         {
+            SetModifiedFlag(false);
+        }
+        public void SetModifiedFlag(bool modified)
+        {
             if (_textBox == null) return;
 
-            _textBox.IsChanged = false;
+            _textBox.IsChanged = modified;
             UpdateModifiedState();
         }
         public void SetErrorLine(int lineNumber, string message)

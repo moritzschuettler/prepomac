@@ -575,6 +575,28 @@ namespace CaeMesh
                     SetItemValidity(sg, valid, items);
                     if (!valid && sg.Active) invalidItems.Add("Shell gmsh: " + sg.Name);
                 }
+                else if (entry.Value is ShellQuadWild sqw)
+                {
+                    valid = sqw.Valid;             // this is set to invalid after deleting a part
+                    if (!valid) sqw.Valid = true;  // set this to true to detect a change in validity
+                    //
+                    string[] partNames = GetPartNamesFromPartIds(sqw.CreationIds);
+                    if (partNames == null || partNames.Length == 0) valid &= false;
+                    else
+                    {
+                        foreach (var partName in partNames)
+                        {
+                            if (!_parts.ContainsKey(partName))
+                            {
+                                valid &= false;
+                                break;
+                            }
+                        }
+                    }
+                    //
+                    SetItemValidity(sqw, valid, items);
+                    if (!valid && sqw.Active) invalidItems.Add("Shell QuadWild: " + sqw.Name);
+                }
                 else if (entry.Value is ThickenShellMesh tsm)
                 {
                     valid = tsm.Valid;              // this is set to invalid after deleting a part
@@ -3698,6 +3720,117 @@ namespace CaeMesh
                     SplitEdgesByVertices(part, vertexNodeIds);
                 }
             }
+        }
+        public void SetPartVisualizationModelEdges(BasePart part,
+                                                   Dictionary<int, List<int[]>> edgeIdEdgeCells)
+        {
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            if (edgeIdEdgeCells == null)
+                throw new ArgumentNullException(nameof(edgeIdEdgeCells));
+            if (part.Visualization == null || part.Visualization.Cells == null)
+                throw new CaeException("The mesh part does not contain visualization cells.");
+            //
+            List<int[]> allEdgeCells = new List<int[]>();
+            int[][] edgeCellIdsByEdge = new int[edgeIdEdgeCells.Count][];
+            HashSet<(int, int)> usedEdgeKeys = new HashSet<(int, int)>();
+            HashSet<int> vertexNodeIds = new HashSet<int>();
+            for (int edgeId = 0; edgeId < edgeCellIdsByEdge.Length; edgeId++)
+            {
+                if (!edgeIdEdgeCells.TryGetValue(edgeId, out List<int[]> edgeCells) ||
+                    edgeCells == null || edgeCells.Count == 0)
+                    throw new CaeException("Model edge " + edgeId + " does not contain any mesh segments.");
+                List<int[]> orderedEdgeCells = OrderVisualizationModelEdgeCells(edgeId, edgeCells);
+                int[] ids = new int[orderedEdgeCells.Count];
+                for (int i = 0; i < orderedEdgeCells.Count; i++)
+                {
+                    int[] edgeCell = orderedEdgeCells[i];
+                    if (!_nodes.ContainsKey(edgeCell[0]) || !_nodes.ContainsKey(edgeCell[1]) ||
+                        (edgeCell.Length == 3 && !_nodes.ContainsKey(edgeCell[2])))
+                        throw new CaeException("A recovered model edge references a missing mesh node.");
+                    (int, int) key = edgeCell[0] < edgeCell[1]
+                                   ? (edgeCell[0], edgeCell[1]) : (edgeCell[1], edgeCell[0]);
+                    if (!usedEdgeKeys.Add(key))
+                        throw new CaeException("A mesh segment was assigned to more than one model edge.");
+                    ids[i] = allEdgeCells.Count;
+                    allEdgeCells.Add(edgeCell);
+                }
+                edgeCellIdsByEdge[edgeId] = ids;
+                if (orderedEdgeCells[0][0] != orderedEdgeCells[orderedEdgeCells.Count - 1][1])
+                {
+                    vertexNodeIds.Add(orderedEdgeCells[0][0]);
+                    vertexNodeIds.Add(orderedEdgeCells[orderedEdgeCells.Count - 1][1]);
+                }
+            }
+            // Preserve the supplied edge order. It is the original zero-based model-edge order from the
+            // triangular pre-pass and therefore also the geometry edge order used by PrePoMax selections.
+            VisualizationData visualization = part.Visualization;
+            visualization.EdgeCells = allEdgeCells.ToArray();
+            visualization.EdgeCellIdsByEdge = edgeCellIdsByEdge;
+            visualization.VertexNodeIds = vertexNodeIds.OrderBy(id => id).ToArray();
+            visualization.EdgeTypes = null;
+            visualization.FaceTypes = null;
+            ComputeEdgeLengths(part);
+            SplitVisualizationFacesByEdges(part);
+            ComputeFaceAreas(part);
+        }
+        private static List<int[]> OrderVisualizationModelEdgeCells(int edgeId, List<int[]> edgeCells)
+        {
+            Dictionary<int, List<int>> nodeIdEdgeCellIds = new Dictionary<int, List<int>>();
+            for (int i = 0; i < edgeCells.Count; i++)
+            {
+                int[] edgeCell = edgeCells[i];
+                if (edgeCell == null || (edgeCell.Length != 2 && edgeCell.Length != 3) ||
+                    edgeCell[0] == edgeCell[1])
+                    throw new CaeException("Model edge " + edgeId + " contains an invalid mesh segment.");
+                for (int j = 0; j < 2; j++)
+                {
+                    int nodeId = edgeCell[j];
+                    if (nodeIdEdgeCellIds.TryGetValue(nodeId, out List<int> cellIds)) cellIds.Add(i);
+                    else nodeIdEdgeCellIds.Add(nodeId, new List<int>() { i });
+                }
+            }
+            if (nodeIdEdgeCellIds.Values.Any(ids => ids.Count > 2))
+                throw new CaeException("Model edge " + edgeId + " branches in the recovered mesh.");
+            int[] endNodeIds = nodeIdEdgeCellIds.Where(entry => entry.Value.Count == 1)
+                                                .Select(entry => entry.Key).OrderBy(id => id).ToArray();
+            if (endNodeIds.Length != 0 && endNodeIds.Length != 2)
+                throw new CaeException("Model edge " + edgeId + " is not a continuous path.");
+            int startNodeId = endNodeIds.Length == 2 ? endNodeIds[0] : nodeIdEdgeCellIds.Keys.Min();
+            int currentNodeId = startNodeId;
+            bool[] used = new bool[edgeCells.Count];
+            List<int[]> ordered = new List<int[]>();
+            for (int i = 0; i < edgeCells.Count; i++)
+            {
+                int nextCellId = -1;
+                int nextNodeId = Int32.MaxValue;
+                foreach (int cellId in nodeIdEdgeCellIds[currentNodeId])
+                {
+                    if (used[cellId]) continue;
+                    int[] candidate = edgeCells[cellId];
+                    int otherNodeId = candidate[0] == currentNodeId ? candidate[1] : candidate[0];
+                    if (otherNodeId < nextNodeId)
+                    {
+                        nextCellId = cellId;
+                        nextNodeId = otherNodeId;
+                    }
+                }
+                if (nextCellId == -1)
+                    throw new CaeException("Model edge " + edgeId + " contains disconnected mesh segments.");
+                int[] orderedCell = edgeCells[nextCellId].ToArray();
+                if (orderedCell[0] != currentNodeId)
+                {
+                    int tmp = orderedCell[0];
+                    orderedCell[0] = orderedCell[1];
+                    orderedCell[1] = tmp;
+                }
+                ordered.Add(orderedCell);
+                used[nextCellId] = true;
+                currentNodeId = orderedCell[1];
+            }
+            if ((endNodeIds.Length == 2 && currentNodeId != endNodeIds[1]) ||
+                (endNodeIds.Length == 0 && currentNodeId != startNodeId))
+                throw new CaeException("Model edge " + edgeId + " is not a continuous path.");
+            return ordered;
         }
         public void ConvertEdgeNodesToEdges(BasePart part, Dictionary<int, HashSet<int>> edgeIdNodeIds)
         {
@@ -7965,8 +8098,9 @@ namespace CaeMesh
             //
             foreach (var entry in _meshSetupItems)
             {
-                if (entry.Value is MeshingParameters || entry.Value is ShellGmsh || entry.Value is ThickenShellMesh ||
-                    entry.Value is TetrahedralGmsh || entry.Value is TransfiniteMesh)
+                if (entry.Value is MeshingParameters || entry.Value is ShellGmsh || entry.Value is ShellQuadWild ||
+                    entry.Value is ThickenShellMesh || entry.Value is TetrahedralGmsh ||
+                    entry.Value is TransfiniteMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))
                     {
@@ -10885,11 +11019,32 @@ namespace CaeMesh
             }
             else throw new NotSupportedException();
         }
+        public static string GetThickenShellMeshOrientationError(BasePart part)
+        {
+            if (part == null || part.PartType != PartType.Shell || part.Visualization == null) return null;
+            if (!part.Visualization.HasInconsistentCellOrientation()) return null;
+            //
+            return "The part " + part.Name + " contains inconsistently oriented faces. The thicken shell mesh " +
+                   "offset is measured in the direction of the face normals, so all faces must be oriented " +
+                   "consistently. Flip the orientation of the inconsistently oriented faces and try again.";
+        }
         public string[] ThickenShellMesh(string[] partNames, Dictionary<int, Vec3D> nodeIdNormal,
                                          double thickness, int numberOfLayers, double offset,
                                          bool preview, out double[][][] connectedEdges)
         {
             List<string> errors = new List<string>();
+            // The offset cannot be resolved on a part with inconsistently oriented faces
+            string orientationError;
+            foreach (string partName in partNames)
+            {
+                orientationError = GetThickenShellMeshOrientationError(_parts[partName]);
+                if (orientationError != null)
+                {
+                    errors.Add(orientationError);
+                    connectedEdges = new double[0][][];
+                    return errors.ToArray();
+                }
+            }
             //
             int elementId;
             int numberOfLayers2 = numberOfLayers * 2;
@@ -11166,6 +11321,7 @@ namespace CaeMesh
                 if (part is GeometryPart gp && GetNodeNormalsFromGeometry != null)
                 {
                     nodeIdNormals = GetNodeNormalsFromGeometry(gp, mesh);
+                    CheckNodeNormalsFromGeometry(gp, mesh, nodeIdNormals);
                 }
                 else if (part is MeshPart)
                 {
@@ -11228,6 +11384,89 @@ namespace CaeMesh
             }
             //
             return allNodeIdNormals;
+        }
+        private void CheckNodeNormalsFromGeometry(BasePart geometryPart, FeMesh mesh,
+                                                  Dictionary<int, List<Vec3D>> nodeIdNormals)
+        {
+            if (nodeIdNormals == null || nodeIdNormals.Count == 0)
+                throw new CaeException("The geometry normals of the part " + geometryPart.Name +
+                                       " could not be computed.");
+            BasePart meshPart;
+            if (!mesh.Parts.TryGetValue(geometryPart.Name, out meshPart)) return;
+            //
+            double minDirectionCos = 0.5;       // 60 deg between the geometry normal and the mesh normal
+            double minNormalLen = 1E-6;         // a shorter sum means the collected normals cancel out
+            List<Vec3D> normals;
+            Vec3D geometryNormal;
+            Vec3D meshNormal;
+            List<int> unmappedNodeIds = new List<int>();
+            Dictionary<int, double> nodeIdDot = new Dictionary<int, double>();
+            Dictionary<int, Vec3D> nodeIdMeshNormal = mesh.GetNodeNormalSumsFromCells(meshPart);
+            foreach (var entry in nodeIdMeshNormal)
+            {
+                if (!nodeIdNormals.TryGetValue(entry.Key, out normals) || normals.Count == 0)
+                {
+                    unmappedNodeIds.Add(entry.Key);
+                    continue;
+                }
+                //
+                geometryNormal = new Vec3D();
+                foreach (var normal in normals) geometryNormal += normal;
+                meshNormal = entry.Value;
+                // A node where the normals cancel out is resolved by the plane intersection in AverageNormals
+                if (geometryNormal.Len < minNormalLen || meshNormal.Len < minNormalLen) continue;
+                //
+                geometryNormal.Normalize();
+                meshNormal.Normalize();
+                nodeIdDot.Add(entry.Key, Vec3D.DotProduct(geometryNormal, meshNormal));
+            }
+            // The geometry normals of a part can be uniformly opposite to its mesh normals, so only a node
+            // that disagrees with the direction the rest of the part agrees on is a failed mapping
+            int positiveCount = 0;
+            foreach (var entry in nodeIdDot)
+            {
+                if (entry.Value > 0) positiveCount++;
+            }
+            double sign = 2 * positiveCount < nodeIdDot.Count ? -1 : 1;
+            List<int> wrongNodeIds = new List<int>();
+            foreach (var entry in nodeIdDot)
+            {
+                if (sign * entry.Value < minDirectionCos) wrongNodeIds.Add(entry.Key);
+            }
+            //
+            if (unmappedNodeIds.Count == 0 && wrongNodeIds.Count == 0) return;
+            //
+            int nodeId = wrongNodeIds.Count > 0 ? wrongNodeIds[0] : unmappedNodeIds[0];
+            FeNode node = mesh.Nodes[nodeId];
+            throw new CaeException("The geometry normals of the part " + geometryPart.Name + " could not be mapped " +
+                                   "to " + (unmappedNodeIds.Count + wrongNodeIds.Count) + " of " +
+                                   nodeIdMeshNormal.Count + " mesh nodes, the first one at (" +
+                                   Math.Round(node.X, 5) + ", " + Math.Round(node.Y, 5) + ", " +
+                                   Math.Round(node.Z, 5) + "). The mesh faces do not match the geometry faces.");
+        }
+        private Dictionary<int, Vec3D> GetNodeNormalSumsFromCells(BasePart part)
+        {
+            Vec3D normalSum;
+            double[] faceNormal;
+            FeElement element;
+            VisualizationData vis = part.Visualization;
+            Dictionary<int, Vec3D> nodeIdNormalSum = new Dictionary<int, Vec3D>();
+            if (vis == null || vis.Cells == null) return nodeIdNormalSum;
+            //
+            for (int i = 0; i < vis.Cells.Length; i++)
+            {
+                element = _elements[vis.CellIds[i]];
+                GetElementFaceCenterAndNormal(element, FeFaceName.S2, out _, out faceNormal, out _);
+                if (faceNormal == null) continue;
+                //
+                foreach (var nodeId in vis.Cells[i])
+                {
+                    if (nodeIdNormalSum.TryGetValue(nodeId, out normalSum))
+                        nodeIdNormalSum[nodeId] = normalSum + new Vec3D(faceNormal);
+                    else nodeIdNormalSum.Add(nodeId, new Vec3D(faceNormal));
+                }
+            }
+            return nodeIdNormalSum;
         }
         private Dictionary<int, Vec3D> AverageNormals(Dictionary<int, List<Vec3D>> nodeIdNormals, FeMesh mesh, bool keepEdges)
         {

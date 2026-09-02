@@ -1444,6 +1444,15 @@ namespace CaeModel
                                                        bool splitCompoundMesh, bool mergeCompoundParts,
                                                        RevolveMesh revolveMesh = null)
         {
+            return PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
+                                                    mergeCompoundParts, revolveMesh, out _);
+        }
+        public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
+                                                       bool splitCompoundMesh, bool mergeCompoundParts,
+                                                       RevolveMesh revolveMesh,
+                                                       out Dictionary<int, string> elementIdMaterialName)
+        {
+            elementIdMaterialName = null;
             ElementsToImport elementsToImport;
             GeometryPart subPart;
             if (part.PartType == PartType.SolidAsShell) elementsToImport = ElementsToImport.Solid;
@@ -1472,6 +1481,11 @@ namespace CaeModel
                 mesh = MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".inp")
                 mesh = InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder, _geometry, part);
+            else if (Path.GetExtension(fileName) == ".obj")
+            {
+                mesh = ObjFileReader.Read(fileName, convertToSecondOrder, out elementIdMaterialName);
+                mesh.FixShellPartOrientation(_geometry, part);
+            }
             else throw new NotSupportedException();
             // Split compound mesh
             if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
@@ -1956,6 +1970,7 @@ namespace CaeModel
             if (meshSetupItem is MeshingParameters) return null;
             else if (meshSetupItem is LocalMeshSize) return null;
             else if (meshSetupItem is ShellGmsh sg) return IsShellGmshProperlyDefined(sg);
+            else if (meshSetupItem is ShellQuadWild sqw) return IsShellQuadWildProperlyDefined(sqw);
             else if (meshSetupItem is ThickenShellMesh tsm) return IsThickenShellMeshProperlyDefined(tsm);
             else if (meshSetupItem is TetrahedralGmsh tg) return IsTetrahedralGmshProperlyDefined(tg);
             else if (meshSetupItem is TransfiniteMesh tm) return IsTransfiniteMeshProperlyDefined(tm);
@@ -1978,6 +1993,34 @@ namespace CaeModel
             }
             return null;
         }
+        private string IsShellQuadWildProperlyDefined(ShellQuadWild shellQuadWild)
+        {
+            if (shellQuadWild.TriangulationMesher != MesherTypeEnum.Gmsh &&
+                shellQuadWild.TriangulationMesher != MesherTypeEnum.Netgen &&
+                shellQuadWild.TriangulationMesher != MesherTypeEnum.Mmg)
+                return "The QuadWild triangulation mesher must be Gmsh, Netgen, or MMG.";
+            if (Double.IsNaN(shellQuadWild.ScaleFactor) || Double.IsInfinity(shellQuadWild.ScaleFactor) ||
+                shellQuadWild.ScaleFactor <= 0)
+                return "The QuadWild quad edge multiplier must be a positive finite number.";
+            if (Double.IsNaN(shellQuadWild.Alpha) || Double.IsInfinity(shellQuadWild.Alpha) ||
+                shellQuadWild.Alpha < 0 || shellQuadWild.Alpha > 1)
+                return "The QuadWild alpha value must be a finite number from 0 to 1.";
+            //
+            GeometryPart part;
+            int[] partIds = FeMesh.GetPartIdsFromGeometryIds(shellQuadWild.CreationIds);
+            //
+            foreach (var partId in partIds)
+            {
+                part = (GeometryPart)_geometry.GetPartFromId(partId);
+                //
+                if (part.PartType != PartType.Shell)
+                    return "The shell QuadWild mesh setup item can only be defined on shell parts.";
+                if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Netgen && !part.IsCADPart)
+                    return "Netgen cannot mesh an STL shell. It only accepts closed manifold STL geometry; " +
+                           "select Gmsh or MMG for the QuadWild triangulation.";
+            }
+            return null;
+        }
         private string IsThickenShellMeshProperlyDefined(ThickenShellMesh thickenShellMesh)
         {
             HashSet<string> partNames = new HashSet<string>(_mesh.GetPartNamesFromGeometryIds(thickenShellMesh.CreationIds));
@@ -1986,6 +2029,7 @@ namespace CaeModel
             if (partNames != null && partNames.Count > 0)
             {
                 BasePart part;
+                string orientationError;
                 foreach (var partName in partNames)
                 {
                     _geometry.Parts.TryGetValue(partName, out part);
@@ -1998,6 +2042,9 @@ namespace CaeModel
                         return "The thicken shell feature can only be used on shell parts.";
                     if (part.Visualization.IsNonManifold())
                         return "The thicken shell feature can only be used on manifold shell parts.";
+                    //
+                    orientationError = FeMesh.GetThickenShellMeshOrientationError(part);
+                    if (orientationError != null) return orientationError;
                 }
             }
             else return "No parts are defined for the thicken shell mesh setup item.";

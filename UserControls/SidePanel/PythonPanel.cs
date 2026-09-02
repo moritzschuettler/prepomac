@@ -28,6 +28,7 @@ namespace UserControls
         private const string DefaultTitle = "Python Script Editor";
         private const string PythonFileFilter = "Python files (*.py)|*.py|All files (*.*)|*.*";
         private string _lastScriptDirectory;
+        private bool _restoringState;
 
 
         // Properties
@@ -40,6 +41,7 @@ namespace UserControls
         public event EventHandler<PythonTextBoxCommandEventArgs> ExecuteScript;
         public event EventHandler<PythonTextBoxCommandEventArgs> RecordAndExecuteScript;
         public event EventHandler<PythonTextBoxAutocompleteEventArgs> AutocompleteRequested;
+        public event Action StateChanged;
 
 
         // Constructor
@@ -56,6 +58,7 @@ namespace UserControls
             petbPythonEditor.RunSelectionRequested += PythonEditor_RunSelectionRequested;
             petbPythonEditor.ModifiedChanged += PythonEditor_ModifiedChanged;
             petbPythonEditor.ScriptTextChanged += PythonEditor_ScriptTextChanged;
+            splitContainer1.SplitterMoved += splitContainer1_SplitterMoved;
             //
             InitializeToolTips();
             UpdateTitle();
@@ -240,10 +243,16 @@ namespace UserControls
         {
             UpdateTitle();
             UpdateButtonState();
+            OnStateChanged();
         }
         private void PythonEditor_ScriptTextChanged(object sender, EventArgs e)
         {
             UpdateButtonState();
+            OnStateChanged();
+        }
+        private void splitContainer1_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+            OnStateChanged();
         }
 
 
@@ -324,6 +333,56 @@ namespace UserControls
         public void ShowFind()
         {
             ShowEditorFind();
+        }
+        public PythonPanelState CaptureState()
+        {
+            PythonPanelState state = new PythonPanelState();
+            state.ScriptText = petbPythonEditor.ScriptText;
+            state.FileName = petbPythonEditor.FileName;
+            state.Modified = petbPythonEditor.IsModified;
+            state.SplitterRatio = GetSplitterRatio();
+            return state;
+        }
+        public void RestoreState(PythonPanelState state)
+        {
+            if (state == null) return;
+            //
+            _restoringState = true;
+            try
+            {
+                petbPythonEditor.ScriptText = state.ScriptText;
+                petbPythonEditor.FileName = state.FileName;
+                petbPythonEditor.SetModifiedFlag(state.Modified);
+                petbPythonEditor.ClearErrorLine();
+                pctbPythonConsole.ClearConsole();
+                SetSplitterRatio(state.SplitterRatio);
+                UpdateTitle();
+                UpdateButtonState();
+            }
+            finally
+            {
+                _restoringState = false;
+            }
+        }
+        private double GetSplitterRatio()
+        {
+            if (splitContainer1.Height <= 0) return 0.75;
+            return splitContainer1.SplitterDistance / (double)splitContainer1.Height;
+        }
+        private void SetSplitterRatio(double ratio)
+        {
+            if (ratio <= 0 || ratio >= 1 || splitContainer1.Height <= 0) return;
+            //
+            int distance = (int)Math.Round(splitContainer1.Height * ratio);
+            int maximum = splitContainer1.Height - splitContainer1.Panel2MinSize - splitContainer1.SplitterWidth;
+            if (maximum < splitContainer1.Panel1MinSize) return;
+            //
+            distance = Math.Max(splitContainer1.Panel1MinSize, Math.Min(maximum, distance));
+            splitContainer1.SplitterDistance = distance;
+        }
+        private void OnStateChanged()
+        {
+            if (!_restoringState) StateChanged?.Invoke();
         }
         private void ShowEditorFind()
         {

@@ -229,6 +229,166 @@ namespace PrePoMax
             }
             else return false;
         }
+        public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
+                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        {
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            if (String.IsNullOrWhiteSpace(workDirectory) || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return false;
+            }
+            // A tetrahedral setup item makes the existing Gmsh preview path stop after its 1D edge mesh.
+            string executable = Application.StartupPath + Globals.GmshCaller;
+            string geometryFileName = Path.Combine(workDirectory,
+                                                   part.IsCADPart ? Globals.BrepFileName : Globals.StlFileName);
+            string inpFileName = Path.Combine(workDirectory, Globals.QuadWildGmshInpFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.QuadWildGmshDataFileName);
+            //
+            if (File.Exists(geometryFileName)) File.Delete(geometryFileName);
+            if (File.Exists(inpFileName)) File.Delete(inpFileName);
+            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
+            //
+            _controller.SuppressExplodedView(new string[] { part.Name });
+            GmshData gmshData = new GmshData();
+            try
+            {
+                if (part.IsCADPart) File.WriteAllText(geometryFileName, part.CADFileData);
+                else StlFileWriter.Write(geometryFileName, _controller.Model.Geometry,
+                                         new string[] { part.Name });
+                MeshingParameters partMeshingParameters = _controller.GetPartMeshingParameters(part.Name,
+                                                                                                meshSetupItems);
+                partMeshingParameters.SecondOrder = false;
+                partMeshingParameters.QuadDominated = false;
+                TetrahedralGmsh edgeMesher = new TetrahedralGmsh("QuadWild_edge_preview");
+                //
+                gmshData.GeometryFileName = geometryFileName;
+                gmshData.InpFileName = inpFileName;
+                gmshData.PartMeshingParameters = partMeshingParameters;
+                gmshData.GmshSetupItems = new MeshSetupItem[] { edgeMesher };
+                gmshData.Preview = true;
+                if (!part.IsCADPart)
+                    gmshData.StlFeatureAngleDeg = _controller.Settings.General.EdgeAngle;
+                _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+                _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
+                gmshData.WriteToFile(gmshDataFileName);
+            }
+            finally
+            {
+                _controller.ResumeExplodedViews(false);
+            }
+            //
+            string argument = Globals.QuadWildGmshDataFileName + " " + CaeMesh.GmshCommandEnum.Mesh;
+            bool jobCompleted;
+            if (Debugger.IsAttached)
+            {
+                GmshAPI gmsh = new GmshAPI(gmshData, _controller.Form.WriteDataToOutput);
+                jobCompleted = gmsh.CreateMesh() == null;
+            }
+            else
+            {
+                JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                                 _controller.Form.WriteDataToOutput);
+                jobCompleted = jobStatus == JobStatus.OK;
+            }
+            if (!jobCompleted) return false;
+            // The preview output contains only line elements, so display its nodes without importing a mesh.
+            FeMesh mesh = FileInOut.Input.InpFileReader.ReadMesh(inpFileName,
+                                                                 FileInOut.Input.ElementsToImport.Beam, false);
+            if (_controller.IsExplodedViewActive())
+            {
+                double[] offset;
+                if (part is CompoundGeometryPart compoundPart)
+                    offset = _controller.Model.Geometry.Parts[compoundPart.SubPartNames[0]].Offset;
+                else offset = part.Offset;
+                Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
+                foreach (var entry in mesh.Parts) partOffsets.Add(entry.Key, offset);
+                mesh.ApplyExplodedView(partOffsets);
+            }
+            double[][] nodeCoor = mesh.GetAllNodeCoor();
+            _controller.HighlightNodes(nodeCoor);
+            _controller.Form.WriteDataToOutput("QuadWild Gmsh edge-node preview: " + nodeCoor.Length + " nodes.");
+            return true;
+        }
+        public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
+                                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+        {
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            if (part.PartType != PartType.Shell)
+                throw new CaeException("The QuadWild triangular pre-pass requires a shell geometry part.");
+            if (String.IsNullOrWhiteSpace(workDirectory) || !Directory.Exists(workDirectory))
+                throw new CaeException("The QuadWild work directory does not exist.");
+            //
+            string executable = Application.StartupPath + Globals.GmshCaller;
+            string geometryFileName = Path.Combine(workDirectory,
+                                                   part.IsCADPart ? Globals.BrepFileName : Globals.StlFileName);
+            string inpFileName = Path.Combine(workDirectory, Globals.QuadWildGmshInpFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.QuadWildGmshDataFileName);
+            //
+            if (File.Exists(geometryFileName)) File.Delete(geometryFileName);
+            if (File.Exists(inpFileName)) File.Delete(inpFileName);
+            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
+            //
+            _controller.SuppressExplodedView(new string[] { part.Name });
+            GmshData gmshData = new GmshData();
+            try
+            {
+                if (part.IsCADPart) File.WriteAllText(geometryFileName, part.CADFileData);
+                else StlFileWriter.Write(geometryFileName, _controller.Model.Geometry,
+                                         new string[] { part.Name });
+                // QuadWild requires a purely linear triangular input mesh. Keep all existing size controls.
+                MeshingParameters partMeshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
+                partMeshingParameters.SecondOrder = false;
+                partMeshingParameters.QuadDominated = false;
+                ShellGmsh shellGmsh = new ShellGmsh("QuadWild_triangular_pre-pass");
+                shellGmsh.AlgorithmRecombine = GmshAlgorithmRecombineEnum.None;
+                //
+                gmshData.GeometryFileName = geometryFileName;
+                gmshData.InpFileName = inpFileName;
+                gmshData.PartMeshingParameters = partMeshingParameters;
+                gmshData.GmshSetupItems = new MeshSetupItem[] { shellGmsh };
+                gmshData.Preview = false;
+                if (!part.IsCADPart)
+                    gmshData.StlFeatureAngleDeg = _controller.Settings.General.EdgeAngle;
+                _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+                _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
+                gmshData.WriteToFile(gmshDataFileName);
+            }
+            finally
+            {
+                _controller.ResumeExplodedViews(false);
+            }
+            //
+            string argument = Globals.QuadWildGmshDataFileName + " " + CaeMesh.GmshCommandEnum.Mesh;
+            string error = null;
+            bool jobCompleted;
+            if (Debugger.IsAttached)
+            {
+                GmshAPI gmsh = new GmshAPI(gmshData, _controller.Form.WriteDataToOutput);
+                error = gmsh.CreateMesh();
+                jobCompleted = error == null;
+            }
+            else
+            {
+                JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                     _controller.Form.WriteDataToOutput);
+                jobCompleted = jobStatus == JobStatus.OK;
+            }
+            //
+            if (!jobCompleted)
+            {
+                string message = "The triangular QuadWild input mesh could not be created.";
+                if (error != null) message += Environment.NewLine + error;
+                throw new CaeException(message);
+            }
+            // Importing with the geometry preserves the Gmsh curve groups as model-edge topology.
+            FeMesh mesh = _controller.Model.PrepareGeneratedMeshFromMeshFile(inpFileName, part,
+                                                                              false, false, false);
+            if (mesh.Parts.Count != 1 || !mesh.Parts.ContainsKey(part.Name))
+                throw new CaeException("The triangular QuadWild pre-pass produced an unexpected mesh part layout.");
+            return mesh;
+        }
         public GeneratedMeshData CreateMeshFromStl(GeometryPart part, MeshSetupItem[] meshSetupItems,
                                                         string workDirectory)
         {
@@ -401,6 +561,9 @@ namespace PrePoMax
             //
             GmshAPI gmsh = new GmshAPI(gmshData, _controller.Form.WriteDataToOutput);
             string error = gmsh.GetOccNormals();
+            if (error != null)
+                throw new CaeException("The geometry normals of the part " + part.Name +
+                                       " could not be computed. " + error);
             return gmsh.GmshData.NodeIdNormals;
         }
     }

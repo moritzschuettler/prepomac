@@ -60,6 +60,13 @@ namespace PrePoMax.Forms
             },
             new MeshSetupItemType()
             {
+                DisplayName = "Shell QuadWild", DefaultNameRoot = "Shell_QuadWild", AvailableInTwoD = true,
+                ItemType = typeof(ShellQuadWild), ViewType = typeof(ViewShellQuadWild),
+                CreateDefaultView = (controller, name) => new ViewShellQuadWild(new ShellQuadWild(name)),
+                CreateView = (controller, item) => new ViewShellQuadWild(((ShellQuadWild)item).DeepClone())
+            },
+            new MeshSetupItemType()
+            {
                 DisplayName = "Thicken Shell Mesh", DefaultNameRoot = "Thicken_Shell_Mesh", AvailableInTwoD = true,
                 ItemType = typeof(ThickenShellMesh), ViewType = typeof(ViewThickenShellMesh),
                 CreateDefaultView = (controller, name) => new ViewThickenShellMesh(new ThickenShellMesh(name)),

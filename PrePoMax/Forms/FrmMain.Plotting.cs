@@ -35,17 +35,32 @@ namespace PrePoMax
         }
         private void ShowXYPlotPanel()
         {
+            XYPlotPanel xyPlotPanel = GetXYPlotPanel();
+            //
+            if (!tsmiXYPlotPanel.Checked) ShowSidePanel(xyPlotPanel, 0.5, 100, 1000, false);
+        }
+        private XYPlotPanel GetXYPlotPanel()
+        {
             if (_xyPlotPanel == null)
             {
                 _xyPlotPanel = new XYPlotPanel();
                 _xyPlotPanel.CloseButtonPressedEvent += tsmiXYPlotPanel_Click;
+                _xyPlotPanel.StateChanged += SidePanel_StateChanged;
             }
-            //
-            if (!tsmiXYPlotPanel.Checked) ShowSidePanel(_xyPlotPanel, 0.5, 100, 1000, false);
+            _xyPlotPanel.MaxCurveCount = _controller.Settings.Post.MaxCurvesPerPlot;
+            if (!_xyPlotPanelStateApplied)
+            {
+                _xyPlotPanelStateApplied = true;
+                _xyPlotPanel.RestoreState(_sidePanelsState?.XYPlotPanelState);
+            }
+            return _xyPlotPanel;
         }
         private bool CanAddItemsToNewPlot()
         {
-            return _xyPlotPanel == null || _xyPlotPanel.PlotCount < _xyPlotPanel.MaxPlotCount;
+            if (_xyPlotPanel != null) return _xyPlotPanel.PlotCount < _xyPlotPanel.MaxPlotCount;
+            //
+            int plotCount = _sidePanelsState?.XYPlotPanelState?.Plots.Count ?? 0;
+            return plotCount < 4;
         }
         private void AddItemsToPlot(NamedClass[] items)
         {
@@ -83,23 +98,36 @@ namespace PrePoMax
         {
             if (plot == null || items == null) return;
             //
-            for (int i = 0; i < items.Length; i++)
+            plot.XAxisTitle = XYPlotSettings.DefaultXAxisTitle;
+            plot.YAxisTitle = XYPlotSettings.DefaultYAxisTitle;
+            //
+            bool curveLimitReached = false;
+            for (int i = 0; i < items.Length && !curveLimitReached; i++)
             {
-                if (items[i] is HistoryResultData historyData) AddHistoryOutputToPlot(historyData, plot);
-                else if (items[i] is Amplitude amplitude) AddAmplitudeToPlot(amplitude, plot);
+                if (items[i] is HistoryResultData historyData)
+                    curveLimitReached = AddHistoryOutputToPlot(historyData, plot);
+                else if (items[i] is Amplitude amplitude) curveLimitReached = AddAmplitudeToPlot(amplitude, plot);
             }
             //
             _xyPlotPanel.SelectedPlot = plot;
             _xyPlotPanel.UpdateDataGrid();
+            //
+            if (curveLimitReached)
+            {
+                MessageBoxes.ShowWarning("The maximum number of curves per XY plot is " + plot.MaxCurveCount + "." +
+                                         " Additional curves were not added." + Environment.NewLine +
+                                         " Use Settings → Post-processing to increase this value.");
+            }
         }
-        private void AddHistoryOutputToPlot(HistoryResultData historyData, XYPlot plot)
+        private bool AddHistoryOutputToPlot(HistoryResultData historyData, XYPlot plot)
         {
             string[] columnNames;
             object[][] rowBasedData;
             _controller.GetHistoryOutputData(historyData, out columnNames, out rowBasedData, false);
             //
-            if (columnNames.Length < 2 || rowBasedData.Length == 0) return;
+            if (columnNames.Length < 2 || rowBasedData.Length == 0) return false;
             //
+            bool curveLimitReached = false;
             List<double> xValues = new List<double>();
             List<double> yValues = new List<double>();
             for (int col = 1; col < columnNames.Length; col++)
@@ -114,18 +142,21 @@ namespace PrePoMax
                 }
                 if (yValues.Count == 0) continue;
                 //
-                plot.AddCurve(GetCurveName(historyData, columnNames[col]), xValues.ToArray(), yValues.ToArray());
+                if (!plot.AddCurve(GetCurveName(historyData, columnNames[col]), xValues.ToArray(), yValues.ToArray()))
+                {
+                    curveLimitReached = true;
+                    break;
+                }
             }
-            //
-            if (plot.XAxisTitle.Length == 0) plot.XAxisTitle = GetSingleLineColumnName(columnNames[0]);
+            return curveLimitReached;
         }
-        private void AddAmplitudeToPlot(Amplitude amplitude, XYPlot plot)
+        private bool AddAmplitudeToPlot(Amplitude amplitude, XYPlot plot)
         {
             Amplitude modelAmplitude = _controller.GetAmplitude(amplitude.Name);
-            if (modelAmplitude == null) return;
+            if (modelAmplitude == null) return false;
             //
             double[][] timeAmplitude = modelAmplitude.TimeAmplitude;
-            if (timeAmplitude == null || timeAmplitude.Length == 0) return;
+            if (timeAmplitude == null || timeAmplitude.Length == 0) return false;
             // CalculiX shifts the amplitude data by the ShiftX and the ShiftY values
             double[] xValues = new double[timeAmplitude.Length];
             double[] yValues = new double[timeAmplitude.Length];
@@ -135,10 +166,8 @@ namespace PrePoMax
                 yValues[i] = timeAmplitude[i][1] + modelAmplitude.ShiftY;
             }
             //
-            plot.AddCurve(modelAmplitude.Name, xValues, yValues);
-            //
-            if (plot.XAxisTitle.Length == 0)
-                plot.XAxisTitle = "Time [" + _controller.Model.UnitSystem.TimeUnitAbbreviation + "]";
+            bool curveLimitReached = !plot.AddCurve(modelAmplitude.Name, xValues, yValues);
+            return curveLimitReached;
         }
         private string GetCurveName(HistoryResultData historyData, string columnName)
         {
@@ -162,11 +191,6 @@ namespace PrePoMax
                 if (rows[i].Trim().Length > 0) rowsToKeep.Add(rows[i].Trim());
             }
             return rowsToKeep.ToArray();
-        }
-        private string GetSingleLineColumnName(string columnName)
-        {
-            if (columnName == null) return "";
-            return columnName.Replace(Environment.NewLine, " ").Replace("\n", " ").Trim();
         }
     }
 }

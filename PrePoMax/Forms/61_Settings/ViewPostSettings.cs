@@ -117,6 +117,16 @@ namespace PrePoMax.Settings
             get { return _postSettings.MaxHistoryEntriesToShow; }
             set { _postSettings.MaxHistoryEntriesToShow = value; }
         }
+        //
+        [CategoryAttribute("History output")]
+        [OrderedDisplayName(1, 10, "Max curves per plot")]
+        [DescriptionAttribute("Enter the maximum number of curves to show in a single XY plot.")]
+        [Id(2, 5)]
+        public int MaxCurvesPerPlot
+        {
+            get { return _postSettings.MaxCurvesPerPlot; }
+            set { _postSettings.MaxCurvesPerPlot = value; }
+        }
 
 
         // Constructors                                                                                                             

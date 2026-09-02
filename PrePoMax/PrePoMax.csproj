@@ -110,6 +110,7 @@
     <Compile Include="Meshing\Netgen\NetgenMesherRunner.cs" />
     <Compile Include="Meshing\Mmg\MmgMesherRunner.cs" />
     <Compile Include="Meshing\Gmsh\GmshMesherRunner.cs" />
+    <Compile Include="Meshing\QuadWild\QuadWildMesherRunner.cs" />
     <Compile Include="Meshing\Base\IMesherRunner.cs" />
     <Compile Include="Meshing\Base\MesherRegistry.cs" />
     <Compile Include="Meshing\Base\GeneratedMeshData.cs" />
@@ -464,6 +465,7 @@
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewRevolveMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewGmshSetupItem.cs" />
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewExtrudeMesh.cs" />
+    <Compile Include="Forms\11_MeshSetup\QuadWild\ViewShellQuadWild.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\MeshSetupItemTypes.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
@@ -1336,6 +1338,13 @@ copy "$(SolutionDir)ThirdParty\mmg\mmgs.exe" "$(TargetDir)Meshers\Mmg\mmgs.exe"
 copy "$(SolutionDir)ThirdParty\mmg\mmg3d.exe" "$(TargetDir)Meshers\Mmg\mmg3d.exe"
 copy "$(SolutionDir)ThirdParty\mmg\vcruntime140.dll" "$(TargetDir)Meshers\Mmg\vcruntime140.dll"
 
+rem QuadWild-BiMDF runtime is vendored in ThirdParty; keep config paths relative to its executables
+IF NOT EXIST "$(TargetDir)Meshers\QuadWild\" mkdir "$(TargetDir)Meshers\QuadWild\"
+copy "$(SolutionDir)ThirdParty\quadwild-bimdf\quadwild.exe" "$(TargetDir)Meshers\QuadWild\quadwild.exe"
+copy "$(SolutionDir)ThirdParty\quadwild-bimdf\quad_from_patches.exe" "$(TargetDir)Meshers\QuadWild\quad_from_patches.exe"
+copy "$(SolutionDir)ThirdParty\quadwild-bimdf\README_release.md" "$(TargetDir)Meshers\QuadWild\README_release.md"
+xcopy /D /Y /I /E "$(SolutionDir)ThirdParty\quadwild-bimdf\config" "$(TargetDir)Meshers\QuadWild\config"
+
 rem License texts that must travel with the distributed binaries
 copy "$(SolutionDir)LICENSE" "$(TargetDir)LICENSE"
 IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\LICENSE.txt" "$(TargetDir)lib\gmsh-LICENSE.txt"
@@ -1343,6 +1352,8 @@ IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\CREDITS.
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\LICENSE" "$(TargetDir)Meshers\Mmg\LICENSE"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING.LESSER" "$(TargetDir)Meshers\Mmg\COPYING.LESSER"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING" "$(TargetDir)Meshers\Mmg\COPYING"
+IF EXIST "$(TargetDir)Meshers\QuadWild\quadwild.exe" copy "$(SolutionDir)Licenses\quadwild\LICENSE" "$(TargetDir)Meshers\QuadWild\LICENSE"
+IF EXIST "$(TargetDir)Meshers\QuadWild\quadwild.exe" copy "$(SolutionDir)Licenses\quadwild\NOTICE.md" "$(TargetDir)Meshers\QuadWild\NOTICE.md"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\NOTICE.md" "$(TargetDir)Meshers\Netgen\NOTICE.md"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-OCCT.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-OCCT.txt"

@@ -14,6 +14,7 @@ namespace CaeMesh
         None = 0,
         Netgen = 1,
         Mmg = 2,
-        Gmsh = 3
+        Gmsh = 3,
+        QuadWild = 4
     }
 }

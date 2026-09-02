@@ -33,6 +33,7 @@ namespace UserControls
         protected int _horizontalOffset;
         protected int _verticalOffset;
         //
+        protected string _id;
         protected string _title;
         protected ViewType _associatedView;
         //
@@ -59,6 +60,7 @@ namespace UserControls
             }
         }
         //
+        public string Id { get { return _id; } set { _id = value; } }
         public string Title { get { return _title; } set { _title = value; } }
         public ViewType AssociatedView { get { return _associatedView; } set { _associatedView = value; } }
         //
@@ -76,6 +78,7 @@ namespace UserControls
             _horizontalOffset = _minOffset;
             _verticalOffset = _minOffset;
             //
+            _id = null;
             _items = new List<PanelItem>();
         }
 

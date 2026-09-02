@@ -47,6 +47,7 @@ namespace PrePoMax
         private bool _showMinValueLocation;
         private bool _showMaxValueLocation;
         private int _maxHistoryEntriesToShow;
+        private int _maxCurvesPerPlot;
 
 
         // Properties                                                                                                               
@@ -122,6 +123,15 @@ namespace PrePoMax
                 if (_maxHistoryEntriesToShow < 1) _maxHistoryEntriesToShow = 1;
             } 
         }
+        public int MaxCurvesPerPlot
+        {
+            get { return _maxCurvesPerPlot; }
+            set
+            {
+                _maxCurvesPerPlot = value;
+                if (_maxCurvesPerPlot < 1) _maxCurvesPerPlot = 1;
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -137,6 +147,7 @@ namespace PrePoMax
             VectorPlotScaleFactor = _vectorPlotScaleFactor;
             VectorPlotDensity = _vectorPlotDensity;
             VectorPlotLengthScaleFactor = _vectorPlotLengthScaleFactor;
+            MaxCurvesPerPlot = _maxCurvesPerPlot;
         }
         public void Reset()
         {
@@ -151,6 +162,7 @@ namespace PrePoMax
             _showMaxValueLocation = true;
             //
             _maxHistoryEntriesToShow = 1000;
+            _maxCurvesPerPlot = 10;
         }
         
     }

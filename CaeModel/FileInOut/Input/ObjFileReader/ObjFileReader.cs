@@ -16,6 +16,7 @@ using System.IO;
 using CaeMesh;
 using CaeGlobals;
 using System.Collections;
+using System.Globalization;
 
 namespace FileInOut.Input
 {
@@ -27,6 +28,16 @@ namespace FileInOut.Input
 
         public static FeMesh Read(string fileName)
         {
+            return Read(fileName, false);
+        }
+        public static FeMesh Read(string fileName, bool convertToSecondOrder)
+        {
+            return Read(fileName, convertToSecondOrder, out _);
+        }
+        public static FeMesh Read(string fileName, bool convertToSecondOrder,
+                                  out Dictionary<int, string> elementIdMaterialName)
+        {
+            elementIdMaterialName = null;
             if (File.Exists(fileName))
             {
                 string[] lines = File.ReadAllLines(fileName);
@@ -36,21 +47,37 @@ namespace FileInOut.Input
                 //
                 BoundingBox bBox = new BoundingBox();
                 //
+                string materialName = null;
+                bool materialsFound = false;
                 List<string> vertexLines = new List<string>();
                 List<string> faceLines = new List<string>();
+                List<string> faceMaterialNames = new List<string>();
                 // Read vertices and lines
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    lines[i] = lines[i].Trim().ToUpper();
-                    if (lines[i].StartsWith("V")) vertexLines.Add(lines[i]);
-                    else if (lines[i].StartsWith("F")) faceLines.Add(lines[i]);
+                    string trimmedLine = lines[i].Trim();
+                    lines[i] = trimmedLine.ToUpperInvariant();
+                    if (lines[i].StartsWith("V ")) vertexLines.Add(lines[i]);
+                    else if (lines[i].StartsWith("F "))
+                    {
+                        faceLines.Add(lines[i]);
+                        faceMaterialNames.Add(materialName);
+                    }
+                    else if (lines[i].StartsWith("USEMTL "))
+                    {
+                        materialName = trimmedLine.Substring(7).Trim();
+                        materialsFound = true;
+                    }
                 }
                 // Read nodes
                 ReadNodes(vertexLines, nodes, ref bBox);
-                // Read elements
-                ReadFaces(faceLines, nodes, elements);
+                // Read elements - the face reader itself fills the material map so that the map can never
+                // disagree with the elements it created
+                if (materialsFound) elementIdMaterialName = new Dictionary<int, string>();
+                ReadFaces(faceLines, faceMaterialNames, nodes, elements, elementIdMaterialName);
                 //
-                FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Mesh, null, null, false, ImportOptions.DetectEdges);
+                FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Mesh, null, null,
+                                         convertToSecondOrder, ImportOptions.DetectEdges);
                 //
                 // Recognize the face and the edge types from the mesh
                 mesh.DetectFaceTypes();
@@ -72,16 +99,18 @@ namespace FileInOut.Input
                 tmp = line.Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
                 node = new FeNode();
                 node.Id = count++;
-                node.X = double.Parse(tmp[1]);
-                node.Y = double.Parse(tmp[2]);
-                node.Z = double.Parse(tmp[3]);
+                node.X = double.Parse(tmp[1], NumberStyles.Float, CultureInfo.InvariantCulture);
+                node.Y = double.Parse(tmp[2], NumberStyles.Float, CultureInfo.InvariantCulture);
+                node.Z = double.Parse(tmp[3], NumberStyles.Float, CultureInfo.InvariantCulture);
                 //
                 bBox.IncludeNode(node);
                 //
                 nodes.Add(node.Id, node);
             }
         }
-        private static void ReadFaces(List<string> lines, Dictionary<int, FeNode> nodes, Dictionary<int, FeElement> elements)
+        private static void ReadFaces(List<string> lines, List<string> faceMaterialNames,
+                                      Dictionary<int, FeNode> nodes, Dictionary<int, FeElement> elements,
+                                      Dictionary<int, string> elementIdMaterialName)
         {
             int id = 1;
             int loopId = -1;
@@ -98,27 +127,31 @@ namespace FileInOut.Input
             LinearTriangleElement lte;
             List<FeElement>[] loopElements;
             //
-            foreach (var line in lines)
+            for (int lineId = 0; lineId < lines.Count; lineId++)
             {
+                string line = lines[lineId];
+                string materialName = faceMaterialNames != null ? faceMaterialNames[lineId] : null;
                 data = line.Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
                 //
                 nodeIds = new int[data.Length - 1];
                 for (int i = 0; i < nodeIds.Length; i++)
                 {
                     tmp = data[i + 1].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                    nodeIds[i] = int.Parse(tmp[0]);
+                    nodeIds[i] = int.Parse(tmp[0], NumberStyles.Integer, CultureInfo.InvariantCulture);
                 }
                 // Triangles
                 if (nodeIds.Length == 3)
                 {
                     element = new LinearTriangleElement(id++, nodeIds);
                     elements.Add(element.Id, element);
+                    AddMaterialName(elementIdMaterialName, element.Id, materialName);
                 }
                 // Quads
                 else if (nodeIds.Length == 4)
                 {
                     element = new LinearQuadrilateralElement(id++, nodeIds);
                     elements.Add(element.Id, element);
+                    AddMaterialName(elementIdMaterialName, element.Id, materialName);
                 }
                 // Split multi-polygons to triangles
                 else if (nodeIds.Length > 4)
@@ -155,9 +188,18 @@ namespace FileInOut.Input
                     }
                     //
                     id += loopElements[maxId].Count;
-                    foreach (var loopElement in loopElements[maxId]) elements.Add(loopElement.Id, loopElement);
+                    foreach (var loopElement in loopElements[maxId])
+                    {
+                        elements.Add(loopElement.Id, loopElement);
+                        AddMaterialName(elementIdMaterialName, loopElement.Id, materialName);
+                    }
                 }
             }
+        }
+        private static void AddMaterialName(Dictionary<int, string> elementIdMaterialName, int elementId,
+                                            string materialName)
+        {
+            if (elementIdMaterialName != null) elementIdMaterialName.Add(elementId, materialName);
         }
 
 

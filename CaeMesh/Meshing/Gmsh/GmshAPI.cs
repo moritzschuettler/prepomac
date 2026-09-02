@@ -796,7 +796,7 @@ namespace CaeMesh
                 }
                 //
                 int count = 0;
-                for (int i = 0; i < elementTags.Length; i++) count += elementTags[i].Length;
+                for (int i = 0; i < elementTags.Length; i++) if (elementTags[i] != null) count += elementTags[i].Length;
                 if (count == 0) return;
                 //
                 int index = 0;

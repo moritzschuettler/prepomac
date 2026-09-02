@@ -197,7 +197,8 @@ namespace PrePoMax.Forms
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
                 }
-                else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ThickenShellMesh || MeshSetupItem is LocalMeshSize ||
+                else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
+                         MeshSetupItem is ThickenShellMesh || MeshSetupItem is LocalMeshSize ||
                          MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh || MeshSetupItem is RevolveMesh)
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(MeshSetupItem.CreationIds);
@@ -232,6 +233,7 @@ namespace PrePoMax.Forms
                 if (itemTag is ViewMeshingParameters vmp) _viewMeshSetupItem = vmp;
                 else if (itemTag is ViewLocalMeshSize vlms) _viewMeshSetupItem = vlms;
                 else if (itemTag is ViewShellGmsh vsg) _viewMeshSetupItem = vsg;
+                else if (itemTag is ViewShellQuadWild vsqw) _viewMeshSetupItem = vsqw;
                 else if (itemTag is ViewThickenShellMesh vtsm) _viewMeshSetupItem = vtsm;
                 else if (itemTag is ViewTetrahedralGmsh vtg) _viewMeshSetupItem = vtg;
                 else if (itemTag is ViewTransfiniteMesh vtm) _viewMeshSetupItem = vtm;
@@ -243,6 +245,7 @@ namespace PrePoMax.Forms
                 ShowHideSelectionForm();
                 //
                 propertyGrid.SelectedObject = _viewMeshSetupItem;
+                btnPreview.Enabled = true;
                 //
                 HighlightMeshSetupItem();
             }
@@ -334,6 +337,7 @@ namespace PrePoMax.Forms
             propertyGrid.SelectedObject = null;
             _meshingParametersChanged = false;
             _controller.ClearAllSelection();
+            btnPreview.Enabled = true;
             //
             _meshSetupItemNames = _controller.GetMeshSetupItemNames();
             _meshSetupItemToEditName = meshSetupItemToEditName;
@@ -502,6 +506,7 @@ namespace PrePoMax.Forms
                     else throw new NotSupportedException();
                 }
                 else if (MeshSetupItem is ShellGmsh) _controller.SetSelectItemToPart();
+                else if (MeshSetupItem is ShellQuadWild) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ThickenShellMesh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TetrahedralGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TransfiniteMesh) _controller.SetSelectItemToPart();
@@ -519,7 +524,8 @@ namespace PrePoMax.Forms
             if (MeshSetupItem != null)
             {
                 if (MeshSetupItem is MeshingParameters || MeshSetupItem is LocalMeshSize ||
-                    MeshSetupItem is ShellGmsh  || MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
+                    MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
+                    MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
                     MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||
                     MeshSetupItem is RevolveMesh)
                 {
@@ -537,7 +543,8 @@ namespace PrePoMax.Forms
                     //
                     if (ids.Length != 0) HighlightMeshSetupItem(); // this will redraw the selection with correct backfaceCulling
                     // The highlight computes the revolve mesh properties - update
-                    if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
+                    if (_viewMeshSetupItem is ViewMeshingParameters vmp) vmp.UpdateVisibility(); // for mmg
+                    else if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
                     //
                     propertyGrid.Refresh();
                     //

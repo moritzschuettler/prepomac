@@ -144,6 +144,8 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\ModelChange\CalModelChange.cs" />
     <Compile Include="FileInOut\Output\Gmsh\GmshMshFileWriter.cs" />
     <Compile Include="FileInOut\Output\Mmg\MmgFileWriter.cs" />
+    <Compile Include="FileInOut\Output\QuadWild\QuadWildInputFileInfo.cs" />
+    <Compile Include="FileInOut\Output\QuadWild\QuadWildInputWriter.cs" />
     <Compile Include="FileInOut\Output\ThreeMF\ThreeMFFileWriter.cs" />
     <Compile Include="InitialConditions\InitialAngularVelocity.cs" />
     <Compile Include="InitialConditions\InitialTranslationalVelocity.cs" />

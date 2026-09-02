@@ -83,6 +83,8 @@ namespace PrePoMax
         public static string NetGenMesher = @"\Meshers\Netgen\NetGenMesher.exe";
         public static string MmgsMesher = @"\Meshers\Mmg\mmgs.exe";
         public static string Mmg3DMesher = @"\Meshers\Mmg\mmg3d.exe";
+        public static string QuadWildMesher = @"\Meshers\QuadWild\quadwild.exe";
+        public static string QuadWildPatchMesher = @"\Meshers\QuadWild\quad_from_patches.exe";
         public static string GmshCaller = @"\lib\GmshCaller.exe";
         public static string PythonDll = @"\Python\python312.dll";
         public static string BidirectionalMeshConverter = @"\Tools\BidirectionalMeshConverter.exe";
@@ -95,6 +97,12 @@ namespace PrePoMax
         public static string LocalMeshSizesFileName = "localMeshSizes";
         public static string GmshMeshFileName = "gmsh.msh";
         public static string GmshDataFileName = "gmshData";
+        public static string QuadWildGmshDataFileName = "quadwildGmshData";
+        public static string QuadWildGmshInpFileName = "quadwildTriangles.inp";
+        public static string QuadWildInputObjFileName = "quadwildInput.obj";
+        public static string QuadWildSharpFileName = "quadwildInput.sharp";
+        public static string QuadWildPrepConfigFileName = "quadwildPrep.txt";
+        public static string QuadWildFlowConfigFileName = "quadwildFlow.txt";
         public static string VolFileName = "geometry.vol";
         public static string MmgMeshFileName = "mesh.mesh";
         public static string InpMeshFileName = "mesh.inp";

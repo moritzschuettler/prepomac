@@ -142,6 +142,85 @@ namespace PrePoMax
             }
             else return false;
         }
+        public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
+                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        {
+            if (!part.IsCADPart)
+                throw new CaeException("Netgen cannot mesh an STL shell. It only accepts closed manifold STL " +
+                                       "geometry; select Gmsh or MMG for the QuadWild triangulation.");
+            MeshSetupItem[] setupItems = new MeshSetupItem[0];
+            return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems);
+        }
+        public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
+                                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+        {
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            if (part.PartType != PartType.Shell)
+                throw new CaeException("The QuadWild triangular pre-pass requires a shell geometry part.");
+            if (String.IsNullOrWhiteSpace(workDirectory) || !Directory.Exists(workDirectory))
+                throw new CaeException("The QuadWild work directory does not exist.");
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string geometryFileName = Path.Combine(workDirectory,
+                                                   part.IsCADPart ? Globals.BrepFileName : Globals.StlFileName);
+            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
+            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
+            string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
+            //
+            if (File.Exists(geometryFileName)) File.Delete(geometryFileName);
+            if (File.Exists(volFileName)) File.Delete(volFileName);
+            if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
+            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
+            if (File.Exists(edgeNodesFileName)) File.Delete(edgeNodesFileName);
+            //
+            _controller.SuppressExplodedView(new string[] { part.Name });
+            try
+            {
+                if (part.IsCADPart) File.WriteAllText(geometryFileName, part.CADFileData);
+                else FileInOut.Output.StlFileWriter.Write(geometryFileName, _controller.Model.Geometry,
+                                                          new string[] { part.Name });
+                _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
+                MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
+                meshingParameters.SecondOrder = false;
+                meshingParameters.QuadDominated = false;
+                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                if (!part.IsCADPart) _controller.Model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
+            }
+            finally
+            {
+                _controller.ResumeExplodedViews(false);
+            }
+            //
+            string argument;
+            if (part.IsCADPart)
+            {
+                argument = "BREP_MESH " +
+                           "\"" + geometryFileName.ToUTF8() + "\" " +
+                           "\"" + volFileName + "\" " +
+                           "\"" + meshParametersFileName + "\" " +
+                           "\"" + localMeshSizesFileName + "\"";
+            }
+            else
+            {
+                argument = "STL_MESH " +
+                           "\"" + geometryFileName + "\" " +
+                           "\"" + volFileName + "\" " +
+                           "\"" + meshParametersFileName + "\" " +
+                           "\"" + localMeshSizesFileName + "\" " +
+                           "\"" + edgeNodesFileName + "\"";
+            }
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                             _controller.Form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK)
+                throw new CaeException("Netgen could not create the triangular QuadWild input mesh.");
+            //
+            FeMesh mesh = _controller.Model.PrepareGeneratedMeshFromMeshFile(volFileName, part,
+                                                                              false, false, false);
+            if (mesh.Parts.Count != 1 || !mesh.Parts.ContainsKey(part.Name))
+                throw new CaeException("The Netgen QuadWild pre-pass produced an unexpected mesh part layout.");
+            return mesh;
+        }
         public GeneratedMeshData CreateMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems, string workDirectory)
         {
             string executable = Application.StartupPath + Globals.NetGenMesher;

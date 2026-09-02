@@ -113,6 +113,10 @@ namespace CaeGlobals
         {
             return Show(text, "Warning", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
         }
+        public static DialogResult ShowWarningQuestionYesNoCancel(string caption, string text)
+        {
+            return Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+        }
         public static DialogResult ShowWarningQuestionOKCancel(IWin32Window owner, string text)
         {
             return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);

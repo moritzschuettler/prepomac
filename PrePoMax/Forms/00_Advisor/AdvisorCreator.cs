@@ -48,6 +48,7 @@ namespace PrePoMax
         private static PanelPage Introduction(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "introduction";
             panelPage.Title = "Introduction";
             panelPage.AssociatedView = ViewType.Geometry;
             //
@@ -76,6 +77,7 @@ namespace PrePoMax
         private static PanelPage ImportGeometry(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "import_geometry";
             panelPage.Title = "Import Geometry";
             panelPage.AssociatedView = ViewType.Geometry;
             //
@@ -106,6 +108,7 @@ namespace PrePoMax
         private static PanelPage PrepareFeMesh(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "prepare_fe_mesh";
             panelPage.Title = "Prepare the FE Mesh";
             panelPage.AssociatedView = ViewType.Geometry;
             //
@@ -126,6 +129,7 @@ namespace PrePoMax
         private static PanelPage AssignMaterialProperties(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "assign_material_properties";
             panelPage.Title = "Assign Material Properties";
             panelPage.AssociatedView = ViewType.Model;
             //
@@ -162,6 +166,7 @@ namespace PrePoMax
         private static PanelPage SelectTheAnalysisType(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "select_analysis_type";
             panelPage.Title = "Select the Analysis Type";
             panelPage.AssociatedView = ViewType.Model;
             //
@@ -202,6 +207,7 @@ namespace PrePoMax
         private static PanelPage CreateTheBoundaryConditions(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "create_boundary_conditions";
             panelPage.Title = "Create the Boundary Conditions";
             panelPage.AssociatedView = ViewType.Model;
             //
@@ -234,6 +240,7 @@ namespace PrePoMax
         private static PanelPage DefineTheLoads(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "define_loads";
             panelPage.Title = "Define the Loads";
             panelPage.AssociatedView = ViewType.Model;
             //
@@ -274,6 +281,7 @@ namespace PrePoMax
         private static PanelPage RunTheAnalysis(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "run_analysis";
             panelPage.Title = "Run the Analysis";
             panelPage.AssociatedView = ViewType.Model;
             //
@@ -304,6 +312,7 @@ namespace PrePoMax
         private static PanelPage Results(FrmMain frmMain)
         {
             PanelPage panelPage = new PanelPage();
+            panelPage.Id = "results";
             panelPage.Title = "Results";
             panelPage.AssociatedView = ViewType.Results;
             //

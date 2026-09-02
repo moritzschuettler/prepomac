@@ -583,14 +583,29 @@ namespace FileInOut.Output
                         }
                         else if (element is LinearQuadrilateralElement || element is ParabolicQuadrilateralElement)
                         {
-                            triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
-                                                                     oldNodeIdNewId[element.NodeIds[1]],
-                                                                     oldNodeIdNewId[element.NodeIds[2]],
-                                                                     i + 1 });
-                            triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
-                                                                     oldNodeIdNewId[element.NodeIds[2]],
-                                                                     oldNodeIdNewId[element.NodeIds[3]],
-                                                                     i + 1 });
+                            if (SplitQuadByFirstDiagonal(mesh.Nodes[element.NodeIds[0]], mesh.Nodes[element.NodeIds[1]],
+                                                        mesh.Nodes[element.NodeIds[2]], mesh.Nodes[element.NodeIds[3]]))
+                            {
+                                triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                                                                         oldNodeIdNewId[element.NodeIds[1]],
+                                                                         oldNodeIdNewId[element.NodeIds[2]],
+                                                                         i + 1 });
+                                triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                                                                         oldNodeIdNewId[element.NodeIds[2]],
+                                                                         oldNodeIdNewId[element.NodeIds[3]],
+                                                                         i + 1 });
+                            }
+                            else
+                            {
+                                triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                                                                         oldNodeIdNewId[element.NodeIds[1]],
+                                                                         oldNodeIdNewId[element.NodeIds[3]],
+                                                                         i + 1 });
+                                triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[1]],
+                                                                         oldNodeIdNewId[element.NodeIds[2]],
+                                                                         oldNodeIdNewId[element.NodeIds[3]],
+                                                                         i + 1 });
+                            }
                             //
                             parabolic = element is ParabolicQuadrilateralElement;
                             //
@@ -946,6 +961,26 @@ namespace FileInOut.Output
                 midNodes.Add(ids, newNode);
             }
             return newNode;
+        }
+        private static bool SplitQuadByFirstDiagonal(FeNode n1, FeNode n2, FeNode n3, FeNode n4)
+        {
+            double firstDiagonalQuality = Math.Min(GetTriangleQuality(n1, n2, n3), GetTriangleQuality(n1, n3, n4));
+            double secondDiagonalQuality = Math.Min(GetTriangleQuality(n1, n2, n4), GetTriangleQuality(n2, n3, n4));
+            //
+            return firstDiagonalQuality >= secondDiagonalQuality;
+        }
+        private static double GetTriangleQuality(FeNode n1, FeNode n2, FeNode n3)
+        {
+            Vec3D v12 = new Vec3D(n2.X - n1.X, n2.Y - n1.Y, n2.Z - n1.Z);
+            Vec3D v13 = new Vec3D(n3.X - n1.X, n3.Y - n1.Y, n3.Z - n1.Z);
+            Vec3D v23 = new Vec3D(n3.X - n2.X, n3.Y - n2.Y, n3.Z - n2.Z);
+            //
+            double sumOfSquaredEdgeLengths = v12.Len2 + v13.Len2 + v23.Len2;
+            if (sumOfSquaredEdgeLengths <= 0) return 0;
+            //
+            double doubleArea = Vec3D.CrossProduct(v12, v13).Len;
+            //
+            return 2 * Math.Sqrt(3) * doubleArea / sumOfSquaredEdgeLengths;
         }
         private static double[] GetMidNodeCoor(FeNode n1, FeNode n2)
         {

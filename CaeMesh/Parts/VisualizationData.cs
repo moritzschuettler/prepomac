@@ -1605,6 +1605,31 @@ namespace CaeMesh
             }
             return false;
         }
+        public bool HasInconsistentCellOrientation()
+        {
+            if (_cells == null) return false;
+            //
+            int nodeId1;
+            int nodeId2;
+            int cornerNodeCount;
+            HashSet<long> orientedCellEdges = new HashSet<long>();
+            foreach (int[] cell in _cells)
+            {
+                if (cell.Length == 3 || cell.Length == 6) cornerNodeCount = 3;
+                else if (cell.Length == 4 || cell.Length == 8) cornerNodeCount = 4;
+                else throw new NotSupportedException();
+                //
+                for (int i = 0; i < cornerNodeCount; i++)
+                {
+                    nodeId1 = cell[i];
+                    nodeId2 = cell[(i + 1) % cornerNodeCount];
+                    if (nodeId1 == nodeId2) continue;
+                    // Two cells that traverse a shared edge in the same direction are oriented in the opposite way
+                    if (!orientedCellEdges.Add(((long)nodeId1 << 32) | (uint)nodeId2)) return true;
+                }
+            }
+            return false;
+        }
         // Flip normals
         public void FlipTriangleNormals()
         {

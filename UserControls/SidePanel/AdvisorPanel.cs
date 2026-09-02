@@ -24,6 +24,7 @@ namespace UserControls
         // Variables                                                                                                                
         protected LinkedListNode<PanelPage> _currentPageNode;
         protected LinkedList<PanelPage> _pages;
+        private bool _restoringState;
 
 
         // Properties                                                                                                               
@@ -32,6 +33,7 @@ namespace UserControls
         // Events                                                                                                                   
         public event Action<object, EventArgs> CloseButtonPressedEvent;
         public event Action<ViewType> SetViewEvent;
+        public event Action StateChanged;
 
 
         // Constructor                                                                                                              
@@ -93,6 +95,7 @@ namespace UserControls
             }
             //
             ShowCurrentPage();
+            OnStateChanged();
         }
         private void lnklabNext_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
@@ -104,12 +107,14 @@ namespace UserControls
             ShowCurrentPage();
             //
             ShowCurrentPage();
+            OnStateChanged();
         }
         private void lnklabContents_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             _currentPageNode = (LinkedListNode<PanelPage>)((LinkLabel)sender).Tag;
             //
             ShowCurrentPage();
+            OnStateChanged();
         }
        
 
@@ -123,7 +128,8 @@ namespace UserControls
             if (_currentPageNode == null) _currentPageNode = page;
         }
         override public void PrepareControls(ViewType viewType)
-        {            
+        {
+            string previousPageId = _currentPageNode == null ? null : _currentPageNode.Value.Id;
             int verticalOffset = 2;
             int horozontalOffset = 0;
             int y = 4;
@@ -167,10 +173,49 @@ namespace UserControls
             }
             //
             ShowCurrentPage();
+            if (_currentPageNode != null && previousPageId != _currentPageNode.Value.Id) OnStateChanged();
         }
         override public void UpdateDesign()
         {
             UpdateCurrentPageControlPositions();
+        }
+        public AdvisorPanelState CaptureState()
+        {
+            AdvisorPanelState state = new AdvisorPanelState();
+            if (_currentPageNode != null) state.PageId = _currentPageNode.Value.Id;
+            state.VerticalScrollPosition = Math.Max(0, -AutoScrollPosition.Y);
+            return state;
+        }
+        public void RestoreState(AdvisorPanelState state)
+        {
+            if (state == null) return;
+            //
+            _restoringState = true;
+            try
+            {
+                if (state.PageId != null)
+                {
+                    for (LinkedListNode<PanelPage> page = _pages.First; page != null; page = page.Next)
+                    {
+                        if (page.Value.Id == state.PageId)
+                        {
+                            _currentPageNode = page;
+                            break;
+                        }
+                    }
+                }
+                //
+                ShowCurrentPage();
+                AutoScrollPosition = new Point(0, state.VerticalScrollPosition);
+            }
+            finally
+            {
+                _restoringState = false;
+            }
+        }
+        private void OnStateChanged()
+        {
+            if (!_restoringState) StateChanged?.Invoke();
         }
         //
         private void ShowCurrentPage()

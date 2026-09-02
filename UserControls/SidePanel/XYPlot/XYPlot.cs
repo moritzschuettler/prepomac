@@ -30,8 +30,15 @@ namespace UserControls
         private const float _selectedCurveWidthIncrement = 2;
         private const int _dimmedCurveAlpha = 60;
         private const double _curveHitTolerance = 8;
-        private static readonly string[] _hiddenMenuItemTags = new string[] { "save_as", "page_setup", "print" };
+        private static readonly string[] _hiddenMenuItemTags = new string[]
+        {
+            "save_as", "page_setup", "print"
+        };
+        private const bool _defaultShowPointSymbols = true;
+        private const float _defaultFontSize = 12;
+        private const string _defaultFontFamily = "Segoe UI";
         private const float _pointSymbolSize = 6;
+        private int _maxCurveCount;
         private bool _showPointSymbols;
         private float _fontSize;
         private string _fontFamily;
@@ -45,6 +52,12 @@ namespace UserControls
         // Properties                                                                                                               
         public ZedGraphControl Graph { get { return zedGraph; } }
         public GraphPane Pane { get { return zedGraph.GraphPane; } }
+        public int CurveCount { get { return zedGraph.GraphPane.CurveList.Count; } }
+        public int MaxCurveCount
+        {
+            get { return _maxCurveCount; }
+            set { _maxCurveCount = value < 1 ? 1 : value; }
+        }
         public CurveItem SelectedCurve { get { return _selectedCurve; } set { SelectCurve(value); } }
         public bool ShowPointSymbols
         {
@@ -107,9 +120,10 @@ namespace UserControls
             SetStyle(ControlStyles.ResizeRedraw, true);
             //
             _closeButtonEnabled = true;
-            _showPointSymbols = true;
-            _fontSize = 12;
-            _fontFamily = "Segoe UI";
+            _maxCurveCount = 10;
+            _showPointSymbols = _defaultShowPointSymbols;
+            _fontSize = _defaultFontSize;
+            _fontFamily = _defaultFontFamily;
             _selectedCurve = null;
             _highlighted = false;
             _borderColor = SystemColors.ControlDark;
@@ -208,23 +222,28 @@ namespace UserControls
                 //
                 RemoveHiddenMenuItems(menuStrip);
                 //
-                if (zedGraph.GraphPane.CurveList.Count == 0) return;
-                //
                 int index = menuStrip.Items.Count;
                 menuStrip.Items.Insert(index++, new ToolStripSeparator());
                 //
                 CurveItem curve = GetCurveAtPoint(mousePt);
-                if (curve != null)
-                {
-                    ToolStripMenuItem tsmiDeleteCurve = new ToolStripMenuItem("Delete Curve");
-                    tsmiDeleteCurve.Tag = curve;
-                    tsmiDeleteCurve.Click += DeleteCurve_Click;
-                    menuStrip.Items.Insert(index++, tsmiDeleteCurve);
-                }
+                ToolStripMenuItem tsmiDeleteCurve = new ToolStripMenuItem("Delete Curve");
+                tsmiDeleteCurve.Tag = curve;
+                tsmiDeleteCurve.Enabled = curve != null;
+                tsmiDeleteCurve.Click += DeleteCurve_Click;
+                menuStrip.Items.Insert(index++, tsmiDeleteCurve);
                 //
                 ToolStripMenuItem tsmiDeleteAllCurves = new ToolStripMenuItem("Delete All Curves");
+                tsmiDeleteAllCurves.Enabled = zedGraph.GraphPane.CurveList.Count > 0;
                 tsmiDeleteAllCurves.Click += DeleteAllCurves_Click;
                 menuStrip.Items.Insert(index++, tsmiDeleteAllCurves);
+                //
+                ToolStripMenuItem tsmiResetSettings = new ToolStripMenuItem("Reset Settings");
+                tsmiResetSettings.Click += ResetSettings_Click;
+                menuStrip.Items.Insert(index++, tsmiResetSettings);
+                //
+                ToolStripMenuItem tsmiResetAll = new ToolStripMenuItem("Reset All");
+                tsmiResetAll.Click += ResetAll_Click;
+                menuStrip.Items.Insert(index++, tsmiResetAll);
             }
             catch
             {
@@ -257,6 +276,28 @@ namespace UserControls
             }
             catch
             {
+            }
+        }
+        private void ResetSettings_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ResetSettings();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void ResetAll_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ResetAll();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
             }
         }
         private void btnClose_Click(object sender, EventArgs e)
@@ -293,6 +334,8 @@ namespace UserControls
             pane.Fill = new Fill(Color.White);
             pane.Chart.Fill = new Fill(Color.White);
             zedGraph.MasterPane.Fill = new Fill(Color.White);
+            pane.XAxis.Title.Text = XYPlotSettings.DefaultXAxisTitle;
+            pane.YAxis.Title.Text = XYPlotSettings.DefaultYAxisTitle;
             //
             pane.Legend.Position = LegendPos.TopCenter;
             pane.Legend.Border.IsVisible = false;
@@ -307,9 +350,10 @@ namespace UserControls
             pane.XAxis.MinorGrid.IsVisible = false;
             pane.YAxis.MinorGrid.IsVisible = false;
         }
-        public void AddCurve(string curveName, double[] xValues, double[] yValues)
+        public bool AddCurve(string curveName, double[] xValues, double[] yValues)
         {
             GraphPane pane = zedGraph.GraphPane;
+            if (pane.CurveList.Count >= _maxCurveCount) return false;
             //
             Color color = _curveColors[pane.CurveList.Count % _curveColors.Length];
             LineItem curve = pane.AddCurve(curveName, xValues, yValues, color, SymbolType.None);
@@ -327,6 +371,65 @@ namespace UserControls
             pane.AxisChange();
             //
             zedGraph.Invalidate();
+            //
+            PlotChangedEvent?.Invoke(this);
+            return true;
+        }
+        public XYPlotState CaptureState()
+        {
+            XYPlotState state = new XYPlotState();
+            state.Settings = GetPlotSettings();
+            //
+            GraphPane pane = zedGraph.GraphPane;
+            foreach (CurveItem curve in pane.CurveList)
+            {
+                XYPlotCurveState curveState = new XYPlotCurveState();
+                int count = curve.Points == null ? 0 : curve.Points.Count;
+                double[] xValues = new double[count];
+                double[] yValues = new double[count];
+                for (int i = 0; i < count; i++)
+                {
+                    xValues[i] = curve.Points[i].X;
+                    yValues[i] = curve.Points[i].Y;
+                }
+                curveState.XValues = xValues;
+                curveState.YValues = yValues;
+                curveState.Settings = new XYPlotCurveSettings(GetCurveSettings(curve));
+                state.Curves.Add(curveState);
+            }
+            state.SelectedCurveIndex = _selectedCurve == null ? -1 : pane.CurveList.IndexOf(_selectedCurve);
+            return state;
+        }
+        public bool RestoreState(XYPlotState state)
+        {
+            if (state == null) return true;
+            //
+            bool allCurvesRestored = true;
+            Clear();
+            foreach (XYPlotCurveState curveState in state.Curves)
+            {
+                if (curveState == null) continue;
+                //
+                int count = Math.Min(curveState.XValues.Length, curveState.YValues.Length);
+                double[] xValues = new double[count];
+                double[] yValues = new double[count];
+                Array.Copy(curveState.XValues, xValues, count);
+                Array.Copy(curveState.YValues, yValues, count);
+                //
+                if (!AddCurve(curveState.Settings.Name, xValues, yValues))
+                {
+                    allCurvesRestored = false;
+                    break;
+                }
+                CurveItem curve = zedGraph.GraphPane.CurveList[zedGraph.GraphPane.CurveList.Count - 1];
+                ApplyCurveSettings(curve, curveState.Settings);
+            }
+            //
+            ApplyPlotSettings(state.Settings);
+            if (state.SelectedCurveIndex >= 0 && state.SelectedCurveIndex < zedGraph.GraphPane.CurveList.Count)
+                SelectCurve(zedGraph.GraphPane.CurveList[state.SelectedCurveIndex]);
+            else SelectCurve(null);
+            return allCurvesRestored;
         }
         private void SelectCurve(CurveItem curve)
         {
@@ -475,6 +578,49 @@ namespace UserControls
             //
             return settings;
         }
+        private XYPlotSettings GetDefaultPlotSettings()
+        {
+            XYPlotSettings settings = new XYPlotSettings();
+            settings.ShowPointSymbols = _defaultShowPointSymbols;
+            settings.FontSize = _defaultFontSize;
+            return settings;
+        }
+        public void ResetSettings()
+        {
+            GraphPane pane = zedGraph.GraphPane;
+            pane.ZoomStack.Clear();
+            //
+            bool curveSelectionChanged = _selectedCurve != null;
+            _selectedCurve = null;
+            //
+            for (int i = 0; i < pane.CurveList.Count; i++)
+            {
+                CurveItem curve = pane.CurveList[i];
+                XYPlotCurveSettings curveSettings = GetCurveSettings(curve);
+                string curveName = curveSettings.Name;
+                //
+                curveSettings.CopyFrom(new XYPlotCurveSettings());
+                curveSettings.Name = curveName;
+                curveSettings.Color = _curveColors[i % _curveColors.Length];
+                curveSettings.LineWidth = _curveWidth;
+                curve.Label.Text = GetSingleLineName(curveSettings.Name);
+            }
+            // Apply once so the plot emits a single changed event
+            ApplyPlotSettings(GetDefaultPlotSettings());
+            if (curveSelectionChanged) CurveSelectedEvent?.Invoke(this);
+        }
+        public void ResetAll()
+        {
+            GraphPane pane = zedGraph.GraphPane;
+            bool curveSelectionChanged = _selectedCurve != null;
+            //
+            pane.CurveList.Clear();
+            pane.GraphObjList.Clear();
+            _selectedCurve = null;
+            //
+            ResetSettings();
+            if (curveSelectionChanged) CurveSelectedEvent?.Invoke(this);
+        }
         private void ApplyPlotSettings(XYPlotSettings settings)
         {
             GraphPane pane = zedGraph.GraphPane;
@@ -512,6 +658,7 @@ namespace UserControls
                 pane.YAxis.Scale.Min = settings.YAxisMin;
                 pane.YAxis.Scale.Max = settings.YAxisMax;
             }
+            pane.AxisChange();
             //
             zedGraph.Invalidate();
             //
@@ -633,8 +780,8 @@ namespace UserControls
             if (pane.CurveList.Count == 0)
             {
                 pane.Legend.IsVisible = false;
-                pane.XAxis.Title.Text = "";
-                pane.YAxis.Title.Text = "";
+                pane.XAxis.Title.Text = XYPlotSettings.DefaultXAxisTitle;
+                pane.YAxis.Title.Text = XYPlotSettings.DefaultYAxisTitle;
             }
             pane.AxisChange();
             //

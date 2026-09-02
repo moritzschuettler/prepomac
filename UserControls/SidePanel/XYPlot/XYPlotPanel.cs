@@ -25,14 +25,33 @@ namespace UserControls
         private int _columnCount;
         private bool _sharedXValues;
         private bool _splitterDistanceInitialized;
+        private int _maxCurveCount;
         private List<XYPlot> _plots;
         private XYPlot _selectedPlot;
+        private bool _restoringState;
 
 
         // Properties                                                                                                               
         public DataGridViewCopyPaste Data { get { return dgvData; } }
-        public string Title { get { return labTitle.Text; } set { labTitle.Text = value; } }
+        public string Title
+        {
+            get { return labTitle.Text; }
+            set
+            {
+                labTitle.Text = value ?? "";
+                OnStateChanged();
+            }
+        }
         public int MaxPlotCount { get { return _maxPlotCount; } }
+        public int MaxCurveCount
+        {
+            get { return _maxCurveCount; }
+            set
+            {
+                _maxCurveCount = value < 1 ? 1 : value;
+                for (int i = 0; i < _plots.Count; i++) _plots[i].MaxCurveCount = _maxCurveCount;
+            }
+        }
         public int PlotCount { get { return _plots.Count; } }
         public XYPlot[] Plots { get { return _plots.ToArray(); } }
         public int ColumnCount
@@ -44,6 +63,7 @@ namespace UserControls
                 if (columnCount == _columnCount) return;
                 _columnCount = columnCount;
                 ArrangePlots();
+                OnStateChanged();
             }
         }
         public XYPlot SelectedPlot { get { return _selectedPlot; } set { SelectPlot(value); } }
@@ -53,6 +73,7 @@ namespace UserControls
         public event Action<object, EventArgs> CloseButtonPressedEvent;
         public event Action<XYPlot> PlotRemovedEvent;
         public event Action<XYPlot> SelectedPlotChangedEvent;
+        public event Action StateChanged;
 
 
         // Constructors                                                                                                             
@@ -63,6 +84,7 @@ namespace UserControls
             _columnCount = 1;
             _sharedXValues = true;
             _splitterDistanceInitialized = false;
+            _maxCurveCount = 10;
             _plots = new List<XYPlot>();
             _selectedPlot = null;
             //
@@ -70,6 +92,7 @@ namespace UserControls
             InitializeToolTips();
             //
             splitContainer.SizeChanged += splitContainer_SizeChanged;
+            splitContainer.SplitterMoved += splitContainer_SplitterMoved;
             dgvData.ColumnHeaderMouseClick += dgvData_ColumnHeaderMouseClick;
             dgvData.ColumnHeaderMouseDoubleClick += dgvData_ColumnHeaderMouseDoubleClick;
             //
@@ -155,6 +178,7 @@ namespace UserControls
         private void Plot_Changed(XYPlot plot)
         {
             if (plot == _selectedPlot) FillDataGrid(plot);
+            OnStateChanged();
         }
         private void dgvData_ColumnHeaderMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
         {
@@ -175,10 +199,15 @@ namespace UserControls
         private void Plot_CurveSelected(XYPlot plot)
         {
             if (plot == _selectedPlot) HighlightDataGridColumns(plot);
+            OnStateChanged();
         }
         private void splitContainer_SizeChanged(object sender, EventArgs e)
         {
             InitializeSplitterDistance();
+        }
+        private void splitContainer_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+            OnStateChanged();
         }
         private void dgvData_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
         {
@@ -225,6 +254,7 @@ namespace UserControls
             if (_plots.Count >= _maxPlotCount) return null;
             //
             XYPlot plot = new XYPlot();
+            plot.MaxCurveCount = _maxCurveCount;
             plot.CloseButtonPressedEvent += Plot_CloseButtonPressed;
             plot.SelectedEvent += Plot_Selected;
             plot.PlotChangedEvent += Plot_Changed;
@@ -255,6 +285,8 @@ namespace UserControls
             //
             if (_plots.Count == 0) AddPlot();
             else if (_selectedPlot == null) SelectPlot(_plots[0]);
+            //
+            OnStateChanged();
         }
         public void ResetPlots()
         {
@@ -272,6 +304,7 @@ namespace UserControls
             FillDataGrid(_selectedPlot);
             //
             SelectedPlotChangedEvent?.Invoke(_selectedPlot);
+            OnStateChanged();
         }
         private void ArrangePlots()
         {
@@ -323,6 +356,76 @@ namespace UserControls
         public void UpdateDataGrid()
         {
             FillDataGrid(_selectedPlot);
+        }
+        public XYPlotPanelState CaptureState()
+        {
+            XYPlotPanelState state = new XYPlotPanelState();
+            state.Title = Title;
+            state.ColumnCount = _columnCount;
+            state.SplitterRatio = GetSplitterRatio();
+            for (int i = 0; i < _plots.Count; i++) state.Plots.Add(_plots[i].CaptureState());
+            state.SelectedPlotIndex = _selectedPlot == null ? -1 : _plots.IndexOf(_selectedPlot);
+            return state;
+        }
+        public void RestoreState(XYPlotPanelState state)
+        {
+            if (state == null) return;
+            //
+            bool allCurvesRestored = true;
+            _restoringState = true;
+            try
+            {
+                labTitle.Text = state.Title;
+                int plotCount = Math.Max(1, Math.Min(_maxPlotCount, state.Plots.Count));
+                while (_plots.Count > plotCount) RemovePlot(_plots[_plots.Count - 1]);
+                while (_plots.Count < plotCount) AddPlot();
+                //
+                for (int i = 0; i < plotCount; i++)
+                {
+                    XYPlotState plotState = i < state.Plots.Count ? state.Plots[i] : new XYPlotState();
+                    if (!_plots[i].RestoreState(plotState)) allCurvesRestored = false;
+                }
+                //
+                ColumnCount = state.ColumnCount;
+                _selectedPlot = null;
+                int selectedPlotIndex = state.SelectedPlotIndex;
+                if (selectedPlotIndex < 0 || selectedPlotIndex >= _plots.Count) selectedPlotIndex = 0;
+                SelectPlot(_plots[selectedPlotIndex]);
+                SetSplitterRatio(state.SplitterRatio);
+                UpdateDataGrid();
+            }
+            finally
+            {
+                _restoringState = false;
+            }
+            //
+            if (!allCurvesRestored)
+            {
+                MessageBoxes.ShowWarning("Only the first " + _maxCurveCount + " curves of each XY plot were restored." +
+                                         Environment.NewLine +
+                                         " Use Settings → Post-processing to increase this value.");
+            }
+        }
+        private double GetSplitterRatio()
+        {
+            if (splitContainer.Height <= 0) return 0.5;
+            return splitContainer.SplitterDistance / (double)splitContainer.Height;
+        }
+        private void SetSplitterRatio(double ratio)
+        {
+            if (ratio <= 0 || ratio >= 1 || splitContainer.Height <= 0) return;
+            //
+            int distance = (int)Math.Round(splitContainer.Height * ratio);
+            int maximum = splitContainer.Height - splitContainer.Panel2MinSize - splitContainer.SplitterWidth;
+            if (maximum < splitContainer.Panel1MinSize) return;
+            //
+            distance = Math.Max(splitContainer.Panel1MinSize, Math.Min(maximum, distance));
+            splitContainer.SplitterDistance = distance;
+            _splitterDistanceInitialized = true;
+        }
+        private void OnStateChanged()
+        {
+            if (!_restoringState) StateChanged?.Invoke();
         }
         private void FillDataGrid(XYPlot plot)
         {

@@ -14,11 +14,14 @@ using ZedGraph;
 
 namespace UserControls
 {
+    [System.Serializable]
     public class XYPlotSettings : IXYPlotSettings
     {
         // Variables
+        public const string DefaultXAxisTitle = "X axis";
+        public const string DefaultYAxisTitle = "Y axis";
         private static readonly float[] _fontSizes = new float[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24 };
-        protected DynamicCustomTypeDescriptor _dctd = null;
+        [System.NonSerialized] protected DynamicCustomTypeDescriptor _dctd = null;
         private string _xAxisTitle;
         private bool _xAxisAutoScale;
         private double _xAxisMin;
@@ -150,11 +153,11 @@ namespace UserControls
         // Constructors
         public XYPlotSettings()
         {
-            _xAxisTitle = "";
+            _xAxisTitle = DefaultXAxisTitle;
             _xAxisAutoScale = true;
             _xAxisMin = 0;
             _xAxisMax = 1;
-            _yAxisTitle = "";
+            _yAxisTitle = DefaultYAxisTitle;
             _yAxisAutoScale = true;
             _yAxisMin = 0;
             _yAxisMax = 1;

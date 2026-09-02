@@ -25,6 +25,7 @@ namespace UserControls
     public class DataGridViewCopyPaste : DataGridView
     {
         // Variables                                                                                                                
+        private const string DataOnlyClipboardFormat = "PrePoMax.DataGridViewCopyPaste.DataOnly";
         private string _xColName;
         private bool _showErrorMsg;
         private Control _editControl;
@@ -474,7 +475,22 @@ namespace UserControls
             {
                 // Copy to clipboard
                 DataObject dataObj = GetClipboardContent();
-                if (dataObj != null) Clipboard.SetDataObject(dataObj);
+                if (dataObj != null)
+                {
+                    DataGridViewClipboardCopyMode clipboardCopyMode = ClipboardCopyMode;
+                    try
+                    {
+                        ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableWithoutHeaderText;
+                        DataObject dataOnlyObj = GetClipboardContent();
+                        if (dataOnlyObj != null)
+                            dataObj.SetData(DataOnlyClipboardFormat, dataOnlyObj.GetText());
+                    }
+                    finally
+                    {
+                        ClipboardCopyMode = clipboardCopyMode;
+                    }
+                    Clipboard.SetDataObject(dataObj);
+                }
             }
         }
         private void PasteClipboardValue()
@@ -488,7 +504,7 @@ namespace UserControls
             // Get the starting Cell
             DataGridViewCell startCell = GetStartCell();
             // Get the clipboard value in a dictionary
-            Dictionary<int, Dictionary<int, string>> cbValues = ClipboardValues(Clipboard.GetText());
+            Dictionary<int, Dictionary<int, string>> cbValues = ClipboardValues(GetClipboardText());
             //
             string valueString;
             int iRowIndex = startCell.RowIndex;
@@ -535,6 +551,17 @@ namespace UserControls
                 }
                 iRowIndex++;
             }
+        }
+        private string GetClipboardText()
+        {
+            IDataObject dataObj = Clipboard.GetDataObject();
+            if (dataObj != null && dataObj.GetDataPresent(DataOnlyClipboardFormat))
+            {
+                string dataOnlyText = dataObj.GetData(DataOnlyClipboardFormat) as string;
+                if (dataOnlyText != null) return dataOnlyText;
+            }
+            //
+            return Clipboard.GetText();
         }
         private DataGridViewCell GetStartCell()
         {
