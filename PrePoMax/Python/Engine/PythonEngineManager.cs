@@ -43,6 +43,10 @@ namespace PrePoMax.Python
         };
 
 
+        // Properties
+        public static bool Initialized { get { return _initialized; } }
+
+
         // Methods
         private static void Initialize()
         {
@@ -66,12 +70,28 @@ namespace PrePoMax.Python
             //
             using (Py.GIL())
             {
-                _scope = new PyDict();
-                dynamic code = Py.Import("code");
-                _console = code.InteractiveConsole(_scope);
+                CreateScopeAndConsole();
             }
             //
             _initialized = true;
+        }
+        private static void CreateScopeAndConsole()
+        {
+            _scope = new PyDict();
+            dynamic code = Py.Import("code");
+            _console = code.InteractiveConsole(_scope);
+        }
+        public static void ResetScope()
+        {
+            if (!_initialized) return;
+            //
+            using (Py.GIL())
+            {
+                if (_console != null) { _console.Dispose(); _console = null; }
+                if (_scope != null) { _scope.Dispose(); _scope = null; }
+                //
+                CreateScopeAndConsole();
+            }
         }
         //
         public static void SetResults(ResultsCollection results)

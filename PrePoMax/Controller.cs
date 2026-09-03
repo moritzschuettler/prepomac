@@ -16980,56 +16980,23 @@ namespace PrePoMax
                 //
                 int symbolSize = _settings.Pre.SymbolSize;
                 double fontScaleFactor = 0.9 * symbolSize / 50d;
-                double[] position;
-                double[] offsetVector;
-                string[] labels = null;
                 Color color = Color.Black;
-                if (coordinateSystem.Type == CoordinateSystemTypeEnum.Rectangular) labels = new string[] { "X", "Y", "Z" };
-                else if (coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical) labels = new string[] { "R", "T", "Z" };
-                // Axis 1
-                vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[0];
-                data.Color = Color.FromArgb(180, 4, 38);
-                data.Layer = layer;
-                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center().Coor };
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionX().Coor };
-                ApplyLighting(data);
-                _form.AddCoordinateAxis(data, symbolSize);
-                // Axis label 1
-                position = data.Geometry.Nodes.Coor[0];
-                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[0], color, position,
-                                      offsetVector, fontScaleFactor, layer);
-                // Axis 2
-                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[1];
-                data.Color = Color.FromArgb(33, 225, 38);
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY().Coor };
-                _form.AddCoordinateAxis(data, symbolSize);
-                // Axis label 2
-                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[1], color, position,
-                                      offsetVector, fontScaleFactor, layer);
-                // Axis 3
-                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[2];
-                data.Color = Color.FromArgb(58, 76, 192);
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ().Coor };
-                _form.AddCoordinateAxis(data, symbolSize);
-                // Axis label 3
-                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
-                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[2], color, position,
-                                      offsetVector, fontScaleFactor, layer);
+                string[] labels;
+                if (coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
+                    labels = new string[] { "R", "T", "Z" };
+                else labels = new string[] { "X", "Y", "Z" };
+                //
+                double[] origin = coordinateSystem.Center().Coor;
+                double[][] axisDirections = new double[][] { coordinateSystem.DirectionX().Coor,
+                                                             coordinateSystem.DirectionY().Coor,
+                                                             coordinateSystem.DirectionZ().Coor };
+                _form.AddCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize, layer);
                 // Name
                 if (coordinateSystem.NameVisible)
                 {
                     string caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
                     _form.AddCaptionActor("CS" + Globals.NameSeparator + coordinateSystem.Name + "_name", caption, color,
-                                          position, null, fontScaleFactor, layer);
+                                          origin, null, fontScaleFactor, layer);
                 }
                 //
                 _form.AdjustCameraDistanceAndClipping();

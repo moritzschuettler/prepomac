@@ -33,31 +33,16 @@ namespace vtkControl
     class vtkMaxCoorSysWidget : vtkMaxBorderWidget
     {
         // Variables                                                                                                                
-        private const int NumOfAxes = 3;
-        private const int NumOfEnds = 2 * NumOfAxes;
-        private const int NumOfCircleSegments = 24;
+        private const int NumOfAxes = vtkMaxCoorSysGeometry.NumOfAxes;
+        private const int NumOfEnds = vtkMaxCoorSysGeometry.NumOfEnds;
         //
-        private double _shaftLength;
-        private double _negativeShaftLength;
-        private double _negativeOpacity;
-        private double _coneHeight;
-        private double _coneRadius;
-        private double _negativeEndRadius;
-        private double _originRadius;
+        private vtkMaxCoorSysGeometry _geometry;
         private double _positiveHitRadius;
         private double _negativeHitRadius;
         private double _originHitRadius;
-        private double _labelGap;
         private double _boundsPadding;
-        private double _dimFactor;
-        private double[] _dimColor;
-        private double[][] _axisColors;
-        private double[][] _endDirections;
-        private double[][] _endPositions;
-        private double[] _endDepths;
         private int[][] _labelSizes;
         private uint _cameraModifiedTime;
-        private bool _negativeAxesVisible;
         private bool _geometryGenerated;
         private bool _hovered;
         private vtkMaxCoorSysTarget _pressedTarget;
@@ -80,40 +65,19 @@ namespace vtkControl
         // Constructors                                                                                                             
         public vtkMaxCoorSysWidget()
         {
-            _shaftLength = 45;
-            _negativeShaftLength = 2 * _shaftLength / 3;
-            _negativeOpacity = 0.5;
-            _coneHeight = 14;
-            _coneRadius = 3.5;
-            _originRadius = 3.5;
-            _negativeEndRadius = _originRadius;
+            _geometry = new vtkMaxCoorSysGeometry();
             _positiveHitRadius = 11;
             _negativeHitRadius = 8;
             _originHitRadius = 7;
-            _labelGap = 6;
             _boundsPadding = 5;
-            _dimFactor = 0.35;
-            _dimColor = new double[] { 0.35, 0.35, 0.35 };
-            _axisColors = new double[][] { new double[] { 0.706, 0.016, 0.150 },
-                                           new double[] { 0.130, 0.806, 0.150 },
-                                           new double[] { 0.230, 0.299, 0.754 } };
             //
-            _endDirections = new double[NumOfEnds][];
-            _endPositions = new double[NumOfEnds][];
-            _endDepths = new double[NumOfEnds];
-            for (int i = 0; i < NumOfEnds; i++)
-            {
-                _endDirections[i] = new double[2];
-                _endPositions[i] = new double[2];
-            }
             _labelSizes = new int[NumOfAxes][];
             _cameraModifiedTime = 0;
-            _negativeAxesVisible = false;
             _geometryGenerated = false;
             _hovered = false;
             _pressedTarget = vtkMaxCoorSysTarget.None;
             //
-            double side = 2 * (_shaftLength + _coneRadius + 2);
+            double side = 2 * (_geometry.ShaftLength + _geometry.ConeRadius + 2);
             _size[0] = side;
             _size[1] = side;
             //
@@ -197,68 +161,34 @@ namespace vtkControl
             if (!force && _geometryGenerated && cameraModifiedTime == _cameraModifiedTime) return;
             _cameraModifiedTime = cameraModifiedTime;
             //
-            ComputeEndProjections();    // must be before all the rest
+            ComputeEndProjections(camera);    // must be before all the rest
             GenerateShafts();
             GenerateEnds();
             PositionLabels();
             //
             _geometryGenerated = true;
         }
-        private void ComputeEndProjections()
+        private void ComputeEndProjections(vtkCamera camera)
         {
-            double[] viewPlaneNormal = new double[] { 0, 0, 1 };
-            double[] viewUp = new double[] { 0, 1, 0 };
-            vtkCamera camera = _renderer.GetActiveCamera();
-            if (camera != null)
-            {
-                viewPlaneNormal = camera.GetViewPlaneNormal();  // points from the focal point towards the camera
-                viewUp = camera.GetViewUp();
-            }
-            double[] right = NormalizedCrossProduct(viewUp, viewPlaneNormal, new double[] { 1, 0, 0 });
-            double[] up = NormalizedCrossProduct(viewPlaneNormal, right, new double[] { 0, 1, 0 });
-            double[] center = GetLocalCenter();
-            //
-            for (int axisId = 0; axisId < NumOfAxes; axisId++)
-            {
-                for (int signId = 0; signId < 2; signId++)
-                {
-                    int endId = GetEndId(axisId, signId);
-                    double sign = signId == 0 ? 1 : -1;
-                    double shaftLength = IsPositiveEnd(endId) ? _shaftLength : _negativeShaftLength;
-                    //
-                    _endDirections[endId][0] = sign * right[axisId];
-                    _endDirections[endId][1] = sign * up[axisId];
-                    _endDepths[endId] = sign * viewPlaneNormal[axisId];
-                    //
-                    _endPositions[endId][0] = center[0] + shaftLength * _endDirections[endId][0];
-                    _endPositions[endId][1] = center[1] + shaftLength * _endDirections[endId][1];
-                }
-            }
+            double[] right;
+            double[] up;
+            double[] viewPlaneNormal;
+            vtkMaxCoorSysGeometry.GetCameraBasis(camera, out right, out up, out viewPlaneNormal);
+            // The widget always shows the global axes at the center of its own display rectangle
+            _geometry.Update(GetLocalCenter(), 0, vtkMaxCoorSysGeometry.GlobalAxes, right, up, viewPlaneNormal);
         }
         private void GenerateShafts()
         {
-            double[] center = GetLocalCenter();
-            //
             vtkPoints points = vtkPoints.New();
             vtkCellArray lines = vtkCellArray.New();
             vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
             colors.SetNumberOfComponents(4);
-            //
-            points.InsertNextPoint(center[0], center[1], 0);
-            for (int endId = 0; endId < NumOfEnds; endId++)
-            {
-                points.InsertNextPoint(_endPositions[endId][0], _endPositions[endId][1], 0);
-            }
             // The ends closer to the viewer must be drawn over the ends behind them
-            foreach (int endId in GetEndIdsSortedByDepth())
+            foreach (int endId in _geometry.GetEndIdsSortedByDepth())
             {
-                if (!IsEndVisible(endId)) continue;
+                if (!_geometry.IsEndVisible(endId)) continue;
                 //
-                lines.InsertNextCell(2);
-                lines.InsertCellPoint(0);
-                lines.InsertCellPoint(endId + 1);
-                //
-                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
+                _geometry.AppendShaft(points, lines, colors, endId);
             }
             //
             vtkPolyData shaftPolyData = _shaftMapper.GetInput();
@@ -274,24 +204,13 @@ namespace vtkControl
             vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
             colors.SetNumberOfComponents(4);
             //
-            InsertDisk(points, polygons, GetLocalCenter(), _originRadius);
-            InsertColor(colors, _dimColor, 1);
+            _geometry.AppendOrigin(points, polygons, colors);
             // The ends closer to the viewer must be drawn over the ends behind them
-            foreach (int endId in GetEndIdsSortedByDepth())
+            foreach (int endId in _geometry.GetEndIdsSortedByDepth())
             {
-                if (!IsEndVisible(endId)) continue;
+                if (!_geometry.IsEndVisible(endId)) continue;
                 //
-                if (IsPositiveEnd(endId))
-                {
-                    InsertCone(points, polygons, endId);
-                    InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-                    InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-                }
-                else
-                {
-                    InsertDisk(points, polygons, _endPositions[endId], _negativeEndRadius);
-                    InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
-                }
+                _geometry.AppendEnd(points, polygons, colors, endId);
             }
             //
             vtkPolyData endPolyData = _endMapper.GetInput();
@@ -304,63 +223,9 @@ namespace vtkControl
         {
             for (int axisId = 0; axisId < NumOfAxes; axisId++)
             {
-                int endId = GetEndId(axisId, 0);
-                int[] labelSize = GetLabelSize(axisId);
-                double[] direction = GetNormalizedEndDirection(endId);
-                double distance = _labelGap + Math.Max(labelSize[0], labelSize[1]) / 2.0;
-                //
-                double[] labelCenter = new double[] { _endPositions[endId][0] + distance * direction[0],
-                                                      _endPositions[endId][1] + distance * direction[1] };
-                //
-                _labelActors[axisId].GetPositionCoordinate().SetValue(labelCenter[0] - labelSize[0] / 2.0,
-                                                                      labelCenter[1] - labelSize[1] / 2.0);
+                double[] labelPosition = _geometry.GetLabelPosition(axisId, GetLabelSize(axisId));
+                _labelActors[axisId].GetPositionCoordinate().SetValue(labelPosition[0], labelPosition[1]);
             }
-        }
-        private void InsertCone(vtkPoints points, vtkCellArray polygons, int endId)
-        {
-            double[] direction = GetNormalizedEndDirection(endId);
-            double[] normal = new double[] { -direction[1], direction[0] };
-            double[] apex = _endPositions[endId];
-            double[] baseCenter = GetConeBaseCenter(endId);
-            // The projection of the base circle is an ellipse that is foreshortened along the axis
-            double semiAxis = _coneRadius * Math.Abs(_endDepths[endId]);
-            //
-            long firstPointId = points.GetNumberOfPoints();
-            polygons.InsertNextCell(NumOfCircleSegments);
-            for (int i = 0; i < NumOfCircleSegments; i++)
-            {
-                double angle = 2 * Math.PI * i / NumOfCircleSegments;
-                double alongAxis = semiAxis * Math.Cos(angle);
-                double alongNormal = _coneRadius * Math.Sin(angle);
-                points.InsertNextPoint(baseCenter[0] + alongAxis * direction[0] + alongNormal * normal[0],
-                                       baseCenter[1] + alongAxis * direction[1] + alongNormal * normal[1], 0);
-                polygons.InsertCellPoint(firstPointId + i);
-            }
-            //
-            firstPointId = points.GetNumberOfPoints();
-            points.InsertNextPoint(apex[0], apex[1], 0);
-            points.InsertNextPoint(baseCenter[0] + _coneRadius * normal[0], baseCenter[1] + _coneRadius * normal[1], 0);
-            points.InsertNextPoint(baseCenter[0] - _coneRadius * normal[0], baseCenter[1] - _coneRadius * normal[1], 0);
-            polygons.InsertNextCell(3);
-            for (int i = 0; i < 3; i++) polygons.InsertCellPoint(firstPointId + i);
-        }
-        private void InsertDisk(vtkPoints points, vtkCellArray polygons, double[] diskCenter, double radius)
-        {
-            long firstPointId = points.GetNumberOfPoints();
-            //
-            polygons.InsertNextCell(NumOfCircleSegments);
-            for (int i = 0; i < NumOfCircleSegments; i++)
-            {
-                double angle = 2 * Math.PI * i / NumOfCircleSegments;
-                points.InsertNextPoint(diskCenter[0] + radius * Math.Cos(angle),
-                                       diskCenter[1] + radius * Math.Sin(angle), 0);
-                polygons.InsertCellPoint(firstPointId + i);
-            }
-        }
-        private void InsertColor(vtkUnsignedCharArray colors, double[] color, double opacity)
-        {
-            colors.InsertNextTuple4(Math.Round(255 * color[0]), Math.Round(255 * color[1]),
-                                    Math.Round(255 * color[2]), Math.Round(255 * opacity));
         }
         //
         private int[] GetLabelSize(int axisId)
@@ -394,58 +259,15 @@ namespace vtkControl
             //
             return new double[] { Math.Floor(position[0]), Math.Floor(position[1]) };
         }
-        private double[] GetNormalizedEndDirection(int endId)
-        {
-            double[] direction = _endDirections[endId];
-            double length = Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1]);
-            // The axis points towards or away from the viewer and has no projected direction
-            if (length < 0.05) return new double[] { 0.7071, -0.7071 };
-            //
-            return new double[] { direction[0] / length, direction[1] / length };
-        }
-        private double[] GetConeBaseCenter(int endId)
-        {
-            return new double[] { _endPositions[endId][0] - _coneHeight * _endDirections[endId][0],
-                                  _endPositions[endId][1] - _coneHeight * _endDirections[endId][1] };
-        }
-        private double[] GetEndTargetPosition(int endId)
-        {
-            if (!IsPositiveEnd(endId)) return _endPositions[endId];
-            // The cone is the only clickable part of a positive axis
-            double[] baseCenter = GetConeBaseCenter(endId);
-            //
-            return new double[] { (_endPositions[endId][0] + baseCenter[0]) / 2,
-                                  (_endPositions[endId][1] + baseCenter[1]) / 2 };
-        }
         private double GetEndHitRadius(int endId)
         {
-            return IsPositiveEnd(endId) ? _positiveHitRadius : _negativeHitRadius;
-        }
-        private double GetEndOpacity(int endId)
-        {
-            return IsPositiveEnd(endId) ? 1 : _negativeOpacity;
-        }
-        private double[] GetEndColor(int endId)
-        {
-            double[] color = _axisColors[endId / 2];
-            double factor = _dimFactor * (1 - _endDepths[endId]);
-            //
-            return new double[] { color[0] + (_dimColor[0] - color[0]) * factor,
-                                  color[1] + (_dimColor[1] - color[1]) * factor,
-                                  color[2] + (_dimColor[2] - color[2]) * factor };
-        }
-        private int[] GetEndIdsSortedByDepth()
-        {
-            int[] endIds = new int[NumOfEnds];
-            for (int i = 0; i < NumOfEnds; i++) endIds[i] = i;
-            //
-            return endIds.OrderBy(endId => _endDepths[endId]).ToArray();
+            return vtkMaxCoorSysGeometry.IsPositiveEnd(endId) ? _positiveHitRadius : _negativeHitRadius;
         }
         private double[] GetTargetLocalPosition(vtkMaxCoorSysTarget target)
         {
             if (target == vtkMaxCoorSysTarget.Origin) return GetLocalCenter();
             //
-            return GetEndTargetPosition(GetEndId(target));
+            return _geometry.GetEndTargetPosition(GetEndId(target));
         }
         private double GetTargetHitRadius(vtkMaxCoorSysTarget target)
         {
@@ -454,36 +276,13 @@ namespace vtkControl
             return GetEndHitRadius(GetEndId(target));
         }
         //
-        private static double[] NormalizedCrossProduct(double[] first, double[] second, double[] onFailure)
-        {
-            double[] product = new double[] { first[1] * second[2] - first[2] * second[1],
-                                              first[2] * second[0] - first[0] * second[2],
-                                              first[0] * second[1] - first[1] * second[0] };
-            double length = Math.Sqrt(product[0] * product[0] + product[1] * product[1] + product[2] * product[2]);
-            if (length < 1E-12) return onFailure;
-            //
-            return new double[] { product[0] / length, product[1] / length, product[2] / length };
-        }
-        private bool IsEndVisible(int endId)
-        {
-            return IsPositiveEnd(endId) || _negativeAxesVisible;
-        }
         private bool SetNegativeAxesVisible(bool visible)
         {
-            if (_negativeAxesVisible == visible) return false;
+            if (!_geometry.SetNegativeAxesVisible(visible)) return false;
             //
-            _negativeAxesVisible = visible;
             GenerateGeometry(true);
             //
             return true;
-        }
-        private static bool IsPositiveEnd(int endId)
-        {
-            return endId % 2 == 0;
-        }
-        private static int GetEndId(int axisId, int signId)
-        {
-            return 2 * axisId + signId;
         }
         private static int GetEndId(vtkMaxCoorSysTarget target)
         {
@@ -531,15 +330,16 @@ namespace vtkControl
             int closestEndId = -1;
             for (int endId = 0; endId < NumOfEnds; endId++)
             {
-                if (!IsEndVisible(endId)) continue;
+                if (!_geometry.IsEndVisible(endId)) continue;
                 //
-                double[] endTargetPosition = GetEndTargetPosition(endId);
+                double[] endTargetPosition = _geometry.GetEndTargetPosition(endId);
                 double hitRadius = GetEndHitRadius(endId);
                 double dx = position[0] + endTargetPosition[0] - x;
                 double dy = position[1] + endTargetPosition[1] - y;
                 if (dx * dx + dy * dy > hitRadius * hitRadius) continue;
                 //
-                if (closestEndId < 0 || _endDepths[endId] > _endDepths[closestEndId]) closestEndId = endId;
+                if (closestEndId < 0 || _geometry.GetEndDepth(endId) > _geometry.GetEndDepth(closestEndId))
+                    closestEndId = endId;
             }
             if (closestEndId >= 0) return GetTarget(closestEndId);
             //
@@ -702,7 +502,7 @@ namespace vtkControl
             // A square that contains the axis labels in any view orientation
             double[] position = GetDisplayPosition();
             double[] center = GetLocalCenter();
-            double halfSide = _shaftLength + _labelGap + GetMaxLabelSize() + _boundsPadding;
+            double halfSide = _geometry.ShaftLength + _geometry.LabelGap + GetMaxLabelSize() + _boundsPadding;
             double centerX = position[0] + center[0];
             double centerY = position[1] + center[1];
             //

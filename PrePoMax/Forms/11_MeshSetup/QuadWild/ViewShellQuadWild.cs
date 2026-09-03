@@ -52,7 +52,10 @@ namespace PrePoMax.Forms
                               "triangulation when Remesh input is No, or the QuadWild-remeshed triangulation when " +
                               "Remesh input is Yes.")]
         [Id(2, 3)]
-        public bool Preview { get { return _shellQuadWild.Preview; } set { _shellQuadWild.Preview = value; } }
+        public bool Preview
+        {
+            get { return _shellQuadWild.Preview; }
+            set { _shellQuadWild.Preview = value; UpdateVisibility(); } }
         //
         [CategoryAttribute("Preparation")]
         [OrderedDisplayName(0, 10, "Remesh input")]
@@ -119,6 +122,8 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(Preview));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Remesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Smooth));
+            //
+            UpdateVisibility();
         }
 
 
@@ -126,6 +131,15 @@ namespace PrePoMax.Forms
         public override MeshSetupItem GetBase()
         {
             return _shellQuadWild;
+        }
+        private void UpdateVisibility()
+        {
+            bool visible = !_shellQuadWild.Preview;
+            _dctd.GetProperty(nameof(Remesh)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(FlowProfile)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(ScaleFactor)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(Alpha)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(Smooth)).SetIsBrowsable(visible);
         }
     }
 }

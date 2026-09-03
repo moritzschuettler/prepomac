@@ -2910,7 +2910,10 @@ namespace PrePoMax
                 _advisorPanelStateApplied = false;
                 //
                 if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.Python)
+                {
+                    UpdatePythonEngine(true);
                     ShowSidePanel(GetPythonPanel(), 0.5, 100, 1000, false);
+                }
                 else if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.XYPlot) ShowXYPlotPanel();
                 else if (_sidePanelsState.VisiblePanel == SidePanelTypeEnum.Advisor)
                     ShowSidePanel(GetAdvisorPanel(), 0.2, 100, 300, true);
@@ -2947,6 +2950,13 @@ namespace PrePoMax
         {
             if (_visibleSidePanel is PythonPanel || forceUpdate)
                 PythonEngineManager.SetResults(_controller.AllResults, _controller);
+        }
+        private void ResetPythonEngineContext()
+        {
+            if (!PythonEngineManager.Initialized) return;
+            //
+            PythonEngineManager.ResetScope();
+            UpdatePythonEngine(true);
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
@@ -10752,6 +10762,7 @@ namespace PrePoMax
                 ClearItemIdsStatus();
                 _selectedSymbolIndex = new Dictionary<ViewGeometryModelResults, int>();
                 InvokeIfRequired(ResetSidePanelsState);
+                InvokeIfRequired(ResetPythonEngineContext);
             });
         }
         public void ClearResults()
@@ -11032,9 +11043,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddSphereActor, actorData, symbolSize);
         }
-        public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
+        public void AddCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
+                                              double symbolSize, vtkRendererLayer layer)
         {
-            InvokeIfRequired(_vtk.AddCoordinateAxis, data, symbolSize);
+            InvokeIfRequired(_vtk.AddCoordinateSystemSymbol, origin, axisDirections, labels, symbolSize, layer);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)

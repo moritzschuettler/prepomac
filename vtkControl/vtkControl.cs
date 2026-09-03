@@ -76,6 +76,8 @@ namespace vtkControl
         private const int VtkCursorHand = 9;
         private const int CoorSysWidgetMargin = 24;
         private vtkMaxCoorSysWidget _coorSysWidget;
+        private vtkMaxCoorSysSymbols _coorSysSymbols;
+        private vtkMaxCoorSysSymbols _coorSysSelectionSymbols;
         private vtkMaxScaleWidget _scaleWidget;
         private vtkLookupTable _lookupTable;
         private vtkMaxScalarBarWidget _scalarBarWidget;
@@ -2154,6 +2156,15 @@ namespace vtkControl
             _coorSysWidget.TargetClicked += coorSysWidget_TargetClicked;
             _coorSysWidget.HoverChanged += coorSysWidget_HoverChanged;
             SetCoorSysVisibility(_drawCoorSys);
+            // Model coordinate systems
+            _coorSysSymbols = new vtkMaxCoorSysSymbols();
+            _coorSysSymbols.SetTextProperty(CreateNewTextProperty());
+            _coorSysSymbols.SetRenderer(_overlayRenderer);
+            //
+            _coorSysSelectionSymbols = new vtkMaxCoorSysSymbols();
+            _coorSysSelectionSymbols.SetTextProperty(CreateNewTextProperty());
+            _coorSysSelectionSymbols.SetOverrideColor(_primaryHighlightColor);
+            _coorSysSelectionSymbols.SetRenderer(_selectionRenderer);
 
             // Add the actors to the scene
             //Hexahedron();
@@ -3824,85 +3835,14 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
-        public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
+        public void AddCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
+                                              double symbolSize, vtkRendererLayer layer)
         {
-            double relativeSize = 1;
-            //
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
-            // Points
-            vtkPoints pointData = vtkPoints.New();
-            pointData.InsertNextPoint(data.Geometry.Nodes.Coor[0][0], data.Geometry.Nodes.Coor[0][1],
-                                      data.Geometry.Nodes.Coor[0][2]);
-            // Normals
-            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
-            pointNormalsArray.SetNumberOfComponents(3);
-            pointNormalsArray.InsertNextTuple3(data.Geometry.Nodes.Normals[0][0], data.Geometry.Nodes.Normals[0][1],
-                                               data.Geometry.Nodes.Normals[0][2]);
-            // Poly data
-            vtkPolyData polyData = vtkPolyData.New();
-            polyData.SetPoints(pointData);
-            polyData.GetPointData().SetNormals(pointNormalsArray);
-            // Calculate the distance to the camera of each point.
-            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
-            distanceToCamera.SetInput(polyData);
-            distanceToCamera.SetScreenSize(symbolSize * relativeSize);
-            distanceToCamera.SetRenderer(_renderer);
-            // Line
-            vtkLineSource line = vtkLineSource.New();
-            line.SetPoint1(0, 0, 0);
-            line.SetPoint2(1 * relativeSize, 0, 0);
-            // Cone
-            vtkConeSource cone = vtkConeSource.New();
-            cone.SetCenter(0.9 * relativeSize, 0, 0);
-            cone.SetHeight(0.2 * relativeSize);
-            cone.SetRadius(0.08 * relativeSize);
-            cone.SetResolution(31);
-            // Append
-            vtkAppendPolyData append = vtkAppendPolyData.New();
-            append.AddInput(line.GetOutput());
-            append.AddInput(cone.GetOutput());
-            // Triangulation helps with silhouette edges and 3mf export
-            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
-            triangleFilter.SetInput(append.GetOutput());
-            triangleFilter.Update();
-            // Compute normals
-            vtkPolyDataNormals appendNormals = vtkPolyDataNormals.New();
-            appendNormals.SetInput(triangleFilter.GetOutput());
-            appendNormals.Update();
-            // Transform
-            vtkTransform transform = vtkTransform.New();
-            // Transform filter
-            vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(triangleFilter.GetOutput());
-            transformFilter.SetTransform(transform);
-            // Glyph
-            vtkGlyph3D glyph = vtkGlyph3D.New();
-            glyph.SetSourceConnection(transformFilter.GetOutputPort());
-            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
-            glyph.SetVectorModeToUseNormal();
-            // Scale
-            glyph.ScalingOn();
-            glyph.SetScaleModeToScaleByScalar();
-            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
-            glyph.SetScaleFactor(1.0);
-            glyph.OrientOn();
-            glyph.Update();
-            // Mapper
-            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
-            mapper.SetInputConnection(0, glyph.GetOutputPort());
-            mapper.ScalarVisibilityOff();
-            // Actor
-            data.Name += Globals.NameSeparator + "axis";
             //
-            data.LineWidth = 2;
-            vtkMaxActor actor = new vtkMaxActor(data, mapper);
-            actor.Color = data.Color;
-            actor.GeometryProperty.SetRepresentationToSurface();
-            // Add
-            ApplySymbolFormattingToActor(actor);
-            AddActorGeometry(actor, data.Layer);
-            //
-            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            if (layer == vtkRendererLayer.Selection)
+                _coorSysSelectionSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
+            else _coorSysSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
@@ -6523,6 +6463,8 @@ namespace vtkControl
             _primaryHighlightColor = primaryHighlightColor;
             _secondaryHighlightColor = secondaryHighlightColor;
             //
+            if (_coorSysSelectionSymbols != null) _coorSysSelectionSymbols.SetOverrideColor(_primaryHighlightColor);
+            //
             Color highlightColor;
             foreach (var actor in _selectedActors)
             {
@@ -8022,6 +7964,7 @@ namespace vtkControl
             _captionActorAddedToSelection = false;
             //
             _selectedActors.Clear();
+            if (_coorSysSelectionSymbols != null) _coorSysSelectionSymbols.Clear();
             //
             RenderScene();
         }
@@ -8063,6 +8006,7 @@ namespace vtkControl
             _overlayActors.Clear();
             _measurementArrowInputs.Clear();
             _measurementArrowSymbolSizes.Clear();
+            if (_coorSysSymbols != null) _coorSysSymbols.Clear();
             //
             RenderScene();
         }

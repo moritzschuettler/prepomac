@@ -104,6 +104,9 @@
     <Compile Include="vtkMax\Animation\vtkMaxAnimationFrameData.cs" />
     <Compile Include="vtkMax\Actor\vtkMaxExtreemeNode.cs" />
     <Compile Include="vtkMax\Animation\vtkMaxActorAnimationData.cs" />
+    <Compile Include="vtkMax\CoorSys\00_vtkMaxCoorSysGeometry.cs" />
+    <Compile Include="vtkMax\CoorSys\01_vtkMaxCoorSysSymbol.cs" />
+    <Compile Include="vtkMax\CoorSys\vtkMaxCoorSysSymbols.cs" />
     <Compile Include="vtkMax\ColorSpectrum\vtkMaxColorSpectrum.cs" />
     <Compile Include="vtkMax\LookupTable\vtkMaxLookupTable.cs" />
     <Compile Include="vtkMax\Widget\00_vtkMaxWidgetHighlight.cs" />
