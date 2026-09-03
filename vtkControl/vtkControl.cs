@@ -335,7 +335,7 @@ namespace vtkControl
         public Action<MouseEventArgs, Keys, string, Rectangle> Form_WidgetPicked;
         public Action<bool, Rectangle, string, double, double> Form_EditLegendValue;
         public Action<vtkResultWidgetContextMenuTypeEnum, bool, System.Drawing.Point> Form_ShowResultWidgetContextMenu;
-        public Action<System.Drawing.Point> Form_ShowCoorSysContextMenu;
+        public Action<System.Drawing.Point> Form_ShowViewportContextMenu;
         public Action Form_ShowColorBarSettings;
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
@@ -896,12 +896,6 @@ namespace vtkControl
         }
         private void style_RightButtonPressEvent(object sender, MouseEventArgs e)
         {
-            // The coordinate system is a navigation widget and is always interactive
-            if (sender is vtkMaxCoorSysWidget)
-            {
-                Form_ShowCoorSysContextMenu?.Invoke(e.Location);
-                return;
-            }
             // Off
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget) return;
@@ -939,6 +933,7 @@ namespace vtkControl
                 {
                     Controller_ActorsPicked?.Invoke(e, ModifierKeys, new string[] { GetActorName(pickedActor) });
                 }
+                else Form_ShowViewportContextMenu?.Invoke(e.Location);
             }
         }
         private void style_ZoomChangedEvent()
@@ -3620,7 +3615,9 @@ namespace vtkControl
                     //
                     camera.SetViewUp(up[0], up[1], up[2]);
                     camera.OrthogonalizeViewUp();
-                    _style.AdjustCameraDistanceAndClipping();
+                    // The widget highlights stay visible and follow the widgets during the animation
+                    _style.AdjustCameraDistanceAndClipping(false);
+                    _style.RefreshWidgetHighlights();
                     //System.Threading.Thread.Sleep(5);
                     _renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
                     RenderScene();

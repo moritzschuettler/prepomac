@@ -83,8 +83,9 @@ namespace PrePoMax
         private bool _suppressSymbolChanged;
         private vtkResultWidgetContextMenuTypeEnum _resultWidgetContextMenuType;
         private bool _resultWidgetContextMenuMinimum;
-        private ContextMenuStrip _cmsCoorSysWidget;
-        private ToolStripMenuItem _tsmiCoorSysUserViews;
+        private ContextMenuStrip _cmsViewport;
+        private ToolStripMenuItem _tsmiViewportUserViews;
+        private ToolStripMenuItem _tsmiViewportCoorSys;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -237,7 +238,7 @@ namespace PrePoMax
             duplicateResultHistoryOutputMenuItem.Text = "Duplicate";
             duplicateResultHistoryOutputMenuItem.Click += tsmiDuplicateResultHistoryOutput_Click;
             tsmiResultHistoryOutput.DropDownItems.Insert(2, duplicateResultHistoryOutputMenuItem);
-            InitializeCoorSysWidgetContextMenu();
+            InitializeViewportContextMenu();
             //SettingsContainer settings = new SettingsContainer();
             //settings.LoadFromFile();
             //if (settings.General.Maximized)
@@ -410,7 +411,7 @@ namespace PrePoMax
                 _vtk.Controller_ActorsPicked = SelectBaseParts;
                 _vtk.Form_EditLegendValue = StartEditLegendValue;
                 _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
-                _vtk.Form_ShowCoorSysContextMenu = ShowCoorSysContextMenu;
+                _vtk.Form_ShowViewportContextMenu = ShowViewportContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
@@ -7787,38 +7788,41 @@ namespace PrePoMax
         {
             _vtk.SetWidgetHighlightLocked(false);
         }
-        // Coordinate system widget
-        private void InitializeCoorSysWidgetContextMenu()
+        // Viewport background
+        private void InitializeViewportContextMenu()
         {
-            _cmsCoorSysWidget = new ContextMenuStrip();
-            _cmsCoorSysWidget.Name = "cmsCoorSysWidget";
-            _cmsCoorSysWidget.Closed += cmsViewportWidget_Closed;
+            _cmsViewport = new ContextMenuStrip();
+            _cmsViewport.Name = "cmsViewport";
+            _cmsViewport.Closed += cmsViewportWidget_Closed;
+            //
+            _cmsViewport.Items.Add(CreateMirroredMenuItem(tsmiQuery));
+            _cmsViewport.Items.Add(new ToolStripSeparator());
             // The view items are organized as in the main View menu
-            _cmsCoorSysWidget.Items.Add(CreateMirroredSubMenu(tsmiStandardViews));
+            _cmsViewport.Items.Add(CreateMirroredSubMenu(tsmiStandardViews));
             //
-            _tsmiCoorSysUserViews = new ToolStripMenuItem(tsmiUserViews.Text, tsmiUserViews.Image);
-            _tsmiCoorSysUserViews.Tag = tsmiUserViews;   // only to follow the enabled state
-            _cmsCoorSysWidget.Items.Add(_tsmiCoorSysUserViews);
+            _tsmiViewportUserViews = new ToolStripMenuItem(tsmiUserViews.Text, tsmiUserViews.Image);
+            _tsmiViewportUserViews.Tag = tsmiUserViews;   // only to follow the enabled state
+            _cmsViewport.Items.Add(_tsmiViewportUserViews);
             //
-            _cmsCoorSysWidget.Items.Add(CreateMirroredMenuItem(tsmiZoomToFit));
-            _cmsCoorSysWidget.Items.Add(CreateMirroredMenuItem(tsmiBoxZoom));
-            _cmsCoorSysWidget.Items.Add(new ToolStripSeparator());
+            _cmsViewport.Items.Add(CreateMirroredMenuItem(tsmiZoomToFit));
+            _cmsViewport.Items.Add(CreateMirroredMenuItem(tsmiBoxZoom));
+            _cmsViewport.Items.Add(new ToolStripSeparator());
             // Vertical axis
             ToolStripMenuItem verticalAxis = new ToolStripMenuItem("Vertical Axis");
             verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("X", new double[] { 1, 0, 0 }));
             verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("Y", new double[] { 0, 1, 0 }));
             verticalAxis.DropDownItems.Add(CreateVerticalAxisMenuItem("Z", new double[] { 0, 0, 1 }));
-            _cmsCoorSysWidget.Items.Add(verticalAxis);
-            _cmsCoorSysWidget.Items.Add(new ToolStripSeparator());
-            // Widget
-            ToolStripMenuItem hideCoorSys = new ToolStripMenuItem("Hide Coordinate System");
-            hideCoorSys.Click += tsmiHideCoorSys_Click;
-            _cmsCoorSysWidget.Items.Add(hideCoorSys);
+            _cmsViewport.Items.Add(verticalAxis);
+            _cmsViewport.Items.Add(new ToolStripSeparator());
+            // Coordinate system
+            _tsmiViewportCoorSys = new ToolStripMenuItem();   // the text follows the visibility
+            _tsmiViewportCoorSys.Click += tsmiCoorSysVisibility_Click;
+            _cmsViewport.Items.Add(_tsmiViewportCoorSys);
             //
             ToolStripMenuItem coorSysSettings = new ToolStripMenuItem("Settings");
             coorSysSettings.Tag = tsmiSettings;   // only to follow the enabled state
             coorSysSettings.Click += tsmiCoorSysSettings_Click;
-            _cmsCoorSysWidget.Items.Add(coorSysSettings);
+            _cmsViewport.Items.Add(coorSysSettings);
         }
         private ToolStripMenuItem CreateMirroredSubMenu(ToolStripMenuItem sourceItem)
         {
@@ -7883,25 +7887,28 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void UpdateCoorSysUserViews()
+        private void UpdateViewportUserViews()
         {
-            _tsmiCoorSysUserViews.DropDownItems.Clear();
+            _tsmiViewportUserViews.DropDownItems.Clear();
             //
             ToolStripMenuItem saveUserView = new ToolStripMenuItem("Save Current View");
             saveUserView.Click += tsmiSaveCurrentUserView_Click;
-            _tsmiCoorSysUserViews.DropDownItems.Add(saveUserView);
+            _tsmiViewportUserViews.DropDownItems.Add(saveUserView);
             // The saved views are added to the main View menu as the model changes
-            AddMirroredMenuItems(_tsmiCoorSysUserViews.DropDownItems, tsmiUserViews.DropDownItems);
+            AddMirroredMenuItems(_tsmiViewportUserViews.DropDownItems, tsmiUserViews.DropDownItems);
         }
-        private void ShowCoorSysContextMenu(Point vtkPoint)
+        private void ShowViewportContextMenu(Point vtkPoint)
         {
-            UpdateCoorSysUserViews();
-            UpdateMirroredMenuItemsState(_cmsCoorSysWidget.Items);
+            UpdateViewportUserViews();
+            _tsmiViewportCoorSys.Text = _controller.Settings.Graphics.CoorSysVisibility
+                ? "Hide Coordinate System"
+                : "Show Coordinate System";
+            UpdateMirroredMenuItemsState(_cmsViewport.Items);
             //
             int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
             int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
             _vtk.SetWidgetHighlightLocked(true);
-            _cmsCoorSysWidget.Show(_vtk, new Point(x, y));
+            _cmsViewport.Show(_vtk, new Point(x, y));
         }
         private void tsmiSaveCurrentUserView_Click(object sender, EventArgs e)
         {
@@ -7927,12 +7934,12 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiHideCoorSys_Click(object sender, EventArgs e)
+        private void tsmiCoorSysVisibility_Click(object sender, EventArgs e)
         {
             try
             {
                 SettingsContainer settings = _controller.Settings;
-                settings.Graphics.CoorSysVisibility = false;
+                settings.Graphics.CoorSysVisibility = !settings.Graphics.CoorSysVisibility;
                 _controller.Settings = settings;
             }
             catch (Exception ex)

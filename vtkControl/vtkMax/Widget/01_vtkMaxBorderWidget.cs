@@ -485,7 +485,7 @@ namespace vtkControl
                 _renderer.AddActor(_borderActor);
             }
         }
-        public virtual void BringHighlightToFront()
+        public void BringHighlightToFront()
         {
             if (!_visibility || _highlightRenderer == null) return;
             //

@@ -48,7 +48,7 @@ namespace vtkControl
         private double _negativeHitRadius;
         private double _originHitRadius;
         private double _labelGap;
-        private double _highlightPadding;
+        private double _boundsPadding;
         private double _dimFactor;
         private double[] _dimColor;
         private double[][] _axisColors;
@@ -70,8 +70,6 @@ namespace vtkControl
         //
         protected vtkPolyDataMapper2D _endMapper;
         protected vtkActor2D _endActor;
-        //
-        protected vtkMaxWidgetHighlight _targetHighlight;
 
 
         // Events                                                                                                                   
@@ -93,7 +91,7 @@ namespace vtkControl
             _negativeHitRadius = 8;
             _originHitRadius = 7;
             _labelGap = 6;
-            _highlightPadding = 5;
+            _boundsPadding = 5;
             _dimFactor = 0.35;
             _dimColor = new double[] { 0.35, 0.35, 0.35 };
             _axisColors = new double[][] { new double[] { 0.706, 0.016, 0.150 },
@@ -118,8 +116,6 @@ namespace vtkControl
             double side = 2 * (_shaftLength + _coneRadius + 2);
             _size[0] = side;
             _size[1] = side;
-            //
-            _targetHighlight = new vtkMaxWidgetHighlight();
             //
             InitializeLabels();
             InitializeShafts();
@@ -606,11 +602,15 @@ namespace vtkControl
         }
         public override bool RightButtonPress(int x, int y)
         {
-            return MouseOver(x, y);
+            return false;
         }
         public override bool MouseMove(int x, int y)
         {
             return false;
+        }
+        public override bool MouseOver(int x, int y)
+        {
+            return GetTargetAtPosition(x, y) != vtkMaxCoorSysTarget.None;
         }
         public override bool UpdateMouseProximity(int x, int y)
         {
@@ -618,16 +618,10 @@ namespace vtkControl
         }
         public override bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false)
         {
-            Rectangle widgetRectangle = mouseOver ? GetDisplayRectangle() : Rectangle.Empty;
-            Rectangle targetRectangle = mouseOver && _localHighlightEnabled
-                ? GetHighlightRectangle(x, y)
-                : Rectangle.Empty;
+            Rectangle rectangle = mouseOver ? GetHighlightRectangle(x, y) : Rectangle.Empty;
+            bool highlightChanged = _highlight.SetRectangle(rectangle, vtkMaxWidgetHighlight.WidgetFillOpacity);
             //
-            bool highlightChanged = _highlight.SetRectangle(widgetRectangle, vtkMaxWidgetHighlight.WidgetFillOpacity);
-            if (_targetHighlight.SetRectangle(targetRectangle, vtkMaxWidgetHighlight.WidgetFillOpacity))
-                highlightChanged = true;
-            //
-            SetHovered(targetRectangle != Rectangle.Empty);
+            SetHovered(rectangle != Rectangle.Empty);
             //
             return highlightChanged;
         }
@@ -639,9 +633,7 @@ namespace vtkControl
         {
             SetHovered(false);
             //
-            bool targetHighlightChanged = _targetHighlight.Clear();
-            //
-            return base.ClearMouseHover() || targetHighlightChanged;
+            return base.ClearMouseHover();
         }
         public override void VisibilityOn()
         {
@@ -649,7 +641,6 @@ namespace vtkControl
             {
                 base.VisibilityOn();
                 //
-                if (_highlightRenderer != null) _targetHighlight.AddToRenderer(_highlightRenderer);
                 if (_shaftActor != null) _renderer.AddActor(_shaftActor);
                 if (_endActor != null) _renderer.AddActor(_endActor);
                 //
@@ -665,7 +656,6 @@ namespace vtkControl
             {
                 base.VisibilityOff();
                 //
-                if (_highlightRenderer != null) _targetHighlight.RemoveFromRenderer(_highlightRenderer);
                 if (_shaftActor != null) _renderer.RemoveActor(_shaftActor);
                 if (_endActor != null) _renderer.RemoveActor(_endActor);
                 //
@@ -677,13 +667,6 @@ namespace vtkControl
                 SetNegativeAxesVisible(false);
                 SetHovered(false);
             }
-        }
-        public override void BringHighlightToFront()
-        {
-            if (!_visibility || _highlightRenderer == null) return;
-            //
-            base.BringHighlightToFront();
-            _targetHighlight.BringToFront(_highlightRenderer);
         }
         public override void BringToFront()
         {
@@ -719,7 +702,7 @@ namespace vtkControl
             // A square that contains the axis labels in any view orientation
             double[] position = GetDisplayPosition();
             double[] center = GetLocalCenter();
-            double halfSide = _shaftLength + _labelGap + GetMaxLabelSize() + _highlightPadding;
+            double halfSide = _shaftLength + _labelGap + GetMaxLabelSize() + _boundsPadding;
             double centerX = position[0] + center[0];
             double centerY = position[1] + center[1];
             //
@@ -750,7 +733,6 @@ namespace vtkControl
             //
             if (_visibility)
             {
-                if (_highlightRenderer != null) _targetHighlight.AddToRenderer(_highlightRenderer);
                 _renderer.AddActor(_shaftActor);
                 _renderer.AddActor(_endActor);
                 for (int i = 0; i < _labelActors.Length; i++)
@@ -763,7 +745,6 @@ namespace vtkControl
         }
         public override void RemoveInteractor()
         {
-            if (_highlightRenderer != null) _targetHighlight.RemoveFromRenderer(_highlightRenderer);
             if (_renderer != null)
             {
                 _renderer.RemoveActor(_shaftActor);
