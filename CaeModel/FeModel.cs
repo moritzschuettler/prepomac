@@ -54,6 +54,10 @@ namespace CaeModel
         private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
         private ModelProperties _properties;                                                    //ISerializable
         private UnitSystem _unitSystem;                                                         //ISerializable
+        [NonSerialized] private Dictionary<int, int> _elementIdSectionId;
+        [NonSerialized] private List<Section> _assignedSections;
+        [NonSerialized] private int[] _unAssignedElementIds;
+        [NonSerialized] private object[] _sectionAssignmentsState;
 
 
         // Properties                                                                                                               
@@ -912,10 +916,27 @@ namespace CaeModel
         }
         public int[] GetSectionAssignments(out Dictionary<int, int> elementIdSectionId, out List<Section> assignedSections)
         {
+            UpdateSectionAssignments();
+            // The cached collections must stay unchanged, so the caller gets its own copies
+            elementIdSectionId = new Dictionary<int, int>(_elementIdSectionId);
+            assignedSections = new List<Section>(_assignedSections);
+            return _unAssignedElementIds.ToArray();
+        }
+        private void UpdateSectionAssignments()
+        {
+            // The map is rebuilt only after the mesh, the sections, the parts or the element sets change
+            object[] sectionAssignmentsState = GetSectionAssignmentsState();
+            if (AreSectionAssignmentStatesEqual(sectionAssignmentsState, _sectionAssignmentsState)) return;
+            //
+            ComputeSectionAssignments();
+            _sectionAssignmentsState = sectionAssignmentsState;
+        }
+        private void ComputeSectionAssignments()
+        {
             int sectionId = 0;
-            elementIdSectionId = new Dictionary<int, int>();
+            Dictionary<int, int> elementIdSectionId = new Dictionary<int, int>();
             // The section id is the index in assignedSections; mass and inactive sections are skipped and get no id
-            assignedSections = new List<Section>();
+            List<Section> assignedSections = new List<Section>();
             //
             foreach (var entry in _sections)
             {
@@ -924,10 +945,7 @@ namespace CaeModel
                 if (entry.Value.RegionType == RegionTypeEnum.PartName)
                 {
                     foreach (var elementId in _mesh.Parts[entry.Value.RegionName].Labels)
-                    {
-                        if (elementIdSectionId.ContainsKey(elementId)) elementIdSectionId[elementId] = sectionId;
-                        else elementIdSectionId.Add(elementId, sectionId);
-                    }
+                        elementIdSectionId[elementId] = sectionId;
                 }
                 else if (entry.Value.RegionType == RegionTypeEnum.ElementSetName)
                 {
@@ -940,29 +958,18 @@ namespace CaeModel
                             foreach (var partName in partNames)
                             {
                                 foreach (var elementId in _mesh.Parts[partName].Labels)
-                                {
-                                    if (elementIdSectionId.ContainsKey(elementId)) elementIdSectionId[elementId] = sectionId;
-                                    else elementIdSectionId.Add(elementId, sectionId);
-                                }
+                                    elementIdSectionId[elementId] = sectionId;
                             }
                         }
                         else
                         {
-                            foreach (var elementId in elementSet.Labels)
-                            {
-                                if (elementIdSectionId.ContainsKey(elementId)) elementIdSectionId[elementId] = sectionId;
-                                else elementIdSectionId.Add(elementId, sectionId);
-                            }
+                            foreach (var elementId in elementSet.Labels) elementIdSectionId[elementId] = sectionId;
                         }
                     }
                     else if (entry.Value is ShellSection || entry.Value is MembraneSection)
                     {
                         FeElementSet elementSet = _mesh.ElementSets[entry.Value.RegionName];
-                        foreach (var elementId in elementSet.Labels)
-                        {
-                            if (elementIdSectionId.ContainsKey(elementId)) elementIdSectionId[elementId] = sectionId;
-                            else elementIdSectionId.Add(elementId, sectionId);
-                        }
+                        foreach (var elementId in elementSet.Labels) elementIdSectionId[elementId] = sectionId;
                     }
                     else throw new NotSupportedException();
                 }
@@ -971,27 +978,71 @@ namespace CaeModel
                 assignedSections.Add(entry.Value);
                 sectionId++;
             }
-            // Not assigned
-            HashSet<int> unAssignedElementIds = _mesh.Elements.Keys.Except(elementIdSectionId.Keys).ToHashSet();
             // Not active
-            if (unAssignedElementIds.Count() > 0)
+            HashSet<int> inactiveElementIds = new HashSet<int>();
+            foreach (var entry in _mesh.Parts)
+                if (!entry.Value.Active) inactiveElementIds.UnionWith(entry.Value.Labels);
+            // Not assigned
+            List<int> unAssignedElementIds = new List<int>();
+            foreach (int elementId in _mesh.Elements.Keys)
             {
-                HashSet<int> inactiveElements = new HashSet<int>();
-                foreach (var entry in _mesh.Parts)
-                    if (!entry.Value.Active) inactiveElements.UnionWith(entry.Value.Labels);
-                unAssignedElementIds.ExceptWith(inactiveElements);
+                if (elementIdSectionId.ContainsKey(elementId) || inactiveElementIds.Contains(elementId)) continue;
+                //
+                unAssignedElementIds.Add(elementId);
             }
+            foreach (int elementId in unAssignedElementIds) elementIdSectionId.Add(elementId, -1);
             //
-            int[] unAssignedElementIdsArray = new int[unAssignedElementIds.Count()];
-            int count = 0;
-            
-            foreach (var elementId in unAssignedElementIds)
+            _elementIdSectionId = elementIdSectionId;
+            _assignedSections = assignedSections;
+            _unAssignedElementIds = unAssignedElementIds.ToArray();
+        }
+        private object[] GetSectionAssignmentsState()
+        {
+            // Everything the map is built from; the model objects and the label arrays are compared by reference.
+            // Renumbering changes the labels in place but always replaces the element dictionary, so that is included too
+            List<object> state = new List<object>();
+            state.Add(_mesh);
+            state.Add(_mesh.Elements);
+            state.Add(_mesh.Elements.Count);
+            state.Add(_mesh.MaxElementId);
+            foreach (var entry in _sections)
             {
-                elementIdSectionId.Add(elementId, -1);
-                unAssignedElementIdsArray[count++] = elementId;
+                state.Add(entry.Key);
+                state.Add(entry.Value);
+                state.Add(entry.Value.Active);
+                state.Add(entry.Value.RegionType);
+                state.Add(entry.Value.RegionName);
             }
+            foreach (var entry in _mesh.Parts)
+            {
+                state.Add(entry.Key);
+                state.Add(entry.Value);
+                state.Add(entry.Value.Active);
+                state.Add(entry.Value.Labels);
+            }
+            foreach (var entry in _mesh.ElementSets)
+            {
+                state.Add(entry.Key);
+                state.Add(entry.Value);
+                state.Add(entry.Value.CreatedFromParts);
+                state.Add(entry.Value.Labels);
+            }
+            return state.ToArray();
+        }
+        private static bool AreSectionAssignmentStatesEqual(object[] state1, object[] state2)
+        {
+            if (state1 == null || state2 == null || state1.Length != state2.Length) return false;
             //
-            return unAssignedElementIdsArray;
+            for (int i = 0; i < state1.Length; i++)
+            {
+                if (ReferenceEquals(state1[i], state2[i])) continue;
+                if (state1[i] == null || state2[i] == null) return false;
+                // Only the value types and the strings may differ in identity and still describe the same state
+                if ((state1[i] is ValueType || state1[i] is string) && state1[i].Equals(state2[i])) continue;
+                //
+                return false;
+            }
+            return true;
         }
         public void GetMaterialAssignments(out Dictionary<int, int> elementIdMaterialId)
         {
@@ -1149,14 +1200,13 @@ namespace CaeModel
         public bool TryComputePartMassProperties(BasePart part, out double mass, out double[] centerOfMass,
                                                  out string[] warnings)
         {
-            List<Section> assignedSections;
-            Dictionary<int, int> elementIdSectionId;
-            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            UpdateSectionAssignments();
             //
             mass = 0;
             double[] firstMoment = new double[3];
             List<string> warningList = new List<string>();
-            AddElementMassProperties(part.Labels, elementIdSectionId, assignedSections, ref mass, firstMoment, warningList);
+            AddElementMassProperties(part.Labels, _elementIdSectionId, _assignedSections, ref mass, firstMoment,
+                                     warningList);
             //
             warnings = warningList.ToArray();
             centerOfMass = GetCenterOfMass(mass, firstMoment);
@@ -1164,9 +1214,7 @@ namespace CaeModel
         }
         public bool TryComputeModelMassProperties(out double mass, out double[] centerOfMass, out string[] warnings)
         {
-            List<Section> assignedSections;
-            Dictionary<int, int> elementIdSectionId;
-            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            UpdateSectionAssignments();
             // Only active parts are analysed
             List<int> elementIds = new List<int>();
             foreach (var entry in _mesh.Parts) if (entry.Value.Active) elementIds.AddRange(entry.Value.Labels);
@@ -1174,7 +1222,7 @@ namespace CaeModel
             mass = 0;
             double[] firstMoment = new double[3];
             List<string> warningList = new List<string>();
-            AddElementMassProperties(elementIds.ToArray(), elementIdSectionId, assignedSections, ref mass, firstMoment,
+            AddElementMassProperties(elementIds.ToArray(), _elementIdSectionId, _assignedSections, ref mass, firstMoment,
                                      warningList);
             AddMassSectionMassProperties(ref mass, firstMoment, warningList);
             //
@@ -1206,6 +1254,21 @@ namespace CaeModel
             HashSet<string> offsetSectionNames = new HashSet<string>();
             HashSet<string> missingDensitySectionNames = new HashSet<string>();
             HashSet<string> temperatureDependentMaterialNames = new HashSet<string>();
+            // The section values are parsed from equations and units, which is far too slow to repeat for each element
+            int numOfSections = assignedSections.Count;
+            bool[] sectionHasDensity = new bool[numOfSections];
+            bool[] sectionHasOffset = new bool[numOfSections];
+            double[] sectionDensity = new double[numOfSections];
+            double[] sectionThickness = new double[numOfSections];
+            string[] sectionTemperatureDependentMaterialNames = new string[numOfSections];
+            for (int i = 0; i < numOfSections; i++)
+            {
+                sectionHasDensity[i] = TryGetSectionDensity(assignedSections[i], out sectionDensity[i],
+                                                            out sectionTemperatureDependentMaterialNames[i]);
+                sectionThickness[i] = GetSectionThickness(assignedSections[i]);
+                if (assignedSections[i] is ShellSection shs) sectionHasOffset[i] = shs.Offset.Value != 0;
+                else if (assignedSections[i] is MembraneSection mes) sectionHasOffset[i] = mes.Offset.Value != 0;
+            }
             //
             foreach (int elementId in elementIds)
             {
@@ -1215,11 +1278,14 @@ namespace CaeModel
                     continue;
                 }
                 section = assignedSections[sectionId];
-                if (!TryGetSectionDensity(section, out density, temperatureDependentMaterialNames))
+                if (!sectionHasDensity[sectionId])
                 {
                     missingDensitySectionNames.Add(section.Name);
                     continue;
                 }
+                if (sectionTemperatureDependentMaterialNames[sectionId] != null)
+                    temperatureDependentMaterialNames.Add(sectionTemperatureDependentMaterialNames[sectionId]);
+                density = sectionDensity[sectionId];
                 //
                 element = _mesh.Elements[elementId];
                 cg = element.GetCG(_mesh.Nodes, out elementSize);
@@ -1231,7 +1297,7 @@ namespace CaeModel
                     if (axisymmetric) elementMass = density * elementSize * 2 * Math.PI * cg[0];
                     else
                     {
-                        thickness = GetSectionThickness(section);
+                        thickness = sectionThickness[sectionId];
                         if (thickness < 0)
                         {
                             unsupportedElementCount++;
@@ -1239,8 +1305,7 @@ namespace CaeModel
                         }
                         elementMass = density * elementSize * thickness;
                         // The offset moves the reference surface which cannot be accounted for on curved parts
-                        if (section is ShellSection shs && shs.Offset.Value != 0) offsetSectionNames.Add(section.Name);
-                        else if (section is MembraneSection mes && mes.Offset.Value != 0) offsetSectionNames.Add(section.Name);
+                        if (sectionHasOffset[sectionId]) offsetSectionNames.Add(section.Name);
                     }
                 }
                 else
@@ -1346,9 +1411,10 @@ namespace CaeModel
             firstMoment[2] += pointMass * coor[2];
         }
         private bool TryGetSectionDensity(Section section, out double density,
-                                          HashSet<string> temperatureDependentMaterialNames)
+                                          out string temperatureDependentMaterialName)
         {
             density = 0;
+            temperatureDependentMaterialName = null;
             //
             Material material;
             if (section.MaterialName == null || !_materials.TryGetValue(section.MaterialName, out material)) return false;
@@ -1357,7 +1423,7 @@ namespace CaeModel
             {
                 if (property is Density den)
                 {
-                    if (den.DensityTemp.Length > 1) temperatureDependentMaterialNames.Add(material.Name);
+                    if (den.DensityTemp.Length > 1) temperatureDependentMaterialName = material.Name;
                     density = den.DensityTemp[0][0].Value;
                     return true;
                 }

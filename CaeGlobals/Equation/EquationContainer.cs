@@ -9,6 +9,7 @@
 
 using NCalc.Domain;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -24,6 +25,8 @@ namespace CaeGlobals
     public class EquationContainer
     {
         // Variables                                                                                                                
+        private static readonly ConcurrentDictionary<Type, TypeConverter> _stringDoubleConverters =
+            new ConcurrentDictionary<Type, TypeConverter>();
         private Type _stringDoubleConverterType;
         private string _equation;
         private bool _constant;
@@ -61,13 +64,19 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
+        private static TypeConverter GetStringDoubleConverter(Type stringDoubleConverterType)
+        {
+            // The converters keep the unit in static fields, so a single instance per type is reused
+            return _stringDoubleConverters.GetOrAdd(stringDoubleConverterType,
+                                                    type => (TypeConverter)Activator.CreateInstance(type));
+        }
         private string GetEquationFromValue(double value)
         {
             if (_stringDoubleConverterType == null) throw new NotSupportedException();
             else if (_constant) return _constantValue.ToString();
             else
             {
-                TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
+                TypeConverter stringDoubleConverter = GetStringDoubleConverter(_stringDoubleConverterType);
                 return (string)stringDoubleConverter.ConvertTo(value, typeof(string));
             }
         }
@@ -77,7 +86,7 @@ namespace CaeGlobals
             else if (_constant) return _constantValue;
             else
             {
-                TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
+                TypeConverter stringDoubleConverter = GetStringDoubleConverter(_stringDoubleConverterType);
                 return Convert.ToDouble(stringDoubleConverter.ConvertFrom(equation));
             }
         }
