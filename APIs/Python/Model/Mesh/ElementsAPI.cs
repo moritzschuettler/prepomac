@@ -1,0 +1,51 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+namespace APIs.Python.Model
+{
+    public class ElementsAPI : BaseAPI
+    {
+        // Variables
+        private readonly MeshEditService _service;
+
+
+        // Properties
+        [PythonAPI("The number of elements in the model mesh.", Returns = "int")]
+        public int count { get { return _service.GetElementCount(); } }
+
+
+        // Constructors
+        internal ElementsAPI(MeshEditService service)
+        {
+            _service = service;
+        }
+
+
+        // Methods
+        [PythonAPI("Renumbers the model elements using command history.", Arguments = "start_id: int",
+                   Returns = "None")]
+        public void renumber(int start_id)
+        {
+            _service.RenumberElements(start_id);
+        }
+
+        [PythonAPI("Creates an element set from an element quality metric using command history.",
+                   Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
+                               "limit: float", Returns = "None")]
+        public void create_element_set_from_quality(string name, string metric, object part_names,
+                                                    bool larger_than, object limit)
+        {
+            _service.CreateElementSetFromQuality(name, metric, part_names, larger_than, limit);
+        }
+        public override string ToString()
+        {
+            return "Elements(count=" + count + ")";
+        }
+    }
+}

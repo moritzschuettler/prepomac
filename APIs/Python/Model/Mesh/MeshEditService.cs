@@ -1,0 +1,107 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeMesh;
+
+namespace APIs.Python.Model
+{
+    // The node and element operations of the model branch
+    internal class MeshEditService
+    {
+        // Variables
+        private readonly ModelResolver _modelResolver;
+        private readonly SelectionService _selectionService;
+        private readonly IPythonMeshGateway _meshGateway;
+
+
+        // Constructors
+        public MeshEditService(ModelResolver modelResolver, SelectionService selectionService,
+                               IPythonMeshGateway meshGateway)
+        {
+            _modelResolver = modelResolver;
+            _selectionService = selectionService;
+            _meshGateway = meshGateway;
+        }
+
+
+        // Methods
+        public int GetNodeCount()
+        {
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            return mesh == null || mesh.Nodes == null ? 0 : mesh.Nodes.Count;
+        }
+        public int GetElementCount()
+        {
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            return mesh == null || mesh.Elements == null ? 0 : mesh.Elements.Count;
+        }
+        public void RenumberNodes(int startId)
+        {
+            ValidateStartId(startId);
+            EnsureCommandsAvailable();
+            _meshGateway.RenumberNodes(startId);
+        }
+        public void RenumberElements(int startId)
+        {
+            ValidateStartId(startId);
+            EnsureCommandsAvailable();
+            _meshGateway.RenumberElements(startId);
+        }
+        public void MergeCoincidentNodes(SelectionAPI selection, object tolerance, string nodesToKeep)
+        {
+            if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
+            //
+            MergeCoincidentNodes mergeCoincidentNodes = new MergeCoincidentNodes();
+            SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel", "geometry");
+            mergeCoincidentNodes.GeometryIds = compilation.Ids;
+            mergeCoincidentNodes.CreationData = compilation.Selection;
+            if (tolerance != null)
+                mergeCoincidentNodes.Tolerance = PythonValueConverter.ToDouble(tolerance, "tolerance");
+            if (nodesToKeep != null)
+                mergeCoincidentNodes.NodesToKeep =
+                    PythonValueConverter.ToEnum<NodesToKeepEnum>(nodesToKeep, "nodes_to_keep");
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.MergeCoincidentNodes(mergeCoincidentNodes);
+        }
+        public void CreateElementSetFromQuality(string name, string metric, object partNames, bool largerThan,
+                                                object limit)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (metric == null || metric.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'metric' must not be empty.");
+            //
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+            //
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            foreach (string partName in names)
+            {
+                if (mesh == null || !mesh.Parts.ContainsKey(partName))
+                    throw new PythonAPIException("The model part '" + partName + "' does not exist.");
+            }
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.CreateElementSetFromElementQuality(name, metric, names, largerThan,
+                                                            PythonValueConverter.ToDouble(limit, "limit"));
+        }
+        //
+        private static void ValidateStartId(int startId)
+        {
+            if (startId < 1) throw new PythonAPIException("The argument 'start_id' must be larger than zero.");
+        }
+        private void EnsureCommandsAvailable()
+        {
+            if (_meshGateway == null)
+                throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+    }
+}

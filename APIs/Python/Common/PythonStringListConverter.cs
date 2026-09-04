@@ -17,6 +17,23 @@ namespace APIs.Python
     internal static class PythonStringListConverter
     {
         // Methods
+        // The model collections accept a single name as well as a list of names
+        public static string[] ToStringArrayOrSingle(object value, string argumentName)
+        {
+            string single = value as string;
+            if (single != null) return new string[] { single };
+            //
+            PyObject pyObject = value as PyObject;
+            if (pyObject != null)
+            {
+                using (Py.GIL())
+                {
+                    if (PyString.IsStringType(pyObject)) return new string[] { pyObject.ToString() };
+                }
+            }
+            //
+            return ToStringArray(value, argumentName);
+        }
         public static string[] ToStringArray(object value, string argumentName)
         {
             if (value == null || value is string) throw InvalidList(argumentName);

@@ -30,6 +30,8 @@ namespace CaeGlobals
         // MessageBox
         public static Form ParentForm;
         public static Action<string> WriteDataToOutput;
+        public static MessageBoxModeEnum Mode = MessageBoxModeEnum.Interactive;
+        public static Action<MessageBoxPrompt> PromptRecorder;
         // Base
         public static DialogResult Show(string text)
         {
@@ -53,17 +55,41 @@ namespace CaeGlobals
         {
             using (new CenterWinDialog(ParentForm))
             {
+                if (Mode == MessageBoxModeEnum.Interactive) return MessageBox.Show(ParentForm, text, caption, buttons, icon);
+                //
                 if (WriteDataToOutput != null)
                 {
                     WriteDataToOutput(caption);
                     WriteDataToOutput(text);
-                    if (buttons == MessageBoxButtons.OKCancel) return DialogResult.OK;
-                    else if (buttons == MessageBoxButtons.YesNo) return DialogResult.Yes;
-                    else if (buttons == MessageBoxButtons.YesNoCancel) return DialogResult.Yes;
-                    else return DialogResult.OK;
                 }
-                else return MessageBox.Show(ParentForm, text, caption, buttons, icon);
+                // A single button box only reports; anything else asks for a decision the caller cannot make unattended
+                bool isDecision = buttons != MessageBoxButtons.OK;
+                if (isDecision && Mode == MessageBoxModeEnum.Strict)
+                {
+                    RecordPrompt(caption, text, buttons, DialogResult.None, true, true);
+                    throw new PromptRefusedException("An interactive prompt was refused in the strict non-interactive mode." +
+                                                     Environment.NewLine + caption + ": " + text);
+                }
+                //
+                DialogResult result = GetNonInteractiveResult(buttons);
+                RecordPrompt(caption, text, buttons, result, isDecision, false);
+                return result;
             }
+        }
+        private static DialogResult GetNonInteractiveResult(MessageBoxButtons buttons)
+        {
+            if (buttons == MessageBoxButtons.OKCancel) return DialogResult.OK;
+            else if (buttons == MessageBoxButtons.YesNo) return DialogResult.Yes;
+            else if (buttons == MessageBoxButtons.YesNoCancel) return DialogResult.Yes;
+            else return DialogResult.OK;
+        }
+        private static void RecordPrompt(string caption, string text, MessageBoxButtons buttons, DialogResult answer,
+                                         bool isDecision, bool isRefused)
+        {
+            Action<MessageBoxPrompt> recorder = PromptRecorder;
+            if (recorder == null) return;
+            //
+            recorder(new MessageBoxPrompt(caption, text, buttons.ToString(), answer.ToString(), isDecision, isRefused));
         }
         private static object InvokeIfRequired(Func<object> function)
         {
@@ -119,6 +145,10 @@ namespace CaeGlobals
         }
         public static DialogResult ShowWarningQuestionOKCancel(IWin32Window owner, string text)
         {
+            // The owner based overload must not open a blocking dialog when no user is present
+            if (Mode != MessageBoxModeEnum.Interactive)
+                return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            //
             return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
         }
         // Error

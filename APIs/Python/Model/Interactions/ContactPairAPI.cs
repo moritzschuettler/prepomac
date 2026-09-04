@@ -1,0 +1,77 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeModel;
+
+namespace APIs.Python.Model
+{
+    public class ContactPairAPI : BaseAPI
+    {
+        // Variables
+        private readonly string _contactPairName;
+        private readonly ContactPairService _service;
+
+
+        // Properties
+        [PythonAPI("The contact pair name.", Returns = "str")]
+        public string name { get { return Resolve().Name; } }
+        [PythonAPI("The name of the surface interaction the contact pair uses.", Returns = "str")]
+        public string surface_interaction_name { get { return Resolve().SurfaceInteractionName; } }
+        [PythonAPI("The contact method: NodeToSurface, SurfaceToSurface or Mortar.", Returns = "str")]
+        public string method { get { return Resolve().Method.ToString(); } }
+        [PythonAPI("True when the small sliding formulation is used.", Returns = "bool")]
+        public bool small_sliding { get { return Resolve().SmallSliding; } }
+        [PythonAPI("True when the slave nodes are adjusted onto the master surface.", Returns = "bool")]
+        public bool adjust { get { return Resolve().Adjust; } }
+        [PythonAPI("The adjustment size. It reads back as None when no size is given.", Returns = "float")]
+        public object adjustment_size
+        {
+            get
+            {
+                double value = Resolve().AdjustmentSize;
+                return double.IsNaN(value) ? null : (object)value;
+            }
+        }
+        [PythonAPI("True when the contact pair is written to the solver input file.", Returns = "bool")]
+        public bool active { get { return Resolve().Active; } }
+        [PythonAPI("True when the contact pair symbols are drawn.", Returns = "bool")]
+        public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("The region type of the master side.", Returns = "str")]
+        public string master_region_type { get { return Resolve().MasterRegionType.ToString(); } }
+        [PythonAPI("The region name of the master side.", Returns = "str")]
+        public string master_region_name { get { return Resolve().MasterRegionName; } }
+        [PythonAPI("The region type of the slave side.", Returns = "str")]
+        public string slave_region_type { get { return Resolve().SlaveRegionType.ToString(); } }
+        [PythonAPI("The region name of the slave side.", Returns = "str")]
+        public string slave_region_name { get { return Resolve().SlaveRegionName; } }
+
+
+        // Constructors
+        internal ContactPairAPI(string contactPairName, ContactPairService service)
+        {
+            _contactPairName = contactPairName;
+            _service = service;
+        }
+
+
+        // Methods
+        public override string ToString()
+        {
+            ContactPair contactPair = Resolve();
+            return "ContactPair(name=" + StringListAPI.ToDisplayString(contactPair.Name) + ", master=" +
+                   StringListAPI.ToDisplayString(contactPair.MasterRegionName) + ", slave=" +
+                   StringListAPI.ToDisplayString(contactPair.SlaveRegionName) + ")";
+        }
+        //
+        private ContactPair Resolve()
+        {
+            return _service.ResolveContactPair(_contactPairName);
+        }
+    }
+}

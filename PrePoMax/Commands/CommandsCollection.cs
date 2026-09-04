@@ -119,6 +119,7 @@ namespace PrePoMax.Commands
             //
             return ExecuteCommand(command, true, executeSynchronous);
         }
+        public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
         public void BeginCommandRecordingSuppression()
         {
             _commandRecordingSuppressionCount++;

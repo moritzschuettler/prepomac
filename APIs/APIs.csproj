@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -39,13 +39,127 @@
       <HintPath>..\packages\pythonnet.3.1.0\lib\netstandard2.0\Python.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Python\BaseAPI.cs" />
     <Compile Include="Python\Commands\IPythonCommandGateway.cs" />
+    <Compile Include="Python\Commands\IPythonModelGateway.cs" />
+    <Compile Include="Python\Commands\IPythonJobGateway.cs" />
+    <Compile Include="Python\Jobs\JobAPI.cs" />
+    <Compile Include="Python\Jobs\JobService.cs" />
+    <Compile Include="Python\Jobs\JobsAPI.cs" />
+    <Compile Include="Python\Commands\IPythonMeshGateway.cs" />
+    <Compile Include="Python\Model\Meshing\MeshAPI.cs" />
+    <Compile Include="Python\Model\Meshing\MeshToolService.cs" />
+    <Compile Include="Python\Model\Mesh\MeshEditService.cs" />
+    <Compile Include="Python\Model\Mesh\NodesAPI.cs" />
+    <Compile Include="Python\Model\Mesh\ElementsAPI.cs" />
+    <Compile Include="Python\Model\Meshing\MeshSetupItemAPI.cs" />
+    <Compile Include="Python\Model\Meshing\MeshSetupItemService.cs" />
+    <Compile Include="Python\Model\Meshing\MeshSetupItemsAPI.cs" />
+    <Compile Include="Python\Common\PythonColorConverter.cs" />
+    <Compile Include="Python\Model\Geometry\GeometryAPI.cs" />
+    <Compile Include="Python\Model\Geometry\GeometryPartAPI.cs" />
+    <Compile Include="Python\Model\Geometry\GeometryPartService.cs" />
+    <Compile Include="Python\Model\Geometry\GeometryPartsAPI.cs" />
+    <Compile Include="Python\Model\Parts\ModelPartAPI.cs" />
+    <Compile Include="Python\Model\Parts\ModelPartService.cs" />
+    <Compile Include="Python\Model\Parts\ModelPartsAPI.cs" />
+    <Compile Include="Python\Model\Parts\PartAPI.cs" />
+    <Compile Include="Python\Model\Parts\PartService.cs" />
+    <Compile Include="Python\Model\Parts\PartsAPI.cs" />
     <Compile Include="Python\Commands\IPythonSelectionGateway.cs" />
+    <Compile Include="Python\Common\IMeshResolver.cs" />
+    <Compile Include="Python\Common\MeshResolver.cs" />
+    <Compile Include="Python\Common\PythonValueConverter.cs" />
+    <Compile Include="Python\Common\PythonObjectListConverter.cs" />
+    <Compile Include="Python\Create\StepPartFactory.cs" />
+    <Compile Include="Python\Create\RegionAPI.cs" />
+    <Compile Include="Python\Create\SurfaceInteractionPropertyFactory.cs" />
+    <Compile Include="Python\Common\PythonTableConverter.cs" />
+    <Compile Include="Python\Model\Common\MasterSlaveRegionApplier.cs" />
+    <Compile Include="Python\Model\Interactions\ConstraintAPI.cs" />
+    <Compile Include="Python\Model\Interactions\ConstraintService.cs" />
+    <Compile Include="Python\Model\Interactions\ConstraintsAPI.cs" />
+    <Compile Include="Python\Model\Interactions\ContactPairAPI.cs" />
+    <Compile Include="Python\Model\Interactions\ContactPairService.cs" />
+    <Compile Include="Python\Model\Interactions\ContactPairsAPI.cs" />
+    <Compile Include="Python\Model\Interactions\SurfaceInteractionAPI.cs" />
+    <Compile Include="Python\Model\Interactions\SurfaceInteractionService.cs" />
+    <Compile Include="Python\Model\Interactions\SurfaceInteractionsAPI.cs" />
+    <Compile Include="Python\Model\Common\ModelItemValueReader.cs" />
+    <Compile Include="Python\Model\Common\RegionApplier.cs" />
+    <Compile Include="Python\Model\Steps\BoundaryConditionAPI.cs" />
+    <Compile Include="Python\Model\Steps\BoundaryConditionService.cs" />
+    <Compile Include="Python\Model\Steps\BoundaryConditionsAPI.cs" />
+    <Compile Include="Python\Model\Steps\StepContentServices.cs" />
+    <Compile Include="Python\Model\Steps\StepItemsAPI.cs" />
+    <Compile Include="Python\Model\Steps\StepItemService.cs" />
+    <Compile Include="Python\Model\Steps\LoadAPI.cs" />
+    <Compile Include="Python\Model\Steps\LoadFactory.cs" />
+    <Compile Include="Python\Model\Steps\LoadService.cs" />
+    <Compile Include="Python\Model\Steps\LoadsAPI.cs" />
+    <Compile Include="Python\Model\Steps\DefinedFieldAPI.cs" />
+    <Compile Include="Python\Model\Steps\DefinedFieldService.cs" />
+    <Compile Include="Python\Model\Steps\DefinedFieldsAPI.cs" />
+    <Compile Include="Python\Model\Steps\FieldOutputAPI.cs" />
+    <Compile Include="Python\Model\Steps\FieldOutputService.cs" />
+    <Compile Include="Python\Model\Steps\FieldOutputsAPI.cs" />
+    <Compile Include="Python\Model\Steps\HistoryOutputAPI.cs" />
+    <Compile Include="Python\Model\Steps\HistoryOutputService.cs" />
+    <Compile Include="Python\Model\Steps\HistoryOutputsAPI.cs" />
+    <Compile Include="Python\Model\Steps\StepAPI.cs" />
+    <Compile Include="Python\Model\Steps\StepCommonValues.cs" />
+    <Compile Include="Python\Model\Steps\StepFactory.cs" />
+    <Compile Include="Python\Model\Steps\StepService.cs" />
+    <Compile Include="Python\Model\Steps\StepsAPI.cs" />
+    <Compile Include="Python\Model\Document\DocumentService.cs" />
+    <Compile Include="Python\Model\Document\ModelPropertiesAPI.cs" />
+    <Compile Include="Python\Model\Document\ParameterAPI.cs" />
+    <Compile Include="Python\Model\Document\ParameterService.cs" />
+    <Compile Include="Python\Model\Document\ParametersAPI.cs" />
+    <Compile Include="Python\Create\CreateAPI.cs" />
+    <Compile Include="Python\Create\MaterialPropertyFactory.cs" />
+    <Compile Include="Python\Model\Materials\MaterialAPI.cs" />
+    <Compile Include="Python\Model\Fields\AmplitudeAPI.cs" />
+    <Compile Include="Python\Model\Fields\AmplitudeService.cs" />
+    <Compile Include="Python\Model\Fields\AmplitudesAPI.cs" />
+    <Compile Include="Python\Model\Fields\DistributionAPI.cs" />
+    <Compile Include="Python\Model\Fields\DistributionService.cs" />
+    <Compile Include="Python\Model\Fields\DistributionsAPI.cs" />
+    <Compile Include="Python\Model\Fields\FieldItemService.cs" />
+    <Compile Include="Python\Model\Fields\FieldServices.cs" />
+    <Compile Include="Python\Model\Fields\InitialConditionAPI.cs" />
+    <Compile Include="Python\Model\Fields\InitialConditionService.cs" />
+    <Compile Include="Python\Model\Fields\InitialConditionsAPI.cs" />
+    <Compile Include="Python\Model\Materials\MaterialService.cs" />
+    <Compile Include="Python\Model\Materials\MaterialsAPI.cs" />
+    <Compile Include="Python\Model\Sections\SectionAPI.cs" />
+    <Compile Include="Python\Model\Sections\SectionService.cs" />
+    <Compile Include="Python\Model\Sections\SectionsAPI.cs" />
+    <Compile Include="Python\Model\ModelAPI.cs" />
+    <Compile Include="Python\Model\Common\ModelItemsAPI.cs" />
+    <Compile Include="Python\Model\Common\ModelResolver.cs" />
+    <Compile Include="Python\Model\Regions\NodeSetAPI.cs" />
+    <Compile Include="Python\Model\Regions\CoordinateSystemAPI.cs" />
+    <Compile Include="Python\Model\Regions\CoordinateSystemService.cs" />
+    <Compile Include="Python\Model\Regions\CoordinateSystemsAPI.cs" />
+    <Compile Include="Python\Model\Regions\ElementSetAPI.cs" />
+    <Compile Include="Python\Model\Regions\ElementSetService.cs" />
+    <Compile Include="Python\Model\Regions\ElementSetsAPI.cs" />
+    <Compile Include="Python\Model\Regions\ReferencePointAPI.cs" />
+    <Compile Include="Python\Model\Regions\ReferencePointService.cs" />
+    <Compile Include="Python\Model\Regions\ReferencePointsAPI.cs" />
+    <Compile Include="Python\Model\Regions\RegionService.cs" />
+    <Compile Include="Python\Model\Regions\RegionServices.cs" />
+    <Compile Include="Python\Model\Regions\SurfaceAPI.cs" />
+    <Compile Include="Python\Model\Regions\SurfaceService.cs" />
+    <Compile Include="Python\Model\Regions\SurfacesAPI.cs" />
+    <Compile Include="Python\Model\Regions\NodeSetService.cs" />
+    <Compile Include="Python\Model\Regions\NodeSetsAPI.cs" />
     <Compile Include="Python\Common\IntListAPI.cs" />
     <Compile Include="Python\Common\NumericArrayAPI.cs" />
     <Compile Include="Python\Common\NumPyConverter.cs" />
@@ -150,9 +264,17 @@
       <Project>{104caebc-0761-4850-a97d-3fc59116c5b6}</Project>
       <Name>CaeGlobals</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CaeJob\CaeJob.csproj">
+      <Project>{a449b1d6-da0d-4a08-9b64-2cd929830399}</Project>
+      <Name>CaeJob</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CaeMesh\CaeMesh.csproj">
       <Project>{69d01fc1-1bc1-4470-b371-84d22282be98}</Project>
       <Name>CaeMesh</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CaeModel\CaeModel.csproj">
+      <Project>{65e5ee18-b889-42ad-a775-ba5674abe1dd}</Project>
+      <Name>CaeModel</Name>
     </ProjectReference>
     <ProjectReference Include="..\CaeResults\CaeResults.csproj">
       <Project>{bca7c65b-cc0b-48ca-b852-49255bd3851d}</Project>

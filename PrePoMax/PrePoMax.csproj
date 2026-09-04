@@ -10,6 +10,7 @@
     <RootNamespace>PrePoMax</RootNamespace>
     <AssemblyName>PrePoMax</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>7.3</LangVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <IsWebBootstrapper>false</IsWebBootstrapper>
@@ -39,42 +40,12 @@
     <Prefer32Bit>true</Prefer32Bit>
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Debug|x64'">
-    <!-- Edited by Maxx -->
-    <OutputType>Exe</OutputType>
-    <AssemblyName>PrePoMax</AssemblyName>
-    <!-- Edited by Maxx -->
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Console-Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Release|x64'">
-    <!-- Edited by Maxx -->
-    <OutputType>Exe</OutputType>
-    <AssemblyName>PrePoMax</AssemblyName>
-    <!-- Edited by Maxx -->
-    <OutputPath>bin\x64\Console-Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
@@ -119,14 +90,20 @@
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromMergedHistories.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputXY.cs" />
     <Compile Include="Python\Commands\ControllerPythonCommandGateway.cs" />
+    <Compile Include="Python\Commands\ControllerPythonModelGateway.cs" />
+    <Compile Include="Python\Commands\ControllerPythonJobGateway.cs" />
+    <Compile Include="Python\Commands\ControllerPythonMeshGateway.cs" />
     <Compile Include="Python\Commands\ControllerPythonSelectionGateway.cs" />
     <Compile Include="Python\Engine\PythonConsoleResult.cs" />
     <Compile Include="Python\Engine\PythonEngineManager.cs" />
+    <Compile Include="Python\PythonScriptException.cs" />
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
     <Compile Include="Collections\FollowerViewsCollection.cs" />
     <Compile Include="Collections\TransformationsCollection.cs" />
+    <Compile Include="CommandLine\BatchRunReport.cs" />
     <Compile Include="CommandLine\CommandLineOptions.cs" />
+    <Compile Include="CommandLine\ExitCode.cs" />
     <Compile Include="Commands\0000_File\CExportResultFieldOutputToCsv.cs" />
     <Compile Include="Commands\0000_File\CExportResultHistoryOutputToCsv.cs" />
     <Compile Include="Commands\0000_File\CExportTo3mf.cs" />
@@ -570,6 +547,8 @@
     <Compile Include="Forms\41_Material\DataPoints\ThermalExpansionDataPoint.cs" />
     <Compile Include="Forms\41_Material\DataPoints\DensityDataPoint.cs" />
     <Compile Include="Forms\41_Material\DataPoints\ElasticDataPoint.cs" />
+    <Compile Include="Forms\41_Material\DataPoints\ElasticEngineeringConstantsDataPoint.cs" />
+    <Compile Include="Forms\41_Material\DataPoints\ElasticLaminaDataPoint.cs" />
     <Compile Include="Forms\41_Material\DataPoints\TempDataPoint.cs" />
     <Compile Include="Forms\41_Material\MaterialLibraryItem.cs" />
     <Compile Include="Forms\41_Material\FrmMaterialLibrary.cs">
@@ -803,6 +782,8 @@
       <DependentUpon>FrmMaterial.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\41_Material\ViewElastic.cs" />
+    <Compile Include="Forms\41_Material\ViewElasticEngineeringConstants.cs" />
+    <Compile Include="Forms\41_Material\ViewElasticLamina.cs" />
     <Compile Include="Forms\41_Material\ViewMaterialProperty.cs" />
     <Compile Include="Forms\41_Material\ViewDensity.cs" />
     <Compile Include="Forms\42_Section\ViewSection.cs" />
@@ -1362,14 +1343,9 @@ IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licen
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 
-IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
-IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"
-
-IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com"
-IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"</PostBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PreBuildEvent>del *Cmd.exe
-del *Cmd.exe.config</PreBuildEvent>
+rem PrePoMaxCmd is the console subsystem launcher deployed as PrePoMax.com so that a command line run
+rem keeps the shell waiting and receives the exit code - see PrePoMaxCmd\Program.cs
+copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)PrePoMax.com"
+IF EXIST "$(TargetDir)PrePoMax.com.config" del "$(TargetDir)PrePoMax.com.config"</PostBuildEvent>
   </PropertyGroup>
 </Project>

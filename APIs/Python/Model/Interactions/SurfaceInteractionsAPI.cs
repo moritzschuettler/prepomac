@@ -1,0 +1,84 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeModel;
+
+namespace APIs.Python.Model
+{
+    // A surface interaction is composed of properties made by pmx.create, the same way a material is.
+    public class SurfaceInteractionsAPI : ModelItemsAPI<SurfaceInteraction, SurfaceInteractionAPI>
+    {
+        // Variables
+        private readonly SurfaceInteractionService _service;
+
+
+        // Constructors
+        internal SurfaceInteractionsAPI(SurfaceInteractionService service)
+            : base("surface interaction")
+        {
+            _service = service;
+        }
+
+
+        // Methods
+        [PythonAPI("Adds a surface interaction using command history. The properties are created by " +
+                   "pmx.create.",
+                   Arguments = "name: str, properties: SurfaceInteractionProperty or " +
+                               "list[SurfaceInteractionProperty]", Returns = "SurfaceInteraction",
+                   Example = "pmx.model.surface_interactions.add('SI-1', pmx.create.friction(0.1))")]
+        public SurfaceInteractionAPI add(string name, object properties)
+        {
+            _service.ValidateName(name, null);
+            _service.Add(_service.Build(name, properties));
+            //
+            return this[name];
+        }
+
+        [PythonAPI("Replaces an existing surface interaction using command history.",
+                   Arguments = "old_name: str, name: str, properties: SurfaceInteractionProperty or " +
+                               "list[SurfaceInteractionProperty]", Returns = "SurfaceInteraction")]
+        public SurfaceInteractionAPI replace(string old_name, string name, object properties)
+        {
+            _service.Replace(old_name, _service.Build(name, properties));
+            //
+            return this[name];
+        }
+        //
+        protected override string[] GetItemNames()
+        {
+            return _service.GetNames();
+        }
+        protected override SurfaceInteraction GetItem(string name)
+        {
+            return _service.GetSurfaceInteraction(name);
+        }
+        protected override SurfaceInteractionAPI CreateItemAPI(string name)
+        {
+            return new SurfaceInteractionAPI(name, _service);
+        }
+        protected override void DuplicateItems(string[] names)
+        {
+            _service.Duplicate(names);
+        }
+        protected override void RemoveItems(string[] names)
+        {
+            _service.Remove(names);
+        }
+        protected override void RenameItem(SurfaceInteraction item, string newName)
+        {
+            _service.Rename(item, newName);
+        }
+        public override string ToString()
+        {
+            string[] names = GetItemNames();
+            return "SurfaceInteractions(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).ToString() + ")";
+        }
+    }
+}

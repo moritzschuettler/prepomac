@@ -154,6 +154,7 @@ namespace PrePoMax
             get { return _batchRegenerationMode; }
             set { _batchRegenerationMode = value; }
         }
+        public bool IsCommandRecordingSuppressed { get { return _commands.IsCommandRecordingSuppressed; } }
         public string RegenerationWorkDirectory
         {
             get { return _settings.GetRegenerationWorkDirectory(); }
@@ -5944,7 +5945,27 @@ namespace PrePoMax
         //
         public bool SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
+            ReselectSplitPartMeshData(splitPartMeshData);
+            //
             return _mmgRunner.SplitPartMeshUsingSurface(splitPartMeshData);
+        }
+        private void ReselectSplitPartMeshData(SplitPartMeshData splitPartMeshData)
+        {
+            // In order for the Regenerate history to work perform the selections
+            if (splitPartMeshData.BasePartRegionType == RegionTypeEnum.Selection &&
+                splitPartMeshData.BasePartCreationData != null)
+            {
+                _selection = splitPartMeshData.BasePartCreationData.DeepCopy(true, false);
+                splitPartMeshData.BasePartCreationIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            if (splitPartMeshData.SplitterSurfaceRegionType == RegionTypeEnum.Selection &&
+                splitPartMeshData.SplitterSurfaceCreationData != null)
+            {
+                _selection = splitPartMeshData.SplitterSurfaceCreationData.DeepCopy(true, false);
+                splitPartMeshData.SplitterSurfaceCreationIds = GetSelectionIds();
+                _selection.Clear();
+            }
         }
         public void StopExecutableJob()
         {
@@ -6245,9 +6266,9 @@ namespace PrePoMax
             CFindEdgesByAngleForModelPartsCommand comm = new CFindEdgesByAngleForModelPartsCommand(partNames, edgeAngle);
             _commands.AddAndExecute(comm);
         }
-        public void CreateBoundaryLayerCommand(int[] geometryIds, double thickness)
+        public void CreateBoundaryLayerCommand(GeometrySelection geometrySelection, double thickness)
         {
-            CCreateBoundaryLayer comm = new CCreateBoundaryLayer(geometryIds, thickness);
+            CCreateBoundaryLayer comm = new CCreateBoundaryLayer(geometrySelection, thickness);
             _commands.AddAndExecute(comm);
         }
         public void RemeshElementsCommand(RemeshingParameters remeshingParameters)
@@ -6291,8 +6312,18 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
-        public void CreateBoundaryLayer(int[] geometryIds, double thickness)
+        public void CreateBoundaryLayer(GeometrySelection geometrySelection, double thickness)
         {
+            if (geometrySelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = geometrySelection.CreationData.DeepCopy(true, false);
+                geometrySelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            // A command stored before v2.6.3 carries the resolved ids only and replays from them
+            int[] geometryIds = geometrySelection.GeometryIds;
+            //
             try
             {
                 _form.SetStateWorking("Creating...");
@@ -8633,7 +8664,7 @@ namespace PrePoMax
                 }
             }
             //
-            if (coordinateSystem.CenterCreationData != null)
+            if (coordinateSystem.PointXYCreatedFrom != null)
             {
                 if (coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
@@ -12080,6 +12111,11 @@ namespace PrePoMax
             CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel);
             return _commands.AddAndExecute(comm);
         }
+        public bool PrepareAndRunJobCommand(string jobName, bool onlyCheckModel, bool executeSynchronous)
+        {
+            CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel);
+            return _commands.AddAndExecute(comm, executeSynchronous);
+        }
         public void RemoveJobsCommand(string[] jobNames)
         {
             CRemoveJobs comm = new CRemoveJobs(jobNames);
@@ -14120,11 +14156,15 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void RenameCommand(NamedClass item, string newName, string stepName)
         {
+            RenameCommand(item, newName, stepName, _currentView);
+        }
+        public void RenameCommand(NamedClass item, string newName, string stepName, ViewGeometryModelResults view)
+        {
             Command comm;
-            if (_currentView == ViewGeometryModelResults.Geometry || _currentView == ViewGeometryModelResults.Model)
-                comm = new CRenamePre(item.GetType(), item.Name, newName, stepName, _currentView);
-            else if (_currentView == ViewGeometryModelResults.Results)
-                comm = new CRenamePost(item.GetType(), item.Name, newName, stepName, _currentView);
+            if (view == ViewGeometryModelResults.Geometry || view == ViewGeometryModelResults.Model)
+                comm = new CRenamePre(item.GetType(), item.Name, newName, stepName, view);
+            else if (view == ViewGeometryModelResults.Results)
+                comm = new CRenamePost(item.GetType(), item.Name, newName, stepName, view);
             else throw new NotSupportedException();
             _commands.AddAndExecute(comm);
         }

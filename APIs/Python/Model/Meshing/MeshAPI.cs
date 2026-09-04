@@ -1,0 +1,95 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+namespace APIs.Python.Model
+{
+    // The meshing branch of the model tree
+    public class MeshAPI : BaseAPI
+    {
+        // Variables
+        private readonly MeshSetupItemService _service;
+        private readonly MeshToolService _toolService;
+        private readonly MeshSetupItemsAPI _setupItems;
+
+
+        // Properties
+        [PythonAPI("The mesh setup items of the model.", Returns = "MeshSetupItems")]
+        public MeshSetupItemsAPI setup_items { get { return _setupItems; } }
+
+
+        // Constructors
+        internal MeshAPI(MeshSetupItemService service, MeshToolService toolService)
+        {
+            _service = service;
+            _toolService = toolService;
+            _setupItems = new MeshSetupItemsAPI(service);
+        }
+
+
+        // Methods
+        [PythonAPI("Meshes the named geometry parts using command history. The call returns when the meshing " +
+                   "has finished.", Arguments = "part_names: list[str] or str", Returns = "None",
+                   Example = "pmx.model.mesh.create('Solid-1')")]
+        public void create(object part_names)
+        {
+            _service.CreateMeshes(_service.ResolveMeshablePartNames(part_names));
+        }
+
+        [PythonAPI("Creates a boundary layer on the selected geometry using command history.",
+                   Arguments = "selection: Selection, thickness: float", Returns = "None")]
+        public void create_boundary_layer(SelectionAPI selection, object thickness)
+        {
+            _toolService.CreateBoundaryLayer(selection, thickness);
+        }
+
+        [PythonAPI("Remeshes the selected elements using command history. Every parameter that is not " +
+                   "given keeps the application default.",
+                   Arguments = "selection: Selection, max_size: float = None, min_size: float = None, " +
+                               "hausdorff: float = None", Returns = "None")]
+        public void remesh_elements(SelectionAPI selection, object max_size = null, object min_size = null,
+                                    object hausdorff = null)
+        {
+            _toolService.RemeshElements(selection, max_size, min_size, hausdorff);
+        }
+
+        [PythonAPI("Thickens the shell mesh of the named parts using command history.",
+                   Arguments = "part_names: list[str] or str, thickness: float, number_of_layers: int = 1, " +
+                               "offset: float = 0, keep_model_edges: bool = False", Returns = "None")]
+        public void thicken_shell_mesh(object part_names, object thickness, int number_of_layers = 1,
+                                       object offset = null, bool keep_model_edges = false)
+        {
+            _toolService.ThickenShellMesh(part_names, thickness, number_of_layers, offset, keep_model_edges);
+        }
+
+        [PythonAPI("Splits the selected part mesh with the selected surface using command history. This is " +
+                   "a one time operation rather than a model item.",
+                   Arguments = "base_part_selection: Selection, splitter_surface_selection: Selection, " +
+                               "offset: float = None, max_size: float = None, min_size: float = None, " +
+                               "hausdorff: float = None, exact: bool = False", Returns = "None")]
+        public void split_part_mesh_using_surface(SelectionAPI base_part_selection,
+                                                  SelectionAPI splitter_surface_selection, object offset = null,
+                                                  object max_size = null, object min_size = null,
+                                                  object hausdorff = null, bool exact = false)
+        {
+            _toolService.SplitPartMeshUsingSurface(base_part_selection, splitter_surface_selection, offset,
+                                                   max_size, min_size, hausdorff, exact);
+        }
+
+        [PythonAPI("Updates the nodal coordinates of the model mesh from a file using command history.",
+                   Arguments = "file_name: str", Returns = "None")]
+        public void update_nodal_coordinates_from_file(string file_name)
+        {
+            _toolService.UpdateNodalCoordinatesFromFile(file_name);
+        }
+        public override string ToString()
+        {
+            return "Mesh(setup_items=" + _setupItems.Count + ")";
+        }
+    }
+}

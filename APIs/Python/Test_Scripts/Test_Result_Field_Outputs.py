@@ -1,5 +1,13 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
+#
+#Checks the result field output definitions: the limit, the envelope and the equation forms, their
+#filters and the CSV export. A result must be open before the script runs, so it is run after
+#Test_Analysis.py, which solves the cube and writes PyTest_Job.frd into the work directory.
+#
+#  PrePoMax.com -f PyTest_Job.frd --script Test_Result_Field_Outputs.py -g No -x Yes -w <dir>
+#
+#Expected process exit code 0.
 
 import os
 import tempfile
@@ -156,6 +164,7 @@ try:
         check(not field_outputs.contains(name), "remove() did not remove '%s'." % name)
     print("PASS: remove multiple field outputs")
     print("RESULT: all result field-output command tests passed")
+    print("TEST PASSED")
 finally:
     # Make the script rerunnable after a failed assertion or command.
     remove_existing(field_outputs, TEST_NAMES)

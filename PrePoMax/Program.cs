@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CommandLine;
 using CommandLine.Text;
+using PrePoMax.Python;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -32,6 +33,22 @@ namespace PrePoMax
         static extern bool AttachConsole(int dwProcessId);
         private const int ATTACH_PARENT_PROCESS = -1;
         //
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetStdHandle(int nStdHandle);
+        [DllImport("kernel32.dll")]
+        private static extern bool SetStdHandle(int nStdHandle, IntPtr hHandle);
+        private const int STD_OUTPUT_HANDLE = -11;
+        private const int STD_ERROR_HANDLE = -12;
+        //
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+        [DllImport("kernel32.dll")]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+        //
+        private static FrmMain _mainForm;
+        private static CommandLineOptions _cmdOptions;
+        private static System.Threading.Timer _timeoutTimer;
+        //
         //[DllImport("kernel32.dll")]
         //static extern bool FreeConsole();
         //[DllImport("user32.dll")]
@@ -45,6 +62,7 @@ namespace PrePoMax
         {
             // DPI
             //if (Environment.OSVersion.Version.Major >= 6) SetProcessDPIAware();
+            AttachToParentConsole();
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
@@ -57,10 +75,25 @@ namespace PrePoMax
             }
             var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
             //
-            if (parserResult.Value != null) Run(parserResult.Value);
+            if (parserResult.Value != null) Run(parserResult.Value, string.Join(" ", args));
+            else Finish(GetParserExitCode(parserResult), null);
             //
-            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
             return;
+        }
+        private static void AttachToParentConsole()
+        {
+            // Windows gives no console handles to a window subsystem process, so the console of the launcher
+            // deployed as PrePoMax.com is joined here. A redirected handle is inherited and must survive the
+            // attach, which replaces the standard handles. Nothing may use System.Console before this runs -
+            // the writers are created on first use and would bind to the handles that are replaced here.
+            IntPtr standardOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+            IntPtr standardError = GetStdHandle(STD_ERROR_HANDLE);
+            //
+            if (standardOutput != IntPtr.Zero && standardError != IntPtr.Zero) return;
+            if (!AttachConsole(ATTACH_PARENT_PROCESS)) return;
+            //
+            if (standardOutput != IntPtr.Zero) SetStdHandle(STD_OUTPUT_HANDLE, standardOutput);
+            if (standardError != IntPtr.Zero) SetStdHandle(STD_ERROR_HANDLE, standardError);
         }
         private static void SetCultureAndLanguage()
         {
@@ -83,22 +116,39 @@ namespace PrePoMax
             MessageBoxManager.No = "No";
             MessageBoxManager.Register();
         }
-        private static void Run(CommandLineOptions cmdOptions)
+        private static void Run(CommandLineOptions cmdOptions, string arguments)
         {
             try
             {
+                _cmdOptions = cmdOptions;
                 // Show values
                 string values = CommandLineOptions.GetValuesAsString(cmdOptions);
                 if (values != null) Console.WriteLine(values);
-                // Check for errors
+                // Check for errors - the report location is not known yet, so no report is written
                 string cmdError = CommandLineOptions.CheckForErrors(cmdOptions);
-                if (cmdError != null) throw new CaeException(cmdError);
+                if (cmdError != null)
+                {
+                    Console.WriteLine("----------Error---------------");
+                    Console.WriteLine(cmdError);
+                    Console.WriteLine("----------Finished------------");
+                    Console.WriteLine("Process finished with errors.");
+                    Console.WriteLine("");
+                    //
+                    ExitProcess(ExitCodeEnum.OptionError);
+                }
+                // Unattended run contract
+                BatchRunReport.Initialize(cmdOptions, arguments);
+                SettingsContainer.OverrideFileName = cmdOptions.SettingsFileName;
+                SettingsContainer.IsSaveDisabled = cmdOptions.GetIsSettingsSaveDisabled();
+                StartTimeoutTimer(cmdOptions);
                 //
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 //
                 using (FrmMain mainForm = new FrmMain(cmdOptions))
                 {
+                    _mainForm = mainForm;
+                    //
                     if (cmdOptions.ShowGui == "No")   // must be here
                     {
                         mainForm.WindowState = FormWindowState.Minimized;
@@ -110,6 +160,8 @@ namespace PrePoMax
                     Console.WriteLine("----------Finished------------");
                     Console.WriteLine("Process finished successfully.");
                     Console.WriteLine("");
+                    //
+                    Finish(ExitCodeEnum.Ok, null);
                 }
             }
             catch (Exception ex)
@@ -129,7 +181,110 @@ namespace PrePoMax
             Console.WriteLine("Process finished with errors.");
             Console.WriteLine("");
             //
-            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
+            Finish(GetExitCode(ex), ex);
+        }
+        private static void Finish(ExitCodeEnum exitCode, Exception exception)
+        {
+            StopTimeoutTimer();
+            //
+            BatchRunReport report = BatchRunReport.Current;
+            if (report != null) report.Write(exitCode, exception, GetController());
+            //
+            ExitProcess(exitCode);
+        }
+        private static void ExitProcess(ExitCodeEnum exitCode)
+        {
+            // A process remains running after the application exits, so it is terminated with an explicit exit code
+            Environment.ExitCode = (int)exitCode;
+            TerminateProcess(GetCurrentProcess(), (uint)exitCode);
+        }
+        private static Controller GetController()
+        {
+            if (_mainForm == null) return null;
+            //
+            try
+            {
+                return _mainForm.Controller;
+            }
+            catch
+            {
+                // The report must not fail because the form was already disposed
+                return null;
+            }
+        }
+        private static ExitCodeEnum GetExitCode(Exception ex)
+        {
+            // A refused prompt is the more specific cause, so the whole chain is searched for it before
+            // the run is written off as a script error
+            Exception current = ex;
+            while (current != null)
+            {
+                if (current is PromptRefusedException) return ExitCodeEnum.PromptRefused;
+                current = current.InnerException;
+            }
+            // A prompt refused inside a Python script does not survive as a typed exception, because the
+            // Python runtime carries the traceback as text, so the run report is the record of it
+            BatchRunReport report = BatchRunReport.Current;
+            if (report != null && report.HasRefusedPrompt()) return ExitCodeEnum.PromptRefused;
+            //
+            current = ex;
+            while (current != null)
+            {
+                if (current is PythonScriptException) return ExitCodeEnum.ScriptError;
+                current = current.InnerException;
+            }
+            //
+            return ExitCodeEnum.ModelError;
+        }
+        private static ExitCodeEnum GetParserExitCode(ParserResult<CommandLineOptions> parserResult)
+        {
+            NotParsed<CommandLineOptions> notParsed = parserResult as NotParsed<CommandLineOptions>;
+            if (notParsed != null)
+            {
+                foreach (Error error in notParsed.Errors)
+                {
+                    // Printing the help or the version text is not a failure
+                    if (error.Tag == ErrorType.HelpRequestedError || error.Tag == ErrorType.HelpVerbRequestedError ||
+                        error.Tag == ErrorType.VersionRequestedError)
+                        return ExitCodeEnum.Ok;
+                }
+            }
+            //
+            return ExitCodeEnum.OptionError;
+        }
+        private static void StartTimeoutTimer(CommandLineOptions cmdOptions)
+        {
+            if (cmdOptions.Timeout <= 0) return;
+            //
+            _timeoutTimer = new System.Threading.Timer(OnTimeoutElapsed, null, (long)cmdOptions.Timeout * 1000,
+                                                       System.Threading.Timeout.Infinite);
+        }
+        private static void StopTimeoutTimer()
+        {
+            System.Threading.Timer timer = _timeoutTimer;
+            _timeoutTimer = null;
+            if (timer != null) timer.Dispose();
+        }
+        private static void OnTimeoutElapsed(object state)
+        {
+            string message = "The run exceeded the time limit of " + _cmdOptions.Timeout + " s.";
+            Console.WriteLine("----------Timeout-------------");
+            Console.WriteLine(message);
+            Console.WriteLine("----------Finished------------");
+            Console.WriteLine("Process finished with errors.");
+            Console.WriteLine("");
+            // Kill the running analyses so that no solver process is left behind
+            try
+            {
+                Controller controller = GetController();
+                if (controller != null) controller.KillAllJobs();
+            }
+            catch
+            {
+                // The watchdog is best effort - the process is terminated in any case
+            }
+            //
+            Finish(ExitCodeEnum.TimedOut, new CaeException(message));
         }
 
         //private static bool IsWindowsApplication()

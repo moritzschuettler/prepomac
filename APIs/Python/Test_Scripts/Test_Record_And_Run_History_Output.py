@@ -1,5 +1,13 @@
 # PrePoMax Python Script
 # The PrePoMax object is available as 'pmx'.
+#
+# Records a history output and a table derived from it, then checks that the recorded commands
+# replay. A result must be open before the script runs, so it is run after Test_Analysis.py, which
+# solves the cube and writes PyTest_Job.frd into the work directory.
+#
+#  PrePoMax.com -f PyTest_Job.frd --script Test_Record_And_Run_History_Output.py -g No -x Yes -w <dir>
+#
+# Expected process exit code 0.
 
 # Parameters. Surface query IDs are local to a part, so both IDs are required.
 PART_ID = 1
@@ -80,3 +88,4 @@ print("Created history output '%s' from part %s, surface %s." %
       (SOURCE_OUTPUT_NAME, PART_ID, SURFACE_ID))
 print("Created table history output '%s' with %s DISP.ALL column(s) multiplied by %g." %
       (TABLE_OUTPUT_NAME, entry_count, FACTOR))
+print("TEST PASSED")

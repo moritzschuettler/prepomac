@@ -94,6 +94,29 @@ namespace PrePoMax.Python
             }
         }
         //
+        public static void SetScriptArguments(string scriptFileName, string[] arguments)
+        {
+            Initialize();
+            //
+            using (Py.GIL())
+            using (PyObject sys = Py.Import("sys"))
+            using (PyList argv = new PyList())
+            {
+                using (PyString name = new PyString(scriptFileName == null ? "" : scriptFileName))
+                {
+                    argv.Append(name);
+                }
+                if (arguments != null)
+                {
+                    foreach (string argument in arguments)
+                    {
+                        using (PyString item = new PyString(argument)) argv.Append(item);
+                    }
+                }
+                //
+                sys.SetAttr("argv", argv);
+            }
+        }
         public static void SetResults(ResultsCollection results)
         {
             SetResults(results, null);
@@ -115,7 +138,17 @@ namespace PrePoMax.Python
             IPythonSelectionGateway selectionGateway = controller != null
                                                        ? new ControllerPythonSelectionGateway(controller)
                                                        : null;
-            PrePoMaxAPI pmx = new PrePoMaxAPI(results, commandGateway, selectionGateway);
+            IPythonModelGateway modelGateway = controller != null
+                                               ? new ControllerPythonModelGateway(controller)
+                                               : null;
+            IPythonMeshGateway meshGateway = controller != null
+                                             ? new ControllerPythonMeshGateway(controller)
+                                             : null;
+            IPythonJobGateway jobGateway = controller != null
+                                           ? new ControllerPythonJobGateway(controller)
+                                           : null;
+            PrePoMaxAPI pmx = new PrePoMaxAPI(results, commandGateway, selectionGateway, modelGateway,
+                                              meshGateway, jobGateway);
             //
             using (PyObject pmxObject = pmx.ToPython())
             {

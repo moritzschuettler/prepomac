@@ -7,7 +7,9 @@ The root object available in the Python console is `pmx`.
 
 - `pmx` is the root `PrePoMaxAPI` object.
 - API objects implement `help()`, which prints documented members to the console.
-- Collection-like objects usually support `len(...)`, indexing with `[...]`, and `in` checks.
+- Collection-like objects support `len(...)`, iteration, indexing with `[...]`, and `in` checks.
+  Indexing is **by name**, or by ID where the collection is keyed by one; positional access is
+  `list(collection)[index]`, because two indexers cannot be resolved from the Python side.
 - Ordered object collections provide `first()` and `last()` convenience methods.
 - Name collections return `StringList` objects. ID collections return `IntList` objects.
 - Long API arrays and named collections are shortened when evaluated directly. Use `print(array)` to display every item.
@@ -17,8 +19,13 @@ The root object available in the Python console is `pmx`.
 - Field result data is node-based. Only history output can contain integration point values.
 - Integration point history entry names use the form `elementId_intPointId`.
 - NumPy is optional. Where available, numeric arrays are returned as NumPy arrays. Otherwise, `NumericArray` or typed API list wrappers are returned.
-- Methods that construct Python-side drafts or specifications start with `create_` and do not modify PrePoMax.
-- Collection `add(...)` methods perform validation and make the command-recorded database change.
+- Methods that construct Python-side objects start with `create_` and do not modify PrePoMax. They
+  make either a detached part that an `add` takes as an argument (`pmx.create.elastic(...)`,
+  `pmx.create.region(...)`), or a result output draft (`create_field_output_equation(...)`).
+- Collection `add_*` and `replace_*` methods validate and make the command-recorded change. On the
+  **model** side a value that is not given is kept, so a replace changes only what it is told; on the
+  **results** side a replace re-specifies the whole definition, because a result draft is built whole
+  rather than cloned.
 
 ## Script execution and regeneration
 
@@ -31,7 +38,59 @@ The root object available in the Python console is `pmx`.
 - A recorded script is added to history only when it completes without an error. Full-history regeneration executes the embedded
   source at the same position in history; phase-only regeneration skips recorded scripts.
 
+## Unattended script execution
+
+`--script <file.py>` runs a script without a user present. The script is executed after the file given by `-f` is opened, and it
+is recorded as a single history command exactly like **Record and Run**. Combine it with `-g No` to keep the window hidden and
+`-x Yes` to exit when the script finishes.
+
+```
+PrePoMax.com --script build.py --scriptArgs "40 steel" -f model.pmx -g No -x Yes -w C:\work --report run.json --timeout 600
+```
+
+- `--scriptArgs` is split on spaces and reaches the script as `sys.argv[1:]`; `sys.argv[0]` is the script file name.
+- `--onPrompt` decides what happens when a dialog asks for a decision and nobody can answer it. `Fail` aborts the run, `Accept`
+  answers with the default answer. A script defaults to `Fail`, a regeneration defaults to `Accept`. Single button dialogs only
+  report and never abort the run.
+- `--timeout <seconds>` limits the whole run. On expiry the running analyses are killed and the process exits.
+- `--settings <file>` reads the settings from an explicit file, and `--noSettingsSave` does not write them back. A script run
+  never writes the settings file, so parallel runs cannot disturb each other or the interactive user.
+- `--report <file.json>` writes a machine readable record of the run: the invocation, the executed commands and their durations,
+  the reported messages, the answered or refused prompts, the analysis jobs with their status, and the produced files. The report
+  is written also when the run fails.
+- `--save <file.pmx>` saves the model after the script finishes. The save happens after the script command is recorded, so the
+  saved file regenerates the scripted session; a `pmx.save` call from inside the script cannot, because the script command is
+  added to the history only once it has completed.
+
+The process exit code is part of the command line contract:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Completed, no errors |
+| 1 | Command line or option error |
+| 2 | Model or regeneration error |
+| 3 | Script error - an unhandled Python exception |
+| 4 | Timed out |
+| 5 | An interactive prompt was refused because `--onPrompt` is `Fail` |
+| 6 | The `PrePoMax.com` launcher could not start the application |
+
 ## Typical access path
+
+The model tree mirrors the application tree, so a scripted model is built in the order the tree is
+built.
+
+```python
+pmx.model.materials.add('Steel', pmx.create.elastic_with_density(210000, 0.3, 7.85e-9))
+pmx.model.sections.add_solid('Section-1', 'Steel', part_selection)
+pmx.model.node_sets.add('Bottom', bottom_selection)
+
+step = pmx.model.steps.add_static('Step-1', time_period=1.0)
+step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
+step.loads.add_pressure('Pressure-1', top_selection, 2.5)
+step.field_outputs.add_nodal('NF-Output-1', ['U', 'RF'])
+```
+
+The results tree is reached the same way, one level at a time.
 
 ```python
 pmx
@@ -119,18 +178,927 @@ Root object exposed as `pmx`.
 
 | Member | Description |
 | --- | --- |
+| `model` | The model tree of the currently open model. |
 | `results` | Loaded result names and the currently selected result. |
 | `selection` | Creates and highlights reusable view-aware selections. |
+| `create` | Creates the detached parts that model items take as arguments. |
+| `jobs` | The analyses of the model. |
 | `help()` | Prints documented members. |
+
+The document methods listed under **Document** below also live on this object.
 
 Example:
 
 ```python
 pmx
+pmx.model
 pmx.results
 pmx.selection
+pmx.create
 pmx.help()
 ```
+
+## Document
+
+The document operations sit on the root object, because they act on the application rather than on a
+model item.
+
+| Member | Description |
+| --- | --- |
+| `pmx.new_model(model_space, unit_system)` | Creates a new empty model. **Console only.** |
+| `pmx.open(file_name)` | Opens a .pmx, .pmh or .frd file. **Console only.** |
+| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. |
+| `pmx.save(file_name)` | Saves the model to a .pmx file. |
+| `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
+| `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
+| `pmx.export_to_stl(part_names, file_name)` | Exports the named parts to .stl. |
+| `pmx.export_to_3mf(file_name, edge_thickness_ratio)` | Exports the model to a 3MF file. |
+| `pmx.export_parts_as_gmsh_mesh(file_name)` | Exports the meshed parts to a Gmsh .msh file. |
+| `pmx.export_parts_as_mmg_mesh(part_names, file_name, combine=False)` | Exports the named parts to an Mmg .mesh file. |
+| `pmx.export_cad_parts_as_step(part_names, file_name)` | Exports the named CAD parts to .step. |
+| `pmx.export_cad_parts_as_brep(part_names, file_name)` | Exports the named CAD parts to .brep. |
+| `pmx.export_deformed_parts_to_calculix(part_names, file_name)` | Exports the named deformed parts to a CalculiX .inp file. |
+
+`new_model` and `open` replace the command history, which a recorded script is itself part of, so both
+raise inside a recorded script. Open the file with the `-f` command line switch instead, or call them
+from the Python console.
+
+To save a scripted session so that it can be regenerated, use the `--save` command line switch rather
+than `pmx.save`. The save then happens after the script command is recorded, so the saved history
+contains the script; a `pmx.save` call from inside the script writes the model correctly but its
+embedded history stops just before the running script.
+
+## Model
+
+### `Model`
+
+Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jobs`, `selection` and
+`create` are siblings of `model`, not members of it.
+
+| Member | Description |
+| --- | --- |
+| `name` | The model name. |
+| `properties` | The model name, model space and unit system. |
+| `parameters` | The equation parameters of the model. |
+| `geometry` | The geometry branch of the model. |
+| `mesh` | The meshing branch of the model. |
+| `nodes` | The nodes of the model mesh. |
+| `elements` | The elements of the model mesh. |
+| `parts` | The mesh parts of the model. |
+| `amplitudes` | The amplitudes of the model. |
+| `distributions` | The distributions of the model. |
+| `initial_conditions` | The initial conditions of the model. |
+| `materials` | The materials of the model. |
+| `sections` | The sections of the model. |
+| `constraints` | The constraints of the model. |
+| `surface_interactions` | The surface interactions of the model. |
+| `contact_pairs` | The contact pairs of the model. |
+| `node_sets` | The node sets of the model. |
+| `element_sets` | The element sets of the model. |
+| `surfaces` | The surfaces of the model. |
+| `reference_points` | The reference points of the model. |
+| `coordinate_systems` | The coordinate systems of the model. |
+| `steps` | The analysis steps of the model. |
+| `is_open()` | True when a model is open. |
+
+### `ModelProperties`
+
+| Member | Description |
+| --- | --- |
+| `name` | The model name. Writable. |
+| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable. |
+| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable. |
+
+### `Parameters`
+
+| Member | Description |
+| --- | --- |
+| `add(name, value)` | Adds a parameter. The value is a number or an equation string. |
+| `replace(old_name, name, value)` | Replaces a parameter. |
+| `import_from_file(file_name)` | Imports the parameters from a .pmp file. |
+| `export_to_file(file_name)` | Exports the parameters to a .pmp file. |
+
+```python
+pmx.model.parameters.add('t', 2.5)
+pmx.model.parameters.add('area', 't * 4')
+print(pmx.model.parameters['area'].value)
+```
+
+A number argument is a value in the current model units; a string argument is an equation. Parameters
+have no duplicate command, so `duplicate` raises. `rename` is carried out as a replacement, and a
+renamed parameter is **not** rewritten inside the equations that reference it.
+
+### `Parameter`
+
+| Member | Description |
+| --- | --- |
+| `name` | The parameter name. |
+| `equation` | The value or equation as entered. |
+| `value` | The evaluated value. |
+
+### Model item collections
+
+Every named model item collection shares the same verbs. The type-specific creation methods differ
+per area and are documented with that area.
+
+| Member | Description |
+| --- | --- |
+| `get_names()` | Names of the items in the collection. |
+| `contains(name)` | True when an item with that name exists. |
+| `get(name)`, `collection[name]` | The item with that name. |
+| `len(collection)`, iteration | The count, and iteration in model order. |
+| `first()`, `last()` | The first and the last item. |
+| `duplicate(names)` | Duplicates the named items using command history. Not every area supports it. |
+| `remove(names)` | Removes the named items using command history. |
+| `activate(names)`, `deactivate(names)` | Keeps the items in the model but stops writing them to the solver input file. Not every area supports it. |
+| `rename(old_name, new_name)` | Renames an item using command history. |
+
+A collection is indexed **by name only**. Positional access is `list(collection)[index]` or
+`get_names()`, because two indexers cannot be resolved from the Python side. `duplicate`,
+`activate` and `deactivate` raise a clear error in the areas that have no such command - parameters
+cannot be duplicated, and only materials, initial conditions, mesh setup items, model parts, steps
+and the step content can be activated and deactivated.
+
+### `Geometry`
+
+Reached as `pmx.model.geometry`.
+
+| Member | Description |
+| --- | --- |
+| `parts` | The geometry parts of the model. |
+
+### `Mesh` (model)
+
+Reached as `pmx.model.mesh`.
+
+| Member | Description |
+| --- | --- |
+| `setup_items` | The mesh setup items of the model. |
+| `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished. |
+| `create_boundary_layer(selection, thickness)` | Creates a prismatic boundary layer on the selected faces. |
+| `remesh_elements(selection, ...)` | Remeshes the selected elements. |
+| `thicken_shell_mesh(selection, thickness, number_of_layers=1, offset=0)` | Thickens the selected shell mesh. |
+| `split_part_mesh_using_surface(base_part_selection, splitter_surface_selection, ...)` | Splits a part mesh with a surface. |
+| `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
+
+The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
+Each one stores the selection it was given, not the resolved IDs, so a regenerate that rebuilds a
+different mesh re-resolves them.
+
+### `MeshSetupItems`
+
+Every setup item is created from a selection built in the `geometry` view with the `geometry` target,
+because the application rejects a setup item without creation data.
+
+| Member | Description |
+| --- | --- |
+| `add_meshing_parameters(name, selection, ...)` | Meshing parameters. Every value that is not given keeps the application default. |
+| `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
+| `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
+| `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
+| `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
+| `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
+| `add_extrude_mesh(name, selection, direction=None, extrude_center=None)` | A Gmsh extrude mesh item. |
+| `add_revolve_mesh(name, selection, axis_center=None, axis_direction=None, angle=None, middle_r=None)` | A Gmsh revolve mesh item. |
+| `add_sweep_mesh(name, selection)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. |
+| `add_shell_quad_wild(name, selection, preview=False, remesh=True, smooth=True, alpha=None)` | A QuadWild shell mesh item. |
+
+`add_meshing_parameters` accepts `max_size`, `min_size`, `fineness`, `grading`, `elements_per_edge`,
+`elements_per_curve`, `second_order`, `quad_dominated`, `midside_nodes_on_geometry`, `use_mmg` and
+`keep_model_edges`. The Gmsh items accept `algorithm_2d`, `algorithm_3d` and `recombine_min_quality`.
+
+```python
+part = pmx.model.geometry.parts.first()
+selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
+pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)
+pmx.model.mesh.create(part.name)
+```
+
+### `MeshSetupItem`
+
+| Member | Description |
+| --- | --- |
+| `name` | The item name. |
+| `item_type` | The item type, for example `MeshingParameters` or `LocalMeshSize`. |
+| `mesher_type` | `None`, `Netgen`, `Gmsh` or `QuadWild`. |
+| `active`, `valid` | Item state. |
+| `get_geometry_ids()` | The geometry IDs the item was created from. |
+
+### `Nodes` and `Elements` of the model mesh
+
+Reached as `pmx.model.nodes` and `pmx.model.elements`. They are the editing side of the model mesh,
+not the read-only result mesh of the same name under `pmx.results`.
+
+| Member | Description |
+| --- | --- |
+| `nodes.count`, `elements.count` | The node and element counts of the model mesh. |
+| `nodes.renumber(start_id=1)` | Renumbers the nodes using command history. |
+| `nodes.merge_coincident(selection=None, distance=None)` | Merges coincident nodes. A selection that is not given means the whole mesh. |
+| `elements.renumber(start_id=1)` | Renumbers the elements using command history. |
+| `elements.create_element_set_from_quality(name, quality_type, limit, ...)` | Creates an element set from an element quality measure. |
+
+### Part collections
+
+`pmx.model.geometry.parts` and `pmx.model.parts` share the collection verbs plus the members below.
+Every `part_names` argument accepts a single name or a list of names.
+
+| Member | Description |
+| --- | --- |
+| `hide(part_names)`, `show(part_names)` | Part visibility. |
+| `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. |
+| `reset_color(part_names)` | Restores the default color. |
+| `set_transparency(part_names, transparency)` | 0 is fully transparent, 255 is opaque. |
+| `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. |
+| `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
+| `get_element_types(part_name)` | The element type of every slot of a part. |
+| `set_element_type(part_names, element_type_name, value)` | Sets one element type slot using command history. |
+
+`GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
+`convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
+`defeature`, `split_face`, `flip_stl_normals` and `delete_stl_faces`. The four selection based methods
+take a selection built in the `geometry` view with the `geometry` target.
+
+`ModelParts` adds `translate`, `rotate`, `mirror`, `merge` and `find_edges_by_angle`.
+
+```python
+pmx.model.parts.translate('Solid-1', [0, 0, 10])
+pmx.model.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 45)
+pmx.model.parts.set_color('Solid-1', [255, 0, 0])
+
+selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
+pmx.model.geometry.parts.defeature(selection)
+```
+
+`translate` and `rotate` take `number_of_copies`; a value larger than zero keeps the original and
+creates that many transformed copies. `mirror` and `scale` take `copy` instead.
+
+### `GeometryPart` and `ModelPart`
+
+| Member | Description |
+| --- | --- |
+| `name`, `id` | The part name and ID. |
+| `part_type` | `Solid`, `SolidAsShell`, `Shell`, `Wire`, `Compound` or `Unknown`. |
+| `node_count`, `element_count` | Node and element counts. |
+| `color` | The part color as `[R, G, B, A]`. |
+| `visible`, `active` | Part state. |
+| `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. |
+| `get_node_ids()`, `get_element_ids()` | The part node and element IDs. |
+
+`GeometryPart` adds `is_cad_part`.
+
+### `Amplitudes`
+
+| Member | Description |
+| --- | --- |
+| `add(name, time_amplitude, time_span=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. |
+| `replace(old_name, name, time_amplitude, time_span=None)` | Replaces an existing amplitude. |
+
+`Amplitude` exposes `name`, `time_span`, `row_count` and `get_time_amplitude()`.
+
+### `Distributions`
+
+| Member | Description |
+| --- | --- |
+| `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
+| `add_from_file(name, file_name)` | Reads the distribution from a point cloud file. |
+| `replace_from_equation(old_name, name, equation)` | Replaces an existing distribution. |
+
+`Distribution` exposes `name` and `distribution_type`.
+
+### `InitialConditions`
+
+| Member | Description |
+| --- | --- |
+| `add_temperature(name, selection, temperature)` | Initial temperature. The selection target is `nodes`. |
+| `add_translational_velocity(name, selection, v1, v2, v3)` | Initial translational velocity. |
+| `add_angular_velocity(name, selection, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. |
+| `hide(names)`, `show(names)` | Initial condition visibility. |
+
+`InitialCondition` exposes `name`, `condition_type`, `region_name`, `region_type`, `visible` and
+`valid`.
+
+```python
+pmx.model.amplitudes.add('Amp-1', [[0, 0], [1, 1]])
+pmx.model.distributions.add_from_equation('D-1', 'x + y')
+nodes = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3])
+pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
+```
+
+### `Materials`
+
+| Member | Description |
+| --- | --- |
+| `add(name, properties, description=None)` | Adds a material. The properties are created by `pmx.create`. |
+| `replace(old_name, name, properties, description=None)` | Replaces an existing material. |
+
+`Material` exposes `name`, `description`, `property_count` and `get_property_types()`.
+
+```python
+pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
+                                  pmx.create.density(7.85e-9)])
+# A single property does not have to be wrapped in a list
+pmx.model.materials.add('Alu', pmx.create.elastic_with_density(70000, 0.33, 2.7e-9))
+# Temperature dependent - the last value of every row is the temperature
+pmx.model.materials.add('Steel-T', pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]))
+```
+
+A material may hold only one elastic property; the model rejects a second one.
+
+### `Sections`
+
+| Member | Description |
+| --- | --- |
+| `add_solid(name, material_name, selection, thickness=1)` | Solid section. The selection target is `elements`. |
+| `add_shell(name, material_name, selection, thickness=1)` | Shell section. |
+| `add_membrane(name, material_name, selection, thickness=1)` | Membrane section. |
+| `add_point_mass(name, selection, mass)` | Point mass section. The selection target is `nodes`. |
+| `add_distributed_mass(name, selection, mass)` | Distributed mass section. |
+
+`Section` exposes `name`, `section_type`, `material_name`, `region_name`, `region_type`, `thickness`
+and `valid`.
+
+```python
+elements = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1, 2, 3])
+pmx.model.sections.add_solid('Sec-1', 'Steel', elements)
+```
+
+A section is passed a selection, not a named region. The application converts it into an internal
+element or node set named after the section, exactly as it does for a section created in a dialog, so
+`region_type` reads back as `ElementSetName` rather than `Selection`.
+
+### `NodeSets`
+
+| Member | Description |
+| --- | --- |
+| `add(name, selection)` | Creates a node set from a selection and adds it to the model. |
+| `replace(old_name, name, selection)` | Replaces an existing node set. |
+
+```python
+selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4])
+node_set = pmx.model.node_sets.add('Fixed', selection)
+print(node_set.count, node_set.get_node_ids())
+```
+
+### `NodeSet`
+
+| Member | Description |
+| --- | --- |
+| `name` | The node set name. |
+| `count` | The number of nodes. |
+| `valid` | True when the node set resolved during the last regeneration. |
+| `is_internal` | True when the node set was created internally for another model item. |
+| `get_node_ids()` | The node IDs. |
+| `get_center_of_gravity()` | The center of gravity. |
+
+### `ElementSets`
+
+| Member | Description |
+| --- | --- |
+| `add(name, selection)` | Creates an element set from a selection. The selection target is `elements`. |
+| `replace(old_name, name, selection)` | Replaces an existing element set. |
+| `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
+
+`ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()`.
+
+### `Surfaces`
+
+| Member | Description |
+| --- | --- |
+| `add(name, selection)` | Creates a surface from a selection. The selection target is `surfaces`. |
+| `add_from_node_set(name, node_set_name)` | Creates a surface from an existing node set. |
+| `replace(old_name, name, selection)` | Replaces an existing surface. |
+
+`Surface` exposes `name`, `created_from` (`Selection`, `NodeSet` or `Faces`), `surface_type`
+(`Element` or `Node`), `area`, `node_set_name`, `valid`, `is_internal` and `get_face_ids()`.
+
+### `ReferencePoints`
+
+| Member | Description |
+| --- | --- |
+| `add(name, coordinates)` | Creates a reference point at `[x, y, z]`. |
+| `add_from_selection(name, created_from, selection)` | Creates a reference point whose coordinates the mesh computes from selected points. |
+| `add_from_region(name, created_from, region_type, region_name)` | Creates a reference point whose coordinates the mesh computes from a named region. |
+| `replace(old_name, name, coordinates)` | Replaces an existing reference point. |
+| `hide(names)`, `show(names)` | Reference point visibility. |
+
+`created_from` decides which of the two add methods applies. `OnPoint`, `BetweenTwoPoints`,
+`CircleCenterBy3Points` and the other point modes take a selection with exactly as many points as
+the mode consumes; `CenterOfGravity` and the other region modes take a named region instead.
+
+`ReferencePoint` exposes `name`, `created_from`, `visible`, `valid` and `get_coordinates()`.
+
+### `CoordinateSystems`
+
+| Member | Description |
+| --- | --- |
+| `add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Creates a coordinate system from three points. The type is `Rectangular` or `Cylindrical`. |
+| `add_from_selections(name, origin_created_from=None, origin_selection=None, ...)` | Creates a coordinate system whose points the mesh computes from selections. Each of the three points takes a mode and its selection together. |
+| `replace(old_name, name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Replaces an existing coordinate system. |
+| `hide(names)`, `show(names)` | Coordinate system visibility. |
+
+`CoordinateSystem` exposes `name`, `coordinate_system_type`, `visible`, `valid`, `get_origin()`,
+`get_point_on_x()` and `get_point_in_xy()`.
+
+```python
+top = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [1]})
+pmx.model.surfaces.add('Top', top)
+pmx.model.reference_points.add('RP-1', [0, 0, 100])
+pmx.model.coordinate_systems.add('CS-1', [0, 0, 0], [1, 0, 0], [0, 1, 0])
+```
+
+A region name is unique across **all** mesh entities, so a surface cannot take a name already used by
+a node set, an element set or a part.
+
+## Interactions
+
+### `Constraints`
+
+Reached as `pmx.model.constraints`. Every region argument is a `Selection` or a `Region`. Every
+`add_*` has a matching `replace_*` taking `old_name` first, then an optional `name`, then the
+arguments of its `add_*`, all optional.
+
+| Member | Selection target | Description |
+| --- | --- | --- |
+| `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. |
+| `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None)` | surfaces, surfaces, elements | A cyclic symmetry. |
+| `add_rigid_body(name, reference_point_name, region)` | nodes | A rigid body. |
+| `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None)` | surfaces | A kinematic coupling. |
+| `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None)` | surfaces | A distributing coupling. |
+| `add_compression_only(name, region, clearance=None, spring_stiffness=None, tensile_force_at_negative_infinity=None, offset=None, non_linear=None)` | surfaces | A compression only constraint. |
+| `add_point_spring(name, region, k1=None, k2=None, k3=None)` | nodes | A point spring. |
+| `add_surface_spring(name, region, k1=None, k2=None, k3=None, stiffness_per_area=None)` | surfaces | A surface spring. |
+| `swap_master_slave(names)` | | Swaps the two sides. |
+| `merge_by_master_slave(names)` | | Merges the constraints that share a master and a slave region. |
+| `hide(names)`, `show(names)` | | Symbol visibility. |
+
+`Constraint` exposes `name`, `constraint_type`, `active`, `visible`, `master_region_type`,
+`master_region_name`, `slave_region_type`, `slave_region_name`, and the values of its own type
+through `get_value_names()` and `get_value(name)`.
+
+```python
+pmx.model.constraints.add_tie('Tie-1', master_selection, slave_selection)
+pmx.model.constraints.add_rigid_body('RB-1', 'RP-1', node_selection)
+```
+
+The three region shapes are not obvious from the type names:
+
+- A **tie** and a **cyclic symmetry** have a master and a slave region, both surfaces.
+- A **rigid body** and the two **couplings** name a reference point, which is stored as the *master*
+  side, so `master_region_type` reads back as `ReferencePointName` and the region itself is the slave
+  side.
+- The **springs** and the **compression only** constraint have a single region, which is stored as
+  the master side.
+
+A cyclic symmetry adds a third region on top of its master and slave surfaces: the **result expansion
+region**, used only when `number_of_graph_sectors` is larger than 1. Giving it with a single graph
+sector is rejected, because the application would discard it. `sector_angle_deg` is derived as
+`360 / number_of_sectors` and is read through `get_value`.
+
+### `SurfaceInteractions`
+
+Reached as `pmx.model.surface_interactions`. A surface interaction is composed of properties made by
+`pmx.create`, the same way a material is composed of material properties.
+
+| Member | Description |
+| --- | --- |
+| `add(name, properties)` | Adds a surface interaction. One property, or a list of them. |
+| `replace(old_name, name, properties)` | Replaces a surface interaction. |
+
+`SurfaceInteraction` exposes `name`, `property_count` and `get_property_types()`.
+
+The three properties are made by `pmx.create`:
+
+| Member | Description |
+| --- | --- |
+| `friction(coefficient, stick_slope=None)` | Friction. |
+| `gap_conductance(conductance=None, conductance_table=None)` | Gap conductance. Give one or the other: a value for a constant one, or rows of `[conductance, pressure, temperature]` for a tabular one. |
+| `surface_behavior(pressure_overclosure_type=None, c0=None, p0=None, k=None, s_inf=None, pressure_overclosure=None)` | Surface behavior. The type is `Hard`, `Linear`, `Exponential`, `Tabular` or `Tied`. |
+
+Setting `pressure_overclosure_type` resets the values to the defaults that type implies, so the API
+applies it first and a value given alongside it overrides that default.
+
+```python
+pmx.model.surface_interactions.add('SI-1', [pmx.create.friction(0.1),
+                                            pmx.create.surface_behavior('Linear', k=2000)])
+```
+
+### `ContactPairs`
+
+Reached as `pmx.model.contact_pairs`. A contact pair has two regions, so it takes a master and a
+slave one; both are a `Selection` or a `Region`, and both name surfaces.
+
+| Member | Description |
+| --- | --- |
+| `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface` or `Mortar`. |
+| `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. |
+| `swap_master_slave(names)` | Swaps the two sides. |
+| `merge_by_master_slave(names)` | Merges the contact pairs that share a master and a slave surface. |
+| `hide(names)`, `show(names)` | Symbol visibility. |
+
+`ContactPair` exposes `name`, `surface_interaction_name`, `method`, `small_sliding`, `adjust`,
+`adjustment_size`, `active`, `visible`, and `master_region_type`, `master_region_name`,
+`slave_region_type` and `slave_region_name`.
+
+```python
+pmx.model.contact_pairs.add('CP-1', 'SI-1', master_selection, slave_selection)
+```
+
+All the contact pairs of a model must use the same method. **Small sliding is supported by
+`NodeToSurface` and `Mortar` only** - the model clears it for `SurfaceToSurface` rather than refusing
+it, so the API rejects that combination instead of letting the request be dropped. An
+`adjustment_size` turns the adjustment on, the way the dialog presents the two together, and
+`adjustment_size` reads back as `None` when no size is given.
+
+## Steps and step content
+
+The names in this section belong to the **model** tree under `pmx.model.steps`. The results side has
+collections of the same name under `pmx.results`, documented further below.
+
+Two rules hold everywhere in this section:
+
+- **Every value is an optional named argument, and a value that is not given is not written.** A new
+  item therefore keeps the application default, and `replace_*` keeps whatever the item already
+  carries. `replace_static('Step-1', nlgeom=False)` changes one value and leaves the rest alone.
+- **The type cannot change on a replace**, because `replace_*` clones the existing item, the same
+  restriction the dialog has. Changing the type is a `remove` followed by an `add`.
+
+Every `add_*` listed below has a matching `replace_*` - `add_static` and `replace_static`,
+`add_pressure` and `replace_pressure`, and so on. A `replace_*` takes `old_name` first, then an
+optional `name` that renames the item in the same call, and then the arguments of its `add_*`, all
+of them optional. Only the `replace_*` methods that differ from that pattern are listed separately.
+
+### `Steps` (model)
+
+Reached as `pmx.model.steps`. It shares the collection verbs, including `activate` and `deactivate`.
+
+| Member | Description |
+| --- | --- |
+| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, direct=None, ...)` | A static step. |
+| `add_slip_wear(name, ...)` | A slip wear step. It takes the arguments of `add_static`. |
+| `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. |
+| `add_frequency(name, num_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. |
+| `add_complex_frequency(name, num_of_frequencies=None, ...)` | A complex frequency step. |
+| `add_buckle(name, num_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. |
+| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. It also takes the arguments of `add_static`. |
+| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, num_data_points=None, bias=None, num_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. |
+| `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. It also takes the arguments of `add_static`. |
+| `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. It also takes the arguments of `add_static`. |
+| `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
+| `add_coupled_temp_disp(name, ...)` | A coupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
+| `move(names, target_index)` | Moves the named steps. The index is **zero based** and is evaluated after the moved steps have been removed. |
+
+Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` second, and every
+`add_*` ends with the arguments shared by all step types:
+
+| Shared argument | Description |
+| --- | --- |
+| `nlgeom` | Accounts for the geometric nonlinearity. |
+| `max_increments` | The maximum number of increments. |
+| `incrementation_type` | `Default`, `Automatic` or `Direct`. |
+| `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
+| `output_frequency` | The results output frequency. |
+| `perturbation` | Makes the step a perturbation step. The model rejects it for a step type that does not support one. |
+| `run_analysis` | False solves nothing and only checks the model. |
+| `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. |
+
+```python
+step = pmx.model.steps.add_static('Step-1', time_period=1.0, nlgeom=True)
+pmx.model.steps.replace_static('Step-1', max_time_increment=0.1)
+```
+
+A new step of every type already carries the default field outputs the application would create, so
+`len(step.field_outputs)` is 2 before anything is added.
+
+### `Step` (model)
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_type` | The step name and the type, for example `StaticStep`. |
+| `active` | True when the step is written to the solver input file. |
+| `nlgeom`, `perturbation`, `run_analysis` | The shared solution flags. |
+| `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. |
+| `bcs` | The boundary conditions of the step. |
+| `loads` | The loads of the step. |
+| `field_outputs` | The field outputs of the step. |
+| `history_outputs` | The history outputs of the step. |
+| `defined_fields` | The defined fields of the step. |
+| `get_value_names()` | The names of the values specific to this step type. |
+| `get_value(name)` | One value specific to this step type, for example `time_period`. |
+| `get_control_types()` | The type names of the step control parameters. |
+| `set_controls(parameters)` | Replaces the step control parameters. They are made by `pmx.create`. |
+| `clear_controls()` | Removes the step control parameters. |
+
+The values shared by every step type are properties; the values of the concrete type are read by
+name, because they differ per type. `get_value_names()` lists what a given step offers.
+
+```python
+print(list(step.get_value_names()))
+print(step.get_value('time_period'))
+step.set_controls([pmx.create.time_incrementation_control(i0=8, ic=32)])
+```
+
+A step control set is replaced as a whole, because the application has a single command for it. A
+`Damping` or `ModalDamping` value is flattened into `damping_type`, `damping_alpha`, `damping_beta`,
+`damping_viscous_damping_ratio` and `damping_ratio_count`.
+
+### `BoundaryConditions`
+
+Reached as `step.bcs`. It shares the collection verbs. Every `region` argument is a `Selection` or a
+`Region`, and the selection target is `nodes` for all four types.
+
+| Member | Description |
+| --- | --- |
+| `add_fixed(name, region, color=None)` | A fixed boundary condition. |
+| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. |
+| `add_submodel(name, region, step_number=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
+| `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
+| `propagate(name)` | Copies the boundary condition to every following step. |
+| `hide(names)`, `show(names)` | Symbol visibility. |
+
+```python
+step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
+step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=1.5)
+```
+
+A degree of freedom of a displacement and rotation boundary condition that is **not given is left
+unconstrained**, and reads back as `None`. Because a missing argument means "keep" on a replace,
+`replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again.
+
+The step decides which types it supports - a static step takes no temperature boundary condition, a
+heat transfer step takes nothing else - and the API rejects an unsupported type before it records a
+command, naming the step type.
+
+### `BoundaryCondition`
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_name` | The boundary condition name and the step it belongs to. |
+| `boundary_condition_type` | `FixedBC`, `DisplacementRotation`, `SubmodelBC` or `TemperatureBC`. |
+| `active`, `visible` | Item state. |
+| `region_type`, `region_name` | The region the boundary condition is applied to. |
+| `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
+| `color` | The symbol color as `[R, G, B, A]`. |
+| `get_value_names()`, `get_value(name)` | The values specific to this boundary condition type. |
+
+### `Loads`
+
+Reached as `step.loads`. It shares the collection verbs. Every `region` argument is a `Selection` or
+a `Region`; the selection target follows the load type.
+
+| Member | Selection target | Description |
+| --- | --- | --- |
+| `add_concentrated_force(name, region, f1=None, f2=None, f3=None, ...)` | nodes | A concentrated force. |
+| `add_moment(name, region, m1=None, m2=None, m3=None, ...)` | nodes | A moment. |
+| `add_pressure(name, region, magnitude, distribution_name=None, ...)` | surfaces | A pressure. |
+| `add_hydrostatic_pressure(name, region, first_point=None, second_point=None, direction=None, first_point_pressure=None, second_point_pressure=None, cutoff=None, ...)` | surfaces | A hydrostatic pressure. `cutoff` is `None`, `Positive` or `Negative`. |
+| `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from a results file. |
+| `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
+| `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
+| `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | elements | A gravity load. |
+| `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. |
+| `add_pre_tension(name, region, magnitude, direction=None, load_type=None, ...)` | surfaces | A pre-tension load. `load_type` is `Force` or `Displacement`. |
+| `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
+| `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
+| `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
+| `add_film_heat_transfer(name, region, sink_temperature, film_coefficient, coefficient_amplitude_name=None, ...)` | surfaces | A film heat transfer load. |
+| `add_radiation_heat_transfer(name, region, sink_temperature, emissivity, cavity_radiation=None, cavity_name=None, emissivity_amplitude_name=None, ...)` | surfaces | A radiation heat transfer load. |
+| `propagate(name)` | | Copies the load to every following step. |
+| `hide(names)`, `show(names)` | | Symbol visibility. |
+
+Every `add_*` ends with `amplitude_name`, `coordinate_system_name`, `phase_deg` and `color`, and has
+a matching `replace_*` that takes `old_name` first and `name` second.
+
+```python
+step.loads.add_concentrated_force('Force-1', selection, f3=-1000)
+step.loads.add_pressure('Pressure-1', pmx.create.region('SurfaceName', 'Top'), 2.5)
+step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)
+```
+
+Three details the model imposes:
+
+- **A surface traction has two independent component groups.** `f1`-`f3` are the total force and
+  `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
+  force components without a distribution, the force per area components with one.
+- A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
+  normal unless a `direction` is given.
+- A **cavity name** is truncated to three characters, a solver limit.
+
+An **imported pressure** is read from its results file on every model check, so `pressure_time` and
+`pressure_variable_name` must name a field the file actually contains.
+
+### `Load`
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_name` | The load name and the step it belongs to. |
+| `load_type` | The load type, for example `CLoad` or `DLoad`. |
+| `active`, `visible` | Item state. |
+| `region_type`, `region_name` | The region the load is applied to. |
+| `amplitude_name`, `coordinate_system_name` | The names the load refers to. |
+| `color` | The symbol color as `[R, G, B, A]`. |
+| `get_value_names()`, `get_value(name)` | The values specific to this load type. |
+
+### `FieldOutputs` (model)
+
+Reached as `step.field_outputs`. A field output covers the whole model, so it carries no region. The
+variables are given by name, one or a list of them.
+
+| Member | Description |
+| --- | --- |
+| `add_nodal(name, variables, last_iterations=None, contact_elements=None, global_output=None)` | A nodal field output. `RF`, `U`, `PU`, `V`, `NT`, `PNT`, `RFL`. |
+| `add_element(name, variables, output=None, ...)` | An element field output. `S`, `PHS`, `E`, `ME`, `PEEQ`, `ENER`, `HFL`, `ERR`, `HER`, `ZZS`, `SDV`. `output` is `Default`, `TwoD` or `ThreeD`. |
+| `add_contact(name, variables, ...)` | A contact field output. `CDIS`, `CSTR`, `CELS`, `PCON`. |
+| `propagate(name)` | Copies the field output to every following step. |
+
+```python
+step.field_outputs.add_nodal('NF-Output-1', ['U', 'RF'])
+step.field_outputs.add_element('EF-Output-1', ['S', 'E'])
+```
+
+### `FieldOutput` (model)
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_name` | The field output name and the step it belongs to. |
+| `field_output_type` | `NodalFieldOutput`, `ElementFieldOutput` or `ContactFieldOutput`. |
+| `active` | True when the field output is written to the solver input file. |
+| `last_iterations` | Writes the results of the last iteration of a diverged increment. |
+| `contact_elements` | Writes the results for the contact elements. |
+| `global_output` | Writes the results in the global coordinate system. |
+| `get_variables()` | The requested output variables as a list of names. |
+| `get_value_names()`, `get_value(name)` | The values specific to this field output type. |
+
+### `HistoryOutputs` (model)
+
+Reached as `step.history_outputs`. Unlike a field output it carries a region.
+
+| Member | Selection target | Description |
+| --- | --- | --- |
+| `add_nodal(name, region, variables, totals_type=None, global_output=None)` | nodes | A nodal history output. `RF`, `U`, `V`, `NT`, `RFL`. |
+| `add_element(name, region, variables, ...)` | elements | An element history output. `S`, `E`, `ME`, `PEEQ`, `HFL`, `ENER`, `ELSE`, `ELKE`, `EVOL`, `EBHE`, `SDV`. |
+| `add_section(name, region, variables, ...)` | surfaces | A section history output. `SOF`, `SOM`, `SOAREA`. |
+| `add_contact(name, contact_pair_name, variables, ...)` | - | A contact history output. It names a **contact pair** instead of a region. `CDIS`, `CSTR`, `CELS`, `CNUM`, `CF`. |
+| `propagate(name)` | | Copies the history output to every following step. |
+
+`totals_type` is `Yes`, `Only` or `No`, and decides whether the sum of the external forces is printed
+in addition to, or instead of, the individual values.
+
+```python
+step.history_outputs.add_nodal('H-Output-1', selection, ['U', 'RF'], totals_type='Only')
+```
+
+### `HistoryOutput` (model)
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_name` | The history output name and the step it belongs to. |
+| `history_output_type` | `NodalHistoryOutput`, `ElementHistoryOutput`, `ContactHistoryOutput` or `SectionHistoryOutput`. |
+| `active` | True when the history output is written to the solver input file. |
+| `region_type`, `region_name` | The region, or the contact pair, the history output is written for. |
+| `totals_type`, `global_output` | The shared history output values. |
+| `get_variables()` | The requested output variables as a list of names. |
+| `get_value_names()`, `get_value(name)` | The values specific to this history output type. |
+
+### `DefinedFields`
+
+Reached as `step.defined_fields`. A defined temperature has two forms, and each one is its own add
+method, so the type follows from the method that is used.
+
+| Member | Description |
+| --- | --- |
+| `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `nodes`. |
+| `add_temperature_from_file(name, file_name, step_number=None, amplitude_name=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region. |
+| `propagate(name)` | Copies the defined field to every following step. |
+| `hide(names)`, `show(names)` | Symbol visibility. |
+
+`replace_temperature` and `replace_temperature_from_file` each refuse a defined field of the other
+form, because the two take different arguments.
+
+### `DefinedField`
+
+| Member | Description |
+| --- | --- |
+| `name`, `step_name` | The defined field name and the step it belongs to. |
+| `defined_field_type` | The type, for example `DefinedTemperature`. |
+| `active`, `visible` | Item state. |
+| `region_type`, `region_name` | The region the defined field is applied to. |
+| `amplitude_name` | The amplitude the defined field refers to. |
+| `color` | The symbol color as `[R, G, B, A]`. |
+| `get_value_names()`, `get_value(name)` | The values specific to this defined field type. |
+
+## Parts
+
+### `Create`
+
+Reached as `pmx.create`. A model item is committed by an `add` method on its collection; `pmx.create`
+only makes the detached **parts** that those methods take as arguments, and records no command.
+
+| Member | Description |
+| --- | --- |
+| `selection_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
+| `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows. |
+| `elastic_with_density(youngs_modulus, poissons_ratio, density)` | Combined elastic and density property. |
+| `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`. |
+| `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`. |
+| `density(density)` | Density. One value, or rows of `[density, temperature]`. |
+| `plastic(stress_strain)` | Plastic. Rows of `[stress, strain, temperature]`. |
+| `specific_heat(specific_heat)` | Specific heat. One value, or rows of `[value, temperature]`. |
+| `thermal_conductivity(thermal_conductivity)` | Thermal conductivity, same shape. |
+| `thermal_expansion(thermal_expansion)` | Thermal expansion, same shape. |
+| `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
+| `region(region_type, name)` | Names an existing region of the model. |
+| `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step. |
+| `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step. |
+| `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type. |
+| `time_incrementation_control(...)` | A time incrementation step control parameter. |
+| `field_control(...)` | A field step control parameter. |
+| `contact_control(...)` | A contact step control parameter. |
+| `reset_control()` | A reset step control parameter, which restores the CalculiX defaults. |
+
+A tabular property takes either the values of a single row, or a list of rows whose **last value is
+always the temperature**. `plastic`, `elastic_engineering_constants` and `elastic_lamina` always
+require the list form, because a single row is not enough to describe them.
+
+The three step control makers take one optional argument per CalculiX parameter, and only the values
+that are given override the solver defaults - `time_incrementation_control` takes `i0`, `ir`, `ip`,
+`ic`, `il`, `ig`, `is_value`, `ia`, `ij`, `it`, `df`, `dc`, `db`, `da`, `ds`, `dh`, `dd` and `wg`;
+`field_control` takes `rna`, `cna`, `q0a`, `qua`, `rpa`, `ea`, `cea` and `rla`; `contact_control`
+takes `delcon`, `alea`, `kscalemax` and `itf2f`.
+
+### `Region`
+
+Created by `pmx.create.region(region_type, name)`. It points a model item at an existing region of
+the model instead of giving the item its own selection. `region_type` is `NodeSetName`,
+`ElementSetName`, `SurfaceName`, `ReferencePointName` or `PartName`.
+
+| Member | Description |
+| --- | --- |
+| `region_type` | The region type. |
+| `name` | The name of the region. |
+
+```python
+step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
+```
+
+A region is a detached description, so the name is checked when the item that uses it is built, not
+when the region is created. Every model item that takes a `region` argument accepts either a
+`Region` or a `Selection`.
+
+A selection based region does **not** read back as `Selection`. The application converts it into an
+internal node set, element set or surface when the item is added, so `region_type` reads back as
+`NodeSetName`, `ElementSetName` or `SurfaceName` either way, and `region_name` then names a set the
+user did not create.
+
+## Analyses
+
+### `Jobs`
+
+Reached as `pmx.jobs`. It shares the collection verbs, except `activate` and `deactivate`, which an
+analysis does not support. A value that is not given comes from the application settings, so an
+analysis added without arguments is the one the dialog would offer.
+
+| Member | Description |
+| --- | --- |
+| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
+| `replace(old_name, name=None, ...)` | Replaces an analysis. A value that is not given comes from the settings, not from the analysis being replaced. |
+| `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
+
+### `Job`
+
+| Member | Description |
+| --- | --- |
+| `name` | The analysis name. |
+| `fem_solver` | The FEM solver. |
+| `executable`, `argument`, `work_directory` | What the solver is run as. The argument names the input file and defaults to the analysis name. |
+| `compatibility_mode` | Runs the solver in the simplified mode. |
+| `status` | The status of the last run: `None`, `InQueue`, `Running`, `OK`, `Killed`, `TimedOut`, `Failed` or `FailedWithResults`. |
+| `results_file_name` | The name of the results file the analysis writes. |
+| `is_up_to_date` | True when the results match the current model. |
+| `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. |
+| `check_model(wait=True, timeout=None)` | The same, but only checks the model without solving it. |
+| `kill()` | Kills a running analysis. |
+| `get_output()` | Everything the solver wrote to its output. |
+
+```python
+job = pmx.jobs.add('Job-1')
+status = job.run(timeout=600)
+if status != 'OK':
+    print(job.get_output())
+pmx.jobs.open_results('Job-1')
+```
+
+`run` and `check_model` return the job status rather than a bool, because a run that starts is not a
+run that succeeds. With `wait` the call returns only when the solver has finished, which is what an
+unattended script needs; `wait=False` starts the solver and returns at once, and is only useful from
+the console, because a batch run that ends while the solver is still working kills it.
+
+A `timeout` in seconds kills the solver and returns `TimedOut`. It needs `wait`, since a run that is
+not waited for has nothing to time out. The `--timeout` command line switch stays the outer safety
+net for the whole process.
+
+A refused prompt during a run ends the process with exit code 5. Running an analysis whose elements
+have no section assignment is the usual way to meet one, because the application asks whether to
+continue.
 
 ## Selections
 
@@ -405,6 +1373,24 @@ result.field_outputs.export_to_csv(
     increment_id=1
 )
 ```
+
+Every `create_*` above has a single call counterpart that creates the definition and adds it to the
+result in one step: `add_limit`, `add_envelope`, `add_equation` and
+`add_coordinate_system_transform`, each taking the arguments of its `create_*` plus the optional
+`filter1` and `filter2`, and each with a matching `replace_*` that takes `old_name` first.
+
+```python
+outputs = pmx.results.current.field_outputs
+outputs.add_equation('SEQV2', 'STRESS.Mises * 2')
+
+# The same thing in two steps, which still works
+draft = outputs.create_field_output_equation('SEQV3', 'STRESS.Mises * 3')
+outputs.add(draft)
+```
+
+A results `replace_*` **re-specifies the whole definition**, unlike a model `replace_*` where a value
+that is not given is kept. A result draft is built whole rather than cloned from the existing
+definition, so there is nothing to keep.
 
 ### `FieldOutputDraft`
 
@@ -1011,6 +1997,11 @@ The supported region combinations are:
 
 Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface Normals"`, `"Wear Depths"`, `"Mesh Deformation"`, `"Disp&Def"`, and `"Disp&Def&Depth"`.
 
+The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
+`add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy` and
+`add_from_table`, each with a matching `replace_*`. The draft form is kept here as well, because a
+history output draft carries a lot of state and is sometimes easier to build in steps.
+
 ### `HistoryOutputFilter`
 
 Immutable Python filter specification assigned to `filter1` or `filter2` on any history-output draft.
@@ -1288,29 +2279,85 @@ These classes exist in the implementation but are not normally used directly fro
 
 ## Source Folder Layout
 
-The Python API resides in the `APIs` class-library project. Its source is grouped by object area under the `Python` folder, with helper and data-service classes stored beside the APIs they support. All Python API classes use the flat `APIs.Python` namespace. PrePoMax keeps only the controller and embedded-engine host adapters.
+The Python API resides in the `APIs` class-library project. Its source is grouped by object area under the `Python` folder, with helper and data-service classes stored beside the APIs they support. PrePoMax keeps only the controller and embedded-engine host adapters.
 
-C# classes and files use explicit names such as `ResultStepAPI`, `ResultIncrementAPI`, `ResultHistoryOutputAPI`, and `ResultHistoryOutputFieldAPI`. Python-visible names remain `Step`, `Increment`, `HistoryOutput`, and `HistoryField`.
+Most classes use the `APIs.Python` namespace. The **model tree** uses `APIs.Python.Model`, because the
+model and the results sides own several of the same names - `Mesh`, `Nodes`, `Elements`, `Parts`,
+`Steps`, `Step`, `FieldOutputs` and `HistoryOutputs` all exist on both sides. The namespace split
+keeps the natural name on each side instead of renaming one of them.
+
+Where a name is not shared, C# classes and files use explicit names such as `ResultStepAPI`,
+`ResultIncrementAPI`, `ResultHistoryOutputAPI`, and `ResultHistoryOutputFieldAPI`. Python-visible
+names remain `Step`, `Increment`, `HistoryOutput`, and `HistoryField`.
 
 ```text
 APIs
   Python
     Commands
     Common
+    Create
     Mesh
+      ElementSets
       Elements
+      NodeSets
       Nodes
       Parts
-    Selection
+      Surfaces
+    Model
+      Common
+      Document
+      Fields
+      Geometry
+      Materials
+      Mesh
+      Meshing
+      Parts
+      Regions
+      Sections
+      Steps
     Results
       Fields
       ResultFieldOutputs
       ResultHistoryOutputs
+    Scripts
+    Selection
+    Test_Scripts
 
 PrePoMax/Python
   Commands
   Engine
 ```
+
+`Test_Scripts` holds the scripts that exercise the API through the batch mode; every one of them is
+expected to end with `TEST PASSED` and exit code 0.
+
+## Test suite
+
+`APIs/Python/Test_Scripts` holds the scripts that exercise the API through the batch mode. Every one
+of them declares in its own header how it is run and which process exit code it expects:
+
+```
+#  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Loads.py -g No -x Yes -w <dir>
+#
+#Expected process exit code 0.
+```
+
+`Run_Tests.py` runs the whole suite. It is a plain script, run with the system Python outside
+PrePoMax, and it reads those headers rather than keeping a second list of what to run:
+
+```
+python APIs/Python/Test_Scripts/Run_Tests.py
+```
+
+For every script it checks the process exit code, that the run report agrees with it, and that a
+passing script printed `TEST PASSED`. The model files the headers name live in `Test_Scripts/Models`.
+A script whose header names `PyTest_Job.frd` reads the solved model that `Test_Analysis.py` leaves in
+the work directory, so those run last.
+
+`Test_Analysis.py` is the end to end case: it builds a material, a section, a step, a boundary
+condition and a load on the cube, solves it with CalculiX, opens the results and reads a displacement
+back. `Test_Prompt_Refused.py` is the one script that is expected to **fail**, with exit code 5, and
+it proves that an unattended run refuses a question rather than guessing an answer.
 
 ## Notes for documentation generation
 

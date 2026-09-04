@@ -1,5 +1,14 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
+#
+#Checks the result history output definitions: from field, by equation, by integration, merged,
+#extracted, XY and from table, with their filters and the CSV export. A result must be open before
+#the script runs, so it is run after Test_Analysis.py, which solves the cube and writes
+#PyTest_Job.frd into the work directory.
+#
+#  PrePoMax.com -f PyTest_Job.frd --script Test_Result_History_Outputs.py -g No -x Yes -w <dir>
+#
+#Expected process exit code 0.
 
 import os
 import tempfile
@@ -425,6 +434,7 @@ try:
         check(not history_outputs.contains(name), "remove() did not remove '%s'." % name)
     print("PASS: remove multiple history outputs")
     print("RESULT: all applicable result history-output command tests passed")
+    print("TEST PASSED")
 finally:
     pmx.selection.clear_highlight()
     # Make the script rerunnable after a failed assertion or command.

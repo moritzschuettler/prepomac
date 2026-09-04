@@ -147,9 +147,13 @@
     <Compile Include="Selection\SelectionNodeInvert.cs" />
     <Compile Include="Selection\SelectionNodeMouse.cs" />
     <Compile Include="OrderedDisplayNameAttribute.cs" />
+    <Compile Include="CommonClasses\MessageBoxMode.cs" />
+    <Compile Include="CommonClasses\MessageBoxPrompt.cs" />
     <Compile Include="CommonClasses\RegionType.cs" />
     <Compile Include="CommonClasses\NamedClass.cs" />
+    <Compile Include="JsonWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="PromptRefusedException.cs" />
     <Compile Include="StringCompressor.cs" />
     <Compile Include="StringSplitter.cs" />
     <Compile Include="MessageBoxes.cs" />

@@ -1492,6 +1492,14 @@ namespace FileInOut.Output
                         {
                             calMaterial.AddKeyword(new CalElastic(el, material.TemperatureDependent));
                         }
+                        else if (property is ElasticEngineeringConstants eec)
+                        {
+                            calMaterial.AddKeyword(new CalElasticEngineeringConstants(eec, material.TemperatureDependent));
+                        }
+                        else if (property is ElasticLamina ela)
+                        {
+                            calMaterial.AddKeyword(new CalElasticLamina(ela, material.TemperatureDependent));
+                        }
                         else if (property is ElasticWithDensity ewd)
                         {
                             Density density = new Density(new double[][] { new double[] { ewd.Density.Value, 0 } });

@@ -7,9 +7,12 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class ResultsAPI : BaseAPI
+    public class ResultsAPI : BaseAPI, IReadOnlyList<string>
     {
         // Variables
         private readonly ResultResolver _resolver;
@@ -51,6 +54,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _resolver.GetResultNames().Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        string IReadOnlyList<string>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return keys[index];
+            }
+        }
+        public IEnumerator<string> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return key;
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         [PythonAPI("Returns the loaded result names.", Returns = "StringList")]

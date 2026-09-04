@@ -9,9 +9,12 @@
 
 using System.Linq;
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class FieldsAPI : BaseAPI
+    public class FieldsAPI : BaseAPI, IReadOnlyList<FieldAPI>
     {
         // Variables
         private readonly string _resultName;
@@ -48,6 +51,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        FieldAPI IReadOnlyList<FieldAPI>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return this[keys[index]];
+            }
+        }
+        public IEnumerator<FieldAPI> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return this[key];
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         [PythonAPI("Returns field names available for this increment.", Returns = "StringList")]

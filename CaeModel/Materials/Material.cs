@@ -44,7 +44,22 @@ namespace CaeModel
         // Methods                                                                                                                  
         public void AddProperty(MaterialProperty property)
         {
+            if (IsElasticProperty(property))
+            {
+                foreach (MaterialProperty existingProperty in _properties)
+                {
+                    if (IsElasticProperty(existingProperty))
+                        throw new CaeException("A material can contain only one elastic property.");
+                }
+            }
             _properties.Add(property);
+        }
+        private bool IsElasticProperty(MaterialProperty property)
+        {
+            return property is Elastic ||
+                   property is ElasticEngineeringConstants ||
+                   property is ElasticLamina ||
+                   property is ElasticWithDensity;
         }
         public MaterialProperty GetProperty<T>()
         {
@@ -81,6 +96,26 @@ namespace CaeModel
                         if (el.YoungsPoissonsTemp[i][0].IsEquation()) return true;
                         if (el.YoungsPoissonsTemp[i][1].IsEquation()) return true;
                         if (el.YoungsPoissonsTemp[i][2].IsEquation()) return true;
+                    }
+                }
+                else if (property is ElasticEngineeringConstants eec)
+                {
+                    for (int i = 0; i < eec.EngineeringConstantsTemp.Length; i++)
+                    {
+                        for (int j = 0; j < ElasticEngineeringConstants.NumberOfValues; j++)
+                        {
+                            if (eec.EngineeringConstantsTemp[i][j].IsEquation()) return true;
+                        }
+                    }
+                }
+                else if (property is ElasticLamina ela)
+                {
+                    for (int i = 0; i < ela.LaminaConstantsTemp.Length; i++)
+                    {
+                        for (int j = 0; j < ElasticLamina.NumberOfValues; j++)
+                        {
+                            if (ela.LaminaConstantsTemp[i][j].IsEquation()) return true;
+                        }
                     }
                 }
                 else if (property is ElasticWithDensity ewd)

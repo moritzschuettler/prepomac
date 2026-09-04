@@ -9,7 +9,6 @@
 
 using CaeGlobals;
 using CaeMesh;
-using CaeResults;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,14 +18,14 @@ namespace APIs.Python
     internal class SelectionService
     {
         // Variables
-        private readonly ResultResolver _resolver;
+        private readonly IMeshResolver _meshResolver;
         private readonly IPythonSelectionGateway _selectionGateway;
 
 
         // Constructors
-        public SelectionService(ResultResolver resolver, IPythonSelectionGateway selectionGateway)
+        public SelectionService(IMeshResolver meshResolver, IPythonSelectionGateway selectionGateway)
         {
-            _resolver = resolver;
+            _meshResolver = meshResolver;
             _selectionGateway = selectionGateway;
         }
 
@@ -76,6 +75,12 @@ namespace APIs.Python
             if (selection == null) throw new PythonAPIException("The history output selection must not be None.");
             FeMesh mesh = ResolveMesh(selection, resultName);
             return Compile(selection, mesh, "results", target);
+        }
+        public SelectionCompilation CompileForView(SelectionAPI selection, string view, string target)
+        {
+            if (selection == null) throw new PythonAPIException("The selection must not be None.");
+            FeMesh mesh = ResolveMesh(selection, null);
+            return Compile(selection, mesh, view, target);
         }
         private SelectionCompilation Compile(SelectionAPI selection, FeMesh mesh, string requiredView,
                                              string requiredTarget)
@@ -261,19 +266,7 @@ namespace APIs.Python
         private FeMesh ResolveMesh(SelectionAPI selection, string resultName)
         {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
-            if (selection.view == "results")
-            {
-                string name = resultName ?? _resolver.GetCurrentResultName();
-                if (name == null) throw new PythonAPIException("No current result is selected.");
-                FeResults result = _resolver.ResolveResult(name);
-                if (resultName == null && !_resolver.IsCurrentResult(name))
-                    throw new PythonAPIException("No current result is selected.");
-                return result.Mesh;
-            }
-            if (_selectionGateway == null)
-                throw new PythonAPIException("The '" + selection.view +
-                                             "' view is not available in this Python API context.");
-            return _selectionGateway.GetMesh(selection.view);
+            return _meshResolver.GetMesh(selection.view, resultName);
         }
         private static void ValidateView(string view)
         {

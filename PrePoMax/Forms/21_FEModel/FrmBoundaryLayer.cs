@@ -104,7 +104,10 @@ namespace PrePoMax.Forms
             if (_viewBoundaryLayer.GeometryIds == null || _viewBoundaryLayer.GeometryIds.Length == 0)
                 throw new CaeException("The boundary layer selection must contain at least one item.");
             // Create
-            _controller.CreateBoundaryLayerCommand(_viewBoundaryLayer.GeometryIds, _viewBoundaryLayer.Thickness);
+            CaeMesh.GeometrySelection geometrySelection =
+                new CaeMesh.GeometrySelection("Selection", _viewBoundaryLayer.GeometryIds,
+                                              _viewBoundaryLayer.CreationData?.DeepCopy(true, false));
+            _controller.CreateBoundaryLayerCommand(geometrySelection, _viewBoundaryLayer.Thickness);
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew

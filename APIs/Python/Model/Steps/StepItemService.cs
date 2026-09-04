@@ -1,0 +1,190 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeGlobals;
+using CaeMesh;
+using CaeModel;
+using System.Linq;
+
+namespace APIs.Python.Model
+{
+    // What every step scoped item needs: the step lookup, the region, the names it refers to, and the
+    // name uniqueness rule, which is per step. The commands themselves differ per item type and stay
+    // in the derived service.
+    internal abstract class StepItemService<TItem> where TItem : NamedClass
+    {
+        // Variables
+        private readonly ModelResolver _modelResolver;
+        private readonly SelectionService _selectionService;
+        private readonly StepService _stepService;
+        private readonly IPythonModelGateway _modelGateway;
+        private readonly string _itemTypeName;
+
+
+        // Properties
+        protected ModelResolver ModelResolver { get { return _modelResolver; } }
+        protected IPythonModelGateway ModelGateway { get { return _modelGateway; } }
+        protected StepService StepService { get { return _stepService; } }
+
+
+        // Constructors
+        protected StepItemService(ModelResolver modelResolver, SelectionService selectionService,
+                                  StepService stepService, IPythonModelGateway modelGateway, string itemTypeName)
+        {
+            _modelResolver = modelResolver;
+            _selectionService = selectionService;
+            _stepService = stepService;
+            _modelGateway = modelGateway;
+            _itemTypeName = itemTypeName;
+        }
+
+
+        // Methods
+        public string[] GetNames(string stepName)
+        {
+            return GetItems(_stepService.ResolveStep(stepName)).Keys.ToArray();
+        }
+        public TItem GetItem(string stepName, string name)
+        {
+            if (name == null) return null;
+            //
+            TItem item;
+            if (!GetItems(_stepService.ResolveStep(stepName)).TryGetValue(name, out item)) return null;
+            //
+            return item;
+        }
+        public TItem ResolveItem(string stepName, string name)
+        {
+            TItem item = GetItem(stepName, name);
+            if (item == null)
+                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' does not exist in the " +
+                                             "step '" + stepName + "'.");
+            //
+            return item;
+        }
+        // The type cannot change on a replace, the same way the dialog only edits the type it opened
+        public TTyped CloneForReplace<TTyped>(string stepName, string name, string typeName) where TTyped : TItem
+        {
+            TItem item = ResolveItem(stepName, name);
+            if (!(item is TTyped))
+                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' is a " +
+                                             item.GetType().Name + ", so it cannot be replaced by a " +
+                                             typeName + ". Remove it and add the new type instead.");
+            //
+            return ((TTyped)item).DeepClone();
+        }
+        public bool GetIsTwoDimensional()
+        {
+            ModelSpaceEnum modelSpace = _modelResolver.GetModel().Properties.ModelSpace;
+            return modelSpace != ModelSpaceEnum.ThreeD && modelSpace != ModelSpaceEnum.Undefined;
+        }
+        public bool GetIsAxisymmetric()
+        {
+            return _modelResolver.GetModel().Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+        }
+        // The dialog derives the complex flag from the step type, so the API derives it too
+        public bool GetIsComplex(string stepName)
+        {
+            return _stepService.ResolveStep(stepName) is SteadyStateDynamicsStep;
+        }
+        public void ApplyRegion(IMultiRegion item, object region, string target)
+        {
+            RegionApplier.Apply(item, region, "region", target, _selectionService, _modelResolver);
+        }
+        public string ResolveAmplitudeName(object amplitudeName, string argumentName)
+        {
+            string name = AsString(amplitudeName, argumentName);
+            if (name != Amplitude.DefaultAmplitudeName && !_modelResolver.GetModel().Amplitudes.ContainsKey(name))
+                throw new PythonAPIException("The amplitude '" + name + "' does not exist.");
+            //
+            return name;
+        }
+        public string ResolveCoordinateSystemName(object coordinateSystemName)
+        {
+            string name = AsString(coordinateSystemName, "coordinate_system_name");
+            if (name != CoordinateSystem.DefaultCoordinateSystemName &&
+                !_modelResolver.GetModel().Mesh.CoordinateSystems.ContainsKey(name))
+                throw new PythonAPIException("The coordinate system '" + name + "' does not exist.");
+            //
+            return name;
+        }
+        public string ResolveDistributionName(object distributionName)
+        {
+            string name = AsString(distributionName, "distribution_name");
+            if (name != Distribution.DefaultDistributionName &&
+                !_modelResolver.GetModel().Distributions.ContainsKey(name))
+                throw new PythonAPIException("The distribution '" + name + "' does not exist.");
+            //
+            return name;
+        }
+        public string ResolveExistingFileName(object fileName, string argumentName)
+        {
+            string name = AsString(fileName, argumentName);
+            if (name.Trim().Length == 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
+            //
+            string fullFileName;
+            try
+            {
+                fullFileName = System.IO.Path.GetFullPath(name);
+            }
+            catch (System.Exception ex)
+            {
+                throw new PythonAPIException("The argument '" + argumentName + "' is invalid: " + ex.Message);
+            }
+            if (!System.IO.File.Exists(fullFileName))
+                throw new PythonAPIException("The file '" + fullFileName + "' does not exist.");
+            //
+            return fullFileName;
+        }
+        public void SetActive(string stepName, NamedClass[] items, bool active)
+        {
+            string[] stepNames = new string[items.Length];
+            for (int i = 0; i < stepNames.Length; i++) stepNames[i] = stepName;
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ActivateDeactivateItems(items, active, stepNames);
+        }
+        public void Rename(string stepName, NamedClass item, string newName)
+        {
+            ValidateName(stepName, newName, item.Name);
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.RenameModelItem(item, newName, stepName);
+        }
+        public void ValidateName(string stepName, string name, string allowedExistingName)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            //
+            foreach (string existingName in GetNames(stepName))
+            {
+                if (string.Equals(name, existingName))
+                    throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' already exists in " +
+                                                 "the step '" + stepName + "'.");
+            }
+        }
+        protected void EnsureCommandsAvailable()
+        {
+            if (_modelGateway == null)
+                throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+        protected static string AsString(object value, string argumentName)
+        {
+            string text = value as string;
+            if (text == null)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a string.");
+            //
+            return text;
+        }
+        //
+        protected abstract OrderedDictionary<string, TItem> GetItems(Step step);
+    }
+}

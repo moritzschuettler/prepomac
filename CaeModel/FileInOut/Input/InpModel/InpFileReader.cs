@@ -1243,9 +1243,32 @@ namespace FileInOut.Input
                         }
                         else if (keyword == "*ELASTIC")
                         {
-                            Elastic elastic = GetMaterialElasticity(dataSet, out temperatureDependent);
-                            if (elastic != null) material.AddProperty(elastic);
-                            if (temperatureDependent) material.TemperatureDependent = true;
+                            string elasticityType = GetMaterialElasticityType(dataSet[0]);
+                            if (elasticityType == null || elasticityType == "ISO")
+                            {
+                                Elastic elastic = GetMaterialElasticity(dataSet, out temperatureDependent);
+                                if (elastic != null) material.AddProperty(elastic);
+                                if (temperatureDependent) material.TemperatureDependent = true;
+                            }
+                            else if (elasticityType == "ENGINEERINGCONSTANTS")
+                            {
+                                ElasticEngineeringConstants elastic =
+                                    GetMaterialElasticEngineeringConstants(dataSet, out temperatureDependent);
+                                if (elastic != null) material.AddProperty(elastic);
+                                if (temperatureDependent) material.TemperatureDependent = true;
+                            }
+                            else if (elasticityType == "LAMINA")
+                            {
+                                ElasticLamina elastic = GetMaterialElasticLamina(dataSet, out temperatureDependent);
+                                if (elastic != null) material.AddProperty(elastic);
+                                if (temperatureDependent) material.TemperatureDependent = true;
+                            }
+                            else
+                            {
+                                CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
+                                userKeyword.Parent = material;
+                                userKeywords.Add(userKeyword);
+                            }
                         }
                         else if (keyword == "*PLASTIC")
                         {
@@ -1357,6 +1380,17 @@ namespace FileInOut.Input
                 return null;
             }
         }
+        private static string GetMaterialElasticityType(string keywordLine)
+        {
+            string[] records = keywordLine.Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 1; i < records.Length; i++)
+            {
+                string[] parameter = records[i].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                if (parameter.Length == 2 && parameter[0].Trim().ToUpper() == "TYPE")
+                    return parameter[1].Trim().Replace(" ", "").ToUpper();
+            }
+            return null;
+        }
         private static Elastic GetMaterialElasticity(string[] lines, out bool temperatureDependent)
         {
             // *Elastic        
@@ -1393,6 +1427,97 @@ namespace FileInOut.Input
             catch
             {
                 _errors.Add("Failed to import elasticity: " + lines.ToRows());
+                return null;
+            }
+        }
+        private static ElasticEngineeringConstants GetMaterialElasticEngineeringConstants(string[] lines,
+                                                                                           out bool temperatureDependent)
+        {
+            // *Elastic, Type=Engineering constants
+            // E1, E2, E3, v12, v13, v23, G12, G13
+            // G23, T
+            temperatureDependent = false;
+            try
+            {
+                int dataLineCount = lines.Length - 1;
+                if (dataLineCount == 0 || dataLineCount % 2 != 0)
+                    throw new FormatException("Engineering constants must be defined by pairs of data lines.");
+                //
+                int dataPointCount = dataLineCount / 2;
+                bool? hasTemperature = null;
+                double[][] engineeringConstantsTemp = new double[dataPointCount][];
+                for (int i = 0; i < dataPointCount; i++)
+                {
+                    string[] record1 = lines[1 + 2 * i].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                    string[] record2 = lines[2 + 2 * i].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                    if (record1.Length != 8 || record2.Length < 1 || record2.Length > 2)
+                        throw new FormatException("An engineering constants data point must contain 9 constants and an " +
+                                                  "optional temperature.");
+                    //
+                    engineeringConstantsTemp[i] = new double[ElasticEngineeringConstants.NumberOfValues];
+                    for (int j = 0; j < 8; j++) engineeringConstantsTemp[i][j] = double.Parse(record1[j]);
+                    engineeringConstantsTemp[i][ElasticEngineeringConstants.ShearModulus23Id] = double.Parse(record2[0]);
+                    bool rowHasTemperature = record2.Length == 2;
+                    if (hasTemperature.HasValue && hasTemperature.Value != rowHasTemperature)
+                        throw new FormatException("All engineering constants data points must use the same temperature format.");
+                    //
+                    hasTemperature = rowHasTemperature;
+                    if (rowHasTemperature)
+                    {
+                        engineeringConstantsTemp[i][ElasticEngineeringConstants.TemperatureId] = double.Parse(record2[1]);
+                        temperatureDependent = true;
+                    }
+                }
+                //
+                ElasticEngineeringConstants elastic = new ElasticEngineeringConstants(engineeringConstantsTemp);
+                if (temperatureDependent) elastic.CheckTemperatures();
+                return elastic;
+            }
+            catch
+            {
+                _errors.Add("Failed to import elasticity using engineering constants: " + lines.ToRows());
+                return null;
+            }
+        }
+        private static ElasticLamina GetMaterialElasticLamina(string[] lines, out bool temperatureDependent)
+        {
+            // *Elastic, Type=Lamina
+            // E1, E2, v12, G12, G13, G23, T
+            temperatureDependent = false;
+            try
+            {
+                int dataPointCount = lines.Length - 1;
+                if (dataPointCount == 0) throw new FormatException("At least one lamina data point must be defined.");
+                //
+                bool? hasTemperature = null;
+                double[][] laminaConstantsTemp = new double[dataPointCount][];
+                for (int i = 0; i < dataPointCount; i++)
+                {
+                    string[] record = lines[i + 1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                    if (record.Length < 6 || record.Length > 7)
+                        throw new FormatException("A lamina data point must contain 6 constants and an optional temperature.");
+                    //
+                    laminaConstantsTemp[i] = new double[ElasticLamina.NumberOfValues];
+                    for (int j = 0; j < 6; j++) laminaConstantsTemp[i][j] = double.Parse(record[j]);
+                    bool rowHasTemperature = record.Length == 7;
+                    if (hasTemperature.HasValue && hasTemperature.Value != rowHasTemperature)
+                        throw new FormatException("All lamina data points must use the same temperature format.");
+                    //
+                    hasTemperature = rowHasTemperature;
+                    if (rowHasTemperature)
+                    {
+                        laminaConstantsTemp[i][ElasticLamina.TemperatureId] = double.Parse(record[6]);
+                        temperatureDependent = true;
+                    }
+                }
+                //
+                ElasticLamina elastic = new ElasticLamina(laminaConstantsTemp);
+                if (temperatureDependent) elastic.CheckTemperatures();
+                return elastic;
+            }
+            catch
+            {
+                _errors.Add("Failed to import lamina elasticity: " + lines.ToRows());
                 return null;
             }
         }

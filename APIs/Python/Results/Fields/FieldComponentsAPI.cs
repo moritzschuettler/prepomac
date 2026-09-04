@@ -9,9 +9,12 @@
 
 using System.Linq;
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class FieldComponentsAPI : BaseAPI
+    public class FieldComponentsAPI : BaseAPI, IReadOnlyList<FieldComponentAPI>
     {
         // Variables
         private readonly string _resultName;
@@ -51,6 +54,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName).Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        FieldComponentAPI IReadOnlyList<FieldComponentAPI>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return this[keys[index]];
+            }
+        }
+        public IEnumerator<FieldComponentAPI> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return this[key];
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         [PythonAPI("Returns component names available for this field.", Returns = "StringList")]

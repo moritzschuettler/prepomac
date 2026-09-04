@@ -7,46 +7,65 @@
 // Author: Matej Borovinšek
 // Contributors:
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using PrePoMax;
-using CaeModel;
 using CaeMesh;
-using CaeGlobals;
-
+using System;
+using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CCreateBoundaryLayer : PreprocessCommand
+    class CCreateBoundaryLayer : PreprocessCommand, ISerializable
     {
-        // Variables                                                                                                                
-        private int[] _geometryIds;
-        private double _thickness;
+        // Variables
+        private GeometrySelection _geometrySelection;   //ISerializable
+        private double _thickness;                      //ISerializable
 
 
-        // Constructor                                                                                                              
-        public CCreateBoundaryLayer(int[] geometryIds, double thickness)
+        // Constructor
+        public CCreateBoundaryLayer(GeometrySelection geometrySelection, double thickness)
             : base("Create boundary layer")
         {
-            _geometryIds = geometryIds;
+            _geometrySelection = geometrySelection;
             _thickness = thickness;
         }
-
-
-        // Methods                                                                                                                  
-        public override bool Execute(Controller receiver)
+        public CCreateBoundaryLayer(SerializationInfo info, StreamingContext context)
+            : base(info, context)
         {
-            receiver.CreateBoundaryLayer(_geometryIds, _thickness);
-            return true;
+            int[] geometryIds = null;
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_geometryIds":            // Compatibility for version v2.6.2 and older
+                        geometryIds = (int[])entry.Value; break;
+                    case "_geometrySelection":
+                        _geometrySelection = (GeometrySelection)entry.Value; break;
+                    case "_thickness":
+                        _thickness = (double)entry.Value; break;
+                }
+            }
+            // An older command stored the resolved ids only; it keeps replaying from them
+            if (_geometrySelection == null)
+                _geometrySelection = new GeometrySelection("Selection", geometryIds, null);
         }
 
+
+        // Methods
+        public override bool Execute(Controller receiver)
+        {
+            receiver.CreateBoundaryLayer(_geometrySelection, _thickness);
+            return true;
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Thickness: " + _thickness.ToString();
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+            info.AddValue("_geometrySelection", _geometrySelection, typeof(GeometrySelection));
+            info.AddValue("_thickness", _thickness, typeof(double));
         }
     }
 }

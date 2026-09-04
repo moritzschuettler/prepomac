@@ -18,6 +18,7 @@ namespace UserControls
     public class AutoClosingMessageBox
     {
         public static Action<string> WriteDataToOutput;
+        public static Action<CaeGlobals.MessageBoxPrompt> PromptRecorder;
         //
         private System.Threading.Timer _timeoutTimer;
         private string _caption;
@@ -28,6 +29,11 @@ namespace UserControls
             {
                 WriteDataToOutput(caption);
                 WriteDataToOutput(text);
+                //
+                Action<CaeGlobals.MessageBoxPrompt> recorder = PromptRecorder;
+                if (recorder != null)
+                    recorder(new CaeGlobals.MessageBoxPrompt(caption, text, buttons.ToString(), DialogResult.OK.ToString(),
+                                                             false, false));
             }
             // 
             else

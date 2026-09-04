@@ -19,6 +19,9 @@ namespace PrePoMax
     [Serializable]
     public class SettingsContainer
     {
+        // Static variables                                                                                                         
+        private static string _overrideFileName;
+        private static bool _isSaveDisabled;
         // Variables                                                                                                                
         [NonSerialized] private Dictionary<string, vtkControl.vtkMaxColorSpectrum> _colorSpectrums;
         [NonSerialized] private string _regenerationWorkDirectory;
@@ -35,6 +38,12 @@ namespace PrePoMax
         private PostSettings _post;
         private LegendSettings _legend;
         private StatusBlockSettings _statusBlock;
+
+
+        // Static properties                                                                                                        
+        // An unattended run must be able to keep the settings of the interactive user untouched
+        public static string OverrideFileName { get { return _overrideFileName; } set { _overrideFileName = value; } }
+        public static bool IsSaveDisabled { get { return _isSaveDisabled; } set { _isSaveDisabled = value; } }
 
 
         // Properties                                                                                                               
@@ -203,7 +212,14 @@ namespace PrePoMax
         }
         public void SaveToFile()
         {
-            SaveToFile(Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.SettingsFileName));
+            if (_isSaveDisabled) return;
+            //
+            SaveToFile(GetDefaultFileName());
+        }
+        private static string GetDefaultFileName()
+        {
+            if (_overrideFileName != null) return _overrideFileName;
+            else return Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.SettingsFileName);
         }
         public void SaveToFile(string fileName)
         {
@@ -222,7 +238,7 @@ namespace PrePoMax
             {
                 Initialize();
                 //
-                string fileName = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.SettingsFileName);
+                string fileName = GetDefaultFileName();
                 if (File.Exists(fileName))
                 {
                     var t = Task.Run(() => LoadFromFile(fileName));

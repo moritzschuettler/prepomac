@@ -10,9 +10,12 @@
 using CaeResults;
 using System.Linq;
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class ResultHistoryOutputsAPI : BaseAPI
+    public class ResultHistoryOutputsAPI : BaseAPI, IReadOnlyList<ResultHistoryOutputAPI>
     {
         // Variables
         private readonly string _resultName;
@@ -46,6 +49,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _dataService.GetHistoryOutputNames(_resultName).Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        ResultHistoryOutputAPI IReadOnlyList<ResultHistoryOutputAPI>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return this[keys[index]];
+            }
+        }
+        public IEnumerator<ResultHistoryOutputAPI> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return this[key];
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
         public bool __contains__(string historyOutputName)
         {
@@ -209,6 +235,193 @@ namespace APIs.Python
             return CreateAggregateFilter(HistoryResultFilterTypeEnum.Average, operate_on);
         }
 
+        [PythonAPI("Creates a From Field history output and adds it to the current result, in one call. " +
+                   "It takes the arguments of create_history_output_from_field plus the optional filters.",
+                   Arguments = "name: str, field_name: str, component_names: list[str], " +
+                               "region: Selection or NodeSet or Surface, " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_field(string name, string field_name, object component_names,
+                                                     object region,
+                                                     ResultHistoryOutputFilterAPI filter1 = null,
+                                                     ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromField(name, field_name, component_names, region),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Field one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_field",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_field(string old_name, string name, string field_name,
+                                                         object component_names, object region,
+                                                         ResultHistoryOutputFilterAPI filter1 = null,
+                                                         ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromField(name, field_name, component_names,
+                                                                          region), filter1, filter2));
+        }
+
+        [PythonAPI("Creates a From Equation history output and adds it to the current result, in one call.",
+                   Arguments = "name: str, equation: str, unit: str = '/', " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_equation(string name, string equation, string unit = "/",
+                                                        ResultHistoryOutputFilterAPI filter1 = null,
+                                                        ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromEquation(name, equation, unit), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Equation one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_equation",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_equation(string old_name, string name, string equation,
+                                                            string unit = "/",
+                                                            ResultHistoryOutputFilterAPI filter1 = null,
+                                                            ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromEquation(name, equation, unit),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates a From Integration history output and adds it to the current result, in one " +
+                   "call. It takes the arguments of create_history_output_from_integration plus the " +
+                   "optional filters.",
+                   Arguments = "name: str, integral_type: str, and the arguments of " +
+                               "create_history_output_from_integration", Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_integration(
+            string name, string integral_type, string field_name = null, object component_names = null,
+            object region = null, string integral_result = "geometry",
+            string deformation_variable_name = "Displacements", string unit = "/",
+            string cross_section = "none", double thickness = 1.0,
+            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
+                                                                   component_names, region, integral_result,
+                                                                   deformation_variable_name, unit,
+                                                                   cross_section, thickness),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Integration one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_integration",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_integration(
+            string old_name, string name, string integral_type, string field_name = null,
+            object component_names = null, object region = null, string integral_result = "geometry",
+            string deformation_variable_name = "Displacements", string unit = "/",
+            string cross_section = "none", double thickness = 1.0,
+            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
+                                                                                component_names, region,
+                                                                                integral_result,
+                                                                                deformation_variable_name,
+                                                                                unit, cross_section, thickness),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates a From Merged Histories history output and adds it to the current result, in " +
+                   "one call.",
+                   Arguments = "name: str, source1, source2, source3 = None, source4 = None, " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_merged_histories(string name, object source1, object source2,
+                                                                object source3 = null, object source4 = null,
+                                                                ResultHistoryOutputFilterAPI filter1 = null,
+                                                                ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromMergedHistories(name, source1, source2, source3, source4),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Merged Histories one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_merged_histories",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_merged_histories(
+            string old_name, string name, object source1, object source2, object source3 = null,
+            object source4 = null, ResultHistoryOutputFilterAPI filter1 = null,
+            ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromMergedHistories(name, source1, source2,
+                                                                                    source3, source4),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates a From Extracted Entry history output and adds it to the current result, in " +
+                   "one call.",
+                   Arguments = "name: str, source, entry_name: str, " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_extracted_entry(string name, object source, string entry_name,
+                                                               ResultHistoryOutputFilterAPI filter1 = null,
+                                                               ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromExtractedEntry(name, source, entry_name),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Extracted Entry one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_extracted_entry",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_extracted_entry(
+            string old_name, string name, object source, string entry_name,
+            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromExtractedEntry(name, source, entry_name),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates an XY history output and adds it to the current result, in one call.",
+                   Arguments = "name: str, x_source, y_source, filter1: HistoryOutputFilter = None, " +
+                               "filter2: HistoryOutputFilter = None", Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_xy(string name, object x_source, object y_source,
+                                             ResultHistoryOutputFilterAPI filter1 = null,
+                                             ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateXY(name, x_source, y_source), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by an XY one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_xy", Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_xy(string old_name, string name, object x_source, object y_source,
+                                                 ResultHistoryOutputFilterAPI filter1 = null,
+                                                 ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateXY(name, x_source, y_source),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates a From Table history output and adds it to the current result, in one call.",
+                   Arguments = "name: str, data_points: list[list[float]], " +
+                               "y_column_names: list[str] = None, x_axis_unit: str = '/', " +
+                               "y_axis_unit: str = '/', filter1: HistoryOutputFilter = None, " +
+                               "filter2: HistoryOutputFilter = None", Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI add_from_table(string name, object data_points,
+                                                     object y_column_names = null, string x_axis_unit = "/",
+                                                     string y_axis_unit = "/",
+                                                     ResultHistoryOutputFilterAPI filter1 = null,
+                                                     ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromTable(name, data_points, y_column_names, x_axis_unit,
+                                                            y_axis_unit), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Table one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_table",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_table(string old_name, string name, object data_points,
+                                                         object y_column_names = null,
+                                                         string x_axis_unit = "/", string y_axis_unit = "/",
+                                                         ResultHistoryOutputFilterAPI filter1 = null,
+                                                         ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromTable(name, data_points, y_column_names,
+                                                                          x_axis_unit, y_axis_unit),
+                                                 filter1, filter2));
+        }
+
         [PythonAPI("Validates and adds a result history-output draft using command history.",
                    Arguments = "output: HistoryOutputDraft", Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add(ResultHistoryOutputDraftAPI output)
@@ -264,6 +477,15 @@ namespace APIs.Python
             _service.ExportHistoryOutputsToCsv(_resultName, file_name, history_output_names, delimiter);
         }
 
+        private static TDraft WithFilters<TDraft>(TDraft draft, ResultHistoryOutputFilterAPI filter1,
+                                                  ResultHistoryOutputFilterAPI filter2)
+            where TDraft : ResultHistoryOutputDraftAPI
+        {
+            if (filter1 != null) draft.filter1 = filter1;
+            if (filter2 != null) draft.filter2 = filter2;
+            //
+            return draft;
+        }
         public override string ToString()
         {
             string[] names = _dataService.GetHistoryOutputNames(_resultName);

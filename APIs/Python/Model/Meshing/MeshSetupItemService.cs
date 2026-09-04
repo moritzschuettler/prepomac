@@ -1,0 +1,159 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeGlobals;
+using CaeMesh;
+using System.Linq;
+
+namespace APIs.Python.Model
+{
+    internal class MeshSetupItemService
+    {
+        // Variables
+        private readonly ModelResolver _modelResolver;
+        private readonly SelectionService _selectionService;
+        private readonly IPythonMeshGateway _meshGateway;
+        private readonly IPythonModelGateway _modelGateway;
+
+
+        // Constructors
+        public MeshSetupItemService(ModelResolver modelResolver, SelectionService selectionService,
+                                    IPythonMeshGateway meshGateway, IPythonModelGateway modelGateway)
+        {
+            _modelResolver = modelResolver;
+            _selectionService = selectionService;
+            _meshGateway = meshGateway;
+            _modelGateway = modelGateway;
+        }
+
+
+        // Methods
+        public string[] GetNames()
+        {
+            FeMesh geometry = _modelResolver.GetModel().Geometry;
+            if (geometry == null) return new string[0];
+            //
+            return geometry.MeshSetupItems.Keys.ToArray();
+        }
+        public MeshSetupItem GetItem(string name)
+        {
+            FeMesh geometry = _modelResolver.GetModel().Geometry;
+            if (geometry == null || name == null) return null;
+            //
+            MeshSetupItem item;
+            if (!geometry.MeshSetupItems.TryGetValue(name, out item)) return null;
+            //
+            return item;
+        }
+        public MeshSetupItem ResolveItem(string name)
+        {
+            MeshSetupItem item = GetItem(name);
+            if (item == null)
+                throw new PythonAPIException("The mesh setup item '" + name + "' does not exist.");
+            //
+            return item;
+        }
+        public MeshingParameters CreateDefaultMeshingParameters(string name)
+        {
+            EnsureCommandsAvailable();
+            //
+            MeshingParameters parameters = _meshGateway.GetDefaultMeshingParameters(name);
+            if (parameters == null)
+                throw new PythonAPIException("The default meshing parameters are not available.");
+            //
+            return parameters;
+        }
+        public void Add(MeshSetupItem item, string name, SelectionAPI selection)
+        {
+            PrepareItem(item, name, selection, null);
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.AddMeshSetupItem(item);
+        }
+        public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection)
+        {
+            ResolveItem(oldName);
+            PrepareItem(item, name, selection, oldName);
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.ReplaceMeshSetupItem(oldName, item);
+        }
+        public void Duplicate(string[] names)
+        {
+            EnsureCommandsAvailable();
+            _meshGateway.DuplicateMeshSetupItems(names);
+        }
+        public void Remove(string[] names)
+        {
+            EnsureCommandsAvailable();
+            _meshGateway.RemoveMeshSetupItems(names);
+        }
+        public void SetActive(NamedClass[] items, bool active)
+        {
+            EnsureCommandsAvailable();
+            // Every step name is null, because these items do not belong to a step
+            _modelGateway.ActivateDeactivateItems(items, active, new string[items.Length]);
+        }
+        public void Rename(MeshSetupItem item, string newName)
+        {
+            ValidateName(newName, item.Name);
+            //
+            EnsureCommandsAvailable();
+            _meshGateway.RenameMeshSetupItem(item, newName);
+        }
+        public void CreateMeshes(string[] partNames)
+        {
+            EnsureCommandsAvailable();
+            _meshGateway.CreateMeshes(partNames);
+        }
+        public string[] ResolveMeshablePartNames(object partNames)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+            //
+            FeMesh geometry = _modelResolver.GetModel().Geometry;
+            foreach (string name in names)
+            {
+                if (geometry == null || !geometry.Parts.ContainsKey(name))
+                    throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
+            }
+            //
+            return names;
+        }
+        //
+        private void PrepareItem(MeshSetupItem item, string name, SelectionAPI selection, string allowedExistingName)
+        {
+            ValidateName(name, allowedExistingName);
+            if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
+            // A mesh setup item without creation data is rejected by the controller
+            SelectionCompilation compilation = _selectionService.CompileForView(selection, "geometry", "geometry");
+            item.Name = name;
+            item.CreationData = compilation.Selection;
+            item.CreationIds = compilation.Ids;
+        }
+        private void ValidateName(string name, string allowedExistingName)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            //
+            foreach (string existingName in GetNames())
+            {
+                if (string.Equals(name, existingName))
+                    throw new PythonAPIException("The mesh setup item '" + name + "' already exists.");
+            }
+        }
+        private void EnsureCommandsAvailable()
+        {
+            if (_meshGateway == null)
+                throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+    }
+}

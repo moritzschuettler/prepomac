@@ -9,9 +9,12 @@
 
 using System.Linq;
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class ResultNodeSetsAPI : BaseAPI
+    public class ResultNodeSetsAPI : BaseAPI, IReadOnlyList<ResultNodeSetAPI>
     {
         // Variables
         private readonly string _resultName;
@@ -38,6 +41,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _meshService.GetNodeSetNames(_resultName).Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        ResultNodeSetAPI IReadOnlyList<ResultNodeSetAPI>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return this[keys[index]];
+            }
+        }
+        public IEnumerator<ResultNodeSetAPI> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return this[key];
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
         public bool __contains__(string nodeSetName)
         {

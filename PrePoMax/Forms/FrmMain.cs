@@ -263,6 +263,14 @@ namespace PrePoMax
                 MessageBoxes.WriteDataToOutput = WriteDataToOutput;
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
             }
+            MessageBoxes.Mode = _cmdOptions.GetMessageBoxMode();
+            // Every dialog shown without a user present belongs in the run report
+            BatchRunReport report = BatchRunReport.Current;
+            if (report != null && MessageBoxes.Mode != MessageBoxModeEnum.Interactive)
+            {
+                MessageBoxes.PromptRecorder = report.AddPrompt;
+                AutoClosingMessageBox.PromptRecorder = report.AddPrompt;
+            }
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
@@ -716,8 +724,12 @@ namespace PrePoMax
                     this.TopMost = false;
                     //
                     string parameters = null;
+                    bool scriptMode = _cmdOptions.ScriptFileName != null;
+                    // Must be set before the first command, so that a script run leaves the recovery file
+                    // of the interactive user untouched
+                    if (scriptMode) _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
                     // Try to recover unsaved progress due to crushed PrePoMax
-                    if (File.Exists(_controller.GetHistoryFileNameBin()))
+                    if (!scriptMode && File.Exists(_controller.GetHistoryFileNameBin()))
                     {
                         if (MessageBoxes.ShowWarningQuestionOKCancel("A recovery file from a previous PrePoMax session exists. " +
                                                                      "Would you like to try to recover it?") == DialogResult.OK)
@@ -746,7 +758,8 @@ namespace PrePoMax
                             }
                         }
                         // Check for open last file
-                        else if (_controller.Settings.General.OpenLastFile) fileName = _controller.OpenedFileName;
+                        else if (!scriptMode && _controller.Settings.General.OpenLastFile)
+                            fileName = _controller.OpenedFileName;
                     }
                     //
                     if (File.Exists(fileName))
@@ -778,6 +791,8 @@ namespace PrePoMax
                         //
                         UpdateRecentFilesThreadSafe();
                     }
+                    // Script - runs after the file defined by the -f switch was opened
+                    if (scriptMode) await RunBatchScriptAsync();
                 }
             }
             catch (Exception ex)
@@ -804,6 +819,38 @@ namespace PrePoMax
                     if (_controller.BatchRegenerationMode) WriteDataToOutput("Starting regeneration");
                     else _controller.Settings.CheckWorkingDirectory();
                 }
+            }
+        }
+        private async Task RunBatchScriptAsync()
+        {
+            WriteDataToOutput("Starting script: " + _cmdOptions.ScriptFileName);
+            //
+            string[] arguments = null;
+            if (_cmdOptions.ScriptArguments != null)
+                arguments = _cmdOptions.ScriptArguments.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            PythonEngineManager.SetScriptArguments(_cmdOptions.ScriptFileName, arguments);
+            //
+            string script = File.ReadAllText(_cmdOptions.ScriptFileName);
+            PythonEngineResult result = null;
+            await Task.Run(() => result = _controller.RunPythonScriptCommand(script));
+            //
+            if (result != null)
+            {
+                if (!string.IsNullOrEmpty(result.Output)) WriteDataToOutput(result.Output);
+                if (!string.IsNullOrEmpty(result.Error)) throw new PythonScriptException(result.Error.TrimEnd());
+            }
+            // Save after the script command was recorded, so that the saved history can be regenerated
+            if (_cmdOptions.SaveFileName != null)
+            {
+                WriteDataToOutput("Saving: " + _cmdOptions.SaveFileName);
+                await Task.Run(() => _controller.SaveToPmxCommand(_cmdOptions.SaveFileName));
+            }
+            // Exit
+            if (_cmdOptions.ExitAfterRegeneration == "Yes")
+            {
+                _closeAfterRegeneration = true;
+                WriteDataToOutput("Close application.");
+                Close();
             }
         }
         private void FrmMain_Resize(object sender, EventArgs e)

@@ -29,8 +29,46 @@ namespace PrePoMax
         public string FileName { get; set; }
         // Gui
         [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show graphical user interface: Yes | No. " +
-                                                                             "No can only be used for regeneration.")]
+                                                                             "No can only be used for regeneration or for " +
+                                                                             "running a script.")]
         public string ShowGui { get; set; }
+        // Script
+        [Option("script", Required = false, HelpText = "The Python script file name to be executed after the application " +
+                                                       "starts. The file defined by the -f switch is opened first. " +
+                                                       "The script is recorded as a single command and can be regenerated.")]
+        public string ScriptFileName { get; set; }
+        // Script arguments
+        [Option("scriptArgs", Required = false, HelpText = "The arguments passed to the script as sys.argv. Use quotations " +
+                                                           "and spaces to pass more than one argument.")]
+        public string ScriptArguments { get; set; }
+        // Save
+        [Option("save", Required = false, HelpText = "The .pmx file name to be saved after the script finishes. The save " +
+                                                     "happens after the script is recorded, so the saved file can be " +
+                                                     "regenerated. Can only be used for running a script.")]
+        public string SaveFileName { get; set; }
+        // On prompt
+        [Option("onPrompt", Required = false, HelpText = "The reaction to a dialog that asks for a decision when no user is " +
+                                                         "present: Fail | Accept. Fail aborts the run, Accept answers with " +
+                                                         "the default answer. The default is Fail for a script and Accept " +
+                                                         "for a regeneration.")]
+        public string OnPrompt { get; set; }
+        // Report
+        [Option("report", Required = false, HelpText = "The .json file name to be used for writing the machine readable run " +
+                                                       "report. The report is written also when the run fails.")]
+        public string ReportFileName { get; set; }
+        // Timeout
+        [Option("timeout", Required = false, Default = 0, HelpText = "The maximum duration of the run in seconds. Use 0 for no " +
+                                                                     "limit. On expiry the running analyses are killed and the " +
+                                                                     "application exits.")]
+        public int Timeout { get; set; }
+        // Settings
+        [Option("settings", Required = false, HelpText = "The settings file name to be used instead of the settings file " +
+                                                          "located next to the executable.")]
+        public string SettingsFileName { get; set; }
+        // No settings save
+        [Option("noSettingsSave", Required = false, Default = false, HelpText = "Do not write the settings file. This is " +
+                                                                                 "always used when a script is executed.")]
+        public bool NoSettingsSave { get; set; }
         // Overwrite
         [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration: " +
                                                                                "Yes | No. Can only be used for regeneration.")]
@@ -99,8 +137,20 @@ namespace PrePoMax
             //
             if (cmdOptions.FileName != null)
                 text += "File name: " + cmdOptions.FileName + Environment.NewLine;
-            if (cmdOptions.RegenerationFileName != null && cmdOptions.ShowGui != null)
+            if (cmdOptions.GetIsBatchMode() && cmdOptions.ShowGui != null)
                 text += "Show GUI: " + cmdOptions.ShowGui + Environment.NewLine;
+            if (cmdOptions.ScriptFileName != null)
+                text += "Script file name: " + cmdOptions.ScriptFileName + Environment.NewLine;
+            if (cmdOptions.ScriptArguments != null)
+                text += "Script arguments: " + cmdOptions.ScriptArguments + Environment.NewLine;
+            if (cmdOptions.GetIsBatchMode() && cmdOptions.OnPrompt != null)
+                text += "On prompt: " + cmdOptions.OnPrompt + Environment.NewLine;
+            if (cmdOptions.ReportFileName != null)
+                text += "Report file name: " + cmdOptions.ReportFileName + Environment.NewLine;
+            if (cmdOptions.Timeout > 0)
+                text += "Timeout: " + cmdOptions.Timeout + " s" + Environment.NewLine;
+            if (cmdOptions.SettingsFileName != null)
+                text += "Settings file name: " + cmdOptions.SettingsFileName + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null && cmdOptions.Overwrite != null)
                 text += "Overwrite .pmx file: " + cmdOptions.Overwrite + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null && cmdOptions.Parameters != null)
@@ -113,7 +163,7 @@ namespace PrePoMax
                 text += "Unit system: " + cmdOptions.UnitSystem + Environment.NewLine;
             if (cmdOptions.WorkDirectory != null)
                 text += "Work directory: " + cmdOptions.WorkDirectory + Environment.NewLine;
-            if (cmdOptions.RegenerationFileName != null && cmdOptions.ExitAfterRegeneration != null)
+            if (cmdOptions.GetIsBatchMode() && cmdOptions.ExitAfterRegeneration != null)
                 text += "Exit after regeneration : " + cmdOptions.ExitAfterRegeneration + Environment.NewLine;
             //
             if (text.Length > 0) text = "----------Parameters----------" + Environment.NewLine + text;
@@ -224,8 +274,68 @@ namespace PrePoMax
                         throw new CaeException("The overwrite switch can only be used for regeneration.");
                     if (cmdOptions.Parameters != null)
                         throw new CaeException("The parameters switch can only be used for regeneration.");
-                    if (cmdOptions.ShowGui == "No")
-                        throw new CaeException("The No GUI switch can only be used for regeneration.");
+                    if (cmdOptions.ShowGui == "No" && cmdOptions.ScriptFileName == null)
+                        throw new CaeException("The No GUI switch can only be used for regeneration or for running a script.");
+                }
+                // Script
+                if (cmdOptions.ScriptFileName != null)
+                {
+                    if (cmdOptions.RegenerationFileName != null)
+                        throw new CaeException("The script switch cannot be combined with regeneration.");
+                    //
+                    cmdOptions.ScriptFileName = GetFullFileName(cmdOptions.ScriptFileName, cmdOptions.WorkDirectory);
+                    //
+                    if (!File.Exists(cmdOptions.ScriptFileName))
+                        throw new CaeException("The script file " + cmdOptions.ScriptFileName + " does not exist.");
+                }
+                else
+                {
+                    if (cmdOptions.ScriptArguments != null)
+                        throw new CaeException("The script arguments switch can only be used for running a script.");
+                    if (cmdOptions.SaveFileName != null)
+                        throw new CaeException("The save switch can only be used for running a script.");
+                }
+                // Save
+                if (cmdOptions.SaveFileName != null)
+                {
+                    cmdOptions.SaveFileName = GetFullFileName(cmdOptions.SaveFileName, cmdOptions.WorkDirectory);
+                    //
+                    string saveDirectory = Path.GetDirectoryName(cmdOptions.SaveFileName);
+                    if (saveDirectory != null && saveDirectory.Length > 0 && !Directory.Exists(saveDirectory))
+                        throw new CaeException("The save directory " + saveDirectory + " does not exist.");
+                }
+                // On prompt
+                if (cmdOptions.OnPrompt != null)
+                {
+                    string onPrompt = cmdOptions.OnPrompt.ToUpper().Trim();
+                    if (onPrompt == "FAIL") cmdOptions.OnPrompt = "Fail";           // fix all caps and spaces
+                    else if (onPrompt == "ACCEPT") cmdOptions.OnPrompt = "Accept";  // fix all caps and spaces
+                    else throw new CaeException("On prompt switch can only be set to Fail or Accept.");
+                }
+                else
+                {
+                    // A script must not have decisions taken for it; regeneration keeps the established behaviour
+                    cmdOptions.OnPrompt = cmdOptions.ScriptFileName != null ? "Fail" : "Accept";
+                }
+                // Report
+                if (cmdOptions.ReportFileName != null)
+                {
+                    cmdOptions.ReportFileName = GetFullFileName(cmdOptions.ReportFileName, cmdOptions.WorkDirectory);
+                    //
+                    string reportDirectory = Path.GetDirectoryName(cmdOptions.ReportFileName);
+                    if (reportDirectory != null && reportDirectory.Length > 0 && !Directory.Exists(reportDirectory))
+                        throw new CaeException("The report directory " + reportDirectory + " does not exist.");
+                }
+                // Timeout
+                if (cmdOptions.Timeout < 0)
+                    throw new CaeException("The timeout switch must not be negative.");
+                // Settings
+                if (cmdOptions.SettingsFileName != null)
+                {
+                    cmdOptions.SettingsFileName = GetFullFileName(cmdOptions.SettingsFileName, cmdOptions.WorkDirectory);
+                    //
+                    if (!File.Exists(cmdOptions.SettingsFileName))
+                        throw new CaeException("The settings file " + cmdOptions.SettingsFileName + " does not exist.");
                 }
                 // Unit system
                 if (cmdOptions.UnitSystem != null)
@@ -247,7 +357,31 @@ namespace PrePoMax
             return null;
         }
 
+        // Static methods
+        private static string GetFullFileName(string fileName, string workDirectory)
+        {
+            string fileDirectory = Path.GetDirectoryName(fileName);
+            if (fileDirectory == "") return Path.Combine(workDirectory, Path.GetFileName(fileName));
+            else return fileName;
+        }
+
+
         // Methods
+        public bool GetIsBatchMode()
+        {
+            return RegenerationFileName != null || ScriptFileName != null;
+        }
+        public bool GetIsSettingsSaveDisabled()
+        {
+            // A script run must never change the settings of the interactive user
+            return NoSettingsSave || ScriptFileName != null;
+        }
+        public MessageBoxModeEnum GetMessageBoxMode()
+        {
+            if (ShowGui != "No") return MessageBoxModeEnum.Interactive;
+            else if (OnPrompt == "Fail") return MessageBoxModeEnum.Strict;
+            else return MessageBoxModeEnum.AutoAnswer;
+        }
         public RegenerateTypeEnum GetRegenerateType()
         {
             RegenerateTypeEnum regenerateType;

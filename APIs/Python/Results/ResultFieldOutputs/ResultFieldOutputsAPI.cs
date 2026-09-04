@@ -10,9 +10,12 @@
 using CaeResults;
 using System.Linq;
 
+using System.Collections;
+using System.Collections.Generic;
+
 namespace APIs.Python
 {
-    public class ResultFieldOutputsAPI : BaseAPI
+    public class ResultFieldOutputsAPI : BaseAPI, IReadOnlyList<ResultFieldOutputAPI>
     {
         // Variables
         private readonly string _resultName;
@@ -39,6 +42,29 @@ namespace APIs.Python
         public int __len__()
         {
             return _service.GetNames(_resultName).Length;
+        }
+        // The collection interface is what makes len() and iteration work on the Python side; the
+        // positional indexer is explicit so that the Python side resolves the name indexer
+        public int Count { get { return __len__(); } }
+        ResultFieldOutputAPI IReadOnlyList<ResultFieldOutputAPI>.this[int index]
+        {
+            get
+            {
+                string[] keys = get_names().to_array();
+                if (index < 0) index = keys.Length + index;
+                if (index < 0 || index >= keys.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range.");
+                //
+                return this[keys[index]];
+            }
+        }
+        public IEnumerator<ResultFieldOutputAPI> GetEnumerator()
+        {
+            foreach (string key in get_names().to_array()) yield return this[key];
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
         public bool __contains__(string fieldOutputName)
         {
@@ -147,6 +173,107 @@ namespace APIs.Python
             return CreateFilter(FieldResultFilterTypeEnum.Smooth, source, layers, iterations);
         }
 
+        [PythonAPI("Creates a limit field output and adds it to the current result, in one call. It takes " +
+                   "the arguments of create_field_output_limit plus the optional filters.",
+                   Arguments = "name: str, field_name: str, component_name: str, based_on: str, " +
+                               "item_limits: dict[str, float], filter1: FieldOutputFilter = None, " +
+                               "filter2: FieldOutputFilter = None", Returns = "FieldOutput")]
+        public ResultFieldOutputAPI add_limit(string name, string field_name, string component_name,
+                                              string based_on, object item_limits,
+                                              ResultFieldOutputFilterAPI filter1 = null,
+                                              ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFieldOutputLimit(name, field_name, component_name, based_on,
+                                                                    item_limits), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result field output by a limit field output, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_limit", Returns = "FieldOutput")]
+        public ResultFieldOutputAPI replace_limit(string old_name, string name, string field_name,
+                                                  string component_name, string based_on, object item_limits,
+                                                  ResultFieldOutputFilterAPI filter1 = null,
+                                                  ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFieldOutputLimit(name, field_name,
+                                                                                 component_name, based_on,
+                                                                                 item_limits),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates an envelope field output and adds it to the current result, in one call.",
+                   Arguments = "name: str, field_name: str, component_name: str, " +
+                               "filter1: FieldOutputFilter = None, filter2: FieldOutputFilter = None",
+                   Returns = "FieldOutput")]
+        public ResultFieldOutputAPI add_envelope(string name, string field_name, string component_name,
+                                                 ResultFieldOutputFilterAPI filter1 = null,
+                                                 ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFieldOutputEnvelope(name, field_name, component_name),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result field output by an envelope field output, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_envelope", Returns = "FieldOutput")]
+        public ResultFieldOutputAPI replace_envelope(string old_name, string name, string field_name,
+                                                     string component_name,
+                                                     ResultFieldOutputFilterAPI filter1 = null,
+                                                     ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFieldOutputEnvelope(name, field_name,
+                                                                                    component_name),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates an equation field output and adds it to the current result, in one call.",
+                   Arguments = "name: str, equation: str, unit: str = '/', " +
+                               "filter1: FieldOutputFilter = None, filter2: FieldOutputFilter = None",
+                   Returns = "FieldOutput",
+                   Example = "pmx.results.current.field_outputs.add_equation('SEQV2', 'STRESS.Mises * 2')")]
+        public ResultFieldOutputAPI add_equation(string name, string equation, string unit = "/",
+                                                 ResultFieldOutputFilterAPI filter1 = null,
+                                                 ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFieldOutputEquation(name, equation, unit), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result field output by an equation field output, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_equation", Returns = "FieldOutput")]
+        public ResultFieldOutputAPI replace_equation(string old_name, string name, string equation,
+                                                     string unit = "/",
+                                                     ResultFieldOutputFilterAPI filter1 = null,
+                                                     ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFieldOutputEquation(name, equation, unit),
+                                                 filter1, filter2));
+        }
+
+        [PythonAPI("Creates a coordinate system transform field output and adds it to the current result, " +
+                   "in one call.",
+                   Arguments = "name: str, field_name: str, coordinate_system_name: str, " +
+                               "filter1: FieldOutputFilter = None, filter2: FieldOutputFilter = None",
+                   Returns = "FieldOutput")]
+        public ResultFieldOutputAPI add_coordinate_system_transform(string name, string field_name,
+                                                                    string coordinate_system_name,
+                                                                    ResultFieldOutputFilterAPI filter1 = null,
+                                                                    ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFieldOutputCoordinateSystemTransform(name, field_name,
+                                                                                        coordinate_system_name),
+                                   filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result field output by a coordinate system transform field output, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_coordinate_system_transform",
+                   Returns = "FieldOutput")]
+        public ResultFieldOutputAPI replace_coordinate_system_transform(
+            string old_name, string name, string field_name, string coordinate_system_name,
+            ResultFieldOutputFilterAPI filter1 = null, ResultFieldOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name,
+                           WithFilters(_service.CreateFieldOutputCoordinateSystemTransform(
+                                           name, field_name, coordinate_system_name), filter1, filter2));
+        }
+
         [PythonAPI("Validates and adds a field-output draft to the current result.",
                    Arguments = "output: FieldOutputDraft", Returns = "FieldOutput")]
         public ResultFieldOutputAPI add(ResultFieldOutputDraftAPI output)
@@ -181,6 +308,15 @@ namespace APIs.Python
         public void export_to_csv(string file_name, string field_output_name, int step_id, int increment_id)
         {
             _service.ExportFieldOutputToCsv(_resultName, file_name, field_output_name, step_id, increment_id);
+        }
+        private static TDraft WithFilters<TDraft>(TDraft draft, ResultFieldOutputFilterAPI filter1,
+                                                  ResultFieldOutputFilterAPI filter2)
+            where TDraft : ResultFieldOutputDraftAPI
+        {
+            if (filter1 != null) draft.filter1 = filter1;
+            if (filter2 != null) draft.filter2 = filter2;
+            //
+            return draft;
         }
         public override string ToString()
         {

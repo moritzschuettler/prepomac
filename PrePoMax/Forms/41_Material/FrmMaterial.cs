@@ -63,6 +63,20 @@ namespace PrePoMax.Forms
         public FrmMaterial(Controller controller)
         {
             InitializeComponent();
+            if (tvProperties.Nodes.Find("Engineering Constants", true).Length == 0)
+            {
+                TreeNode engineeringConstantsNode = new TreeNode("Engineering Constants");
+                engineeringConstantsNode.Name = "Engineering Constants";
+                engineeringConstantsNode.ToolTipText = "Orthotropic elasticity defined by engineering constants.";
+                tvProperties.Nodes.Find("Elasticity", true)[0].Nodes.Add(engineeringConstantsNode);
+            }
+            if (tvProperties.Nodes.Find("Lamina", true).Length == 0)
+            {
+                TreeNode laminaNode = new TreeNode("Lamina");
+                laminaNode.Name = "Lamina";
+                laminaNode.ToolTipText = "Plane-stress orthotropic elasticity defined by lamina constants.";
+                tvProperties.Nodes.Find("Elasticity", true)[0].Nodes.Add(laminaNode);
+            }
             //
             _controller = controller;
             _material = null;
@@ -130,6 +144,7 @@ namespace PrePoMax.Forms
         private void cbTemperatureDependent_CheckedChanged(object sender, EventArgs e)
         {
             HideShowTemperature();
+            propertyGrid.Refresh();
             _propertyItemChanged = true;
         }
         private void btnAdd_Click(object sender, EventArgs e)
@@ -145,6 +160,24 @@ namespace PrePoMax.Forms
                         ListViewItem existingItem = null;
                         if (lvAddedProperties.Items.Count > 0)
                             existingItem = lvAddedProperties.FindItemWithText(propertyText, true, 0, false);
+                        if (existingItem == null &&
+                            (treeNode.Tag is Elastic ||
+                             treeNode.Tag is ElasticEngineeringConstants ||
+                             treeNode.Tag is ElasticLamina))
+                        {
+                            foreach (ListViewItem addedItem in lvAddedProperties.Items)
+                            {
+                                if (addedItem.Tag is ViewElastic ||
+                                    addedItem.Tag is ViewElasticEngineeringConstants ||
+                                    addedItem.Tag is ViewElasticLamina ||
+                                    addedItem.Tag is ViewElasticWithDensity)
+                                {
+                                    existingItem = addedItem;
+                                    MessageBoxes.ShowWarning("A material can contain only one elastic property.");
+                                    break;
+                                }
+                            }
+                        }
                         //
                         if (existingItem == null)
                         {
@@ -157,6 +190,10 @@ namespace PrePoMax.Forms
                                     item.Tag = new ViewSlipWear(sw.DeepClone());
                                 else if (mp is Elastic el)
                                     item.Tag = new ViewElastic(el.DeepClone());
+                                else if (mp is ElasticEngineeringConstants eec)
+                                    item.Tag = new ViewElasticEngineeringConstants(eec.DeepClone());
+                                else if (mp is ElasticLamina ela)
+                                    item.Tag = new ViewElasticLamina(ela.DeepClone());
                                 else if (mp is Plastic pl)
                                     item.Tag = new ViewPlastic(pl.DeepClone());
                                 else if (mp is ThermalExpansion te)
@@ -250,6 +287,20 @@ namespace PrePoMax.Forms
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(ve.DataPoints);
+                }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticEngineeringConstants veec)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                    tcProperties.TabPages.Add(_pages[1]);   // data points
+                    //
+                    SetDataGridViewBinding(veec.DataPoints);
+                }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticLamina vela)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                    tcProperties.TabPages.Add(_pages[1]);   // data points
+                    //
+                    SetDataGridViewBinding(vela.DataPoints);
                 }
                 else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticWithDensity)
                 {
@@ -373,6 +424,16 @@ namespace PrePoMax.Forms
             node.Tag = new SlipWear(0, 0);
             node = tvProperties.Nodes.Find("Elastic", true)[0];
             node.Tag = new Elastic(new double[][] { new double[] { 0, 0, 0 } });
+            node = tvProperties.Nodes.Find("Engineering Constants", true)[0];
+            node.Tag = new ElasticEngineeringConstants(new double[][]
+            {
+                new double[ElasticEngineeringConstants.NumberOfValues]
+            });
+            node = tvProperties.Nodes.Find("Lamina", true)[0];
+            node.Tag = new ElasticLamina(new double[][]
+            {
+                new double[ElasticLamina.NumberOfValues]
+            });
             node = tvProperties.Nodes.Find("Plastic", true)[0];
             node.Tag = new Plastic(new double[][] { new double[] { 0, 0, 0 } });
             node = tvProperties.Nodes.Find("Thermal Expansion", true)[0];
@@ -447,6 +508,10 @@ namespace PrePoMax.Forms
                     if (property is Density den) view = new ViewDensity(den);
                     else if (property is SlipWear sw) view = new ViewSlipWear(sw);
                     else if (property is Elastic el) view = new ViewElastic(el);
+                    else if (property is ElasticEngineeringConstants eec)
+                        view = new ViewElasticEngineeringConstants(eec);
+                    else if (property is ElasticLamina ela)
+                        view = new ViewElasticLamina(ela);
                     else if (property is ElasticWithDensity ewd)
                     {
                         view = new ViewElasticWithDensity(ewd);
@@ -528,9 +593,18 @@ namespace PrePoMax.Forms
             //
             ViewMaterialProperty property;
             MaterialProperty materialProperty;
+            int elasticityCount = 0;
             foreach (ListViewItem item in lvAddedProperties.Items)
             {
                 property = (ViewMaterialProperty)item.Tag;
+                if (property is ViewElastic ||
+                    property is ViewElasticEngineeringConstants ||
+                    property is ViewElasticLamina ||
+                    property is ViewElasticWithDensity)
+                {
+                    elasticityCount++;
+                    if (elasticityCount > 1) throw new CaeException("A material can contain only one elastic property.");
+                }
                 materialProperty = property.GetBase();
                 // Check equations
                 materialProperty.CheckEquations();
@@ -545,6 +619,14 @@ namespace PrePoMax.Forms
                 else if (property is ViewElastic ve && ve.GetYoungsModulusValue() <= 0)
                 {
                     throw new CaeException("The Young's modulus must be larger than 0.");
+                }
+                else if (property is ViewElasticEngineeringConstants && cbTemperatureDependent.Checked)
+                {
+                    ((ElasticEngineeringConstants)materialProperty).CheckTemperatures();
+                }
+                else if (property is ViewElasticLamina && cbTemperatureDependent.Checked)
+                {
+                    ((ElasticLamina)materialProperty).CheckTemperatures();
                 }
                 else if (property is ViewElasticWithDensity ewd)
                 {
@@ -609,6 +691,38 @@ namespace PrePoMax.Forms
                             new StringPressureFromConverter());
             SetGridViewUnit(nameof(ElasticDataPoint.PoissonsRatioEq), noUnit,
                             new StringDoubleConverter());
+            // Engineering constants
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.YoungsModulus1Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.YoungsModulus2Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.YoungsModulus3Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.PoissonsRatio12Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.PoissonsRatio13Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.PoissonsRatio23Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.ShearModulus12Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.ShearModulus13Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticEngineeringConstantsDataPoint.ShearModulus23Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            // Lamina
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.YoungsModulus1Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.YoungsModulus2Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.PoissonsRatio12Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.ShearModulus12Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.ShearModulus13Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
+            SetGridViewUnit(nameof(ElasticLaminaDataPoint.ShearModulus23Eq),
+                            _controller.Model.UnitSystem.PressureUnitAbbreviation, new StringPressureFromConverter());
             // Plastic
             SetGridViewUnit(nameof(PlasticDataPoint.StressEq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
                             new StringPressureFromConverter());
@@ -663,6 +777,8 @@ namespace PrePoMax.Forms
             {
                 if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewDensity ||
                     lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElastic ||
+                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticEngineeringConstants ||
+                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticLamina ||
                     lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalConductivity ||
                     lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSpecificHeat)
                 {
