@@ -39,6 +39,8 @@ namespace APIs.Python.Model
         private readonly ConstraintsAPI _constraints;
         private readonly SurfaceInteractionsAPI _surfaceInteractions;
         private readonly ContactPairsAPI _contactPairs;
+        private readonly KeywordsAPI _keywords;
+        private readonly TreeAPI _tree;
 
 
         // Properties
@@ -84,6 +86,10 @@ namespace APIs.Python.Model
         public SurfaceInteractionsAPI surface_interactions { get { return _surfaceInteractions; } }
         [PythonAPI("The contact pairs of the model.", Returns = "ContactPairs")]
         public ContactPairsAPI contact_pairs { get { return _contactPairs; } }
+        [PythonAPI("The user CalculiX keyword editor state.", Returns = "Keywords")]
+        public KeywordsAPI keywords { get { return _keywords; } }
+        [PythonAPI("The editable model tree layout.", Returns = "Tree")]
+        public TreeAPI tree { get { return _tree; } }
         [PythonAPI("The analysis steps of the model.", Returns = "Steps")]
         public StepsAPI steps { get { return _steps; } }
 
@@ -123,6 +129,8 @@ namespace APIs.Python.Model
             _constraints = new ConstraintsAPI(constraintService);
             _surfaceInteractions = new SurfaceInteractionsAPI(surfaceInteractionService);
             _contactPairs = new ContactPairsAPI(contactPairService);
+            _keywords = new KeywordsAPI(_modelResolver);
+            _tree = new TreeAPI(_modelResolver);
         }
 
 
@@ -143,3 +151,5 @@ namespace APIs.Python.Model
         }
     }
 }
+
+

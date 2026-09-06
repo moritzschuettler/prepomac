@@ -32,6 +32,7 @@ namespace vtkControl
         private const double NegativeShaftLengthRatio = 2.0 / 3.0;
         private const double ConeHeightRatio = 14.0 / DefaultShaftLength;
         private const double ConeRadiusRatio = 3.5 / DefaultShaftLength;
+        private const double ConeTargetRatio = 0.75;
         private const double OriginRadiusRatio = 3.5 / DefaultShaftLength;
         private const double LabelGapRatio = 6.0 / DefaultShaftLength;
         private const double LabelFontSizeRatio = DefaultLabelFontSize / DefaultShaftLength;
@@ -223,6 +224,13 @@ namespace vtkControl
         {
             return _endDepths[endId];
         }
+        public double GetEndProjectedLength(int endId)
+        {
+            double dx = _endPositions[endId][0] - _center[0];
+            double dy = _endPositions[endId][1] - _center[1];
+            //
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
         public double GetEndOpacity(int endId)
         {
             return IsPositiveEnd(endId) ? 1 : NegativeOpacity;
@@ -266,11 +274,12 @@ namespace vtkControl
         public double[] GetEndTargetPosition(int endId)
         {
             if (!IsPositiveEnd(endId)) return _endPositions[endId];
-            // The cone is the only clickable part of a positive axis
+            // The cone is the only clickable part of a positive axis and it sits close to its tip
+            // so that the shaft behind it stays free for the vertical axis target
             double[] baseCenter = GetConeBaseCenter(endId);
             //
-            return new double[] { (_endPositions[endId][0] + baseCenter[0]) / 2,
-                                  (_endPositions[endId][1] + baseCenter[1]) / 2 };
+            return new double[] { baseCenter[0] + ConeTargetRatio * (_endPositions[endId][0] - baseCenter[0]),
+                                  baseCenter[1] + ConeTargetRatio * (_endPositions[endId][1] - baseCenter[1]) };
         }
         public double[] GetLabelPosition(int axisId, int[] labelSize)
         {

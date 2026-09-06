@@ -92,6 +92,10 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSection(oldName, section);
         }
+        public Section Clone(string name)
+        {
+            return ResolveSection(name).DeepClone();
+        }
         public void Duplicate(string[] names)
         {
             EnsureCommandsAvailable();
@@ -116,3 +120,5 @@ namespace APIs.Python.Model
         }
     }
 }
+
+

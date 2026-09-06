@@ -22,9 +22,16 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         protected vtkPolyDataMapper2D _scalarBarBorderMapper;
+        protected vtkPolyData _scalarBarBorderPolyData;
+        protected vtkPoints _scalarBarBorderPoints;
+        protected vtkCellArray _scalarBarBorderLines;
         protected vtkActor2D _scalarBarBorderActor;
         //
         protected vtkPolyDataMapper2D _scalarBarColorsMapper;
+        protected vtkPolyData _scalarBarColorsPolyData;
+        protected vtkPoints _scalarBarColorsPoints;
+        protected vtkCellArray _scalarBarColorsPolygons;
+        protected vtkFloatArray _scalarBarColorsScalars;
         protected vtkActor2D _scalarBarColorsActor;
         //
         protected vtkLookupTable _lookupTable;
@@ -138,12 +145,15 @@ namespace vtkControl
         private void InitializeBar()
         {
             // Bar border                                                                          
-            vtkPolyData scalarBarPolyData = vtkPolyData.New();
-            scalarBarPolyData.SetPoints(vtkPoints.New());
-            scalarBarPolyData.SetPolys(vtkCellArray.New());
+            _scalarBarBorderPoints = vtkPoints.New();
+            _scalarBarBorderLines = vtkCellArray.New();
+            //
+            _scalarBarBorderPolyData = vtkPolyData.New();
+            _scalarBarBorderPolyData.SetPoints(_scalarBarBorderPoints);
+            _scalarBarBorderPolyData.SetLines(_scalarBarBorderLines);
 
             _scalarBarBorderMapper = vtkPolyDataMapper2D.New();
-            _scalarBarBorderMapper.SetInput(scalarBarPolyData);
+            _scalarBarBorderMapper.SetInput(_scalarBarBorderPolyData);
 
             vtkProperty2D scalarBarProperty = vtkProperty2D.New();
             scalarBarProperty.SetColor(0, 0, 0);
@@ -157,12 +167,17 @@ namespace vtkControl
 
 
             // Bar filled                                                                          
-            scalarBarPolyData = vtkPolyData.New();
-            scalarBarPolyData.SetPoints(vtkPoints.New());
-            scalarBarPolyData.SetPolys(vtkCellArray.New());
+            _scalarBarColorsPoints = vtkPoints.New();
+            _scalarBarColorsPolygons = vtkCellArray.New();
+            _scalarBarColorsScalars = vtkFloatArray.New();
+            //
+            _scalarBarColorsPolyData = vtkPolyData.New();
+            _scalarBarColorsPolyData.SetPoints(_scalarBarColorsPoints);
+            _scalarBarColorsPolyData.SetPolys(_scalarBarColorsPolygons);
+            _scalarBarColorsPolyData.GetPointData().SetScalars(_scalarBarColorsScalars);
 
             _scalarBarColorsMapper = vtkPolyDataMapper2D.New();
-            _scalarBarColorsMapper.SetInput(scalarBarPolyData);
+            _scalarBarColorsMapper.SetInput(_scalarBarColorsPolyData);
 
             _scalarBarColorsActor = vtkActor2D.New();
             _scalarBarColorsActor.SetMapper(_scalarBarColorsMapper);
@@ -391,8 +406,9 @@ namespace vtkControl
         }
         private void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
-            vtkPoints scalarBarPoints = vtkPoints.New();
-            vtkCellArray scalarBarLines = vtkCellArray.New();
+            vtkPoints scalarBarPoints = _scalarBarBorderPoints;
+            vtkCellArray scalarBarLines = _scalarBarBorderLines;
+            scalarBarLines.Reset();
             //
             int numOfTableColors = _numberOfColors;
             if (_addMinColor && _minColorVisible) numOfTableColors++;
@@ -425,9 +441,8 @@ namespace vtkControl
             scalarBarLines.InsertCellPoint(2 * (numOfTableColors + 1));
             scalarBarLines.InsertCellPoint(2 * (numOfTableColors + 1) + 1);
             //
-            vtkPolyData scalarBarPoly = _scalarBarBorderMapper.GetInput();
-            scalarBarPoly.SetPoints(scalarBarPoints);
-            scalarBarPoly.SetLines(scalarBarLines);
+            scalarBarPoints.Modified();
+            _scalarBarBorderPolyData.Modified();
             //
             _scalarBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
@@ -455,9 +470,10 @@ namespace vtkControl
         }
         private void GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
-            vtkPoints scalarBarPoints = vtkPoints.New();
-            vtkCellArray scalarBarPolygons = vtkCellArray.New();
-            vtkFloatArray scalars = vtkFloatArray.New();
+            vtkPoints scalarBarPoints = _scalarBarColorsPoints;
+            vtkCellArray scalarBarPolygons = _scalarBarColorsPolygons;
+            vtkFloatArray scalars = _scalarBarColorsScalars;
+            scalarBarPolygons.Reset();
             //
             int numOfAllTableColors = (int)_lookupTable.GetNumberOfColors();
             int numOfGradientColors = _smoothColors
@@ -499,11 +515,9 @@ namespace vtkControl
                                 1, ref height);
             }
             //
-            vtkPolyData scalarBarPoly = _scalarBarColorsMapper.GetInput();
-            scalarBarPoly.SetPoints(scalarBarPoints);
-            scalarBarPoly.SetPolys(scalarBarPolygons);
-            // Set scalars
-            _scalarBarColorsMapper.GetInput().GetPointData().SetScalars(scalars);
+            scalarBarPoints.Modified();
+            scalars.Modified();
+            _scalarBarColorsPolyData.Modified();
             // Edit actors mapper
             _scalarBarColorsMapper.SetScalarRange(0, 1);
             _scalarBarColorsMapper.SetLookupTable(_lookupTable);

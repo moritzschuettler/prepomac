@@ -58,9 +58,19 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, object timeAmplitude, string timeSpan)
         {
-            ResolveAmplitude(oldName);
-            ValidateNewName(name, oldName);
-            Amplitude amplitude = Build(name, timeAmplitude, timeSpan);
+            Amplitude existing = ResolveAmplitude(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            // A value that is not given is kept, so the time span alone is a valid change
+            Amplitude amplitude;
+            if (timeAmplitude == null)
+            {
+                amplitude = existing.DeepClone();
+                amplitude.Name = newName;
+                if (timeSpan != null)
+                    amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
+            }
+            else amplitude = Build(newName, timeAmplitude, timeSpan == null ? existing.TimeSpan.ToString() : timeSpan);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceAmplitude(oldName, amplitude);

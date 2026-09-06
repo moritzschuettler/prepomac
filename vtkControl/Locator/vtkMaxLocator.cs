@@ -45,19 +45,26 @@ namespace vtkControl
         public void GetClosestPoint(double[] point, out int cellId, out double[] pointOut)
         {
             IntPtr x = Marshal.AllocHGlobal(3 * 8);
-            Marshal.Copy(point, 0, x, 3);
-            //
             IntPtr closestPoint = Marshal.AllocHGlobal(3 * 8);
-            //
-            long localCellId = -1;
-            int subId = -1;
-            double distance2 = -1;
-            pointOut = new double[3];
-            //
-            _actor.CellLocator.FindClosestPoint(x, closestPoint, _cell, ref localCellId, ref subId, ref distance2);
-            //
-            cellId = (int)localCellId;
-            Marshal.Copy(closestPoint, pointOut, 0, 3);
+            try
+            {
+                Marshal.Copy(point, 0, x, 3);
+                //
+                long localCellId = -1;
+                int subId = -1;
+                double distance2 = -1;
+                pointOut = new double[3];
+                //
+                _actor.CellLocator.FindClosestPoint(x, closestPoint, _cell, ref localCellId, ref subId, ref distance2);
+                //
+                cellId = (int)localCellId;
+                Marshal.Copy(closestPoint, pointOut, 0, 3);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(x);
+                Marshal.FreeHGlobal(closestPoint);
+            }
         }
 
     }

@@ -58,6 +58,10 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             ModelGateway.AddInitialCondition(initialCondition);
         }
+        public InitialCondition Clone(string name)
+        {
+            return ResolveInitialCondition(name).DeepClone();
+        }
         public void Replace(string oldName, InitialCondition initialCondition)
         {
             ResolveInitialCondition(oldName);
@@ -105,3 +109,5 @@ namespace APIs.Python.Model
         }
     }
 }
+
+

@@ -415,17 +415,17 @@ namespace APIs.Python.Model
         {
             if (axisPoint != null)
             {
-                double[] values = ToVector(axisPoint, "axis_point");
-                constraint.X.SetEquationFromValue(values[0]);
-                constraint.Y.SetEquationFromValue(values[1]);
-                constraint.Z.SetEquationFromValue(values[2]);
+                EquationString[] values = PythonValueConverter.ToEquationArray(axisPoint, "axis_point", 3);
+                constraint.X.Equation = values[0];
+                constraint.Y.Equation = values[1];
+                constraint.Z.Equation = values[2];
             }
             if (axisDirection != null)
             {
-                double[] values = ToVector(axisDirection, "axis_direction");
-                constraint.N1.SetEquationFromValue(values[0]);
-                constraint.N2.SetEquationFromValue(values[1]);
-                constraint.N3.SetEquationFromValue(values[2]);
+                EquationString[] values = PythonValueConverter.ToEquationArray(axisDirection, "axis_direction", 3);
+                constraint.N1.Equation = values[0];
+                constraint.N2.Equation = values[1];
+                constraint.N3.Equation = values[2];
             }
             if (numberOfSectors != null)
                 constraint.NumberOfSectors = PythonValueConverter.ToInt(numberOfSectors, "number_of_sectors");
@@ -482,14 +482,6 @@ namespace APIs.Python.Model
             if (k1 != null) constraint.K1.Equation = PythonValueConverter.ToEquationString(k1, "k1");
             if (k2 != null) constraint.K2.Equation = PythonValueConverter.ToEquationString(k2, "k2");
             if (k3 != null) constraint.K3.Equation = PythonValueConverter.ToEquationString(k3, "k3");
-        }
-        private static double[] ToVector(object value, string argumentName)
-        {
-            double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
-            if (vector == null || vector.Length != 3)
-                throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
-            //
-            return vector;
         }
         private ConstraintAPI Replace(string oldName, string name, Constraint constraint)
         {

@@ -58,6 +58,21 @@ namespace APIs.Python.Model
             _service.Replace(old_name, _service.BuildFromEquation(name, equation));
             return this[name];
         }
+        [PythonAPI("Replaces a file based distribution, keeping every value that is not given.",
+                   Arguments = "old_name: str, name: str = None, file_name: str = None, " +
+                               "interpolator_type: str = None, interpolator_radius: float = None, " +
+                               "scale: list[float] = None, translate: list[float] = None",
+                   Returns = "Distribution")]
+        public DistributionAPI replace_from_file(string old_name, string name = null, string file_name = null,
+                                                 string interpolator_type = null, object interpolator_radius = null,
+                                                 object scale = null, object translate = null)
+        {
+            Distribution item = _service.BuildReplacementFromFile(old_name, name, file_name, interpolator_type,
+                                                                   interpolator_radius, scale, translate);
+            _service.Replace(old_name, item);
+            //
+            return this[item.Name];
+        }
         //
         protected override string[] GetItemNames()
         {

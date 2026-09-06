@@ -43,6 +43,16 @@ namespace APIs.Python.Model
         {
             _service.CreateElementSetFromQuality(name, metric, part_names, larger_than, limit);
         }
+        [PythonAPI("Returns a copied bulk mesh snapshot ordered by ID.", Returns = "ElementData")]
+        public ElementDataAPI get_data()
+        {
+            return _service.GetElementData();
+        }
+        [PythonAPI("Returns all model mesh IDs in ascending order.", Returns = "numpy.ndarray or IntList")]
+        public object get_ids()
+        {
+            return get_data().ids;
+        }
         public override string ToString()
         {
             return "Elements(count=" + count + ")";

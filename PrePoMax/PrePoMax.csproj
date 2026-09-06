@@ -1305,10 +1305,12 @@ rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh
 
 IF NOT EXIST "$(TargetDir)lib\" mkdir "$(TargetDir)lib\"
 
-rem NetGenMesher runtime is vendored in ThirdParty (trimmed set: 1 exe + 43 dlls)
+rem NetGenMesher runtime is vendored in ThirdParty (trimmed set: 1 exe + 37 dlls)
+rem /PURGE removes binaries dropped from the vendored set; the file filters keep the license texts
 IF NOT EXIST "$(TargetDir)Meshers\Netgen\" mkdir "$(TargetDir)Meshers\Netgen\"
-xcopy /D /Y /I "$(SolutionDir)ThirdParty\netgen\*.exe" "$(TargetDir)Meshers\Netgen"
-xcopy /D /Y /I "$(SolutionDir)ThirdParty\netgen\*.dll" "$(TargetDir)Meshers\Netgen"
+robocopy "$(SolutionDir)ThirdParty\netgen" "$(TargetDir)Meshers\Netgen" *.exe *.dll /PURGE /NJH /NJS /NDL /NFL /NP
+IF %ERRORLEVEL% GEQ 8 EXIT 1
+VER > NUL
 
 rem Gmsh runtime dll is vendored in ThirdParty - the sdk it comes from is what GmshCommon links against
 copy "$(SolutionDir)ThirdParty\gmsh-4.13.0-Windows64-sdk\lib\gmsh-4.13.dll" "$(TargetDir)lib\gmsh-4.13.dll"
@@ -1340,6 +1342,7 @@ IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licen
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-OCCT.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-OCCT.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\OCCT_LGPL_EXCEPTION.txt" "$(TargetDir)Meshers\Netgen\OCCT_LGPL_EXCEPTION.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-pthreads-win32.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-pthreads-win32.txt"
+IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\ZLIB-LICENSE.txt" "$(TargetDir)Meshers\Netgen\ZLIB-LICENSE.txt"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 

@@ -66,9 +66,32 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, SelectionAPI selection)
         {
-            ResolveSurface(oldName);
-            ValidateNewName(name, oldName);
-            FeSurface surface = BuildFromSelection(name, selection);
+            FeSurface existing = ResolveSurface(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            FeSurface surface;
+            if (selection == null)
+            {
+                if (existing.CreatedFrom != FeSurfaceCreatedFrom.Selection || existing.CreationData == null)
+                    throw new PythonAPIException("The argument 'selection' must be given, because the surface " +
+                                                 "is not created from a selection.");
+                surface = new FeSurface(existing);
+                surface.Name = newName;
+            }
+            else surface = BuildFromSelection(newName, selection);
+            //
+            EnsureCommandsAvailable();
+            ModelGateway.ReplaceSurface(oldName, surface);
+        }
+        public void ReplaceFromNodeSet(string oldName, string name, string nodeSetName)
+        {
+            FeSurface existing = ResolveSurface(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            // A node set surface is fully described by its node set, so it is built rather than cloned;
+            // a node set that is not given is the one the surface already uses
+            string keptNodeSetName = nodeSetName != null ? nodeSetName : GetKeptNodeSetName(existing);
+            FeSurface surface = BuildFromNodeSet(newName, keptNodeSetName);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceSurface(oldName, surface);
@@ -99,6 +122,14 @@ namespace APIs.Python.Model
             surface.CreatedFrom = FeSurfaceCreatedFrom.Selection;
             //
             return surface;
+        }
+        private static string GetKeptNodeSetName(FeSurface surface)
+        {
+            if (surface.CreatedFrom != FeSurfaceCreatedFrom.NodeSet || surface.CreatedFromNodeSetName == null)
+                throw new PythonAPIException("The argument 'node_set_name' must be given, because the surface " +
+                                             "is not created from a node set.");
+            //
+            return surface.CreatedFromNodeSetName;
         }
         private FeSurface BuildFromNodeSet(string name, string nodeSetName)
         {

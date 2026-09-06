@@ -54,6 +54,7 @@ namespace APIs.Python.Model
         {
             ValidateNewName(name, null);
             CoordinateSystem coordinateSystem = Build(name, type, origin, pointOnX, pointInXY);
+            ValidateDefinition(coordinateSystem);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelCoordinateSystem(coordinateSystem);
@@ -61,48 +62,59 @@ namespace APIs.Python.Model
         public void Replace(string oldName, string name, string type, object origin, object pointOnX,
                             object pointInXY)
         {
-            ResolveCoordinateSystem(oldName);
-            ValidateNewName(name, oldName);
-            CoordinateSystem coordinateSystem = Build(name, type, origin, pointOnX, pointInXY);
+            CoordinateSystem existing = ResolveCoordinateSystem(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            CoordinateSystem coordinateSystem = existing.DeepClone();
+            coordinateSystem.Name = newName;
+            if (type != null)
+                coordinateSystem.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type,
+                                                                                              "coordinate_system_type");
+            if (origin != null) ApplyCoordinates(coordinateSystem, origin, 1);
+            if (pointOnX != null) ApplyCoordinates(coordinateSystem, pointOnX, 2);
+            if (pointInXY != null) ApplyCoordinates(coordinateSystem, pointInXY, 3);
+            // The completed definition is checked, so an edit is rejected for the same reason a creation is
+            ValidateDefinition(coordinateSystem);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelCoordinateSystem(oldName, coordinateSystem);
         }
         public void AddFromSelections(string name, string type, string originCreatedFrom,
-                                      SelectionAPI originSelection, string pointOnXCreatedFrom,
-                                      SelectionAPI pointOnXSelection, string pointInXYCreatedFrom,
-                                      SelectionAPI pointInXYSelection)
+                                       SelectionAPI originSelection, string pointOnXCreatedFrom,
+                                       SelectionAPI pointOnXSelection, string pointInXYCreatedFrom,
+                                       SelectionAPI pointInXYSelection, object origin, object pointOnX,
+                                       object pointInXY)
         {
             ValidateNewName(name, null);
-            CoordinateSystem coordinateSystem = new CoordinateSystem(name, GetIsTwoDimensional());
+            CoordinateSystem item = new CoordinateSystem(name, GetIsTwoDimensional());
             if (type != null)
-                coordinateSystem.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type, "type");
-            // The mesh computes the three points from the creation IDs on the update that follows the add
-            ApplyPoint(originCreatedFrom, originSelection, "origin_created_from", "origin_selection",
-                       delegate (CsPointCreatedFromEnum mode, SelectionCompilation compilation)
-                       {
-                           coordinateSystem.CenterCreatedFrom = mode;
-                           coordinateSystem.CenterCreationData = compilation.Selection;
-                           coordinateSystem.CenterCreationIds = compilation.Ids;
-                       });
-            ApplyPoint(pointOnXCreatedFrom, pointOnXSelection, "point_on_x_created_from", "point_on_x_selection",
-                       delegate (CsPointCreatedFromEnum mode, SelectionCompilation compilation)
-                       {
-                           coordinateSystem.PointXCreatedFrom = mode;
-                           coordinateSystem.PointXCreationData = compilation.Selection;
-                           coordinateSystem.PointXCreationIds = compilation.Ids;
-                       });
-            ApplyPoint(pointInXYCreatedFrom, pointInXYSelection, "point_in_xy_created_from",
-                       "point_in_xy_selection",
-                       delegate (CsPointCreatedFromEnum mode, SelectionCompilation compilation)
-                       {
-                           coordinateSystem.PointXYCreatedFrom = mode;
-                           coordinateSystem.PointXYCreationData = compilation.Selection;
-                           coordinateSystem.PointXYCreationIds = compilation.Ids;
-                       });
-            //
+                item.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type, "coordinate_system_type");
+            ApplyPointOrCoordinates(item, originCreatedFrom, originSelection, origin, 1);
+            ApplyPointOrCoordinates(item, pointOnXCreatedFrom, pointOnXSelection, pointOnX, 2);
+            ApplyPointOrCoordinates(item, pointInXYCreatedFrom, pointInXYSelection, pointInXY, 3);
+            ValidateDefinition(item);
             EnsureCommandsAvailable();
-            ModelGateway.AddModelCoordinateSystem(coordinateSystem);
+            ModelGateway.AddModelCoordinateSystem(item);
+        }
+        public void ReplaceFromSelections(string oldName, string name, string type, string originCreatedFrom,
+                                           SelectionAPI originSelection, string pointOnXCreatedFrom,
+                                           SelectionAPI pointOnXSelection, string pointInXYCreatedFrom,
+                                           SelectionAPI pointInXYSelection, object origin, object pointOnX,
+                                           object pointInXY)
+        {
+            CoordinateSystem existing = ResolveCoordinateSystem(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            CoordinateSystem item = existing.DeepClone();
+            item.Name = newName;
+            if (type != null)
+                item.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type, "coordinate_system_type");
+            ApplyPointOrCoordinates(item, originCreatedFrom, originSelection, origin, 1);
+            ApplyPointOrCoordinates(item, pointOnXCreatedFrom, pointOnXSelection, pointOnX, 2);
+            ApplyPointOrCoordinates(item, pointInXYCreatedFrom, pointInXYSelection, pointInXY, 3);
+            ValidateDefinition(item);
+            EnsureCommandsAvailable();
+            ModelGateway.ReplaceModelCoordinateSystem(oldName, item);
         }
         public void Duplicate(string[] names)
         {
@@ -134,22 +146,23 @@ namespace APIs.Python.Model
         //
         private CoordinateSystem Build(string name, string type, object origin, object pointOnX, object pointInXY)
         {
-            double[] originPoint = ToPoint(origin, "origin");
-            double[] xPoint = ToPoint(pointOnX, "point_on_x");
-            double[] xyPoint = ToPoint(pointInXY, "point_in_xy");
+            EquationString[] originPoint = PythonValueConverter.ToEquationArray(origin, "origin", 3);
+            EquationString[] xPoint = PythonValueConverter.ToEquationArray(pointOnX, "point_on_x", 3);
+            EquationString[] xyPoint = PythonValueConverter.ToEquationArray(pointInXY, "point_in_xy", 3);
             //
             CoordinateSystem coordinateSystem = new CoordinateSystem(name, GetIsTwoDimensional());
             if (type != null)
-                coordinateSystem.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type, "type");
-            coordinateSystem.X1.Equation = new EquationString(ToText(originPoint[0]));
-            coordinateSystem.Y1.Equation = new EquationString(ToText(originPoint[1]));
-            coordinateSystem.Z1.Equation = new EquationString(ToText(originPoint[2]));
-            coordinateSystem.X2.Equation = new EquationString(ToText(xPoint[0]));
-            coordinateSystem.Y2.Equation = new EquationString(ToText(xPoint[1]));
-            coordinateSystem.Z2.Equation = new EquationString(ToText(xPoint[2]));
-            coordinateSystem.X3.Equation = new EquationString(ToText(xyPoint[0]));
-            coordinateSystem.Y3.Equation = new EquationString(ToText(xyPoint[1]));
-            coordinateSystem.Z3.Equation = new EquationString(ToText(xyPoint[2]));
+                coordinateSystem.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type,
+                                                                                              "coordinate_system_type");
+            coordinateSystem.X1.Equation = originPoint[0];
+            coordinateSystem.Y1.Equation = originPoint[1];
+            coordinateSystem.Z1.Equation = originPoint[2];
+            coordinateSystem.X2.Equation = xPoint[0];
+            coordinateSystem.Y2.Equation = xPoint[1];
+            coordinateSystem.Z2.Equation = xPoint[2];
+            coordinateSystem.X3.Equation = xyPoint[0];
+            coordinateSystem.Y3.Equation = xyPoint[1];
+            coordinateSystem.Z3.Equation = xyPoint[2];
             //
             return coordinateSystem;
         }
@@ -176,17 +189,71 @@ namespace APIs.Python.Model
             //
             apply(mode, compilation);
         }
-        private static double[] ToPoint(object value, string argumentName)
+        private void ApplyPointOrCoordinates(CoordinateSystem item, string createdFrom, SelectionAPI selection,
+                                              object coordinates, int point)
         {
-            double[] point = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
-            if (point == null || point.Length != 3)
-                throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
-            //
-            return point;
+            if (coordinates != null)
+            {
+                if (createdFrom != null || selection != null)
+                    throw new PythonAPIException("A point must use either coordinates or a selection, not both.");
+                ApplyCoordinates(item, coordinates, point);
+                return;
+            }
+            if (createdFrom == null && selection == null) return;
+            ApplyPoint(createdFrom, selection, "point_created_from", "point_selection",
+                       delegate (CsPointCreatedFromEnum mode, SelectionCompilation compilation)
+                       {
+                           if (point == 1)
+                           {
+                               item.CenterCreatedFrom = mode;
+                               item.CenterCreationData = compilation.Selection;
+                               item.CenterCreationIds = compilation.Ids;
+                           }
+                           else if (point == 2)
+                           {
+                               item.PointXCreatedFrom = mode;
+                               item.PointXCreationData = compilation.Selection;
+                               item.PointXCreationIds = compilation.Ids;
+                           }
+                           else
+                           {
+                               item.PointXYCreatedFrom = mode;
+                               item.PointXYCreationData = compilation.Selection;
+                               item.PointXYCreationIds = compilation.Ids;
+                           }
+                       });
         }
-        private static string ToText(double value)
+        // A point that comes from a selection is resolved on the model mesh before the axes are
+        // checked, so a definition the application would reject never reaches the command history
+        private void ValidateDefinition(CoordinateSystem item)
         {
-            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            CoordinateSystemValidator.ValidateAxes(item, GetMeshOrNull());
+        }
+        private static void ApplyCoordinates(CoordinateSystem coordinateSystem, object value, int point)
+        {
+            string argumentName = point == 1 ? "origin" : (point == 2 ? "point_on_x" : "point_in_xy");
+            EquationString[] equations = PythonValueConverter.ToEquationArray(value, argumentName, 3);
+            if (point == 1)
+            {
+                coordinateSystem.CenterCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                coordinateSystem.X1.Equation = equations[0];
+                coordinateSystem.Y1.Equation = equations[1];
+                coordinateSystem.Z1.Equation = equations[2];
+            }
+            else if (point == 2)
+            {
+                coordinateSystem.PointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                coordinateSystem.X2.Equation = equations[0];
+                coordinateSystem.Y2.Equation = equations[1];
+                coordinateSystem.Z2.Equation = equations[2];
+            }
+            else
+            {
+                coordinateSystem.PointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                coordinateSystem.X3.Equation = equations[0];
+                coordinateSystem.Y3.Equation = equations[1];
+                coordinateSystem.Z3.Equation = equations[2];
+            }
         }
     }
 }

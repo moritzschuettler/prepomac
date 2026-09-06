@@ -54,7 +54,7 @@ namespace APIs.Python
             ResultFieldOutputService resultFieldOutputService = new ResultFieldOutputService(_resolver, commandGateway);
             ResultHistoryOutputService resultHistoryOutputService =
                 new ResultHistoryOutputService(_resolver, selectionService, commandGateway);
-            _documentService = new DocumentService(_modelResolver, modelGateway);
+            _documentService = new DocumentService(_modelResolver, modelGateway, _resolver);
             ParameterService parameterService = new ParameterService(_modelResolver, modelGateway);
             RegionServices regionServices = new RegionServices(_modelResolver, selectionService, modelGateway);
             MaterialService materialService = new MaterialService(_modelResolver, modelGateway);
@@ -81,7 +81,8 @@ namespace APIs.Python
                 new MeshToolService(_modelResolver, selectionService, meshGateway);
             MeshEditService meshEditService =
                 new MeshEditService(_modelResolver, selectionService, meshGateway);
-            _results = new ResultsAPI(_resolver, resultFieldOutputService, resultHistoryOutputService, commandGateway);
+            _results = new ResultsAPI(_resolver, resultFieldOutputService, resultHistoryOutputService,
+                                      selectionService, commandGateway);
             _model = new ModelAPI(_modelResolver, _documentService, parameterService, geometryPartService,
                                   modelPartService, meshSetupItemService, meshToolService,
                                   meshEditService, materialService,

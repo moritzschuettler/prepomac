@@ -60,24 +60,8 @@ namespace APIs.Python.Model
         public void AddFromSelection(string name, string createdFrom, SelectionAPI selection)
         {
             ValidateNewName(name, null);
-            FeReferencePointCreatedFrom mode =
-                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
-            if (mode != FeReferencePointCreatedFrom.OnPoint && mode != FeReferencePointCreatedFrom.BetweenTwoPoints &&
-                mode != FeReferencePointCreatedFrom.CircleCenter)
-                throw new PythonAPIException("The argument 'created_from' must be OnPoint, BetweenTwoPoints or " +
-                                             "CircleCenter when a selection is given.");
-            // The mesh computes the coordinates from the creation IDs on the update that follows the add
-            SelectionCompilation compilation = CompileModelSelection(selection, "nodes");
-            int expected = mode == FeReferencePointCreatedFrom.OnPoint
-                           ? 1 : (mode == FeReferencePointCreatedFrom.BetweenTwoPoints ? 2 : 3);
-            if (compilation.Ids.Length != expected)
-                throw new PythonAPIException("The mode " + mode + " needs exactly " + expected +
-                                             " selected points, but " + compilation.Ids.Length + " were given.");
-            //
             FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
-            referencePoint.CreatedFrom = mode;
-            referencePoint.CreationData = compilation.Selection;
-            referencePoint.CreationIds = compilation.Ids;
+            ApplySelection(referencePoint, createdFrom, selection);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
@@ -85,34 +69,40 @@ namespace APIs.Python.Model
         public void AddFromRegion(string name, string createdFrom, string regionType, string regionName)
         {
             ValidateNewName(name, null);
-            FeReferencePointCreatedFrom mode =
-                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
-            if (mode != FeReferencePointCreatedFrom.CenterOfGravity &&
-                mode != FeReferencePointCreatedFrom.BoundingBoxCenter)
-                throw new PythonAPIException("The argument 'created_from' must be CenterOfGravity or " +
-                                             "BoundingBoxCenter when a region is given.");
-            //
-            RegionTypeEnum region = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type");
-            if (region != RegionTypeEnum.NodeSetName && region != RegionTypeEnum.SurfaceName &&
-                region != RegionTypeEnum.PartName)
-                throw new PythonAPIException("The argument 'region_type' must be NodeSetName, SurfaceName or " +
-                                             "PartName.");
-            if (regionName == null || regionName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'region_name' must not be empty.");
-            //
             FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
-            referencePoint.CreatedFrom = mode;
-            referencePoint.RegionType = region;
-            referencePoint.RegionName = regionName;
+            ApplyRegion(referencePoint, createdFrom, regionType, regionName);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
         public void Replace(string oldName, string name, object coordinates)
         {
-            ResolveReferencePoint(oldName);
-            ValidateNewName(name, oldName);
-            FeReferencePoint referencePoint = Build(name, coordinates);
+            FeReferencePoint referencePoint = CloneForReplace(oldName, name);
+            if (coordinates != null) ApplyCoordinates(referencePoint, coordinates);
+            //
+            EnsureCommandsAvailable();
+            ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
+        }
+        // A model side replacement keeps what it is not told, so a value that is not given is taken from
+        // the stored definition rather than being required again
+        public void ReplaceFromSelection(string oldName, string name, string createdFrom, SelectionAPI selection)
+        {
+            FeReferencePoint referencePoint = CloneForReplace(oldName, name);
+            string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
+            if (selection == null) ApplyKeptSelection(referencePoint, mode);
+            else ApplySelection(referencePoint, mode, selection);
+            //
+            EnsureCommandsAvailable();
+            ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
+        }
+        public void ReplaceFromRegion(string oldName, string name, string createdFrom, string regionType,
+                                      string regionName)
+        {
+            FeReferencePoint referencePoint = CloneForReplace(oldName, name);
+            string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
+            string region = regionType != null ? regionType : GetKeptRegionType(referencePoint);
+            string keptRegionName = regionName != null ? regionName : referencePoint.RegionName;
+            ApplyRegion(referencePoint, mode, region, keptRegionName);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
@@ -147,12 +137,121 @@ namespace APIs.Python.Model
         //
         private FeReferencePoint Build(string name, object coordinates)
         {
-            double[] point = PythonDoubleListConverter.ToDoubleArray(coordinates, "coordinates");
-            if (point == null || point.Length != 3)
-                throw new PythonAPIException("The argument 'coordinates' must contain 3 values.");
+            FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
+            ApplyCoordinates(referencePoint, coordinates);
             //
-            if (GetIsTwoDimensional()) return new FeReferencePoint(name, point[0], point[1]);
-            else return new FeReferencePoint(name, point[0], point[1], point[2]);
+            return referencePoint;
+        }
+        private FeReferencePoint CloneForReplace(string oldName, string name)
+        {
+            FeReferencePoint existing = ResolveReferencePoint(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            FeReferencePoint referencePoint = existing.DeepClone();
+            referencePoint.Name = newName;
+            //
+            return referencePoint;
+        }
+        private static void ApplyCoordinates(FeReferencePoint referencePoint, object coordinates)
+        {
+            EquationString[] point = PythonValueConverter.ToEquationArray(coordinates, "coordinates", 3);
+            referencePoint.CreatedFrom = FeReferencePointCreatedFrom.Coordinates;
+            referencePoint.X.Equation = point[0];
+            referencePoint.Y.Equation = point[1];
+            referencePoint.Z.Equation = point[2];
+        }
+        private void ApplySelection(FeReferencePoint referencePoint, string createdFrom, SelectionAPI selection)
+        {
+            FeReferencePointCreatedFrom mode =
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+            if (mode != FeReferencePointCreatedFrom.OnPoint && mode != FeReferencePointCreatedFrom.BetweenTwoPoints &&
+                mode != FeReferencePointCreatedFrom.CircleCenter)
+                throw new PythonAPIException("The argument 'created_from' must be OnPoint, BetweenTwoPoints or " +
+                                             "CircleCenter when a selection is given.");
+            // The mesh computes the coordinates from the creation IDs on the update that follows the command
+            SelectionCompilation compilation = CompileModelSelection(selection, "nodes");
+            int expected = mode == FeReferencePointCreatedFrom.OnPoint
+                           ? 1 : (mode == FeReferencePointCreatedFrom.BetweenTwoPoints ? 2 : 3);
+            if (compilation.Ids.Length != expected)
+                throw new PythonAPIException("The mode " + mode + " needs exactly " + expected +
+                                             " selected points, but " + compilation.Ids.Length + " were given.");
+            //
+            referencePoint.CreatedFrom = mode;
+            referencePoint.CreationData = compilation.Selection;
+            referencePoint.CreationIds = compilation.Ids;
+        }
+        private void ApplyRegion(FeReferencePoint referencePoint, string createdFrom, string regionType,
+                                 string regionName)
+        {
+            FeReferencePointCreatedFrom mode =
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+            if (mode != FeReferencePointCreatedFrom.CenterOfGravity &&
+                mode != FeReferencePointCreatedFrom.BoundingBoxCenter)
+                throw new PythonAPIException("The argument 'created_from' must be CenterOfGravity or " +
+                                             "BoundingBoxCenter when a region is given.");
+            // The reference point dialog offers a node set or a surface, so a part is not a region here
+            RegionTypeEnum region = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type");
+            if (region != RegionTypeEnum.NodeSetName && region != RegionTypeEnum.SurfaceName)
+                throw new PythonAPIException("The argument 'region_type' must be NodeSetName or SurfaceName.");
+            if (regionName == null || regionName.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'region_name' must not be empty.");
+            ValidateRegionExists(region, regionName);
+            //
+            referencePoint.CreatedFrom = mode;
+            referencePoint.RegionType = region;
+            referencePoint.RegionName = regionName;
+        }
+        private static string GetKeptCreatedFrom(FeReferencePoint referencePoint, string argumentName)
+        {
+            if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.Coordinates)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be given, because the " +
+                                             "reference point is defined by coordinates.");
+            //
+            return referencePoint.CreatedFrom.ToString();
+        }
+        private static string GetKeptRegionType(FeReferencePoint referencePoint)
+        {
+            if (referencePoint.RegionName == null)
+                throw new PythonAPIException("The argument 'region_type' must be given, because the reference " +
+                                             "point is not defined by a region.");
+            //
+            return referencePoint.RegionType.ToString();
+        }
+        // Only the mode is being changed, so the stored selection is reused for the new mode
+        private static void ApplyKeptSelection(FeReferencePoint referencePoint, string createdFrom)
+        {
+            FeReferencePointCreatedFrom mode =
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+            if (mode != FeReferencePointCreatedFrom.OnPoint && mode != FeReferencePointCreatedFrom.BetweenTwoPoints &&
+                mode != FeReferencePointCreatedFrom.CircleCenter)
+                throw new PythonAPIException("The argument 'created_from' must be OnPoint, BetweenTwoPoints or " +
+                                             "CircleCenter when a selection is kept.");
+            Selection keptSelection = referencePoint.CreationData;
+            int[] keptIds = referencePoint.CreationIds;
+            if (keptSelection == null || keptIds == null || keptIds.Length == 0)
+                throw new PythonAPIException("The argument 'selection' must be given, because the reference " +
+                                             "point is not defined by a selection.");
+            int expected = mode == FeReferencePointCreatedFrom.OnPoint
+                           ? 1 : (mode == FeReferencePointCreatedFrom.BetweenTwoPoints ? 2 : 3);
+            if (keptIds.Length != expected)
+                throw new PythonAPIException("The mode " + mode + " needs exactly " + expected +
+                                             " selected points, but the kept selection has " + keptIds.Length + ".");
+            //
+            referencePoint.CreatedFrom = mode;
+            referencePoint.CreationData = keptSelection;
+            referencePoint.CreationIds = keptIds;
+        }
+        private void ValidateRegionExists(RegionTypeEnum region, string regionName)
+        {
+            FeMesh mesh = GetMeshOrNull();
+            bool exists = false;
+            if (mesh != null)
+            {
+                if (region == RegionTypeEnum.NodeSetName) exists = mesh.NodeSets.ContainsKey(regionName);
+                else if (region == RegionTypeEnum.SurfaceName) exists = mesh.Surfaces.ContainsKey(regionName);
+            }
+            if (!exists)
+                throw new PythonAPIException("The " + region + " '" + regionName + "' does not exist.");
         }
     }
 }

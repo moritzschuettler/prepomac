@@ -8,7 +8,9 @@
 // Contributors:
 
 using CaeGlobals;
+using Python.Runtime;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -62,12 +64,73 @@ namespace APIs.Python
             //
             try
             {
-                return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                double number = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                if (double.IsNaN(number) || double.IsInfinity(number) || number != Math.Truncate(number) ||
+                    number < int.MinValue || number > int.MaxValue)
+                    throw new PythonAPIException("The argument '" + argumentName +
+                                                 "' must be a whole 32-bit number.");
+                return (int)number;
             }
             catch (Exception)
             {
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a whole number.");
             }
+        }
+        public static EquationString[] ToEquationArray(object value, string argumentName, int length)
+        {
+            if (value == null || value is string)
+                throw new PythonAPIException("The argument '" + argumentName +
+                                             "' must be a list of values or equations.");
+            //
+            List<EquationString> equations = new List<EquationString>();
+            PyObject python = value as PyObject;
+            if (python != null)
+            {
+                using (Py.GIL())
+                {
+                    if (python.IsNone() || PyString.IsStringType(python))
+                        throw new PythonAPIException("The argument '" + argumentName + "' must be a list.");
+                    using (PyObject builtins = Py.Import("builtins"))
+                    using (PyObject listFunction = builtins.GetAttr("list"))
+                    using (PyObject items = listFunction.Invoke(python))
+                    {
+                        for (int i = 0; i < items.Length(); i++)
+                        {
+                            using (PyObject item = items.GetItem(i))
+                            using (PyObject type = item.GetPythonType())
+                            using (PyObject typeName = type.GetAttr("__name__"))
+                            {
+                                if (item.IsNone() || typeName.As<string>() == "bool")
+                                    throw new PythonAPIException("The items of '" + argumentName +
+                                                                 "' must be numbers or equation strings.");
+                                object component = PyString.IsStringType(item)
+                                                   ? (object)item.As<string>() : item.As<double>();
+                                equations.Add(ToEquationString(component, argumentName + "[" + i + "]"));
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                IEnumerable items = value as IEnumerable;
+                if (items == null)
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be a list.");
+                foreach (object item in items) equations.Add(ToEquationString(item, argumentName));
+            }
+            if (equations.Count != length)
+                throw new PythonAPIException("The argument '" + argumentName + "' must contain " + length +
+                                             " components.");
+            //
+            return equations.ToArray();
+        }
+        public static double ToFiniteDouble(object value, string argumentName)
+        {
+            double number = ToDouble(value, argumentName);
+            if (double.IsNaN(number) || double.IsInfinity(number))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be finite.");
+            //
+            return number;
         }
         public static bool ToBool(object value, string argumentName)
         {

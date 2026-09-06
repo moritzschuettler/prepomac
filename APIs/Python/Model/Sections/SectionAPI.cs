@@ -44,6 +44,11 @@ namespace APIs.Python.Model
 
 
         // Methods
+        [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
+        public System.Collections.Generic.Dictionary<string, string> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(_service.ResolveSection(_sectionName));
+        }
         public override string ToString()
         {
             Section section = _service.ResolveSection(_sectionName);

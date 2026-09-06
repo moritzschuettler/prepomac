@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -60,6 +61,22 @@ namespace APIs.Python.Model
             CoordinateSystem coordinateSystem = Resolve();
             return new NumericArrayAPI(new double[] { coordinateSystem.X3.Value, coordinateSystem.Y3.Value,
                                                       coordinateSystem.Z3.Value });
+        }
+        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict")]
+        public Dictionary<string, string> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(Resolve());
+        }
+        [PythonAPI("Returns how each defining point was constructed.", Returns = "dict")]
+        public Dictionary<string, string> get_construction_modes()
+        {
+            CoordinateSystem item = Resolve();
+            return new Dictionary<string, string>
+            {
+                { "origin", item.CenterCreatedFrom.ToString() },
+                { "point_on_x", item.PointXCreatedFrom.ToString() },
+                { "point_in_xy", item.PointXYCreatedFrom.ToString() }
+            };
         }
         public override string ToString()
         {

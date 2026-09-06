@@ -26,7 +26,7 @@ namespace APIs.Python
         void RemoveJobs(string[] jobNames);
         void RenameJob(NamedClass job, string newName);
         // A run started with runSynchronous returns only when the solver has finished
-        bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool runSynchronous);
+        bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool runSynchronous, int timeoutMilliseconds = 0);
         void KillJob(string jobName, string message);
         void OpenResults(string jobName);
     }

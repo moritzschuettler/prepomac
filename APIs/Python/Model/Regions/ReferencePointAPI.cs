@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -44,6 +45,22 @@ namespace APIs.Python.Model
             FeReferencePoint referencePoint = Resolve();
             return new NumericArrayAPI(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
                                                       referencePoint.Z.Value });
+        }
+        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict")]
+        public Dictionary<string, string> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(Resolve());
+        }
+        [PythonAPI("Returns the stored region construction mode and name.", Returns = "dict")]
+        public Dictionary<string, string> get_construction()
+        {
+            FeReferencePoint item = Resolve();
+            return new Dictionary<string, string>
+            {
+                { "created_from", item.CreatedFrom.ToString() },
+                { "region_type", item.RegionType.ToString() },
+                { "region_name", item.RegionName }
+            };
         }
         public override string ToString()
         {

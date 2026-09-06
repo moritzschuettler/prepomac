@@ -69,6 +69,62 @@ namespace APIs.Python.Model
                                           object interpolatorRadius, object scale, object translate)
         {
             ValidateNewName(name, null);
+            DistributionFromFile distribution = new DistributionFromFile(name);
+            distribution.FileName = ResolveDistributionFileName(fileName);
+            ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
+            //
+            return distribution;
+        }
+        public Distribution BuildReplacementFromFile(string oldName, string name, string fileName,
+                                                     string interpolatorType, object interpolatorRadius,
+                                                     object scale, object translate)
+        {
+            DistributionFromFile existing = ResolveDistribution(oldName) as DistributionFromFile;
+            if (existing == null)
+                throw new PythonAPIException("The distribution '" + oldName + "' is not read from a file.");
+            //
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            DistributionFromFile distribution = (DistributionFromFile)existing.DeepClone();
+            distribution.Name = newName;
+            if (fileName != null) distribution.FileName = ResolveDistributionFileName(fileName);
+            ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
+            //
+            return distribution;
+        }
+        public void Add(Distribution distribution)
+        {
+            EnsureCommandsAvailable();
+            ModelGateway.AddDistribution(distribution);
+        }
+        // DistributionFromFile is a MappedDistribution, so the cloud interpolation and the point cloud
+        // placement belong to it
+        private static void ApplyMappedValues(DistributionFromFile distribution, string interpolatorType,
+                                              object interpolatorRadius, object scale, object translate)
+        {
+            if (interpolatorType != null)
+                distribution.InterpolatorType =
+                    PythonValueConverter.ToEnum<CloudInterpolatorEnum>(interpolatorType, "interpolator_type");
+            if (interpolatorRadius != null)
+                distribution.InterpolatorRadius.Equation =
+                    PythonValueConverter.ToEquationString(interpolatorRadius, "interpolator_radius");
+            if (scale != null)
+            {
+                EquationString[] values = PythonValueConverter.ToEquationArray(scale, "scale", 3);
+                distribution.ScaleX.Equation = values[0];
+                distribution.ScaleY.Equation = values[1];
+                distribution.ScaleZ.Equation = values[2];
+            }
+            if (translate != null)
+            {
+                EquationString[] values = PythonValueConverter.ToEquationArray(translate, "translate", 3);
+                distribution.TranslateX.Equation = values[0];
+                distribution.TranslateY.Equation = values[1];
+                distribution.TranslateZ.Equation = values[2];
+            }
+        }
+        private static string ResolveDistributionFileName(string fileName)
+        {
             if (fileName == null || fileName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'file_name' must not be empty.");
             //
@@ -84,37 +140,11 @@ namespace APIs.Python.Model
             if (!File.Exists(fullFileName))
                 throw new PythonAPIException("The distribution file '" + fullFileName + "' does not exist.");
             //
-            DistributionFromFile distribution = new DistributionFromFile(name);
-            distribution.FileName = fullFileName;
-            // DistributionFromFile is a MappedDistribution, so the cloud interpolation and the point cloud
-            // placement belong to it
-            if (interpolatorType != null)
-                distribution.InterpolatorType =
-                    PythonValueConverter.ToEnum<CloudInterpolatorEnum>(interpolatorType, "interpolator_type");
-            if (interpolatorRadius != null)
-                distribution.InterpolatorRadius.Equation =
-                    PythonValueConverter.ToEquationString(interpolatorRadius, "interpolator_radius");
-            if (scale != null)
-            {
-                double[] values = ToVector(scale, "scale");
-                distribution.ScaleX.Equation = ToEquation(values[0]);
-                distribution.ScaleY.Equation = ToEquation(values[1]);
-                distribution.ScaleZ.Equation = ToEquation(values[2]);
-            }
-            if (translate != null)
-            {
-                double[] values = ToVector(translate, "translate");
-                distribution.TranslateX.Equation = ToEquation(values[0]);
-                distribution.TranslateY.Equation = ToEquation(values[1]);
-                distribution.TranslateZ.Equation = ToEquation(values[2]);
-            }
-            //
-            return distribution;
+            return fullFileName;
         }
-        public void Add(Distribution distribution)
+        public Distribution Clone(string name)
         {
-            EnsureCommandsAvailable();
-            ModelGateway.AddDistribution(distribution);
+            return ResolveDistribution(name).DeepClone();
         }
         public void Replace(string oldName, Distribution distribution)
         {
@@ -144,18 +174,6 @@ namespace APIs.Python.Model
         protected override string[] GetItemNames()
         {
             return GetNames();
-        }
-        private static double[] ToVector(object value, string argumentName)
-        {
-            double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
-            if (vector == null || vector.Length != 3)
-                throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
-            //
-            return vector;
-        }
-        private static EquationString ToEquation(double value)
-        {
-            return new EquationString(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 }

@@ -61,8 +61,18 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, object value)
         {
-            ResolveParameter(oldName);
-            EquationParameter parameter = Build(name, value, oldName);
+            EquationParameter existing = ResolveParameter(oldName);
+            string newName = name == null ? oldName : name;
+            // A value that is not given is kept, so a rename alone keeps the expression
+            EquationParameter parameter;
+            if (value == null)
+            {
+                ValidateName(newName, oldName);
+                parameter = new EquationParameter();
+                parameter.Name = newName;
+                parameter.EquationStr = new EquationString(existing.EquationStr.Equation);
+            }
+            else parameter = Build(newName, value, oldName);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceParameter(oldName, parameter);

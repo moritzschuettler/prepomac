@@ -46,7 +46,7 @@ namespace APIs.Python
         }
         public static byte ToAlpha(object transparency, string argumentName)
         {
-            double value = PythonValueConverter.ToDouble(transparency, argumentName);
+            int value = PythonValueConverter.ToInt(transparency, argumentName);
             if (value < 0 || value > 255)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be between 0 and 255.");
             //

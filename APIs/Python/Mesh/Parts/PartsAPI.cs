@@ -8,10 +8,9 @@
 // Contributors:
 
 using System;
-using System.Linq;
-
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace APIs.Python
 {
@@ -20,13 +19,15 @@ namespace APIs.Python
         // Variables
         private readonly string _resultName;
         private readonly MeshDataService _meshService;
+        private readonly IPythonCommandGateway _commandGateway;
 
 
         // Constructors
-        internal PartsAPI(string resultName, MeshDataService meshService)
+        internal PartsAPI(string resultName, MeshDataService meshService, IPythonCommandGateway commandGateway)
         {
             _resultName = resultName;
             _meshService = meshService;
+            _commandGateway = commandGateway;
         }
 
 
@@ -93,6 +94,105 @@ namespace APIs.Python
         public bool contains(string partName)
         {
             return _meshService.GetPartNames(_resultName).Contains(partName);
+        }
+        [PythonAPI("Hides result parts using command history.", Arguments = "part_names: list[str] or str",
+                   Returns = "None")]
+        public void hide(object part_names)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.HideResultParts(names);
+        }
+        [PythonAPI("Shows result parts using command history.", Arguments = "part_names: list[str] or str",
+                   Returns = "None")]
+        public void show(object part_names)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.ShowResultParts(names);
+        }
+        [PythonAPI("Sets the color of result parts using command history.",
+                   Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None")]
+        public void set_color(object part_names, object color)
+        {
+            string[] names = ResolvePartNames(part_names);
+            System.Drawing.Color value = PythonColorConverter.ToColor(color, "color");
+            EnsureCommandsAvailable();
+            _commandGateway.SetResultPartColor(names, value);
+        }
+        [PythonAPI("Restores the default color of result parts using command history.",
+                   Arguments = "part_names: list[str] or str", Returns = "None")]
+        public void reset_color(object part_names)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.ResetResultPartColor(names);
+        }
+        [PythonAPI("Sets the transparency of result parts using command history. The value is the alpha " +
+                   "channel, from 0 for invisible to 255 for opaque.",
+                   Arguments = "part_names: list[str] or str, transparency: int", Returns = "None")]
+        public void set_transparency(object part_names, object transparency)
+        {
+            string[] names = ResolvePartNames(part_names);
+            byte alpha = PythonColorConverter.ToAlpha(transparency, "transparency");
+            EnsureCommandsAvailable();
+            _commandGateway.SetResultPartTransparency(names, alpha);
+        }
+        [PythonAPI("Turns the result representation of result parts on or off using command history.",
+                   Arguments = "part_names: list[str] or str, result_representation: bool", Returns = "None")]
+        public void set_representation(object part_names, bool result_representation)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.SetResultPartRepresentation(names, result_representation);
+        }
+        [PythonAPI("Merges result parts into one using command history.",
+                   Arguments = "part_names: list[str] or str", Returns = "None")]
+        public void merge(object part_names)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.MergeResultParts(names);
+        }
+        [PythonAPI("Replaces the properties of a result part using command history. A property that is not " +
+                   "given is kept.", Arguments = "old_name: str, name: str = None", Returns = "None")]
+        public void replace_properties(string old_name, string name = null)
+        {
+            string[] names = ResolvePartNames(old_name);
+            EnsureCommandsAvailable();
+            CaeMesh.PartProperties properties =
+                _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[names[0]].GetProperties();
+            if (name != null) properties.Name = name;
+            _commandGateway.ReplaceResultPartProperties(names[0], properties);
+        }
+        [PythonAPI("Removes result parts using command history.", Arguments = "part_names: list[str] or str",
+                   Returns = "None")]
+        public void remove(object part_names)
+        {
+            string[] names = ResolvePartNames(part_names);
+            EnsureCommandsAvailable();
+            _commandGateway.RemoveResultParts(names);
+        }
+        //
+        private void EnsureCommandsAvailable()
+        {
+            if (_commandGateway == null)
+                throw new PythonAPIException("Result modifications are not available in this Python API context.");
+        }
+        private string[] ResolvePartNames(object value)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(value, "part_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+            //
+            string[] existing = _meshService.GetPartNames(_resultName);
+            foreach (string name in names)
+            {
+                if (!existing.Contains(name))
+                    throw new PythonAPIException("The result part '" + name + "' does not exist.");
+            }
+            //
+            return names;
         }
         public override string ToString()
         {

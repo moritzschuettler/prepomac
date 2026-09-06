@@ -8,6 +8,8 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace APIs.Python.Model
 {
@@ -40,6 +42,34 @@ namespace APIs.Python.Model
         {
             FeMesh mesh = _modelResolver.GetModel().Mesh;
             return mesh == null || mesh.Elements == null ? 0 : mesh.Elements.Count;
+        }
+        public NodeDataAPI GetNodeData()
+        {
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            if (mesh == null) throw new PythonAPIException("The model does not contain a mesh.");
+            int[] ids = mesh.Nodes.Keys.OrderBy(id => id).ToArray();
+            double[,] coordinates = new double[ids.Length, 3];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                double[] point = mesh.Nodes[ids[i]].Coor;
+                for (int j = 0; j < 3; j++) coordinates[i, j] = point[j];
+            }
+            return new NodeDataAPI(ids, coordinates);
+        }
+        public ElementDataAPI GetElementData()
+        {
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            if (mesh == null) throw new PythonAPIException("The model does not contain a mesh.");
+            int[] ids = mesh.Elements.Keys.OrderBy(id => id).ToArray();
+            int[] offsets = new int[ids.Length + 1];
+            List<int> connectivity = new List<int>();
+            for (int i = 0; i < ids.Length; i++)
+            {
+                offsets[i] = connectivity.Count;
+                connectivity.AddRange(mesh.Elements[ids[i]].NodeIds);
+            }
+            offsets[ids.Length] = connectivity.Count;
+            return new ElementDataAPI(ids, offsets, connectivity.ToArray());
         }
         public void RenumberNodes(int startId)
         {

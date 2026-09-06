@@ -211,13 +211,18 @@ model item.
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
 | `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
-| `pmx.export_to_stl(part_names, file_name)` | Exports the named parts to .stl. |
+| `pmx.export_to_stl(part_names, file_name)` | Exports the named parts of the displayed view to .stl. |
 | `pmx.export_to_3mf(file_name, edge_thickness_ratio)` | Exports the model to a 3MF file. |
 | `pmx.export_parts_as_gmsh_mesh(file_name)` | Exports the meshed parts to a Gmsh .msh file. |
-| `pmx.export_parts_as_mmg_mesh(part_names, file_name, combine=False)` | Exports the named parts to an Mmg .mesh file. |
+| `pmx.export_parts_as_mmg_mesh(part_names, file_name, combine=False)` | Exports the named parts of the displayed view to an Mmg .mesh file. |
 | `pmx.export_cad_parts_as_step(part_names, file_name)` | Exports the named CAD parts to .step. |
 | `pmx.export_cad_parts_as_brep(part_names, file_name)` | Exports the named CAD parts to .brep. |
-| `pmx.export_deformed_parts_to_calculix(part_names, file_name)` | Exports the named deformed parts to a CalculiX .inp file. |
+| `pmx.export_deformed_parts_to_calculix(part_names, file_name)` | Exports the named parts of the current result to a CalculiX .inp file. |
+
+Each part export names the parts of its own source, and a name that source does not hold is
+refused: `export_to_stl` and `export_parts_as_mmg_mesh` take the parts of the **displayed** view,
+`export_cad_parts_as_step` and `export_cad_parts_as_brep` take **CAD geometry** parts, and
+`export_deformed_parts_to_calculix` takes the parts of the **current result**.
 
 `new_model` and `open` replace the command history, which a recorded script is itself part of, so both
 raise inside a recorded script. Open the file with the `-f` command line switch instead, or call them
@@ -259,6 +264,8 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `reference_points` | The reference points of the model. |
 | `coordinate_systems` | The coordinate systems of the model. |
 | `steps` | The analysis steps of the model. |
+| `keywords` | The CalculiX keyword editor of the model. |
+| `tree` | The grouping and ordering of the model tree. |
 | `is_open()` | True when a model is open. |
 
 ### `ModelProperties`
@@ -268,13 +275,29 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `name` | The model name. Writable. |
 | `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable. |
 | `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable. |
+| `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
+| `slip_wear_results` | Which results a slip wear model keeps. Writable. |
+| `number_of_cycles`, `cycles_increment`, `num_of_smoothing_steps` | The slip wear model values, as the value or equation they were entered with. Writable. |
+| `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
+| `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants, or `None` while they are undefined. Writable. |
+| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. |
+
+A physical constant that has never been given reads back as `None`. Because a value that is not given
+is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
+constant it was not given undefined again.
+
+```python
+pmx.model.properties.replace(model_type='Submodel', global_results_file_name='global.frd')
+pmx.model.properties.absolute_zero = -273.15
+```
 
 ### `Parameters`
 
 | Member | Description |
 | --- | --- |
 | `add(name, value)` | Adds a parameter. The value is a number or an equation string. |
-| `replace(old_name, name, value)` | Replaces a parameter. |
+| `replace(old_name, name=None, value=None)` | Replaces a parameter. A value that is not given is kept. |
 | `import_from_file(file_name)` | Imports the parameters from a .pmp file. |
 | `export_to_file(file_name)` | Exports the parameters to a .pmp file. |
 
@@ -358,14 +381,33 @@ because the application rejects a setup item without creation data.
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
-| `add_extrude_mesh(name, selection, direction=None, extrude_center=None)` | A Gmsh extrude mesh item. |
-| `add_revolve_mesh(name, selection, axis_center=None, axis_direction=None, angle=None, middle_r=None)` | A Gmsh revolve mesh item. |
-| `add_sweep_mesh(name, selection)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. |
-| `add_shell_quad_wild(name, selection, preview=False, remesh=True, smooth=True, alpha=None)` | A QuadWild shell mesh item. |
+| `add_extrude_mesh(name, selection, ...)` | A Gmsh extrude mesh item. |
+| `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
+| `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. |
+| `add_shell_quad_wild(name, selection, preview=False, remesh=True, smooth=True, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. |
+| `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
-`add_meshing_parameters` accepts `max_size`, `min_size`, `fineness`, `grading`, `elements_per_edge`,
-`elements_per_curve`, `second_order`, `quad_dominated`, `midside_nodes_on_geometry`, `use_mmg` and
-`keep_model_edges`. The Gmsh items accept `algorithm_2d`, `algorithm_3d` and `recombine_min_quality`.
+`add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`, `min_size`,
+`fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `factor_hausdorff`, `hausdorff`,
+`optimize_steps_2d`, `optimize_steps_3d`, `second_order`, `quad_dominated`,
+`midside_nodes_on_geometry`, `use_mmg`, `split_compound_mesh`, `merge_compound_parts` and
+`keep_model_edges`.
+
+Every Gmsh item accepts the settings its dialog shows and no others, so the arguments differ per
+item:
+
+| Item | Settings |
+| --- | --- |
+| `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `optimize_first_order_solid`, `optimize_high_order` |
+| `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell` |
+| `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle` |
+| `extrude_mesh`, `revolve_mesh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `element_size_type`, `element_scale_factor`, `number_of_elements`, `layer_sizes`, `elements_per_layer`; `revolve_mesh` also takes `create_full_360_model` |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer` |
+
+The extrusion direction and centre, and the revolution axis, angle and middle radius, are derived by
+the model from the selected source surfaces. `add_extrude_mesh` and `add_revolve_mesh` still name
+them so that a script that supplies one is told why it cannot, rather than having it silently
+overwritten.
 
 ```python
 part = pmx.model.geometry.parts.first()
@@ -383,6 +425,7 @@ pmx.model.mesh.create(part.name)
 | `mesher_type` | `None`, `Netgen`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from. |
+| `get_settings()` | The stored mesher settings of this item type, as a dictionary. List valued settings such as `layer_sizes` and `num_of_elements_per_layer` are included, so the dictionary is the complete definition. |
 
 ### `Nodes` and `Elements` of the model mesh
 
@@ -451,7 +494,7 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 | Member | Description |
 | --- | --- |
 | `add(name, time_amplitude, time_span=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. |
-| `replace(old_name, name, time_amplitude, time_span=None)` | Replaces an existing amplitude. |
+| `replace(old_name, name=None, time_amplitude=None, time_span=None)` | Replaces an existing amplitude. A value that is not given is kept. |
 
 `Amplitude` exposes `name`, `time_span`, `row_count` and `get_time_amplitude()`.
 
@@ -460,8 +503,9 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 | Member | Description |
 | --- | --- |
 | `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
-| `add_from_file(name, file_name)` | Reads the distribution from a point cloud file. |
-| `replace_from_equation(old_name, name, equation)` | Replaces an existing distribution. |
+| `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Reads the distribution from a point cloud file. |
+| `replace_from_equation(old_name, name, equation)` | Replaces an equation distribution. |
+| `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
 
 `Distribution` exposes `name` and `distribution_type`.
 
@@ -469,13 +513,17 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 
 | Member | Description |
 | --- | --- |
-| `add_temperature(name, selection, temperature)` | Initial temperature. The selection target is `nodes`. |
-| `add_translational_velocity(name, selection, v1, v2, v3)` | Initial translational velocity. |
-| `add_angular_velocity(name, selection, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. |
+| `add_temperature(name, region, temperature)` | Initial temperature. The selection target is `nodes`. |
+| `add_translational_velocity(name, region, v1, v2, v3)` | Initial translational velocity. |
+| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. |
+| `replace_temperature(old_name, name=None, region=None, temperature=None)` | Replaces an initial temperature. A value that is not given is kept. |
+| `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None)` | Replaces an initial translational velocity. |
+| `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. |
 | `hide(names)`, `show(names)` | Initial condition visibility. |
 
-`InitialCondition` exposes `name`, `condition_type`, `region_name`, `region_type`, `visible` and
-`valid`.
+`InitialCondition` exposes `name`, `condition_type`, `region_name`, `region_type`, `visible`, `valid`
+and `get_equations()`, which returns the stored values as the numbers or expressions they were
+entered with.
 
 ```python
 pmx.model.amplitudes.add('Amp-1', [[0, 0], [1, 1]])
@@ -488,10 +536,11 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 
 | Member | Description |
 | --- | --- |
-| `add(name, properties, description=None)` | Adds a material. The properties are created by `pmx.create`. |
-| `replace(old_name, name, properties, description=None)` | Replaces an existing material. |
+| `add(name, properties, description=None, temperature_dependent=False)` | Adds a material. The properties are created by `pmx.create`. Set `temperature_dependent=True` to write every row with its temperature. |
+| `replace(old_name, name=None, properties=None, description=None, temperature_dependent=None)` | Replaces an existing material. Omitted values are kept. |
 
-`Material` exposes `name`, `description`, `property_count` and `get_property_types()`.
+`Material` exposes `name`, `description`, `temperature_dependent`, `property_count` and
+`get_property_types()`.
 
 ```python
 pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
@@ -499,7 +548,9 @@ pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
 # A single property does not have to be wrapped in a list
 pmx.model.materials.add('Alu', pmx.create.elastic_with_density(70000, 0.33, 2.7e-9))
 # Temperature dependent - the last value of every row is the temperature
-pmx.model.materials.add('Steel-T', pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]))
+pmx.model.materials.add('Steel-T',
+                        pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]),
+                        temperature_dependent=True)
 ```
 
 A material may hold only one elastic property; the model rejects a second one.
@@ -513,6 +564,14 @@ A material may hold only one elastic property; the model rejects a second one.
 | `add_membrane(name, material_name, selection, thickness=1)` | Membrane section. |
 | `add_point_mass(name, selection, mass)` | Point mass section. The selection target is `nodes`. |
 | `add_distributed_mass(name, selection, mass)` | Distributed mass section. |
+| `replace_solid(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a solid section. A value that is not given is kept. |
+| `replace_shell(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a shell section. |
+| `replace_membrane(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a membrane section. |
+| `replace_point_mass(old_name, name=None, region=None, mass=None)` | Replaces a point mass section. |
+| `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. |
+
+A replacement is typed: replacing a solid section as a shell section is refused rather than silently
+turning it into one.
 
 `Section` exposes `name`, `section_type`, `material_name`, `region_name`, `region_type`, `thickness`
 and `valid`.
@@ -531,7 +590,7 @@ element or node set named after the section, exactly as it does for a section cr
 | Member | Description |
 | --- | --- |
 | `add(name, selection)` | Creates a node set from a selection and adds it to the model. |
-| `replace(old_name, name, selection)` | Replaces an existing node set. |
+| `replace(old_name, name=None, selection=None)` | Replaces an existing node set. A value that is not given is kept. |
 
 ```python
 selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4])
@@ -555,7 +614,7 @@ print(node_set.count, node_set.get_node_ids())
 | Member | Description |
 | --- | --- |
 | `add(name, selection)` | Creates an element set from a selection. The selection target is `elements`. |
-| `replace(old_name, name, selection)` | Replaces an existing element set. |
+| `replace(old_name, name=None, selection=None)` | Replaces an existing element set. A value that is not given is kept. |
 | `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
 
 `ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()`.
@@ -566,7 +625,8 @@ print(node_set.count, node_set.get_node_ids())
 | --- | --- |
 | `add(name, selection)` | Creates a surface from a selection. The selection target is `surfaces`. |
 | `add_from_node_set(name, node_set_name)` | Creates a surface from an existing node set. |
-| `replace(old_name, name, selection)` | Replaces an existing surface. |
+| `replace(old_name, name=None, selection=None)` | Replaces an existing surface. A value that is not given is kept. |
+| `replace_from_node_set(old_name, name=None, node_set_name=None)` | Replaces a surface by another node set. A node set that is not given is the one the surface already uses. |
 
 `Surface` exposes `name`, `created_from` (`Selection`, `NodeSet` or `Faces`), `surface_type`
 (`Element` or `Node`), `area`, `node_set_name`, `valid`, `is_internal` and `get_face_ids()`.
@@ -578,26 +638,36 @@ print(node_set.count, node_set.get_node_ids())
 | `add(name, coordinates)` | Creates a reference point at `[x, y, z]`. |
 | `add_from_selection(name, created_from, selection)` | Creates a reference point whose coordinates the mesh computes from selected points. |
 | `add_from_region(name, created_from, region_type, region_name)` | Creates a reference point whose coordinates the mesh computes from a named region. |
-| `replace(old_name, name, coordinates)` | Replaces an existing reference point. |
+| `replace(old_name, name=None, coordinates=None)` | Replaces an existing reference point. Coordinates that are not given are kept, and giving them turns the point back into a coordinate point. |
+| `replace_from_selection(old_name, name=None, created_from=None, selection=None)` | Replaces a reference point by selected mesh points. |
+| `replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None)` | Replaces a reference point by a named region. |
 | `hide(names)`, `show(names)` | Reference point visibility. |
 
 `created_from` decides which of the two add methods applies. `OnPoint`, `BetweenTwoPoints`,
 `CircleCenterBy3Points` and the other point modes take a selection with exactly as many points as
-the mode consumes; `CenterOfGravity` and the other region modes take a named region instead.
+the mode consumes; `CenterOfGravity` and `BoundingBoxCenter` take a named region instead, whose
+type is `NodeSetName` or `SurfaceName`.
 
-`ReferencePoint` exposes `name`, `created_from`, `visible`, `valid` and `get_coordinates()`.
+`ReferencePoint` exposes `name`, `created_from`, `visible`, `valid`, `get_coordinates()` and
+`get_construction()`, which returns how the point is defined: its mode, and the region or the
+selected point IDs it is built from.
 
 ### `CoordinateSystems`
 
 | Member | Description |
 | --- | --- |
 | `add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Creates a coordinate system from three points. The type is `Rectangular` or `Cylindrical`. |
-| `add_from_selections(name, origin_created_from=None, origin_selection=None, ...)` | Creates a coordinate system whose points the mesh computes from selections. Each of the three points takes a mode and its selection together. |
-| `replace(old_name, name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Replaces an existing coordinate system. |
+| `add_from_selections(name, origin_created_from=None, origin_selection=None, ..., origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Creates a coordinate system whose points the mesh computes from selections. Each of the three points takes either a mode and its selection together, or its coordinates. |
+| `replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Replaces a coordinate system. A value that is not given is kept. |
+| `replace_from_selections(old_name, name=None, ...)` | Replaces a coordinate system whose points come from selections or coordinates. |
 | `hide(names)`, `show(names)` | Coordinate system visibility. |
 
+A point given as coordinates and a point given as a selection can be mixed in one coordinate system,
+which is what the dialog offers when one point is picked and another typed.
+
 `CoordinateSystem` exposes `name`, `coordinate_system_type`, `visible`, `valid`, `get_origin()`,
-`get_point_on_x()` and `get_point_in_xy()`.
+`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` and `get_construction_modes()`, which
+tells how each of the three points is defined.
 
 ```python
 top = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [1]})
@@ -608,6 +678,73 @@ pmx.model.coordinate_systems.add('CS-1', [0, 0, 0], [1, 0, 0], [0, 1, 0])
 
 A region name is unique across **all** mesh entities, so a surface cannot take a name already used by
 a node set, an element set or a part.
+
+### `Keywords`
+
+Reached as `pmx.model.keywords`. It is the CalculiX keyword editor: a keyword is addressed by the
+index path it has in the generated keyword tree, which is the path the editor tree shows, so a script
+edits the keyword the user would click.
+
+| Member | Description |
+| --- | --- |
+| `count`, `override_count` | The number of user keywords and of edited generated keywords. |
+| `get_model_keywords()` | The generated keywords, each with the index path that addresses it and its complete text. |
+| `get_user_keywords()` | The user keywords, each with the index path it is inserted at. |
+| `get_overrides()` | The user edits of the generated keywords, each with its `indices`, `data`, `disabled`, `suppressed` and `original_signature`. |
+| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. |
+| `remove_user_keyword(indices)` | Removes one user keyword. |
+| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. |
+| `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
+| `remove_override(indices)`, `clear_overrides()` | Removes the user edits. |
+
+An override also stores a fingerprint of the generated keyword it was made against, which the
+application uses to drop an edit whose keyword has since changed. It is derived here rather than
+taken from the caller, so `set_override` names only the keyword and the change.
+
+An index path that addresses nothing is refused when it is given. A path that stops addressing
+anything **later**, because the model changed, is not an error: the export suppresses that keyword or
+override and reports it, and `suppressed` reads back that state. Suppression is therefore a stored
+property of an entry rather than a rejected input, and editing one entry leaves the suppression of
+the others alone.
+
+```python
+generated = pmx.model.keywords.get_model_keywords()
+pmx.model.keywords.set_user_keyword(generated[-1].indices, '*NO ANALYSIS')
+pmx.model.keywords.set_override(generated[0].indices, disabled=True)
+```
+
+### `Tree`
+
+Reached as `pmx.model.tree`. It groups and orders the items of the model tree. `view` is `Geometry`,
+`Model` or `Results`, and `item_type` names the collection being organized. `get_item_types(view)`
+returns the collections a view supports:
+
+| View | `item_type` |
+| --- | --- |
+| `Geometry` | `parts`, `mesh_setup_items` |
+| `Model` | `parts`, `node_sets`, `element_sets`, `surfaces`, `reference_points`, `coordinate_systems`, `materials`, `sections`, `constraints`, `surface_interactions`, `contact_pairs`, `distributions`, `amplitudes`, `initial_conditions`, `jobs`, and the step owned `history_outputs`, `field_outputs`, `boundary_conditions`, `loads`, `defined_fields` |
+| `Results` | `parts`, `node_sets`, `element_sets`, `surfaces`, `reference_points`, `coordinate_systems` |
+
+A step owned collection also takes `step_name`, the step that owns it; every other collection refuses
+that argument. The steps themselves are not a groupable collection.
+
+| Member | Description |
+| --- | --- |
+| `get_item_types(view)` | The collections that can be organized in a view. |
+| `create_group(view, item_type, group_name, group_id=None, parent_group_id=None, target_index=0, item_names=None, step_name=None)` | Creates a group and optionally moves items into it. Returns the group id. |
+| `rename_group(view, item_type, group_id, group_name, step_name=None)` | Renames a group. |
+| `remove_groups(view, item_type, group_ids, step_name=None)` | Removes groups. The items they hold stay in the tree. |
+| `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. |
+| `move_group(view, item_type, group_id, target_group_id=None, target_index=0, step_name=None)` | Moves a group. |
+
+A group is identified by a GUID that the application stores with the layout. `create_group` generates
+one when it is not given and returns it, so a script does not have to invent an id while a journal
+can pass the recorded one.
+
+```python
+group = pmx.model.tree.create_group('Model', 'parts', 'Housing', item_names=['Solid-1'])
+pmx.model.tree.move_items('Model', 'parts', 'Solid-2', target_group_id=group)
+```
 
 ## Interactions
 
@@ -1059,9 +1196,20 @@ analysis added without arguments is the one the dialog would offer.
 
 | Member | Description |
 | --- | --- |
-| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
-| `replace(old_name, name=None, ...)` | Replaces an analysis. A value that is not given comes from the settings, not from the analysis being replaced. |
+| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, num_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
+| `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_num_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. |
 | `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
+
+A value given here is an override: the application settings fill in only what the analysis does not
+carry itself, so adding another analysis or changing the settings leaves an explicit executable, work
+directory, CPU count or environment alone. An `inherit_*` switch is how an override is given back, so
+that the value follows the settings again; it cannot be combined with the value it replaces.
+
+```python
+job = pmx.jobs.add('Job-1', num_cpus=4,
+                   environment_variables=[pmx.create.environment_variable('OMP_STACKSIZE', '256M')])
+pmx.jobs.replace('Job-1', inherit_num_cpus=True)
+```
 
 ### `Job`
 
@@ -1069,12 +1217,14 @@ analysis added without arguments is the one the dialog would offer.
 | --- | --- |
 | `name` | The analysis name. |
 | `fem_solver` | The FEM solver. |
-| `executable`, `argument`, `work_directory` | What the solver is run as. The argument names the input file and defaults to the analysis name. |
+| `executable`, `argument`, `work_directory` | What the solver is run as. The argument names the input file and defaults to the analysis name. The work directory is where the input file is written, where the previous run's files are deleted and where the solver runs, so an analysis with its own work directory is self contained. |
 | `compatibility_mode` | Runs the solver in the simplified mode. |
+| `num_cpus` | The number of solver CPUs. |
+| `environment_variables` | Detached copies of the solver environment variables. |
 | `status` | The status of the last run: `None`, `InQueue`, `Running`, `OK`, `Killed`, `TimedOut`, `Failed` or `FailedWithResults`. |
 | `results_file_name` | The name of the results file the analysis writes. |
 | `is_up_to_date` | True when the results match the current model. |
-| `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. |
+| `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. The timeout is in seconds and needs `wait`; it kills the solver and leaves the analysis with the status `TimedOut`. A preparation the application refuses raises instead of returning a stale status. |
 | `check_model(wait=True, timeout=None)` | The same, but only checks the model without solving it. |
 | `kill()` | Kills a running analysis. |
 | `get_output()` | Everything the solver wrote to its output. |
@@ -1141,6 +1291,72 @@ Supported conversions:
 | `parts` | `vertices`, `edges`, `surfaces`, `parts` |
 | `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
 
+A selection is built either from IDs or from a **pick** - a point in space, which the application
+resolves the way it resolves a mouse click.
+
+| Member | Description |
+| --- | --- |
+| `pmx.create.selection_by_ids(view, target, source, ids, geometry_select_mode='SelectId')` | Creates a selection from IDs. |
+| `pmx.create.selection_by_pick(view, target, point, select_by, angle=None, direction=None, part_ids=None, completely_inside=False, precision=None, part_offsets=None)` | Creates a selection from a point pick. |
+| `pmx.create.selection_by_area(view, target, planes, select_by, angle=None, part_ids=None, completely_inside=False)` | Creates a selection from an area pick. Every row of `planes` is `[ox, oy, oz, nx, ny, nz]`, and a normal points **out** of the volume. |
+| `pmx.create.selection_by_box(view, target, corner1, corner2, select_by, ...)` | The six plane form of `selection_by_area`, given by two opposite corners. |
+| `pmx.create.selection_all(view, target)` | Creates a selection of everything the view holds. |
+| `selection.add_by_ids(source, ids, operation=None)`, `add_by_pick(..., operation=None)`, `add_by_area(..., operation=None)` | Adds another item to a selection. |
+| `selection.add_all(operation=None)` | Adds everything the view holds. |
+| `selection.invert()` | Inverts what the selection has selected so far. |
+| `selection.configure(...)`, `selection.get_options()` | The recorded selection options. |
+
+Every item a selection carries names the set operation that joins it to what came before:
+`Add`, `Subtract`, `Intersect`, or `None`, which replaces the accumulated selection the way a fresh
+click does. The first ordinary item defaults to `None` and every later one to `Add`, which is the
+sequence a plain list of items records.
+
+```python
+selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3])
+selection.add_by_ids('nodes', [2], operation='Subtract')
+selection.add_by_ids('nodes', [1, 4], operation='Intersect')
+```
+
+`configure` records the options the selection was made with and returns the selection, so it chains:
+`max_geometry_ids`, `max_item_ids`, `limit_to` (`None`, `FirstPart`, `FirstGeometryType` or
+`FirstMesherType`), `shell_edges_only` and `enable_shell_edge_faces`. `get_options()` reads them
+back.
+
+`select_by` is `Node`, `Element`, `Edge`, `Surface`, `EdgeAngle`, `SurfaceAngle`, `Part`, `Geometry`,
+`GeometryVertex`, `GeometryEdge`, `GeometrySurface`, `GeometryEdgeAngle`, `GeometrySurfaceAngle` or
+`GeometryPart`. The four angle based modes need an `angle`.
+
+```python
+top = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
+pmx.model.node_sets.add('Top', top)
+```
+
+A pick and a list of IDs can live in the same selection, and a pick survives a mesh change, because
+it is resolved again rather than replayed from the IDs it once produced. That is what makes it worth
+having over `selection_by_ids` for a script meant to outlive one mesh.
+
+```python
+top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node')
+bottom = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node').invert()
+```
+
+Three things to know about how the application resolves a selection:
+
+- **A point pick takes the nearest entity.** A point that does not lie on the model still resolves, to
+  whatever is closest, so a mistyped coordinate selects the wrong face rather than failing. An **area
+  pick does not**: it selects only what lies inside its planes, so an empty box resolves to nothing
+  and is reported.
+- **Only the named parts are searched.** `part_ids` limits a pick; when it is not given the whole mesh
+  is searched, which is the useful default for "whatever lies under this point". A pick that names
+  its part and one that searches every part resolve to the same entity.
+- **`precision` and `part_offsets` are part of a recorded pick.** The application takes the precision
+  from the current view the first time a geometry pick is resolved, and the offsets are what an
+  exploded view moved the parts by. A script that reproduces a recorded pick passes both, so that the
+  same point resolves the same way whatever the view is now.
+- **A pick and an invert are resolved by the application**, not by the API, because only it can turn a
+  point into IDs or know what the complement of a selection is. They therefore need a live
+  application, and are rejected in a results only API context.
+
 ### `Selection`
 
 | Member | Description |
@@ -1148,7 +1364,10 @@ Supported conversions:
 | `view` | Immutable selection view. |
 | `target` | Immutable resulting item type. |
 | `count` | Number of source IDs. |
-| `add_by_ids(source, ids)` | Adds another compatible ID source. |
+| `add_by_ids(source, ids, operation=None)` | Adds another compatible ID source. |
+| `add_all(operation=None)` | Adds everything the view holds. |
+| `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
+| `get_options()` | The recorded selection options. |
 | `get_sources()` | Returns the source types as `StringList`. |
 ## Results collection
 
@@ -1164,6 +1383,8 @@ Collection of loaded result files.
 | `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
 | `set_current(result_name)` | Sets the current result through command history and returns it. |
+| `remove_current()` | Removes the current result through command history. |
+| `clear()` | Removes every loaded result through command history. |
 | `contains(result_name)` | Checks whether a result exists. |
 
 Example:
@@ -1650,6 +1871,8 @@ Mesh associated with a result.
 | `node_sets` | User-visible, read-only result node sets. |
 | `element_sets` | User-visible, read-only result element sets. |
 | `surfaces` | User-visible, read-only result surfaces. |
+| `reference_points` | The result reference points. |
+| `coordinate_systems` | The result coordinate systems. |
 
 ### `Nodes`
 
@@ -1749,6 +1972,38 @@ Collection of mesh parts.
 | `first()` | Returns the first mesh part. |
 | `last()` | Returns the last mesh part. |
 | `contains(part_name)` | Checks whether the part exists. |
+| `hide(part_names)`, `show(part_names)` | Result part visibility. |
+| `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. |
+| `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
+| `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
+| `replace_properties(old_name, name=None)` | Replaces the part properties. A property that is not given is kept. |
+| `merge(part_names)` | Merges result parts into one. |
+| `remove(part_names)` | Removes result parts. |
+
+### `ReferencePoints` and `CoordinateSystems` of the result mesh
+
+Reached as `result.mesh.reference_points` and `result.mesh.coordinate_systems`. Unlike the read-only
+result regions below, they are edited through the results side of the command history, because a
+result field transformation is expressed in a result coordinate system.
+
+| Member | Description |
+| --- | --- |
+| `len(collection)`, iteration, `get_names()` | The names in the collection. |
+| `get_definition(name)` | The stored coordinates, as the values or expressions they were entered with. Three for a reference point, nine for a coordinate system. |
+| `reference_points.get_created_from(name)` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
+| `reference_points.add(name, coordinates)` | Adds a result reference point. |
+| `reference_points.add_from_selection(name, created_from, selection)` | Adds one from selected result mesh points. The mode is `OnPoint`, `BetweenTwoPoints` or `CircleCenter`. |
+| `reference_points.add_from_region(name, created_from, region_type, region_name)` | Adds one from a named result region. The mode is `CenterOfGravity` or `BoundingBoxCenter`, the region type `NodeSetName` or `SurfaceName`. |
+| `reference_points.replace(old_name, name=None, coordinates=None)` | Replaces one. The coordinates are the whole definition, and applying them turns the point back into a coordinate point. |
+| `reference_points.replace_from_selection(old_name, name=None, created_from=None, selection=None)` | Replaces one by selected points. The mode and the selection are the whole definition. |
+| `reference_points.replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None)` | Replaces one by a named region. The mode and the region are the whole definition. |
+| `coordinate_systems.get_coordinate_system_type(name)` | `Rectangular` or `Cylindrical`. |
+| `coordinate_systems.get_created_from(name)` | How the origin, the point on X and the point in XY were created. |
+| `coordinate_systems.add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Adds a result coordinate system. |
+| `coordinate_systems.add_from_selections(name, coordinate_system_type=None, origin=None, origin_created_from=None, origin_selection=None, point_on_x=None, point_on_x_created_from=None, point_on_x_selection=None, point_in_xy=None, point_in_xy_created_from=None, point_in_xy_selection=None)` | Adds one whose points may be selected on the result mesh. Each point takes either coordinates or a mode and a selection, and a point that is not given keeps the default coordinates. |
+| `coordinate_systems.replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Replaces one. The three points are the whole definition. |
+| `coordinate_systems.replace_from_selections(old_name, name=None, coordinate_system_type=None, ...)` | Replaces one the way `add_from_selections` builds it. A result replacement re-specifies the whole definition, so every point is required. |
+| `duplicate(names)`, `remove(names)`, `hide(names)`, `show(names)` | The shared verbs. |
 
 ### `Part`
 
@@ -2264,6 +2519,34 @@ entries = result.get_history_output_entries(history_names[0], field.name, compon
 entry = result.get_history_output_entry(history_names[0], field.name, component.name, entry_names[0])
 ```
 
+## What a replacement keeps
+
+On the model side, a `replace_*` clones the stored definition and changes only what it is told, so a
+value that is not given is kept: a section thickness, an initial condition component, a mesher
+setting, a physical constant, and the region the item was created from all survive a replacement that
+does not name them. A replacement is typed, so replacing an item as the wrong kind is refused rather
+than silently converting it.
+
+On the results side a replacement re-specifies the whole definition, because a result draft is built
+whole rather than cloned. The result reference points and coordinate systems therefore take their
+complete coordinates, and only the name may be left out.
+
+A value the user could type as an expression is stored as the expression. `get_equations()` on a
+model item, and `get_definition(name)` on a result region, return what was entered rather than the
+number it evaluated to, so a parameter change still reaches the value.
+
+## Journal and unattended-run boundaries
+
+`new_model` and `open` replace the command history and are therefore unavailable inside a recorded
+script. Start from the file you want with `-f`, or call those operations from the interactive
+console. For a reproducible scripted save use the batch `--save` option after the script completes; a
+save called from inside the running recorded script is written before that script command is added to
+the history.
+
+A script run from a file receives its own path in `sys.argv[0]` and `__file__`, so it can find the
+assets next to it. A recorded script that is replayed from the history has no file of its own and
+uses the virtual `__file__` value `<string>`. `--scriptArgs` supplies `sys.argv[1:]` in both cases.
+
 ## Internal and infrastructure classes
 
 These classes exist in the implementation but are not normally used directly from the Python console.
@@ -2354,10 +2637,25 @@ passing script printed `TEST PASSED`. The model files the headers name live in `
 A script whose header names `PyTest_Job.frd` reads the solved model that `Test_Analysis.py` leaves in
 the work directory, so those run last.
 
+A header that declares neither a command line nor an expected exit code is a runner failure rather
+than a silently skipped test, and a filter that matches nothing is refused. The model file is the one
+part of a header that may be left out, for a test of the batch contract that opens no model.
+
 `Test_Analysis.py` is the end to end case: it builds a material, a section, a step, a boundary
 condition and a load on the cube, solves it with CalculiX, opens the results and reads a displacement
 back. `Test_Prompt_Refused.py` is the one script that is expected to **fail**, with exit code 5, and
 it proves that an unattended run refuses a question rather than guessing an answer.
+
+The coverage scripts check what a journal will depend on: `Test_Model_Definition_Coverage.py` and
+`Test_Model_Meshing_Coverage.py` that a replacement keeps what it is not told,
+`Test_Model_Region_Coverage.py` and `Test_Model_Keyword_Tree_Coverage.py` the region, keyword and
+tree surfaces, `Test_Selection_Correctness.py` and `Test_Selection_Pick.py` the selection algebra and
+the recorded pick, `Test_Job_Correctness.py` the analysis settings and the timeout, and
+`Test_Result_Coverage.py` with `Test_Result_Regions_Coverage.py` the result editing commands.
+
+`Audit_API_Coverage.py` is the offline structural check: it reports an `add_*` without its matching
+`replace_*`, and a controller command no gateway calls. `test_runner_offline.py` checks the runner
+itself with `python -m unittest test_runner_offline`, launching no PrePoMax process.
 
 ## Notes for documentation generation
 
@@ -2365,3 +2663,4 @@ it proves that an unattended run refuses a question rather than guessing an answ
 - `ToString()` implementations provide concise expression output; `print(...)` uses the full display text for arrays and named collections.
 - Keep implementation-only methods unmarked by `[PythonAPI]` if they should be hidden from help and autocomplete.
 - Prefer documenting collection access with `[...]` because this is the intended Python style.
+

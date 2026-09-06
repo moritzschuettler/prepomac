@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeJob;
+using CaeGlobals;
 
 namespace APIs.Python
 {
@@ -32,6 +33,13 @@ namespace APIs.Python
         public string work_directory { get { return Resolve().WorkDirectory; } }
         [PythonAPI("True when the solver runs in the simplified compatibility mode.", Returns = "bool")]
         public bool compatibility_mode { get { return Resolve().CompatibilityMode; } }
+        [PythonAPI("The number of solver CPUs.", Returns = "int")]
+        public int num_cpus { get { return Resolve().NumCPUs; } }
+        [PythonAPI("Detached copies of solver environment variable definitions.", Returns = "list[EnvironmentVariable]")]
+        public System.Collections.Generic.List<EnvironmentVariable> environment_variables
+        {
+            get { return Resolve().EnvironmentVariables.DeepClone(); }
+        }
         [PythonAPI("The status of the last run: None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
                    "FailedWithResults.", Returns = "str")]
         public string status { get { return Resolve().JobStatus.ToString(); } }
@@ -53,7 +61,7 @@ namespace APIs.Python
         [PythonAPI("Writes the solver input file and runs the analysis using command history. It returns " +
                    "the job status, which is OK when the solver finished successfully. With wait the call " +
                    "returns only when the solver has finished; a timeout in seconds kills the solver and " +
-                   "returns TimedOut.",
+                   "returns TimedOut. The timeout starts when solver submission begins; refused preparation raises an error.",
                    Arguments = "wait: bool = True, timeout: float = None", Returns = "str",
                    Example = "print(job.run(timeout=600))")]
         public string run(object wait = null, object timeout = null)

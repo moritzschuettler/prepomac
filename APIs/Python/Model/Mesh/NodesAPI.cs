@@ -43,6 +43,21 @@ namespace APIs.Python.Model
         {
             _service.MergeCoincidentNodes(selection, tolerance, nodes_to_keep);
         }
+        [PythonAPI("Returns a copied bulk mesh snapshot ordered by ID.", Returns = "NodeData")]
+        public NodeDataAPI get_data()
+        {
+            return _service.GetNodeData();
+        }
+        [PythonAPI("Returns all model mesh IDs in ascending order.", Returns = "numpy.ndarray or IntList")]
+        public object get_ids()
+        {
+            return get_data().ids;
+        }
+        [PythonAPI("Returns model node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or NumericArray")]
+        public object get_coordinates()
+        {
+            return get_data().coordinates;
+        }
         public override string ToString()
         {
             return "Nodes(count=" + count + ")";

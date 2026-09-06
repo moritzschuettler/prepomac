@@ -27,6 +27,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -58,12 +59,16 @@ namespace PrePoMax
         // Variables                                                                                                                
         #region Variables ##########################################################################################################
         //
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        //
         FrmSplash _splash;
         //
         private vtkControl.vtkControl _vtk;
         private ModelTree _modelTree;
         private Controller _controller;
         private CommandLineOptions _cmdOptions;
+        private bool _hideWindow;
         private string[] outputLines;
         private SidePanel _visibleSidePanel;
         private SplitContainer _sidePanelHost;
@@ -260,6 +265,7 @@ namespace PrePoMax
             //
             if (_cmdOptions.ShowGui == "No")
             {
+                _hideWindow = true;
                 MessageBoxes.WriteDataToOutput = WriteDataToOutput;
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
             }
@@ -270,6 +276,18 @@ namespace PrePoMax
             {
                 MessageBoxes.PromptRecorder = report.AddPrompt;
                 AutoClosingMessageBox.PromptRecorder = report.AddPrompt;
+            }
+        }
+        protected override bool ShowWithoutActivation { get { return _hideWindow; } }
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                // An unattended run must not take the foreground, but the window is still created so that vtkControl
+                // gets a handle in FrmMain_Load and the render window a parent id
+                CreateParams createParams = base.CreateParams;
+                if (_hideWindow) createParams.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+                return createParams;
             }
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -312,7 +330,7 @@ namespace PrePoMax
             //    this.WindowState = FormWindowState.Maximized;
             //}
             Text = Globals.ProgramName;
-            this.TopMost = true;
+            if (!_hideWindow) this.TopMost = true;
             //
             if (_cmdOptions.ShowGui == "Yes")
             {
@@ -330,6 +348,7 @@ namespace PrePoMax
                 viewportTextEditor.NextRequested += ViewportTextEditor_NextRequested;
                 // Vtk
                 _vtk = new vtkControl.vtkControl();
+                _vtk.ViewAnimationEnabled = _cmdOptions.ShowGui != "No";
                 panelControl.Parent.Controls.Add(_vtk);
                 panelControl.SendToBack();
                 // Menu
@@ -720,7 +739,8 @@ namespace PrePoMax
                 }
                 else
                 {
-                    this.Activate();    // must be here - otherwise the main form is hidden when started from debugger
+                    // must be here - otherwise the main form is hidden when started from debugger
+                    if (!_hideWindow) this.Activate();
                     this.TopMost = false;
                     //
                     string parameters = null;
@@ -811,7 +831,8 @@ namespace PrePoMax
             }
             finally
             {
-                this.Activate();    // must be here - otherwise the main form is hidden when started from debugger
+                // must be here - otherwise the main form is hidden when started from debugger
+                if (!_hideWindow) this.Activate();
                 this.TopMost = false;
                 //
                 if (FirstRunChecker.IsFirstRun(Application.StartupPath))
@@ -832,7 +853,7 @@ namespace PrePoMax
             //
             string script = File.ReadAllText(_cmdOptions.ScriptFileName);
             PythonEngineResult result = null;
-            await Task.Run(() => result = _controller.RunPythonScriptCommand(script));
+            await Task.Run(() => result = _controller.RunPythonScriptCommand(script, _cmdOptions.ScriptFileName, arguments));
             //
             if (result != null)
             {
@@ -8604,7 +8625,7 @@ namespace PrePoMax
             // Check validity
             if (CheckValidity())
             {
-                string workDirectory = _controller.Settings.GetWorkDirectory();
+                string workDirectory = _controller.GetJobWorkDirectory(jobName);
                 //
                 if (workDirectory == null || !Directory.Exists(workDirectory))
                     throw new Exception("The work directory of the analysis does not exist.");
@@ -11798,11 +11819,34 @@ namespace PrePoMax
 
         #region Invoke  ############################################################################################################
         // Invoke
+        private void InvokeMarshaled(MethodInvoker method)
+        {
+            // Control.Invoke rethrows with a plain throw, which replaces the stack trace of the exception with
+            // the one of the marshalling call, so the frames that actually failed on the user interface thread
+            // are captured here and restored by the rethrow
+            ExceptionDispatchInfo capturedException = null;
+            //
+            this.Invoke((MethodInvoker)delegate ()
+            {
+                try
+                {
+                    method();
+                }
+                catch (Exception ex)
+                {
+                    capturedException = ExceptionDispatchInfo.Capture(ex);
+                }
+            });
+            //
+            if (capturedException != null) capturedException.Throw();
+        }
         public T InvokeIfRequired<T>(Func<T> func)
         {
             if (this.InvokeRequired)
             {
-                return (T)this.Invoke(func);
+                T result = default(T);
+                InvokeMarshaled(delegate () { result = func(); });
+                return result;
             }
             else
             {
@@ -11813,7 +11857,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate () { action(); });
+                InvokeMarshaled(delegate () { action(); });
             }
             else
             {
@@ -11824,7 +11868,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(parameter); });
+                InvokeMarshaled(delegate() { action(parameter); });
             }
             else
             {
@@ -11835,7 +11879,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(parameter1, parameter2); });
+                InvokeMarshaled(delegate() { action(parameter1, parameter2); });
             }
             else
             {
@@ -11846,7 +11890,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(parameter1, parameter2, parameter3); });
+                InvokeMarshaled(delegate() { action(parameter1, parameter2, parameter3); });
             }
             else
             {
@@ -11858,7 +11902,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(parameter1, parameter2, parameter3, parameter4); });
+                InvokeMarshaled(delegate() { action(parameter1, parameter2, parameter3, parameter4); });
             }
             else
             {
@@ -11870,7 +11914,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(parameter1, parameter2, parameter3, parameter4, parameter5); });
+                InvokeMarshaled(delegate() { action(parameter1, parameter2, parameter3, parameter4, parameter5); });
             }
             else
             {
@@ -11882,7 +11926,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate () { action(parameter1, parameter2, parameter3, parameter4, 
+                InvokeMarshaled(delegate () { action(parameter1, parameter2, parameter3, parameter4, 
                                                          parameter5, parameter6); });
             }
             else
@@ -11895,7 +11939,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate () { action(parameter1, parameter2, parameter3, parameter4, parameter5,
+                InvokeMarshaled(delegate () { action(parameter1, parameter2, parameter3, parameter4, parameter5,
                                                          parameter6, parameter7); });
             }
             else
@@ -11909,7 +11953,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate () {
+                InvokeMarshaled(delegate () {
                     action(parameter1, parameter2, parameter3, parameter4, parameter5,
                     parameter6, parameter7, parameter8);
                 });
@@ -11925,7 +11969,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate () {
+                InvokeMarshaled(delegate () {
                     action(parameter1, parameter2, parameter3, parameter4, parameter5,
                     parameter6, parameter7, parameter8, parameter9);
                 });

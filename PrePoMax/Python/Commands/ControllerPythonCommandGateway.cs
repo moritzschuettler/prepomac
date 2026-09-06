@@ -8,7 +8,9 @@
 // Contributors:
 
 using APIs.Python;
+using CaeMesh;
 using CaeResults;
+using System.Drawing;
 
 namespace PrePoMax.Python
 {
@@ -29,6 +31,106 @@ namespace PrePoMax.Python
         public void SetCurrentResults(string resultName)
         {
             _controller.SetCurrentResultsCommand(resultName);
+        }
+        public void RemoveCurrentResults()
+        {
+            _controller.RemoveCurrentResultsCommand();
+        }
+        public void ClearResults()
+        {
+            _controller.ClearResultsCommand();
+        }
+        // Result parts
+        public void HideResultParts(string[] names)
+        {
+            _controller.HideResultPartsCommand(names);
+        }
+        public void ShowResultParts(string[] names)
+        {
+            _controller.ShowResultPartsCommand(names);
+        }
+        public void SetResultPartColor(string[] names, Color color)
+        {
+            _controller.SetColorForResultPartsCommand(names, color);
+        }
+        public void ResetResultPartColor(string[] names)
+        {
+            _controller.ResetColorForResultPartsCommand(names);
+        }
+        public void SetResultPartTransparency(string[] names, byte alpha)
+        {
+            _controller.SetTransparencyForResultPartsCommand(names, alpha);
+        }
+        public void SetResultPartRepresentation(string[] names, bool resultRepresentation)
+        {
+            _controller.SetResultRepresentationForResultPartsCommand(names, resultRepresentation);
+        }
+        public void ReplaceResultPartProperties(string oldName, PartProperties properties)
+        {
+            _controller.ReplaceResultPartPropertiesCommand(oldName, properties);
+        }
+        public void MergeResultParts(string[] names)
+        {
+            _controller.MergeResultPartsCommand(names);
+        }
+        public void RemoveResultParts(string[] names)
+        {
+            _controller.RemoveResultPartsCommand(names);
+        }
+        // Result reference points
+        public void AddResultReferencePoint(FeReferencePoint point)
+        {
+            _controller.AddResultReferencePointCommand(point);
+        }
+        public void ReplaceResultReferencePoint(string oldName, FeReferencePoint point)
+        {
+            _controller.ReplaceResultReferencePointCommand(oldName, point);
+        }
+        public void HideResultReferencePoints(string[] names)
+        {
+            _controller.HideResultReferencePointsCommand(names);
+        }
+        public void ShowResultReferencePoints(string[] names)
+        {
+            _controller.ShowResultReferencePointsCommand(names);
+        }
+        public void DuplicateResultReferencePoints(string[] names)
+        {
+            _controller.DuplicateResultReferencePointsCommand(names);
+        }
+        public void RemoveResultReferencePoints(string[] names)
+        {
+            _controller.RemoveResultReferencePointsCommand(names);
+        }
+        // Result coordinate systems
+        public void AddResultCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            _controller.AddResultCoordinateSystemCommand(coordinateSystem);
+        }
+        public void ReplaceResultCoordinateSystem(string oldName, CoordinateSystem coordinateSystem)
+        {
+            _controller.ReplaceResultCoordinateSystemCommand(oldName, coordinateSystem);
+        }
+        public void HideResultCoordinateSystems(string[] names)
+        {
+            _controller.HideResultCoordinateSystemsCommand(names);
+        }
+        public void ShowResultCoordinateSystems(string[] names)
+        {
+            _controller.ShowResultCoordinateSystemsCommand(names);
+        }
+        public void DuplicateResultCoordinateSystems(string[] names)
+        {
+            _controller.DuplicateResultCoordinateSystemsCommand(names);
+        }
+        public void RemoveResultCoordinateSystems(string[] names)
+        {
+            _controller.RemoveResultCoordinateSystemsCommand(names);
+        }
+        // Result field outputs
+        public void DuplicateResultFieldOutputs(string[] names)
+        {
+            _controller.DuplicateResultFieldOutputsCommand(names);
         }
         public void AddResultFieldOutput(ResultFieldOutput resultFieldOutput)
         {

@@ -8,7 +8,9 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
+using CaeResults;
 using System;
 using System.IO;
 
@@ -19,13 +21,16 @@ namespace APIs.Python.Model
         // Variables
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
+        private readonly ResultResolver _resultResolver;
 
 
         // Constructors
-        public DocumentService(ModelResolver modelResolver, IPythonModelGateway modelGateway)
+        public DocumentService(ModelResolver modelResolver, IPythonModelGateway modelGateway,
+                               ResultResolver resultResolver)
         {
             _modelResolver = modelResolver;
             _modelGateway = modelGateway;
+            _resultResolver = resultResolver;
         }
 
 
@@ -73,7 +78,7 @@ namespace APIs.Python.Model
         }
         public void ExportToStl(object partNames, string fileName)
         {
-            string[] names = ResolvePartNames(partNames);
+            string[] names = ResolveDisplayedPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportToStl(names, ResolveOutputFileName(fileName, "file_name"));
         }
@@ -95,29 +100,108 @@ namespace APIs.Python.Model
         }
         public void ExportPartsAsMmgMesh(object partNames, string fileName, bool combine)
         {
-            string[] names = ResolvePartNames(partNames);
+            string[] names = ResolveDisplayedPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportPartsAsMmgMesh(names, ResolveOutputFileName(fileName, "file_name"), combine);
         }
         public void ExportCadPartsAsStep(object partNames, string fileName)
         {
-            string[] names = ResolvePartNames(partNames);
+            string[] names = ResolveCadPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportCadPartsAsStep(names, ResolveOutputFileName(fileName, "file_name"));
         }
         public void ExportCadPartsAsBrep(object partNames, string fileName)
         {
-            string[] names = ResolvePartNames(partNames);
+            string[] names = ResolveCadPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportCadPartsAsBrep(names, ResolveOutputFileName(fileName, "file_name"));
         }
         public void ExportDeformedPartsToCalculix(object partNames, string fileName)
         {
-            string[] names = ResolvePartNames(partNames);
+            string[] names = ResolveResultPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportDeformedPartsToCalculix(names, ResolveOutputFileName(fileName, "file_name"));
         }
         //
+        public string GetModelType()
+        {
+            return _modelResolver.GetModel().Properties.ModelType.ToString();
+        }
+        public string GetGlobalResultsFileName()
+        {
+            return _modelResolver.GetModel().Properties.GlobalResultsFileName;
+        }
+        public string GetSlipWearResults()
+        {
+            return _modelResolver.GetModel().Properties.SlipWearResults.ToString();
+        }
+        public bool GetBdmRemeshing()
+        {
+            return _modelResolver.GetModel().Properties.BdmRemeshing;
+        }
+        public string GetPropertyEquation(string name)
+        {
+            ModelProperties properties = _modelResolver.GetModel().Properties;
+            if (name == "number_of_cycles") return properties.NumberOfCycles.String;
+            if (name == "cycles_increment") return properties.CyclesIncrement.String;
+            if (name == "num_of_smoothing_steps") return properties.NumOfSmoothingSteps.String;
+            //
+            throw new PythonAPIException("The model property '" + name + "' is not an equation.");
+        }
+        // An undefined physical constant is stored as an infinity, and reads back as None
+        public object GetAbsoluteZero()
+        {
+            return FromUndefined(_modelResolver.GetModel().Properties.AbsoluteZero);
+        }
+        public object GetStefanBoltzmann()
+        {
+            return FromUndefined(_modelResolver.GetModel().Properties.StefanBoltzmann);
+        }
+        public object GetNewtonGravity()
+        {
+            return FromUndefined(_modelResolver.GetModel().Properties.NewtonGravity);
+        }
+        public void UpdateProperties(string name, string modelType, string globalResultsFileName,
+                                     string slipWearResults, object numberOfCycles, object cyclesIncrement,
+                                     object numOfSmoothingSteps, object bdmRemeshing, object absoluteZero,
+                                     object stefanBoltzmann, object newtonGravity, bool clearUndefinedConstants)
+        {
+            FeModel model = _modelResolver.GetModel();
+            ModelProperties properties = model.Properties.DeepClone();
+            if (name != null && name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (modelType != null)
+                properties.ModelType = PythonValueConverter.ToEnum<ModelType>(modelType, "model_type");
+            if (globalResultsFileName != null)
+            {
+                if (globalResultsFileName.Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'global_results_file_name' must not be empty.");
+                properties.GlobalResultsFileName = globalResultsFileName;
+            }
+            if (slipWearResults != null)
+                properties.SlipWearResults = PythonValueConverter.ToEnum<SlipWearResultsEnum>(slipWearResults,
+                                                                                              "slip_wear_results");
+            if (numberOfCycles != null)
+                properties.NumberOfCycles.Equation = PythonValueConverter.ToEquationString(numberOfCycles,
+                                                                                           "number_of_cycles");
+            if (cyclesIncrement != null)
+                properties.CyclesIncrement.Equation = PythonValueConverter.ToEquationString(cyclesIncrement,
+                                                                                            "cycles_increment");
+            if (numOfSmoothingSteps != null)
+                properties.NumOfSmoothingSteps.Equation =
+                    PythonValueConverter.ToEquationString(numOfSmoothingSteps, "num_of_smoothing_steps");
+            if (bdmRemeshing != null)
+                properties.BdmRemeshing = PythonValueConverter.ToBool(bdmRemeshing, "bdm_remeshing");
+            properties.AbsoluteZero = ToConstant(absoluteZero, properties.AbsoluteZero, clearUndefinedConstants,
+                                                 "absolute_zero");
+            properties.StefanBoltzmann = ToConstant(stefanBoltzmann, properties.StefanBoltzmann,
+                                                    clearUndefinedConstants, "stefan_boltzmann");
+            properties.NewtonGravity = ToConstant(newtonGravity, properties.NewtonGravity, clearUndefinedConstants,
+                                                  "newton_gravity");
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ReplaceModelProperties(name == null ? model.Name : name, properties);
+        }
         public string GetModelSpace()
         {
             return _modelResolver.GetModel().Properties.ModelSpace.ToString();
@@ -154,11 +238,75 @@ namespace APIs.Python.Model
             _modelGateway.ReplaceModelProperties(name, properties);
         }
         //
-        private string[] ResolvePartNames(object partNames)
+        private static object FromUndefined(double value)
+        {
+            return double.IsInfinity(value) ? null : (object)value;
+        }
+        private static double ToConstant(object value, double current, bool clearWhenNotGiven, string argumentName)
+        {
+            // Clearing a physical constant is the explicit request the replace method carries, because a
+            // value that is simply not given is kept
+            if (value == null) return clearWhenNotGiven ? double.PositiveInfinity : current;
+            //
+            return PythonValueConverter.ToFiniteDouble(value, argumentName);
+        }
+        // Every part export has its own source: the displayed mesh, the CAD geometry or the current
+        // result. A name that exists in the model mesh is no evidence that it exists in that source.
+        private string[] ToPartNames(object partNames)
         {
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'part_names' must not be empty.");
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (names[i] == null || names[i].Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'part_names' contains an empty name.");
+            }
+            //
+            return names;
+        }
+        private string[] ResolveDisplayedPartNames(object partNames)
+        {
+            string[] names = ToPartNames(partNames);
+            _modelResolver.GetModel();
+            FeMesh mesh = _modelGateway == null ? null : _modelGateway.GetDisplayedMesh();
+            if (mesh == null)
+                throw new PythonAPIException("The displayed view does not contain a mesh to export.");
+            foreach (string name in names)
+            {
+                if (!mesh.Parts.ContainsKey(name))
+                    throw new PythonAPIException("The part '" + name + "' does not exist in the displayed view.");
+            }
+            //
+            return names;
+        }
+        private string[] ResolveCadPartNames(object partNames)
+        {
+            string[] names = ToPartNames(partNames);
+            FeMesh geometry = _modelResolver.GetGeometry();
+            foreach (string name in names)
+            {
+                BasePart part;
+                if (!geometry.Parts.TryGetValue(name, out part))
+                    throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
+                GeometryPart geometryPart = part as GeometryPart;
+                if (geometryPart == null || geometryPart.CADFileData == null)
+                    throw new PythonAPIException("The geometry part '" + name + "' is not a CAD part.");
+            }
+            //
+            return names;
+        }
+        private string[] ResolveResultPartNames(object partNames)
+        {
+            string[] names = ToPartNames(partNames);
+            FeMesh mesh = _resultResolver == null ? null : _resultResolver.GetCurrentResultMeshOrNull();
+            if (mesh == null)
+                throw new PythonAPIException("No current result is selected.");
+            foreach (string name in names)
+            {
+                if (!mesh.Parts.ContainsKey(name))
+                    throw new PythonAPIException("The result part '" + name + "' does not exist.");
+            }
             //
             return names;
         }

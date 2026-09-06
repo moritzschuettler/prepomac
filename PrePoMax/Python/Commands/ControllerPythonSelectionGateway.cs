@@ -42,6 +42,20 @@ namespace PrePoMax.Python
             if (view == "femodel") return _controller.Model.Mesh;
             throw new ArgumentException("Unsupported selection view '" + view + "'.", nameof(view));
         }
+        public int[] ResolveSelectionIds(Selection selection)
+        {
+            Selection previousSelection = _controller.Selection;
+            ViewGeometryModelResults previousView = _controller.CurrentView;
+            try
+            {
+                return _controller.GetIdsFromSelection(selection);
+            }
+            finally
+            {
+                _controller.CurrentView = previousView;
+                _controller.Selection = previousSelection;
+            }
+        }
         public void Highlight(Selection selection)
         {
             _controller.HighlightSelection(selection);

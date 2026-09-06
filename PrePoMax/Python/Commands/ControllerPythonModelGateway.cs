@@ -7,10 +7,13 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System;
+using System.Collections.Generic;
 using APIs.Python;
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using UserControls;
 
 namespace PrePoMax.Python
 {
@@ -31,6 +34,10 @@ namespace PrePoMax.Python
         public FeModel GetModel()
         {
             return _controller.Model;
+        }
+        public FeMesh GetDisplayedMesh()
+        {
+            return _controller.DisplayedMesh;
         }
         public string[] GetAllMeshEntityNames()
         {
@@ -115,6 +122,92 @@ namespace PrePoMax.Python
         public void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties)
         {
             _controller.ReplaceModelPropertiesCommand(newModelName, newModelProperties);
+        }
+        public void ChangeTreeLayout(string action, string view, string itemType, string parentName,
+                                     string[] itemNames, string[] groupIds, string groupId, string targetGroupId,
+                                     int targetIndex, string groupName)
+        {
+            // The API keeps the tree vocabulary in its own words, and this is where it becomes the tree types
+            ViewType viewValue = (ViewType)Enum.Parse(typeof(ViewType), view, true);
+            OrderedDictionaryTreeLayoutAction actionValue =
+                (OrderedDictionaryTreeLayoutAction)Enum.Parse(typeof(OrderedDictionaryTreeLayoutAction), action, true);
+            Type itemTypeValue = GetTreeItemType(itemType);
+            //
+            Guid? target = string.IsNullOrEmpty(targetGroupId) ? (Guid?)null : Guid.Parse(targetGroupId);
+            OrderedDictionaryTreeLayoutChange change;
+            if (actionValue == OrderedDictionaryTreeLayoutAction.CreateGroup)
+            {
+                change = OrderedDictionaryTreeLayoutChange.CreateGroup(viewValue, itemTypeValue, parentName,
+                                                                       itemNames, Guid.Parse(groupId), target,
+                                                                       targetIndex, groupName);
+            }
+            else if (actionValue == OrderedDictionaryTreeLayoutAction.RenameGroup)
+            {
+                change = OrderedDictionaryTreeLayoutChange.RenameGroup(viewValue, itemTypeValue, parentName,
+                                                                       Guid.Parse(groupId), groupName);
+            }
+            else if (actionValue == OrderedDictionaryTreeLayoutAction.RemoveGroup)
+            {
+                Guid[] ids = new Guid[groupIds == null ? 0 : groupIds.Length];
+                for (int i = 0; i < ids.Length; i++) ids[i] = Guid.Parse(groupIds[i]);
+                change = OrderedDictionaryTreeLayoutChange.RemoveGroups(viewValue, itemTypeValue, parentName, ids);
+            }
+            else if (actionValue == OrderedDictionaryTreeLayoutAction.MoveItems)
+            {
+                change = OrderedDictionaryTreeLayoutChange.MoveItems(viewValue, itemTypeValue, parentName,
+                                                                     itemNames, target, targetIndex);
+            }
+            else
+            {
+                change = OrderedDictionaryTreeLayoutChange.MoveGroup(viewValue, itemTypeValue, parentName,
+                                                                     Guid.Parse(groupId), target, targetIndex);
+            }
+            _controller.ChangeOrderedDictionaryItemLayoutCommand(change);
+        }
+        private static Type GetTreeItemType(string itemType)
+        {
+            if (IsItemType(itemType, "parts")) return typeof(CaeMesh.BasePart);
+            if (IsItemType(itemType, "mesh_setup_items")) return typeof(CaeMesh.MeshSetupItem);
+            if (IsItemType(itemType, "node_sets")) return typeof(CaeMesh.FeNodeSet);
+            if (IsItemType(itemType, "element_sets")) return typeof(CaeMesh.FeElementSet);
+            if (IsItemType(itemType, "surfaces")) return typeof(CaeMesh.FeSurface);
+            if (IsItemType(itemType, "reference_points")) return typeof(CaeMesh.FeReferencePoint);
+            if (IsItemType(itemType, "coordinate_systems")) return typeof(CaeMesh.CoordinateSystem);
+            if (IsItemType(itemType, "materials")) return typeof(Material);
+            if (IsItemType(itemType, "sections")) return typeof(Section);
+            if (IsItemType(itemType, "constraints")) return typeof(CaeModel.Constraint);
+            if (IsItemType(itemType, "surface_interactions")) return typeof(SurfaceInteraction);
+            if (IsItemType(itemType, "contact_pairs")) return typeof(ContactPair);
+            if (IsItemType(itemType, "distributions")) return typeof(Distribution);
+            if (IsItemType(itemType, "amplitudes")) return typeof(Amplitude);
+            if (IsItemType(itemType, "initial_conditions")) return typeof(InitialCondition);
+            if (IsItemType(itemType, "jobs")) return typeof(CaeJob.AnalysisJob);
+            if (IsItemType(itemType, "history_outputs")) return typeof(HistoryOutput);
+            if (IsItemType(itemType, "field_outputs")) return typeof(FieldOutput);
+            if (IsItemType(itemType, "boundary_conditions")) return typeof(BoundaryCondition);
+            if (IsItemType(itemType, "loads")) return typeof(Load);
+            if (IsItemType(itemType, "defined_fields")) return typeof(DefinedField);
+            //
+            throw new CaeException("The model tree collection '" + itemType + "' cannot be organized.");
+        }
+        private static bool IsItemType(string itemType, string name)
+        {
+            return string.Equals(itemType, name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // CalculiX keyword editor
+        public List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords()
+        {
+            return _controller.GetCalculixModelKeywords();
+        }
+        public void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords)
+        {
+            _controller.SetCalculixUserKeywordsCommand(keywords);
+        }
+        public void SetCalculixKeywordEditorState(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
+                                                  List<FileInOut.Output.Calculix.CalculixKeywordOverride> overrides)
+        {
+            _controller.SetCalculixKeywordEditorStateCommand(keywords, overrides);
         }
         // Parameters
         public void AddParameter(EquationParameter parameter)
@@ -573,3 +666,8 @@ namespace PrePoMax.Python
         }
     }
 }
+
+
+
+
+

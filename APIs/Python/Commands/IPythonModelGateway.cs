@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System.Collections.Generic;
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
@@ -17,6 +18,8 @@ namespace APIs.Python
     {
         // The model instance is replaced by New and Open, so it is always read through the gateway
         FeModel GetModel();
+        // The mesh the application currently displays, which is what an export of the displayed parts uses
+        FeMesh GetDisplayedMesh();
         string[] GetAllMeshEntityNames();
         // Replacing the model also replaces the command collection, which a running script is part of
         bool IsInsideRecordedScript();
@@ -39,6 +42,13 @@ namespace APIs.Python
         // Model properties
         void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType);
         void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties);
+        void ChangeTreeLayout(string action, string view, string itemType, string parentName, string[] itemNames,
+                              string[] groupIds, string groupId, string targetGroupId, int targetIndex, string groupName);
+        // CalculiX keyword editor
+        List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords();
+        void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords);
+        void SetCalculixKeywordEditorState(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
+                                           List<FileInOut.Output.Calculix.CalculixKeywordOverride> overrides);
         // Parameters
         void AddParameter(EquationParameter parameter);
         void ReplaceParameter(string oldParameterName, EquationParameter parameter);
@@ -173,3 +183,8 @@ namespace APIs.Python
         void ShowModelCoordinateSystems(string[] coordinateSystemNames);
     }
 }
+
+
+
+
+

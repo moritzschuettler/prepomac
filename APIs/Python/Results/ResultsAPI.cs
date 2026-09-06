@@ -18,6 +18,7 @@ namespace APIs.Python
         private readonly ResultResolver _resolver;
         private readonly ResultFieldOutputService _resultFieldOutputService;
         private readonly ResultHistoryOutputService _resultHistoryOutputService;
+        private readonly SelectionService _selectionService;
         private readonly IPythonCommandGateway _commandGateway;
 
 
@@ -29,7 +30,8 @@ namespace APIs.Python
             {
                 string resultName = _resolver.GetCurrentResultName();
                 if (resultName == null) throw new PythonAPIException("No current result is selected.");
-                return new ResultAPI(_resolver, resultName, _resultFieldOutputService, _resultHistoryOutputService);
+                return new ResultAPI(_resolver, resultName, _resultFieldOutputService,
+                                     _resultHistoryOutputService, _selectionService, _commandGateway);
             }
         }
         [PythonAPI("Result history outputs for the currently selected result.", Returns = "HistoryOutputs")]
@@ -41,11 +43,12 @@ namespace APIs.Python
         // Constructors
         internal ResultsAPI(ResultResolver resolver, ResultFieldOutputService resultFieldOutputService,
                             ResultHistoryOutputService resultHistoryOutputService,
-                            IPythonCommandGateway commandGateway)
+                            SelectionService selectionService, IPythonCommandGateway commandGateway)
         {
             _resolver = resolver;
             _resultFieldOutputService = resultFieldOutputService;
             _resultHistoryOutputService = resultHistoryOutputService;
+            _selectionService = selectionService;
             _commandGateway = commandGateway;
         }
 
@@ -99,12 +102,33 @@ namespace APIs.Python
             return current;
         }
 
+        [PythonAPI("Removes the current result using command history.", Returns = "None")]
+        public void remove_current()
+        {
+            if (_resolver.GetCurrentResultName() == null)
+                throw new PythonAPIException("No current result is selected.");
+            EnsureCommandsAvailable();
+            _commandGateway.RemoveCurrentResults();
+        }
+        [PythonAPI("Removes every loaded result using command history.", Returns = "None")]
+        public void clear()
+        {
+            EnsureCommandsAvailable();
+            _commandGateway.ClearResults();
+        }
+
         [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "result_name: str", Returns = "bool")]
         public bool contains(string resultName)
         {
             return _resolver.ContainsResult(resultName);
         }
 
+        //
+        private void EnsureCommandsAvailable()
+        {
+            if (_commandGateway == null)
+                throw new PythonAPIException("Result changes are not available in this Python API context.");
+        }
         public override string ToString()
         {
             string[] names = _resolver.GetResultNames();

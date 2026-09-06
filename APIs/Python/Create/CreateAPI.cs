@@ -33,12 +33,70 @@ namespace APIs.Python
                    "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'edges', 'parts', " +
                    "and 'geometry'. Possible source values are 'nodes', 'elements', 'vertices', 'edges', " +
                    "'surfaces', and 'parts'.",
-                   Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]]",
+                   Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]], " +
+                               "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",
                    Example = "pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [3]})")]
-        public SelectionAPI selection_by_ids(string view, string target, string source, object ids)
+        public SelectionAPI selection_by_ids(string view, string target, string source, object ids,
+                                              string geometry_select_mode = "SelectId")
         {
-            return _selectionService.CreateByIds(view, target, source, ids);
+            return _selectionService.CreateByIds(view, target, source, ids, geometry_select_mode);
+        }
+
+        [PythonAPI("Creates a selection from a pick. The point is a location in space, and the " +
+                   "application selects what lies under it, the same way a mouse pick does. It survives a " +
+                   "mesh change, because the pick is resolved again rather than replayed from IDs. The " +
+                   "nearest entity is picked, so a point that does not lie on the model still resolves, " +
+                   "and part_ids limits which parts are searched.",
+                   Arguments = "view: str, target: str, point: list[float], select_by: str, " +
+                               "angle: float = None, direction: list[float] = None, " +
+                               "part_ids: list[int] = None, completely_inside: bool = False, precision: float = None, " +
+                               "part_offsets: list[list[float]] = None",
+                   Returns = "Selection",
+                   Example = "pmx.create.selection_by_pick('femodel', 'surfaces', [0.5, 0.5, 1.0], 'Surface')")]
+        public SelectionAPI selection_by_pick(string view, string target, object point, string select_by,
+                                              object angle = null, object direction = null,
+                                              object part_ids = null, object completely_inside = null,
+                                              object precision = null, object part_offsets = null)
+        {
+            return _selectionService.CreateByPick(view, target, point, select_by, angle, direction, part_ids,
+                                                   completely_inside, precision, part_offsets);
+        }
+
+        [PythonAPI("Creates a selection from an area pick. The planes bound the volume that is " +
+                   "selected, every row being [ox, oy, oz, nx, ny, nz] of one plane, and a normal points " +
+                   "out of the volume. It is what a rubber band records, whose planes are the frustum it " +
+                   "swept; an axis aligned box is six planes.",
+                   Arguments = "view: str, target: str, planes: list[list[float]], select_by: str, " +
+                               "angle: float = None, part_ids: list[int] = None, " +
+                               "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection")]
+        public SelectionAPI selection_by_area(string view, string target, object planes, string select_by,
+                                              object angle = null, object part_ids = null,
+                                              object completely_inside = null, object part_offsets = null)
+        {
+            return _selectionService.CreateByArea(view, target, planes, select_by, angle, part_ids,
+                                                   completely_inside, part_offsets);
+        }
+
+        [PythonAPI("Creates a selection from an axis aligned box, which is the six plane form of " +
+                   "selection_by_area. The box is given by its two opposite corners.",
+                   Arguments = "view: str, target: str, corner1: list[float], corner2: list[float], " +
+                               "select_by: str, part_ids: list[int] = None, " +
+                               "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection",
+                   Example = "pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node')")]
+        public SelectionAPI selection_by_box(string view, string target, object corner1, object corner2,
+                                             string select_by, object part_ids = null,
+                                             object completely_inside = null)
+        {
+            return _selectionService.CreateByBox(view, target, corner1, corner2, select_by, part_ids,
+                                                  completely_inside);
+        }
+
+        [PythonAPI("Selects every visible active node, element or surface in the requested view.",
+                   Arguments = "view: str, target: str", Returns = "Selection")]
+        public SelectionAPI selection_all(string view, string target)
+        {
+            return _selectionService.CreateAll(view, target);
         }
 
         [PythonAPI("Creates an elastic material property. Give the two values for a constant property, " +
@@ -245,6 +303,13 @@ namespace APIs.Python
             return StepPartFactory.CreateResetControl();
         }
 
+        [PythonAPI("Creates a detached solver environment variable, including its enabled state.",
+                   Arguments = "name: str, value: str, active: bool = True", Returns = "EnvironmentVariable")]
+        public EnvironmentVariable environment_variable(string name, string value, bool active = true)
+        {
+            JobService.ValidateEnvironmentVariable(name, value);
+            return new EnvironmentVariable(name, value) { Active = active };
+        }
         public override string ToString()
         {
             return "Create()";

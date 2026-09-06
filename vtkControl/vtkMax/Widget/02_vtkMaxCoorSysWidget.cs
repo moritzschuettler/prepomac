@@ -27,7 +27,13 @@ namespace vtkControl
         YPositive,
         YNegative,
         ZPositive,
-        ZNegative
+        ZNegative,
+        XPositiveVertical,
+        XNegativeVertical,
+        YPositiveVertical,
+        YNegativeVertical,
+        ZPositiveVertical,
+        ZNegativeVertical
     }
 
     class vtkMaxCoorSysWidget : vtkMaxBorderWidget
@@ -40,6 +46,8 @@ namespace vtkControl
         private double _positiveHitRadius;
         private double _negativeHitRadius;
         private double _originHitRadius;
+        private double _axisHitHalfWidth;
+        private double _axisHitMargin;
         private double _boundsPadding;
         private int[][] _labelSizes;
         private uint _cameraModifiedTime;
@@ -51,9 +59,17 @@ namespace vtkControl
         protected vtkActor2D[] _labelActors;
         //
         protected vtkPolyDataMapper2D _shaftMapper;
+        protected vtkPolyData _shaftPolyData;
+        protected vtkPoints _shaftPoints;
+        protected vtkCellArray _shaftLines;
+        protected vtkUnsignedCharArray _shaftColors;
         protected vtkActor2D _shaftActor;
         //
         protected vtkPolyDataMapper2D _endMapper;
+        protected vtkPolyData _endPolyData;
+        protected vtkPoints _endPoints;
+        protected vtkCellArray _endPolygons;
+        protected vtkUnsignedCharArray _endColors;
         protected vtkActor2D _endActor;
 
 
@@ -69,6 +85,8 @@ namespace vtkControl
             _positiveHitRadius = 11;
             _negativeHitRadius = 8;
             _originHitRadius = 7;
+            _axisHitHalfWidth = 9;
+            _axisHitMargin = 4;
             _boundsPadding = 5;
             //
             _labelSizes = new int[NumOfAxes][];
@@ -113,12 +131,18 @@ namespace vtkControl
         }
         private void InitializeShafts()
         {
-            vtkPolyData shaftPolyData = vtkPolyData.New();
-            shaftPolyData.SetPoints(vtkPoints.New());
-            shaftPolyData.SetLines(vtkCellArray.New());
+            _shaftPoints = vtkPoints.New();
+            _shaftLines = vtkCellArray.New();
+            _shaftColors = vtkUnsignedCharArray.New();
+            _shaftColors.SetNumberOfComponents(4);
+            //
+            _shaftPolyData = vtkPolyData.New();
+            _shaftPolyData.SetPoints(_shaftPoints);
+            _shaftPolyData.SetLines(_shaftLines);
+            _shaftPolyData.GetCellData().SetScalars(_shaftColors);
             //
             _shaftMapper = vtkPolyDataMapper2D.New();
-            _shaftMapper.SetInput(shaftPolyData);
+            _shaftMapper.SetInput(_shaftPolyData);
             _shaftMapper.SetScalarModeToUseCellData();
             _shaftMapper.SetColorModeToDefault();
             _shaftMapper.ScalarVisibilityOn();
@@ -132,12 +156,18 @@ namespace vtkControl
         }
         private void InitializeEnds()
         {
-            vtkPolyData endPolyData = vtkPolyData.New();
-            endPolyData.SetPoints(vtkPoints.New());
-            endPolyData.SetPolys(vtkCellArray.New());
+            _endPoints = vtkPoints.New();
+            _endPolygons = vtkCellArray.New();
+            _endColors = vtkUnsignedCharArray.New();
+            _endColors.SetNumberOfComponents(4);
+            //
+            _endPolyData = vtkPolyData.New();
+            _endPolyData.SetPoints(_endPoints);
+            _endPolyData.SetPolys(_endPolygons);
+            _endPolyData.GetCellData().SetScalars(_endColors);
             //
             _endMapper = vtkPolyDataMapper2D.New();
-            _endMapper.SetInput(endPolyData);
+            _endMapper.SetInput(_endPolyData);
             _endMapper.SetScalarModeToUseCellData();
             _endMapper.SetColorModeToDefault();
             _endMapper.ScalarVisibilityOn();
@@ -179,45 +209,41 @@ namespace vtkControl
         }
         private void GenerateShafts()
         {
-            vtkPoints points = vtkPoints.New();
-            vtkCellArray lines = vtkCellArray.New();
-            vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
-            colors.SetNumberOfComponents(4);
+            // The geometry is rebuilt on every camera change, so the arrays are refilled instead of replaced.
+            // Creating VTK objects at that rate frees native addresses that the ActiViz wrapper table still
+            // holds entries for, and a reused address then resolves to the wrong wrapper. Refilling does not
+            // advance the modification time the points cache their bounds against, so they are marked below.
+            _shaftPoints.Reset();
+            _shaftLines.Reset();
+            _shaftColors.Reset();
             // The ends closer to the viewer must be drawn over the ends behind them
             foreach (int endId in _geometry.GetEndIdsSortedByDepth())
             {
                 if (!_geometry.IsEndVisible(endId)) continue;
                 //
-                _geometry.AppendShaft(points, lines, colors, endId);
+                _geometry.AppendShaft(_shaftPoints, _shaftLines, _shaftColors, endId);
             }
             //
-            vtkPolyData shaftPolyData = _shaftMapper.GetInput();
-            shaftPolyData.SetPoints(points);
-            shaftPolyData.SetLines(lines);
-            shaftPolyData.GetCellData().SetScalars(colors);
-            shaftPolyData.Modified();
+            _shaftPoints.Modified();
+            _shaftPolyData.Modified();
         }
         private void GenerateEnds()
         {
-            vtkPoints points = vtkPoints.New();
-            vtkCellArray polygons = vtkCellArray.New();
-            vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
-            colors.SetNumberOfComponents(4);
+            _endPoints.Reset();
+            _endPolygons.Reset();
+            _endColors.Reset();
             //
-            _geometry.AppendOrigin(points, polygons, colors);
+            _geometry.AppendOrigin(_endPoints, _endPolygons, _endColors);
             // The ends closer to the viewer must be drawn over the ends behind them
             foreach (int endId in _geometry.GetEndIdsSortedByDepth())
             {
                 if (!_geometry.IsEndVisible(endId)) continue;
                 //
-                _geometry.AppendEnd(points, polygons, colors, endId);
+                _geometry.AppendEnd(_endPoints, _endPolygons, _endColors, endId);
             }
             //
-            vtkPolyData endPolyData = _endMapper.GetInput();
-            endPolyData.SetPoints(points);
-            endPolyData.SetPolys(polygons);
-            endPolyData.GetCellData().SetScalars(colors);
-            endPolyData.Modified();
+            _endPoints.Modified();
+            _endPolyData.Modified();
         }
         private void PositionLabels()
         {
@@ -275,6 +301,83 @@ namespace vtkControl
             //
             return GetEndHitRadius(GetEndId(target));
         }
+        private Rectangle GetTargetRectangle(vtkMaxCoorSysTarget target)
+        {
+            double[] position = GetDisplayPosition();
+            if (target == vtkMaxCoorSysTarget.None || IsVerticalTarget(target) ||
+                position == null) return Rectangle.Empty;
+            //
+            double[] localPosition = GetTargetLocalPosition(target);
+            double radius = GetTargetHitRadius(target);
+            double centerX = position[0] + localPosition[0];
+            double centerY = position[1] + localPosition[1];
+            //
+            return Rectangle.FromLTRB((int)Math.Floor(centerX - radius), (int)Math.Floor(centerY - radius),
+                                      (int)Math.Ceiling(centerX + radius), (int)Math.Ceiling(centerY + radius));
+        }
+        //
+        private bool GetAxisBand(int endId, out double[] bandOrigin, out double[] direction, out double length)
+        {
+            bandOrigin = null;
+            direction = null;
+            length = 0;
+            //
+            double[] position = GetDisplayPosition();
+            if (position == null || !_geometryGenerated || !_geometry.IsEndVisible(endId)) return false;
+            //
+            double[] center = GetLocalCenter();
+            bandOrigin = new double[] { position[0] + center[0], position[1] + center[1] };
+            direction = _geometry.GetNormalizedEndDirection(endId);
+            length = _geometry.GetEndProjectedLength(endId) + _axisHitMargin;
+            //
+            return true;
+        }
+        private bool IsOnAxisBand(int endId, int x, int y, out double distanceFromAxis)
+        {
+            distanceFromAxis = 0;
+            if (!GetAxisBand(endId, out double[] bandOrigin, out double[] direction, out double length)) return false;
+            //
+            double dx = x - bandOrigin[0];
+            double dy = y - bandOrigin[1];
+            double alongAxis = dx * direction[0] + dy * direction[1];
+            distanceFromAxis = Math.Abs(dy * direction[0] - dx * direction[1]);
+            //
+            return alongAxis >= 0 && alongAxis <= length && distanceFromAxis <= _axisHitHalfWidth;
+        }
+        private int GetAxisBandEndId(int x, int y)
+        {
+            // The axis that runs the closest to the mouse wins where the bands overlap near the origin
+            int closestEndId = -1;
+            double closestDistance = 0;
+            for (int endId = 0; endId < NumOfEnds; endId++)
+            {
+                double distanceFromAxis;
+                if (!IsOnAxisBand(endId, x, y, out distanceFromAxis)) continue;
+                //
+                if (closestEndId < 0 || distanceFromAxis < closestDistance)
+                {
+                    closestEndId = endId;
+                    closestDistance = distanceFromAxis;
+                }
+            }
+            //
+            return closestEndId;
+        }
+        private double[][] GetAxisBandCorners(int endId)
+        {
+            if (!GetAxisBand(endId, out double[] bandOrigin, out double[] direction, out double length)) return null;
+            // A band that follows the axis direction stays as narrow as the axis it covers
+            double[] normal = new double[] { -direction[1], direction[0] };
+            double tipX = bandOrigin[0] + length * direction[0];
+            double tipY = bandOrigin[1] + length * direction[1];
+            double offsetX = _axisHitHalfWidth * normal[0];
+            double offsetY = _axisHitHalfWidth * normal[1];
+            //
+            return new double[][] { new double[] { bandOrigin[0] + offsetX, bandOrigin[1] + offsetY },
+                                    new double[] { tipX + offsetX, tipY + offsetY },
+                                    new double[] { tipX - offsetX, tipY - offsetY },
+                                    new double[] { bandOrigin[0] - offsetX, bandOrigin[1] - offsetY } };
+        }
         //
         private bool SetNegativeAxesVisible(bool visible)
         {
@@ -288,12 +391,18 @@ namespace vtkControl
         {
             switch (target)
             {
-                case vtkMaxCoorSysTarget.XPositive: return 0;
-                case vtkMaxCoorSysTarget.XNegative: return 1;
-                case vtkMaxCoorSysTarget.YPositive: return 2;
-                case vtkMaxCoorSysTarget.YNegative: return 3;
-                case vtkMaxCoorSysTarget.ZPositive: return 4;
-                case vtkMaxCoorSysTarget.ZNegative: return 5;
+                case vtkMaxCoorSysTarget.XPositive:
+                case vtkMaxCoorSysTarget.XPositiveVertical: return 0;
+                case vtkMaxCoorSysTarget.XNegative:
+                case vtkMaxCoorSysTarget.XNegativeVertical: return 1;
+                case vtkMaxCoorSysTarget.YPositive:
+                case vtkMaxCoorSysTarget.YPositiveVertical: return 2;
+                case vtkMaxCoorSysTarget.YNegative:
+                case vtkMaxCoorSysTarget.YNegativeVertical: return 3;
+                case vtkMaxCoorSysTarget.ZPositive:
+                case vtkMaxCoorSysTarget.ZPositiveVertical: return 4;
+                case vtkMaxCoorSysTarget.ZNegative:
+                case vtkMaxCoorSysTarget.ZNegativeVertical: return 5;
                 default: throw new NotSupportedException();
             }
         }
@@ -308,6 +417,32 @@ namespace vtkControl
                 case 4: return vtkMaxCoorSysTarget.ZPositive;
                 case 5: return vtkMaxCoorSysTarget.ZNegative;
                 default: throw new NotSupportedException();
+            }
+        }
+        private static vtkMaxCoorSysTarget GetVerticalTarget(int endId)
+        {
+            switch (endId)
+            {
+                case 0: return vtkMaxCoorSysTarget.XPositiveVertical;
+                case 1: return vtkMaxCoorSysTarget.XNegativeVertical;
+                case 2: return vtkMaxCoorSysTarget.YPositiveVertical;
+                case 3: return vtkMaxCoorSysTarget.YNegativeVertical;
+                case 4: return vtkMaxCoorSysTarget.ZPositiveVertical;
+                case 5: return vtkMaxCoorSysTarget.ZNegativeVertical;
+                default: throw new NotSupportedException();
+            }
+        }
+        private static bool IsVerticalTarget(vtkMaxCoorSysTarget target)
+        {
+            switch (target)
+            {
+                case vtkMaxCoorSysTarget.XPositiveVertical:
+                case vtkMaxCoorSysTarget.XNegativeVertical:
+                case vtkMaxCoorSysTarget.YPositiveVertical:
+                case vtkMaxCoorSysTarget.YNegativeVertical:
+                case vtkMaxCoorSysTarget.ZPositiveVertical:
+                case vtkMaxCoorSysTarget.ZNegativeVertical: return true;
+                default: return false;
             }
         }
         private void SetHovered(bool hovered)
@@ -348,6 +483,9 @@ namespace vtkControl
             double dyOrigin = position[1] + center[1] - y;
             if (dxOrigin * dxOrigin + dyOrigin * dyOrigin <= _originHitRadius * _originHitRadius)
                 return vtkMaxCoorSysTarget.Origin;
+            // The shaft of an axis turns that axis towards the vertical direction
+            int bandEndId = GetAxisBandEndId(x, y);
+            if (bandEndId >= 0) return GetVerticalTarget(bandEndId);
             //
             return vtkMaxCoorSysTarget.None;
         }
@@ -418,10 +556,17 @@ namespace vtkControl
         }
         public override bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false)
         {
-            Rectangle rectangle = mouseOver ? GetHighlightRectangle(x, y) : Rectangle.Empty;
-            bool highlightChanged = _highlight.SetRectangle(rectangle, vtkMaxWidgetHighlight.WidgetFillOpacity);
+            vtkMaxCoorSysTarget target = mouseOver ? GetTargetAtPosition(x, y) : vtkMaxCoorSysTarget.None;
+            bool highlightChanged;
+            // The entire axis is highlighted, which is not a rectangle in the display coordinates
+            if (IsVerticalTarget(target))
+                highlightChanged = _highlight.SetCorners(GetAxisBandCorners(GetEndId(target)),
+                                                         vtkMaxWidgetHighlight.WidgetFillOpacity);
+            else
+                highlightChanged = _highlight.SetRectangle(GetTargetRectangle(target),
+                                                           vtkMaxWidgetHighlight.WidgetFillOpacity);
             //
-            SetHovered(rectangle != Rectangle.Empty);
+            SetHovered(target != vtkMaxCoorSysTarget.None);
             //
             return highlightChanged;
         }
@@ -511,17 +656,7 @@ namespace vtkControl
         }
         protected override Rectangle GetHighlightRectangle(int x, int y)
         {
-            vtkMaxCoorSysTarget target = GetTargetAtPosition(x, y);
-            double[] position = GetDisplayPosition();
-            if (target == vtkMaxCoorSysTarget.None || position == null) return Rectangle.Empty;
-            //
-            double[] localPosition = GetTargetLocalPosition(target);
-            double radius = GetTargetHitRadius(target);
-            double centerX = position[0] + localPosition[0];
-            double centerY = position[1] + localPosition[1];
-            //
-            return Rectangle.FromLTRB((int)Math.Floor(centerX - radius), (int)Math.Floor(centerY - radius),
-                                      (int)Math.Ceiling(centerX + radius), (int)Math.Ceiling(centerY + radius));
+            return GetTargetRectangle(GetTargetAtPosition(x, y));
         }
 
 

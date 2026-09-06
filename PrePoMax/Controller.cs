@@ -8664,7 +8664,7 @@ namespace PrePoMax
                 }
             }
             //
-            if (coordinateSystem.PointXYCreatedFrom != null)
+            if (coordinateSystem.PointXYCreationData != null)
             {
                 if (coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
@@ -11774,22 +11774,32 @@ namespace PrePoMax
                 {
                     if (entry.Value.FEMSolver == FEMSolverEnum.Calculix)
                     {
-                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
-                        entry.Value.Executable = ss.CalculixExe;
-                        entry.Value.NumCPUs = ss.NumCPUs;
-                        entry.Value.EnvironmentVariables = ss.EnvironmentVariables;
+                        if (!entry.Value.WorkDirectoryOverridden)
+                            entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        if (!entry.Value.ExecutableOverridden)
+                            entry.Value.Executable = ss.CalculixExe;
+                        if (!entry.Value.NumCPUsOverridden)
+                            entry.Value.NumCPUs = ss.NumCPUs;
+                        if (!entry.Value.EnvironmentVariablesOverridden)
+                            entry.Value.EnvironmentVariables = ss.EnvironmentVariables;
                     }
                     else if (entry.Value.FEMSolver == FEMSolverEnum.Abaqus)
                     {
-                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
-                        entry.Value.Executable = ss.AbaqusExe;
-                        entry.Value.NumCPUs = ss.NumCPUs;
+                        if (!entry.Value.WorkDirectoryOverridden)
+                            entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        if (!entry.Value.ExecutableOverridden)
+                            entry.Value.Executable = ss.AbaqusExe;
+                        if (!entry.Value.NumCPUsOverridden)
+                            entry.Value.NumCPUs = ss.NumCPUs;
                     }
                     else if (entry.Value.FEMSolver == FEMSolverEnum.FEMaster)
                     {
-                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
-                        entry.Value.Executable = ss.FEMasterExe;
-                        entry.Value.NumCPUs = ss.NumCPUs;
+                        if (!entry.Value.WorkDirectoryOverridden)
+                            entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        if (!entry.Value.ExecutableOverridden)
+                            entry.Value.Executable = ss.FEMasterExe;
+                        if (!entry.Value.NumCPUsOverridden)
+                            entry.Value.NumCPUs = ss.NumCPUs;
                     }
                     else throw new NotSupportedException();
                 }
@@ -12111,9 +12121,10 @@ namespace PrePoMax
             CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel);
             return _commands.AddAndExecute(comm);
         }
-        public bool PrepareAndRunJobCommand(string jobName, bool onlyCheckModel, bool executeSynchronous)
+        public bool PrepareAndRunJobCommand(string jobName, bool onlyCheckModel, bool executeSynchronous,
+                                           int timeoutMilliseconds = 0)
         {
-            CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel);
+            CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel, timeoutMilliseconds);
             return _commands.AddAndExecute(comm, executeSynchronous);
         }
         public void RemoveJobsCommand(string[] jobNames)
@@ -12182,11 +12193,15 @@ namespace PrePoMax
                                                      ViewGeometryModelResults.Model);
             }
         }
-        public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true)
+        public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
         {
             string inputFileName = GetCalculiXInpFileName(jobName);
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
+            string workDirectory = Path.GetDirectoryName(inputFileName);
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+                throw new CaeException("The work directory '" + workDirectory + "' of the analysis does not exist.");
+            //
             job.LastRunCompleted = LastRunCompleted;
             job.OnlyCheckModel = onlyCheckModel;
             //
@@ -12201,11 +12216,11 @@ namespace PrePoMax
                     //
                     if (_model.Properties.ModelType == ModelType.SlipWearModel && !onlyCheckModel)
                     {
-                        return RunWearJob(inputFileName, job, useBackgroundWorker);
+                        return RunWearJob(inputFileName, job, useBackgroundWorker, timeoutMilliseconds);
                     }
                     else
                     {
-                        return RunJob(inputFileName, job, useBackgroundWorker);
+                        return RunJob(inputFileName, job, useBackgroundWorker, timeoutMilliseconds);
                     }
                 }
                 //
@@ -12218,8 +12233,19 @@ namespace PrePoMax
         }
         public string GetCalculiXInpFileName(string jobName)
         {
-            string workDirectory = _settings.GetWorkDirectory();
-            return Path.Combine(workDirectory, jobName + ".inp");
+            return Path.Combine(GetJobWorkDirectory(jobName), jobName + ".inp");
+        }
+        // An analysis may override the work directory of the settings, and then everything the run
+        // touches - the input file, the files deleted before it, the solver process and the report -
+        // must use the directory of that analysis
+        public string GetJobWorkDirectory(string jobName)
+        {
+            AnalysisJob job;
+            if (_jobs != null && _jobs.TryGetValue(jobName, out job) && job.WorkDirectory != null &&
+                job.WorkDirectory.Trim().Length > 0)
+                return job.WorkDirectory;
+            //
+            return _settings.GetWorkDirectory();
         }
         private bool CheckModelBeforeJobRun(FEMSolverEnum femSolver)
         {
@@ -12439,7 +12465,7 @@ namespace PrePoMax
                 throw new CaeException(ex.Message);
             }
         }
-        private bool RunJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true)
+        private bool RunJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true, int timeoutMilliseconds = 0)
         {
             if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
@@ -12451,11 +12477,11 @@ namespace PrePoMax
             job.DataOutputEvent -= JobDataOutputChanged;
             if (_batchRegenerationMode) job.DataOutputEvent += JobDataOutputChanged;
             //
-            job.Submit(1, 1, useBackgroundWorker);
+            job.Submit(1, 1, useBackgroundWorker, timeoutMilliseconds);
             //
             return true;
         }
-        private bool RunWearJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true)
+        private bool RunWearJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true, int timeoutMilliseconds = 0)
         {
             // Clear old results
             _wearResults = null;
@@ -12467,7 +12493,7 @@ namespace PrePoMax
             int numOfRunSteps = (int)(_model.Properties.NumberOfCycles.Value / _model.Properties.CyclesIncrement.Value);
             int numOfRunIncrements = _model.Properties.BdmRemeshing ? 2 : 1;
             //
-            job.Submit(numOfRunSteps, numOfRunIncrements, useBackgroundWorker);
+            job.Submit(numOfRunSteps, numOfRunIncrements, useBackgroundWorker, timeoutMilliseconds);
             //
             return true;
         }
@@ -12659,9 +12685,9 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
-        public PythonEngineResult RunPythonScriptCommand(string script)
+        public PythonEngineResult RunPythonScriptCommand(string script, string fileName = null, string[] arguments = null)
         {
-            CRunPythonScript comm = new CRunPythonScript(script);
+            CRunPythonScript comm = new CRunPythonScript(script, fileName, arguments);
             try
             {
                 _commands.AddAndExecute(comm);
@@ -12674,12 +12700,12 @@ namespace PrePoMax
             //
             return comm.ExecutionResult;
         }
-        public PythonEngineResult RunPythonScript(string script)
+        public PythonEngineResult RunPythonScript(string script, string fileName = null, string[] arguments = null)
         {
             _commands.BeginCommandRecordingSuppression();
             try
             {
-                return PythonEngineManager.ExecuteScriptInNewScope(script, _allResults, this);
+                return PythonEngineManager.ExecuteScriptInNewScope(script, _allResults, this, fileName, arguments);
             }
             finally
             {
@@ -13461,7 +13487,7 @@ namespace PrePoMax
                 }
             }
             //
-            if (coordinateSystem.CenterCreationData != null)
+            if (coordinateSystem.PointXYCreationData != null)
             {
                 if (coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
@@ -14008,12 +14034,15 @@ namespace PrePoMax
             //
             if (view == ViewGeometryModelResults.Geometry)
             {
-                if (typeof(MeshSetupItem).IsAssignableFrom(itemType)) dictionary = _model.Geometry.MeshSetupItems;
+                // A script can name a collection of a view the model does not currently have
+                if (_model.Geometry == null) { }
+                else if (typeof(MeshSetupItem).IsAssignableFrom(itemType)) dictionary = _model.Geometry.MeshSetupItems;
                 else if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Geometry.Parts;
             }
             else if (view == ViewGeometryModelResults.Model)
             {
-                if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Parts;
+                if (_model.Mesh == null && IsMeshEntityLayoutType(itemType)) { }
+                else if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Parts;
                 else if (typeof(FeNodeSet).IsAssignableFrom(itemType)) dictionary = _model.Mesh.NodeSets;
                 else if (typeof(FeElementSet).IsAssignableFrom(itemType)) dictionary = _model.Mesh.ElementSets;
                 else if (typeof(FeSurface).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Surfaces;
@@ -14057,6 +14086,13 @@ namespace PrePoMax
             if (dictionary == null)
                 throw new NotSupportedException("The selected model-tree collection cannot be organized.");
             return dictionary;
+        }
+        private static bool IsMeshEntityLayoutType(Type itemType)
+        {
+            return typeof(BasePart).IsAssignableFrom(itemType) || typeof(FeNodeSet).IsAssignableFrom(itemType) ||
+                   typeof(FeElementSet).IsAssignableFrom(itemType) || typeof(FeSurface).IsAssignableFrom(itemType) ||
+                   typeof(FeReferencePoint).IsAssignableFrom(itemType) ||
+                   typeof(CoordinateSystem).IsAssignableFrom(itemType);
         }
         private static ViewGeometryModelResults GetViewGeometryModelResults(ViewType view)
         {
@@ -14607,6 +14643,15 @@ namespace PrePoMax
             _form.SetStateReady("Undo selection...");
         }
         //
+        public int[] GetIdsFromSelection(Selection selection)
+        {
+            // In order for a picked selection to work the selection must be performed
+            _selection = selection.DeepCopy(true, false);
+            int[] ids = GetSelectionIds();
+            _selection.Clear();
+            //
+            return ids;
+        }
         public int[] GetSelectionIds(bool onlyVisible = true)
         {
             FeMesh mesh = DisplayedMesh;
@@ -14646,12 +14691,9 @@ namespace PrePoMax
                     // Do not select inactive parts
                     if (node is SelectionNodeMouse snm)
                     {
-                        if (snm.PartIds == null || snm.PartIds.Length != 1)
-                        {
-                            //"Controller:GetSelectionIds: This should not happen!"
-                            if (Debugger.IsAttached) Debugger.Break();
-                        }
-                        if (inactivePartIds.Contains(snm.PartIds[0])) continue;
+                        int[] partIds = snm.PartIds;
+                        if (partIds == null || partIds.Length == 0) continue;
+                        if (partIds.All(id => inactivePartIds.Contains(id))) continue;
                     }
                     GetIdsFromSelectionNode(node, ref selectedIds);
                 }
@@ -14910,7 +14952,15 @@ namespace PrePoMax
             double[] selectionDirection = selectionNodeMouse.SelectionDirection;
             vtkSelectBy selectBy = selectionNodeMouse.SelectBy;
             double angle = selectionNodeMouse.Angle;
-            int selectionOnPartId = selectionNodeMouse.PartIds[0];
+            int selectionOnPartId;
+            if (selectionNodeMouse.PartIds.Length == 1) selectionOnPartId = selectionNodeMouse.PartIds[0];
+            else
+            {
+                // API picks can search several parts, whereas a desktop click already identifies its actor.
+                int[] nearestPartIds = GetPartIdAtPoint(selectionNodeMouse);
+                if (nearestPartIds == null || nearestPartIds.Length == 0) return new int[0];
+                selectionOnPartId = nearestPartIds[0];
+            }
             precision = selectionNodeMouse.Precision;
             //
             int[] ids;

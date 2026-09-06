@@ -36,12 +36,13 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing node set using command history.",
-                   Arguments = "old_name: str, name: str, selection: Selection", Returns = "NodeSet")]
-        public NodeSetAPI replace(string old_name, string name, SelectionAPI selection)
+        [PythonAPI("Replaces an existing node set using command history. A value that is not given is kept.",
+                   Arguments = "old_name: str, name: str = None, selection: Selection = None",
+                   Returns = "NodeSet")]
+        public NodeSetAPI replace(string old_name, string name = null, SelectionAPI selection = null)
         {
             _service.Replace(old_name, name, selection);
-            return this[name];
+            return this[name == null ? old_name : name];
         }
         //
         protected override string[] GetItemNames()

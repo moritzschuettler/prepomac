@@ -114,6 +114,7 @@ namespace vtkControl
         private bool _drawSymbolEdges;
         //
         private bool _animating;
+        private bool _viewAnimationEnabled;
         private bool _mouseIn;
         //
         OrderedDictionary<vtkTransform, int> _transforms;
@@ -185,6 +186,7 @@ namespace vtkControl
             }
         }
         public bool UserPick { get { return _userPick; } set { _userPick = value; } }
+        public bool ViewAnimationEnabled { get { return _viewAnimationEnabled; } set { _viewAnimationEnabled = value; } }
         public vtkEdgesVisibility EdgesVisibility
         {
             get { return _edgesVisibility; }
@@ -406,6 +408,7 @@ namespace vtkControl
             _drawSymbolEdges = true;
             //
             _animating = false;
+            _viewAnimationEnabled = true;
             //
             _transforms = new OrderedDictionary<vtkTransform, int>("Transformations");
             //
@@ -548,6 +551,12 @@ namespace vtkControl
                 case vtkMaxCoorSysTarget.YNegative: SetAxisView(true, new double[] { 0, -1, 0 }); break;
                 case vtkMaxCoorSysTarget.ZPositive: SetAxisView(true, new double[] { 0, 0, 1 }); break;
                 case vtkMaxCoorSysTarget.ZNegative: SetAxisView(true, new double[] { 0, 0, -1 }); break;
+                case vtkMaxCoorSysTarget.XPositiveVertical: SetVerticalAxisView(true, new double[] { 1, 0, 0 }); break;
+                case vtkMaxCoorSysTarget.XNegativeVertical: SetVerticalAxisView(true, new double[] { -1, 0, 0 }); break;
+                case vtkMaxCoorSysTarget.YPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 1, 0 }); break;
+                case vtkMaxCoorSysTarget.YNegativeVertical: SetVerticalAxisView(true, new double[] { 0, -1, 0 }); break;
+                case vtkMaxCoorSysTarget.ZPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 0, 1 }); break;
+                case vtkMaxCoorSysTarget.ZNegativeVertical: SetVerticalAxisView(true, new double[] { 0, 0, -1 }); break;
                 case vtkMaxCoorSysTarget.Origin: SetIsometricView(true, true); break;
                 default: break;
             }
@@ -2785,8 +2794,7 @@ namespace vtkControl
             ResetCamera();
             camera.SetParallelScale(parallelScale);
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetFrontBackView(bool animate, bool front)
         {
@@ -2808,8 +2816,7 @@ namespace vtkControl
 
             ResetCamera();
 
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetTopBottomView(bool animate, bool top)
         {
@@ -2831,8 +2838,7 @@ namespace vtkControl
 
             ResetCamera();
 
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetLeftRightView(bool animate, bool left)
         {
@@ -2854,8 +2860,7 @@ namespace vtkControl
             //
             ResetCamera();
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetAxisView(bool animate, double[] axis)
         {
@@ -2876,8 +2881,7 @@ namespace vtkControl
             //
             ResetCamera();
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         private double[] GetClosestAxisViewUp(vtkCamera camera, double[] axis)
         {
@@ -2941,8 +2945,7 @@ namespace vtkControl
             //
             ResetCamera();
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetVerticalAxisView(bool animate, double[] axis)
         {
@@ -2968,8 +2971,7 @@ namespace vtkControl
             //
             ResetCamera();
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetVerticalView(bool animate, bool updateView)
         {
@@ -2992,8 +2994,7 @@ namespace vtkControl
             //
             if (updateView)
             {
-                if (animate) AnimateCamera(cameraStart, camera, camera);
-                else RenderScene();
+                FinishViewChange(animate, cameraStart, camera);
             }
         }
         public double[] GetClosestUpView()
@@ -3066,8 +3067,7 @@ namespace vtkControl
 
             ResetCamera();
 
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetZoomFactor(double factor)
         {
@@ -3087,7 +3087,7 @@ namespace vtkControl
             //
             SetZoomFactor(factor);
             //
-            AnimateCamera(cameraStart, camera, camera, timeMs);
+            FinishViewChange(true, cameraStart, camera, timeMs);
         }
         public void SetZoomToFit(bool animate)
         {
@@ -3102,8 +3102,7 @@ namespace vtkControl
             //
             ResetCamera();
             //_renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void SetBoxZoom(int[] point1, int[] point2, bool animate)
         {
@@ -3139,8 +3138,7 @@ namespace vtkControl
             camera.SetPosition(cPos[0] + motionVector[0], cPos[1] + motionVector[1], cPos[2] + motionVector[2]);
             camera.SetFocalPoint(fPos[0] + motionVector[0], fPos[1] + motionVector[1], fPos[2] + motionVector[2]);
             //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
+            FinishViewChange(animate, cameraStart, camera);
         }
         public void BoxZoomEnded()
         {
@@ -3465,6 +3463,19 @@ namespace vtkControl
 
             _animating = false;
         }
+        private void FinishViewChange(bool animate, vtkCamera cameraStart, vtkCamera camera, int timeMs = 500)
+        {
+            // The interpolation exists for the user to follow the camera, and it drives VTK from the UI thread
+            // for its whole duration, so it is skipped when no user interface is shown. The vtkMax widgets learn
+            // about the new camera inside the animation, which is why the skipped path has to notify them here.
+            if (animate && _viewAnimationEnabled) AnimateCamera(cameraStart, camera, camera, timeMs);
+            else
+            {
+                _animating = false;
+                _style.AdjustCameraDistanceAndClipping();
+                RenderScene();
+            }
+        }
         public void AnimateCamera(vtkCamera cameraStart, vtkCamera cameraEnd, vtkCamera camera, int timeMs = 500)
         {
             // The idea is to use quaternions to interpolate the camera orientation while maintaining the
@@ -3488,13 +3499,9 @@ namespace vtkControl
                         if (double.IsNaN(rEnd[i][j])) throw new NotSupportedException();
                     }
                 }
-                double[] tEnd = new double[3];
-                for (int i = 0; i < 3; i++)
-                {
-                    tEnd[i] = mCamEnd.GetElement(i, 3);
-                }
                 double[] fpEnd = cameraEnd.GetFocalPoint();
                 double zEnd = cameraEnd.GetParallelScale();
+                double distanceEnd = cameraEnd.GetDistance();
                 double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
                 // Get display (XY) projection of the final focal point (model center) for both cameras
                 double[] fpEndXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
@@ -3528,13 +3535,9 @@ namespace vtkControl
                         if (double.IsNaN(rStart[i][j])) throw new NotSupportedException();
                     }
                 }
-                double[] tStart = new double[3];
-                for (int i = 0; i < 3; i++)
-                {
-                    tStart[i] = mCamStart.GetElement(i, 3);
-                }
                 double[] fpStart = cameraStart.GetFocalPoint();
                 double zStart = cameraStart.GetParallelScale();
+                double distanceStart = cameraStart.GetDistance();
                 double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
                 // A quaternion and its negation are the same rotation but only the one in the
                 // same hemisphere as the start is interpolated along the shortest path
@@ -3548,12 +3551,13 @@ namespace vtkControl
                 double[] q;
                 double[][] rOut;
                 double[][] rOutT;
-                double[] transform;
                 double[] fp;
                 double[] pos = new double[3];
                 double[] up = new double[3];
+                double[] viewPlaneNormal = new double[3];
                 double[] fpXY;
                 double z;
+                double distance;
                 double t;
                 //
                 vtkQuaternionInterpolator qi = vtkQuaternionInterpolator.New();
@@ -3571,17 +3575,6 @@ namespace vtkControl
                 // Do interpolation
                 do
                 {
-                    //
-                    //http://math.stackexchange.com/questions/82602/how-to-find-camera-position-and-rotation-from-a-4x4-matrix
-                    //
-                    //     |         |     
-                    // M = |   R   T |     
-                    //     |         |     
-                    //     | 0 0 0 1 |     
-                    //                     
-                    // camera position C:  
-                    // C = -R(transpose)*T 
-                    //                     
                     currentDelta = (DateTime.Now - start).TotalMilliseconds;
                     t = currentDelta / delta;
                     if (t > 1) t = 1;
@@ -3594,16 +3587,23 @@ namespace vtkControl
                         q = QuaternionHelper.QuaternionFromIntPtr(pq);
                     }
                     //
-                    transform = QuaternionHelper.VectorLerp(tStart, tEnd, t);
                     //fp = QuaternionHelper.VectorLerp(fpStart, fpEnd, t);
                     fp = fpEnd;
                     z = zStart + (t) * (zEnd - zStart);
+                    distance = distanceStart + (t) * (distanceEnd - distanceStart);
                     rOut = QuaternionHelper.Matrix3x3FromQuaternion(q);
                     rOutT = QuaternionHelper.TransponseMatrix3x3(rOut);
                     //
-                    pos[0] = -(rOutT[0][0] * transform[0] + rOutT[0][1] * transform[1] + rOutT[0][2] * transform[2]);
-                    pos[1] = -(rOutT[1][0] * transform[0] + rOutT[1][1] * transform[1] + rOutT[1][2] * transform[2]);
-                    pos[2] = -(rOutT[2][0] * transform[0] + rOutT[2][1] * transform[1] + rOutT[2][2] * transform[2]);
+                    viewPlaneNormal[0] = rOutT[0][2];
+                    viewPlaneNormal[1] = rOutT[1][2];
+                    viewPlaneNormal[2] = rOutT[2][2];
+                    // The camera orbits the focal point along the interpolated view plane normal, so that the
+                    // view direction is the interpolated one. A position recovered from the interpolated view
+                    // transform translation is measured from the world origin and tilts the view out of the
+                    // plane of the rotation by an amount that grows with the distance of the model from it
+                    pos[0] = fp[0] + distance * viewPlaneNormal[0];
+                    pos[1] = fp[1] + distance * viewPlaneNormal[1];
+                    pos[2] = fp[2] + distance * viewPlaneNormal[2];
                     //
                     up[0] = rOutT[0][1];
                     up[1] = rOutT[1][1];
@@ -9363,8 +9363,15 @@ namespace vtkControl
 
             //double[] bounds = ComputeVisiblePropBounds();
             IntPtr test = System.Runtime.InteropServices.Marshal.AllocHGlobal(6 * 8);
-            _renderer.ComputeVisiblePropBounds(test);
-            _renderer.ResetCamera(test);
+            try
+            {
+                _renderer.ComputeVisiblePropBounds(test);
+                _renderer.ResetCamera(test);
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(test);
+            }
 
             RenderScene();
         }

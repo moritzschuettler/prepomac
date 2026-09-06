@@ -19,35 +19,40 @@ namespace vtkControl
         public const double WidgetFillOpacity = 0.05;
         public const double WidgetBorderOpacity = 0.5;
         //
+        private const int NumOfCorners = 4;
+        //
         // Variables
         private vtkPolyDataMapper2D _borderMapper;
+        private vtkPolyData _borderPolyData;
         private vtkActor2D _borderActor;
         private vtkPolyDataMapper2D _fillMapper;
+        private vtkPolyData _fillPolyData;
         private vtkActor2D _fillActor;
-        private Rectangle _rectangle;
+        private vtkPoints _cornerPoints;
+        private double[][] _corners;
         private double _fillOpacity;
 
 
         // Constructors
         public vtkMaxWidgetHighlight()
         {
-            vtkPoints points = vtkPoints.New();
-            for (int i = 0; i < 4; i++) points.InsertNextPoint(0, 0, 0);
+            _cornerPoints = vtkPoints.New();
+            for (int i = 0; i < NumOfCorners; i++) _cornerPoints.InsertNextPoint(0, 0, 0);
             //
             vtkCellArray lines = vtkCellArray.New();
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < NumOfCorners; i++)
             {
                 lines.InsertNextCell(2);
                 lines.InsertCellPoint(i);
-                lines.InsertCellPoint((i + 1) % 4);
+                lines.InsertCellPoint((i + 1) % NumOfCorners);
             }
             //
-            vtkPolyData borderPolyData = vtkPolyData.New();
-            borderPolyData.SetPoints(points);
-            borderPolyData.SetLines(lines);
+            _borderPolyData = vtkPolyData.New();
+            _borderPolyData.SetPoints(_cornerPoints);
+            _borderPolyData.SetLines(lines);
             //
             _borderMapper = vtkPolyDataMapper2D.New();
-            _borderMapper.SetInput(borderPolyData);
+            _borderMapper.SetInput(_borderPolyData);
             //
             vtkProperty2D borderProperty = vtkProperty2D.New();
             Color borderColor = SystemColors.Highlight;
@@ -61,15 +66,15 @@ namespace vtkControl
             _borderActor.VisibilityOff();
             //
             vtkCellArray polygon = vtkCellArray.New();
-            polygon.InsertNextCell(4);
-            for (int i = 0; i < 4; i++) polygon.InsertCellPoint(i);
+            polygon.InsertNextCell(NumOfCorners);
+            for (int i = 0; i < NumOfCorners; i++) polygon.InsertCellPoint(i);
             //
-            vtkPolyData fillPolyData = vtkPolyData.New();
-            fillPolyData.SetPoints(points);
-            fillPolyData.SetPolys(polygon);
+            _fillPolyData = vtkPolyData.New();
+            _fillPolyData.SetPoints(_cornerPoints);
+            _fillPolyData.SetPolys(polygon);
             //
             _fillMapper = vtkPolyDataMapper2D.New();
-            _fillMapper.SetInput(fillPolyData);
+            _fillMapper.SetInput(_fillPolyData);
             //
             vtkProperty2D fillProperty = vtkProperty2D.New();
             Color fillColor = Color.LightSkyBlue;
@@ -81,7 +86,7 @@ namespace vtkControl
             _fillActor.SetProperty(fillProperty);
             _fillActor.VisibilityOff();
             //
-            _rectangle = Rectangle.Empty;
+            _corners = null;
             _fillOpacity = WidgetFillOpacity;
         }
 
@@ -101,31 +106,28 @@ namespace vtkControl
         }
         public bool SetRectangle(Rectangle rectangle, double fillOpacity)
         {
-            if (rectangle == Rectangle.Empty && _rectangle == Rectangle.Empty) return false;
-            if (rectangle == _rectangle && Math.Abs(fillOpacity - _fillOpacity) < 1E-12) return false;
+            if (rectangle == Rectangle.Empty) return Clear();
             //
-            _rectangle = rectangle;
-            if (rectangle == Rectangle.Empty)
-            {
-                _borderActor.VisibilityOff();
-                _fillActor.VisibilityOff();
-            }
-            else
-            {
-                _fillOpacity = fillOpacity;
-                _fillActor.GetProperty().SetOpacity(_fillOpacity);
-                //
-                vtkPoints points = _borderMapper.GetInput().GetPoints();
-                points.SetPoint(0, rectangle.Left, rectangle.Top, 0);
-                points.SetPoint(1, rectangle.Right, rectangle.Top, 0);
-                points.SetPoint(2, rectangle.Right, rectangle.Bottom, 0);
-                points.SetPoint(3, rectangle.Left, rectangle.Bottom, 0);
-                points.Modified();
-                _borderMapper.GetInput().Modified();
-                _fillMapper.GetInput().Modified();
-                _fillActor.VisibilityOn();
-                _borderActor.VisibilityOn();
-            }
+            return SetCorners(new double[][] { new double[] { rectangle.Left, rectangle.Top },
+                                               new double[] { rectangle.Right, rectangle.Top },
+                                               new double[] { rectangle.Right, rectangle.Bottom },
+                                               new double[] { rectangle.Left, rectangle.Bottom } }, fillOpacity);
+        }
+        public bool SetCorners(double[][] corners, double fillOpacity)
+        {
+            if (corners == null) return Clear();
+            if (AreCornersEqual(_corners, corners) && Math.Abs(fillOpacity - _fillOpacity) < 1E-12) return false;
+            //
+            _corners = corners;
+            _fillOpacity = fillOpacity;
+            _fillActor.GetProperty().SetOpacity(_fillOpacity);
+            //
+            for (int i = 0; i < NumOfCorners; i++) _cornerPoints.SetPoint(i, _corners[i][0], _corners[i][1], 0);
+            _cornerPoints.Modified();
+            _borderPolyData.Modified();
+            _fillPolyData.Modified();
+            _fillActor.VisibilityOn();
+            _borderActor.VisibilityOn();
             //
             return true;
         }
@@ -138,11 +140,26 @@ namespace vtkControl
         }
         public bool Clear()
         {
-            if (_rectangle == Rectangle.Empty) return false;
+            if (_corners == null) return false;
             //
-            _rectangle = Rectangle.Empty;
+            _corners = null;
             _borderActor.VisibilityOff();
             _fillActor.VisibilityOff();
+            //
+            return true;
+        }
+
+
+        // Private methods
+        private static bool AreCornersEqual(double[][] first, double[][] second)
+        {
+            if (first == null || second == null) return first == second;
+            //
+            for (int i = 0; i < NumOfCorners; i++)
+            {
+                if (first[i][0] != second[i][0] || first[i][1] != second[i][1]) return false;
+            }
+            //
             return true;
         }
     }

@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeModel;
 using CaeResults;
 
@@ -41,24 +42,24 @@ namespace APIs.Python.Model
         {
             if (firstPoint != null)
             {
-                double[] values = ToVector(firstPoint, "first_point");
-                load.X1.SetEquationFromValue(values[0]);
-                load.Y1.SetEquationFromValue(values[1]);
-                load.Z1.SetEquationFromValue(values[2]);
+                EquationString[] values = ToVector(firstPoint, "first_point");
+                load.X1.Equation = values[0];
+                load.Y1.Equation = values[1];
+                load.Z1.Equation = values[2];
             }
             if (secondPoint != null)
             {
-                double[] values = ToVector(secondPoint, "second_point");
-                load.X2.SetEquationFromValue(values[0]);
-                load.Y2.SetEquationFromValue(values[1]);
-                load.Z2.SetEquationFromValue(values[2]);
+                EquationString[] values = ToVector(secondPoint, "second_point");
+                load.X2.Equation = values[0];
+                load.Y2.Equation = values[1];
+                load.Z2.Equation = values[2];
             }
             if (direction != null)
             {
-                double[] values = ToVector(direction, "direction");
-                load.N1.SetEquationFromValue(values[0]);
-                load.N2.SetEquationFromValue(values[1]);
-                load.N3.SetEquationFromValue(values[2]);
+                EquationString[] values = ToVector(direction, "direction");
+                load.N1.Equation = values[0];
+                load.N2.Equation = values[1];
+                load.N3.Equation = values[2];
             }
             SetEquation(load.FirstPointPressure, firstPointPressure, "first_point_pressure");
             SetEquation(load.SecondPointPressure, secondPointPressure, "second_point_pressure");
@@ -110,17 +111,17 @@ namespace APIs.Python.Model
         {
             if (axisPoint != null)
             {
-                double[] values = ToVector(axisPoint, "axis_point");
-                load.X.SetEquationFromValue(values[0]);
-                load.Y.SetEquationFromValue(values[1]);
-                load.Z.SetEquationFromValue(values[2]);
+                EquationString[] values = ToVector(axisPoint, "axis_point");
+                load.X.Equation = values[0];
+                load.Y.Equation = values[1];
+                load.Z.Equation = values[2];
             }
             if (axisDirection != null)
             {
-                double[] values = ToVector(axisDirection, "axis_direction");
-                load.N1.SetEquationFromValue(values[0]);
-                load.N2.SetEquationFromValue(values[1]);
-                load.N3.SetEquationFromValue(values[2]);
+                EquationString[] values = ToVector(axisDirection, "axis_direction");
+                load.N1.Equation = values[0];
+                load.N2.Equation = values[1];
+                load.N3.Equation = values[2];
             }
             SetEquation(load.RotationalSpeed, rotationalSpeed, "rotational_speed");
         }
@@ -140,11 +141,11 @@ namespace APIs.Python.Model
             if (direction != null)
             {
                 // A direction that is given is used instead of the surface normal
-                double[] values = ToVector(direction, "direction");
+                EquationString[] values = ToVector(direction, "direction");
                 load.AutoComputeDirection = false;
-                load.X.SetEquationFromValue(values[0]);
-                load.Y.SetEquationFromValue(values[1]);
-                load.Z.SetEquationFromValue(values[2]);
+                load.X.Equation = values[0];
+                load.Y.Equation = values[1];
+                load.Z.Equation = values[2];
             }
         }
         public static void ApplyConcentratedFlux(CFlux load, object magnitude, object addFlux)
@@ -181,13 +182,9 @@ namespace APIs.Python.Model
             //
             container.Equation = PythonValueConverter.ToEquationString(value, argumentName);
         }
-        private static double[] ToVector(object value, string argumentName)
+        private static EquationString[] ToVector(object value, string argumentName)
         {
-            double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
-            if (vector == null || vector.Length != 3)
-                throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
-            //
-            return vector;
+            return PythonValueConverter.ToEquationArray(value, argumentName, 3);
         }
         private static string AsString(object value, string argumentName)
         {

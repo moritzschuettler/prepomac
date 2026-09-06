@@ -28,10 +28,15 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         protected vtkCoordinate _positionCoordinate;
-        //
+        // The geometry a widget rebuilds is held here and never read back through the mapper. A VTK object
+        // that only the native pipeline references has its ActiViz wrapper collected, and the wrapper table
+        // is keyed by the native address, so a getter can hand back a stale entry or nothing at all.
         protected vtkPolyDataMapper2D _borderMapper;
+        protected vtkPolyData _borderPolyData;
+        protected vtkPoints _borderPoints;
         protected vtkActor2D _borderActor;
         protected vtkPolyDataMapper2D _backgroundMapper;
+        protected vtkPolyData _backgroundPolyData;
         protected vtkActor2D _backgroundActor;
         protected vtkMaxWidgetHighlight _highlight;
         //
@@ -79,11 +84,11 @@ namespace vtkControl
             //
             _clickPos = null;
             // Border                                                                          
-            vtkPoints points = vtkPoints.New();
-            points.InsertNextPoint(_position[0], _position[1], 0);
-            points.InsertNextPoint(_position[0] + _size[0], _position[1], 0);
-            points.InsertNextPoint(_position[0] + _size[0], _position[1] + _size[1], 0);
-            points.InsertNextPoint(_position[0], _position[1] + _size[1], 0);
+            _borderPoints = vtkPoints.New();
+            _borderPoints.InsertNextPoint(_position[0], _position[1], 0);
+            _borderPoints.InsertNextPoint(_position[0] + _size[0], _position[1], 0);
+            _borderPoints.InsertNextPoint(_position[0] + _size[0], _position[1] + _size[1], 0);
+            _borderPoints.InsertNextPoint(_position[0], _position[1] + _size[1], 0);
             //
             vtkCellArray lines = vtkCellArray.New();
             lines.InsertNextCell(2);
@@ -102,12 +107,12 @@ namespace vtkControl
             lines.InsertCellPoint(3);
             lines.InsertCellPoint(0);
             //
-            vtkPolyData scalarBarPolyData = vtkPolyData.New();
-            scalarBarPolyData.SetPoints(points);
-            scalarBarPolyData.SetLines(lines);
+            _borderPolyData = vtkPolyData.New();
+            _borderPolyData.SetPoints(_borderPoints);
+            _borderPolyData.SetLines(lines);
             //
             _borderMapper = vtkPolyDataMapper2D.New();
-            _borderMapper.SetInput(scalarBarPolyData);
+            _borderMapper.SetInput(_borderPolyData);
             //
             _borderActor = vtkActor2D.New();
             _borderActor.SetMapper(_borderMapper);
@@ -120,12 +125,12 @@ namespace vtkControl
             backgroundPolygon.InsertCellPoint(2);
             backgroundPolygon.InsertCellPoint(3);
             //
-            vtkPolyData backgroundPolyData = vtkPolyData.New();
-            backgroundPolyData.SetPoints(_borderMapper.GetInput().GetPoints());
-            backgroundPolyData.SetPolys(backgroundPolygon);
+            _backgroundPolyData = vtkPolyData.New();
+            _backgroundPolyData.SetPoints(_borderPoints);
+            _backgroundPolyData.SetPolys(backgroundPolygon);
             //
             _backgroundMapper = vtkPolyDataMapper2D.New();
-            _backgroundMapper.SetInput(backgroundPolyData);
+            _backgroundMapper.SetInput(_backgroundPolyData);
             //
             _backgroundActor = vtkActor2D.New();
             _backgroundActor.SetMapper(_backgroundMapper);
@@ -574,11 +579,11 @@ namespace vtkControl
 
             _positionCoordinate.SetValue(position[0], position[1], 0);
 
-            vtkPoints points = _borderMapper.GetInput().GetPoints();
-            points.SetPoint(0, position[0], position[1], 0);
-            points.SetPoint(1, position[0] + _size[0], position[1], 0);
-            points.SetPoint(2, position[0] + _size[0], position[1] + _size[1], 0);
-            points.SetPoint(3, position[0], position[1] + _size[1], 0);
+            _borderPoints.SetPoint(0, position[0], position[1], 0);
+            _borderPoints.SetPoint(1, position[0] + _size[0], position[1], 0);
+            _borderPoints.SetPoint(2, position[0] + _size[0], position[1] + _size[1], 0);
+            _borderPoints.SetPoint(3, position[0], position[1] + _size[1], 0);
+            _borderPoints.Modified();
         }
 
 

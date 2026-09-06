@@ -26,23 +26,30 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a material using command history. The properties are created by pmx.create.",
+        [PythonAPI("Adds a material using command history. The properties are created by pmx.create. " +
+                   "Set temperature_dependent to write the temperature column and every property row.",
                    Arguments = "name: str, properties: MaterialProperty or list[MaterialProperty], " +
-                               "description: str = None", Returns = "Material",
+                               "description: str = None, temperature_dependent: bool = False",
+                   Returns = "Material",
                    Example = "pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3)])")]
-        public MaterialAPI add(string name, object properties, string description = null)
+        public MaterialAPI add(string name, object properties, string description = null,
+                               object temperature_dependent = null)
         {
-            _service.Add(name, properties, description);
+            _service.Add(name, properties, description, temperature_dependent);
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing material using command history.",
-                   Arguments = "old_name: str, name: str, properties: MaterialProperty or " +
-                               "list[MaterialProperty], description: str = None", Returns = "Material")]
-        public MaterialAPI replace(string old_name, string name, object properties, string description = null)
+        [PythonAPI("Replaces an existing material using command history. A value that is not given keeps " +
+                   "the value the material already carries.",
+                   Arguments = "old_name: str, name: str = None, properties: MaterialProperty or " +
+                               "list[MaterialProperty] = None, description: str = None, " +
+                               "temperature_dependent: bool = None", Returns = "Material")]
+        public MaterialAPI replace(string old_name, string name = null, object properties = null,
+                                   string description = null, object temperature_dependent = null)
         {
-            _service.Replace(old_name, name, properties, description);
-            return this[name];
+            Material material = _service.Replace(old_name, name, properties, description,
+                                                  temperature_dependent);
+            return this[material.Name];
         }
         //
         protected override string[] GetItemNames()

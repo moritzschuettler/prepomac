@@ -67,6 +67,8 @@ namespace CaeJob
         protected DateTime _endTime;                                    // ISerializable
         protected FEMSolverEnum _femSolver;                             // ISerializable
         protected bool _onlyCheckModel;                                 // ISerializable
+        protected bool _executableOverridden;                           // ISerializable
+        protected bool _workDirectoryOverridden;                       // ISerializable
         //
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] private Process _exe;
@@ -85,6 +87,12 @@ namespace CaeJob
         [NonSerialized] private bool _useBackgroundWorker;
         [NonSerialized] private double _prevWatchMilliseconds;
         [NonSerialized] private CalculixEnergyOutputParser _energyOutputParser;
+
+
+        [NonSerialized] private int _runTimeoutMilliseconds;
+        [NonSerialized] private Stopwatch _runTimeoutWatch;
+        private bool _numCPUsOverridden;
+        private bool _environmentVariablesOverridden;
 
 
         // Properties                                                                                                               
@@ -178,6 +186,14 @@ namespace CaeJob
             }
         }
         public bool OnlyCheckModel { get { return _onlyCheckModel; } set { _onlyCheckModel = value; } }
+        public bool ExecutableOverridden { get { return _executableOverridden; } set { _executableOverridden = value; } }
+        public bool WorkDirectoryOverridden { get { return _workDirectoryOverridden; } set { _workDirectoryOverridden = value; } }
+        public bool NumCPUsOverridden { get { return _numCPUsOverridden; } set { _numCPUsOverridden = value; } }
+        public bool EnvironmentVariablesOverridden
+        {
+            get { return _environmentVariablesOverridden; }
+            set { _environmentVariablesOverridden = value; }
+        }
         public object Tag { get { return _tag; } set { _tag = value; } }
 
 
@@ -211,11 +227,15 @@ namespace CaeJob
             _sbAllOutput = null;
             _energyOutputParser = new CalculixEnergyOutputParser();
             _onlyCheckModel = false;
+            _executableOverridden = false;
+            _workDirectoryOverridden = false;
         }
         public AnalysisJob(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
             // Compatibility v 2.3.5
+            _executableOverridden = false;
+            _workDirectoryOverridden = false;
             _femSolver = FEMSolverEnum.Calculix;
             //
             foreach (SerializationEntry entry in info)
@@ -254,6 +274,14 @@ namespace CaeJob
                         _femSolver = (FEMSolverEnum)entry.Value; break;
                     case "_onlyCheckModel":
                         _onlyCheckModel = (bool)entry.Value; break;
+                    case "_executableOverridden":
+                        _executableOverridden = (bool)entry.Value; break;
+                    case "_workDirectoryOverridden":
+                        _workDirectoryOverridden = (bool)entry.Value; break;
+                    case "_numCPUsOverridden":
+                        _numCPUsOverridden = (bool)entry.Value; break;
+                    case "_environmentVariablesOverridden":
+                        _environmentVariablesOverridden = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -269,9 +297,13 @@ namespace CaeJob
 
 
         // Methods                                                                                                                  
-        public void Submit(int numOfRunSteps, int numOfRunIncrements, bool useBackgroundWorker = true)
+        public void Submit(int numOfRunSteps, int numOfRunIncrements, bool useBackgroundWorker = true,
+                           int timeoutMilliseconds = 0)
         {
             if (numOfRunSteps < 1 || numOfRunIncrements < 1) throw new NotSupportedException();
+            if (timeoutMilliseconds < 0) throw new ArgumentOutOfRangeException("timeoutMilliseconds");
+            _runTimeoutMilliseconds = timeoutMilliseconds;
+            _runTimeoutWatch = Stopwatch.StartNew();
             _useBackgroundWorker = useBackgroundWorker;
             // Reset job
             _tag = null;
@@ -507,12 +539,14 @@ namespace CaeJob
             _exe.StartInfo = psi;
             _exe.Start();
             ////
-            int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
+            int ms = GetRemainingRunTime();
             if (_exe.WaitForInputIdle(ms))
             {
                 // Process completed. Check process.ExitCode here.
                 // after Kill() _jobStatus is Killed
-                _jobStatus = JobStatus.OK;
+                // A kill or a time out has already decided the outcome and must not be overwritten here
+                if (_jobStatus != JobStatus.Killed && _jobStatus != JobStatus.TimedOut)
+                    _jobStatus = JobStatus.OK;
             }
             else
             {
@@ -531,19 +565,21 @@ namespace CaeJob
             psi.WorkingDirectory = _workDirectory;
             psi.UseShellExecute = false;
             //
-            //SetEnvironmentVariables(psi);
+            SetEnvironmentVariables(psi);
             //
             _exe = new Process();
             _exe.StartInfo = psi;
             _exe.Start();
             //
-            int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
+            int ms = GetRemainingRunTime();
             if (_exe.WaitForExit(ms))
             {
                 // Process completed. Check process.ExitCode here.
 
                 // after Kill() _jobStatus is Killed
-                _jobStatus = JobStatus.OK;
+                // A kill or a time out has already decided the outcome and must not be overwritten here
+                if (_jobStatus != JobStatus.Killed && _jobStatus != JobStatus.TimedOut)
+                    _jobStatus = JobStatus.OK;
             }
             else
             {
@@ -606,12 +642,15 @@ namespace CaeJob
                 //
                 _exe.BeginOutputReadLine();
                 _exe.BeginErrorReadLine();
-                int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
-                if (_exe.WaitForExit(ms) && outputWaitHandle.WaitOne(ms) && errorWaitHandle.WaitOne(ms))
+                int ms = GetRemainingRunTime();
+                if (_exe.WaitForExit(ms) && outputWaitHandle.WaitOne(GetRemainingRunTime()) &&
+                    errorWaitHandle.WaitOne(GetRemainingRunTime()))
                 {
                     // Process completed. Check process.ExitCode here.
                     // after Kill() _jobStatus is Killed
-                    if (_jobStatus != JobStatus.Killed) _jobStatus = JobStatus.OK;
+                    // A kill or a time out has already decided the outcome and must not be overwritten here
+                    if (_jobStatus != JobStatus.Killed && _jobStatus != JobStatus.TimedOut)
+                        _jobStatus = JobStatus.OK;
                 }
                 else
                 {
@@ -635,6 +674,12 @@ namespace CaeJob
                 //    }
                 //}
             }            
+        }
+        private int GetRemainingRunTime()
+        {
+            if (_runTimeoutMilliseconds == 0) return 1000 * 3600 * 24 * 7 * 3;
+            long remaining = _runTimeoutMilliseconds - _runTimeoutWatch.ElapsedMilliseconds;
+            return remaining > 0 ? (int)remaining : 1;
         }
         public void Kill(string message)
         {
@@ -939,6 +984,10 @@ namespace CaeJob
             info.AddValue("_endTime", _endTime, typeof(DateTime));
             info.AddValue("_femSolver", _femSolver, typeof(FEMSolverEnum));
             info.AddValue("_onlyCheckModel", _onlyCheckModel, typeof(bool));
+            info.AddValue("_numCPUsOverridden", _numCPUsOverridden, typeof(bool));
+            info.AddValue("_environmentVariablesOverridden", _environmentVariablesOverridden, typeof(bool));
+            info.AddValue("_executableOverridden", _executableOverridden, typeof(bool));
+            info.AddValue("_workDirectoryOverridden", _workDirectoryOverridden, typeof(bool));
         }
     }
 }

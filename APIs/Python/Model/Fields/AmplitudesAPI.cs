@@ -37,13 +37,14 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing amplitude using command history.",
-                   Arguments = "old_name: str, name: str, time_amplitude: list[list[float]], " +
+        [PythonAPI("Replaces an existing amplitude using command history. A value that is not given is kept.",
+                   Arguments = "old_name: str, name: str = None, time_amplitude: list[list[float]] = None, " +
                                "time_span: str = None", Returns = "Amplitude")]
-        public AmplitudeAPI replace(string old_name, string name, object time_amplitude, string time_span = null)
+        public AmplitudeAPI replace(string old_name, string name = null, object time_amplitude = null,
+                                    string time_span = null)
         {
             _service.Replace(old_name, name, time_amplitude, time_span);
-            return this[name];
+            return this[name == null ? old_name : name];
         }
         //
         protected override string[] GetItemNames()

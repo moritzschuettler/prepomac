@@ -33,33 +33,37 @@ namespace APIs.Python
                    "come from the application settings unless they are given.",
                    Arguments = "name: str, fem_solver: str = None, executable: str = None, " +
                                "argument: str = None, work_directory: str = None, " +
-                               "compatibility_mode: bool = None", Returns = "Job",
+                               "compatibility_mode: bool = None, num_cpus: int = None, " +
+                               "environment_variables: list[EnvironmentVariable] = None", Returns = "Job",
                    Example = "job = pmx.jobs.add('Job-1')")]
         public JobAPI add(string name, object fem_solver = null, object executable = null,
                           object argument = null, object work_directory = null,
-                          object compatibility_mode = null)
+                          object compatibility_mode = null, object num_cpus = null, object environment_variables = null)
         {
             _service.ValidateName(name, null);
             AnalysisJob job = _service.Build(name, fem_solver, executable, argument, work_directory,
-                                             compatibility_mode);
+                                             compatibility_mode, num_cpus, environment_variables);
             _service.Add(job);
             //
             return this[name];
         }
 
         [PythonAPI("Replaces an existing analysis using command history. A value that is not given is " +
-                   "taken from the application settings, not from the analysis being replaced.",
-                   Arguments = "old_name: str, name: str = None, and the arguments of add",
+                   "preserved from the analysis being replaced. Inherit switches restore application defaults.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add; " +
+                               "inherit_executable: bool = None, inherit_work_directory: bool = None, " +
+                               "inherit_num_cpus: bool = None, inherit_environment_variables: bool = None",
                    Returns = "Job")]
         public JobAPI replace(string old_name, string name = null, object fem_solver = null,
                               object executable = null, object argument = null, object work_directory = null,
-                              object compatibility_mode = null)
+                              object compatibility_mode = null, object num_cpus = null, object environment_variables = null,
+                              object inherit_executable = null, object inherit_work_directory = null,
+                              object inherit_num_cpus = null, object inherit_environment_variables = null)
         {
-            AnalysisJob oldJob = _service.ResolveJob(old_name);
-            AnalysisJob job = _service.Build(name != null ? name : oldJob.Name, fem_solver, executable,
-                                             argument, work_directory, compatibility_mode);
+            AnalysisJob job = _service.BuildReplacement(old_name, name, fem_solver, executable, argument, work_directory,
+                                                        compatibility_mode, num_cpus, environment_variables, inherit_executable,
+                                                        inherit_work_directory, inherit_num_cpus, inherit_environment_variables);
             _service.Replace(old_name, job);
-            //
             return this[job.Name];
         }
 

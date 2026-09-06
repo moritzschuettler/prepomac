@@ -59,9 +59,20 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, SelectionAPI selection)
         {
-            ResolveNodeSet(oldName);
-            ValidateNewName(name, oldName);
-            FeNodeSet nodeSet = Build(name, selection);
+            FeNodeSet existing = ResolveNodeSet(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            // A value that is not given is kept, so a rename alone keeps the selection the set has
+            FeNodeSet nodeSet;
+            if (selection == null)
+            {
+                if (existing.CreationData == null)
+                    throw new PythonAPIException("The argument 'selection' must be given, because the node set " +
+                                                 "'" + oldName + "' was not created from a selection.");
+                nodeSet = existing.DeepClone();
+                nodeSet.Name = newName;
+            }
+            else nodeSet = Build(newName, selection);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceNodeSet(oldName, nodeSet);

@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using System.Runtime.Serialization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -27,6 +28,7 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         private string _jobName;
         private bool _onlyCheckModel;
+        [OptionalField] private int _timeoutMilliseconds;
 
 
         // Properties                                                                                                               
@@ -34,23 +36,24 @@ namespace PrePoMax.Commands
 
 
         // Constructor                                                                                                              
-        public CPrepareAndRunJob(string jobName, bool onlyCheckModel)
+        public CPrepareAndRunJob(string jobName, bool onlyCheckModel, int timeoutMilliseconds = 0)
             : base("Run analysis")
         {
             _jobName = jobName;
             _onlyCheckModel = onlyCheckModel;
+            _timeoutMilliseconds = timeoutMilliseconds;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel);
+            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel, true, _timeoutMilliseconds);
             //return true;
         }
         public bool ExecuteSynchronous(Controller receiver)
         {
-            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel, false);
+            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel, false, _timeoutMilliseconds);
             //return true;
         }
 

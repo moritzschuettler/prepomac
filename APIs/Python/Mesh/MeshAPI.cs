@@ -17,12 +17,16 @@ namespace APIs.Python
         // Variables
         private readonly string _resultName;
         private readonly MeshDataService _meshService;
+        private readonly IPythonCommandGateway _commandGateway;
+        private readonly ResultResolver _resultResolver;
         private readonly NodesAPI _nodes;
         private readonly ElementsAPI _elements;
         private readonly PartsAPI _parts;
         private readonly ResultNodeSetsAPI _nodeSets;
         private readonly ResultElementSetsAPI _elementSets;
         private readonly ResultSurfacesAPI _surfaces;
+        private readonly ResultReferencePointsAPI _referencePoints;
+        private readonly ResultCoordinateSystemsAPI _coordinateSystems;
 
 
         // Properties
@@ -38,19 +42,30 @@ namespace APIs.Python
         public ResultElementSetsAPI element_sets { get { return _elementSets; } }
         [PythonAPI("The user-visible, read-only result surfaces.", Returns = "Surfaces")]
         public ResultSurfacesAPI surfaces { get { return _surfaces; } }
+        [PythonAPI("The result reference points.", Returns = "ReferencePoints")]
+        public ResultReferencePointsAPI reference_points { get { return _referencePoints; } }
+        [PythonAPI("The result coordinate systems.", Returns = "CoordinateSystems")]
+        public ResultCoordinateSystemsAPI coordinate_systems { get { return _coordinateSystems; } }
 
 
         // Constructors
-        internal MeshAPI(string resultName, MeshDataService meshService)
+        internal MeshAPI(string resultName, MeshDataService meshService, SelectionService selectionService,
+                         IPythonCommandGateway commandGateway, ResultResolver resultResolver)
         {
             _resultName = resultName;
             _meshService = meshService;
+            _commandGateway = commandGateway;
+            _resultResolver = resultResolver;
             _nodes = new NodesAPI(_resultName, _meshService);
             _elements = new ElementsAPI(_resultName, _meshService);
-            _parts = new PartsAPI(_resultName, _meshService);
+            _parts = new PartsAPI(_resultName, _meshService, _commandGateway);
             _nodeSets = new ResultNodeSetsAPI(_resultName, _meshService);
             _elementSets = new ResultElementSetsAPI(_resultName, _meshService);
             _surfaces = new ResultSurfacesAPI(_resultName, _meshService);
+            _referencePoints = new ResultReferencePointsAPI(_meshService, _resultName, selectionService,
+                                                             _commandGateway, _resultResolver);
+            _coordinateSystems = new ResultCoordinateSystemsAPI(_meshService, _resultName, selectionService,
+                                                                 _commandGateway, _resultResolver);
         }
 
 

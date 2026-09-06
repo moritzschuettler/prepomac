@@ -151,7 +151,11 @@ namespace PrePoMax
                     //
                     if (cmdOptions.ShowGui == "No")   // must be here
                     {
-                        mainForm.WindowState = FormWindowState.Minimized;
+                        // Form.ShowParams returns SW_SHOWMINIMIZED for a minimized window before it considers
+                        // ShowWithoutActivation, and that show command takes the foreground; a window placed off
+                        // screen is shown with SW_SHOWNOACTIVATE and never steals focus from the user
+                        mainForm.StartPosition = FormStartPosition.Manual;
+                        mainForm.Location = new System.Drawing.Point(-32000, -32000);
                         mainForm.ShowInTaskbar = false;
                     }
                     Application.ThreadException += Application_ThreadException;

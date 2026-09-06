@@ -35,12 +35,13 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces a model parameter using command history.",
-                   Arguments = "old_name: str, name: str, value: float or str", Returns = "Parameter")]
-        public ParameterAPI replace(string old_name, string name, object value)
+        [PythonAPI("Replaces a model parameter using command history. A value that is not given is kept.",
+                   Arguments = "old_name: str, name: str = None, value: float or str = None",
+                   Returns = "Parameter")]
+        public ParameterAPI replace(string old_name, string name = null, object value = null)
         {
             _service.Replace(old_name, name, value);
-            return this[name];
+            return this[name == null ? old_name : name];
         }
 
         [PythonAPI("Imports the parameters from a .pmp file using command history.",

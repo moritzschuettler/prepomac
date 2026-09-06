@@ -45,6 +45,14 @@ namespace APIs.Python
         {
             return _results != null && _results.ContainsResult(resultName);
         }
+        public CaeMesh.FeMesh GetCurrentResultMeshOrNull()
+        {
+            string resultName = GetCurrentResultName();
+            if (resultName == null || !ContainsResult(resultName)) return null;
+            FeResults result = _results.GetResult(resultName);
+            //
+            return result == null ? null : result.Mesh;
+        }
         public FeResults ResolveResult(string resultName)
         {
             if (_results == null || !_results.ContainsResult(resultName))

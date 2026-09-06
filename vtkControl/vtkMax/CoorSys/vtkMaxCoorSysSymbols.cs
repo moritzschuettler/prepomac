@@ -33,9 +33,17 @@ namespace vtkControl
         private bool _geometryGenerated;
         //
         protected vtkPolyDataMapper2D _shaftMapper;
+        protected vtkPolyData _shaftPolyData;
+        protected vtkPoints _shaftPoints;
+        protected vtkCellArray _shaftLines;
+        protected vtkUnsignedCharArray _shaftColors;
         protected vtkActor2D _shaftActor;
         //
         protected vtkPolyDataMapper2D _endMapper;
+        protected vtkPolyData _endPolyData;
+        protected vtkPoints _endPoints;
+        protected vtkCellArray _endPolygons;
+        protected vtkUnsignedCharArray _endColors;
         protected vtkActor2D _endActor;
 
 
@@ -69,12 +77,18 @@ namespace vtkControl
         // Private methods                                                                                                          
         private void InitializeShafts()
         {
-            vtkPolyData shaftPolyData = vtkPolyData.New();
-            shaftPolyData.SetPoints(vtkPoints.New());
-            shaftPolyData.SetLines(vtkCellArray.New());
+            _shaftPoints = vtkPoints.New();
+            _shaftLines = vtkCellArray.New();
+            _shaftColors = vtkUnsignedCharArray.New();
+            _shaftColors.SetNumberOfComponents(4);
+            //
+            _shaftPolyData = vtkPolyData.New();
+            _shaftPolyData.SetPoints(_shaftPoints);
+            _shaftPolyData.SetLines(_shaftLines);
+            _shaftPolyData.GetCellData().SetScalars(_shaftColors);
             //
             _shaftMapper = vtkPolyDataMapper2D.New();
-            _shaftMapper.SetInput(shaftPolyData);
+            _shaftMapper.SetInput(_shaftPolyData);
             _shaftMapper.SetScalarModeToUseCellData();
             _shaftMapper.SetColorModeToDefault();
             _shaftMapper.ScalarVisibilityOn();
@@ -89,12 +103,18 @@ namespace vtkControl
         }
         private void InitializeEnds()
         {
-            vtkPolyData endPolyData = vtkPolyData.New();
-            endPolyData.SetPoints(vtkPoints.New());
-            endPolyData.SetPolys(vtkCellArray.New());
+            _endPoints = vtkPoints.New();
+            _endPolygons = vtkCellArray.New();
+            _endColors = vtkUnsignedCharArray.New();
+            _endColors.SetNumberOfComponents(4);
+            //
+            _endPolyData = vtkPolyData.New();
+            _endPolyData.SetPoints(_endPoints);
+            _endPolyData.SetPolys(_endPolygons);
+            _endPolyData.GetCellData().SetScalars(_endColors);
             //
             _endMapper = vtkPolyDataMapper2D.New();
-            _endMapper.SetInput(endPolyData);
+            _endMapper.SetInput(_endPolyData);
             _endMapper.SetScalarModeToUseCellData();
             _endMapper.SetColorModeToDefault();
             _endMapper.ScalarVisibilityOn();
@@ -149,10 +169,9 @@ namespace vtkControl
         }
         private void GenerateShafts()
         {
-            vtkPoints points = vtkPoints.New();
-            vtkCellArray lines = vtkCellArray.New();
-            vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
-            colors.SetNumberOfComponents(4);
+            _shaftPoints.Reset();
+            _shaftLines.Reset();
+            _shaftColors.Reset();
             //
             foreach (vtkMaxCoorSysSymbol symbol in GetSymbolsSortedByDepth())
             {
@@ -161,40 +180,33 @@ namespace vtkControl
                 {
                     if (!symbol.IsEndVisible(endId)) continue;
                     //
-                    symbol.AppendShaft(points, lines, colors, endId);
+                    symbol.AppendShaft(_shaftPoints, _shaftLines, _shaftColors, endId);
                 }
             }
             //
-            vtkPolyData shaftPolyData = _shaftMapper.GetInput();
-            shaftPolyData.SetPoints(points);
-            shaftPolyData.SetLines(lines);
-            shaftPolyData.GetCellData().SetScalars(colors);
-            shaftPolyData.Modified();
+            _shaftPoints.Modified();
+            _shaftPolyData.Modified();
         }
         private void GenerateEnds()
         {
-            vtkPoints points = vtkPoints.New();
-            vtkCellArray polygons = vtkCellArray.New();
-            vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
-            colors.SetNumberOfComponents(4);
+            _endPoints.Reset();
+            _endPolygons.Reset();
+            _endColors.Reset();
             //
             foreach (vtkMaxCoorSysSymbol symbol in GetSymbolsSortedByDepth())
             {
-                symbol.AppendOrigin(points, polygons, colors);
+                symbol.AppendOrigin(_endPoints, _endPolygons, _endColors);
                 // The ends closer to the viewer must be drawn over the ends behind them
                 foreach (int endId in symbol.GetEndIdsSortedByDepth())
                 {
                     if (!symbol.IsEndVisible(endId)) continue;
                     //
-                    symbol.AppendEnd(points, polygons, colors, endId);
+                    symbol.AppendEnd(_endPoints, _endPolygons, _endColors, endId);
                 }
             }
             //
-            vtkPolyData endPolyData = _endMapper.GetInput();
-            endPolyData.SetPoints(points);
-            endPolyData.SetPolys(polygons);
-            endPolyData.GetCellData().SetScalars(colors);
-            endPolyData.Modified();
+            _endPoints.Modified();
+            _endPolyData.Modified();
         }
         private vtkMaxCoorSysSymbol[] GetSymbolsSortedByDepth()
         {

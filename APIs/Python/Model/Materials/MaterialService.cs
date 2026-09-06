@@ -50,22 +50,30 @@ namespace APIs.Python.Model
             //
             return material;
         }
-        public void Add(string name, object properties, string description)
+        public void Add(string name, object properties, string description, object temperatureDependent)
         {
             ValidateName(name, null);
-            Material material = Build(name, properties, description);
+            Material material = Build(name, properties, description, temperatureDependent);
             //
             EnsureCommandsAvailable();
             _modelGateway.AddMaterial(material);
         }
-        public void Replace(string oldName, string name, object properties, string description)
+        public Material Replace(string oldName, string name, object properties, string description,
+                                object temperatureDependent)
         {
-            ResolveMaterial(oldName);
-            ValidateName(name, oldName);
-            Material material = Build(name, properties, description);
+            Material material = ResolveMaterial(oldName).DeepClone();
+            if (name != null) material.Name = name;
+            if (properties != null) ApplyProperties(material, properties);
+            if (description != null) material.Description = description;
+            if (temperatureDependent != null)
+                material.TemperatureDependent =
+                    PythonValueConverter.ToBool(temperatureDependent, "temperature_dependent");
+            ValidateName(material.Name, oldName);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceMaterial(oldName, material);
+            //
+            return material;
         }
         public void Duplicate(string[] names)
         {
@@ -91,7 +99,18 @@ namespace APIs.Python.Model
             _modelGateway.RenameModelItem(item, newName, null);
         }
         //
-        private Material Build(string name, object properties, string description)
+        private Material Build(string name, object properties, string description, object temperatureDependent)
+        {
+            Material material = new Material(name);
+            ApplyProperties(material, properties);
+            if (description != null) material.Description = description;
+            if (temperatureDependent != null)
+                material.TemperatureDependent =
+                    PythonValueConverter.ToBool(temperatureDependent, "temperature_dependent");
+            //
+            return material;
+        }
+        private void ApplyProperties(Material material, object properties)
         {
             List<MaterialProperty> materialProperties =
                 PythonObjectListConverter.ToList<MaterialProperty>(properties, "properties",
@@ -100,12 +119,9 @@ namespace APIs.Python.Model
             if (materialProperties.Count == 0)
                 throw new PythonAPIException("The argument 'properties' must contain at least one material property.");
             //
-            Material material = new Material(name);
-            if (description != null) material.Description = description;
             // AddProperty rejects a second elastic property, so the model does the domain check
+            material.Properties.Clear();
             foreach (MaterialProperty property in materialProperties) material.AddProperty(property);
-            //
-            return material;
         }
         private void ValidateName(string name, string allowedExistingName)
         {

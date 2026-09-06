@@ -241,15 +241,17 @@ namespace PrePoMax.Python
             }
         }
         public static PythonEngineResult ExecuteScriptInNewScope(string code, ResultsCollection results,
-                                                                 Controller controller)
+                                                                 Controller controller, string scriptFileName = null,
+                                                                 string[] arguments = null)
         {
             Initialize();
+            if (scriptFileName != null) SetScriptArguments(scriptFileName, arguments);
             //
             using (Py.GIL())
             using (PyDict scope = new PyDict())
             {
                 using (PyObject mainName = new PyString("__main__"))
-                using (PyObject fileName = new PyString("<string>"))
+                using (PyObject fileName = new PyString(scriptFileName ?? "<string>"))
                 {
                     scope.SetItem("__name__", mainName);
                     scope.SetItem("__file__", fileName);
@@ -321,7 +323,7 @@ namespace PrePoMax.Python
             using (PyObject builtins = Py.Import("builtins"))
             using (PyObject compileFunc = builtins.GetAttr("compile"))
             using (PyObject script = new PyString(code))
-            using (PyObject fileName = new PyString("<string>"))
+            using (PyObject fileName = scope.HasKey("__file__") ? scope.GetItem("__file__") : new PyString("<string>"))
             using (PyObject mode = new PyString("exec"))
             using (PyObject compiled = compileFunc.Invoke(script, fileName, mode))
             using (PyObject traceback = Py.Import("traceback"))

@@ -32,9 +32,14 @@ namespace vtkControl
         protected vtkActor2D[] _scaleTextActors;
 
         protected vtkPolyDataMapper2D _scaleBorderMapper;
+        protected vtkPolyData _scaleBorderPolyData;
+        protected vtkCellArray _scaleBorderLines;
         protected vtkActor2D _scaleBorderActor;
 
         protected vtkPolyDataMapper2D _scaleBackgroundMapper;
+        protected vtkPolyData _scaleBackgroundPolyData;
+        protected vtkPoints _scaleBackgroundPoints;
+        protected vtkCellArray _scaleBackgroundPolygons;
         protected vtkActor2D _scaleBackgroundActor;
 
 
@@ -82,12 +87,15 @@ namespace vtkControl
         private void InitializeBackground()
         {
             // Bar border                                                                          
-            vtkPolyData backgroundPolyData = vtkPolyData.New();
-            backgroundPolyData.SetPoints(vtkPoints.New());
-            backgroundPolyData.SetPolys(vtkCellArray.New());
+            _scaleBackgroundPoints = vtkPoints.New();
+            _scaleBackgroundPolygons = vtkCellArray.New();
+            //
+            _scaleBackgroundPolyData = vtkPolyData.New();
+            _scaleBackgroundPolyData.SetPoints(_scaleBackgroundPoints);
+            _scaleBackgroundPolyData.SetPolys(_scaleBackgroundPolygons);
             //
             _scaleBackgroundMapper = vtkPolyDataMapper2D.New();
-            _scaleBackgroundMapper.SetInput(backgroundPolyData);
+            _scaleBackgroundMapper.SetInput(_scaleBackgroundPolyData);
             //
             vtkProperty2D backgroundProperty = vtkProperty2D.New();
             backgroundProperty.SetColor(0, 0, 0);
@@ -102,12 +110,14 @@ namespace vtkControl
         private void InitializeBorder()
         {
             // Bar border                                                                          
-            vtkPolyData borderPolyData = vtkPolyData.New();
-            borderPolyData.SetPoints(vtkPoints.New());
-            borderPolyData.SetPolys(vtkCellArray.New());
+            _scaleBorderLines = vtkCellArray.New();
+            //
+            _scaleBorderPolyData = vtkPolyData.New();
+            _scaleBorderPolyData.SetPoints(_scaleBackgroundPoints);
+            _scaleBorderPolyData.SetLines(_scaleBorderLines);
             //
             _scaleBorderMapper = vtkPolyDataMapper2D.New();
-            _scaleBorderMapper.SetInput(borderPolyData);
+            _scaleBorderMapper.SetInput(_scaleBorderPolyData);
             //
             vtkProperty2D borderProperty = vtkProperty2D.New();
             borderProperty.SetColor(0, 0, 0);
@@ -177,10 +187,8 @@ namespace vtkControl
             // Number of vertical lines
             int n = _numOffields + 1;
             //
-            vtkPoints backgroundPoints = vtkPoints.New();
-            vtkCellArray backgroundPolygon = vtkCellArray.New();
-            //
-            backgroundPoints.SetNumberOfPoints(2 * n);
+            _scaleBackgroundPolygons.Reset();
+            _scaleBackgroundPoints.SetNumberOfPoints(2 * n);
             //
             double dx = _barWidth / _numOffields;
             double dy = _barHeight;
@@ -189,49 +197,46 @@ namespace vtkControl
             //
             for (int i = 0; i <= _numOffields; i++)
             {
-                backgroundPoints.SetPoint(2 * i, x0 + i * dx, y0, 0);
-                backgroundPoints.SetPoint(2 * i + 1, x0 + i * dx, y0 + dy, 0);
+                _scaleBackgroundPoints.SetPoint(2 * i, x0 + i * dx, y0, 0);
+                _scaleBackgroundPoints.SetPoint(2 * i + 1, x0 + i * dx, y0 + dy, 0);
             }
             //
             for (int i = 0; i < _numOffields; i+=2)
             {
-                backgroundPolygon.InsertNextCell(4);
-                backgroundPolygon.InsertCellPoint(2 * i);
-                backgroundPolygon.InsertCellPoint(2 * (i + 1));
-                backgroundPolygon.InsertCellPoint(2 * (i + 1) + 1);
-                backgroundPolygon.InsertCellPoint(2 * i + 1);
+                _scaleBackgroundPolygons.InsertNextCell(4);
+                _scaleBackgroundPolygons.InsertCellPoint(2 * i);
+                _scaleBackgroundPolygons.InsertCellPoint(2 * (i + 1));
+                _scaleBackgroundPolygons.InsertCellPoint(2 * (i + 1) + 1);
+                _scaleBackgroundPolygons.InsertCellPoint(2 * i + 1);
             }
             //
-            vtkPolyData backgroundPoly = _scaleBackgroundMapper.GetInput();
-            backgroundPoly.SetPoints(backgroundPoints);
-            backgroundPoly.SetPolys(backgroundPolygon);
+            _scaleBackgroundPoints.Modified();
+            _scaleBackgroundPolyData.Modified();
         }
         private void GenerateBorders()
         {
-            vtkCellArray borderLines = vtkCellArray.New();
+            _scaleBorderLines.Reset();
             // Vertical lines
             for (int i = 0; i <= _numOffields; i++)
             {
-                borderLines.InsertNextCell(2);
-                borderLines.InsertCellPoint(2 * i);
-                borderLines.InsertCellPoint(2 * i + 1);
+                _scaleBorderLines.InsertNextCell(2);
+                _scaleBorderLines.InsertCellPoint(2 * i);
+                _scaleBorderLines.InsertCellPoint(2 * i + 1);
             }
             // Horizontal lines
-            borderLines.InsertNextCell(2);
-            borderLines.InsertCellPoint(0);
-            borderLines.InsertCellPoint(2 * _numOffields);
+            _scaleBorderLines.InsertNextCell(2);
+            _scaleBorderLines.InsertCellPoint(0);
+            _scaleBorderLines.InsertCellPoint(2 * _numOffields);
             //
-            borderLines.InsertNextCell(2);
-            borderLines.InsertCellPoint(1);
-            borderLines.InsertCellPoint(2 * _numOffields + 1);
-            // PolyData
-            vtkPolyData borderPoly = _scaleBorderMapper.GetInput();
-            borderPoly.SetPoints(_scaleBackgroundMapper.GetInput().GetPoints());
-            borderPoly.SetLines(borderLines);
+            _scaleBorderLines.InsertNextCell(2);
+            _scaleBorderLines.InsertCellPoint(1);
+            _scaleBorderLines.InsertCellPoint(2 * _numOffields + 1);
+            //
+            _scaleBorderPolyData.Modified();
         }
         private void PositionLabels()
         {
-            vtkPoints points = _scaleBackgroundMapper.GetInput().GetPoints();
+            vtkPoints points = _scaleBackgroundPoints;
             int lastIndex = _scaleTextMappers.Length - 1;
             string lastLabel = _scaleTextMappers[lastIndex].GetInput();
             if (!string.IsNullOrEmpty(_unit)) _scaleTextMappers[lastIndex].SetInput(lastLabel + " " + _unit);

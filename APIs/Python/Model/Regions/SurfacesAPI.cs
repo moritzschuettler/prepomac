@@ -42,12 +42,21 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing surface using command history.",
-                   Arguments = "old_name: str, name: str, selection: Selection", Returns = "Surface")]
-        public SurfaceAPI replace(string old_name, string name, SelectionAPI selection)
+        [PythonAPI("Replaces an existing surface using command history. A value that is not given is kept.",
+                   Arguments = "old_name: str, name: str = None, selection: Selection = None",
+                   Returns = "Surface")]
+        public SurfaceAPI replace(string old_name, string name = null, SelectionAPI selection = null)
         {
             _service.Replace(old_name, name, selection);
-            return this[name];
+            return this[name == null ? old_name : name];
+        }
+        [PythonAPI("Replaces an existing surface from a node set using command history.",
+                   Arguments = "old_name: str, name: str = None, node_set_name: str = None",
+                   Returns = "Surface")]
+        public SurfaceAPI replace_from_node_set(string old_name, string name = null, string node_set_name = null)
+        {
+            _service.ReplaceFromNodeSet(old_name, name, node_set_name);
+            return this[name == null ? old_name : name];
         }
         //
         protected override string[] GetItemNames()

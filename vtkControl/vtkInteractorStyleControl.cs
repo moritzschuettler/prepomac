@@ -147,6 +147,8 @@ namespace vtkControl
         protected vtkRenderer _selectionRenderer;
         protected vtkRenderer _overlayRenderer;
         protected vtkPolyDataMapper2D _selectionBackgroundMapper;
+        protected vtkPolyData _selectionBackgroundPolyData;
+        protected vtkPoints _selectionBackgroundPoints;
         protected vtkActor2D _selectionBackgroundActor;
         protected vtkActor2D _selectionBorderActor;
         //
@@ -329,7 +331,7 @@ namespace vtkControl
                 _boxSelection = false;
                 _selectionCanceled = false;
                 // Area selection
-                vtkPoints backgroundPoints = _selectionBackgroundMapper.GetInput().GetPoints();
+                vtkPoints backgroundPoints = _selectionBackgroundPoints;
                 backgroundPoints.SetPoint(0, _clickPos[0], _clickPos[1], 0.0);
                 backgroundPoints.SetPoint(1, _clickPos[0], _clickPos[1], 0.0);
                 backgroundPoints.SetPoint(2, _clickPos[0], _clickPos[1], 0.0);
@@ -907,19 +909,35 @@ namespace vtkControl
         }
         public static double[] WorldToDisplay(vtkRenderer renderer, double[] worldPos)
         {
-            IntPtr posOutPtr = Marshal.AllocHGlobal(2 * 8);
-            ComputeWorldToDisplay(renderer, worldPos[0], worldPos[1], worldPos[2], posOutPtr);
-            double[] displayPos = new double[2];
-            Marshal.Copy(posOutPtr, displayPos, 0, 2);
-            return displayPos;
+            // ComputeWorldToDisplay writes three doubles, not the two that are read back out of the buffer
+            IntPtr posOutPtr = Marshal.AllocHGlobal(3 * 8);
+            try
+            {
+                ComputeWorldToDisplay(renderer, worldPos[0], worldPos[1], worldPos[2], posOutPtr);
+                double[] displayPos = new double[2];
+                Marshal.Copy(posOutPtr, displayPos, 0, 2);
+                return displayPos;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(posOutPtr);
+            }
         }
         public static double[] DisplayToWorld(vtkRenderer renderer, double[] displayPos)
         {
-            IntPtr posOutPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(4 * 8);
-            ComputeDisplayToWorld(renderer, displayPos[0], displayPos[1], 0, posOutPtr);
-            double[] worldPos = new double[3];
-            System.Runtime.InteropServices.Marshal.Copy(posOutPtr, worldPos, 0, 3);
-            return worldPos;
+            // ComputeDisplayToWorld writes four doubles
+            IntPtr posOutPtr = Marshal.AllocHGlobal(4 * 8);
+            try
+            {
+                ComputeDisplayToWorld(renderer, displayPos[0], displayPos[1], 0, posOutPtr);
+                double[] worldPos = new double[3];
+                Marshal.Copy(posOutPtr, worldPos, 0, 3);
+                return worldPos;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(posOutPtr);
+            }
         }
         public static double DisplayToWorldScale(vtkRenderer renderer, int size = 1)
         {
@@ -1248,7 +1266,7 @@ namespace vtkControl
             }
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
-            vtkPoints backgroundPoints = _selectionBackgroundMapper.GetInput().GetPoints();
+            vtkPoints backgroundPoints = _selectionBackgroundPoints;
             //
             int id1 = 1;
             int id2 = 2;
@@ -1492,12 +1510,12 @@ namespace vtkControl
 
         private void InitializeBoxSelection()
         {
-            vtkPoints backgroundPoints = vtkPoints.New();
-            backgroundPoints.SetNumberOfPoints(4);
-            backgroundPoints.SetPoint(0, 0.0, 0.0, 0.0);
-            backgroundPoints.SetPoint(1, 10.5, 0.0, 0.0);
-            backgroundPoints.SetPoint(2, 10.5, 10.5, 0.0);
-            backgroundPoints.SetPoint(3, 0.0, 10.5, 0.0);
+            _selectionBackgroundPoints = vtkPoints.New();
+            _selectionBackgroundPoints.SetNumberOfPoints(4);
+            _selectionBackgroundPoints.SetPoint(0, 0.0, 0.0, 0.0);
+            _selectionBackgroundPoints.SetPoint(1, 10.5, 0.0, 0.0);
+            _selectionBackgroundPoints.SetPoint(2, 10.5, 10.5, 0.0);
+            _selectionBackgroundPoints.SetPoint(3, 0.0, 10.5, 0.0);
 
             vtkCellArray backgroundPolygon = vtkCellArray.New();
             backgroundPolygon.InsertNextCell(4);
@@ -1506,12 +1524,12 @@ namespace vtkControl
             backgroundPolygon.InsertCellPoint(2);
             backgroundPolygon.InsertCellPoint(3);
 
-            vtkPolyData backgroundPolyData = vtkPolyData.New();
-            backgroundPolyData.SetPoints(backgroundPoints);
-            backgroundPolyData.SetPolys(backgroundPolygon);
+            _selectionBackgroundPolyData = vtkPolyData.New();
+            _selectionBackgroundPolyData.SetPoints(_selectionBackgroundPoints);
+            _selectionBackgroundPolyData.SetPolys(backgroundPolygon);
 
             _selectionBackgroundMapper = vtkPolyDataMapper2D.New();
-            _selectionBackgroundMapper.SetInput(backgroundPolyData);
+            _selectionBackgroundMapper.SetInput(_selectionBackgroundPolyData);
 
             _selectionBackgroundActor = vtkActor2D.New();
             _selectionBackgroundActor.SetMapper(_selectionBackgroundMapper);
@@ -1529,7 +1547,7 @@ namespace vtkControl
             borderPolygon.InsertCellPoint(0);
 
             vtkPolyData borderPolyData = vtkPolyData.New();
-            borderPolyData.SetPoints(backgroundPoints);
+            borderPolyData.SetPoints(_selectionBackgroundPoints);
             borderPolyData.SetLines(borderPolygon);
 
             vtkPolyDataMapper2D borderMapper = vtkPolyDataMapper2D.New();

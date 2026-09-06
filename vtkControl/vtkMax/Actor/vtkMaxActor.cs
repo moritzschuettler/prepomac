@@ -41,6 +41,13 @@ namespace vtkControl
         protected vtkProperty _nodesProperty;
         //
         protected vtkPointData _geometryPointData;
+        // The animation resolves the mapper inputs once instead of on every frame. Each lookup goes through
+        // the ActiViz wrapper table, which is keyed by the native address, and a long animation makes enough
+        // of them for a recycled address to resolve to a dead entry
+        protected vtkPointSet _animationGeometryPointSet;
+        protected vtkPointData _animationGeometryPointData;
+        protected vtkPointSet _animationElementEdgesPointSet;
+        protected vtkPointSet _animationModelEdgesPointSet;
         protected vtkCellLocator _cellLocator;          // for surface picking
         protected vtkCellLocator _frustumCellLocator;   // for volume picking
         protected vtkPointData _frustumPointData;
@@ -90,6 +97,7 @@ namespace vtkControl
             set
             {
                 _geometryMapper = value;
+                InvalidateAnimationInputs();
                 if (_geometry != null) _geometry.SetMapper(_geometryMapper);
             }
         }
@@ -100,6 +108,7 @@ namespace vtkControl
             set
             {
                 _geometry = value;
+                InvalidateAnimationInputs();
                 if (_geometry != null)
                 {
                     _geometryMapper = _geometry.GetMapper();
@@ -113,6 +122,7 @@ namespace vtkControl
             set
             {
                 _elementEdges = value;
+                InvalidateAnimationInputs();
                 if (_elementEdges != null) _elementEdgesProperty = _elementEdges.GetProperty();
             }
         }
@@ -122,6 +132,7 @@ namespace vtkControl
             set
             {
                 _modelEdges = value;
+                InvalidateAnimationInputs();
                 if (_modelEdges != null) _modelEdgesProperty = _modelEdges.GetProperty();
             }
         }
@@ -1904,6 +1915,22 @@ namespace vtkControl
 
 
         // Animation                                                                                                                
+        private void InvalidateAnimationInputs()
+        {
+            _animationGeometryPointSet = null;
+            _animationGeometryPointData = null;
+            _animationElementEdgesPointSet = null;
+            _animationModelEdgesPointSet = null;
+        }
+        private void EnsureAnimationInputs()
+        {
+            if (_animationGeometryPointSet != null) return;
+            //
+            _animationGeometryPointSet = _geometryMapper?.GetInput() as vtkPointSet;
+            _animationGeometryPointData = _animationGeometryPointSet?.GetPointData();
+            _animationElementEdgesPointSet = _elementEdges?.GetMapper()?.GetInput() as vtkPointSet;
+            _animationModelEdgesPointSet = _modelEdges?.GetMapper()?.GetInput() as vtkPointSet;
+        }
         public double InitializeAnimation(vtkMaxActorData data)
         {
             if (data.Geometry.NodesAnimation == null)
@@ -1926,8 +1953,10 @@ namespace vtkControl
                 for (int i = 0; i < data.CellLocator.Nodes.Ids.Length; i++)
                     _animationLocatorNodeIdToPointId[data.CellLocator.Nodes.Ids[i]] = i;
             }
-            vtkPointSet geometryPointSet = _geometryMapper.GetInput() as vtkPointSet;
-            bool computeNormals = geometryPointSet.GetPointData().GetNormals() != null;
+            InvalidateAnimationInputs();
+            EnsureAnimationInputs();
+            vtkPointSet geometryPointSet = _animationGeometryPointSet;
+            bool computeNormals = _animationGeometryPointData.GetNormals() != null;
             double memorySizeKb = 0;
 
             for (int frameNumber = 0; frameNumber < numOfFrames; frameNumber++)
@@ -1978,20 +2007,20 @@ namespace vtkControl
             _frustumResultField = animationData.LocatorResultField;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             // Actor points
+            EnsureAnimationInputs();
             if (animationData.Points != null)
             {
-                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
-                pointSet.SetPoints(animationData.Points);
-                if (_elementEdges != null)
-                    (_elementEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.Points);
-                pointSet.GetPointData().SetNormals(animationData.PointNormals);
+                _animationGeometryPointSet.SetPoints(animationData.Points);
+                if (_animationElementEdgesPointSet != null)
+                    _animationElementEdgesPointSet.SetPoints(animationData.Points);
+                _animationGeometryPointData.SetNormals(animationData.PointNormals);
             }
             // Actor edges points
-            if (animationData.ModelEdgesPoints != null && _modelEdges != null)
-                (_modelEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.ModelEdgesPoints);
+            if (animationData.ModelEdgesPoints != null && _animationModelEdgesPointSet != null)
+                _animationModelEdgesPointSet.SetPoints(animationData.ModelEdgesPoints);
             // Values
             if (animationData.Values != null)
-                _geometryMapper.GetInput().GetPointData().SetScalars(animationData.Values);
+                _animationGeometryPointData.SetScalars(animationData.Values);
             // Min/max
             if (animationData.MinNode != null) _minNode = animationData.MinNode;
             if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;

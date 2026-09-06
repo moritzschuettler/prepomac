@@ -26,6 +26,7 @@ namespace APIs.Python
         private readonly MeshAPI _mesh;
         private readonly ResultHistoryOutputsAPI _historyOutputs;
         private readonly ResultFieldOutputsAPI _fieldOutputs;
+        private readonly IPythonCommandGateway _commandGateway;
 
 
         // Properties
@@ -49,17 +50,19 @@ namespace APIs.Python
 
         // Constructors
         internal ResultAPI(ResultResolver resolver, string resultName, ResultFieldOutputService resultFieldOutputService,
-                           ResultHistoryOutputService resultHistoryOutputService)
+                           ResultHistoryOutputService resultHistoryOutputService, SelectionService selectionService,
+                           IPythonCommandGateway commandGateway)
         {
             _resolver = resolver;
             _resultName = resultName;
             _resultFieldOutputService = resultFieldOutputService;
             _resultHistoryOutputService = resultHistoryOutputService;
+            _commandGateway = commandGateway;
             _dataService = new ResultDataService(resolver);
             _meshService = new MeshDataService(resolver);
             _resultHistoryService = new ResultHistoryOutputDataService(resolver);
             _steps = new ResultStepsAPI(_resultName, _dataService);
-            _mesh = new MeshAPI(_resultName, _meshService);
+            _mesh = new MeshAPI(_resultName, _meshService, selectionService, _commandGateway, _resolver);
             _historyOutputs = new ResultHistoryOutputsAPI(_resultName, _resultHistoryService, _resultHistoryOutputService);
             _fieldOutputs = new ResultFieldOutputsAPI(_resultName, _resultFieldOutputService);
         }
@@ -68,7 +71,8 @@ namespace APIs.Python
         // Methods
         public override string ToString()
         {
-            return "Result(name=" + StringListAPI.ToDisplayString(_resultName) + ", steps=" + _dataService.GetStepIds(_resultName).Length + ")";
+            return "Result(name=" + StringListAPI.ToDisplayString(_resultName) + ", steps=" +
+                   _dataService.GetStepIds(_resultName).Length + ")";
         }
         [PythonAPI("Returns one nodal field component value by node ID.",
                    Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str, node_id: int",
@@ -106,7 +110,8 @@ namespace APIs.Python
                                                         string entryName)
         {
             _resultHistoryService.ResolveEntry(_resultName, historyName, fieldName, componentName, entryName);
-            return new ResultHistoryOutputEntryAPI(_resultName, historyName, fieldName, componentName, entryName, _resultHistoryService);
+            return new ResultHistoryOutputEntryAPI(_resultName, historyName, fieldName, componentName, entryName,
+                                                   _resultHistoryService);
         }
         private FeResults Resolve()
         {

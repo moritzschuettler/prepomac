@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -45,6 +46,12 @@ namespace APIs.Python.Model
         {
             int[] creationIds = _service.ResolveItem(_itemName).CreationIds;
             return new IntListAPI(creationIds == null ? new int[0] : creationIds);
+        }
+        [PythonAPI("Returns the stored user meshing settings, including Gmsh and QuadWild options.", Returns = "dict")]
+        public Dictionary<string, object> get_settings()
+        {
+            MeshSetupItem item = _service.ResolveItem(_itemName);
+            return ModelItemValueReader.GetValues(item, typeof(MeshSetupItem));
         }
         public override string ToString()
         {

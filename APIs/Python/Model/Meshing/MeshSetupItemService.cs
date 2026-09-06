@@ -59,6 +59,27 @@ namespace APIs.Python.Model
             //
             return item;
         }
+        public MeshSetupItem CloneItem(string name)
+        {
+            MeshSetupItem item = ResolveItem(name);
+            if (item is MeshingParameters) return new MeshingParameters((MeshingParameters)item);
+            if (item is LocalMeshSize) return new LocalMeshSize((LocalMeshSize)item);
+            if (item is ThickenShellMesh) return new ThickenShellMesh((ThickenShellMesh)item);
+            if (item is TetrahedralGmsh) return new TetrahedralGmsh((TetrahedralGmsh)item);
+            if (item is ShellGmsh) return new ShellGmsh((ShellGmsh)item);
+            if (item is TransfiniteMesh) return new TransfiniteMesh((TransfiniteMesh)item);
+            if (item is ExtrudeMesh) return new ExtrudeMesh((ExtrudeMesh)item);
+            if (item is RevolveMesh) return new RevolveMesh((RevolveMesh)item);
+            if (item is SweepMesh)
+            {
+                SweepMesh sweepMesh = new SweepMesh(item.Name);
+                sweepMesh.CopyFrom((SweepMesh)item);
+                return sweepMesh;
+            }
+            if (item is ShellQuadWild) return new ShellQuadWild((ShellQuadWild)item);
+            //
+            throw new PythonAPIException("The mesh setup item type '" + item.GetType().Name + "' cannot be cloned.");
+        }
         public MeshingParameters CreateDefaultMeshingParameters(string name)
         {
             EnsureCommandsAvailable();
@@ -71,7 +92,10 @@ namespace APIs.Python.Model
         }
         public void Add(MeshSetupItem item, string name, SelectionAPI selection)
         {
-            PrepareItem(item, name, selection, null);
+            ValidateName(name, null);
+            if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
+            item.Name = name;
+            ApplySelection(item, selection);
             //
             EnsureCommandsAvailable();
             _meshGateway.AddMeshSetupItem(item);
@@ -79,7 +103,10 @@ namespace APIs.Python.Model
         public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection)
         {
             ResolveItem(oldName);
-            PrepareItem(item, name, selection, oldName);
+            ValidateName(name, oldName);
+            item.Name = name;
+            // A replacement keeps the region it was created from until a new selection is given
+            if (selection != null) ApplySelection(item, selection);
             //
             EnsureCommandsAvailable();
             _meshGateway.ReplaceMeshSetupItem(oldName, item);
@@ -128,13 +155,10 @@ namespace APIs.Python.Model
             return names;
         }
         //
-        private void PrepareItem(MeshSetupItem item, string name, SelectionAPI selection, string allowedExistingName)
+        private void ApplySelection(MeshSetupItem item, SelectionAPI selection)
         {
-            ValidateName(name, allowedExistingName);
-            if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
             // A mesh setup item without creation data is rejected by the controller
             SelectionCompilation compilation = _selectionService.CompileForView(selection, "geometry", "geometry");
-            item.Name = name;
             item.CreationData = compilation.Selection;
             item.CreationIds = compilation.Ids;
         }

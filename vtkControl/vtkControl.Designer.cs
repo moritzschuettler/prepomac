@@ -90,6 +90,7 @@ namespace vtkControl
         }
 
         private bool AttachedInteractor;
+        private bool Rendering;
 
         private void AttachInteractor()
         {
@@ -446,23 +447,35 @@ namespace vtkControl
         {
             if (this._renderWindow != null && _renderingOn)
             {
-                if (this.Visible)
+                // A paint that arrives while VTK is already rendering would reenter the render window, which
+                // is not reentrant. The skipped region is covered by the render that is already running, since
+                // VTK draws the whole window rather than the invalidated rectangle
+                if (this.Visible && !this.Rendering && !this.IsDisposed && !this.Disposing)
                 {
-                    this.SyncRenderWindowSize();
-                    //
-                    if (this._renderWindow.GetInteractor() != this._renderWindowInteractor)
+                    this.Rendering = true;
+                    try
                     {
-                        // On X11, the SetInteractor method cannot be called until the parent
-                        // window is already visible/mapped/painting... Since SetInteractor
-                        // is the method that does this in VTK, we avoid calling it until now:
-                        // when our parent has definitely shown us and we are in the process
-                        // of painting.
+                        this.SyncRenderWindowSize();
                         //
-                        this.AttachInteractor();
-                        //this._renderWindow.Render();
+                        if (!this.AttachedInteractor)
+                        {
+                            // On X11, the SetInteractor method cannot be called until the parent
+                            // window is already visible/mapped/painting... Since SetInteractor
+                            // is the method that does this in VTK, we avoid calling it until now:
+                            // when our parent has definitely shown us and we are in the process
+                            // of painting.
+                            //
+                            // Asking the render window for its interactor instead would look the native address
+                            // up in the ActiViz wrapper table on every single paint, which is the busiest path
+                            // in the control
+                            this.AttachInteractor();
+                        }
+                        this._renderWindow.Render();
                     }
-                    this._renderWindow.Render();
-                    //System.Console.WriteLine(System.DateTime.Now + ": OnRender");
+                    finally
+                    {
+                        this.Rendering = false;
+                    }
                 }
                 base.OnPaint(e);
             }

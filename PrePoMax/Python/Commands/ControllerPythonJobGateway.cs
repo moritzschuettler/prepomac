@@ -66,9 +66,9 @@ namespace PrePoMax.Python
             // The view is passed explicitly so that a script does not depend on the view the user left behind
             _controller.RenameCommand(job, newName, null, ViewGeometryModelResults.Model);
         }
-        public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool runSynchronous)
+        public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool runSynchronous, int timeoutMilliseconds = 0)
         {
-            return _controller.PrepareAndRunJobCommand(jobName, onlyCheckModel, runSynchronous);
+            return _controller.PrepareAndRunJobCommand(jobName, onlyCheckModel, runSynchronous, timeoutMilliseconds);
         }
         public void KillJob(string jobName, string message)
         {

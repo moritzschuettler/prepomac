@@ -22,9 +22,11 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         protected vtkPolyDataMapper2D _colorBarBorderMapper;
+        protected vtkPolyData _colorBarBorderPolyData;
         protected vtkActor2D _colorBarBorderActor;
         //
         protected vtkPolyDataMapper2D _colorBarColorsMapper;
+        protected vtkPolyData _colorBarColorsPolyData;
         protected vtkActor2D _colorBarColorsActor;
         //
         protected vtkActor2D _textActorFooter;
@@ -92,12 +94,12 @@ namespace vtkControl
         private void InitializeBar()
         {
             // Bar border                                                                          
-            vtkPolyData colorBarPolyData = vtkPolyData.New();
-            colorBarPolyData.SetPoints(vtkPoints.New());
-            colorBarPolyData.SetPolys(vtkCellArray.New());
+            _colorBarBorderPolyData = vtkPolyData.New();
+            _colorBarBorderPolyData.SetPoints(vtkPoints.New());
+            _colorBarBorderPolyData.SetPolys(vtkCellArray.New());
             //
             _colorBarBorderMapper = vtkPolyDataMapper2D.New();
-            _colorBarBorderMapper.SetInput(colorBarPolyData);
+            _colorBarBorderMapper.SetInput(_colorBarBorderPolyData);
             //
             vtkProperty2D colorBarProperty = vtkProperty2D.New();
             colorBarProperty.SetColor(0, 0, 0);
@@ -109,12 +111,12 @@ namespace vtkControl
             _colorBarBorderActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
             _colorBarBorderActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
             // Bar filled                                                                          
-            colorBarPolyData = vtkPolyData.New();
-            colorBarPolyData.SetPoints(vtkPoints.New());
-            colorBarPolyData.SetPolys(vtkCellArray.New());
+            _colorBarColorsPolyData = vtkPolyData.New();
+            _colorBarColorsPolyData.SetPoints(vtkPoints.New());
+            _colorBarColorsPolyData.SetPolys(vtkCellArray.New());
             //
             _colorBarColorsMapper = vtkPolyDataMapper2D.New();
-            _colorBarColorsMapper.SetInput(colorBarPolyData);
+            _colorBarColorsMapper.SetInput(_colorBarColorsPolyData);
             //
             _colorBarColorsActor = vtkActor2D.New();
             _colorBarColorsActor.SetMapper(_colorBarColorsMapper);
@@ -218,9 +220,8 @@ namespace vtkControl
             colorBarLines.InsertCellPoint(2 * (numOfTableColors + 1));
             colorBarLines.InsertCellPoint(2 * (numOfTableColors + 1) + 1);
             //
-            vtkPolyData colorBarPoly = _colorBarBorderMapper.GetInput();
-            colorBarPoly.SetPoints(colorBarPoints);
-            colorBarPoly.SetLines(colorBarLines);
+            _colorBarBorderPolyData.SetPoints(colorBarPoints);
+            _colorBarBorderPolyData.SetLines(colorBarLines);
             //
             _colorBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
@@ -263,9 +264,8 @@ namespace vtkControl
                 colorBarLines.InsertCellPoint(4 * i + 3);
             }
             //
-            vtkPolyData colorBarPoly = _colorBarBorderMapper.GetInput();
-            colorBarPoly.SetPoints(colorBarPoints);
-            colorBarPoly.SetLines(colorBarLines);
+            _colorBarBorderPolyData.SetPoints(colorBarPoints);
+            _colorBarBorderPolyData.SetLines(colorBarLines);
             //
             _colorBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
@@ -302,11 +302,10 @@ namespace vtkControl
                 colors.SetValue(i, numOfTableColors - 1 - i);
             }
             //
-            vtkPolyData colorBarPoly = _colorBarColorsMapper.GetInput();
-            colorBarPoly.SetPoints(colorBarPoints);
-            colorBarPoly.SetPolys(colorBarPolygons);
+            _colorBarColorsPolyData.SetPoints(colorBarPoints);
+            _colorBarColorsPolyData.SetPolys(colorBarPolygons);
             // Set colors
-            _colorBarColorsMapper.GetInput().GetCellData().SetScalars(colors);
+            _colorBarColorsPolyData.GetCellData().SetScalars(colors);
             //
             double[] range = _lookupTable.GetRange();
             _colorBarColorsMapper.SetScalarRange(range[0], range[1]);

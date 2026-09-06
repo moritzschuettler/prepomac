@@ -18,21 +18,20 @@ only when that mesher's binary is actually present in the base folder.
 | QuadWild-BiMDF 0.0.2 | `Meshers\QuadWild\quadwild.exe`, `Meshers\QuadWild\quad_from_patches.exe`, vendored in `ThirdParty/quadwild-bimdf/` | GPL-3.0 | `LICENSE` at github.com/cgg-bern/quadwild-bimdf |
 | NetGenMesher | `Meshers\Netgen\NetGenMesher.exe`, vendored in `ThirdParty/netgen/` | GPL-3.0 (own build, same license as PrePoMax) | the author |
 | Netgen 5.3.1 | `Meshers\Netgen\nglib.dll` | LGPL-2.1 | `LICENSE` at github.com/NGSolve/netgen |
-| OpenCASCADE 8.0.0 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
+| OpenCASCADE 8.0.1 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | pthreads-win32 2.9.1 | `Meshers\Netgen\pthreadVC2.dll` | LGPL-2.1 | `COPYING.LIB` in the prebuilt package used for the build |
+| zlib 1.2.11 | `Meshers\Netgen\zlib.dll` | zlib License | license notice in the vendored `zlib.h` |
 
 Gmsh, Mmg and QuadWild are all GPL/LGPL v3-compatible with PrePoMax's own GPL-3.0, so bundling them
 raises no license-compatibility question. Mmg's own LICENSE requires that both `COPYING.LESSER`
 (LGPL-3) and `COPYING` (GPL-3) travel with the binaries, which is why all three files are here.
 
-## Partly unresolved: the Netgen folder
+## Netgen runtime set
 
 `NetGenMesher.exe` is the author's own build and is GPL-3, and the libraries it links are covered
-above. But `Meshers\Netgen` also ships ten image/video/compression dlls that come with the
-OpenCASCADE binary distribution (FreeImage, FFmpeg, FreeType, jemalloc, OpenVR, TBB, zlib) whose
-exact terms have not been established - several are dual-licensed or depend on build flags.
-See [netgen/NOTICE.md](netgen/NOTICE.md); 48 of the 91 dlls in that folder are never loaded and
-could simply be dropped.
+above. OpenCASCADE 8.0.1 was built locally with its optional image, video, visualization and
+parallel-runtime dependencies disabled, so the former FreeImage, FFmpeg, FreeType, jemalloc,
+OpenVR and TBB dlls no longer ship. See [netgen/NOTICE.md](netgen/NOTICE.md).
 
 ## Corresponding source
 

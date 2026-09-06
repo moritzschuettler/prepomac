@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeModel;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,11 @@ namespace APIs.Python.Model
         public string name { get { return _service.ResolveMaterial(_materialName).Name; } }
         [PythonAPI("The material description.", Returns = "str")]
         public string description { get { return _service.ResolveMaterial(_materialName).Description; } }
+        [PythonAPI("Whether every material-property row is temperature dependent.", Returns = "bool")]
+        public bool temperature_dependent
+        {
+            get { return _service.ResolveMaterial(_materialName).TemperatureDependent; }
+        }
         [PythonAPI("The number of material properties.", Returns = "int")]
         public int property_count { get { return _service.ResolveMaterial(_materialName).Properties.Count; } }
 
@@ -44,6 +50,13 @@ namespace APIs.Python.Model
         {
             List<MaterialProperty> properties = _service.ResolveMaterial(_materialName).Properties;
             return new StringListAPI(properties.Select(property => property.GetType().Name).ToArray());
+        }
+        [PythonAPI("Returns detached copies of all material properties, including their value tables.",
+                   Returns = "list[MaterialProperty]")]
+        public MaterialProperty[] get_properties()
+        {
+            Material material = _service.ResolveMaterial(_materialName).DeepClone();
+            return material.Properties.ToArray();
         }
         public override string ToString()
         {

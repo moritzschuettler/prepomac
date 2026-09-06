@@ -68,12 +68,35 @@ namespace APIs.Python.Model
                     if (Enum.IsDefined(enumType, value)) value = value.ToString();
                     else value = string.Join(", ", PythonValueConverter.FromFlagsEnum(enumType, value));
                 }
+                // A list valued setting, such as the layer sizes of a multi layer mesh, is part of the
+                // definition, so a snapshot that leaves it out is not a complete one
+                else if (property.PropertyType == typeof(double[]) || property.PropertyType == typeof(int[]))
+                {
+                    Array storedValues = value as Array;
+                    value = storedValues == null ? null : storedValues.Clone();
+                }
                 else if (!IsSimpleType(property.PropertyType)) continue;
                 //
                 values[name] = value;
             }
             //
             return values;
+        }
+        public static Dictionary<string, string> GetEquations(object item)
+        {
+            Dictionary<string, string> equations = new Dictionary<string, string>();
+            PropertyInfo[] properties = item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (PropertyInfo property in properties)
+            {
+                if (property.GetIndexParameters().Length > 0) continue;
+                if (property.PropertyType != typeof(EquationContainer)) continue;
+                //
+                EquationContainer equation = property.GetValue(item, null) as EquationContainer;
+                // The stored text is the expression the user entered, which is what a journal has to emit
+                if (equation != null) equations[ToPythonName(property.Name)] = equation.String;
+            }
+            //
+            return equations;
         }
         public static object GetValue(object item, Type baseType, string name, string itemTypeName)
         {

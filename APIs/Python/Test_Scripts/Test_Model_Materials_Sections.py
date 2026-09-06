@@ -8,6 +8,9 @@
 #
 #Expected process exit code 0.
 
+import os
+import tempfile
+
 PREFIX = "PyTest_"
 
 
@@ -49,14 +52,62 @@ def test_materials():
     materials.add(PREFIX + "Simple", pmx.create.elastic_with_density(70000, 0.33, 2.7e-9))
     check(pmx.model.materials[PREFIX + "Simple"].property_count == 1, "the single property was not stored")
     # Temperature dependent properties are given as rows, the last value being the temperature
-    materials.add(PREFIX + "Temp", [pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]),
-                                    pmx.create.thermal_expansion([[1.2e-5, 0], [1.4e-5, 400]])])
-    check(pmx.model.materials[PREFIX + "Temp"].property_count == 2, "the tabular properties were not stored")
+    temp = materials.add(PREFIX + "Temp",
+                         [pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]),
+                          pmx.create.thermal_expansion([[1.2e-5, 0], [1.4e-5, 400]])],
+                         temperature_dependent=True)
+    check(temp.property_count == 2, "the tabular properties were not stored")
+    check(temp.temperature_dependent, "the temperature-dependent flag was not stored")
+    # Orthotropic and lamina tables use v12/v13/v23 and carry temperature as the last value
+    engineering = materials.add(
+        PREFIX + "Engineering",
+        pmx.create.elastic_engineering_constants([
+            [140000, 10000, 9000, 0.28, 0.27, 0.35, 5000, 4500, 3500, 20],
+            [123457, 9000, 8000, 0.27, 0.26, 0.34, 4500, 4000, 3000, 321]]),
+        temperature_dependent=True)
+    check(list(engineering.get_property_types()) == ["ElasticEngineeringConstants"],
+          "the engineering constants property was not stored")
+    check(engineering.temperature_dependent, "engineering constants lost temperature dependence")
+    lamina = materials.add(
+        PREFIX + "Lamina",
+        pmx.create.elastic_lamina([
+            [135000, 9500, 0.28, 5000, 4500, 3500, 20],
+            [125001, 9000, 0.27, 4500, 4000, 3000, 322]]),
+        description="Test lamina", temperature_dependent=True)
+    check(list(lamina.get_property_types()) == ["ElasticLamina"], "the lamina property was not stored")
+    # An omitted replace argument keeps its old value, including the property and the temperature flag
+    lamina = materials.replace(PREFIX + "Lamina", description="Updated lamina")
+    check(lamina.description == "Updated lamina", "the lamina description was not replaced")
+    check(lamina.temperature_dependent, "replace lost the lamina temperature-dependent flag")
+    check(list(lamina.get_property_types()) == ["ElasticLamina"], "replace lost the lamina property")
+    # The Python-created state must reach the shared CalculiX/Abaqus material exporter
+    export_file = os.path.join(tempfile.gettempdir(), "pytest_orthotropic_materials.inp")
+    if os.path.isfile(export_file):
+        os.remove(export_file)
+    pmx.export_to_calculix(export_file)
+    with open(export_file, "r") as reader:
+        exported = reader.read()
+    os.remove(export_file)
+    engineering_block = exported.split("*Material, Name=" + PREFIX + "Engineering", 1)[1]
+    engineering_block = engineering_block.split("*Material, Name=", 1)[0]
+    lamina_block = exported.split("*Material, Name=" + PREFIX + "Lamina", 1)[1]
+    lamina_block = lamina_block.split("*Material, Name=", 1)[0]
+    check("*Elastic, Type=Engineering constants" in engineering_block,
+          "engineering constants were not exported")
+    check("123457" in engineering_block and "321" in engineering_block,
+          "the second temperature-dependent engineering row was not exported")
+    check("*Elastic, Type=Engineering constants" in lamina_block, "lamina was not exported")
+    check("125001" in lamina_block and "322" in lamina_block,
+          "the second temperature-dependent lamina row was not exported")
     # The model rejects a second elastic property
     check_raises(lambda: materials.add(PREFIX + "Bad", [pmx.create.elastic(1, 0.3), pmx.create.elastic(2, 0.3)]),
                  "a second elastic property must be rejected")
     # A row of the wrong width is rejected
     check_raises(lambda: pmx.create.elastic([[210000, 0.3]]), "a 2 value elastic row must be rejected")
+    check_raises(lambda: pmx.create.elastic_engineering_constants([[1, 2, 3, 0.1, 0.1, 0.1, 4, 5, 6]]),
+                 "a 9 value engineering constants row must be rejected")
+    check_raises(lambda: pmx.create.elastic_lamina([[1, 2, 0.1, 3, 4, 5]]),
+                 "a 6 value lamina row must be rejected")
     check_raises(lambda: pmx.create.plastic(200), "plastic must require a table")
     # Only parts created by pmx.create are accepted
     check_raises(lambda: materials.add(PREFIX + "Bad", ["not a property"]),
@@ -66,7 +117,7 @@ def test_materials():
     materials.rename(PREFIX + "Simple", PREFIX + "Renamed")
     check(materials.contains(PREFIX + "Renamed"), "the material was not renamed")
     materials.duplicate([PREFIX + "Renamed"])
-    check(len(materials) == count_before + 4, "the material was not duplicated")
+    check(len(materials) == count_before + 6, "the material was not duplicated")
     return PREFIX + "Steel"
 
 

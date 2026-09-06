@@ -25,8 +25,15 @@ namespace vtkControl
             if (renderer != null)
             {
                 IntPtr sizeIntPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(2 * 4);
-                textMapper.GetSize(renderer, sizeIntPtr);
-                System.Runtime.InteropServices.Marshal.Copy(sizeIntPtr, size, 0, 2);
+                try
+                {
+                    textMapper.GetSize(renderer, sizeIntPtr);
+                    System.Runtime.InteropServices.Marshal.Copy(sizeIntPtr, size, 0, 2);
+                }
+                finally
+                {
+                    System.Runtime.InteropServices.Marshal.FreeHGlobal(sizeIntPtr);
+                }
             }
             else
             {

@@ -74,6 +74,7 @@
     <Compile Include="Python\Commands\IPythonSelectionGateway.cs" />
     <Compile Include="Python\Common\IMeshResolver.cs" />
     <Compile Include="Python\Common\MeshResolver.cs" />
+    <Compile Include="Python\Common\CoordinateSystemValidator.cs" />
     <Compile Include="Python\Common\PythonValueConverter.cs" />
     <Compile Include="Python\Common\PythonObjectListConverter.cs" />
     <Compile Include="Python\Create\StepPartFactory.cs" />
@@ -190,6 +191,12 @@
     <Compile Include="Python\Mesh\ResultMeshRegionAPI.cs" />
     <Compile Include="Python\Mesh\Surfaces\ResultSurfaceAPI.cs" />
     <Compile Include="Python\Mesh\Surfaces\ResultSurfacesAPI.cs" />
+    <Compile Include="Python\Results\ResultCoordinateSystemsAPI.cs" />
+    <Compile Include="Python\Results\ResultReferencePointsAPI.cs" />
+    <Compile Include="Python\Model\Keywords\KeywordsAPI.cs" />
+    <Compile Include="Python\Model\Tree\TreeAPI.cs" />
+    <Compile Include="Python\Model\Keywords\KeywordEntryAPI.cs" />
+    <Compile Include="Python\Model\Keywords\KeywordOverrideAPI.cs" />
     <Compile Include="Python\PrePoMaxAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldComponentAPI.cs" />
@@ -250,6 +257,7 @@
     <Compile Include="Python\Selection\SelectionCompilation.cs" />
     <Compile Include="Python\Selection\SelectionFactoryAPI.cs" />
     <Compile Include="Python\Selection\SelectionItemAPI.cs" />
+    <Compile Include="Python\Selection\SelectionPickAPI.cs" />
     <Compile Include="Python\Selection\SelectionService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

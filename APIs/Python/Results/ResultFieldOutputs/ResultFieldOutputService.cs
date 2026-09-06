@@ -125,6 +125,18 @@ namespace APIs.Python
             //
             return CreateAPI(resultName, fieldOutput.Name);
         }
+        public void DuplicateFieldOutputs(string resultName, object fieldOutputNames)
+        {
+            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "field_output_names");
+            ValidateStringList(names, "field_output_names");
+            FeResults result = ResolveCurrentResult(resultName);
+            foreach (string name in names)
+                if (!result.ContainsResultFieldOutput(name))
+                    throw new PythonAPIException("The result field output '" + name + "' does not exist in " +
+                                                 "result '" + resultName + "'.");
+            EnsureCommandsAvailable();
+            _commandGateway.DuplicateResultFieldOutputs(names);
+        }
         public void RemoveFieldOutputs(string resultName, object fieldOutputNames)
         {
             string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "field_output_names");
