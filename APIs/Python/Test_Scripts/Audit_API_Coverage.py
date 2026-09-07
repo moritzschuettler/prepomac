@@ -37,6 +37,7 @@ EMITTED_NAME_EXCEPTIONS = {
     "pmx": "the root API object",
     "femodel": "a selection view",
     "edges": "a selection target",
+    "geometry_surfaces": "a selection target",
     "all_nodes": "a field filter source",
     "surface_nodes": "a field filter source",
     "cavity_name": "an argument name",

@@ -24,9 +24,10 @@ namespace APIs.Python
 
         // Methods
         [PythonAPI("Creates an ID-based selection draft. Possible view values are 'geometry', 'femodel', and " +
-                   "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'parts', and " +
-                   "'geometry'. Possible source values are 'nodes', 'elements', 'vertices', 'edges', " +
-                   "'surfaces', and 'parts'. Edge and surface IDs are 1-based Query IDs grouped by part ID.",
+                   "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'edges', 'parts', " +
+                   "'geometry', and 'geometry_surfaces'. Possible source values are 'nodes', 'elements', " +
+                   "'vertices', 'edges', 'surfaces', and 'parts'. Edge and surface IDs are 1-based Query IDs " +
+                   "grouped by part ID.",
                    Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]]",
                    Returns = "Selection")]
         public SelectionAPI create_by_ids(string view, string target, string source, object ids)

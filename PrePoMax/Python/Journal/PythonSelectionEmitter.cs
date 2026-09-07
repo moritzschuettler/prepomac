@@ -254,6 +254,7 @@ namespace PrePoMax.Python.Journal
             if (selectItem == vtkSelectItem.GeometryEdge) return "edges";
             if (selectItem == vtkSelectItem.Part) return "parts";
             if (selectItem == vtkSelectItem.Geometry) return "geometry";
+            if (selectItem == vtkSelectItem.GeometrySurface) return "geometry_surfaces";
             //
             throw new NotSupportedException("the selection target " + selectItem + " has no API form");
         }

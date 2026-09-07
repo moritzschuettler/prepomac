@@ -399,8 +399,8 @@ different mesh re-resolves them.
 
 ### `MeshSetupItems`
 
-Every setup item is created from a selection built in the `geometry` view with the `geometry` target,
-because the application rejects a setup item without creation data.
+Every setup item is created from a selection built in the `geometry` view, because the application
+rejects a setup item without creation data. The target follows the item type, as it does in the dialog.
 
 | Member | Description |
 | --- | --- |
@@ -432,6 +432,13 @@ item:
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle` |
 | `extrude_mesh`, `revolve_mesh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `element_size_type`, `element_scale_factor`, `number_of_elements`, `layer_sizes`, `elements_per_layer`; `revolve_mesh` also takes `create_full_360_model` |
 | `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer` |
+
+A mesh setup item takes the selection its dialog would have recorded, which is also what a session
+journal replays: a whole part mesher - `meshing_parameters`, `shell_gmsh`, `shell_quad_wild`,
+`thicken_shell_mesh`, `tetrahedral_gmsh` and `transfinite_mesh` - takes a `parts` selection or the
+`geometry` those parts cover, an element size takes `geometry`, a number of elements takes `edges`,
+and an extruded, revolved or swept mesh takes `geometry_surfaces` - the source faces it is built
+from. A target the item is not defined on is refused rather than silently stored.
 
 The extrusion direction and centre, and the revolution axis, angle and middle radius, are derived by
 the model from the selected source surfaces. `add_extrude_mesh` and `add_revolve_mesh` still name
@@ -1302,7 +1309,7 @@ continue.
 
 Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
 
-Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, and `"geometry"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
+Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
 
 Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
 
@@ -1328,6 +1335,7 @@ Supported conversions:
 | `edges` | `edges` |
 | `parts` | `vertices`, `edges`, `surfaces`, `parts` |
 | `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
+| `geometry_surfaces` | `surfaces` |
 | any target | `geometry` |
 
 The `geometry` source is the exception to the table. It takes the **geometry IDs** the application

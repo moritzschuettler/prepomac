@@ -34,6 +34,14 @@ namespace PrePoMax.Python.Journal
         public static string GetText(List<Command> commands, string fileName, string sourceDescription,
                                      out PythonJournalReport report)
         {
+            int[] commandFirstLineNumbers;
+            return GetText(commands, fileName, sourceDescription, out report, out commandFirstLineNumbers);
+        }
+        // The line numbers say where each command's own lines start, so that a caller showing the script next to the
+        // command history can point at the lines a selected command produced
+        public static string GetText(List<Command> commands, string fileName, string sourceDescription,
+                                     out PythonJournalReport report, out int[] commandFirstLineNumbers)
+        {
             PythonJournalWriter writer = new PythonJournalWriter();
             int commandCount = commands == null ? 0 : commands.Count;
             //
@@ -42,9 +50,9 @@ namespace PrePoMax.Python.Journal
                 for (int i = 0; i < commands.Count; i++)
                 {
                     Command command = commands[i];
+                    writer.BeginCommand(i);
                     if (command == null) continue;
                     //
-                    writer.CommandIndex = i;
                     try
                     {
                         command.ToPython(writer);
@@ -58,7 +66,23 @@ namespace PrePoMax.Python.Journal
             //
             report = new PythonJournalReport(fileName, commandCount, writer.EmittedCommandCount, writer.Refusals);
             //
-            return GetHeader(fileName, sourceDescription, report) + writer.GetText();
+            string header = GetHeader(fileName, sourceDescription, report);
+            int headerLineCount = GetLineCount(header);
+            //
+            commandFirstLineNumbers = new int[writer.CommandFirstLineIndices.Count];
+            for (int i = 0; i < commandFirstLineNumbers.Length; i++)
+                commandFirstLineNumbers[i] = headerLineCount + writer.CommandFirstLineIndices[i] + 1;
+            //
+            return header + writer.GetText();
+        }
+        private static int GetLineCount(string text)
+        {
+            int count = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] == '\n') count++;
+            }
+            return count;
         }
         private static string GetHeader(string fileName, string sourceDescription, PythonJournalReport report)
         {

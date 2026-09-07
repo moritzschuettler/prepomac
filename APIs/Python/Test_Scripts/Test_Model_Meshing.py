@@ -74,6 +74,35 @@ def test_setup_items(part_name, selection):
     check(len(items) == count_before, "the items were not removed")
 
 
+def test_dialog_targets(part_name):
+    # The dialog points the picker at what the item type is defined on, and a session journal replays
+    # exactly that, so a whole part mesher must take a part selection and not only a geometry one
+    items = pmx.model.mesh.setup_items
+    part = pmx.model.geometry.parts[part_name]
+    part_selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+    #
+    items.add_shell_gmsh("PyTest_Part_target", part_selection)
+    check(items.contains("PyTest_Part_target"), "a part selection was refused by a whole part mesher")
+    check(len(items["PyTest_Part_target"].get_geometry_ids()) > 0, "the part selection resolved to nothing")
+    items.remove(["PyTest_Part_target"])
+    # A local mesh size is defined on a geometry entity or an edge, so a part selection is not its target
+    check_raises(lambda: items.add_local_mesh_size("PyTest_Bad", part_selection, element_size=0.25),
+                 "a part selection must be refused by an element size")
+    check_raises(lambda: items.add_local_mesh_size("PyTest_Bad", part_selection, number_of_elements=4),
+                 "a part selection must be refused by a number of elements")
+    # A sweep, extrude or revolve mesh is defined on the geometry surfaces it is built from
+    surface_selection = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [1]})
+    items.add_sweep_mesh("PyTest_Surface_target", surface_selection)
+    check(items.contains("PyTest_Surface_target"), "a geometry surface selection was refused by a sweep mesh")
+    check(len(items["PyTest_Surface_target"].get_geometry_ids()) > 0, "the surface selection resolved to nothing")
+    items.remove(["PyTest_Surface_target"])
+    check_raises(lambda: items.add_shell_gmsh("PyTest_Bad", surface_selection),
+                 "a geometry surface selection must be refused by a whole part mesher")
+    # Only faces name a geometry surface
+    check_raises(lambda: pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'parts', [part.id]),
+                 "a part source must be refused for a geometry surface target")
+
+
 def test_meshing(part_name, selection):
     pmx.model.mesh.setup_items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection, max_size=0.5)
     check_raises(lambda: pmx.model.mesh.create("NoSuchPart"), "an unknown part must be rejected")
@@ -91,6 +120,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     part_name, selection = get_part_selection()
     test_setup_items(part_name, selection)
+    test_dialog_targets(part_name)
     test_meshing(part_name, selection)
     print("TEST PASSED")
 

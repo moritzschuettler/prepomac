@@ -23,8 +23,10 @@ namespace PrePoMax.Python.Journal
         private readonly StringBuilder _builder;
         private readonly PythonJournalScope _scope;
         private readonly List<string> _refusals;
+        private readonly List<int> _commandFirstLineIndices;
         private int _emittedCommandCount;
         private int _commandIndex;
+        private int _lineIndex;
 
 
         // Properties                                                                                                               
@@ -35,6 +37,8 @@ namespace PrePoMax.Python.Journal
         // a session can tell whether it is there
         public int CommandIndex { get { return _commandIndex; } set { _commandIndex = value; } }
         public int RefusedCommandCount { get { return _refusals.Count; } }
+        // The line each command started at, so that a caller showing the script can pair a line with its command
+        public List<int> CommandFirstLineIndices { get { return _commandFirstLineIndices; } }
 
 
         // Constructors                                                                                                             
@@ -43,19 +47,28 @@ namespace PrePoMax.Python.Journal
             _builder = new StringBuilder();
             _scope = new PythonJournalScope();
             _refusals = new List<string>();
+            _commandFirstLineIndices = new List<int>();
             _emittedCommandCount = 0;
             _commandIndex = 0;
+            _lineIndex = 0;
         }
 
 
         // Methods                                                                                                                  
+        public void BeginCommand(int commandIndex)
+        {
+            _commandIndex = commandIndex;
+            _commandFirstLineIndices.Add(_lineIndex);
+        }
         public void Line(string line)
         {
             _builder.AppendLine(line == null ? "" : line);
+            _lineIndex++;
         }
         public void Blank()
         {
             _builder.AppendLine();
+            _lineIndex++;
         }
         public void Comment(string comment)
         {
@@ -98,13 +111,16 @@ namespace PrePoMax.Python.Journal
         {
             return callee + "(" + ArgumentList(arguments) + ")";
         }
+        // A call carrying a rebuilt selection or a long id list is far too long for one line, so the
+        // emitted code is wrapped; a comment and a recorded script keep the lines they were written with
         public void Statement(string statement)
         {
-            Line(statement);
+            List<string> wrapped = PythonCodeFormatter.Wrap(statement);
+            for (int i = 0; i < wrapped.Count; i++) Line(wrapped[i]);
         }
         public void Assign(string variableName, string expression)
         {
-            Line(variableName + " = " + expression);
+            Statement(variableName + " = " + expression);
         }
         // A null argument is one the caller chose to leave at its default, so it is left out
         public static string ArgumentList(params string[] arguments)

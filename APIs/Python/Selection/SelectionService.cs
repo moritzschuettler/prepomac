@@ -541,10 +541,10 @@ namespace APIs.Python
         }
         private static void ValidateTarget(string target)
         {
-            if (target != "nodes" && target != "elements" && target != "surfaces" &&
-                target != "edges" && target != "parts" && target != "geometry")
+            if (target != "nodes" && target != "elements" && target != "surfaces" && target != "edges" &&
+                target != "parts" && target != "geometry" && target != "geometry_surfaces")
                 throw new PythonAPIException("The argument 'target' must be 'nodes', 'elements', 'surfaces', " +
-                                             "'edges', 'parts', or 'geometry'.");
+                                             "'edges', 'parts', 'geometry', or 'geometry_surfaces'.");
         }
         private static void ValidateSource(string source)
         {
@@ -567,7 +567,9 @@ namespace APIs.Python
                          (target == "parts" && (source == "vertices" || source == "edges" ||
                                                 source == "surfaces" || source == "parts")) ||
                          (target == "geometry" && (source == "vertices" || source == "edges" ||
-                                                   source == "surfaces" || source == "parts"));
+                                                   source == "surfaces" || source == "parts")) ||
+                         // A geometry surface is the face itself, so only faces name one
+                         (target == "geometry_surfaces" && source == "surfaces");
             if (!valid)
                 throw new PythonAPIException("Selection source '" + source + "' cannot be converted to target '" +
                                              target + "'.");
@@ -586,6 +588,7 @@ namespace APIs.Python
             if (target == "edges") return vtkSelectItem.GeometryEdge;
             if (target == "parts") return vtkSelectItem.Part;
             if (target == "geometry") return vtkSelectItem.Geometry;
+            if (target == "geometry_surfaces") return vtkSelectItem.GeometrySurface;
             throw new PythonAPIException("Unsupported selection target '" + target + "'.");
         }
     }

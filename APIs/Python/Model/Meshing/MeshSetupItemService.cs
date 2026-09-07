@@ -158,9 +158,28 @@ namespace APIs.Python.Model
         private void ApplySelection(MeshSetupItem item, SelectionAPI selection)
         {
             // A mesh setup item without creation data is rejected by the controller
-            SelectionCompilation compilation = _selectionService.CompileForView(selection, "geometry", "geometry");
+            SelectionCompilation compilation = _selectionService.CompileForView(selection, "geometry",
+                                                                                GetSelectionTargets(item));
             item.CreationData = compilation.Selection;
             item.CreationIds = compilation.Ids;
+        }
+        // The dialog points the picker at what the item type is defined on, so a whole part mesher records
+        // a part selection and a local mesh size records a geometry entity or an edge. A script may say
+        // either what the dialog would have recorded, which is what a session journal replays, or the
+        // geometry the entity covers
+        private static string[] GetSelectionTargets(MeshSetupItem item)
+        {
+            if (item is LocalMeshSize localMeshSize)
+            {
+                if (localMeshSize.Type == LocalMeshSizeTypeEnum.NumberOfElements)
+                    return new string[] { "edges", "geometry" };
+                //
+                return new string[] { "geometry" };
+            }
+            if (item is ExtrudeMesh || item is RevolveMesh || item is SweepMesh)
+                return new string[] { "geometry_surfaces", "geometry" };
+            //
+            return new string[] { "parts", "geometry" };
         }
         private void ValidateName(string name, string allowedExistingName)
         {

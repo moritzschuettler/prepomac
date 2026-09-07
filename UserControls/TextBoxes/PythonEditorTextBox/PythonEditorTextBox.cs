@@ -49,6 +49,7 @@ namespace UserControls
         private ToolStripMenuItem _pasteMenuItem;
         private ToolStripMenuItem _deleteMenuItem;
         private ToolStripMenuItem _selectAllMenuItem;
+        private ToolStripSeparator _runSeparator;
         private ToolStripMenuItem _runMenuItem;
         private ToolStripMenuItem _runSelectionMenuItem;
 
@@ -173,6 +174,19 @@ namespace UserControls
             get { return _textBox.ReadOnly; }
             set { _textBox.ReadOnly = value; }
         }
+        // A host that only shows a script has nothing to run it with, so it hides the run entries
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool AllowRunCommands
+        {
+            get { return _runMenuItem.Available; }
+            set
+            {
+                _runSeparator.Available = value;
+                _runMenuItem.Available = value;
+                _runSelectionMenuItem.Available = value;
+            }
+        }
         public new bool Focused
         {
             get { return _textBox.Focused; }
@@ -246,6 +260,7 @@ namespace UserControls
             _pasteMenuItem = new ToolStripMenuItem("Paste");
             _deleteMenuItem = new ToolStripMenuItem("Delete");
             _selectAllMenuItem = new ToolStripMenuItem("Select All");
+            _runSeparator = new ToolStripSeparator();
             _runMenuItem = new ToolStripMenuItem("Run");
             _runSelectionMenuItem = new ToolStripMenuItem("Run Selection");
 
@@ -282,7 +297,7 @@ namespace UserControls
             menu.Items.Add(_deleteMenuItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(_selectAllMenuItem);
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(_runSeparator);
             menu.Items.Add(_runMenuItem);
             menu.Items.Add(_runSelectionMenuItem);
 
@@ -351,6 +366,21 @@ namespace UserControls
 
             _textBox.Selection = new FastColoredTextBoxNS.Range(_textBox, 0, lineIndex, lineLength, lineIndex);
             _textBox.DoSelectionVisible();
+        }
+        public void SelectLines(int firstLineNumber, int lastLineNumber)
+        {
+            if (_textBox.LinesCount == 0) return;
+            if (firstLineNumber < 1) firstLineNumber = 1;
+            if (lastLineNumber > _textBox.LinesCount) lastLineNumber = _textBox.LinesCount;
+            if (lastLineNumber < firstLineNumber) return;
+
+            int firstLineIndex = firstLineNumber - 1;
+            int lastLineIndex = lastLineNumber - 1;
+            int lastLineLength = _textBox.Lines[lastLineIndex].Length;
+
+            _textBox.Selection = new FastColoredTextBoxNS.Range(_textBox, 0, firstLineIndex, lastLineLength, lastLineIndex);
+            _textBox.DoRangeVisible(_textBox.Selection, true);
+            _textBox.Invalidate();
         }
         public void ClearModifiedFlag()
         {

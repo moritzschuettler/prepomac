@@ -96,6 +96,7 @@
     <Compile Include="Python\Commands\ControllerPythonSelectionGateway.cs" />
     <Compile Include="Python\Engine\PythonConsoleResult.cs" />
     <Compile Include="Python\Engine\PythonEngineManager.cs" />
+    <Compile Include="Python\Journal\PythonCodeFormatter.cs" />
     <Compile Include="Python\Journal\PythonJournalExporter.cs" />
     <Compile Include="Python\Journal\PythonJournalReport.cs" />
     <Compile Include="Python\Journal\PythonJournalScope.cs" />

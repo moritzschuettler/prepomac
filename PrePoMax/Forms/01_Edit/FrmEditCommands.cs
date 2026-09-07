@@ -33,11 +33,15 @@ namespace PrePoMax.Forms
     public partial class FrmEditCommands : Form
     {
         // Variables                                                                                                                
+        private const string PythonScriptName = "History.py";
+        //
         private Controller _controller;
         private List<ViewCommand> _viewCommands;
         private Dictionary<double, int> _timeColorId;
         private bool _modified;
         private FrmViewObjectProperties _frmViewCommandProperties;
+        private int[] _pythonCommandFirstLines;
+        private bool _pythonScriptOutdated;
 
 
         // Properties                                                                                                               
@@ -63,6 +67,12 @@ namespace PrePoMax.Forms
             _modified = false;
             _frmViewCommandProperties = new FrmViewObjectProperties();
             _frmViewCommandProperties.StartPosition = FormStartPosition.CenterParent;
+            _pythonCommandFirstLines = null;
+            _pythonScriptOutdated = true;
+            // The script is a view of the history, not a place to write one
+            petbPython.ReadOnly = true;
+            petbPython.AllowRunCommands = false;
+            splMain.Panel2Collapsed = !tsmiShowPython.Checked;
         }
 
 
@@ -145,16 +155,31 @@ namespace PrePoMax.Forms
         {
             ColorTypeChanged(sender);
         }
+        private void tsmiShowPython_Click(object sender, EventArgs e)
+        {
+            tsmiShowPython.Checked = !tsmiShowPython.Checked;
+            splMain.Panel2Collapsed = !tsmiShowPython.Checked;
+            //
+            if (tsmiShowPython.Checked && _pythonScriptOutdated) UpdatePythonScript();
+        }
         //
         private void dgvCommands_DragDrop(object sender, DragEventArgs e)
         {
             _modified = true;
+            // The rows are reordered by a handler that runs after this one, so the script waits for the new order
+            BeginInvoke(new Action(UpdatePythonScript));
+        }
+        private void dgvCommands_SelectionChanged(object sender, EventArgs e)
+        {
+            HighlightSelectedCommandInPythonScript();
         }
         private void Binding_ListChanged(object sender, ListChangedEventArgs e)
         {
             _modified = true;
             //
            UpdateExecutionTimeColors();
+            //
+            UpdatePythonScript();
         }
         private void dgvCommands_RowPrePaint(object sender, DataGridViewRowPrePaintEventArgs e)
         {
@@ -349,6 +374,8 @@ namespace PrePoMax.Forms
             dgvCommands.Columns["ExecutionTimeString"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             //
             UpdateExecutionTimeColors();
+            //
+            UpdatePythonScript();
         }
         //
         private void SetCommands(List<Command> commands)
@@ -404,6 +431,41 @@ namespace PrePoMax.Forms
             }  
             //
             dgvCommands.Invalidate();
+        }
+        // The script mirrors the rows as they are now, so a reordered or shortened history is shown as it would be saved
+        private void UpdatePythonScript()
+        {
+            if (_viewCommands == null) return;
+            if (splMain.Panel2Collapsed)
+            {
+                _pythonScriptOutdated = true;
+                return;
+            }
+            //
+            PythonJournalReport report;
+            int[] commandFirstLines;
+            string text = PythonJournalExporter.GetText(Commands, PythonScriptName, _controller.OpenedFileName,
+                                                        out report, out commandFirstLines);
+            //
+            _pythonCommandFirstLines = commandFirstLines;
+            _pythonScriptOutdated = false;
+            petbPython.Text = text;
+            //
+            HighlightSelectedCommandInPythonScript();
+        }
+        private void HighlightSelectedCommandInPythonScript()
+        {
+            if (splMain.Panel2Collapsed || _pythonCommandFirstLines == null) return;
+            if (dgvCommands.CurrentRow == null) return;
+            //
+            int rowIndex = dgvCommands.CurrentRow.Index;
+            if (rowIndex < 0 || rowIndex >= _pythonCommandFirstLines.Length) return;
+            //
+            int firstLine = _pythonCommandFirstLines[rowIndex];
+            int lastLine = int.MaxValue;
+            if (rowIndex + 1 < _pythonCommandFirstLines.Length) lastLine = _pythonCommandFirstLines[rowIndex + 1] - 1;
+            //
+            petbPython.SelectLines(firstLine, lastLine);
         }
 
         private void dgvCommands_CellMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
