@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,10 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Remove(writer, "pmx.model.steps", _stepNames);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_stepNames);

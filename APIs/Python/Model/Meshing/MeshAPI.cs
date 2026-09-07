@@ -48,14 +48,15 @@ namespace APIs.Python.Model
             _toolService.CreateBoundaryLayer(selection, thickness);
         }
 
-        [PythonAPI("Remeshes the selected elements using command history. Every parameter that is not " +
+        [PythonAPI("Remeshes the elements of a region using command history. The region is a selection or " +
+                   "an ElementSetName region, which is what the dialog offers. Every parameter that is not " +
                    "given keeps the application default.",
-                   Arguments = "selection: Selection, max_size: float = None, min_size: float = None, " +
-                               "hausdorff: float = None", Returns = "None")]
-        public void remesh_elements(SelectionAPI selection, object max_size = null, object min_size = null,
+                   Arguments = "region: Selection or Region, max_size: float = None, " +
+                               "min_size: float = None, hausdorff: float = None", Returns = "None")]
+        public void remesh_elements(object region, object max_size = null, object min_size = null,
                                     object hausdorff = null)
         {
-            _toolService.RemeshElements(selection, max_size, min_size, hausdorff);
+            _toolService.RemeshElements(region, max_size, min_size, hausdorff);
         }
 
         [PythonAPI("Thickens the shell mesh of the named parts using command history.",
@@ -67,17 +68,20 @@ namespace APIs.Python.Model
             _toolService.ThickenShellMesh(part_names, thickness, number_of_layers, offset, keep_model_edges);
         }
 
-        [PythonAPI("Splits the selected part mesh with the selected surface using command history. This is " +
-                   "a one time operation rather than a model item.",
-                   Arguments = "base_part_selection: Selection, splitter_surface_selection: Selection, " +
-                               "offset: float = None, max_size: float = None, min_size: float = None, " +
-                               "hausdorff: float = None, exact: bool = False", Returns = "None")]
-        public void split_part_mesh_using_surface(SelectionAPI base_part_selection,
-                                                  SelectionAPI splitter_surface_selection, object offset = null,
-                                                  object max_size = null, object min_size = null,
-                                                  object hausdorff = null, bool exact = false)
+        [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
+                   "rather than a model item. The base part region is a selection or a PartName region and " +
+                   "the splitter surface region is a selection or a SurfaceName region, which is what the " +
+                   "dialog offers.",
+                   Arguments = "base_part_region: Selection or Region, " +
+                               "splitter_surface_region: Selection or Region, offset: float = None, " +
+                               "max_size: float = None, min_size: float = None, hausdorff: float = None, " +
+                               "exact: bool = False", Returns = "None")]
+        public void split_part_mesh_using_surface(object base_part_region, object splitter_surface_region,
+                                                  object offset = null, object max_size = null,
+                                                  object min_size = null, object hausdorff = null,
+                                                  bool exact = false)
         {
-            _toolService.SplitPartMeshUsingSurface(base_part_selection, splitter_surface_selection, offset,
+            _toolService.SplitPartMeshUsingSurface(base_part_region, splitter_surface_region, offset,
                                                    max_size, min_size, hausdorff, exact);
         }
 

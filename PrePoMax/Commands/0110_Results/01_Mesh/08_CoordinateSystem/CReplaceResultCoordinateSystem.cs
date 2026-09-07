@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceResultCoordinateSystem(_oldCoordinateSystemName, _newCoordinateSystem.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonResultEmitter.CoordinateSystem(writer, _oldCoordinateSystemName, _newCoordinateSystem);
         }
         public override string GetCommandString()
         {

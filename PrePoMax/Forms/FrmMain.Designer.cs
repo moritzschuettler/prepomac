@@ -136,6 +136,8 @@ namespace PrePoMax
             this.tsmiDividerExport2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExportToDeformedInp = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportToDeformedStl = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerExport3 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExportToPythonJournal = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCloseCurrentResult = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCloseAllResults = new System.Windows.Forms.ToolStripMenuItem();
@@ -1444,7 +1446,9 @@ namespace PrePoMax
             this.tsmiExportToMmgMesh,
             this.tsmiDividerExport2,
             this.tsmiExportToDeformedInp,
-            this.tsmiExportToDeformedStl});
+            this.tsmiExportToDeformedStl,
+            this.tsmiDividerExport3,
+            this.tsmiExportToPythonJournal});
             this.tsmiExport.Image = global::PrePoMax.Properties.Resources.Export;
             this.tsmiExport.Name = "tsmiExport";
             this.tsmiExport.Size = new System.Drawing.Size(219, 22);
@@ -1529,6 +1533,18 @@ namespace PrePoMax
             this.tsmiExportToDeformedStl.Size = new System.Drawing.Size(250, 22);
             this.tsmiExportToDeformedStl.Text = "Deformed visualization *.stl";
             this.tsmiExportToDeformedStl.Click += new System.EventHandler(this.tsmiExportToDeformedStl_Click);
+            // 
+            // tsmiDividerExport3
+            // 
+            this.tsmiDividerExport3.Name = "tsmiDividerExport3";
+            this.tsmiDividerExport3.Size = new System.Drawing.Size(247, 6);
+            // 
+            // tsmiExportToPythonJournal
+            // 
+            this.tsmiExportToPythonJournal.Name = "tsmiExportToPythonJournal";
+            this.tsmiExportToPythonJournal.Size = new System.Drawing.Size(250, 22);
+            this.tsmiExportToPythonJournal.Text = "Python session journal *.py";
+            this.tsmiExportToPythonJournal.Click += new System.EventHandler(this.tsmiExportToPythonJournal_Click);
             // 
             // tsmiDividerFile3
             // 
@@ -1676,21 +1692,21 @@ namespace PrePoMax
             // tsmiPythonScriptEditor
             // 
             this.tsmiPythonScriptEditor.Name = "tsmiPythonScriptEditor";
-            this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(179, 22);
             this.tsmiPythonScriptEditor.Text = "Python Script Editor";
             this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
             // 
             // tsmiXYPlotPanel
             // 
             this.tsmiXYPlotPanel.Name = "tsmiXYPlotPanel";
-            this.tsmiXYPlotPanel.Size = new System.Drawing.Size(180, 22);
+            this.tsmiXYPlotPanel.Size = new System.Drawing.Size(179, 22);
             this.tsmiXYPlotPanel.Text = "XY Plot";
             this.tsmiXYPlotPanel.Click += new System.EventHandler(this.tsmiXYPlotPanel_Click);
             // 
             // tsmiSidePanelAdvisor
             // 
             this.tsmiSidePanelAdvisor.Name = "tsmiSidePanelAdvisor";
-            this.tsmiSidePanelAdvisor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSidePanelAdvisor.Size = new System.Drawing.Size(179, 22);
             this.tsmiSidePanelAdvisor.Text = "Advisor";
             this.tsmiSidePanelAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
             // 
@@ -5596,6 +5612,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerExport1;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportToDeformedInp;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportToDeformedStl;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerExport3;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportToPythonJournal;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerExport2;
         private System.Windows.Forms.ToolStripMenuItem tsmiUpdateNodalCoordinatesFromFile;
         private System.Windows.Forms.ToolStripMenuItem tsmiImportMaterial;

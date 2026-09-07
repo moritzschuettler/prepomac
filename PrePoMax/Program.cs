@@ -11,6 +11,7 @@ using CaeGlobals;
 using CommandLine;
 using CommandLine.Text;
 using PrePoMax.Python;
+using PrePoMax.Python.Journal;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -194,7 +195,30 @@ namespace PrePoMax
             BatchRunReport report = BatchRunReport.Current;
             if (report != null) report.Write(exitCode, exception, GetController());
             //
+            WriteSessionJournal();
+            //
             ExitProcess(exitCode);
+        }
+        private static void WriteSessionJournal()
+        {
+            if (_cmdOptions == null || _cmdOptions.JournalFileName == null) return;
+            //
+            Controller controller = GetController();
+            if (controller == null) return;
+            //
+            try
+            {
+                string source = _cmdOptions.FileName != null ? _cmdOptions.FileName : _cmdOptions.RegenerationFileName;
+                PythonJournalReport journalReport = PythonJournalExporter.Export(controller.GetCommands(),
+                                                                                 _cmdOptions.JournalFileName, source);
+                Console.WriteLine(journalReport.GetSummary());
+                foreach (string refusal in journalReport.Refusals) Console.WriteLine("   Not emitted: " + refusal);
+            }
+            catch (Exception ex)
+            {
+                // The journal is a record of the run, so failing to write it must not change its outcome
+                Console.WriteLine("The session journal was not written: " + ex.Message);
+            }
         }
         private static void ExitProcess(ExitCodeEnum exitCode)
         {

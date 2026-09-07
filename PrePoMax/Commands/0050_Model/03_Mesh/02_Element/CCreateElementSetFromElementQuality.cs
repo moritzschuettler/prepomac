@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -49,6 +50,16 @@ namespace PrePoMax.Commands
         {
             receiver.CreateElementSetFromElementQuality(_setName, _elementQualityMetric, _partNames, _largerThan, _limit);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.elements", "create_element_set_from_quality",
+                                         PythonValueFormatter.Text(_setName),
+                                         PythonValueFormatter.Text(_elementQualityMetric),
+                                         PythonValueFormatter.List(_partNames),
+                                         PythonValueFormatter.Format(_largerThan),
+                                         PythonValueFormatter.Number(_limit)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

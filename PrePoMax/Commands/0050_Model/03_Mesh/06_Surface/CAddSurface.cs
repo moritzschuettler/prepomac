@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,23 @@ namespace PrePoMax.Commands
         {
             receiver.AddSurface(_surface.DeepClone(), _update);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            if (_surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
+            {
+                writer.Statement(writer.Call("pmx.model.surfaces", "add_from_node_set",
+                                             PythonValueFormatter.Text(_surface.Name),
+                                             PythonValueFormatter.Text(_surface.CreatedFromNodeSetName)));
+                PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _surface);
+                writer.CountEmittedCommand();
+            }
+            else if (_surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
+            {
+                PythonModelItemEmitter.AddFromSelection(writer, "pmx.model.surfaces", _surface,
+                                                        _surface.CreationData);
+            }
+            else writer.Unsupported(this, "a surface created from " + _surface.CreatedFrom + " has no API form");
         }
         public override string GetCommandString()
         {

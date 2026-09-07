@@ -38,6 +38,35 @@ The root object available in the Python console is `pmx`.
 - A recorded script is added to history only when it completes without an error. Full-history regeneration executes the embedded
   source at the same position in history; phase-only regeneration skips recorded scripts.
 
+## Session journal
+
+Every command the application records can say what it is in Python, so a session done in the user
+interface can be exported as a script, edited, and run again. The journal is the same vocabulary this
+document describes: what it writes is what a user would have written.
+
+| Where | What it does |
+| --- | --- |
+| **File - Export - Python script** | Writes the journal of the open model's history. |
+| **Edit - Commands - Save As Python** | Writes the journal of the history shown in the dialog, including a reordered or shortened one. |
+| `--journal <file.py>` | Writes the journal when a batch run ends, on a failing run too. |
+
+A journal names the file the session started from in its header rather than opening it, because
+replacing the model rebuilds the command collection a running script belongs to. Replay it with the
+`-f` switch:
+
+```bash
+PrePoMax.com -f model.pmx --script journal.py -g No -x Yes -w <work directory>
+```
+
+What a journal will not do silently: a command it cannot emit becomes a comment naming the command
+and the reason, and the export reports how many it wrote. A recorded Python script is emitted
+verbatim rather than expanded into the calls it made, because regeneration re-runs its computations
+and expanding it would replace live computation with the values it produced the first time.
+
+`APIs/Python/Test_Scripts/Journal_Round_Trip.py` checks the whole path: it regenerates a recorded
+`.pmh`, journals it, replays the emitted script into a fresh instance, and compares the CalculiX
+export of both models.
+
 ## Unattended script execution
 
 `--script <file.py>` runs a script without a user present. The script is executed after the file given by `-f` is opened, and it
@@ -359,9 +388,9 @@ Reached as `pmx.model.mesh`.
 | `setup_items` | The mesh setup items of the model. |
 | `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished. |
 | `create_boundary_layer(selection, thickness)` | Creates a prismatic boundary layer on the selected faces. |
-| `remesh_elements(selection, ...)` | Remeshes the selected elements. |
+| `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. |
 | `thicken_shell_mesh(selection, thickness, number_of_layers=1, offset=0)` | Thickens the selected shell mesh. |
-| `split_part_mesh_using_surface(base_part_selection, splitter_surface_selection, ...)` | Splits a part mesh with a surface. |
+| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
 The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
@@ -455,6 +484,7 @@ Every `part_names` argument accepts a single name or a list of names.
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
 | `get_element_types(part_name)` | The element type of every slot of a part. |
 | `set_element_type(part_names, element_type_name, value)` | Sets one element type slot using command history. |
+| `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. |
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
@@ -513,10 +543,10 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 
 | Member | Description |
 | --- | --- |
-| `add_temperature(name, region, temperature)` | Initial temperature. The selection target is `nodes`. |
+| `add_temperature(name, region, temperature, distribution_name=None)` | Initial temperature. The selection target is `nodes`. A distribution scales the temperature over the region. |
 | `add_translational_velocity(name, region, v1, v2, v3)` | Initial translational velocity. |
 | `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. |
-| `replace_temperature(old_name, name=None, region=None, temperature=None)` | Replaces an initial temperature. A value that is not given is kept. |
+| `replace_temperature(old_name, name=None, region=None, temperature=None, distribution_name=None)` | Replaces an initial temperature. A value that is not given is kept. |
 | `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None)` | Replaces an initial translational velocity. |
 | `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. |
 | `hide(names)`, `show(names)` | Initial condition visibility. |
@@ -560,13 +590,13 @@ A material may hold only one elastic property; the model rejects a second one.
 | Member | Description |
 | --- | --- |
 | `add_solid(name, material_name, selection, thickness=1)` | Solid section. The selection target is `elements`. |
-| `add_shell(name, material_name, selection, thickness=1)` | Shell section. |
-| `add_membrane(name, material_name, selection, thickness=1)` | Membrane section. |
+| `add_shell(name, material_name, selection, thickness=1, offset=0)` | Shell section. The offset of the mid surface from the selected geometry is given in shell thicknesses. |
+| `add_membrane(name, material_name, selection, thickness=1, offset=0)` | Membrane section. The offset is given in membrane thicknesses. |
 | `add_point_mass(name, selection, mass)` | Point mass section. The selection target is `nodes`. |
 | `add_distributed_mass(name, selection, mass)` | Distributed mass section. |
 | `replace_solid(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a solid section. A value that is not given is kept. |
-| `replace_shell(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a shell section. |
-| `replace_membrane(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a membrane section. |
+| `replace_shell(old_name, name=None, material_name=None, region=None, thickness=None, offset=None)` | Replaces a shell section. |
+| `replace_membrane(old_name, name=None, material_name=None, region=None, thickness=None, offset=None)` | Replaces a membrane section. |
 | `replace_point_mass(old_name, name=None, region=None, mass=None)` | Replaces a point mass section. |
 | `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. |
 
@@ -635,12 +665,12 @@ print(node_set.count, node_set.get_node_ids())
 
 | Member | Description |
 | --- | --- |
-| `add(name, coordinates)` | Creates a reference point at `[x, y, z]`. |
-| `add_from_selection(name, created_from, selection)` | Creates a reference point whose coordinates the mesh computes from selected points. |
-| `add_from_region(name, created_from, region_type, region_name)` | Creates a reference point whose coordinates the mesh computes from a named region. |
-| `replace(old_name, name=None, coordinates=None)` | Replaces an existing reference point. Coordinates that are not given are kept, and giving them turns the point back into a coordinate point. |
-| `replace_from_selection(old_name, name=None, created_from=None, selection=None)` | Replaces a reference point by selected mesh points. |
-| `replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None)` | Replaces a reference point by a named region. |
+| `add(name, coordinates, name_visible=None, color=None)` | Creates a reference point at `[x, y, z]`. |
+| `add_from_selection(name, created_from, selection, name_visible=None, color=None)` | Creates a reference point whose coordinates the mesh computes from selected points. |
+| `add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None)` | Creates a reference point whose coordinates the mesh computes from a named region. |
+| `replace(old_name, name=None, coordinates=None, name_visible=None, color=None)` | Replaces an existing reference point. Coordinates that are not given are kept, and giving them turns the point back into a coordinate point. |
+| `replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None)` | Replaces a reference point by selected mesh points. |
+| `replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None)` | Replaces a reference point by a named region. |
 | `hide(names)`, `show(names)` | Reference point visibility. |
 
 `created_from` decides which of the two add methods applies. `OnPoint`, `BetweenTwoPoints`,
@@ -648,24 +678,28 @@ print(node_set.count, node_set.get_node_ids())
 the mode consumes; `CenterOfGravity` and `BoundingBoxCenter` take a named region instead, whose
 type is `NodeSetName` or `SurfaceName`.
 
-`ReferencePoint` exposes `name`, `created_from`, `visible`, `valid`, `get_coordinates()` and
-`get_construction()`, which returns how the point is defined: its mode, and the region or the
-selected point IDs it is built from.
+`name_visible` decides whether the point name is drawn next to its symbol, and `color` takes
+`[red, green, blue]` or `[red, green, blue, alpha]`. Both are part of the stored definition and keep
+their defaults when they are not given.
+
+`ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
+`get_coordinates()` and `get_construction()`, which returns how the point is defined: its mode, and
+the region or the selected point IDs it is built from.
 
 ### `CoordinateSystems`
 
 | Member | Description |
 | --- | --- |
-| `add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Creates a coordinate system from three points. The type is `Rectangular` or `Cylindrical`. |
-| `add_from_selections(name, origin_created_from=None, origin_selection=None, ..., origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Creates a coordinate system whose points the mesh computes from selections. Each of the three points takes either a mode and its selection together, or its coordinates. |
-| `replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Replaces a coordinate system. A value that is not given is kept. |
+| `add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None, name_visible=None)` | Creates a coordinate system from three points. The type is `Rectangular` or `Cylindrical`. |
+| `add_from_selections(name, origin_created_from=None, origin_selection=None, ..., origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None, name_visible=None)` | Creates a coordinate system whose points the mesh computes from selections. Each of the three points takes either a mode and its selection together, or its coordinates. |
+| `replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None, name_visible=None)` | Replaces a coordinate system. A value that is not given is kept. |
 | `replace_from_selections(old_name, name=None, ...)` | Replaces a coordinate system whose points come from selections or coordinates. |
 | `hide(names)`, `show(names)` | Coordinate system visibility. |
 
 A point given as coordinates and a point given as a selection can be mixed in one coordinate system,
 which is what the dialog offers when one point is picked and another typed.
 
-`CoordinateSystem` exposes `name`, `coordinate_system_type`, `visible`, `valid`, `get_origin()`,
+`CoordinateSystem` exposes `name`, `coordinate_system_type`, `name_visible`, `visible`, `valid`, `get_origin()`,
 `get_point_on_x()`, `get_point_in_xy()`, `get_equations()` and `get_construction_modes()`, which
 tells how each of the three points is defined.
 
@@ -1138,10 +1172,10 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`. |
 | `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`. |
 | `density(density)` | Density. One value, or rows of `[density, temperature]`. |
-| `plastic(stress_strain)` | Plastic. Rows of `[stress, strain, temperature]`. |
+| `plastic(stress_strain, hardening=None)` | Plastic. Rows of `[stress, strain, temperature]`. `hardening` is `Isotropic`, `Kinematic` or `Combined` and defaults to `Isotropic`. |
 | `specific_heat(specific_heat)` | Specific heat. One value, or rows of `[value, temperature]`. |
 | `thermal_conductivity(thermal_conductivity)` | Thermal conductivity, same shape. |
-| `thermal_expansion(thermal_expansion)` | Thermal expansion, same shape. |
+| `thermal_expansion(thermal_expansion, zero_temperature=None)` | Thermal expansion, same shape. `zero_temperature` is the temperature the expansion starts from and defaults to 20 in model units. |
 | `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
 | `region(region_type, name)` | Names an existing region of the model. |
 | `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step. |
@@ -1166,7 +1200,11 @@ takes `delcon`, `alea`, `kscalemax` and `itf2f`.
 
 Created by `pmx.create.region(region_type, name)`. It points a model item at an existing region of
 the model instead of giving the item its own selection. `region_type` is `NodeSetName`,
-`ElementSetName`, `SurfaceName`, `ReferencePointName` or `PartName`.
+`ElementSetName`, `SurfaceName`, `ReferencePointName`, `PartName` or `MassSection`.
+
+A `MassSection` region names a point mass or a distributed mass section, and only the gravity and the
+centrifugal load accept it, because only those two act on a mass. Giving it to any other item is
+refused rather than silently stored.
 
 | Member | Description |
 | --- | --- |
@@ -1290,6 +1328,17 @@ Supported conversions:
 | `edges` | `edges` |
 | `parts` | `vertices`, `edges`, `surfaces`, `parts` |
 | `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
+| any target | `geometry` |
+
+The `geometry` source is the exception to the table. It takes the **geometry IDs** the application
+records for a geometry pick made in the *Selection by ID* mode, unchanged, and converts them to
+whatever target the selection carries. The other geometry sources take per part item IDs and the
+application turns them into geometry IDs itself, so `geometry` is what a script uses to give back an
+ID list it read from a recorded selection, and it is what the session journal emits.
+
+```python
+selection = pmx.create.selection_by_ids('geometry', 'surfaces', 'geometry', [2000003, 2000004])
+```
 
 A selection is built either from IDs or from a **pick** - a point in space, which the application
 resolves the way it resolves a mouse click.
@@ -1976,7 +2025,7 @@ Collection of mesh parts.
 | `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. |
 | `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
-| `replace_properties(old_name, name=None)` | Replaces the part properties. A property that is not given is kept. |
+| `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
 | `merge(part_names)` | Merges result parts into one. |
 | `remove(part_names)` | Removes result parts. |
 
@@ -1991,17 +2040,19 @@ result field transformation is expressed in a result coordinate system.
 | `len(collection)`, iteration, `get_names()` | The names in the collection. |
 | `get_definition(name)` | The stored coordinates, as the values or expressions they were entered with. Three for a reference point, nine for a coordinate system. |
 | `reference_points.get_created_from(name)` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
-| `reference_points.add(name, coordinates)` | Adds a result reference point. |
-| `reference_points.add_from_selection(name, created_from, selection)` | Adds one from selected result mesh points. The mode is `OnPoint`, `BetweenTwoPoints` or `CircleCenter`. |
-| `reference_points.add_from_region(name, created_from, region_type, region_name)` | Adds one from a named result region. The mode is `CenterOfGravity` or `BoundingBoxCenter`, the region type `NodeSetName` or `SurfaceName`. |
-| `reference_points.replace(old_name, name=None, coordinates=None)` | Replaces one. The coordinates are the whole definition, and applying them turns the point back into a coordinate point. |
-| `reference_points.replace_from_selection(old_name, name=None, created_from=None, selection=None)` | Replaces one by selected points. The mode and the selection are the whole definition. |
-| `reference_points.replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None)` | Replaces one by a named region. The mode and the region are the whole definition. |
+| `reference_points.get_name_visible(name)`, `reference_points.get_color(name)` | Whether the point name is drawn next to its symbol, and the symbol colour channels. |
+| `reference_points.add(name, coordinates, name_visible=None, color=None)` | Adds a result reference point. |
+| `reference_points.add_from_selection(name, created_from, selection, name_visible=None, color=None)` | Adds one from selected result mesh points. The mode is `OnPoint`, `BetweenTwoPoints` or `CircleCenter`. |
+| `reference_points.add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None)` | Adds one from a named result region. The mode is `CenterOfGravity` or `BoundingBoxCenter`, the region type `NodeSetName` or `SurfaceName`. |
+| `reference_points.replace(old_name, name=None, coordinates=None, name_visible=None, color=None)` | Replaces one. The coordinates are the whole definition, and applying them turns the point back into a coordinate point. |
+| `reference_points.replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None)` | Replaces one by selected points. The mode and the selection are the whole definition. |
+| `reference_points.replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None)` | Replaces one by a named region. The mode and the region are the whole definition. |
 | `coordinate_systems.get_coordinate_system_type(name)` | `Rectangular` or `Cylindrical`. |
+| `coordinate_systems.get_name_visible(name)` | Whether the coordinate system name is drawn next to its symbol. |
 | `coordinate_systems.get_created_from(name)` | How the origin, the point on X and the point in XY were created. |
-| `coordinate_systems.add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None)` | Adds a result coordinate system. |
-| `coordinate_systems.add_from_selections(name, coordinate_system_type=None, origin=None, origin_created_from=None, origin_selection=None, point_on_x=None, point_on_x_created_from=None, point_on_x_selection=None, point_in_xy=None, point_in_xy_created_from=None, point_in_xy_selection=None)` | Adds one whose points may be selected on the result mesh. Each point takes either coordinates or a mode and a selection, and a point that is not given keeps the default coordinates. |
-| `coordinate_systems.replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None)` | Replaces one. The three points are the whole definition. |
+| `coordinate_systems.add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None, name_visible=None)` | Adds a result coordinate system. |
+| `coordinate_systems.add_from_selections(name, coordinate_system_type=None, origin=None, origin_created_from=None, origin_selection=None, point_on_x=None, point_on_x_created_from=None, point_on_x_selection=None, point_in_xy=None, point_in_xy_created_from=None, point_in_xy_selection=None, name_visible=None)` | Adds one whose points may be selected on the result mesh. Each point takes either coordinates or a mode and a selection, and a point that is not given keeps the default coordinates. |
+| `coordinate_systems.replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None, name_visible=None)` | Replaces one. The three points are the whole definition. |
 | `coordinate_systems.replace_from_selections(old_name, name=None, coordinate_system_type=None, ...)` | Replaces one the way `add_from_selections` builds it. A result replacement re-specifies the whole definition, so every point is required. |
 | `duplicate(names)`, `remove(names)`, `hide(names)`, `show(names)` | The shared verbs. |
 
@@ -2253,8 +2304,10 @@ The supported region combinations are:
 Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface Normals"`, `"Wear Depths"`, `"Mesh Deformation"`, `"Disp&Def"`, and `"Disp&Def&Depth"`.
 
 The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
-`add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy` and
-`add_from_table`, each with a matching `replace_*`. The draft form is kept here as well, because a
+`add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`,
+`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. The affine fit measures
+the strain of a circular patch of the result mesh, so it names the circle - `center_x`, `center_y`
+and `radius` - rather than a region, and the rest of its values carry the defaults the dialog offers. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
 
 ### `HistoryOutputFilter`

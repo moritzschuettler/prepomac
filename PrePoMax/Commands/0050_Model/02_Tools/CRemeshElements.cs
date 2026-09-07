@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,18 @@ namespace PrePoMax.Commands
             return receiver.RemeshElements(_remeshingParameters);
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string region = PythonRegionEmitter.Emit(writer, _remeshingParameters.RegionName,
+                                                     _remeshingParameters.RegionType,
+                                                     _remeshingParameters.CreationData);
+            writer.Statement(writer.Call("pmx.model.mesh", "remesh_elements", region,
+                                         "max_size=" + PythonValueFormatter.Number(_remeshingParameters.MaxH),
+                                         "min_size=" + PythonValueFormatter.Number(_remeshingParameters.MinH),
+                                         "hausdorff=" +
+                                         PythonValueFormatter.Number(_remeshingParameters.Hausdorff)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _remeshingParameters;

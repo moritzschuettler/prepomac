@@ -2,7 +2,9 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Builds a complete analysis from a mesh, solves it, opens the results and reads a value. This is the
-#end to end check of the API: material, section, step, boundary condition, load, solve, result.
+#end to end check of the API: material, section, step, boundary condition, load, solve, result. It is
+#also the only test with a model and a result open at the same time, so it covers a selection that
+#names one view while another is displayed.
 #A meshed model must be open before the script runs, and a CalculiX executable must be configured.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Analysis.py -g No -x Yes -w <dir>
@@ -116,6 +118,28 @@ def test_results():
     print("U3 of the loaded node:", loaded)
 
 
+def test_selection_view_activity():
+    # The model and the result share the part ID, so a selection that names the result view must not
+    # be filtered by the part activity of the model view that the preceding command left displayed
+    part_name = pmx.model.parts.get_names()[0]
+    pmx.model.parts.deactivate(part_name)
+    try:
+        check(not pmx.model.parts[part_name].active, "the model part was not deactivated")
+        # The last call was a model command, so the model view is the displayed one
+        ids = list(pmx.create.selection_by_pick('results', 'nodes', [0, 0, 0], 'Node').get_ids())
+        check(len(ids) == 1, "the result pick found " + str(ids) + " while the model view was displayed")
+        all_ids = list(pmx.create.selection_all('results', 'nodes').get_ids())
+        check(len(all_ids) == 8, "the result select all found " + str(len(all_ids)) + " nodes")
+        # The filter still applies in the view the selection actually names
+        pmx.model.parts.deactivate(part_name)
+        model_ids = list(pmx.create.selection_all('femodel', 'nodes').get_ids())
+        check(len(model_ids) == 0,
+              "an inactive model part must contribute no nodes, found " + str(len(model_ids)))
+    finally:
+        pmx.model.parts.activate(part_name)
+    check(pmx.model.parts[part_name].active, "the model part was not reactivated")
+
+
 def test_result_outputs():
     # The single call forms of 1.10, next to the create plus add pair they supersede
     outputs = pmx.results.current.field_outputs
@@ -141,6 +165,7 @@ def main():
     test_check_model()
     test_run()
     test_results()
+    test_selection_view_activity()
     test_result_outputs()
     print("TEST PASSED")
 

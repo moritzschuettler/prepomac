@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Reflection;
 using CaeGlobals;
 using System.Runtime.Serialization;
+using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
@@ -69,6 +70,10 @@ namespace PrePoMax.Commands
         public virtual string GetCommandString()
         {
             return GetBaseCommandString();
+        }
+        public virtual void ToPython(PythonJournalWriter writer)
+        {
+            writer.Unsupported(this, "no Python form is implemented for this command");
         }
         public string GetBaseCommandString()
         {

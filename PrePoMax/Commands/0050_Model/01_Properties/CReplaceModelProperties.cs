@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -44,6 +45,20 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.properties", "replace",
+                                         "name=" + PythonValueFormatter.Text(_newModelName),
+                                         "model_type=" +
+                                         PythonValueFormatter.Text(_newModelProperties.ModelType.ToString()),
+                                         "absolute_zero=" +
+                                         PythonValueFormatter.Number(_newModelProperties.AbsoluteZero),
+                                         "stefan_boltzmann=" +
+                                         PythonValueFormatter.Number(_newModelProperties.StefanBoltzmann),
+                                         "newton_gravity=" +
+                                         PythonValueFormatter.Number(_newModelProperties.NewtonGravity)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _newModelName + ", " + _newModelProperties.ToString();

@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -46,6 +47,23 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            Dictionary<string, List<string>> namesByCollection = new Dictionary<string, List<string>>();
+            for (int i = 0; i < _items.Length; i++)
+            {
+                string stepName = _stepNames != null && i < _stepNames.Length ? _stepNames[i] : null;
+                string collection = PythonCollectionResolver.GetCollection(_items[i], stepName);
+                if (!namesByCollection.ContainsKey(collection)) namesByCollection[collection] = new List<string>();
+                namesByCollection[collection].Add(_items[i].Name);
+            }
+            foreach (var entry in namesByCollection)
+            {
+                writer.Statement(writer.Call(entry.Key, _activate ? "activate" : "deactivate",
+                                             PythonValueFormatter.List(entry.Value)));
+            }
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             string[] names = new string[_items.Length];

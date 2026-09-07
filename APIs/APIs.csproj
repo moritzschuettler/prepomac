@@ -236,6 +236,7 @@
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFieldsAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFilterAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFromEquationDraftAPI.cs" />
+    <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFromAffineFitDraftAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFromEquationAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFromExtractedEntryDraftAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputFromExtractedEntryAPI.cs" />

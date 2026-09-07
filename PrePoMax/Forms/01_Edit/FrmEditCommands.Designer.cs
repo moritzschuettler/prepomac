@@ -46,6 +46,7 @@ namespace PrePoMax.Forms
             this.tsmiFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiOpen = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSaveAs = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSaveAsPython = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiClose = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
@@ -139,6 +140,7 @@ namespace PrePoMax.Forms
             this.tsmiFile.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiOpen,
             this.tsmiSaveAs,
+            this.tsmiSaveAsPython,
             this.tsmiDividerFile1,
             this.tsmiClose});
             this.tsmiFile.Name = "tsmiFile";
@@ -160,6 +162,13 @@ namespace PrePoMax.Forms
             this.tsmiSaveAs.Size = new System.Drawing.Size(114, 22);
             this.tsmiSaveAs.Text = "Save As";
             this.tsmiSaveAs.Click += new System.EventHandler(this.tsmiSaveAs_Click);
+            // 
+            // tsmiSaveAsPython
+            // 
+            this.tsmiSaveAsPython.Name = "tsmiSaveAsPython";
+            this.tsmiSaveAsPython.Size = new System.Drawing.Size(114, 22);
+            this.tsmiSaveAsPython.Text = "Save As Python";
+            this.tsmiSaveAsPython.Click += new System.EventHandler(this.tsmiSaveAsPython_Click);
             // 
             // tsmiDividerFile1
             // 
@@ -261,6 +270,7 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.ToolStripMenuItem tsmiFile;
         private System.Windows.Forms.ToolStripMenuItem tsmiOpen;
         private System.Windows.Forms.ToolStripMenuItem tsmiSaveAs;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSaveAsPython;
         private System.Windows.Forms.ToolStripMenuItem tsmiClose;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerFile1;
         private System.Windows.Forms.Button btnReset;

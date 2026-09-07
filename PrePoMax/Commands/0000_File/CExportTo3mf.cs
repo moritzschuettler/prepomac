@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using PrePoMax.Forms;
 using System;
 
@@ -45,6 +46,14 @@ namespace PrePoMax.Commands
             export3mfFileProperties.FileName = Tools.GetGlobalPath(_export3mfFileProperties.FileName);
             receiver.ExportTo3mf(export3mfFileProperties);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx", "export_to_3mf",
+                                         writer.Path(Tools.GetGlobalPath(_export3mfFileProperties.FileName)),
+                                         "edge_thickness_ratio=" +
+                                         PythonValueFormatter.Number(_export3mfFileProperties.EdgeThicknessRatio)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

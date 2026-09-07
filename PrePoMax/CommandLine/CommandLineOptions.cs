@@ -56,6 +56,11 @@ namespace PrePoMax
         [Option("report", Required = false, HelpText = "The .json file name to be used for writing the machine readable run " +
                                                        "report. The report is written also when the run fails.")]
         public string ReportFileName { get; set; }
+        // Journal
+        [Option("journal", Required = false, HelpText = "The .py file name to be used for writing the session journal. The " +
+                                                       "command history is emitted as a Python script when the run ends, " +
+                                                       "also when the run fails.")]
+        public string JournalFileName { get; set; }
         // Timeout
         [Option("timeout", Required = false, Default = 0, HelpText = "The maximum duration of the run in seconds. Use 0 for no " +
                                                                      "limit. On expiry the running analyses are killed and the " +

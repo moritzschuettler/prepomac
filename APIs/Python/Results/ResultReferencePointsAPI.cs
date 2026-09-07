@@ -91,14 +91,28 @@ namespace APIs.Python
         {
             return Resolve(name).CreatedFrom.ToString();
         }
+        [PythonAPI("Returns whether the name of a result reference point is drawn next to its symbol.",
+                   Arguments = "name: str", Returns = "bool")]
+        public bool get_name_visible(string name)
+        {
+            return Resolve(name).NameVisible;
+        }
+        [PythonAPI("Returns the red, green, blue and alpha channels of a result reference point symbol.",
+                   Arguments = "name: str", Returns = "IntList")]
+        public IntListAPI get_color(string name)
+        {
+            return PythonColorConverter.ToChannels(Resolve(name).Color);
+        }
         [PythonAPI("Adds a result reference point using command history.",
-                   Arguments = "name: str, coordinates: list[float]", Returns = "None",
+                   Arguments = "name: str, coordinates: list[float], name_visible: bool = None, " +
+                               "color: list[int] = None", Returns = "None",
                    Example = "pmx.results.current.mesh.reference_points.add('RP-1', [0, 0, 0])")]
-        public void add(string name, object coordinates)
+        public void add(string name, object coordinates, object name_visible = null, object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
             ApplyCoordinates(point, coordinates);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
@@ -106,14 +120,17 @@ namespace APIs.Python
         [PythonAPI("Adds a result reference point from selected result mesh points using command history. " +
                    "The mode is OnPoint, BetweenTwoPoints or CircleCenter, and the coordinates are " +
                    "computed by the result mesh.",
-                   Arguments = "name: str, created_from: str, selection: Selection", Returns = "None",
+                   Arguments = "name: str, created_from: str, selection: Selection, " +
+                               "name_visible: bool = None, color: list[int] = None", Returns = "None",
                    Example = "pmx.results.current.mesh.reference_points.add_from_selection('RP-1', " +
                              "'CircleCenter', selection)")]
-        public void add_from_selection(string name, string created_from, SelectionAPI selection)
+        public void add_from_selection(string name, string created_from, SelectionAPI selection,
+                                       object name_visible = null, object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
             ApplySelection(point, created_from, selection);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
@@ -121,27 +138,33 @@ namespace APIs.Python
         [PythonAPI("Adds a result reference point from a named result region using command history. The " +
                    "mode is CenterOfGravity or BoundingBoxCenter, and the region type is NodeSetName or " +
                    "SurfaceName.",
-                   Arguments = "name: str, created_from: str, region_type: str, region_name: str",
+                   Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
+                               "name_visible: bool = None, color: list[int] = None",
                    Returns = "None")]
-        public void add_from_region(string name, string created_from, string region_type, string region_name)
+        public void add_from_region(string name, string created_from, string region_type, string region_name,
+                                    object name_visible = null, object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
             ApplyRegion(point, created_from, region_type, region_name);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
         }
         [PythonAPI("Replaces a result reference point using command history. The coordinates are the whole " +
                    "definition and are always given; only the name may be left out.",
-                   Arguments = "old_name: str, name: str = None, coordinates: list[float] = None",
+                   Arguments = "old_name: str, name: str = None, coordinates: list[float] = None, " +
+                               "name_visible: bool = None, color: list[int] = None",
                    Returns = "None")]
-        public void replace(string old_name, string name = null, object coordinates = null)
+        public void replace(string old_name, string name = null, object coordinates = null,
+                            object name_visible = null, object color = null)
         {
             if (coordinates == null)
                 throw new PythonAPIException("The argument 'coordinates' must be given.");
             FeReferencePoint point = CloneForReplace(old_name, name);
             ApplyCoordinates(point, coordinates);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
@@ -150,14 +173,17 @@ namespace APIs.Python
                    "add_from_selection does. The mode and the selection are the whole definition and are " +
                    "always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
-                               "selection: Selection = None", Returns = "None")]
+                               "selection: Selection = None, name_visible: bool = None, " +
+                               "color: list[int] = None", Returns = "None")]
         public void replace_from_selection(string old_name, string name = null, string created_from = null,
-                                           SelectionAPI selection = null)
+                                           SelectionAPI selection = null, object name_visible = null,
+                                           object color = null)
         {
             if (created_from == null || selection == null)
                 throw new PythonAPIException("The arguments 'created_from' and 'selection' must both be given.");
             FeReferencePoint point = CloneForReplace(old_name, name);
             ApplySelection(point, created_from, selection);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
@@ -165,15 +191,18 @@ namespace APIs.Python
         [PythonAPI("Replaces a result reference point by a named result region the way add_from_region " +
                    "does. The mode and the region are the whole definition and are always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
-                               "region_type: str = None, region_name: str = None", Returns = "None")]
+                               "region_type: str = None, region_name: str = None, " +
+                               "name_visible: bool = None, color: list[int] = None", Returns = "None")]
         public void replace_from_region(string old_name, string name = null, string created_from = null,
-                                        string region_type = null, string region_name = null)
+                                        string region_type = null, string region_name = null,
+                                        object name_visible = null, object color = null)
         {
             if (created_from == null || region_type == null || region_name == null)
                 throw new PythonAPIException("The arguments 'created_from', 'region_type' and 'region_name' " +
                                              "must all be given.");
             FeReferencePoint point = CloneForReplace(old_name, name);
             ApplyRegion(point, created_from, region_type, region_name);
+            ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
@@ -281,6 +310,15 @@ namespace APIs.Python
         }
         // A replacement re-specifies the whole definition, so the construction mode and the creation
         // data of the cloned point must follow the values that are applied
+        // The name visibility and the symbol colour are part of the stored definition, so a creation
+        // carries the same values its replacement can
+        private static void ApplyDisplayValues(FeReferencePoint point, object nameVisible, object color)
+        {
+            if (nameVisible != null)
+                point.NameVisible = PythonValueConverter.ToBool(nameVisible, "name_visible");
+            if (color != null)
+                point.Color = PythonColorConverter.ToColor(color, "color");
+        }
         private static void ApplyCoordinates(FeReferencePoint point, object coordinates)
         {
             EquationString[] values = PythonValueConverter.ToEquationArray(coordinates, "coordinates", 3);

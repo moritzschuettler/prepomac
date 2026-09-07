@@ -11,6 +11,8 @@ using CaeMesh;
 using System;
 using System.Runtime.Serialization;
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -55,6 +57,13 @@ namespace PrePoMax.Commands
         {
             receiver.CreateBoundaryLayer(_geometrySelection, _thickness);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string selection = PythonSelectionEmitter.Emit(writer, _geometrySelection.CreationData);
+            writer.Statement(writer.Call("pmx.model.mesh", "create_boundary_layer", selection,
+                                         PythonValueFormatter.Number(_thickness)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

@@ -42,6 +42,21 @@ namespace APIs.Python.Model
 
 
         // Methods
+        [PythonAPI("Returns the names of the values that are specific to this initial condition type.",
+                   Returns = "StringList")]
+        public StringListAPI get_value_names()
+        {
+            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(InitialCondition)).Keys);
+        }
+
+        [PythonAPI("Returns a value that is specific to this initial condition type, for example " +
+                   "temperature or distribution_name. Use get_value_names to list them.",
+                   Arguments = "name: str", Returns = "float, int, bool or str")]
+        public object get_value(string name)
+        {
+            return ModelItemValueReader.GetValue(Resolve(), typeof(InitialCondition), name,
+                                                 "initial condition");
+        }
         [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
         public System.Collections.Generic.Dictionary<string, string> get_equations()
         {

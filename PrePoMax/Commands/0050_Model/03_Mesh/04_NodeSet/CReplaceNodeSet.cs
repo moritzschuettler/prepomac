@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -43,6 +44,11 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.ReplaceFromSelection(writer, "pmx.model.node_sets", _oldNodeSetName, _newNodeSet,
+                                                        _newNodeSet.CreationData);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _oldNodeSetName + ", " + _newNodeSet.ToString();

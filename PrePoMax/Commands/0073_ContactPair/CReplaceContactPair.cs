@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceContactPair(_oldContactPairName, _newContactPair.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonInteractionEmitter.ContactPair(writer, _oldContactPairName, _newContactPair);
         }
         public override string GetCommandString()
         {

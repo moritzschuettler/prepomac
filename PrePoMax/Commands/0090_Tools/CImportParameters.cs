@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -51,6 +52,11 @@ namespace PrePoMax.Commands
             string fileName = receiver.GetFileNameToImport("Replace file: " + _fileName, false);
             if (fileName != null) _fileName = Tools.GetLocalPath(fileName);
             return Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.parameters", "import_from_file", writer.Path(Tools.GetGlobalPath(_fileName))));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

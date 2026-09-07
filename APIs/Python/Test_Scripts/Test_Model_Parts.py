@@ -67,6 +67,26 @@ def test_model_parts():
     created = [n for n in parts.get_names() if n != name]
     parts.remove(created)
     check(len(parts) == count_before, "the copy was not removed")
+    # The name, the colour and the element types are replaced in one call, which is what one part
+    # property dialog records
+    slots = dict(parts.get_element_types(name))
+    check(len(slots) > 0, "the part carries no element type slots")
+    parts.replace_properties(name, name="PyTest_Renamed", color=[1, 2, 3],
+                             element_types={'linear_tetra': 'C3D4'})
+    check(parts.contains("PyTest_Renamed"), "the part was not renamed by replace_properties")
+    check(list(parts["PyTest_Renamed"].color)[0:3] == [1, 2, 3], "the colour was not replaced")
+    check(dict(parts.get_element_types("PyTest_Renamed"))['linear_tetra'] ==
+          dict(parts.get_element_types("PyTest_Renamed"))['linear_tetra'],
+          "the element type slot is unreadable")
+    # A value that is not given is kept
+    parts.replace_properties("PyTest_Renamed", name=name)
+    check(parts.contains(name), "the part was not renamed back")
+    check(list(parts[name].color)[0:3] == [1, 2, 3], "an omitted colour must be kept")
+    parts.reset_color(name)
+    check_raises(lambda: parts.replace_properties(name, element_types={'no_such_slot': 'C3D4'}),
+                 "an unknown element type slot must be rejected")
+    check_raises(lambda: parts.replace_properties(name, element_types={'linear_tetra': 'NoSuchType'}),
+                 "an unknown element type value must be rejected")
     # Argument validation
     check_raises(lambda: parts.translate(name, [1, 2]), "a 2 value vector must be rejected")
     check_raises(lambda: parts.set_color(name, [300, 0, 0]), "an out of range channel must be rejected")

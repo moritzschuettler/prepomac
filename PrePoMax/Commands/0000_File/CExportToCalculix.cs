@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -44,6 +45,11 @@ namespace PrePoMax.Commands
         {
             receiver.ExportToCalculix(Tools.GetGlobalPath(_fileName));
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx", "export_to_calculix", writer.Path(Tools.GetGlobalPath(_fileName))));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

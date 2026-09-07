@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
@@ -42,6 +43,12 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call(PythonStepItemEmitter.GetCollection(_stepName, "history_outputs"),
+                                         "propagate", PythonValueFormatter.Text(_historyOutputName)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _stepName + ": " + _historyOutputName;

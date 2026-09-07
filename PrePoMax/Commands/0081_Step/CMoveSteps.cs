@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
@@ -44,6 +45,12 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.steps", "move", PythonValueFormatter.List(_stepNames),
+                                         PythonValueFormatter.Format(_targetIndex)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_stepNames) +

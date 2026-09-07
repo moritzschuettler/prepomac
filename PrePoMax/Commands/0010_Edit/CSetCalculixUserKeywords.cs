@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using Calculix = FileInOut.Output.Calculix;
 using System.Runtime.Serialization;
 
@@ -64,6 +65,18 @@ namespace PrePoMax.Commands
         {
             receiver.SetCalculixUserKeywords(_userKeywords.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            List<string> pairs = new List<string>();
+            foreach (var entry in _userKeywords)
+            {
+                pairs.Add("(" + PythonValueFormatter.List(entry.Key) + ", " +
+                          PythonValueFormatter.Text(entry.Value.Data) + ")");
+            }
+            writer.Statement(writer.Call("pmx.model.keywords", "replace_user_keywords",
+                                         "[" + string.Join(", ", pairs) + "]"));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.IO;
 
 
@@ -55,6 +56,16 @@ namespace PrePoMax.Commands
             string fileName = receiver.GetFileNameToOpen("Replace file: " + _fileName);
             if (fileName != null) _fileName = Tools.GetLocalPath(fileName);
             return Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            if (writer.CommandIndex == 0)
+            {
+                writer.Comment("Session start: " + Tools.GetGlobalPath(_fileName));
+                writer.Comment("Replay this journal with:  -f " + Tools.GetGlobalPath(_fileName));
+                writer.CountEmittedCommand();
+            }
+            else writer.Unsupported(this, "opening a file replaces the command history and cannot be scripted");
         }
         public override string GetCommandString()
         {

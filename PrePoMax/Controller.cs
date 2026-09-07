@@ -14654,13 +14654,8 @@ namespace PrePoMax
         }
         public int[] GetSelectionIds(bool onlyVisible = true)
         {
-            FeMesh mesh = DisplayedMesh;
-            if (mesh == null) return new int[0];
-            //
-            string[] partsToShow;
-            if (onlyVisible) partsToShow = null;
-            else partsToShow = mesh.GetHiddenActivePartNames();
-            HashSet<int> inactivePartIds = mesh.GetInactivePartIds();
+            FeMesh mesh = null;
+            string[] partsToShow = null;
             //
             try
             {
@@ -14679,6 +14674,13 @@ namespace PrePoMax
                 Selection selectionCopy = _selection.DeepCopy(true, copyNodeHashes);
                 // Set the selection view
                 CurrentView = GetSelectionView(selectionCopy);
+                // The mesh and its inactive part ids must be taken after the view is set, or a selection
+                // made in one view is filtered by the part activity of the view that was displayed
+                mesh = DisplayedMesh;
+                if (mesh == null) return new int[0];
+                //
+                if (!onlyVisible) partsToShow = mesh.GetHiddenActivePartNames();
+                HashSet<int> inactivePartIds = mesh.GetInactivePartIds();
                 // If not only visible - show hidden parts
                 if (partsToShow != null && partsToShow.Length > 0)
                 {
@@ -14709,7 +14711,7 @@ namespace PrePoMax
             finally
             {
                 // If not only visible - hide hidden parts
-                if (partsToShow != null && partsToShow.Length > 0)
+                if (mesh != null && partsToShow != null && partsToShow.Length > 0)
                 {
                     mesh.SetPartVisibilities(partsToShow, false);
                     _form.HideActors(partsToShow, false);

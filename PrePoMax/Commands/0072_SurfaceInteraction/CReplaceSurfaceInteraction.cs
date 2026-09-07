@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceSurfaceInteraction(_oldSurfaceInteractionName, _newSurfaceInteraction.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonInteractionEmitter.SurfaceInteraction(writer, _oldSurfaceInteractionName, _newSurfaceInteraction);
         }
         public override string GetCommandString()
         {

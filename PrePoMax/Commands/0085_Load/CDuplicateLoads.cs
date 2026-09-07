@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
@@ -42,6 +43,10 @@ namespace PrePoMax.Commands
         {
             receiver.DuplicateLoads(_stepName, _loadNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Duplicate(writer, "pmx.model.steps[" + PythonValueFormatter.Text(_stepName) + "].loads", _loadNames);
         }
         public override string GetCommandString()
         {

@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeMesh;
+using CaeModel;
 
 namespace APIs.Python.Model
 {
@@ -21,13 +22,18 @@ namespace APIs.Python.Model
         public static void Apply(IMultiRegion item, object region, string argumentName, string target,
                                  SelectionService selectionService, ModelResolver modelResolver)
         {
+            Apply(item, region, argumentName, new string[] { target }, selectionService, modelResolver);
+        }
+        public static void Apply(IMultiRegion item, object region, string argumentName, string[] targets,
+                                 SelectionService selectionService, ModelResolver modelResolver)
+        {
             if (region == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
             //
             SelectionAPI selection = region as SelectionAPI;
             if (selection != null)
             {
-                SelectionCompilation compilation = selectionService.CompileForView(selection, "femodel", target);
+                SelectionCompilation compilation = selectionService.CompileForView(selection, "femodel", targets);
                 item.RegionType = RegionTypeEnum.Selection;
                 item.RegionName = null;
                 item.CreationData = compilation.Selection;
@@ -41,16 +47,30 @@ namespace APIs.Python.Model
                                              "by pmx.create.selection_by_ids, or a named region created by " +
                                              "pmx.create.region.");
             //
-            ValidateRegionName(named, modelResolver);
+            ValidateRegionName(named, modelResolver, item);
             item.RegionType = named.RegionType;
             item.RegionName = named.name;
             item.CreationData = null;
             item.CreationIds = null;
         }
         //
-        private static void ValidateRegionName(RegionAPI region, ModelResolver modelResolver)
+        private static void ValidateRegionName(RegionAPI region, ModelResolver modelResolver,
+                                               IMultiRegion item)
         {
-            FeMesh mesh = modelResolver.GetModel().Mesh;
+            FeModel model = modelResolver.GetModel();
+            // A mass section names a section of the model rather than an entity of the mesh, and only
+            // the two loads that act on a mass accept it
+            if (region.RegionType == RegionTypeEnum.MassSection)
+            {
+                if (!(item is GravityLoad) && !(item is CentrifLoad))
+                    throw new PythonAPIException("A MassSection region can only be used by a gravity load " +
+                                                 "or by a centrifugal load.");
+                //
+                ValidateMassSectionName(region, model);
+                return;
+            }
+            //
+            FeMesh mesh = model.Mesh;
             if (mesh == null)
                 throw new PythonAPIException("A named region needs a mesh, and the model has none.");
             //
@@ -70,12 +90,24 @@ namespace APIs.Python.Model
                 default:
                     throw new PythonAPIException("The region type " + region.RegionType + " cannot name a " +
                                                  "region. Possible values are NodeSetName, ElementSetName, " +
-                                                 "SurfaceName, ReferencePointName and PartName.");
+                                                 "SurfaceName, ReferencePointName, PartName and MassSection.");
             }
             //
             if (!exists)
                 throw new PythonAPIException("The " + region.RegionType + " region '" + region.name +
                                              "' does not exist.");
+        }
+        //
+        private static void ValidateMassSectionName(RegionAPI region, FeModel model)
+        {
+            Section section;
+            if (!model.Sections.TryGetValue(region.name, out section))
+                throw new PythonAPIException("The MassSection region '" + region.name + "' does not exist.");
+            //
+            if (!(section is MassSection))
+                throw new PythonAPIException("The section '" + region.name + "' is a " +
+                                             section.GetType().Name + " and cannot be used as a MassSection " +
+                                             "region. Use a point mass or a distributed mass section.");
         }
     }
 }

@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -44,6 +45,10 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonPartPropertiesEmitter.Emit(writer, "pmx.model.parts", _oldPartName, _newPartProperties, true);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _oldPartName + ", " + _newPartProperties.ToString();

@@ -90,6 +90,21 @@ def test_reference_points():
     check(pmx.model.reference_points[PREFIX + "RP"].visible, "the reference point was not shown")
     check_raises(lambda: pmx.model.reference_points.add(PREFIX + "Bad", [1, 2]),
                  "a 2 value coordinate list must be rejected")
+    # The name visibility and the symbol colour are part of the stored definition
+    check(point.name_visible, "a new reference point must have a visible name")
+    point = pmx.model.reference_points.add(PREFIX + "RP_D", [0, 0, 1], name_visible=False,
+                                           color=[10, 20, 30])
+    check(not point.name_visible, "the name visibility was not stored")
+    check(list(point.color)[:3] == [10, 20, 30],
+          "the colour was not stored, it is " + str(list(point.color)))
+    # A replacement keeps what it is not given and changes what it is
+    point = pmx.model.reference_points.replace(PREFIX + "RP_D", coordinates=[0, 0, 2])
+    check(not point.name_visible, "the replacement dropped the name visibility")
+    check(list(point.color)[:3] == [10, 20, 30], "the replacement dropped the colour")
+    point = pmx.model.reference_points.replace(PREFIX + "RP_D", name_visible=True)
+    check(point.name_visible, "the replacement did not change the name visibility")
+    check_raises(lambda: pmx.model.reference_points.add(PREFIX + "Bad", [0, 0, 0], color=[1, 2]),
+                 "a 2 channel colour must be rejected")
 
 
 def test_coordinate_systems():
@@ -107,6 +122,15 @@ def test_coordinate_systems():
     check_raises(lambda: pmx.model.coordinate_systems.add(PREFIX + "Bad", [0, 0, 0], [1, 0, 0], [0, 1, 0],
                                                           coordinate_system_type="NotAType"),
                  "an unknown coordinate system type must be rejected")
+    # The name visibility is part of the stored definition
+    check(system.name_visible, "a new coordinate system must have a visible name")
+    system = pmx.model.coordinate_systems.add(PREFIX + "CS_N", [0, 0, 0], [1, 0, 0], [0, 1, 0],
+                                               name_visible=False)
+    check(not system.name_visible, "the name visibility was not stored")
+    system = pmx.model.coordinate_systems.replace(PREFIX + "CS_N", origin=[0, 0, 1])
+    check(not system.name_visible, "the replacement dropped the name visibility")
+    system = pmx.model.coordinate_systems.replace(PREFIX + "CS_N", name_visible=True)
+    check(system.name_visible, "the replacement did not change the name visibility")
 
 
 def test_derived_reference_points():

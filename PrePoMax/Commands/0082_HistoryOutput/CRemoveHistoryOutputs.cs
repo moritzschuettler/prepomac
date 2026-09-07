@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -39,6 +41,10 @@ namespace PrePoMax.Commands
         {
             receiver.RemoveHistoryOutputs(_stepName, _historyOutputNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Remove(writer, PythonStepItemEmitter.GetCollection(_stepName, "history_outputs"), _historyOutputNames);
         }
         public override string GetCommandString()
         {

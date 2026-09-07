@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -36,6 +38,10 @@ namespace PrePoMax.Commands
         {
             receiver.RemoveAmplitudes(_amplitudeNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Remove(writer, "pmx.model.amplitudes", _amplitudeNames);
         }
         public override string GetCommandString()
         {

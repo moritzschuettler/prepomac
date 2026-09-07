@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,11 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceElementSet(_oldElementSetName, _newElementSet.DeepClone(), true);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.ReplaceFromSelection(writer, "pmx.model.element_sets", _oldElementSetName, _newElementSet,
+                                                        _newElementSet.CreationData);
         }
         public override string GetCommandString()
         {

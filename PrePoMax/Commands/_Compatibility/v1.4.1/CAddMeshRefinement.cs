@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -46,6 +47,10 @@ namespace PrePoMax.Commands
         {
             _meshRefinement = (FeMeshRefinement)receiver.EditMeshSetupItemByForm(_meshRefinement.DeepClone());
             return Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonMeshSetupEmitter.Emit(writer, null, _meshRefinement);
         }
         public override string GetCommandString()
         {

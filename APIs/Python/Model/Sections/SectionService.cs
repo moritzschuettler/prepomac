@@ -76,9 +76,13 @@ namespace APIs.Python.Model
             if (!_modelResolver.GetModel().Materials.ContainsKey(materialName))
                 throw new PythonAPIException("The material '" + materialName + "' does not exist.");
         }
+        // The solid, shell and membrane dialogs build an element set, and the solid one does it by
+        // picking parts, so an element region accepts either target
         public void ApplyRegion(Section section, object region, string target)
         {
-            RegionApplier.Apply(section, region, "region", target, _selectionService, _modelResolver);
+            string[] targets = target == "elements" ? new string[] { "elements", "parts" }
+                                                    : new string[] { target };
+            RegionApplier.Apply(section, region, "region", targets, _selectionService, _modelResolver);
         }
         public void Add(Section section)
         {

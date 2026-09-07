@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.Runtime.Serialization;
 
 
@@ -52,6 +53,12 @@ namespace PrePoMax.Commands
         {
             // Compatibility for version v1.3.5
             return Execute(receiver);
+        }
+        // The command carries no data and its Execute does nothing, so there is nothing to replay
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Comment("Set meshing parameters (v1.3.5) - the command carries no data");
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

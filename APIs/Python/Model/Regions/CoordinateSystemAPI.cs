@@ -24,6 +24,8 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The coordinate system type: Rectangular or Cylindrical.", Returns = "str")]
         public string coordinate_system_type { get { return Resolve().Type.ToString(); } }
+        [PythonAPI("True when the coordinate system name is drawn next to its symbol.", Returns = "bool")]
+        public bool name_visible { get { return Resolve().NameVisible; } }
         [PythonAPI("True when the coordinate system is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
         [PythonAPI("True when the coordinate system resolved during the last regeneration.", Returns = "bool")]

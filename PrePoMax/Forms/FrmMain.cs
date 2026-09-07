@@ -16,6 +16,7 @@ using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
 using PrePoMax.Python;
+using PrePoMax.Python.Journal;
 using Python.Runtime;
 using System;
 using System.Collections.Generic;
@@ -1956,6 +1957,40 @@ namespace PrePoMax
             {
                 SetStateReady(Globals.ExportingText);
             }
+        }
+        private void tsmiExportToPythonJournal_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "Python files | *.py";
+                    if (_controller.OpenedFileName != null)
+                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".py";
+                    //
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        SetStateWorking(Globals.ExportingText);
+                        WriteSessionJournal(_controller.GetCommands(), saveFileDialog.FileName,
+                                            _controller.OpenedFileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.ExportingText);
+            }
+        }
+        private void WriteSessionJournal(List<PrePoMax.Commands.Command> commands, string fileName, string source)
+        {
+            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, source);
+            //
+            WriteDataToOutput(report.GetSummary());
+            foreach (string refusal in report.Refusals) WriteDataToOutput("   Not emitted: " + refusal);
         }
         private void tsmiExportToAbaqus_Click(object sender, EventArgs e)
         {

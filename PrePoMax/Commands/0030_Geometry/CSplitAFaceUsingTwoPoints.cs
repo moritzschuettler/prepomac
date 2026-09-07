@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,13 @@ namespace PrePoMax.Commands
         {
             receiver.SplitAFaceUsingTwoPoints(_surfaceSelection.DeepClone(), _verticesSelection.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string surfaces = PythonSelectionEmitter.Emit(writer, _surfaceSelection.CreationData);
+            string vertices = PythonSelectionEmitter.Emit(writer, _verticesSelection.CreationData);
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "split_face", surfaces, vertices));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

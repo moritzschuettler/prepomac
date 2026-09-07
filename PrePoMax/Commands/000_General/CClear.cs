@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,18 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        // A journal is replayed into a fresh instance, which is already empty, so a clear at the very
+        // start needs nothing; anywhere else it would discard what the script built and there is no
+        // API form for that, because replacing the model rebuilds the command collection
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            if (writer.CommandIndex == 0)
+            {
+                writer.Comment("New model - the journal starts from an empty model");
+                writer.CountEmittedCommand();
+            }
+            else writer.Unsupported(this, "a model can only be cleared before the journal starts");
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + "All";

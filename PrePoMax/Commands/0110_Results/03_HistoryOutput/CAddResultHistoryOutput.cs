@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeMesh;
 using CaeModel;
 using CaeResults;
@@ -48,6 +49,10 @@ namespace PrePoMax.Commands
         {
             receiver.AddResultHistoryOutput(_resultHistoryOutput.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonResultOutputEmitter.HistoryOutput(writer, null, _resultHistoryOutput);
         }
         public override string GetCommandString()
         {

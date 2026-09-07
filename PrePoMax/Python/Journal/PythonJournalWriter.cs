@@ -1,0 +1,127 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+using PrePoMax.Commands;
+
+namespace PrePoMax.Python.Journal
+{
+    // Collects the lines of an emitted session journal. A command writes through this rather than
+    // returning a string, because one command often needs several lines, may need to bind a variable
+    // the following commands use, and must be able to refuse visibly.
+    public class PythonJournalWriter
+    {
+        // Variables                                                                                                                
+        private readonly StringBuilder _builder;
+        private readonly PythonJournalScope _scope;
+        private readonly List<string> _refusals;
+        private int _emittedCommandCount;
+        private int _commandIndex;
+
+
+        // Properties                                                                                                               
+        public PythonJournalScope Scope { get { return _scope; } }
+        public List<string> Refusals { get { return _refusals; } }
+        public int EmittedCommandCount { get { return _emittedCommandCount; } }
+        // The position of the command being emitted, so that one which only makes sense at the start of
+        // a session can tell whether it is there
+        public int CommandIndex { get { return _commandIndex; } set { _commandIndex = value; } }
+        public int RefusedCommandCount { get { return _refusals.Count; } }
+
+
+        // Constructors                                                                                                             
+        public PythonJournalWriter()
+        {
+            _builder = new StringBuilder();
+            _scope = new PythonJournalScope();
+            _refusals = new List<string>();
+            _emittedCommandCount = 0;
+            _commandIndex = 0;
+        }
+
+
+        // Methods                                                                                                                  
+        public void Line(string line)
+        {
+            _builder.AppendLine(line == null ? "" : line);
+        }
+        public void Blank()
+        {
+            _builder.AppendLine();
+        }
+        public void Comment(string comment)
+        {
+            Line("# " + comment);
+        }
+        public void Block(string block)
+        {
+            if (block == null) return;
+            // A recorded script is emitted as it was written, so its own line breaks are kept
+            foreach (string line in block.Replace("\r\n", "\n").Split('\n')) Line(line.TrimEnd());
+        }
+        public void Unsupported(Command command, string reason)
+        {
+            string name = command == null ? "Unknown command" : command.Name;
+            string type = command == null ? "" : " (" + command.GetType().Name + ")";
+            //
+            Comment("NOT EMITTED - " + name + type + ": " + reason);
+            _refusals.Add(name + type + ": " + reason);
+        }
+        public void CountEmittedCommand()
+        {
+            _emittedCommandCount++;
+        }
+        public string Value(object value)
+        {
+            return PythonValueFormatter.Format(value);
+        }
+        public string Path(string value)
+        {
+            return PythonValueFormatter.Path(value);
+        }
+        public string Call(string target, string method, params string[] arguments)
+        {
+            string call = Join(method, arguments);
+            if (string.IsNullOrEmpty(target)) return call;
+            //
+            return target + "." + call;
+        }
+        public static string Join(string callee, params string[] arguments)
+        {
+            return callee + "(" + ArgumentList(arguments) + ")";
+        }
+        public void Statement(string statement)
+        {
+            Line(statement);
+        }
+        public void Assign(string variableName, string expression)
+        {
+            Line(variableName + " = " + expression);
+        }
+        // A null argument is one the caller chose to leave at its default, so it is left out
+        public static string ArgumentList(params string[] arguments)
+        {
+            if (arguments == null) return "";
+            //
+            List<string> given = new List<string>();
+            foreach (string argument in arguments)
+            {
+                if (argument != null) given.Add(argument);
+            }
+            //
+            return string.Join(", ", given);
+        }
+        public string GetText()
+        {
+            return _builder.ToString();
+        }
+    }
+}

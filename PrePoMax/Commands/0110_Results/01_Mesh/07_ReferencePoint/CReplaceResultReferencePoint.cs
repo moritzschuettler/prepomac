@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceResultReferencePoint(_oldReferencePointName, _newReferencePoint.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonResultEmitter.ReferencePoint(writer, _oldReferencePointName, _newReferencePoint);
         }
         public override string GetCommandString()
         {

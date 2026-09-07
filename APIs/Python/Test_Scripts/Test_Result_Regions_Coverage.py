@@ -58,6 +58,16 @@ def test_reference_points(points):
           "the replaced coordinate did not read back")
     check_raises(lambda: points.remove("__missing_result_point__"), "a missing reference point was accepted")
     check_raises(lambda: points.add(PREFIX + "Point_R", [0, 0, 0]), "a duplicate name was accepted")
+    # The name visibility and the symbol colour are part of the stored definition
+    check(points.get_name_visible(PREFIX + "Point_R"), "a new result point must have a visible name")
+    points.add(PREFIX + "Point_D", [0, 0, 0], name_visible=False, color=[40, 50, 60])
+    check(not points.get_name_visible(PREFIX + "Point_D"), "the name visibility was not stored")
+    check(list(points.get_color(PREFIX + "Point_D"))[:3] == [40, 50, 60],
+          "the colour was not stored, it is " + str(list(points.get_color(PREFIX + "Point_D"))))
+    points.replace(PREFIX + "Point_D", coordinates=[1, 1, 1], name_visible=True, color=[70, 80, 90])
+    check(points.get_name_visible(PREFIX + "Point_D"), "the replacement did not set the name visibility")
+    check(list(points.get_color(PREFIX + "Point_D"))[:3] == [70, 80, 90],
+          "the replacement did not set the colour")
     clean(points)
     check(len(points) == 0, "the reference points left behind " + str(list(points.get_names())))
 
@@ -182,6 +192,13 @@ def test_coordinate_systems(systems):
     check_raises(lambda: systems.add(PREFIX + "Bad", [0, 0, 0], [0, 0, 0], [0, 1, 0]),
                  "a degenerate coordinate system was accepted")
     check_raises(lambda: systems.remove("__missing_result_cs__"), "a missing coordinate system was accepted")
+    # The name visibility is part of the stored definition
+    check(systems.get_name_visible(PREFIX + "CS_R"), "a new result system must have a visible name")
+    systems.add(PREFIX + "CS_N", [0, 0, 0], [1, 0, 0], [0, 1, 0], name_visible=False)
+    check(not systems.get_name_visible(PREFIX + "CS_N"), "the name visibility was not stored")
+    systems.replace(PREFIX + "CS_N", origin=[0, 0, 0], point_on_x=[3, 0, 0], point_in_xy=[0, 1, 0],
+                    name_visible=True)
+    check(systems.get_name_visible(PREFIX + "CS_N"), "the replacement did not set the name visibility")
     clean(systems)
     check(len(systems) == 0, "the coordinate systems left behind " + str(list(systems.get_names())))
 

@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,10 @@ namespace PrePoMax.Commands
         {
             receiver.DuplicateSurfaces(_surfaceNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Duplicate(writer, "pmx.model.surfaces", _surfaceNames);
         }
         public override string GetCommandString()
         {

@@ -32,7 +32,9 @@ namespace APIs.Python
         [PythonAPI("Creates an ID-based selection. Possible view values are 'geometry', 'femodel', and " +
                    "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'edges', 'parts', " +
                    "and 'geometry'. Possible source values are 'nodes', 'elements', 'vertices', 'edges', " +
-                   "'surfaces', and 'parts'.",
+                   "'surfaces', 'parts', and 'geometry'. The 'geometry' source takes the geometry IDs the " +
+                   "application records for a geometry pick made in the Selection by ID mode, and converts " +
+                   "them to any target.",
                    Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]], " +
                                "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",
@@ -140,11 +142,15 @@ namespace APIs.Python
             return MaterialPropertyFactory.CreateElasticLamina(constants);
         }
 
-        [PythonAPI("Creates a plastic material property. Every row is [stress, strain, temperature].",
-                   Arguments = "stress_strain: list[list[float]]", Returns = "MaterialProperty")]
-        public Plastic plastic(object stress_strain)
+        [PythonAPI("Creates a plastic material property. Every row is [stress, strain, temperature]. " +
+                   "Possible hardening values are Isotropic, Kinematic and Combined; it defaults to " +
+                   "Isotropic.",
+                   Arguments = "stress_strain: list[list[float]], hardening: str = None",
+                   Returns = "MaterialProperty",
+                   Example = "pmx.create.plastic([[250, 0, 20]], hardening='Kinematic')")]
+        public Plastic plastic(object stress_strain, string hardening = null)
         {
-            return MaterialPropertyFactory.CreatePlastic(stress_strain);
+            return MaterialPropertyFactory.CreatePlastic(stress_strain, hardening);
         }
 
         [PythonAPI("Creates a slip wear material property.",
@@ -171,11 +177,15 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a thermal expansion material property. Give one value, or a list of " +
-                   "[expansion, temperature] rows.", Arguments = "thermal_expansion: float or list[list[float]]",
-                   Returns = "MaterialProperty")]
-        public ThermalExpansion thermal_expansion(object thermal_expansion_value)
+                   "[expansion, temperature] rows. The zero temperature is the temperature the expansion " +
+                   "starts from and defaults to 20 in model units.",
+                   Arguments = "thermal_expansion: float or list[list[float]], " +
+                               "zero_temperature: float = None",
+                   Returns = "MaterialProperty",
+                   Example = "pmx.create.thermal_expansion(1.2e-5, zero_temperature=0)")]
+        public ThermalExpansion thermal_expansion(object thermal_expansion_value, object zero_temperature = null)
         {
-            return MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion_value);
+            return MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion_value, zero_temperature);
         }
         [PythonAPI("Creates a friction surface interaction property.",
                    Arguments = "coefficient: float, stick_slope: float = None",
@@ -213,7 +223,9 @@ namespace APIs.Python
 
         [PythonAPI("Names an existing region of the model, so that a model item can point at it instead of " +
                    "carrying its own selection. Possible region_type values are NodeSetName, ElementSetName, " +
-                   "SurfaceName, ReferencePointName and PartName.",
+                   "SurfaceName, ReferencePointName, PartName and MassSection. A MassSection region names a " +
+                   "point mass or distributed mass section and is used by the gravity and the centrifugal " +
+                   "load.",
                    Arguments = "region_type: str, name: str", Returns = "Region",
                    Example = "pmx.create.region('NodeSetName', 'Bottom')")]
         public RegionAPI region(string region_type, string name)

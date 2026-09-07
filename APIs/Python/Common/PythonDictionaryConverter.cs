@@ -18,6 +18,63 @@ namespace APIs.Python
     internal static class PythonDictionaryConverter
     {
         // Methods
+        // The element types of a part are named values rather than numbers, so they need their own form
+        public static OrderedDictionary<string, string> ToStringStringDictionary(object value, string argumentName)
+        {
+            OrderedDictionary<string, string> converted =
+                new OrderedDictionary<string, string>("StringStringDictionary");
+            if (value == null) throw InvalidDictionary(argumentName);
+            //
+            PyObject pyObject = value as PyObject;
+            if (pyObject != null)
+            {
+                try
+                {
+                    using (Py.GIL())
+                    {
+                        if (pyObject.IsNone() || !PyDict.IsDictType(pyObject)) throw InvalidDictionary(argumentName);
+                        using (PyDict dictionary = new PyDict(pyObject))
+                        using (PyObject keys = dictionary.Keys())
+                        {
+                            long count = keys.Length();
+                            for (int i = 0; i < count; i++)
+                            {
+                                using (PyObject keyObject = keys.GetItem(i))
+                                using (PyObject valueObject = dictionary.GetItem(keyObject))
+                                {
+                                    if (!PyString.IsStringType(keyObject))
+                                        throw new PythonAPIException("All keys in '" + argumentName +
+                                                                     "' must be strings.");
+                                    converted.Add(keyObject.As<string>(), valueObject.ToString());
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (PythonAPIException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonAPIException("The argument '" + argumentName +
+                                                 "' could not be converted to dict[str, str]: " + ex.Message);
+                }
+                return converted;
+            }
+            //
+            IDictionary managed = value as IDictionary;
+            if (managed == null) throw InvalidDictionary(argumentName);
+            foreach (DictionaryEntry entry in managed)
+            {
+                string key = entry.Key as string;
+                if (key == null)
+                    throw new PythonAPIException("All keys in '" + argumentName + "' must be strings.");
+                converted.Add(key, entry.Value == null ? null : entry.Value.ToString());
+            }
+            //
+            return converted;
+        }
         public static OrderedDictionary<string, double> ToStringDoubleDictionary(object value, string argumentName)
         {
             if (value == null) throw InvalidDictionary(argumentName);

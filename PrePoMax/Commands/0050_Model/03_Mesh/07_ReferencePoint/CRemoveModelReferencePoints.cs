@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,10 @@ namespace PrePoMax.Commands
         {
             receiver.RemoveModelReferencePoints(_referencePointNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Remove(writer, "pmx.model.reference_points", _referencePointNames);
         }
         public override string GetCommandString()
         {

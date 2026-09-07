@@ -29,13 +29,14 @@ namespace APIs.Python.Model
         [PythonAPI("Creates a coordinate system from three points using command history. The type is " +
                    "Rectangular or Cylindrical.",
                    Arguments = "name: str, origin: list[float], point_on_x: list[float], " +
-                               "point_in_xy: list[float], coordinate_system_type: str = None",
+                               "point_in_xy: list[float], coordinate_system_type: str = None, " +
+                               "name_visible: bool = None",
                    Returns = "CoordinateSystem",
                    Example = "pmx.model.coordinate_systems.add('CS-1', [0,0,0], [1,0,0], [0,1,0])")]
         public CoordinateSystemAPI add(string name, object origin, object point_on_x, object point_in_xy,
-                                       string coordinate_system_type = null)
+                                       string coordinate_system_type = null, object name_visible = null)
         {
-            _service.Add(name, coordinate_system_type, origin, point_on_x, point_in_xy);
+            _service.Add(name, coordinate_system_type, origin, point_on_x, point_in_xy, name_visible);
             return this[name];
         }
 
@@ -48,7 +49,8 @@ namespace APIs.Python.Model
                                "point_on_x_created_from: str = None, point_on_x_selection: Selection = None, " +
                                "point_in_xy_created_from: str = None, point_in_xy_selection: Selection = None, " +
                                "origin: list[float] = None, point_on_x: list[float] = None, " +
-                               "point_in_xy: list[float] = None, coordinate_system_type: str = None",
+                               "point_in_xy: list[float] = None, coordinate_system_type: str = None, " +
+                               "name_visible: bool = None",
                    Returns = "CoordinateSystem",
                    Example = "pmx.model.coordinate_systems.add_from_selections('CS-1', 'OnPoint', selection, " +
                              "point_on_x=[1, 0, 0], point_in_xy=[0, 1, 0])")]
@@ -60,22 +62,26 @@ namespace APIs.Python.Model
                                                        SelectionAPI point_in_xy_selection = null,
                                                        object origin = null, object point_on_x = null,
                                                        object point_in_xy = null,
-                                                       string coordinate_system_type = null)
+                                                       string coordinate_system_type = null,
+                                                       object name_visible = null)
         {
             _service.AddFromSelections(name, coordinate_system_type, origin_created_from, origin_selection,
                                        point_on_x_created_from, point_on_x_selection, point_in_xy_created_from,
-                                       point_in_xy_selection, origin, point_on_x, point_in_xy);
+                                       point_in_xy_selection, origin, point_on_x, point_in_xy, name_visible);
             return this[name];
         }
 
         [PythonAPI("Replaces an existing coordinate system using command history.",
                    Arguments = "old_name: str, name: str, origin: list[float], point_on_x: list[float], " +
-                               "point_in_xy: list[float], coordinate_system_type: str = None",
+                               "point_in_xy: list[float], coordinate_system_type: str = None, " +
+                               "name_visible: bool = None",
                    Returns = "CoordinateSystem")]
         public CoordinateSystemAPI replace(string old_name, string name = null, object origin = null, object point_on_x = null,
-                                           object point_in_xy = null, string coordinate_system_type = null)
+                                           object point_in_xy = null, string coordinate_system_type = null,
+                                           object name_visible = null)
         {
-            _service.Replace(old_name, name, coordinate_system_type, origin, point_on_x, point_in_xy);
+            _service.Replace(old_name, name, coordinate_system_type, origin, point_on_x, point_in_xy,
+                             name_visible);
             return this[name == null ? old_name : name];
         }
 
@@ -86,7 +92,8 @@ namespace APIs.Python.Model
                                "point_on_x_selection: Selection = None, point_in_xy_created_from: str = None, " +
                                "point_in_xy_selection: Selection = None, origin: list[float] = None, " +
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
-                               "coordinate_system_type: str = None", Returns = "CoordinateSystem")]
+                               "coordinate_system_type: str = None, name_visible: bool = None",
+                   Returns = "CoordinateSystem")]
         public CoordinateSystemAPI replace_from_selections(string old_name, string name = null,
                                                            string origin_created_from = null,
                                                            SelectionAPI origin_selection = null,
@@ -96,12 +103,13 @@ namespace APIs.Python.Model
                                                            SelectionAPI point_in_xy_selection = null,
                                                            object origin = null, object point_on_x = null,
                                                            object point_in_xy = null,
-                                                           string coordinate_system_type = null)
+                                                           string coordinate_system_type = null,
+                                                           object name_visible = null)
         {
             _service.ReplaceFromSelections(old_name, name, coordinate_system_type, origin_created_from,
                                            origin_selection, point_on_x_created_from, point_on_x_selection,
                                            point_in_xy_created_from, point_in_xy_selection, origin, point_on_x,
-                                           point_in_xy);
+                                           point_in_xy, name_visible);
             return this[name == null ? old_name : name];
         }
 

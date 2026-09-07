@@ -38,6 +38,13 @@ def clean():
     names = [n for n in pmx.model.surfaces.get_names() if n.startswith(PREFIX)]
     if names:
         pmx.model.surfaces.remove(names)
+    # A section references a material, so the sections go first
+    names = [n for n in pmx.model.sections.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.sections.remove(names)
+    names = [n for n in pmx.model.materials.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.materials.remove(names)
 
 
 def node_selection(ids):
@@ -155,6 +162,41 @@ def test_body_loads():
     check_raises(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]),
                                                axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
+    test_mass_section_region()
+
+
+# A gravity and a centrifugal load may act on a mass section instead of a mesh region, which is a
+# region type no other item accepts and which the CalculiX writer treats differently
+def test_mass_section_region():
+    loads = pmx.model.steps[STEP].loads
+    sections = pmx.model.sections
+    materials = pmx.model.materials
+    if not materials.contains(PREFIX + "Mat"):
+        materials.add(PREFIX + "Mat", pmx.create.elastic(210000, 0.3))
+    if not sections.contains(PREFIX + "PointMass"):
+        sections.add_point_mass(PREFIX + "PointMass",
+                                pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]), 0.5)
+    if not sections.contains(PREFIX + "SolidSec"):
+        sections.add_solid(PREFIX + "SolidSec", PREFIX + "Mat", element_selection([1]))
+    mass_region = pmx.create.region('MassSection', PREFIX + "PointMass")
+    #
+    load = loads.add_gravity(PREFIX + "G_M", mass_region, f3=-9810)
+    check(load.region_type == "MassSection", "unexpected region type " + load.region_type)
+    check(load.region_name == PREFIX + "PointMass", "unexpected region name " + str(load.region_name))
+    load = loads.add_centrifugal(PREFIX + "C_M", mass_region, axis_point=[0, 0, 0],
+                                 axis_direction=[0, 0, 1], rotational_speed=50)
+    check(load.region_type == "MassSection", "the centrifugal load lost the mass section region")
+    # A section that is not a mass section, and a section that does not exist, are both refused
+    check_raises(lambda: loads.add_gravity(PREFIX + "Bad",
+                                           pmx.create.region('MassSection', PREFIX + "SolidSec"), f3=-1),
+                 "a solid section must not be usable as a mass section region")
+    check_raises(lambda: loads.add_gravity(PREFIX + "Bad",
+                                           pmx.create.region('MassSection', 'NoSuchSection'), f3=-1),
+                 "an unknown mass section must be rejected")
+    check(not loads.contains(PREFIX + "Bad"), "a rejected load must not be recorded")
+    # Only the two loads that act on a mass accept the region type
+    check_raises(lambda: loads.add_pressure(PREFIX + "Bad", mass_region, 1),
+                 "a pressure must not accept a mass section region")
 
 
 def test_imported_pressure(file_name):

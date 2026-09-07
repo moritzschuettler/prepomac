@@ -17,6 +17,8 @@ using CaeModel;
 using CaeGlobals;
 using CaeResults;
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -39,6 +41,10 @@ namespace PrePoMax.Commands
         {
             receiver.AddResultFieldOutput(_resultFieldOutput.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonResultOutputEmitter.FieldOutput(writer, null, _resultFieldOutput);
         }
         public override string GetCommandString()
         {

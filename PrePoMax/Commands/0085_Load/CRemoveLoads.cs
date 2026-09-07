@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -40,6 +42,10 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonModelItemEmitter.Remove(writer, "pmx.model.steps[" + PythonValueFormatter.Text(_stepName) + "].loads", _loadNames);
+        }
         public override string GetCommandString()
         {
 

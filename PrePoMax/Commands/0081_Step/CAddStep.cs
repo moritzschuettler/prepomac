@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.Runtime.Serialization;
 
 
@@ -47,6 +48,10 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonStepEmitter.Add(writer, _step, _copyBCsAndLoads);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _step.ToString();

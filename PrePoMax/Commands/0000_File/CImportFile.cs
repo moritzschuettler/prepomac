@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -56,6 +57,13 @@ namespace PrePoMax.Commands
             return Execute(receiver);
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string onlyMaterials = _onlyMaterials ? "only_materials=True" : null;
+            writer.Statement(writer.Call("pmx", "import_file", writer.Path(Tools.GetGlobalPath(_fileName)),
+                                         onlyMaterials));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _fileName;

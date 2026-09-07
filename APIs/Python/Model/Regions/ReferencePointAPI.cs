@@ -24,6 +24,10 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("How the reference point was created.", Returns = "str")]
         public string created_from { get { return Resolve().CreatedFrom.ToString(); } }
+        [PythonAPI("True when the reference point name is drawn next to its symbol.", Returns = "bool")]
+        public bool name_visible { get { return Resolve().NameVisible; } }
+        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
+        public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
         [PythonAPI("True when the reference point is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
         [PythonAPI("True when the reference point resolved during the last regeneration.", Returns = "bool")]

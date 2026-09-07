@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -41,6 +42,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceConstraint(_oldConstraintName, _newConstraint.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonInteractionEmitter.Constraint(writer, _oldConstraintName, _newConstraint);
         }
         public override string GetCommandString()
         {

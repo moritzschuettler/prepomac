@@ -20,6 +20,9 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         protected vtkActor2D _textActor;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate _textActorCoordinate;
         protected vtkTextMapper _textMapper;
         protected int _padding;
         protected string _numberFormat;
@@ -42,9 +45,10 @@ namespace vtkControl
             _textActor.SetMapper(_textMapper);
 
             // Set relative text position
-            _textActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _textActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
-            _textActor.GetPositionCoordinate().SetValue(_padding, _padding);
+            _textActorCoordinate = _textActor.GetPositionCoordinate();
+            _textActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _textActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
+            _textActorCoordinate.SetValue(_padding, _padding);
         }
 
 
@@ -127,7 +131,7 @@ namespace vtkControl
                 _padding = padding;
                 if (_textActor != null)
                 {
-                    _textActor.GetPositionCoordinate().SetValue(_padding, _padding);
+                    _textActorCoordinate.SetValue(_padding, _padding);
                     OnSizeChanged();
                 }
             }

@@ -43,9 +43,13 @@ namespace APIs.Python
         {
             return new ElasticLamina(ToTable(constants, ElasticLamina.NumberOfValues, "elastic_lamina", null));
         }
-        public static Plastic CreatePlastic(object stressStrain)
+        public static Plastic CreatePlastic(object stressStrain, string hardening)
         {
-            return new Plastic(ToTable(stressStrain, 3, "plastic", null));
+            Plastic plastic = new Plastic(ToTable(stressStrain, 3, "plastic", null));
+            if (hardening != null)
+                plastic.Hardening = PythonValueConverter.ToEnum<PlasticHardening>(hardening, "hardening");
+            //
+            return plastic;
         }
         public static SlipWear CreateSlipWear(object hardness, object wearCoefficient)
         {
@@ -61,10 +65,16 @@ namespace APIs.Python
             return new ThermalConductivity(ToTable(thermalConductivity, 2, "thermal_conductivity",
                                                    new string[] { "thermal_conductivity" }));
         }
-        public static ThermalExpansion CreateThermalExpansion(object thermalExpansion)
+        public static ThermalExpansion CreateThermalExpansion(object thermalExpansion, object zeroTemperature)
         {
-            return new ThermalExpansion(ToTable(thermalExpansion, 2, "thermal_expansion",
-                                                new string[] { "thermal_expansion" }));
+            ThermalExpansion property =
+                new ThermalExpansion(ToTable(thermalExpansion, 2, "thermal_expansion",
+                                             new string[] { "thermal_expansion" }));
+            if (zeroTemperature != null)
+                property.ZeroTemperature.Equation =
+                    PythonValueConverter.ToEquationString(zeroTemperature, "zero_temperature");
+            //
+            return property;
         }
         //
         private static double[][] ToTable(object value, int columnCount, string propertyName, string[] valueNames)

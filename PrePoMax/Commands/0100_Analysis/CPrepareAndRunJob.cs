@@ -17,6 +17,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeJob;
 using PrePoMax.Forms;
 
@@ -57,6 +58,10 @@ namespace PrePoMax.Commands
             //return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonJobEmitter.Run(writer, _jobName, _onlyCheckModel);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _jobName.ToString();

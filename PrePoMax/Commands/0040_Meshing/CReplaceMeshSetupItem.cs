@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -54,6 +55,10 @@ namespace PrePoMax.Commands
             else throw new NotSupportedException("MeshSetupItemTypeException");
             //
             return Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonMeshSetupEmitter.Emit(writer, _oldMeshSetupItemName, _meshSetupItem);
         }
         public override string GetCommandString()
         {

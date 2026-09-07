@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using PrePoMax.Python;
+using PrePoMax.Python.Journal;
 using System;
 using System.Runtime.Serialization;
 
@@ -50,6 +51,19 @@ namespace PrePoMax.Commands
                 throw new CaeException(_executionResult.Error.TrimEnd());
             //
             return true;
+        }
+        // The script is emitted as it was recorded and is never expanded into the calls it made. Its
+        // own commands were never recorded, and expanding it would replace a live computation with the
+        // values it produced on its first run.
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string source = _fileName == null ? "embedded script" : _fileName;
+            writer.Comment("--- Recorded script: " + source + " ---");
+            if (_arguments != null && _arguments.Length > 0)
+                writer.Comment("Recorded arguments: " + string.Join(" ", _arguments));
+            writer.Block(_script);
+            writer.Comment("--- End of recorded script ---");
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

@@ -28,11 +28,14 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds an initial temperature using command history. The region is a selection or a named " +
-                   "region; the selection target is nodes.",
-                   Arguments = "name: str, region: Selection or Region, temperature: float",
+                   "region; the selection target is nodes. A distribution scales the temperature over the " +
+                   "region.",
+                   Arguments = "name: str, region: Selection or Region, temperature: float, " +
+                               "distribution_name: str = None",
                    Returns = "InitialCondition",
                    Example = "pmx.model.initial_conditions.add_temperature('IC-1', selection, 20)")]
-        public InitialConditionAPI add_temperature(string name, object region, object temperature)
+        public InitialConditionAPI add_temperature(string name, object region, object temperature,
+                                                   object distribution_name = null)
         {
             _service.ValidateNewName(name, null);
             InitialTemperature initialCondition =
@@ -41,6 +44,8 @@ namespace APIs.Python.Model
             initialCondition.Temperature.Equation = PythonValueConverter.ToEquationString(temperature,
                                                                                           "temperature");
             _service.ApplyRegion(initialCondition, region, "nodes");
+            if (distribution_name != null)
+                initialCondition.DistributionName = _service.ResolveScalarDistributionName(distribution_name);
             _service.Add(initialCondition);
             return this[name];
         }
@@ -93,14 +98,18 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an initial temperature, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
-                               "temperature: float = None", Returns = "InitialCondition")]
+                               "temperature: float = None, distribution_name: str = None",
+                   Returns = "InitialCondition")]
         public InitialConditionAPI replace_temperature(string old_name, string name = null, object region = null,
-                                                       object temperature = null)
+                                                       object temperature = null,
+                                                       object distribution_name = null)
         {
             InitialTemperature item = (InitialTemperature)_service.Clone(old_name);
             ApplyReplacedName(item, old_name, name, region);
             if (temperature != null)
                 item.Temperature.Equation = PythonValueConverter.ToEquationString(temperature, "temperature");
+            if (distribution_name != null)
+                item.DistributionName = _service.ResolveScalarDistributionName(distribution_name);
             //
             return Replace(old_name, item);
         }

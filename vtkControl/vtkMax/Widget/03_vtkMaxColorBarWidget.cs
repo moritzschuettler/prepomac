@@ -24,15 +24,21 @@ namespace vtkControl
         protected vtkPolyDataMapper2D _colorBarBorderMapper;
         protected vtkPolyData _colorBarBorderPolyData;
         protected vtkActor2D _colorBarBorderActor;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate _colorBarBorderActorCoordinate;
         //
         protected vtkPolyDataMapper2D _colorBarColorsMapper;
         protected vtkPolyData _colorBarColorsPolyData;
         protected vtkActor2D _colorBarColorsActor;
+        protected vtkCoordinate _colorBarColorsActorCoordinate;
         //
         protected vtkActor2D _textActorFooter;
+        protected vtkCoordinate _textActorFooterCoordinate;
         protected vtkTextMapper _textMapperFooter;
         //
         protected vtkActor2D _textActorLabel;
+        protected vtkCoordinate _textActorLabelCoordinate;
         protected vtkTextMapper _textMapperLabel;
         //
         private Color[] _colors;
@@ -75,9 +81,10 @@ namespace vtkControl
             _textActorFooter = vtkActor2D.New();
             _textActorFooter.SetMapper(_textMapperFooter);
             // Set relative text position
-            _textActorFooter.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _textActorFooter.GetPositionCoordinate().SetValue(_padding, _padding);
-            _textActorFooter.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _textActorFooterCoordinate = _textActorFooter.GetPositionCoordinate();
+            _textActorFooterCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _textActorFooterCoordinate.SetValue(_padding, _padding);
+            _textActorFooterCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         private void InitializeLabels()
         {
@@ -88,8 +95,9 @@ namespace vtkControl
             _textActorLabel = vtkActor2D.New();
             _textActorLabel.SetMapper(_textMapperLabel);
             // Set relative text position
-            _textActorLabel.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _textActorLabel.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _textActorLabelCoordinate = _textActorLabel.GetPositionCoordinate();
+            _textActorLabelCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _textActorLabelCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         private void InitializeBar()
         {
@@ -108,8 +116,9 @@ namespace vtkControl
             _colorBarBorderActor.SetMapper(_colorBarBorderMapper);
             _colorBarBorderActor.SetProperty(colorBarProperty);
             //
-            _colorBarBorderActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
-            _colorBarBorderActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _colorBarBorderActorCoordinate = _colorBarBorderActor.GetPositionCoordinate();
+            _colorBarBorderActorCoordinate.SetCoordinateSystemToDisplay();
+            _colorBarBorderActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
             // Bar filled                                                                          
             _colorBarColorsPolyData = vtkPolyData.New();
             _colorBarColorsPolyData.SetPoints(vtkPoints.New());
@@ -122,8 +131,9 @@ namespace vtkControl
             _colorBarColorsActor.SetMapper(_colorBarColorsMapper);
             _colorBarColorsActor.SetProperty(colorBarProperty);
             //
-            _colorBarColorsActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
-            _colorBarColorsActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _colorBarColorsActorCoordinate = _colorBarColorsActor.GetPositionCoordinate();
+            _colorBarColorsActorCoordinate.SetCoordinateSystemToDisplay();
+            _colorBarColorsActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         //
         private void GenerateGeometry()
@@ -165,7 +175,7 @@ namespace vtkControl
         }
         private double[] GenerateFooter(double offsetX, double offsetY)
         {
-            _textActorFooter.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _textActorFooterCoordinate.SetValue(offsetX, offsetY);
             //
             int[] sizeFooter = vtkMaxWidgetTools.GetTextSize(_textMapperFooter, _renderer);
             return new double[] { offsetX + sizeFooter[0], offsetY + sizeFooter[1] };
@@ -181,7 +191,7 @@ namespace vtkControl
             _textMapperLabel.SetInput(label);
             //
             int[] size = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
-            _textActorLabel.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _textActorLabelCoordinate.SetValue(offsetX, offsetY);
             //
             return new double[] { offsetX + size[0], offsetY + size[1] };
         }
@@ -223,7 +233,7 @@ namespace vtkControl
             _colorBarBorderPolyData.SetPoints(colorBarPoints);
             _colorBarBorderPolyData.SetLines(colorBarLines);
             //
-            _colorBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _colorBarBorderActorCoordinate.SetValue(offsetX, offsetY);
         }
         private void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight)
         {
@@ -267,7 +277,7 @@ namespace vtkControl
             _colorBarBorderPolyData.SetPoints(colorBarPoints);
             _colorBarBorderPolyData.SetLines(colorBarLines);
             //
-            _colorBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _colorBarBorderActorCoordinate.SetValue(offsetX, offsetY);
         }
         private void GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight)
         {
@@ -311,11 +321,11 @@ namespace vtkControl
             _colorBarColorsMapper.SetScalarRange(range[0], range[1]);
             _colorBarColorsMapper.SetLookupTable(_lookupTable);
             //
-            _colorBarColorsActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _colorBarColorsActorCoordinate.SetValue(offsetX, offsetY);
         }
         private double[] GenerateText(double offsetX, double offsetY)
         {
-            _textActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
+            _textActorCoordinate.SetValue(offsetX, offsetY);
             //
             int[] sizeText = vtkMaxWidgetTools.GetTextSize(_textMapper, _renderer);
             return new double[] { offsetX + sizeText[0], offsetY + sizeText[1] };
@@ -404,7 +414,8 @@ namespace vtkControl
             // Replace _ and - for space char
             for (int i = 0; i < _labels.Length; i++) _labels[i] = _labels[i].Replace('_', ' ').Replace('-', ' ');
             //
-            _lookupTable = vtkLookupTable.New();
+            // Reconfigured in place rather than replaced; every entry below is overwritten
+            if (_lookupTable == null) _lookupTable = vtkLookupTable.New();
             _lookupTable.SetNumberOfTableValues(_colors.Length);
             _lookupTable.SetRange(0, _colors.Length);
             // Fill in the colors

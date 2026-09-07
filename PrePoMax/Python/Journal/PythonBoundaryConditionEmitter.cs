@@ -1,0 +1,104 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using System;
+using System.Collections.Generic;
+using CaeGlobals;
+using CaeModel;
+
+namespace PrePoMax.Python.Journal
+{
+    // The four boundary condition types, each with its own API member. An unconstrained degree of
+    // freedom carries a NaN, which the value formatter writes as None, and a None argument leaves the
+    // degree of freedom free, so the two agree without a special case.
+    public static class PythonBoundaryConditionEmitter
+    {
+        // Methods                                                                                                                  
+        public static void Add(PythonJournalWriter writer, string stepName, BoundaryCondition condition)
+        {
+            Emit(writer, stepName, "add", null, condition);
+        }
+        public static void Replace(PythonJournalWriter writer, string stepName, string oldName,
+                                   BoundaryCondition condition)
+        {
+            Emit(writer, stepName, "replace", oldName, condition);
+        }
+        private static void Emit(PythonJournalWriter writer, string stepName, string verb, string oldName,
+                                 BoundaryCondition condition)
+        {
+            string collection = PythonStepItemEmitter.GetCollection(stepName, "bcs");
+            string region = PythonRegionEmitter.Emit(writer, condition.RegionName, condition.RegionType,
+                                                     condition.CreationData);
+            List<string> arguments = new List<string>();
+            if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
+            arguments.Add(PythonValueFormatter.Text(condition.Name));
+            arguments.Add(region);
+            //
+            string method;
+            if (condition is FixedBC)
+            {
+                method = verb + "_fixed";
+            }
+            else if (condition is DisplacementRotation displacementRotation)
+            {
+                method = verb + "_displacement_rotation";
+                AddDegreeOfFreedom(arguments, "u1", displacementRotation.U1);
+                AddDegreeOfFreedom(arguments, "u2", displacementRotation.U2);
+                AddDegreeOfFreedom(arguments, "u3", displacementRotation.U3);
+                AddDegreeOfFreedom(arguments, "ur1", displacementRotation.UR1);
+                AddDegreeOfFreedom(arguments, "ur2", displacementRotation.UR2);
+                AddDegreeOfFreedom(arguments, "ur3", displacementRotation.UR3);
+            }
+            else if (condition is SubmodelBC submodel)
+            {
+                method = verb + "_submodel";
+                arguments.Add("step_number=" + PythonValueFormatter.Equation(submodel.StepNumber));
+                AddFlag(arguments, "u1", submodel.U1);
+                AddFlag(arguments, "u2", submodel.U2);
+                AddFlag(arguments, "u3", submodel.U3);
+                AddFlag(arguments, "ur1", submodel.UR1);
+                AddFlag(arguments, "ur2", submodel.UR2);
+                AddFlag(arguments, "ur3", submodel.UR3);
+            }
+            else if (condition is TemperatureBC temperature)
+            {
+                method = verb + "_temperature";
+                arguments.Add("temperature=" + PythonValueFormatter.Equation(temperature.Temperature));
+                if (!string.IsNullOrEmpty(temperature.DistributionName))
+                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(temperature.DistributionName));
+            }
+            else throw new NotSupportedException("the boundary condition type " + condition.GetType().Name +
+                                                 " has no API form");
+            //
+            PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
+            PythonStepItemEmitter.AddCoordinateSystem(arguments, condition.CoordinateSystemName);
+            PythonStepItemEmitter.AddPhase(arguments, condition.Complex, condition.PhaseDeg);
+            PythonStepItemEmitter.AddColor(arguments, condition.Color, new FixedBC("Default", null,
+                                                                                   RegionTypeEnum.Selection,
+                                                                                   false).Color);
+            //
+            writer.Statement(writer.Call(collection, method, arguments.ToArray()));
+            PythonModelItemEmitter.EmitState(writer, collection, condition);
+            writer.CountEmittedCommand();
+        }
+        // A degree of freedom that is not constrained carries a NaN, and the formatter writes None
+        private static void AddDegreeOfFreedom(List<string> arguments, string name, EquationContainer value)
+        {
+            if (value == null || double.IsNaN(value.Value)) return;
+            //
+            arguments.Add(name + "=" + PythonValueFormatter.Equation(value));
+        }
+        private static void AddFlag(List<string> arguments, string name, bool value)
+        {
+            if (!value) return;
+            //
+            arguments.Add(name + "=True");
+        }
+    }
+}

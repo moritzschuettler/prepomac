@@ -56,14 +56,22 @@ namespace APIs.Python.Model
         {
             ValidateNewName(name, null);
             string single = equation as string;
-            if (single != null) return new DistributionFromEquation(name, single);
+            if (single != null) return new DistributionFromEquation(name, ToEquationText(single));
             //
             string[] components = PythonStringListConverter.ToStringArray(equation, "equation");
             if (components == null || components.Length != 3)
                 throw new PythonAPIException("The argument 'equation' must be one equation string, or three " +
                                              "equation strings, one per direction.");
             //
-            return new DistributionFromEquation(name, components[0], components[1], components[2]);
+            return new DistributionFromEquation(name, ToEquationText(components[0]),
+                                                ToEquationText(components[1]),
+                                                ToEquationText(components[2]));
+        }
+        // A distribution keeps its equation as the plain text it was given rather than in an
+        // EquationContainer, so the leading equals sign the application expects is supplied here
+        private static string ToEquationText(string equation)
+        {
+            return PythonValueConverter.ToEquationString(equation, "equation").Equation;
         }
         public Distribution BuildFromFile(string name, string fileName, string interpolatorType,
                                           object interpolatorRadius, object scale, object translate)

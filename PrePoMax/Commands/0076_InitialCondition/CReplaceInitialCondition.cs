@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceInitialCondition(_oldInitialConditionName, _newInitialCondition.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonFieldEmitter.InitialCondition(writer, _oldInitialConditionName, _newInitialCondition);
         }
         public override string GetCommandString()
         {

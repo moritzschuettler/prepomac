@@ -30,17 +30,22 @@ namespace vtkControl
 
         protected vtkTextMapper[] _scaleTextMappers;
         protected vtkActor2D[] _scaleTextActors;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate[] _scaleTextCoordinates;
 
         protected vtkPolyDataMapper2D _scaleBorderMapper;
         protected vtkPolyData _scaleBorderPolyData;
         protected vtkCellArray _scaleBorderLines;
         protected vtkActor2D _scaleBorderActor;
+        protected vtkCoordinate _scaleBorderActorCoordinate;
 
         protected vtkPolyDataMapper2D _scaleBackgroundMapper;
         protected vtkPolyData _scaleBackgroundPolyData;
         protected vtkPoints _scaleBackgroundPoints;
         protected vtkCellArray _scaleBackgroundPolygons;
         protected vtkActor2D _scaleBackgroundActor;
+        protected vtkCoordinate _scaleBackgroundActorCoordinate;
 
 
         // Constructors                                                                                                             
@@ -69,6 +74,7 @@ namespace vtkControl
             //
             _scaleTextMappers = new vtkTextMapper[_numOffields + 1];
             _scaleTextActors = new vtkActor2D[_scaleTextMappers.Length];
+            _scaleTextCoordinates = new vtkCoordinate[_scaleTextMappers.Length];
             //
             for (int i = 0; i < _scaleTextMappers.Length; i++)
             {
@@ -79,9 +85,10 @@ namespace vtkControl
                 _scaleTextActors[i] = vtkActor2D.New();
                 _scaleTextActors[i].SetMapper(_scaleTextMappers[i]);
                 // Set relative text position
-                _scaleTextActors[i].GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-                _scaleTextActors[i].GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
-                _scaleTextActors[i].GetPositionCoordinate().SetValue(0, 0);
+                _scaleTextCoordinates[i] = _scaleTextActors[i].GetPositionCoordinate();
+                _scaleTextCoordinates[i].SetCoordinateSystemToDisplay();  // set offsets in pixels
+                _scaleTextCoordinates[i].SetReferenceCoordinate(_positionCoordinate);
+                _scaleTextCoordinates[i].SetValue(0, 0);
             }
         }
         private void InitializeBackground()
@@ -104,8 +111,9 @@ namespace vtkControl
             _scaleBackgroundActor.SetMapper(_scaleBackgroundMapper);
             _scaleBackgroundActor.SetProperty(backgroundProperty);
             //
-            _scaleBackgroundActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _scaleBackgroundActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _scaleBackgroundActorCoordinate = _scaleBackgroundActor.GetPositionCoordinate();
+            _scaleBackgroundActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _scaleBackgroundActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         private void InitializeBorder()
         {
@@ -126,8 +134,9 @@ namespace vtkControl
             _scaleBorderActor.SetMapper(_scaleBorderMapper);
             _scaleBorderActor.SetProperty(borderProperty);
             //
-            _scaleBorderActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _scaleBorderActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _scaleBorderActorCoordinate = _scaleBorderActor.GetPositionCoordinate();
+            _scaleBorderActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _scaleBorderActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         
         private void GenerateGeometry()
@@ -248,7 +257,7 @@ namespace vtkControl
                 point = points.GetPoint(2 * i);
                 size = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[i], _renderer);
                 //
-                _scaleTextActors[i].GetPositionCoordinate().SetValue(point[0] - size[0] / 2, _padding);
+                _scaleTextCoordinates[i].SetValue(point[0] - size[0] / 2, _padding);
             }
         }
         private void UpdateOuterBorder()

@@ -155,14 +155,17 @@ namespace APIs.Python
             _commandGateway.MergeResultParts(names);
         }
         [PythonAPI("Replaces the properties of a result part using command history. A property that is not " +
-                   "given is kept.", Arguments = "old_name: str, name: str = None", Returns = "None")]
-        public void replace_properties(string old_name, string name = null)
+                   "given is kept.",
+                   Arguments = "old_name: str, name: str = None, color: list[int] or str = None",
+                   Returns = "None")]
+        public void replace_properties(string old_name, string name = null, object color = null)
         {
             string[] names = ResolvePartNames(old_name);
             EnsureCommandsAvailable();
             CaeMesh.PartProperties properties =
                 _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[names[0]].GetProperties();
             if (name != null) properties.Name = name;
+            if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
             _commandGateway.ReplaceResultPartProperties(names[0], properties);
         }
         [PythonAPI("Removes result parts using command history.", Arguments = "part_names: list[str] or str",

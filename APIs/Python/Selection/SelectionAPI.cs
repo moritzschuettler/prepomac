@@ -45,7 +45,8 @@ namespace APIs.Python
 
         // Methods
         [PythonAPI("Adds IDs to the selection. Edges and surfaces use dict[part_id, list[item_id]]; " +
-                   "nodes, elements, vertices, and parts use list[int].",
+                   "nodes, elements, vertices, parts, and geometry use list[int]. The 'geometry' source " +
+                   "takes recorded geometry IDs unchanged.",
                    Arguments = "source: str, ids: list[int] or dict[int, list[int]], operation: str = None, " +
                                "geometry_select_mode: str = 'SelectId'", Returns = "Selection")]
         public SelectionAPI add_by_ids(string source, object ids, string operation = null,

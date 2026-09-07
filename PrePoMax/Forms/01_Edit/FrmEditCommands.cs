@@ -23,6 +23,7 @@ using DynamicTypeDescriptor;
 using CaeJob;
 using PrePoMax.Commands;
 using PrePoMax.Settings;
+using PrePoMax.Python.Journal;
 using System.Diagnostics;
 using System.IO;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
@@ -97,6 +98,32 @@ namespace PrePoMax.Forms
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
                         SavePmh(saveFileDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiSaveAsPython_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "Python files|*.py";
+                    saveFileDialog.FileName = "History";
+                    //
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        // The dialog may hold a reordered or shortened history, so what is shown is emitted
+                        List<Command> commands = _viewCommands != null ? Commands : _controller.GetCommands();
+                        PythonJournalReport report = PythonJournalExporter.Export(commands, saveFileDialog.FileName,
+                                                                                  _controller.OpenedFileName);
+                        if (report.RefusedCommandCount > 0)
+                            MessageBoxes.ShowWarning(report.GetSummary() + Environment.NewLine +
+                                                     string.Join(Environment.NewLine, report.Refusals));
                     }
                 }
             }

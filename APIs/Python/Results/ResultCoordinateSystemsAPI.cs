@@ -93,6 +93,12 @@ namespace APIs.Python
         {
             return Resolve(name).Type.ToString();
         }
+        [PythonAPI("Returns whether the name of a result coordinate system is drawn next to its symbol.",
+                   Arguments = "name: str", Returns = "bool")]
+        public bool get_name_visible(string name)
+        {
+            return Resolve(name).NameVisible;
+        }
         [PythonAPI("Returns how the three points of a result coordinate system were created: Coordinates, " +
                    "OnPoint, BetweenTwoPoints or CircleCenter, for the origin, the point on X and the " +
                    "point in XY.", Arguments = "name: str", Returns = "list[str]")]
@@ -105,11 +111,12 @@ namespace APIs.Python
         }
         [PythonAPI("Adds a result coordinate system using command history.",
                    Arguments = "name: str, origin: list[float], point_on_x: list[float], " +
-                               "point_in_xy: list[float], coordinate_system_type: str = None",
+                               "point_in_xy: list[float], coordinate_system_type: str = None, " +
+                               "name_visible: bool = None",
                    Returns = "None",
                    Example = "pmx.results.current.mesh.coordinate_systems.add('CS-1', [0,0,0], [1,0,0], [0,1,0])")]
         public void add(string name, object origin, object point_on_x, object point_in_xy,
-                        string coordinate_system_type = null)
+                        string coordinate_system_type = null, object name_visible = null)
         {
             ValidateName(name, null);
             CoordinateSystem system = new CoordinateSystem(name, false);
@@ -117,6 +124,7 @@ namespace APIs.Python
             ApplyPointOrCoordinates(system, null, null, origin, 1, true);
             ApplyPointOrCoordinates(system, null, null, point_on_x, 2, true);
             ApplyPointOrCoordinates(system, null, null, point_in_xy, 3, true);
+            ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
@@ -130,14 +138,15 @@ namespace APIs.Python
                                "origin_created_from: str = None, origin_selection: Selection = None, " +
                                "point_on_x: list[float] = None, point_on_x_created_from: str = None, " +
                                "point_on_x_selection: Selection = None, point_in_xy: list[float] = None, " +
-                               "point_in_xy_created_from: str = None, point_in_xy_selection: Selection = None",
+                               "point_in_xy_created_from: str = None, " +
+                               "point_in_xy_selection: Selection = None, name_visible: bool = None",
                    Returns = "None")]
         public void add_from_selections(string name, string coordinate_system_type = null, object origin = null,
                                         string origin_created_from = null, SelectionAPI origin_selection = null,
                                         object point_on_x = null, string point_on_x_created_from = null,
                                         SelectionAPI point_on_x_selection = null, object point_in_xy = null,
                                         string point_in_xy_created_from = null,
-                                        SelectionAPI point_in_xy_selection = null)
+                                        SelectionAPI point_in_xy_selection = null, object name_visible = null)
         {
             ValidateName(name, null);
             CoordinateSystem system = new CoordinateSystem(name, false);
@@ -145,6 +154,7 @@ namespace APIs.Python
             ApplyPointOrCoordinates(system, origin_created_from, origin_selection, origin, 1, false);
             ApplyPointOrCoordinates(system, point_on_x_created_from, point_on_x_selection, point_on_x, 2, false);
             ApplyPointOrCoordinates(system, point_in_xy_created_from, point_in_xy_selection, point_in_xy, 3, false);
+            ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
@@ -154,10 +164,11 @@ namespace APIs.Python
                    "whole definition and are always given; the name and the type may be left out.",
                    Arguments = "old_name: str, name: str = None, origin: list[float] = None, " +
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
-                               "coordinate_system_type: str = None",
+                               "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "None")]
         public void replace(string old_name, string name = null, object origin = null, object point_on_x = null,
-                            object point_in_xy = null, string coordinate_system_type = null)
+                            object point_in_xy = null, string coordinate_system_type = null,
+                            object name_visible = null)
         {
             if (origin == null || point_on_x == null || point_in_xy == null)
                 throw new PythonAPIException("The arguments 'origin', 'point_on_x' and 'point_in_xy' must all " +
@@ -167,6 +178,7 @@ namespace APIs.Python
             ApplyPointOrCoordinates(system, null, null, origin, 1, true);
             ApplyPointOrCoordinates(system, null, null, point_on_x, 2, true);
             ApplyPointOrCoordinates(system, null, null, point_in_xy, 3, true);
+            ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
@@ -180,7 +192,8 @@ namespace APIs.Python
                                "origin_selection: Selection = None, point_on_x: list[float] = None, " +
                                "point_on_x_created_from: str = None, point_on_x_selection: Selection = None, " +
                                "point_in_xy: list[float] = None, point_in_xy_created_from: str = None, " +
-                               "point_in_xy_selection: Selection = None", Returns = "None")]
+                               "point_in_xy_selection: Selection = None, name_visible: bool = None",
+                   Returns = "None")]
         public void replace_from_selections(string old_name, string name = null,
                                             string coordinate_system_type = null, object origin = null,
                                             string origin_created_from = null,
@@ -188,13 +201,15 @@ namespace APIs.Python
                                             string point_on_x_created_from = null,
                                             SelectionAPI point_on_x_selection = null, object point_in_xy = null,
                                             string point_in_xy_created_from = null,
-                                            SelectionAPI point_in_xy_selection = null)
+                                            SelectionAPI point_in_xy_selection = null,
+                                            object name_visible = null)
         {
             CoordinateSystem system = CloneForReplace(old_name, name);
             ApplyType(system, coordinate_system_type);
             ApplyPointOrCoordinates(system, origin_created_from, origin_selection, origin, 1, true);
             ApplyPointOrCoordinates(system, point_on_x_created_from, point_on_x_selection, point_on_x, 2, true);
             ApplyPointOrCoordinates(system, point_in_xy_created_from, point_in_xy_selection, point_in_xy, 3, true);
+            ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
@@ -308,6 +323,14 @@ namespace APIs.Python
             //
             system.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(coordinateSystemType,
                                                                                 "coordinate_system_type");
+        }
+        // The name visibility is part of the stored definition, so a creation carries the same value its
+        // replacement can
+        private static void ApplyNameVisible(CoordinateSystem system, object nameVisible)
+        {
+            if (nameVisible == null) return;
+            //
+            system.NameVisible = PythonValueConverter.ToBool(nameVisible, "name_visible");
         }
         // A replacement re-specifies the whole definition, so applying a point also normalizes how that
         // point was created and drops the creation data the previous mode left behind

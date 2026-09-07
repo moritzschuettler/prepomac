@@ -49,60 +49,69 @@ namespace APIs.Python.Model
             //
             return referencePoint;
         }
-        public void Add(string name, object coordinates)
+        public void Add(string name, object coordinates, object nameVisible, object color)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = Build(name, coordinates);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
-        public void AddFromSelection(string name, string createdFrom, SelectionAPI selection)
+        public void AddFromSelection(string name, string createdFrom, SelectionAPI selection,
+                                     object nameVisible, object color)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
             ApplySelection(referencePoint, createdFrom, selection);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
-        public void AddFromRegion(string name, string createdFrom, string regionType, string regionName)
+        public void AddFromRegion(string name, string createdFrom, string regionType, string regionName,
+                                  object nameVisible, object color)
         {
             ValidateNewName(name, null);
             FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
             ApplyRegion(referencePoint, createdFrom, regionType, regionName);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelReferencePoint(referencePoint);
         }
-        public void Replace(string oldName, string name, object coordinates)
+        public void Replace(string oldName, string name, object coordinates, object nameVisible, object color)
         {
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             if (coordinates != null) ApplyCoordinates(referencePoint, coordinates);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
         }
         // A model side replacement keeps what it is not told, so a value that is not given is taken from
         // the stored definition rather than being required again
-        public void ReplaceFromSelection(string oldName, string name, string createdFrom, SelectionAPI selection)
+        public void ReplaceFromSelection(string oldName, string name, string createdFrom,
+                                         SelectionAPI selection, object nameVisible, object color)
         {
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
             if (selection == null) ApplyKeptSelection(referencePoint, mode);
             else ApplySelection(referencePoint, mode, selection);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
         }
         public void ReplaceFromRegion(string oldName, string name, string createdFrom, string regionType,
-                                      string regionName)
+                                      string regionName, object nameVisible, object color)
         {
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
             string region = regionType != null ? regionType : GetKeptRegionType(referencePoint);
             string keptRegionName = regionName != null ? regionName : referencePoint.RegionName;
             ApplyRegion(referencePoint, mode, region, keptRegionName);
+            ApplyDisplayValues(referencePoint, nameVisible, color);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelReferencePoint(oldName, referencePoint);
@@ -151,6 +160,15 @@ namespace APIs.Python.Model
             referencePoint.Name = newName;
             //
             return referencePoint;
+        }
+        // The name visibility and the symbol colour are part of the stored definition, so a creation
+        // carries the same values its replacement can
+        private static void ApplyDisplayValues(FeReferencePoint referencePoint, object nameVisible, object color)
+        {
+            if (nameVisible != null)
+                referencePoint.NameVisible = PythonValueConverter.ToBool(nameVisible, "name_visible");
+            if (color != null)
+                referencePoint.Color = PythonColorConverter.ToColor(color, "color");
         }
         private static void ApplyCoordinates(FeReferencePoint referencePoint, object coordinates)
         {

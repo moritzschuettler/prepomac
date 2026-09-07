@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -48,6 +49,12 @@ namespace PrePoMax.Commands
         {
             receiver.ExportPartsAsMmgMesh(_partNames, Tools.GetGlobalPath(_fileName).ToLower(), _combine);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx", "export_parts_as_mmg_mesh", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName)),
+                                         "combine=" + PythonValueFormatter.Format(_combine)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using PrePoMax.Forms;
 
 
@@ -41,6 +42,16 @@ namespace PrePoMax.Commands
         {
             receiver.MergeCoincidentNodes(_mergeCoincidentNodes.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string selection = PythonSelectionEmitter.Emit(writer, _mergeCoincidentNodes.CreationData);
+            writer.Statement(writer.Call("pmx.model.nodes", "merge_coincident", selection,
+                                         "tolerance=" +
+                                         PythonValueFormatter.Number(_mergeCoincidentNodes.Tolerance),
+                                         "nodes_to_keep=" +
+                                         PythonValueFormatter.Text(_mergeCoincidentNodes.NodesToKeep.ToString())));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

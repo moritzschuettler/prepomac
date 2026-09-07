@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -49,6 +50,15 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        // The dialog sets both at once while the API carries one property each, so this is the single
+        // place where one recorded command becomes two
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Assign("pmx.model.properties.model_space", PythonValueFormatter.Text(_modelSpace.ToString()));
+            writer.Assign("pmx.model.properties.unit_system",
+                          PythonValueFormatter.Text(_unitSystemType.ToString()));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Model space: " + _modelSpace.GetDisplayedName() 

@@ -63,6 +63,18 @@ namespace APIs.Python.Model
             _service.SetTransparency(_service.ResolveNames(part_names), transparency);
         }
 
+        [PythonAPI("Replaces the properties of a part using command history. A property that is not given " +
+                   "is kept. The element types are a map of the element type name to its value, the way " +
+                   "get_element_types names them.",
+                   Arguments = "old_name: str, name: str = None, color: list[int] or str = None, " +
+                               "element_types: dict[str, str] = None", Returns = "None",
+                   Example = "parts.replace_properties('Solid-1', name='Bracket', " +
+                             "element_types={'linear_tetra': 'C3D4'})")]
+        public void replace_properties(string old_name, string name = null, object color = null,
+                                       object element_types = null)
+        {
+            _service.ReplaceProperties(old_name, name, color, element_types);
+        }
         [PythonAPI("Returns the supported element type names, for example linear_tetra.",
                    Returns = "StringList")]
         public StringListAPI get_element_type_names()

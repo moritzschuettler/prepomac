@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -50,6 +51,15 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.mesh", "thicken_shell_mesh", PythonValueFormatter.List(_partNames),
+                                         PythonValueFormatter.Number(_thickness),
+                                         "number_of_layers=" + PythonValueFormatter.Format(_numberOfLayers),
+                                         "offset=" + PythonValueFormatter.Number(_offset),
+                                         "keep_model_edges=" + PythonValueFormatter.Format(_keepModelEdges)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Thickness: " + _thickness.ToString() +

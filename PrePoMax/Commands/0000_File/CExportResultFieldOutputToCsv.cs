@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeResults;
 
 namespace PrePoMax.Commands
@@ -51,6 +52,15 @@ namespace PrePoMax.Commands
         {
             receiver.ExportResultFieldOutput(_fileName, _resultName, _fieldData);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.results.field_outputs", "export_to_csv",
+                                         writer.Path(Tools.GetGlobalPath(_fileName)),
+                                         PythonValueFormatter.Text(_resultName),
+                                         PythonValueFormatter.Format(_fieldData.StepId),
+                                         PythonValueFormatter.Format(_fieldData.StepIncrementId)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

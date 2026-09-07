@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -43,6 +44,10 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonStepEmitter.Replace(writer, _oldStepName, _newStep);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _oldStepName + ", " + _newStep.ToString();

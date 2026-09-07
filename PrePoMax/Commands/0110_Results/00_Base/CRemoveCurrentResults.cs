@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeJob;
 using PrePoMax.Forms;
 using System.IO;
@@ -43,6 +44,11 @@ namespace PrePoMax.Commands
         {
             receiver.RemoveCurrentResult();
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.results", "remove_current"));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

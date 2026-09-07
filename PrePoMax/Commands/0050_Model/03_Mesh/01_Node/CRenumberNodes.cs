@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,11 @@ namespace PrePoMax.Commands
         {
             receiver.RenumberNodes(_startNodeId);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.nodes", "renumber", PythonValueFormatter.Format(_startNodeId)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

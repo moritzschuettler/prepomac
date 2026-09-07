@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,12 @@ namespace PrePoMax.Commands
         {
             receiver.FlipFaceOrientations(_geometrySelection.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string selection = PythonSelectionEmitter.Emit(writer, _geometrySelection.CreationData);
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "flip_face_orientations", selection));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

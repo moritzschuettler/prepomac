@@ -45,10 +45,8 @@ namespace APIs.Python.Model
             _meshGateway.CreateBoundaryLayer(geometrySelection,
                                              PythonValueConverter.ToDouble(thickness, "thickness"));
         }
-        public void RemeshElements(SelectionAPI selection, object maxSize, object minSize, object hausdorff)
+        public void RemeshElements(object region, object maxSize, object minSize, object hausdorff)
         {
-            if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
-            //
             EnsureCommandsAvailable();
             MeshingParameters meshingParameters = _meshGateway.GetDefaultMeshingParameters("Remeshing");
             if (meshingParameters == null)
@@ -58,11 +56,12 @@ namespace APIs.Python.Model
             if (hausdorff != null)
                 meshingParameters.FactorHausdorff = PythonValueConverter.ToDouble(hausdorff, "hausdorff");
             //
-            SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel", "geometry");
             RemeshingParameters remeshingParameters =
                 new RemeshingParameters(null, RegionTypeEnum.Selection, meshingParameters);
-            remeshingParameters.CreationData = compilation.Selection;
-            remeshingParameters.CreationIds = compilation.Ids;
+            // The dialog offers a selection or a named element set, so the operation takes both
+            RegionApplier.Apply(remeshingParameters, region, "region", "geometry", _selectionService,
+                                _modelResolver);
+            ValidateRemeshingRegionType(remeshingParameters.RegionType);
             //
             _meshGateway.RemeshElements(remeshingParameters);
         }
@@ -88,27 +87,24 @@ namespace APIs.Python.Model
                                           offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset"),
                                           keepModelEdges);
         }
-        public void SplitPartMeshUsingSurface(SelectionAPI basePartSelection, SelectionAPI splitterSurfaceSelection,
+        public void SplitPartMeshUsingSurface(object basePartRegion, object splitterSurfaceRegion,
                                               object offset, object maxSize, object minSize, object hausdorff,
                                               bool exact)
         {
-            if (basePartSelection == null)
-                throw new PythonAPIException("The argument 'base_part_selection' must not be None.");
-            if (splitterSurfaceSelection == null)
-                throw new PythonAPIException("The argument 'splitter_surface_selection' must not be None.");
-            // This is a one time operation, not a tree item: the IDs record what was operated on and stay
-            // valid on replay, because the preceding history reproduces the same mesh
-            SelectionCompilation baseCompilation =
-                _selectionService.CompileForView(basePartSelection, "femodel", "geometry");
-            SelectionCompilation splitterCompilation =
-                _selectionService.CompileForView(splitterSurfaceSelection, "femodel", "surfaces");
-            //
             SplitPartMeshData splitPartMeshData =
                 new SplitPartMeshData(RegionTypeEnum.Selection, null, RegionTypeEnum.Selection, null);
-            splitPartMeshData.BasePartCreationData = baseCompilation.Selection;
-            splitPartMeshData.BasePartCreationIds = baseCompilation.Ids;
-            splitPartMeshData.SplitterSurfaceCreationData = splitterCompilation.Selection;
-            splitPartMeshData.SplitterSurfaceCreationIds = splitterCompilation.Ids;
+            // This is a one time operation, not a tree item: the IDs record what was operated on and stay
+            // valid on replay, because the preceding history reproduces the same mesh. The dialog offers a
+            // named part for the base region and a named surface for the splitter region
+            MasterSlaveRegionApplier.ApplyMaster(splitPartMeshData, basePartRegion, "base_part_region",
+                                                 "geometry", _selectionService, _modelResolver);
+            MasterSlaveRegionApplier.ApplySlave(splitPartMeshData, splitterSurfaceRegion,
+                                                "splitter_surface_region", "surfaces", _selectionService,
+                                                _modelResolver);
+            ValidateSplitRegionType(splitPartMeshData.MasterRegionType, "base_part_region",
+                                    RegionTypeEnum.PartName);
+            ValidateSplitRegionType(splitPartMeshData.SlaveRegionType, "splitter_surface_region",
+                                    RegionTypeEnum.SurfaceName);
             if (offset != null) splitPartMeshData.Offset = PythonValueConverter.ToDouble(offset, "offset");
             if (maxSize != null) splitPartMeshData.MaxH = PythonValueConverter.ToDouble(maxSize, "max_size");
             if (minSize != null) splitPartMeshData.MinH = PythonValueConverter.ToDouble(minSize, "min_size");
@@ -144,6 +140,21 @@ namespace APIs.Python.Model
         {
             if (_meshGateway == null)
                 throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+        // Remeshing acts on elements, so the dialog offers only a selection or an element set
+        private static void ValidateRemeshingRegionType(RegionTypeEnum regionType)
+        {
+            if (regionType != RegionTypeEnum.Selection && regionType != RegionTypeEnum.ElementSetName)
+                throw new PythonAPIException("The argument 'region' must be a selection or an " +
+                                             "ElementSetName region, but a " + regionType + " region was " +
+                                             "given.");
+        }
+        private static void ValidateSplitRegionType(RegionTypeEnum regionType, string argumentName,
+                                                    RegionTypeEnum namedType)
+        {
+            if (regionType != RegionTypeEnum.Selection && regionType != namedType)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a selection or a " +
+                                             namedType + " region, but a " + regionType + " region was given.");
         }
     }
 }

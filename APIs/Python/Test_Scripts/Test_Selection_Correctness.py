@@ -106,6 +106,23 @@ def test_multiple_part_pick():
     parts.remove(second.name)
 
 
+def test_geometry_source():
+    # A geometry pick made in the Selection by ID mode is recorded as geometry IDs, so the API must be
+    # able to take those IDs back unchanged and convert them to any target
+    from_surfaces = pmx.create.selection_by_ids('femodel', 'geometry', 'surfaces', {1: [1]})
+    geometry_ids = ids(from_surfaces)
+    check(len(geometry_ids) > 0, "the surface source resolved to no geometry IDs")
+    #
+    from_geometry = pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', geometry_ids)
+    check(ids(from_geometry) == geometry_ids,
+          "the geometry source did not reproduce the IDs: " + str(ids(from_geometry)))
+    # The same IDs must convert to another target the way the surface source does
+    nodes_from_geometry = pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', geometry_ids)
+    nodes_from_surfaces = pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]})
+    check(ids(nodes_from_geometry) == ids(nodes_from_surfaces),
+          "the geometry source and the surface source disagree on the nodes")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_set_operations()
@@ -114,6 +131,7 @@ def main():
     test_repeated_picks()
     test_area()
     test_multiple_part_pick()
+    test_geometry_source()
     print("TEST PASSED")
 
 

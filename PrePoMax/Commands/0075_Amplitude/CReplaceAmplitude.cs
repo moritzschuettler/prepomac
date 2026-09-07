@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
@@ -40,6 +41,10 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceAmplitude(_oldAmplitudeName, _newAmplitude.DeepClone());
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonFieldEmitter.Amplitude(writer, _oldAmplitudeName, _newAmplitude);
         }
         public override string GetCommandString()
         {

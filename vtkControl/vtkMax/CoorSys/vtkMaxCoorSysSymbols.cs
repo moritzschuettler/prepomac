@@ -38,6 +38,9 @@ namespace vtkControl
         protected vtkCellArray _shaftLines;
         protected vtkUnsignedCharArray _shaftColors;
         protected vtkActor2D _shaftActor;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate _shaftActorCoordinate;
         //
         protected vtkPolyDataMapper2D _endMapper;
         protected vtkPolyData _endPolyData;
@@ -45,6 +48,7 @@ namespace vtkControl
         protected vtkCellArray _endPolygons;
         protected vtkUnsignedCharArray _endColors;
         protected vtkActor2D _endActor;
+        protected vtkCoordinate _endActorCoordinate;
 
 
         // Constructors                                                                                                             
@@ -98,8 +102,9 @@ namespace vtkControl
             _shaftActor.GetProperty().SetLineWidth(2f);
             _shaftActor.UseBoundsOff();
             //
-            _shaftActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
-            _shaftActor.GetPositionCoordinate().SetValue(0, 0);
+            _shaftActorCoordinate = _shaftActor.GetPositionCoordinate();
+            _shaftActorCoordinate.SetCoordinateSystemToDisplay();
+            _shaftActorCoordinate.SetValue(0, 0);
         }
         private void InitializeEnds()
         {
@@ -123,8 +128,9 @@ namespace vtkControl
             _endActor.SetMapper(_endMapper);
             _endActor.UseBoundsOff();
             //
-            _endActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
-            _endActor.GetPositionCoordinate().SetValue(0, 0);
+            _endActorCoordinate = _endActor.GetPositionCoordinate();
+            _endActorCoordinate.SetCoordinateSystemToDisplay();
+            _endActorCoordinate.SetValue(0, 0);
         }
         //
         private void GenerateGeometry(bool force)

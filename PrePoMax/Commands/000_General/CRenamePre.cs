@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -52,6 +53,13 @@ namespace PrePoMax.Commands
         {
             receiver.Rename(_itemType, _itemName, _newName, _stepName, _view);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string collection = PythonCollectionResolver.GetCollection(_itemType, _stepName, _view);
+            writer.Statement(writer.Call(collection, "rename", PythonValueFormatter.Text(_itemName),
+                                         PythonValueFormatter.Text(_newName)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

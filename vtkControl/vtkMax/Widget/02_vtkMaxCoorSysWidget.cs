@@ -57,6 +57,9 @@ namespace vtkControl
         //
         protected vtkTextMapper[] _labelMappers;
         protected vtkActor2D[] _labelActors;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate[] _labelCoordinates;
         //
         protected vtkPolyDataMapper2D _shaftMapper;
         protected vtkPolyData _shaftPolyData;
@@ -64,6 +67,7 @@ namespace vtkControl
         protected vtkCellArray _shaftLines;
         protected vtkUnsignedCharArray _shaftColors;
         protected vtkActor2D _shaftActor;
+        protected vtkCoordinate _shaftActorCoordinate;
         //
         protected vtkPolyDataMapper2D _endMapper;
         protected vtkPolyData _endPolyData;
@@ -71,6 +75,7 @@ namespace vtkControl
         protected vtkCellArray _endPolygons;
         protected vtkUnsignedCharArray _endColors;
         protected vtkActor2D _endActor;
+        protected vtkCoordinate _endActorCoordinate;
 
 
         // Events                                                                                                                   
@@ -113,6 +118,7 @@ namespace vtkControl
             //
             _labelMappers = new vtkTextMapper[NumOfAxes];
             _labelActors = new vtkActor2D[NumOfAxes];
+            _labelCoordinates = new vtkCoordinate[NumOfAxes];
             //
             for (int i = 0; i < NumOfAxes; i++)
             {
@@ -124,9 +130,10 @@ namespace vtkControl
                 _labelActors[i] = vtkActor2D.New();
                 _labelActors[i].SetMapper(_labelMappers[i]);
                 // Set relative text position
-                _labelActors[i].GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-                _labelActors[i].GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
-                _labelActors[i].GetPositionCoordinate().SetValue(0, 0);
+                _labelCoordinates[i] = _labelActors[i].GetPositionCoordinate();
+                _labelCoordinates[i].SetCoordinateSystemToDisplay();  // set offsets in pixels
+                _labelCoordinates[i].SetReferenceCoordinate(_positionCoordinate);
+                _labelCoordinates[i].SetValue(0, 0);
             }
         }
         private void InitializeShafts()
@@ -151,8 +158,9 @@ namespace vtkControl
             _shaftActor.SetMapper(_shaftMapper);
             _shaftActor.GetProperty().SetLineWidth(2f);
             //
-            _shaftActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _shaftActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _shaftActorCoordinate = _shaftActor.GetPositionCoordinate();
+            _shaftActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _shaftActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         private void InitializeEnds()
         {
@@ -175,8 +183,9 @@ namespace vtkControl
             _endActor = vtkActor2D.New();
             _endActor.SetMapper(_endMapper);
             //
-            _endActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _endActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
+            _endActorCoordinate = _endActor.GetPositionCoordinate();
+            _endActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
+            _endActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
         }
         //
         private void GenerateGeometry(bool force)
@@ -250,7 +259,7 @@ namespace vtkControl
             for (int axisId = 0; axisId < NumOfAxes; axisId++)
             {
                 double[] labelPosition = _geometry.GetLabelPosition(axisId, GetLabelSize(axisId));
-                _labelActors[axisId].GetPositionCoordinate().SetValue(labelPosition[0], labelPosition[1]);
+                _labelCoordinates[axisId].SetValue(labelPosition[0], labelPosition[1]);
             }
         }
         //

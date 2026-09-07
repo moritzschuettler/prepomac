@@ -68,6 +68,19 @@ def test_materials():
     check(list(engineering.get_property_types()) == ["ElasticEngineeringConstants"],
           "the engineering constants property was not stored")
     check(engineering.temperature_dependent, "engineering constants lost temperature dependence")
+    # A plastic hardening rule and a thermal expansion zero temperature are user inputs, so a script
+    # that gives them must not fall back to the constructor defaults
+    materials.add(PREFIX + "Kinematic",
+                  [pmx.create.elastic(210000, 0.3),
+                   pmx.create.plastic([[250, 0, 20]], hardening="Kinematic")])
+    materials.add(PREFIX + "Isotropic",
+                  [pmx.create.elastic(210000, 0.3), pmx.create.plastic([[250, 0, 20]])])
+    materials.add(PREFIX + "Expansion",
+                  [pmx.create.elastic(210000, 0.3),
+                   pmx.create.thermal_expansion(1.2e-5, zero_temperature=123)])
+    check_raises(lambda: pmx.create.plastic([[250, 0, 20]], hardening="NoSuchRule"),
+                 "an unknown hardening rule must be rejected")
+    #
     lamina = materials.add(
         PREFIX + "Lamina",
         pmx.create.elastic_lamina([
@@ -99,6 +112,18 @@ def test_materials():
     check("*Elastic, Type=Engineering constants" in lamina_block, "lamina was not exported")
     check("125001" in lamina_block and "322" in lamina_block,
           "the second temperature-dependent lamina row was not exported")
+    kinematic_block = exported.split("*Material, Name=" + PREFIX + "Kinematic", 1)[1]
+    kinematic_block = kinematic_block.split("*Material, Name=", 1)[0]
+    isotropic_block = exported.split("*Material, Name=" + PREFIX + "Isotropic", 1)[1]
+    isotropic_block = isotropic_block.split("*Material, Name=", 1)[0]
+    expansion_block = exported.split("*Material, Name=" + PREFIX + "Expansion", 1)[1]
+    expansion_block = expansion_block.split("*Material, Name=", 1)[0]
+    check("Hardening=Kinematic" in kinematic_block, "the kinematic hardening rule was not stored")
+    check("Hardening" not in isotropic_block, "the default hardening rule must stay implicit")
+    check("Zero=" in expansion_block, "the thermal expansion zero temperature was not stored")
+    zero_text = expansion_block.split("Zero=", 1)[1].split("\n", 1)[0].strip().rstrip(",")
+    check(abs(float(zero_text) - 123.0) < 1e-6,
+          "the given zero temperature was not stored, it is " + zero_text)
     # The model rejects a second elastic property
     check_raises(lambda: materials.add(PREFIX + "Bad", [pmx.create.elastic(1, 0.3), pmx.create.elastic(2, 0.3)]),
                  "a second elastic property must be rejected")
@@ -117,7 +142,7 @@ def test_materials():
     materials.rename(PREFIX + "Simple", PREFIX + "Renamed")
     check(materials.contains(PREFIX + "Renamed"), "the material was not renamed")
     materials.duplicate([PREFIX + "Renamed"])
-    check(len(materials) == count_before + 6, "the material was not duplicated")
+    check(len(materials) == count_before + 9, "the material was not duplicated")
     return PREFIX + "Steel"
 
 
@@ -152,6 +177,30 @@ def test_sections(material_name):
     check_raises(lambda: sections.add_solid(PREFIX + "Bad", material_name,
                                             pmx.create.region('ElementSetName', 'NoSuchSet')),
                  "an unknown element set must be rejected")
+    # The solid section dialog picks parts rather than elements, and the controller turns a part
+    # selection into an element set that follows those parts, so an element region takes either target
+    part_selection = pmx.create.selection_by_ids('femodel', 'parts', 'parts', [1])
+    section = sections.add_solid(PREFIX + "Solid_P", material_name, part_selection)
+    check(section.region_type == "ElementSetName",
+          "a part selection was not converted, region type is " + section.region_type)
+    check_raises(lambda: sections.add_solid(PREFIX + "Bad", material_name,
+                                            pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])),
+                 "a node selection must be rejected for an element region")
+    # A shell and a membrane section carry an offset of the mid surface, in thicknesses
+    shell = sections.add_shell(PREFIX + "Shell", material_name, element_selection, thickness=2, offset=0.5)
+    check(shell.get_equations()["offset"] == "0.5",
+          "the shell offset was not stored, it is " + str(shell.get_equations()["offset"]))
+    membrane = sections.add_membrane(PREFIX + "Membrane", material_name, element_selection, 1.5, -0.25)
+    check(membrane.get_equations()["offset"] == "-0.25", "the membrane offset was not stored")
+    # A replacement keeps an offset it is not given and changes one it is
+    shell = sections.replace_shell(PREFIX + "Shell", thickness=3)
+    check(shell.get_equations()["offset"] == "0.5", "the replacement dropped the shell offset")
+    check(shell.thickness == 3, "the replacement did not change the thickness")
+    shell = sections.replace_shell(PREFIX + "Shell", offset=-0.5)
+    check(shell.get_equations()["offset"] == "-0.5", "the replacement did not change the shell offset")
+    # A default offset stays zero rather than becoming undefined
+    plain = sections.add_shell(PREFIX + "Shell_D", material_name, element_selection)
+    check(plain.get_equations()["offset"] == "0", "an omitted offset must stay zero")
     # Collection verbs
     sections.rename(PREFIX + "Mass", PREFIX + "Mass_R")
     check(sections.contains(PREFIX + "Mass_R"), "the section was not renamed")

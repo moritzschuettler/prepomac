@@ -291,11 +291,13 @@ to extracted result values, and the `.pmx` saved at the end regenerates to the s
 
 # Deferred, with hooks preserved
 
-**Layer 2 - journaling.** Add `GetPythonString()` alongside the existing `Command.GetCommandString()`
-on each `C*` class, and a "Save session as Python" action. Depends on Layer 1's vocabulary being
-stable, because the emitted script must be exactly what a user would have written. This is the
-cheapest way to make the API self-documenting, and the main thing that makes an agent write correct
-scripts.
+**Layer 2 - journaling.** Add a Python form alongside the existing `Command.GetCommandString()` on
+each `C*` class, and a "Save session as Python" action. Depends on Layer 1's vocabulary being stable,
+because the emitted script must be exactly what a user would have written. This is the cheapest way
+to make the API self-documenting, and the main thing that makes an agent write correct scripts.
+Layer 1 is implemented, so this is no longer deferred: the handover is
+[Python_API_Layer2_Brief.md](Python_API_Layer2_Brief.md) and the working-level plan is
+[Python_API_Layer2_Plan.md](Python_API_Layer2_Plan.md).
 
 **Layer 3 - RPC server.** JSON-RPC 2.0 over a named pipe, ACL-restricted to the current user, with an
 optional `http://localhost:<port>/` front onto the same dispatcher. Every handler marshals to the UI

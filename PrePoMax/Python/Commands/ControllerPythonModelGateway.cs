@@ -190,6 +190,35 @@ namespace PrePoMax.Python
             //
             throw new CaeException("The model tree collection '" + itemType + "' cannot be organized.");
         }
+        // The journal needs the same vocabulary in the other direction, and the two must agree, so the
+        // inverse lives next to the map
+        public static string GetTreeItemTypeName(Type itemType)
+        {
+            if (itemType == typeof(CaeMesh.BasePart)) return "parts";
+            if (itemType == typeof(CaeMesh.MeshSetupItem)) return "mesh_setup_items";
+            if (itemType == typeof(CaeMesh.FeNodeSet)) return "node_sets";
+            if (itemType == typeof(CaeMesh.FeElementSet)) return "element_sets";
+            if (itemType == typeof(CaeMesh.FeSurface)) return "surfaces";
+            if (itemType == typeof(CaeMesh.FeReferencePoint)) return "reference_points";
+            if (itemType == typeof(CaeMesh.CoordinateSystem)) return "coordinate_systems";
+            if (itemType == typeof(Material)) return "materials";
+            if (itemType == typeof(Section)) return "sections";
+            if (itemType == typeof(CaeModel.Constraint)) return "constraints";
+            if (itemType == typeof(SurfaceInteraction)) return "surface_interactions";
+            if (itemType == typeof(ContactPair)) return "contact_pairs";
+            if (itemType == typeof(Distribution)) return "distributions";
+            if (itemType == typeof(Amplitude)) return "amplitudes";
+            if (itemType == typeof(InitialCondition)) return "initial_conditions";
+            if (itemType == typeof(CaeJob.AnalysisJob)) return "jobs";
+            if (itemType == typeof(HistoryOutput)) return "history_outputs";
+            if (itemType == typeof(FieldOutput)) return "field_outputs";
+            if (itemType == typeof(BoundaryCondition)) return "boundary_conditions";
+            if (itemType == typeof(Load)) return "loads";
+            if (itemType == typeof(DefinedField)) return "defined_fields";
+            //
+            throw new CaeException("The model tree collection of '" + itemType.Name +
+                                   "' cannot be organized.");
+        }
         private static bool IsItemType(string itemType, string name)
         {
             return string.Equals(itemType, name, StringComparison.OrdinalIgnoreCase);

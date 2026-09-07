@@ -42,28 +42,35 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a shell section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements.",
-                   Arguments = "name: str, material_name: str, region: Selection or Region, thickness: float = 1",
+                   "region; the selection target is elements. The offset of the shell mid surface from " +
+                   "the selected geometry is given in shell thicknesses.",
+                   Arguments = "name: str, material_name: str, region: Selection or Region, " +
+                               "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
-        public SectionAPI add_shell(string name, string material_name, object region, object thickness = null)
+        public SectionAPI add_shell(string name, string material_name, object region, object thickness = null,
+                                    object offset = null)
         {
             ShellSection section = new ShellSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
+            ApplyOffset(section.Offset, offset);
             AddSection(name, material_name, section, region, "elements");
             return this[name];
         }
 
         [PythonAPI("Adds a membrane section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements.",
-                   Arguments = "name: str, material_name: str, region: Selection or Region, thickness: float = 1",
+                   "region; the selection target is elements. The offset of the membrane mid surface from " +
+                   "the selected geometry is given in membrane thicknesses.",
+                   Arguments = "name: str, material_name: str, region: Selection or Region, " +
+                               "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
         public SectionAPI add_membrane(string name, string material_name, object region,
-                                       object thickness = null)
+                                       object thickness = null, object offset = null)
         {
             MembraneSection section = new MembraneSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                           _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
+            ApplyOffset(section.Offset, offset);
             AddSection(name, material_name, section, region, "elements");
             return this[name];
         }
@@ -107,26 +114,30 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces a shell section, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
-                               "region: Selection or Region = None, thickness: float = None",
+                               "region: Selection or Region = None, thickness: float = None, " +
+                               "offset: float = None",
                    Returns = "Section")]
         public SectionAPI replace_shell(string old_name, string name = null, string material_name = null,
-                                        object region = null, object thickness = null)
+                                        object region = null, object thickness = null, object offset = null)
         {
             ShellSection section = Clone<ShellSection>(old_name, "shell");
             section.Thickness.Equation = ToEquationOrKeep(thickness, section.Thickness, "thickness");
+            section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
         }
 
         [PythonAPI("Replaces a membrane section, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
-                               "region: Selection or Region = None, thickness: float = None",
+                               "region: Selection or Region = None, thickness: float = None, " +
+                               "offset: float = None",
                    Returns = "Section")]
         public SectionAPI replace_membrane(string old_name, string name = null, string material_name = null,
-                                           object region = null, object thickness = null)
+                                           object region = null, object thickness = null, object offset = null)
         {
             MembraneSection section = Clone<MembraneSection>(old_name, "membrane");
             section.Thickness.Equation = ToEquationOrKeep(thickness, section.Thickness, "thickness");
+            section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
         }
@@ -227,6 +238,14 @@ namespace APIs.Python.Model
             if (thickness == null) return;
             //
             section.Thickness.Equation = PythonValueConverter.ToEquationString(thickness, "thickness");
+        }
+        // The offset only exists on the section types that have a mid surface, so it is applied through
+        // the container rather than through the section
+        private static void ApplyOffset(EquationContainer sectionOffset, object offset)
+        {
+            if (offset == null) return;
+            //
+            sectionOffset.Equation = PythonValueConverter.ToEquationString(offset, "offset");
         }
     }
 }

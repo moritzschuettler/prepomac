@@ -145,6 +145,47 @@ namespace APIs.Python.Model
             //
             return new StringDoubleMapAPI(values);
         }
+        // A part property dialog changes the name, the colour and the element types together, and the
+        // history records that as one command, so the API applies them in one call too
+        public void ReplaceProperties(string oldPartName, string name, object color, object elementTypes)
+        {
+            ResolvePart(oldPartName);
+            PartProperties properties = GetPartProperties(oldPartName);
+            object boxed = properties;
+            //
+            if (name != null)
+            {
+                if (name.Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'name' must not be empty.");
+                typeof(PartProperties).GetProperty("Name").SetValue(boxed, name.Trim(), null);
+            }
+            if (color != null)
+                typeof(PartProperties).GetField("Color").SetValue(boxed, PythonColorConverter.ToColor(color, "color"));
+            if (elementTypes != null)
+            {
+                OrderedDictionary<string, string> values =
+                    PythonDictionaryConverter.ToStringStringDictionary(elementTypes, "element_types");
+                foreach (var entry in values)
+                {
+                    FieldInfo field = ResolveElementTypeField(entry.Key);
+                    object parsed;
+                    try
+                    {
+                        parsed = Enum.Parse(field.FieldType, entry.Value.Trim(), true);
+                    }
+                    catch (Exception)
+                    {
+                        throw new PythonAPIException("The value '" + entry.Value + "' is not supported for the " +
+                                                     "element type '" + entry.Key + "'. Possible values are " +
+                                                     string.Join(", ", Enum.GetNames(field.FieldType)) + ".");
+                    }
+                    field.SetValue(boxed, parsed);
+                }
+            }
+            //
+            EnsureCommandsAvailable();
+            ReplacePartProperties(oldPartName, (PartProperties)boxed);
+        }
         public void SetElementType(string[] partNames, string elementType, string value)
         {
             if (elementType == null || elementType.Trim().Length == 0)

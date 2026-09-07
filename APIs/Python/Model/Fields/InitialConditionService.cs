@@ -53,6 +53,26 @@ namespace APIs.Python.Model
         {
             RegionApplier.Apply(initialCondition, region, "region", target, SelectionService, ModelResolver);
         }
+        public string ResolveScalarDistributionName(object distributionName)
+        {
+            string name = distributionName as string;
+            if (name == null)
+                throw new PythonAPIException("The argument 'distribution_name' must be a string.");
+            //
+            if (name == Distribution.DefaultDistributionName) return name;
+            //
+            Distribution distribution;
+            if (!ModelResolver.GetModel().Distributions.TryGetValue(name, out distribution))
+                throw new PythonAPIException("The distribution '" + name + "' does not exist.");
+            // A temperature is a scalar, and the model refuses a vector distribution for it only when
+            // the deck is written, so the combination is rejected here instead
+            if (distribution.DistributionType != DistributionTypeEnum.Scalar)
+                throw new PythonAPIException("The distribution '" + name + "' is a " +
+                                             distribution.DistributionType + " distribution, and a " +
+                                             "temperature needs a Scalar one.");
+            //
+            return name;
+        }
         public void Add(InitialCondition initialCondition)
         {
             EnsureCommandsAvailable();

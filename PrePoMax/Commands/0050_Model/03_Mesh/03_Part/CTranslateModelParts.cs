@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.Runtime.Serialization;
 
 
@@ -67,6 +68,13 @@ namespace PrePoMax.Commands
         {
             receiver.TranslateModelParts(_partNames, _translateVector, _numberOfCopies);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.parts", "translate", PythonValueFormatter.List(_partNames),
+                                         PythonValueFormatter.List(_translateVector),
+                                         "number_of_copies=" + PythonValueFormatter.Format(_numberOfCopies)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

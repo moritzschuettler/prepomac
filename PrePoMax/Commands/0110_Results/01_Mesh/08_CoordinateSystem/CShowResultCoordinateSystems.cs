@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -40,6 +41,11 @@ namespace PrePoMax.Commands
         {
             receiver.ShowResultCoordinateSystems(_coordinateSystemNames);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call(PythonResultEmitter.CoordinateSystems, "show", PythonValueFormatter.List(_coordinateSystemNames)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

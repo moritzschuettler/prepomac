@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using System.IO;
 
 namespace PrePoMax.Commands
@@ -72,6 +73,11 @@ namespace PrePoMax.Commands
             _hash = GetHash();
             //
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx", "save", writer.Path(Tools.GetGlobalPath(_fileName))));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

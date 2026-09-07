@@ -270,7 +270,7 @@ namespace APIs.Python
             if (_selectionGateway == null)
                 throw new PythonAPIException("Selection highlighting is not available in this Python API context.");
             FeMesh mesh = ResolveMesh(selection, null);
-            SelectionCompilation compilation = Compile(selection, mesh, null, null);
+            SelectionCompilation compilation = Compile(selection, mesh, null, (string)null);
             _selectionGateway.Highlight(compilation.Selection);
         }
         public void ClearHighlight()
@@ -287,21 +287,35 @@ namespace APIs.Python
         }
         public SelectionCompilation CompileForView(SelectionAPI selection, string view, string target)
         {
+            return CompileForView(selection, view, new string[] { target });
+        }
+        // Some model items accept a selection of more than one target, because the dialog does. A solid
+        // section is the case this exists for: its dialog picks parts, and the controller turns a part
+        // selection into an element set that follows those parts.
+        public SelectionCompilation CompileForView(SelectionAPI selection, string view, string[] targets)
+        {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
             FeMesh mesh = ResolveMesh(selection, null);
-            return Compile(selection, mesh, view, target);
+            return Compile(selection, mesh, view, targets);
         }
         private SelectionCompilation Compile(SelectionAPI selection, FeMesh mesh, string requiredView,
                                              string requiredTarget, bool allowEmpty = false)
+        {
+            return Compile(selection, mesh, requiredView,
+                           requiredTarget == null ? null : new string[] { requiredTarget }, allowEmpty);
+        }
+        private SelectionCompilation Compile(SelectionAPI selection, FeMesh mesh, string requiredView,
+                                             string[] requiredTargets, bool allowEmpty = false)
         {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
             if (requiredView != null && selection.view != requiredView)
                 throw new PythonAPIException("The selection belongs to the '" + selection.view +
                                              "' view, but this operation requires a '" + requiredView +
                                              "' selection.");
-            if (requiredTarget != null && selection.target != requiredTarget)
+            if (requiredTargets != null && !requiredTargets.Contains(selection.target))
                 throw new PythonAPIException("The selection target is '" + selection.target +
-                                             "', but this operation requires target '" + requiredTarget + "'.");
+                                             "', but this operation requires target '" +
+                                             string.Join("' or '", requiredTargets) + "'.");
             if (mesh == null) throw new PythonAPIException("The '" + selection.view + "' view does not contain a mesh.");
             //
             CaeGlobals.Selection compiled = selection.CreateSelection();
@@ -373,6 +387,13 @@ namespace APIs.Python
         }
         private int[] CompileItem(SelectionItemAPI item, string target, FeMesh mesh, out bool geometryBased)
         {
+            // Geometry IDs are what the application records for a geometry pick made in SelectId mode, so
+            // they are passed through unchanged rather than built from per part item IDs
+            if (item.Source == "geometry")
+            {
+                geometryBased = true;
+                return item.Ids;
+            }
             if (item.Source == "nodes")
             {
                 ValidateDirectIds(item.Ids, mesh, "nodes");
@@ -528,12 +549,15 @@ namespace APIs.Python
         private static void ValidateSource(string source)
         {
             if (source != "nodes" && source != "elements" && source != "vertices" && source != "edges" &&
-                source != "surfaces" && source != "parts")
+                source != "surfaces" && source != "parts" && source != "geometry")
                 throw new PythonAPIException("The argument 'source' must be 'nodes', 'elements', 'vertices', " +
-                                             "'edges', 'surfaces', or 'parts'.");
+                                             "'edges', 'surfaces', 'parts', or 'geometry'.");
         }
         private static void ValidateCombination(string target, string source)
         {
+            // Geometry IDs already name the topology, so the application converts them to any target
+            if (source == "geometry") return;
+            //
             bool valid = (target == "nodes" && (source == "nodes" || source == "vertices" || source == "edges" ||
                                                 source == "surfaces" || source == "parts")) ||
                          (target == "elements" && (source == "elements" || source == "surfaces" ||

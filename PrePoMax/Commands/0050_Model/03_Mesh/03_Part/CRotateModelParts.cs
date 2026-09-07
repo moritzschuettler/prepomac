@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeMesh;
 using CaeModel;
 using PrePoMax;
@@ -78,6 +79,15 @@ namespace PrePoMax.Commands
         {
             receiver.RotateModelParts(_partNames, _rotateCenter, _rotateAxis, _rotateAngle, _numberOfCopies);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.parts", "rotate", PythonValueFormatter.List(_partNames),
+                                         PythonValueFormatter.List(_rotateCenter),
+                                         PythonValueFormatter.List(_rotateAxis),
+                                         PythonValueFormatter.Number(_rotateAngle),
+                                         "number_of_copies=" + PythonValueFormatter.Format(_numberOfCopies)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

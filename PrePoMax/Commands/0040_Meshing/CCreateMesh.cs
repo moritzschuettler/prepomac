@@ -17,6 +17,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -70,6 +71,12 @@ namespace PrePoMax.Commands
                 _successfulPartNames = successfulPartNames.ToArray();
             //
             return result;
+        }
+        // The parts that meshed are what the session ended up with, and PartNames already prefers them
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.mesh", "create", PythonValueFormatter.List(PartNames)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

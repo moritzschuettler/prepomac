@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -44,6 +45,14 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.parameters", "replace",
+                                         PythonValueFormatter.Text(_oldParameterName),
+                                         PythonValueFormatter.Text(_newParameter.Name),
+                                         PythonValueFormatter.Equation(_newParameter.Equation)));
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _oldParameterName + ", " + _newParameter.ToString();

@@ -273,6 +273,72 @@ namespace APIs.Python
             return add(WithFilters(_service.CreateFromEquation(name, equation, unit), filter1, filter2));
         }
 
+        [PythonAPI("Adds a From Affine Fit result history output, in one call. The fit measures the strain " +
+                   "of a circular patch of the result mesh, so it names the circle rather than a region.",
+                   Arguments = "name: str, center_x: float, center_y: float, radius: float, " +
+                               "taper_start_fraction: float = None, point_source: str = None, " +
+                               "weighting: str = None, cell_area_tolerance_fraction: float = None, " +
+                               "area_filter_relative_median: float = None, strain_measure: str = None, " +
+                               "loading_direction_x: float = None, loading_direction_y: float = None, " +
+                               "step_id: int = None, step_increment_id: int = None, " +
+                               "radius_sweep_step_count: int = None, " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput",
+                   Example = "result.history_outputs.add_from_affine_fit('Fit-1', 0, 0, 10)")]
+        public ResultHistoryOutputAPI add_from_affine_fit(string name, object center_x, object center_y,
+                                                          object radius, object taper_start_fraction = null,
+                                                          string point_source = null, string weighting = null,
+                                                          object cell_area_tolerance_fraction = null,
+                                                          object area_filter_relative_median = null,
+                                                          string strain_measure = null,
+                                                          object loading_direction_x = null,
+                                                          object loading_direction_y = null,
+                                                          object step_id = null,
+                                                          object step_increment_id = null,
+                                                          object radius_sweep_step_count = null,
+                                                          ResultHistoryOutputFilterAPI filter1 = null,
+                                                          ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return add(WithFilters(_service.CreateFromAffineFit(name, center_x, center_y, radius,
+                                                                taper_start_fraction, point_source, weighting,
+                                                                cell_area_tolerance_fraction,
+                                                                area_filter_relative_median, strain_measure,
+                                                                loading_direction_x, loading_direction_y,
+                                                                step_id, step_increment_id,
+                                                                radius_sweep_step_count), filter1, filter2));
+        }
+
+        [PythonAPI("Replaces a result history output by a From Affine Fit one, in one call.",
+                   Arguments = "old_name: str, and the arguments of add_from_affine_fit",
+                   Returns = "HistoryOutput")]
+        public ResultHistoryOutputAPI replace_from_affine_fit(string old_name, string name, object center_x,
+                                                              object center_y, object radius,
+                                                              object taper_start_fraction = null,
+                                                              string point_source = null,
+                                                              string weighting = null,
+                                                              object cell_area_tolerance_fraction = null,
+                                                              object area_filter_relative_median = null,
+                                                              string strain_measure = null,
+                                                              object loading_direction_x = null,
+                                                              object loading_direction_y = null,
+                                                              object step_id = null,
+                                                              object step_increment_id = null,
+                                                              object radius_sweep_step_count = null,
+                                                              ResultHistoryOutputFilterAPI filter1 = null,
+                                                              ResultHistoryOutputFilterAPI filter2 = null)
+        {
+            return replace(old_name, WithFilters(_service.CreateFromAffineFit(name, center_x, center_y, radius,
+                                                                              taper_start_fraction, point_source,
+                                                                              weighting,
+                                                                              cell_area_tolerance_fraction,
+                                                                              area_filter_relative_median,
+                                                                              strain_measure, loading_direction_x,
+                                                                              loading_direction_y, step_id,
+                                                                              step_increment_id,
+                                                                              radius_sweep_step_count),
+                                                  filter1, filter2));
+        }
+
         [PythonAPI("Replaces a result history output by a From Equation one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_equation",
                    Returns = "HistoryOutput")]

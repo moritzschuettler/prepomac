@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using PrePoMax;
 using CaeModel;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
@@ -40,6 +41,12 @@ namespace PrePoMax.Commands
         {
             receiver.PropagateBoundaryCondition(_stepName, _boundaryConditionName);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.steps[" + PythonValueFormatter.Text(_stepName) + "].bcs",
+                                         "propagate", PythonValueFormatter.Text(_boundaryConditionName)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

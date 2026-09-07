@@ -1,8 +1,9 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the node and element operations, the part element types, and activate/deactivate on the
-#collection base. A meshed model must be open before the script runs.
+#Checks the node and element operations, the part element types, activate/deactivate on the
+#collection base, and the region arguments of the one-shot mesh tools. A meshed model must be open
+#before the script runs.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Mesh_Tools.py -g No -x Yes -w <dir>
 #
@@ -92,12 +93,48 @@ def test_element_set_from_quality():
         PREFIX + "Q", "Volume", "NoSuchPart", True, 0.0), "an unknown part must be rejected")
 
 
+def test_mesh_tool_regions():
+    # The remeshing dialog offers a selection or an element set, and the split dialog a part for the
+    # base region and a surface for the splitter region. A region of any other type is refused, and
+    # the refusal happens before the tool runs, so the mesh is unchanged.
+    mesh = pmx.model.mesh
+    element_selection = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [201])
+    node_count = pmx.model.nodes.count
+    element_count = pmx.model.elements.count
+    for name in list(pmx.model.node_sets.get_names()):
+        if name.startswith(PREFIX):
+            pmx.model.node_sets.remove([name])
+    pmx.model.node_sets.add(PREFIX + "NS_T",
+                            pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [101]))
+    part_name = pmx.model.parts.get_names()[0]
+    #
+    check_raises(lambda: mesh.remesh_elements(None), "remeshing must reject a missing region")
+    check_raises(lambda: mesh.remesh_elements(pmx.create.region('NodeSetName', PREFIX + "NS_T")),
+                 "remeshing must reject a node set region")
+    check_raises(lambda: mesh.remesh_elements(pmx.create.region('ElementSetName', 'NoSuchSet')),
+                 "remeshing must reject an unknown element set")
+    check_raises(lambda: mesh.split_part_mesh_using_surface(
+        pmx.create.region('NodeSetName', PREFIX + "NS_T"), element_selection),
+        "splitting must reject a node set as the base part region")
+    check_raises(lambda: mesh.split_part_mesh_using_surface(
+        pmx.create.region('PartName', part_name), pmx.create.region('PartName', part_name)),
+        "splitting must reject a part as the splitter surface region")
+    check_raises(lambda: mesh.split_part_mesh_using_surface(
+        pmx.create.region('PartName', 'NoSuchPart'), element_selection),
+        "splitting must reject an unknown part")
+    #
+    check(pmx.model.nodes.count == node_count, "a refused mesh tool changed the node count")
+    check(pmx.model.elements.count == element_count, "a refused mesh tool changed the element count")
+    pmx.model.node_sets.remove([PREFIX + "NS_T"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_nodes_and_elements()
     test_element_types()
     test_activate_deactivate()
     test_element_set_from_quality()
+    test_mesh_tool_regions()
     print("TEST PASSED")
 
 

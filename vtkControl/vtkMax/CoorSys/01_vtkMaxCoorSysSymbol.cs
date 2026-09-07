@@ -25,6 +25,9 @@ namespace vtkControl
         //
         protected vtkTextMapper[] _labelMappers;
         protected vtkActor2D[] _labelActors;
+        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
+        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
+        protected vtkCoordinate[] _labelCoordinates;
 
 
         // Properties                                                                                                               
@@ -53,6 +56,7 @@ namespace vtkControl
         {
             _labelMappers = new vtkTextMapper[NumOfAxes];
             _labelActors = new vtkActor2D[NumOfAxes];
+            _labelCoordinates = new vtkCoordinate[NumOfAxes];
             //
             for (int i = 0; i < NumOfAxes; i++)
             {
@@ -63,8 +67,9 @@ namespace vtkControl
                 _labelActors[i] = vtkActor2D.New();
                 _labelActors[i].SetMapper(_labelMappers[i]);
                 // The label positions are computed in pixels
-                _labelActors[i].GetPositionCoordinate().SetCoordinateSystemToDisplay();
-                _labelActors[i].GetPositionCoordinate().SetValue(0, 0);
+                _labelCoordinates[i] = _labelActors[i].GetPositionCoordinate();
+                _labelCoordinates[i].SetCoordinateSystemToDisplay();
+                _labelCoordinates[i].SetValue(0, 0);
                 _labelActors[i].UseBoundsOff();
             }
         }
@@ -81,7 +86,7 @@ namespace vtkControl
             for (int axisId = 0; axisId < NumOfAxes; axisId++)
             {
                 double[] labelPosition = GetLabelPosition(axisId, labelSizes[axisId]);
-                _labelActors[axisId].GetPositionCoordinate().SetValue(labelPosition[0], labelPosition[1]);
+                _labelCoordinates[axisId].SetValue(labelPosition[0], labelPosition[1]);
             }
         }
         public void AddLabelsToRenderer(vtkRenderer renderer)

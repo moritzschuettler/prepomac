@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
@@ -44,6 +45,13 @@ namespace PrePoMax.Commands
         {
             receiver.ActivateDeactivate(_item.DeepClone(), _activate, _stepName);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            string collection = PythonCollectionResolver.GetCollection(_item, _stepName);
+            writer.Statement(writer.Call(collection, _activate ? "activate" : "deactivate",
+                                         PythonValueFormatter.List(new string[] { _item.Name })));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

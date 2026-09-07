@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using CaeMesh;
 using CaeModel;
 using PrePoMax;
@@ -69,6 +70,14 @@ namespace PrePoMax.Commands
         {
             receiver.MirrorModelParts(_partNames, _mirrorPoint, _mirrorDirection, _copy);
             return true;
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            writer.Statement(writer.Call("pmx.model.parts", "mirror", PythonValueFormatter.List(_partNames),
+                                         PythonValueFormatter.List(_mirrorPoint),
+                                         PythonValueFormatter.List(_mirrorDirection),
+                                         "copy=" + PythonValueFormatter.Format(_copy)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

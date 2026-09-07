@@ -11,6 +11,8 @@ using CaeGlobals;
 using System;
 
 
+using PrePoMax.Python.Journal;
+
 namespace PrePoMax.Commands
 {
     [Serializable]
@@ -43,6 +45,10 @@ namespace PrePoMax.Commands
         {
             return _details;
         }
+        public void ToPython(PythonJournalWriter writer)
+        {
+            PythonTreeLayoutEmitter.Emit(writer, _view, _itemType, _parentName, _itemLayout);
+        }
     }
 
     /// <summary>
@@ -66,6 +72,11 @@ namespace PrePoMax.Commands
         public override bool Execute(Controller receiver)
         {
             return _data.Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            _data.ToPython(writer);
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {
@@ -100,6 +111,14 @@ namespace PrePoMax.Commands
             receiver.SetLinkedPartGroupLayouts(_geometryLayout, _modelLayout);
             return true;
         }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            PythonTreeLayoutEmitter.Emit(writer, ViewGeometryModelResults.Geometry, typeof(CaeMesh.BasePart),
+                                         null, _geometryLayout);
+            PythonTreeLayoutEmitter.Emit(writer, ViewGeometryModelResults.Model, typeof(CaeMesh.BasePart),
+                                         null, _modelLayout);
+            writer.CountEmittedCommand();
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _details;
@@ -127,6 +146,11 @@ namespace PrePoMax.Commands
         public override bool Execute(Controller receiver)
         {
             return _data.Execute(receiver);
+        }
+        public override void ToPython(PythonJournalWriter writer)
+        {
+            _data.ToPython(writer);
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

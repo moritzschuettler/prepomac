@@ -47,6 +47,57 @@ namespace APIs.Python
             ValidateRegionArgument(region, "nodes", RegionTypeEnum.NodeSetName, RegionTypeEnum.SurfaceName);
             return new ResultHistoryOutputFromFieldDraftAPI(name, fieldName, components, region);
         }
+        // The affine fit measures the strain of a circular patch of the result mesh, so it takes the
+        // circle rather than a region, and every value the dialog offers is an argument of its own
+        public ResultHistoryOutputFromAffineFitDraftAPI CreateFromAffineFit(string name, object centerX,
+                                                                            object centerY, object radius,
+                                                                            object taperStartFraction,
+                                                                            string pointSource,
+                                                                            string weighting,
+                                                                            object cellAreaToleranceFraction,
+                                                                            object areaFilterRelativeMedian,
+                                                                            string strainMeasure,
+                                                                            object loadingDirectionX,
+                                                                            object loadingDirectionY,
+                                                                            object stepId,
+                                                                            object stepIncrementId,
+                                                                            object radiusSweepStepCount)
+        {
+            ValidateNameSyntax(name);
+            double radiusValue = PythonValueConverter.ToFiniteDouble(radius, "radius");
+            if (radiusValue <= 0) throw new PythonAPIException("The argument 'radius' must be greater than zero.");
+            //
+            return new ResultHistoryOutputFromAffineFitDraftAPI(
+                name,
+                PythonValueConverter.ToFiniteDouble(centerX, "center_x"),
+                PythonValueConverter.ToFiniteDouble(centerY, "center_y"),
+                radiusValue,
+                taperStartFraction == null
+                    ? 1 : PythonValueConverter.ToFiniteDouble(taperStartFraction, "taper_start_fraction"),
+                pointSource == null
+                    ? AffineFitPointSourceEnum.CellCentroids
+                    : PythonValueConverter.ToEnum<AffineFitPointSourceEnum>(pointSource, "point_source"),
+                weighting == null
+                    ? AffineFitWeightingEnum.Area
+                    : PythonValueConverter.ToEnum<AffineFitWeightingEnum>(weighting, "weighting"),
+                cellAreaToleranceFraction == null
+                    ? 0.2 : PythonValueConverter.ToFiniteDouble(cellAreaToleranceFraction,
+                                                                "cell_area_tolerance_fraction"),
+                areaFilterRelativeMedian == null
+                    ? 1 : PythonValueConverter.ToFiniteDouble(areaFilterRelativeMedian,
+                                                              "area_filter_relative_median"),
+                strainMeasure == null
+                    ? AffineFitStrainMeasureEnum.Linear
+                    : PythonValueConverter.ToEnum<AffineFitStrainMeasureEnum>(strainMeasure, "strain_measure"),
+                loadingDirectionX == null
+                    ? 0 : PythonValueConverter.ToFiniteDouble(loadingDirectionX, "loading_direction_x"),
+                loadingDirectionY == null
+                    ? 0 : PythonValueConverter.ToFiniteDouble(loadingDirectionY, "loading_direction_y"),
+                stepId == null ? -1 : PythonValueConverter.ToInt(stepId, "step_id"),
+                stepIncrementId == null ? -1 : PythonValueConverter.ToInt(stepIncrementId, "step_increment_id"),
+                radiusSweepStepCount == null
+                    ? 1 : PythonValueConverter.ToInt(radiusSweepStepCount, "radius_sweep_step_count"));
+        }
         public ResultHistoryOutputFromEquationDraftAPI CreateFromEquation(string name, string equation, string unit)
         {
             ValidateNameSyntax(name);
@@ -294,8 +345,25 @@ namespace APIs.Python
                 ValidateFromExtractedEntry(result, fromExtractedEntry, replacedName);
             else if (output is ResultHistoryOutputXY xy) ValidateXY(result, xy, replacedName);
             else if (output is ResultHistoryOutputFromTable fromTable) ValidateFromTable(fromTable);
+            else if (output is ResultHistoryOutputFromAffineFit affineFit) ValidateFromAffineFit(affineFit);
             else throw new PythonAPIException("The result history output type '" + output.GetType().Name +
                                               "' is not supported.");
+        }
+        // The fit works on the whole result mesh rather than on a region of it, so only its own values
+        // are checked here
+        private static void ValidateFromAffineFit(ResultHistoryOutputFromAffineFit output)
+        {
+            if (output.Radius <= 0)
+                throw new PythonAPIException("The argument 'radius' must be greater than zero.");
+            if (output.TaperStartFraction <= 0 || output.TaperStartFraction > 1)
+                throw new PythonAPIException("The argument 'taper_start_fraction' must be in (0, 1].");
+            if (output.CellAreaToleranceFraction < 0)
+                throw new PythonAPIException("The argument 'cell_area_tolerance_fraction' must not be negative.");
+            if (output.AreaFilterRelativeMedian <= 0)
+                throw new PythonAPIException("The argument 'area_filter_relative_median' must be greater " +
+                                              "than zero.");
+            if (output.RadiusSweepStepCount < 1)
+                throw new PythonAPIException("The argument 'radius_sweep_step_count' must be at least 1.");
         }
         private static void ValidateFromField(FeResults result, ResultHistoryOutputFromField output)
         {

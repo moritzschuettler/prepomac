@@ -50,17 +50,19 @@ namespace APIs.Python.Model
             //
             return coordinateSystem;
         }
-        public void Add(string name, string type, object origin, object pointOnX, object pointInXY)
+        public void Add(string name, string type, object origin, object pointOnX, object pointInXY,
+                        object nameVisible)
         {
             ValidateNewName(name, null);
             CoordinateSystem coordinateSystem = Build(name, type, origin, pointOnX, pointInXY);
+            ApplyNameVisible(coordinateSystem, nameVisible);
             ValidateDefinition(coordinateSystem);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddModelCoordinateSystem(coordinateSystem);
         }
         public void Replace(string oldName, string name, string type, object origin, object pointOnX,
-                            object pointInXY)
+                            object pointInXY, object nameVisible)
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
             string newName = name == null ? oldName : name;
@@ -73,6 +75,7 @@ namespace APIs.Python.Model
             if (origin != null) ApplyCoordinates(coordinateSystem, origin, 1);
             if (pointOnX != null) ApplyCoordinates(coordinateSystem, pointOnX, 2);
             if (pointInXY != null) ApplyCoordinates(coordinateSystem, pointInXY, 3);
+            ApplyNameVisible(coordinateSystem, nameVisible);
             // The completed definition is checked, so an edit is rejected for the same reason a creation is
             ValidateDefinition(coordinateSystem);
             //
@@ -83,7 +86,7 @@ namespace APIs.Python.Model
                                        SelectionAPI originSelection, string pointOnXCreatedFrom,
                                        SelectionAPI pointOnXSelection, string pointInXYCreatedFrom,
                                        SelectionAPI pointInXYSelection, object origin, object pointOnX,
-                                       object pointInXY)
+                                       object pointInXY, object nameVisible)
         {
             ValidateNewName(name, null);
             CoordinateSystem item = new CoordinateSystem(name, GetIsTwoDimensional());
@@ -92,6 +95,7 @@ namespace APIs.Python.Model
             ApplyPointOrCoordinates(item, originCreatedFrom, originSelection, origin, 1);
             ApplyPointOrCoordinates(item, pointOnXCreatedFrom, pointOnXSelection, pointOnX, 2);
             ApplyPointOrCoordinates(item, pointInXYCreatedFrom, pointInXYSelection, pointInXY, 3);
+            ApplyNameVisible(item, nameVisible);
             ValidateDefinition(item);
             EnsureCommandsAvailable();
             ModelGateway.AddModelCoordinateSystem(item);
@@ -100,7 +104,7 @@ namespace APIs.Python.Model
                                            SelectionAPI originSelection, string pointOnXCreatedFrom,
                                            SelectionAPI pointOnXSelection, string pointInXYCreatedFrom,
                                            SelectionAPI pointInXYSelection, object origin, object pointOnX,
-                                           object pointInXY)
+                                           object pointInXY, object nameVisible)
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
             string newName = name == null ? oldName : name;
@@ -112,6 +116,7 @@ namespace APIs.Python.Model
             ApplyPointOrCoordinates(item, originCreatedFrom, originSelection, origin, 1);
             ApplyPointOrCoordinates(item, pointOnXCreatedFrom, pointOnXSelection, pointOnX, 2);
             ApplyPointOrCoordinates(item, pointInXYCreatedFrom, pointInXYSelection, pointInXY, 3);
+            ApplyNameVisible(item, nameVisible);
             ValidateDefinition(item);
             EnsureCommandsAvailable();
             ModelGateway.ReplaceModelCoordinateSystem(oldName, item);
@@ -120,6 +125,14 @@ namespace APIs.Python.Model
         {
             EnsureCommandsAvailable();
             ModelGateway.DuplicateModelCoordinateSystems(names);
+        }
+        // The name visibility is part of the stored definition, so a creation carries the same value its
+        // replacement can
+        private static void ApplyNameVisible(CoordinateSystem coordinateSystem, object nameVisible)
+        {
+            if (nameVisible == null) return;
+            //
+            coordinateSystem.NameVisible = PythonValueConverter.ToBool(nameVisible, "name_visible");
         }
         public void Remove(string[] names)
         {
