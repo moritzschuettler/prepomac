@@ -64,7 +64,7 @@ Facts measured in the current tree. They are the reason this layer is small.
 | L3-D4 | The RPC surface is **ten primitives, not 965 methods**. The workhorse is "run this Python in the live session" | An agent writes Python well and the Layer 1 vocabulary is documented for it. A method per member dispatcher would be a second front door free to drift from the first, which is the risk the integration plan already names, and no MCP client can hold 965 tools | At 3.0 only |
 | L3-D5 | An MCP tool that is not a protocol primitive is a **bundled Python script** under `APIs/Python/Scripts/` | The state snapshot, the mesh summary and the result extraction are Layer 1 calls with a JSON print. Writing them in Python means a new tool costs a `.py` file and a descriptor, with no C# change and no risk of a C# reimplementation of an API call | Yes |
 | L3-D6 | `exec` records **individual commands** by default, exactly as the Python panel's *Execute* button does. `record='script'` is available per call | The user gets the history he would have got from doing it by hand: editable in `FrmEditCommands`, regenerable, journalable. This is not the flattening that is forbidden - the agent's calls *are* individual actions | Yes |
-| L3-D7 | Every handler runs on the **UI thread**, single flight, and refuses rather than queues when the application is not idle | Reentering the model while a modal dialog is open, or while a mesher is running, is the one way this layer can corrupt a session. Refusing is always recoverable; queueing is not | At 3.2 only |
+| L3-D7 | The **idle guard** runs on the UI thread and refuses rather than queues; the **handler runs on the connection thread**, single flight | Reentering the model while a dialog is open is the one way this layer can corrupt a session, and only the UI thread can see that a dialog is open. The handler does not belong there: the application already drives the controller from a worker thread, and putting a handler on the UI thread froze the window and deadlocked on `open_results`. Revised at 3.6 - see the status | At 3.2 only |
 | L3-D8 | The server is **off by default** and enabled by the user, per session, from the user interface | It is an open door onto a live model. Nothing about installing PrePoMax should open it | Yes |
 | L3-D9 | Everything the agent runs is **echoed into the Python panel**, and the connection is visible in the status bar | "Drive the live session" includes being able to see what was driven. An invisible agent is indistinguishable from a bug | Yes |
 | L3-D10 | A **read only mode** the user can toggle refuses any call that would record a command | Inspection is the common case and the safe one. It also gives a way to let an agent look at a model that is in the middle of being edited | Yes |
@@ -120,23 +120,32 @@ direction `APIs` -> `PrePoMax` is still forbidden and is not needed, because the
 
 ### The threading contract
 
-This is the part that has to be right. Three mechanisms, all needed:
+This is the part that has to be right. As built, after 3.6 revised it:
 
-1. **Single flight.** One lock in `RpcDispatcher`. Two requests never execute at once, and a second
-   connection is accepted but serialized. The pipe thread holds the lock; it never holds the GIL.
-2. **The idle guard, checked on the UI thread.** A modal loop pumps messages, so `Invoke` returns
-   while a dialog is open. The guard is therefore evaluated *inside* the marshalled delegate, where
-   it can see the truth: refuse when any `Application.OpenForms` entry is `Modal && Visible`, when a
-   long operation is in progress, or when a regeneration is running. The answer is
-   `{"status": "busy", "reason": "A dialog is open: Edit load"}` - never a silent wait.
-3. **A heartbeat and a cancellable dispatch.** A 200 ms UI thread timer stamps a tick count. Before
-   marshalling, the pipe thread reads it: a stale stamp means the UI thread is inside something that
-   does not pump, so the request is refused without being queued. When it is fresh, the request is
-   sent with `BeginInvoke` and waited on with a timeout, and the delegate checks a cancellation token
-   before it does anything - so a request that timed out cannot run afterwards.
+1. **Single flight.** One lock in `RpcDispatcher`. Two requests that reach the model never execute at
+   once, whichever connection they arrive on. `ping`, `status` and `shutdown` bypass the lock, so a
+   client can always ask what is going on.
+2. **The idle guard, asked on the UI thread.** A modal loop pumps messages, so `Invoke` returns while
+   a dialog is open - and this application's own item dialogs are not modal at all. Only that thread
+   can see either, so `RpcUiThread.CheckIdle` hops to it and asks: refuse when any registered child
+   form is visible, when any `Application.OpenForms` entry is `Modal && Visible`, when the state text
+   is not Ready, when a file is being saved, or while startup has not finished opening its file. The
+   answer names the reason - `A dialog is open: Edit load` - and nothing was done.
+3. **The handler runs on the connection thread.** This is where the application already runs scripted
+   API calls: a `--script` run drives the controller from a thread pool thread, and 183 of the 228
+   public `FrmMain` methods marshal their own user interface work with `InvokeIfRequired`. The
+   controller is built to be called from a worker thread. Putting a handler on the UI thread instead
+   froze the window for the length of the call and **deadlocked** on any call that waits for
+   asynchronous work of its own - `open_results` executes through `OpenAsync(...).Wait()`, which can
+   never complete on the thread that has to run its continuation. The one exception is a handler that
+   must be there: `screenshot` asks `RpcUiThread.Run`, because only the renderer may read its own
+   buffer.
+4. **Both hops are bounded and cancellable.** A UI thread inside something that does not pump would
+   otherwise block the connection forever, and a call the connection thread has given up on must
+   never run afterwards, so `RpcCall` cancels it before it starts.
 
-The pipe thread touches Python only through the delegate. `Py.GIL()` is acquired on the UI thread,
-inside the handler, exactly as `PythonPanel_ExecuteScript` does today.
+`Py.GIL()` is acquired inside the handler, on the connection thread, exactly as a `--script` run
+acquires it on its own thread.
 
 ### The protocol
 
@@ -191,6 +200,107 @@ The server's MCP `instructions` string carries the three things an agent cannot 
 the root and `describe_api` is how to learn it, that every change is recorded and the user can undo
 it from the command history editor, and that a busy answer means the user is doing something and the
 call should be retried rather than worked around.
+
+## Implementation status
+
+Every step is implemented and verified. **An MCP client drives a live PrePoMax session end to
+end**: `Test_Mcp_Workflow.py` builds a static analysis through the tools and nothing else, solves it
+with CalculiX, reads the displacement back, and journals the twelve commands it produced into forty
+lines of Python. `Debug|x64` builds clean, and all 32 Layer 1 and Layer 2 test scripts still pass
+alongside the four new ones.
+
+| Step | State |
+|---|---|
+| 3.0 JSON reading and protocol types | Done, verified |
+| 3.1 pipe server and settings | Done, verified - `Test_Rpc_Server.py` |
+| 3.2 user interface thread contract | Done, and revised by 3.6; the modal and mesher cases need an interactive check - see below |
+| 3.3 eval and exec | Done, verified - `Test_Rpc_Live_Session.py` |
+| 3.4 describe | Done, verified |
+| 3.5 history and screenshot | Done, verified; `read_model` moved to the bridge - see below |
+| 3.6 long operations | Answered differently than planned: the handler moved off the user interface thread, so a long call blocks neither the window nor another connection. No task table - see below |
+| 3.7 `PrePoMaxMcp.exe` | Done, verified - `Test_Mcp_Bridge.py` |
+| 3.8 tool descriptors | Done as part of 3.7; not yet reviewed against a real agent session |
+| 3.9 documentation and tests | Done - `Python_API_Overview.md`, `AGENTS.md`, `README.md`, four test scripts |
+| Acceptance | `Test_Mcp_Workflow.py` - a static analysis built, solved and read back through the tools |
+
+### Deviations from the plan as written
+
+- **`read_model` is a piece of Python the bridge sends**, not a script deployed with the application.
+  `APIs/Python/Scripts` is not copied into the build output and nothing reads it at runtime, so a
+  bundled script would have needed a deployment mechanism it does not have. Holding the source in
+  `PrePoMaxMcp/McpModelScript.cs` satisfies what D5 was for - a tool that is Python rather than C# -
+  and makes a new tool a bridge-side change with no application change at all.
+- **There is no heartbeat.** The plan wanted one so that a request is refused rather than queued when
+  the user interface thread is blocked. `RpcCall` makes that unnecessary: a call the pipe thread has
+  given up on is cancelled before it starts, so queueing one is harmless, and the single-flight lock
+  keeps at most one pending. Two mechanisms instead of three.
+- **Read only blocks the command history rather than the method.** The plan refused `exec` outright.
+  Blocking `CommandsCollection.AddAndExecute` - which every state change passes through - is the
+  airtight guarantee, and it leaves reading, computing and `read_model` working in a read only
+  session, which refusing `exec` did not.
+- **`--rpc On | ReadOnly | Off` was added**, and `--rpc` allows `-g No` on its own. It makes the
+  server testable unattended, and a headless session with a server is a useful thing in itself. The
+  test suite needs it: a recorded script suppresses command recording while it runs, so a script that
+  drives its own process can never see what the history got. `Test_Rpc_Live_Session.py` and
+  `Test_Mcp_Bridge.py` start sessions of their own instead.
+- **`exit` was added**, for a hidden session only. Without it a headless server session had no way to
+  end but a kill, which leaves the recovery file behind. It refuses when the model has unsaved changes
+  unless `discard_changes` is given.
+- **The `script` method was not added.** `exec` with `record='script'` does what it was for.
+
+### Answered on the way
+
+Two questions the plan left open, settled by running the thing rather than by reasoning about it.
+
+- **Where a handler runs (step 3.6).** Marshalling every handler to the user interface thread did not
+  merely freeze the window for the length of a call: it deadlocked outright on
+  `pmx.jobs.open_results`, which is recorded as a synchronous command and therefore executes through
+  `OpenAsync(...).Wait()` on the thread that has to run its own continuation. The same call works from
+  a `--script` run, because that runs on a thread pool thread - and 156 of the 216 public `FrmMain`
+  methods marshal their own user interface work, so the controller is built to be driven from a
+  worker thread. The handler now runs on the connection thread and the guard hops to the user
+  interface thread on its own. `Test_Mcp_Workflow.py` holds a connection busy for six seconds and
+  checks that `ping` stays immediate and a `status` from another connection is answered in well under
+  a second. What a task table would still add is cancelling a long call, which nothing measured needs.
+- **Whether an agent call should mark the application busy.** It should, once it has lasted long
+  enough to be worth showing. `RpcBusyState` takes the state the application uses for its own long
+  operations, but only after 300 ms, so the fast majority of calls never touch the window and a
+  status bar that would otherwise blink on every call stays still; both hops are posted rather than
+  waited on, so a call is never held up by the window it is marking. The Python panel takes the state
+  for its own scripts too, so a user script and an agent call exclude each other instead of
+  interleaving through a message pump. The panel refuses only when the automation server holds the
+  state, because anything else the application is doing already makes an agent call refuse itself.
+
+### Fixed on the way
+
+Three things the layer uncovered in the application, each of which would have bitten an interactive
+user too, and one it introduced itself.
+
+- A hidden session **auto answered the crash recovery prompt** and would have regenerated the
+  interactive user's crash file. The prompt is now skipped when there is no window.
+- A hidden session **auto answered "save before closing" with yes**, which opens a save dialog nobody
+  can close, so it hung forever. The close time questions now treat a hidden window the way they
+  treat a batch regeneration.
+- A connection thread reporting its state **after the window was disposed** took the process down with
+  an `ObjectDisposedException`. Both the event and the handler now tolerate a closing application.
+- The server answered **before the file on the command line was open**, so an agent that connected
+  straight after launch read an empty model instead of being told to wait. The guard now covers the
+  startup window.
+- Introduced here: moving the handler off the user interface thread left one write on the wrong
+  thread - **the echo into the Python console** - and its catch swallowed the cross thread exception,
+  so the echo would silently not have appeared. It is marshalled now, and a failed echo says so.
+
+### What is left
+
+- **3.2, interactively.** The guard refuses correctly by construction and the cancel race is checked
+  2000 times over in an offline harness, but the two cases that matter most to a user - a call while
+  an item dialog is open, and a call while a mesher runs - can only be confirmed with the application
+  on screen. The busy state and the panel exclusion are in the same position: both are visible
+  behaviour that nobody has looked at yet.
+- **3.8, against a real agent.** The descriptors are written; the point of 3.8 is to fix what an agent
+  actually gets wrong with them, which needs an agent session.
+- The pipe ACL grants only the current user's SID. That it refuses **another account** is reasoned
+  rather than measured; it needs a second account to check.
 
 ## Steps
 

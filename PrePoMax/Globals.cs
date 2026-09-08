@@ -57,6 +57,8 @@ namespace PrePoMax
         public static string DeletingFacesText = "Deleting faces...";
         public static string ExplodePartsText = "Explode parts...";
         public static string SelectionText = "Selection...";
+        public static string PythonScriptText = "Running Python script...";
+        public static string AutomationText = "Automation server...";
         // Symbol names
         public static string SymbolNone = "None";
         public static string SymbolModel = "Model";
@@ -79,6 +81,7 @@ namespace PrePoMax
         public static string LegendSettingsName = "Legend";
         public static string StatusBlockSettingsName = "Status Block";
         public static string UnitSystemSettingsName = "Unit System";
+        public static string AutomationSettingsName = "Automation";
         // Work files
         public static string NetGenMesher = @"\Meshers\Netgen\NetGenMesher.exe";
         public static string MmgsMesher = @"\Meshers\Mmg\mmgs.exe";

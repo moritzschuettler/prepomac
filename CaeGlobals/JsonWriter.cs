@@ -18,13 +18,13 @@ namespace CaeGlobals
     // JSON package; reading JSON is intentionally not supported.
     public class JsonWriter
     {
-        // Variables
+        // Variables                                                                                                                
         private readonly StringBuilder _text;
         private int _depth;
         private bool _isFirstItem;
 
 
-        // Constructor
+        // Constructor                                                                                                              
         public JsonWriter()
         {
             _text = new StringBuilder();
@@ -33,7 +33,7 @@ namespace CaeGlobals
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         public void BeginObject()
         {
             WriteItemStart();
@@ -50,6 +50,12 @@ namespace CaeGlobals
         public void EndObject()
         {
             EndScope('}');
+        }
+        public void BeginArray()
+        {
+            WriteItemStart();
+            _text.Append('[');
+            BeginScope();
         }
         public void BeginArray(string name)
         {
@@ -85,6 +91,19 @@ namespace CaeGlobals
             WriteItemStart();
             WriteName(name);
             _text.Append(value ? "true" : "false");
+        }
+        // The value is already JSON. It exists so that a document can be composed from parts that
+        // were rendered separately; the caller is responsible for what it passes in.
+        public void WriteRawValue(string json)
+        {
+            WriteItemStart();
+            _text.Append(string.IsNullOrEmpty(json) ? "null" : json);
+        }
+        public void WriteRawValue(string name, string json)
+        {
+            WriteItemStart();
+            WriteName(name);
+            _text.Append(string.IsNullOrEmpty(json) ? "null" : json);
         }
         public void WriteValue(string value)
         {

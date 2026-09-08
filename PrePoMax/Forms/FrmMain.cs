@@ -77,6 +77,9 @@ namespace PrePoMax
         private AdvisorPanel _advisorPanel;
         private SidePanelsState _sidePanelsState;
         private SidePanelsState _pendingSidePanelsState;
+        private Rpc.RpcServer _automationServer;
+        private bool _startupCompleted;
+        private bool _pythonScriptTookState;
         private bool _pythonPanelStateApplied;
         private bool _xyPlotPanelStateApplied;
         private bool _advisorPanelStateApplied;
@@ -691,6 +694,7 @@ namespace PrePoMax
             //
             try
             {
+                StartAutomationServerIfConfigured();
                 // Regeneration
                 if (_cmdOptions.RegenerationFileName != null)
                 {
@@ -749,8 +753,10 @@ namespace PrePoMax
                     // Must be set before the first command, so that a script run leaves the recovery file
                     // of the interactive user untouched
                     if (scriptMode) _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
-                    // Try to recover unsaved progress due to crushed PrePoMax
-                    if (!scriptMode && File.Exists(_controller.GetHistoryFileNameBin()))
+                    // Try to recover unsaved progress due to crushed PrePoMax - a question for a
+                    // person, so a session without a window is not asked: the unattended answer is the
+                    // affirmative one and would regenerate the crash file of the interactive user
+                    if (!scriptMode && !_hideWindow && File.Exists(_controller.GetHistoryFileNameBin()))
                     {
                         if (MessageBoxes.ShowWarningQuestionOKCancel("A recovery file from a previous PrePoMax session exists. " +
                                                                      "Would you like to try to recover it?") == DialogResult.OK)
@@ -812,6 +818,9 @@ namespace PrePoMax
                         //
                         UpdateRecentFilesThreadSafe();
                     }
+                    // The automation server is started before this, so that a script can be its
+                    // own client; from here on there is a model for a caller to read
+                    _startupCompleted = true;
                     // Script - runs after the file defined by the -f switch was opened
                     if (scriptMode) await RunBatchScriptAsync();
                 }
@@ -832,6 +841,7 @@ namespace PrePoMax
             }
             finally
             {
+                _startupCompleted = true;
                 // must be here - otherwise the main form is hidden when started from debugger
                 if (!_hideWindow) this.Activate();
                 this.TopMost = false;
@@ -896,12 +906,14 @@ namespace PrePoMax
                 DialogResult response = DialogResult.None;
                 // No write access
                 if (_controller == null) return;
+                // A hidden session has no window and nobody to answer its questions
+                bool isUnattended = _controller.BatchRegenerationMode || _hideWindow;
                 // Analysis in progress - first check: it has to kill running analyses
                 foreach (var entry in _controller.Jobs)
                 {
                     if (entry.Value.JobStatus == JobStatus.Running)
                     {
-                        if (!_controller.BatchRegenerationMode)
+                        if (!isUnattended)
                             response = MessageBoxes.ShowWarningQuestionOKCancel("There is an analysis running. " +
                                 "Closing will kill the analysis. Close anyway?");
                         else response = DialogResult.OK;
@@ -925,7 +937,7 @@ namespace PrePoMax
                 // Saving in progress
                 if (tsslState.Text != Globals.ReadyText)
                 {
-                    if (!_controller.BatchRegenerationMode)
+                    if (!isUnattended)
                         response = MessageBoxes.ShowWarningQuestionOKCancel("There is a task running. Close anyway?");
                     else response = DialogResult.OK;
                     //
@@ -939,7 +951,7 @@ namespace PrePoMax
                 // Model changed
                 else if (_controller.ModelChanged)
                 {
-                    if (!_controller.BatchRegenerationMode)
+                    if (!isUnattended)
                         response = MessageBoxes.ShowWarningQuestionYesNoCancel("Save file before closing?");
                     else response = DialogResult.No;
                     //
@@ -954,6 +966,8 @@ namespace PrePoMax
                 // Save form size and location and delete history files
                 if (e.Cancel == false && _controller != null)
                 {
+                    StopAutomationServer();
+                    //
                     if (!_controller.BatchRegenerationMode)
                     {
                         SettingsContainer settings = _controller.Settings;  // get a clone
@@ -3071,19 +3085,65 @@ namespace PrePoMax
         }
         private void PythonPanel_ExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
         {
-            PythonEngineResult result = PythonEngineManager.ExecuteScript(e.Command);
-            //
-            e.Output = result.Output;
-            e.Error = result.Error;
-            e.NeedMoreInput = result.NeedMoreInput;
+            if (!TakeStateForPythonScript(e)) return;
+            try
+            {
+                PythonEngineResult result = PythonEngineManager.ExecuteScript(e.Command);
+                //
+                e.Output = result.Output;
+                e.Error = result.Error;
+                e.NeedMoreInput = result.NeedMoreInput;
+            }
+            finally
+            {
+                ReleaseStateForPythonScript();
+            }
         }
         private void PythonPanel_RecordAndExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
         {
-            PythonEngineResult result = _controller.RunPythonScriptCommand(e.Command);
+            if (!TakeStateForPythonScript(e)) return;
+            try
+            {
+                PythonEngineResult result = _controller.RunPythonScriptCommand(e.Command);
+                //
+                e.Output = result.Output;
+                e.Error = result.Error;
+                e.NeedMoreInput = result.NeedMoreInput;
+            }
+            finally
+            {
+                ReleaseStateForPythonScript();
+            }
+        }
+        // A script of the user's own is marked the way any other long operation is, so that a call
+        // from the automation server arriving in the middle of it is refused rather than interleaved:
+        // a script that opens a dialog, or that waits for work of its own, lets the window pump
+        // messages and would otherwise look idle.
+        //
+        // It also works the other way round, and only that way round: a script does not start while
+        // an agent call holds the state, and says so. Anything else the application is doing already
+        // makes it busy, so an agent call arriving then is refused for that reason anyway, and
+        // refusing the user's script as well would only cost a retry
+        private bool TakeStateForPythonScript(PythonTextBoxCommandEventArgs e)
+        {
+            if (tsslState.Text == Globals.AutomationText)
+            {
+                e.Output = "";
+                e.Error = "The automation server is running a call, so the script was not started. " +
+                          "Wait for it to finish, or switch the server off in Tools - Automation Server." +
+                          Environment.NewLine;
+                e.NeedMoreInput = false;
+                return false;
+            }
+            _pythonScriptTookState = SetStateWorking(Globals.PythonScriptText);
+            return true;
+        }
+        private void ReleaseStateForPythonScript()
+        {
+            if (!_pythonScriptTookState) return;
             //
-            e.Output = result.Output;
-            e.Error = result.Error;
-            e.NeedMoreInput = result.NeedMoreInput;
+            _pythonScriptTookState = false;
+            SetStateReady(Globals.PythonScriptText);
         }
         private void PythonPanel_AutocompleteRequested(object sender, PythonTextBoxAutocompleteEventArgs e)
         {
@@ -7810,6 +7870,195 @@ namespace PrePoMax
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        //
+        private void tsmiAutomationServer_Click(object sender, EventArgs e)
+        {
+            ToggleAutomationServer();
+        }
+        private void tsslAutomation_Click(object sender, EventArgs e)
+        {
+            ToggleAutomationServer();
+        }
+        private void ToggleAutomationServer()
+        {
+            try
+            {
+                if (_automationServer != null && _automationServer.IsRunning) StopAutomationServer();
+                else StartAutomationServer();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void StartAutomationServerIfConfigured()
+        {
+            if (_controller == null || _controller.BatchRegenerationMode) return;
+            // The server drives the session the user is looking at, so an unattended run opens it
+            // only when the caller asked for it explicitly
+            bool requested = _cmdOptions != null && _cmdOptions.Rpc != null && _cmdOptions.Rpc != "Off";
+            if (!requested)
+            {
+                if (_hideWindow) return;
+                if (_cmdOptions != null && _cmdOptions.ScriptFileName != null) return;
+                if (!_controller.AutomationSettings.StartWithApplication) return;
+            }
+            //
+            try
+            {
+                StartAutomationServer();
+            }
+            catch (Exception ex)
+            {
+                WriteDataToOutput("The automation server could not be started: " + ex.Message);
+            }
+        }
+        private void StartAutomationServer()
+        {
+            if (_automationServer == null)
+            {
+                _automationServer = new Rpc.RpcServer(this, _controller);
+                _automationServer.StateChanged += AutomationServer_StateChanged;
+            }
+            if (_automationServer.IsRunning) return;
+            //
+            if (_cmdOptions != null && _cmdOptions.Rpc == "ReadOnly") _automationServer.IsReadOnlyRequested = true;
+            _automationServer.Start();
+            WriteDataToOutput("The automation server accepts calls on the pipe " +
+                              _automationServer.PipeName + ".");
+            UpdateAutomationServerIndicators();
+        }
+        private void StopAutomationServer()
+        {
+            if (_automationServer == null || !_automationServer.IsRunning) return;
+            //
+            _automationServer.Stop();
+            WriteDataToOutput("The automation server was stopped.");
+            UpdateAutomationServerIndicators();
+        }
+        // Only the renderer can read its own buffer, so a picture of the viewport is taken here
+        public void SaveAutomationScreenshot(string fileName)
+        {
+            if (_vtk == null) throw new CaeException("The 3D view is not available.");
+            _vtk.RenderToPNG(fileName);
+        }
+        // A session started with -g No has no window anyone is looking at
+        public bool IsWindowHidden { get { return _hideWindow; } }
+        // Closes the application on behalf of the automation server. The server only offers it for a
+        // hidden session, and it goes through the ordinary close, so the model is saved or discarded
+        // by the same rules as always
+        public void RequestAutomationExit()
+        {
+            if (!IsHandleCreated || IsDisposed) return;
+            BeginInvoke(new MethodInvoker(delegate () { Close(); }));
+        }
+        // The Python scope an agent uses is the one the console uses, and pmx is put into it when the
+        // Python panel is shown. An agent may never have shown it, so the server asks for it here
+        public void PrepareAutomationPythonEngine()
+        {
+            UpdatePythonEngine(true);
+        }
+        // Everything an agent runs is written where the user can see it. The Python panel is not
+        // created for it: opening a side panel the user did not ask for would rearrange the window,
+        // so the echo goes to the console when it exists and to the output in any case
+        public void EchoAutomationExecution(string label, string source, string output, string error)
+        {
+            if (_controller == null || !_controller.AutomationSettings.EchoToPythonPanel) return;
+            //
+            if (_pythonPanel != null)
+            {
+                try
+                {
+                    // The console is a control, and this is called from the connection thread
+                    InvokeIfRequired(delegate ()
+                    {
+                        _pythonPanel.WriteExternalExecution(label, source, output, error);
+                    });
+                }
+                catch (Exception exception)
+                {
+                    // An echo that fails must not fail the call it echoes, but it must not be silent
+                    // either: a swallowed cross thread write is how this was missed the first time
+                    WriteDataToOutput("The automation echo could not be written: " + exception.Message);
+                }
+            }
+            WriteDataToOutput(label);
+        }
+        // Answers on the user interface thread, which is the only place the truth is visible: an item
+        // dialog of this application is not modal, and a modal one keeps pumping messages, so neither
+        // can be recognized from the thread that asks
+        public string GetAutomationBusyReason()
+        {
+            if (_controller == null) return "PrePoMax is still starting.";
+            if (!_startupCompleted)
+                return "PrePoMax is still starting: the file it was given is not open yet.";
+            if (_controller.SavingFile) return "PrePoMax is saving a file.";
+            // BatchRegenerationMode is not asked: it says this process was started for unattended work,
+            // not that anything is running right now - a running regeneration shows in the state text
+            // The state texts already end in an ellipsis, so nothing is added to them
+            if (tsslState.Text != Globals.ReadyText) return "PrePoMax is busy: " + tsslState.Text;
+            //
+            Form openForm = GetOpenAutomationBlockingForm();
+            if (openForm != null)
+            {
+                string name = openForm.Text != null && openForm.Text.Length > 0 ? openForm.Text : openForm.Name;
+                return "A dialog is open: " + name + ". The user is editing something.";
+            }
+            return null;
+        }
+        private Form GetOpenAutomationBlockingForm()
+        {
+            if (_allForms != null)
+            {
+                foreach (Form form in _allForms)
+                {
+                    if (form.Visible) return form;
+                }
+            }
+            // A message box, a file dialog or anything else that was shown modally
+            try
+            {
+                FormCollection openForms = Application.OpenForms;
+                for (int i = 0; i < openForms.Count; i++)
+                {
+                    Form form = openForms[i];
+                    if (form != this && form.Modal && form.Visible) return form;
+                }
+            }
+            catch
+            {
+                // The collection changes while a form is being opened or closed
+            }
+            return null;
+        }
+        private void AutomationServer_StateChanged()
+        {
+            // A connection is accepted on the listener thread, and the last one is reported while
+            // the application is already closing, so the window may be gone by the time it lands
+            if (!IsHandleCreated || IsDisposed) return;
+            try
+            {
+                InvokeIfRequired(new Action(UpdateAutomationServerIndicators));
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+        private void UpdateAutomationServerIndicators()
+        {
+            bool isRunning = _automationServer != null && _automationServer.IsRunning;
+            tsmiAutomationServer.Checked = isRunning;
+            tsslAutomation.Visible = isRunning;
+            if (!isRunning) return;
+            //
+            int connections = _automationServer.ConnectionCount;
+            bool isReadOnly = _automationServer.IsReadOnly;
+            string state = connections == 0 ? "waiting" : connections + " connected";
+            tsslAutomation.Text = "Automation: " + state + (isReadOnly ? ", read only" : "");
         }
         //
         private void ShowColorBarSettings()

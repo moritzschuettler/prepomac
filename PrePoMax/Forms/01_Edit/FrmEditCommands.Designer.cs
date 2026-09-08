@@ -87,7 +87,7 @@ namespace PrePoMax.Forms
             this.splMain.Panel2.Controls.Add(this.gbPython);
             this.splMain.Panel2MinSize = 200;
             this.splMain.Size = new System.Drawing.Size(760, 393);
-            this.splMain.SplitterDistance = 432;
+            this.splMain.SplitterDistance = 380;
             this.splMain.TabIndex = 0;
             // 
             // gbProperties
@@ -96,14 +96,13 @@ namespace PrePoMax.Forms
             this.gbProperties.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gbProperties.Location = new System.Drawing.Point(0, 0);
             this.gbProperties.Name = "gbProperties";
-            this.gbProperties.Size = new System.Drawing.Size(432, 393);
+            this.gbProperties.Size = new System.Drawing.Size(380, 393);
             this.gbProperties.TabIndex = 0;
             this.gbProperties.TabStop = false;
             this.gbProperties.Text = "Data";
             // 
             // dgvCommands
             // 
-            this.dgvCommands.AllowDrop = true;
             this.dgvCommands.AllowUserToAddRows = false;
             this.dgvCommands.AllowUserToResizeRows = false;
             this.dgvCommands.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -113,7 +112,7 @@ namespace PrePoMax.Forms
             this.dgvCommands.Location = new System.Drawing.Point(3, 19);
             this.dgvCommands.Name = "dgvCommands";
             this.dgvCommands.ReadOnly = true;
-            this.dgvCommands.Size = new System.Drawing.Size(423, 368);
+            this.dgvCommands.Size = new System.Drawing.Size(371, 368);
             this.dgvCommands.TabIndex = 0;
             this.dgvCommands.CellMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgvCommands_CellMouseDoubleClick);
             this.dgvCommands.RowPrePaint += new System.Windows.Forms.DataGridViewRowPrePaintEventHandler(this.dgvCommands_RowPrePaint);
@@ -127,7 +126,7 @@ namespace PrePoMax.Forms
             this.gbPython.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gbPython.Location = new System.Drawing.Point(0, 0);
             this.gbPython.Name = "gbPython";
-            this.gbPython.Size = new System.Drawing.Size(324, 393);
+            this.gbPython.Size = new System.Drawing.Size(376, 393);
             this.gbPython.TabIndex = 1;
             this.gbPython.TabStop = false;
             this.gbPython.Text = "Python";
@@ -139,7 +138,7 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Right)));
             this.petbPython.Location = new System.Drawing.Point(3, 19);
             this.petbPython.Name = "petbPython";
-            this.petbPython.Size = new System.Drawing.Size(315, 368);
+            this.petbPython.Size = new System.Drawing.Size(367, 368);
             this.petbPython.TabIndex = 0;
             // 
             // btnOK
@@ -268,7 +267,7 @@ namespace PrePoMax.Forms
             // tsmiShowPython
             // 
             this.tsmiShowPython.Name = "tsmiShowPython";
-            this.tsmiShowPython.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowPython.Size = new System.Drawing.Size(146, 22);
             this.tsmiShowPython.Text = "Show Python";
             this.tsmiShowPython.Click += new System.EventHandler(this.tsmiShowPython_Click);
             // 

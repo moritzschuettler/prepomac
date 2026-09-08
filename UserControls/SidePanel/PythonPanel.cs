@@ -334,6 +334,19 @@ namespace UserControls
         {
             ShowEditorFind();
         }
+        // Writes into the console what something other than the user ran in this session, so an
+        // agent driving the application through the automation server is visible while it does it
+        public void WriteExternalExecution(string label, string source, string output, string error)
+        {
+            pctbPythonConsole.WriteLine("");
+            pctbPythonConsole.WriteLine("# " + label);
+            if (source != null)
+            {
+                string[] lines = source.Replace("\r", "").Split('\n');
+                foreach (string line in lines) pctbPythonConsole.WriteLine(line);
+            }
+            pctbPythonConsole.WriteExecutionResult(output, error);
+        }
         public PythonPanelState CaptureState()
         {
             PythonPanelState state = new PythonPanelState();

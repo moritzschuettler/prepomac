@@ -129,6 +129,10 @@ namespace PrePoMax
                 { }
             }
         }
+        // The Settings getter clones the whole container, which is too much for something the
+        // automation server reads on every call. This is the live object, so a caller sees the
+        // choice the user made last; only the server reads it
+        public AutomationSettings AutomationSettings { get { return _settings.Automation; } }
         public OrderedDictionary<string, AnalysisJob> Jobs { get { return _jobs; } }
         // States
         public bool ModelInitialized
@@ -155,6 +159,15 @@ namespace PrePoMax
             set { _batchRegenerationMode = value; }
         }
         public bool IsCommandRecordingSuppressed { get { return _commands.IsCommandRecordingSuppressed; } }
+        public bool AreCommandsBlocked { get { return _commands.AreCommandsBlocked; } }
+        public void BlockCommands(string reason)
+        {
+            _commands.BlockCommands(reason);
+        }
+        public void UnblockCommands()
+        {
+            _commands.UnblockCommands();
+        }
         public string RegenerationWorkDirectory
         {
             get { return _settings.GetRegenerationWorkDirectory(); }

@@ -63,12 +63,14 @@ namespace APIs.Python.Model
                                                        object merge_compound_parts = null)
         {
             MeshingParameters item = _service.CreateDefaultMeshingParameters(name);
+            _service.PrepareItem(item, name, selection);
+            _service.ApplyPartDefaults(item);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
                                    use_mmg, keep_model_edges, relative_size, factor_max, factor_min,
                                    factor_hausdorff, hausdorff, optimize_steps_2d, optimize_steps_3d,
                                    split_compound_mesh, merge_compound_parts);
-            _service.Add(item, name, selection);
+            _service.AddPreparedItem(item);
             return this[name];
         }
 
@@ -445,20 +447,19 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry.",
-                   Arguments = "name: str, selection: Selection, preview: bool = False, remesh: bool = True, " +
-                               "smooth: bool = True, alpha: float = None, triangulation_mesher: str = None, " +
+        [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry. Every parameter that is not " +
+                   "given keeps the application default.",
+                   Arguments = "name: str, selection: Selection, preview: bool = None, remesh: bool = None, " +
+                               "smooth: bool = None, alpha: float = None, triangulation_mesher: str = None, " +
                                "scale_factor: float = None, flow_profile: str = None", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, bool preview = false,
-                                                    bool remesh = true, bool smooth = true, object alpha = null,
+        public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
+                                                    object remesh = null, object smooth = null, object alpha = null,
                                                     string triangulation_mesher = null, object scale_factor = null,
                                                     string flow_profile = null)
         {
             ShellQuadWild item = new ShellQuadWild(name);
-            item.Preview = preview;
-            item.Remesh = remesh;
-            item.Smooth = smooth;
-            ApplyShellQuadWild(item, alpha, triangulation_mesher, scale_factor, flow_profile);
+            ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
+                               flow_profile);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -473,10 +474,8 @@ namespace APIs.Python.Model
                                                         object scale_factor = null, string flow_profile = null)
         {
             ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
-            if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
-            if (remesh != null) item.Remesh = PythonValueConverter.ToBool(remesh, "remesh");
-            if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
-            ApplyShellQuadWild(item, alpha, triangulation_mesher, scale_factor, flow_profile);
+            ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
+                               flow_profile);
             return Replace(old_name, name, item, selection);
         }
         //
@@ -681,9 +680,13 @@ namespace APIs.Python.Model
             ApplyOptimizeFirstOrderShell(item, optimizeFirstOrderShell);
             ApplyElementsPerLayer(item, elementsPerLayer);
         }
-        private static void ApplyShellQuadWild(ShellQuadWild item, object alpha, string triangulationMesher,
-                                               object scaleFactor, string flowProfile)
+        private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object remesh, object smooth,
+                                               object alpha, string triangulationMesher, object scaleFactor,
+                                               string flowProfile)
         {
+            if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
+            if (remesh != null) item.Remesh = PythonValueConverter.ToBool(remesh, "remesh");
+            if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
             if (alpha != null) item.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
             if (triangulationMesher != null)
                 item.TriangulationMesher = PythonValueConverter.ToEnum<MesherTypeEnum>(triangulationMesher,

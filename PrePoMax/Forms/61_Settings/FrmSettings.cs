@@ -76,6 +76,8 @@ namespace PrePoMax.Forms
                         _viewSettings.Add(entry.Key, new ViewLegendSettings(les.DeepClone()));
                     else if (entry.Value is StatusBlockSettings sbs)
                         _viewSettings.Add(entry.Key, new ViewStatusBlockSettings(sbs.DeepClone()));
+                    else if (entry.Value is AutomationSettings aus)
+                        _viewSettings.Add(entry.Key, new ViewAutomationSettings(aus.DeepClone()));
                     else throw new NotSupportedException();
                 }
             } 

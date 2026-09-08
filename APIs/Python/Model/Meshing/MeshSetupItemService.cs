@@ -92,13 +92,35 @@ namespace APIs.Python.Model
         }
         public void Add(MeshSetupItem item, string name, SelectionAPI selection)
         {
+            PrepareItem(item, name, selection);
+            AddPreparedItem(item);
+        }
+        public void PrepareItem(MeshSetupItem item, string name, SelectionAPI selection)
+        {
             ValidateName(name, null);
             if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
             item.Name = name;
             ApplySelection(item, selection);
-            //
+        }
+        public void AddPreparedItem(MeshSetupItem item)
+        {
             EnsureCommandsAvailable();
             _meshGateway.AddMeshSetupItem(item);
+        }
+        // The dialog rebuilds the meshing parameters from the size of the selected parts in
+        // FrmMeshSetupItem.SelectionChanged, so a scripted item is given the same sizes before the
+        // arguments of the call are applied on top of them
+        public void ApplyPartDefaults(MeshingParameters item)
+        {
+            MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,
+                                                                                          item.CreationIds);
+            if (partDefaults == null) return;
+            //
+            int[] creationIds = item.CreationIds;
+            Selection creationData = item.CreationData;
+            item.CopyFrom(partDefaults);
+            item.CreationIds = creationIds;
+            item.CreationData = creationData;
         }
         public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection)
         {

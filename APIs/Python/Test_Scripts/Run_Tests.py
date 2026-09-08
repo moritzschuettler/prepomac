@@ -37,6 +37,8 @@ RESULT_FILE = "PyTest_Job.frd"
 DEFAULT_EXE = os.path.abspath(os.path.join(HERE, "..", "..", "..", "PrePoMax", "bin", "x64", "Debug", "PrePoMax.com"))
 COMMAND_LINE = re.compile(r"^#\s*PrePoMax\.com\s+(?P<arguments>.*)$")
 EXIT_CODE = re.compile(r"^#\s*Expected process exit code\s+(?P<code>\d+)")
+# The switches a test may ask for in its header; everything else the runner supplies itself
+HEADER_SWITCHES = ("-f", "--rpc")
 STATUS_BY_CODE = {0: "Ok", 1: "OptionError", 2: "ModelError", 3: "ScriptError", 4: "TimedOut",
                   5: "PromptRefused", 6: "LauncherError"}
 # The application is given --timeout, so the parent waits a little longer before it kills the tree
@@ -45,18 +47,25 @@ PROCESS_TIMEOUT = SCRIPT_TIMEOUT + 60
 
 
 class Test(object):
-    def __init__(self, path, model, expected_code):
-        self.path, self.name, self.model = path, os.path.basename(path), model
+    def __init__(self, path, switches, expected_code):
+        self.path, self.name = path, os.path.basename(path)
+        self.switches = switches
+        self.model = switches.get("-f")
         self.expected_code = expected_code
-        self.needs_result = model == RESULT_FILE
+        self.needs_result = self.model == RESULT_FILE
 
     def __repr__(self):
         return self.name
 
 
 def read_header(path):
-    """Returns the model file, or None, and the expected exit code a test script declares."""
-    model = expected_code = None
+    """Returns the switches a test script asks for and the exit code it expects.
+
+    The switches are the ones in HEADER_SWITCHES: -f names the model and --rpc asks for the
+    automation server. Everything else on the declared command line is supplied by the runner.
+    """
+    switches = {}
+    expected_code = None
     declares_command = False
     with io.open(path, encoding="utf-8") as reader:
         for line in reader:
@@ -66,15 +75,16 @@ def read_header(path):
             if command:
                 declares_command = True
                 arguments = command.group("arguments").split()
-                if "-f" in arguments and arguments.index("-f") + 1 < len(arguments):
-                    model = arguments[arguments.index("-f") + 1]
+                for switch in HEADER_SWITCHES:
+                    if switch in arguments and arguments.index(switch) + 1 < len(arguments):
+                        switches[switch] = arguments[arguments.index(switch) + 1]
             code = EXIT_CODE.match(line.rstrip())
             if code and expected_code is None:
                 expected_code = int(code.group("code"))
     if not declares_command or expected_code is None:
         raise ValueError("%s: the header must show a PrePoMax.com command line and an expected exit code"
                          % os.path.basename(path))
-    return model, expected_code
+    return switches, expected_code
 
 
 def collect(filter_text):
@@ -84,8 +94,8 @@ def collect(filter_text):
             continue
         if filter_text and filter_text.lower() not in name.lower():
             continue
-        model, expected_code = read_header(os.path.join(HERE, name))
-        tests.append(Test(os.path.join(HERE, name), model, expected_code))
+        switches, expected_code = read_header(os.path.join(HERE, name))
+        tests.append(Test(os.path.join(HERE, name), switches, expected_code))
     if not tests:
         raise RuntimeError("no tests matched")
     if any(test.needs_result for test in tests) and not any(test.name == "Test_Analysis.py" for test in tests):
@@ -101,6 +111,8 @@ def build_command(test, executable, work_directory, report_file):
         command += ["-f", os.path.join(directory, test.model), "-u", "MM_TON_S_C"]
     command += ["--script", test.path, "-g", "No", "-x", "Yes", "-w", work_directory,
                 "--report", report_file, "--timeout", str(SCRIPT_TIMEOUT)]
+    if "--rpc" in test.switches:
+        command += ["--rpc", test.switches["--rpc"]]
     return command
 
 

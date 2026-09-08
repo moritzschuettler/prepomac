@@ -59,6 +59,7 @@ namespace PrePoMax.Commands
         private List<string> _errors;
         private bool _postprocessingDeclined;
         [NonSerialized] private int _commandRecordingSuppressionCount;
+        [NonSerialized] private string _commandBlockReason;
 
 
         // Properties                                                                                                               
@@ -108,16 +109,37 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public bool AddAndExecute(Command command)
         {
+            RefuseWhenBlocked(command);
             if (_commandRecordingSuppressionCount > 0) return ExecuteCommandWithoutRecording(command);
             //
             return ExecuteCommand(command, true);
         }
         public bool AddAndExecute(Command command, bool executeSynchronous)
         {
+            RefuseWhenBlocked(command);
             if (_commandRecordingSuppressionCount > 0)
                 return ExecuteCommandWithoutRecording(command, executeSynchronous);
             //
             return ExecuteCommand(command, true, executeSynchronous);
+        }
+        // Read only mode of the automation server. Every state change passes here, so this is the one
+        // place a refusal cannot be worked around by running different Python
+        public bool AreCommandsBlocked { get { return _commandBlockReason != null; } }
+        public void BlockCommands(string reason)
+        {
+            if (reason == null) throw new ArgumentNullException("reason");
+            _commandBlockReason = reason;
+        }
+        public void UnblockCommands()
+        {
+            _commandBlockReason = null;
+        }
+        private void RefuseWhenBlocked(Command command)
+        {
+            if (_commandBlockReason == null) return;
+            //
+            string name = command == null ? "A command" : command.Name;
+            throw new CaeException(name + " was refused. " + _commandBlockReason);
         }
         public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
         public void BeginCommandRecordingSuppression()

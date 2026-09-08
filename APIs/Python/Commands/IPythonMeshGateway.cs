@@ -18,6 +18,7 @@ namespace APIs.Python
     {
         // Meshing
         MeshingParameters GetDefaultMeshingParameters(string name);
+        MeshingParameters GetPartDefaultMeshingParameters(string name, int[] creationIds);
         void AddMeshSetupItem(MeshSetupItem meshSetupItem);
         void ReplaceMeshSetupItem(string oldMeshSetupItemName, MeshSetupItem meshSetupItem);
         void DuplicateMeshSetupItems(string[] meshSetupItemNames);

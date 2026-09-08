@@ -151,6 +151,7 @@
     <Compile Include="CommonClasses\MessageBoxPrompt.cs" />
     <Compile Include="CommonClasses\RegionType.cs" />
     <Compile Include="CommonClasses\NamedClass.cs" />
+    <Compile Include="JsonReader.cs" />
     <Compile Include="JsonWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PromptRefusedException.cs" />

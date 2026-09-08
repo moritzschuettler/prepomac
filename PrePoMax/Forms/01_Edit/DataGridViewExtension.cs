@@ -41,6 +41,7 @@ namespace PrePoMax.Forms
         public static void EnableDragAndDropRows(this DataGridView dataGridView)
         {
             dataGridView.DoubleBuffered(true);
+            dataGridView.AllowDrop = true;
             //
             dataGridView.Paint += new PaintEventHandler(GridRowReorder_Paint);
             dataGridView.MouseDown += new MouseEventHandler(GridRowReorder_MouseDown);

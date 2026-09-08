@@ -103,6 +103,121 @@ The process exit code is part of the command line contract:
 | 5 | An interactive prompt was refused because `--onPrompt` is `Fail` |
 | 6 | The `PrePoMax.com` launcher could not start the application |
 
+## Agent integration
+
+An AI agent can drive **the session the user has open**, through the same Python API this document
+describes. The model changes in the viewport and the tree while the agent works, every change is
+recorded as the command the user would have produced by hand, and the user keeps working alongside it.
+
+The path has two pieces. Inside PrePoMax, the **automation server** listens on a named pipe that only
+the user running PrePoMax may open, and serves one call at a time. Next
+to `PrePoMax.exe`, **`PrePoMaxMcp.exe`** is the MCP server an agent client starts; it speaks MCP on
+stdin and stdout and relays to the pipe. It is a process of its own because an MCP client starts its
+server, and PrePoMax is already running.
+
+### Turning it on
+
+The server is off until the user turns it on. Nothing about installing PrePoMax opens it.
+
+| Where | What it does |
+| --- | --- |
+| **Tools - Automation Server** | Starts and stops the server for this session. The status bar shows it while it runs. |
+| **Tools - Settings - Automation** | *Start with the application*, *Read only*, *Echo to the Python panel*, and the request timeout. |
+| `--rpc On` | Starts the server for the run. It also allows `-g No` on its own, which is a session with no window for an agent to drive. |
+| `--rpc ReadOnly` | The same, with the model protected against change for the whole run. |
+
+Point the agent client at the bridge. For Claude Code:
+
+```bash
+claude mcp add prepomax -- "C:\Program Files\PrePoMax\PrePoMaxMcp.exe"
+```
+
+`PrePoMaxMcp.exe --list` prints the sessions that are listening, and `--pid <id>` attaches to one of
+them. With exactly one session running, neither is needed.
+
+### The tools
+
+| Tool | What it does |
+| --- | --- |
+| `list_sessions` | The running instances whose server is on. |
+| `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. |
+| `describe_api` | The `[PythonAPI]` schema of `pmx` or of any path under it, read off the API itself, with the names a collection holds right now. |
+| `read_model` | A JSON snapshot of the model: properties, collections, steps with their content, analyses with their status. |
+| `eval_expression` | One expression, with its value as JSON when it has one. |
+| `run_python` | Python against the live model, recorded as commands or as one script. |
+| `get_history` | The command history, and the journal of it as a Python script. |
+| `run_job` | Starts an analysis without waiting, so the user keeps the interface. |
+| `get_job` | The status of an analysis, and its solver output on request. |
+| `screenshot` | A PNG of the viewport as the user sees it. |
+
+The surface is deliberately small. The model surface is the Python API, which the agent writes
+through `run_python` and learns through `describe_api`, so there is no tool per API member - 965 of
+them could not be listed, and a second front door would be free to drift from the first. A tool that
+is not a protocol primitive is a piece of Python the bridge holds: `read_model` is one, so adding
+another costs nothing on the application side.
+
+### What an agent may and may not do
+
+- **Every change is recorded.** `run_python` records each API call as its own command by default, so
+  the history stays editable in **Edit - Commands**, regenerable, and journalable. `record='script'`
+  records the source as one command instead, which is what keeps a computed model parametric.
+- **Busy is an answer.** A call that arrives while a dialog is open or a mesher is running is refused
+  with the reason, and nothing is done. The question is asked on the thread that owns the window,
+  because that is the only place the truth is visible: an item dialog of this application is not
+  modal, and a modal one keeps pumping messages.
+- **A long call blocks nothing else, but it does say it is working.** The work runs on the
+  connection it arrived on, the way a `--script` run runs it, so the window stays usable and another
+  connection is still answered while a six second call is in flight. Calls that reach the model are
+  served one at a time, so two agents cannot interleave halfway through a change.
+- **A call that lasts marks the application busy.** Once an agent call has been running for a third
+  of a second it takes the state the application uses for its own long operations - the status bar
+  says *Automation server...*, the menus and toolbars go quiet, and the view stops redrawing - so the
+  user cannot start an edit in the middle of a change. A call that finishes sooner never touches the
+  window, because a status bar that blinks on every call reads as a fault.
+- **A script of the user's own and an agent call exclude each other.** Running a script from the
+  Python panel marks the application busy the same way, so an agent call that arrives while it runs
+  is refused with the reason; and a script does not start while an agent call holds the state, and
+  says so in the console rather than failing later.
+- **Read only means the model cannot change.** It does not refuse a method; it blocks the command
+  history, which every state change of the application passes through, so no Python an agent sends
+  can get around it. Reading keeps working.
+- **The session belongs to the user.** `exit` is refused for a session that has a window - only a
+  hidden `-g No` session can be closed through the server - and `shutdown` closes the door an agent
+  came through without touching the application.
+- **Everything is visible.** What the agent runs is echoed into the Python panel when it is open, and
+  named in the output window in any case.
+
+### Undoing what an agent did
+
+The same way as anything else: **Edit - Commands** lists the commands the agent recorded, they can be
+removed or reordered there, and **Edit - Regenerate** rebuilds the model without them.
+
+### The protocol, for another client
+
+The bridge is thin, and the pipe is documented so that another client can speak to it directly. It is
+JSON-RPC 2.0, one object per line, UTF-8, on `\\.\pipe\PrePoMax.<process id>`. A running instance
+writes `%LOCALAPPDATA%\PrePoMax\sessions\<process id>.json` while its server is on, which is how a
+client finds it; a file whose process no longer exists is stale and is pruned by the next client that
+reads it.
+
+| Method | What it does |
+| --- | --- |
+| `ping` | Liveness and versions. Answered without touching the model, so it answers while the application is busy. |
+| `status` | The state, and the methods this server serves. |
+| `describe` | The API schema of a path. |
+| `eval` | Evaluates an expression. |
+| `exec` | Runs source; `record` is `commands` or `script`. |
+| `history` | The commands, and the journal with `include_journal`. |
+| `screenshot` | Writes a PNG and returns the path. |
+| `shutdown` | Stops the server; never closes the application. |
+| `exit` | Closes a hidden session; refused for one with a window. |
+
+The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32002`
+read only, `-32003` a refused prompt, `-32004` an API error, `-32005` an unknown task.
+
+`Test_Rpc_Server.py`, `Test_Rpc_Live_Session.py` and `Test_Mcp_Bridge.py` in `APIs/Python/Test_Scripts`
+check the three layers of this: the protocol, what a driven session records, and the MCP handshake.
+
 ## Typical access path
 
 The model tree mirrors the application tree, so a scripted model is built in the order the tree is
@@ -413,14 +528,15 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_extrude_mesh(name, selection, ...)` | A Gmsh extrude mesh item. |
 | `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
 | `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. |
-| `add_shell_quad_wild(name, selection, preview=False, remesh=True, smooth=True, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. |
+| `add_shell_quad_wild(name, selection, preview=None, remesh=None, smooth=None, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`, `min_size`,
 `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `factor_hausdorff`, `hausdorff`,
 `optimize_steps_2d`, `optimize_steps_3d`, `second_order`, `quad_dominated`,
 `midside_nodes_on_geometry`, `use_mmg`, `split_compound_mesh`, `merge_compound_parts` and
-`keep_model_edges`.
+`keep_model_edges`. Like the dialog, it derives `max_size`, `min_size`, `hausdorff` and `use_mmg`
+from the size of the selected parts, and the arguments of the call are applied on top of those.
 
 Every Gmsh item accepts the settings its dialog shows and no others, so the arguments differ per
 item:

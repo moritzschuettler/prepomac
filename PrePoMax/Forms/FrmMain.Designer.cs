@@ -554,6 +554,8 @@ namespace PrePoMax
             this.tsmiDividerTools3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiBidirectionalMeshConverter = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiConvertOdbToFrd = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerTools4 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiAutomationServer = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHelp = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHelpAdvisor = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHomePage = new System.Windows.Forms.ToolStripMenuItem();
@@ -585,6 +587,7 @@ namespace PrePoMax
             this.tsslState = new System.Windows.Forms.ToolStripStatusLabel();
             this.tsslCancel = new System.Windows.Forms.ToolStripStatusLabel();
             this.tsslEmpty = new System.Windows.Forms.ToolStripStatusLabel();
+            this.tsslAutomation = new System.Windows.Forms.ToolStripStatusLabel();
             this.tsslUnitSystem = new System.Windows.Forms.ToolStripStatusLabel();
             this.toolStripContainer1 = new System.Windows.Forms.ToolStripContainer();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
@@ -4723,7 +4726,9 @@ namespace PrePoMax
             this.tsmiFind,
             this.tsmiDividerTools3,
             this.tsmiBidirectionalMeshConverter,
-            this.tsmiConvertOdbToFrd});
+            this.tsmiConvertOdbToFrd,
+            this.tsmiDividerTools4,
+            this.tsmiAutomationServer});
             this.tsmiTools.Name = "tsmiTools";
             this.tsmiTools.Size = new System.Drawing.Size(47, 20);
             this.tsmiTools.Text = "Tools";
@@ -4832,6 +4837,19 @@ namespace PrePoMax
             this.tsmiConvertOdbToFrd.Size = new System.Drawing.Size(227, 22);
             this.tsmiConvertOdbToFrd.Text = "Convert .odb to .frd";
             this.tsmiConvertOdbToFrd.Click += new System.EventHandler(this.tsmiConvertOdbToFrd_Click);
+            // 
+            // tsmiDividerTools4
+            // 
+            this.tsmiDividerTools4.Name = "tsmiDividerTools4";
+            this.tsmiDividerTools4.Size = new System.Drawing.Size(224, 6);
+            // 
+            // tsmiAutomationServer
+            // 
+            this.tsmiAutomationServer.CheckOnClick = false;
+            this.tsmiAutomationServer.Name = "tsmiAutomationServer";
+            this.tsmiAutomationServer.Size = new System.Drawing.Size(227, 22);
+            this.tsmiAutomationServer.Text = "Automation Server";
+            this.tsmiAutomationServer.Click += new System.EventHandler(this.tsmiAutomationServer_Click);
             // 
             // tsmiHelp
             // 
@@ -5045,6 +5063,7 @@ namespace PrePoMax
             this.tsslState,
             this.tsslCancel,
             this.tsslEmpty,
+            this.tsslAutomation,
             this.tsslUnitSystem});
             this.statusStripMain.Location = new System.Drawing.Point(0, 655);
             this.statusStripMain.Name = "statusStripMain";
@@ -5091,6 +5110,15 @@ namespace PrePoMax
             this.tsslEmpty.Size = new System.Drawing.Size(867, 21);
             this.tsslEmpty.Spring = true;
             this.tsslEmpty.Text = " ";
+            // 
+            // tsslAutomation
+            // 
+            this.tsslAutomation.Margin = new System.Windows.Forms.Padding(1, 4, 1, 4);
+            this.tsslAutomation.Name = "tsslAutomation";
+            this.tsslAutomation.Size = new System.Drawing.Size(110, 18);
+            this.tsslAutomation.Text = "Automation: off";
+            this.tsslAutomation.Visible = false;
+            this.tsslAutomation.Click += new System.EventHandler(this.tsslAutomation_Click);
             // 
             // tsslUnitSystem
             // 
@@ -5529,6 +5557,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateSurfaceInteraction;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateStep;
         private System.Windows.Forms.ToolStripStatusLabel tsslEmpty;
+        private System.Windows.Forms.ToolStripStatusLabel tsslAutomation;
         private System.Windows.Forms.ToolStripStatusLabel tsslUnitSystem;
         private System.Windows.Forms.ToolStripMenuItem tsmiSidePanelAdvisor;
         private System.Windows.Forms.ToolStripMenuItem tsmiHelpAdvisor;
@@ -5784,6 +5813,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiEditUserViews;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportTo3mf;
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertOdbToFrd;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerTools4;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAutomationServer;
         private System.Windows.Forms.ToolStripMenuItem tsmiMirrorModelParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiBoxZoom;
         private System.Windows.Forms.ToolStripButton tsbBoxZoom;

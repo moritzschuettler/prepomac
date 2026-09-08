@@ -32,6 +32,24 @@ namespace PrePoMax.Python
         {
             return _controller.GetDefaultMeshingParameters(name);
         }
+        public MeshingParameters GetPartDefaultMeshingParameters(string name, int[] creationIds)
+        {
+            if (creationIds == null || creationIds.Length == 0) return null;
+            //
+            FeMesh geometry = _controller.Model?.Geometry;
+            if (geometry == null) return null;
+            //
+            string[] partNames = geometry.GetPartNamesFromPartIds(creationIds);
+            if (partNames.Length == 0)
+                partNames = geometry.GetPartNamesFromPartIds(FeMesh.GetPartIdsFromGeometryIds(creationIds));
+            if (partNames.Length == 0) return null;
+            //
+            MeshingParameters meshingParameters = _controller.GetPartDefaultMeshingParameters(partNames);
+            if (meshingParameters == null) return null;
+            //
+            meshingParameters.Name = name;
+            return meshingParameters;
+        }
         public void AddMeshSetupItem(MeshSetupItem meshSetupItem)
         {
             _controller.AddMeshSetupItemCommand(meshSetupItem);

@@ -38,6 +38,7 @@ namespace PrePoMax
         private PostSettings _post;
         private LegendSettings _legend;
         private StatusBlockSettings _statusBlock;
+        private AutomationSettings _automation;
 
 
         // Static properties                                                                                                        
@@ -59,6 +60,7 @@ namespace PrePoMax
         public PostSettings Post { get { return _post; } set { _post = value; } }
         public LegendSettings Legend { get { return _legend; } set { _legend = value; } }
         public StatusBlockSettings StatusBlock { get { return _statusBlock; } set { _statusBlock = value; } }
+        public AutomationSettings Automation { get { return _automation; } set { _automation = value; } }
 
 
         // Constructors                                                                                                             
@@ -90,6 +92,7 @@ namespace PrePoMax
             _post = new PostSettings();
             _legend = new LegendSettings();
             _statusBlock = new StatusBlockSettings();
+            _automation = new AutomationSettings();
         }
         public void Reset()
         {
@@ -105,6 +108,7 @@ namespace PrePoMax
             _post.Reset();
             _legend.Reset();
             _statusBlock.Reset();
+            _automation.Reset();
         }
         public void ClearColorSpectrums()
         {
@@ -167,6 +171,7 @@ namespace PrePoMax
             _post = clone._post;
             _legend = clone._legend;
             _statusBlock = clone._statusBlock;
+            _automation = clone._automation;
         }
         public Dictionary<string, ISettings> ToDictionary()
         {
@@ -183,6 +188,7 @@ namespace PrePoMax
             items.Add(Globals.PostSettingsName, _post);
             items.Add(Globals.LegendSettingsName, _legend);
             items.Add(Globals.StatusBlockSettingsName, _statusBlock);
+            items.Add(Globals.AutomationSettingsName, _automation);
             return items;
         }
         public void FromDictionary(Dictionary<string, ISettings> items)
@@ -204,6 +210,9 @@ namespace PrePoMax
                 ISettings navigation;
                 if (items.TryGetValue(Globals.NavigationSettingsName, out navigation))
                     _navigation = (NavigationSettings)navigation;
+                ISettings automation;
+                if (items.TryGetValue(Globals.AutomationSettingsName, out automation))
+                    _automation = (AutomationSettings)automation;
             }
             catch
             {

@@ -306,7 +306,10 @@ parallel implementation. Long operations return a job id and are polled. Bulk ar
 a temp `.npy` path rather than inline JSON. A `describe()` method can be generated from the existing
 `[PythonAPI]` metadata, giving an agent runtime schema discovery; an MCP wrapper over the pipe is
 then a few hundred lines. Avoid gRPC on .NET Framework 4.8 - the only build that supports it is long
-deprecated.
+deprecated. Layers 1 and 2 are implemented, so this is no longer deferred, and the layer is now
+largely built: the working-level plan and its implementation status are in
+[Python_API_Layer3_Plan.md](Python_API_Layer3_Plan.md). An MCP client drives a live session
+through `PrePoMaxMcp.exe`; the long operation step is the one that remains.
 
 # Risks
 

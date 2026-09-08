@@ -231,6 +231,163 @@ namespace PrePoMax.Python
                 }
             }
         }
+        // Evaluates one expression in the shared scope - the scope the Python console uses, so an agent
+        // and the user look at the same variables. The value is returned as its repr, as its text and,
+        // when it has one, as JSON: a .NET collection has no JSON form of its own, so it is tried once
+        // more as a list before the attempt is given up.
+        public static PythonEvalResult Evaluate(string expression)
+        {
+            Initialize();
+            //
+            using (Py.GIL())
+            {
+                PythonEvalResult result = new PythonEvalResult();
+                dynamic io = Py.Import("io");
+                dynamic sys = Py.Import("sys");
+                dynamic stdout = io.StringIO();
+                dynamic stderr = io.StringIO();
+                PyObject oldStdout = sys.stdout;
+                PyObject oldStderr = sys.stderr;
+                //
+                try
+                {
+                    sys.stdout = stdout;
+                    sys.stderr = stderr;
+                    //
+                    using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                    {
+                        result.Repr = GetRepr(value);
+                        result.Text = value == null ? "" : value.ToString();
+                        result.TypeName = GetTypeName(value);
+                        result.Json = GetJson(value);
+                    }
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+                }
+                catch (PythonException exception)
+                {
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+                    AppendError(result, FormatPythonException(exception));
+                }
+                catch (Exception exception)
+                {
+                    // A .NET exception raised by the API can reach here as itself rather than as a
+                    // Python exception, and it is still what the expression did, not a protocol failure
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+                    AppendError(result, exception.Message);
+                }
+                finally
+                {
+                    sys.stdout = oldStdout;
+                    sys.stderr = oldStderr;
+                    if (oldStdout != null) oldStdout.Dispose();
+                    if (oldStderr != null) oldStderr.Dispose();
+                }
+                //
+                return result;
+            }
+        }
+        // Resolves an expression to the object behind it, for the automation server describe method.
+        // A value that is not an API object - a number, a string, a Python list - comes back as null,
+        // because there is nothing to reflect on it.
+        public static object EvaluateToApiObject(string expression, out string error)
+        {
+            Initialize();
+            error = null;
+            //
+            using (Py.GIL())
+            {
+                try
+                {
+                    using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                    {
+                        try
+                        {
+                            return value.AsManagedObject(typeof(object));
+                        }
+                        catch (Exception)
+                        {
+                            return null;
+                        }
+                    }
+                }
+                catch (PythonException exception)
+                {
+                    error = FormatPythonException(exception);
+                    return null;
+                }
+                catch (Exception exception)
+                {
+                    error = exception.Message;
+                    return null;
+                }
+            }
+        }
+        private static string GetRepr(PyObject value)
+        {
+            if (value == null) return "None";
+            using (PyObject builtins = Py.Import("builtins"))
+            using (PyObject repr = builtins.InvokeMethod("repr", value))
+            {
+                return repr.ToString();
+            }
+        }
+        private static string GetTypeName(PyObject value)
+        {
+            if (value == null) return "NoneType";
+            using (PyObject type = value.GetPythonType())
+            using (PyObject name = type.GetAttr("__name__"))
+            {
+                return name.ToString();
+            }
+        }
+        private static string GetJson(PyObject value)
+        {
+            if (value == null) return "null";
+            using (PyObject json = Py.Import("json"))
+            {
+                string text = TryDumps(json, value);
+                if (text != null) return text;
+                // A .NET collection reaches Python as an object rather than a list
+                try
+                {
+                    using (PyObject builtins = Py.Import("builtins"))
+                    using (PyObject list = builtins.InvokeMethod("list", value))
+                    {
+                        return TryDumps(json, list);
+                    }
+                }
+                catch (PythonException)
+                {
+                    return null;
+                }
+            }
+        }
+        private static string TryDumps(PyObject json, PyObject value)
+        {
+            try
+            {
+                using (PyObject dumped = json.InvokeMethod("dumps", value))
+                {
+                    return dumped.ToString();
+                }
+            }
+            catch (PythonException)
+            {
+                return null;
+            }
+        }
+        private static void AppendError(PythonEvalResult result, string error)
+        {
+            if (string.IsNullOrEmpty(error)) return;
+            //
+            if (!string.IsNullOrEmpty(result.Error) && !result.Error.EndsWith("\n"))
+                result.Error += Environment.NewLine;
+            result.Error += error;
+            if (!result.Error.EndsWith("\n")) result.Error += Environment.NewLine;
+        }
         public static PythonEngineResult ExecuteScript(string code)
         {
             Initialize();

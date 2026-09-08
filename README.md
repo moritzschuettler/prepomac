@@ -47,7 +47,7 @@ still to be established.
 
 # Structure
 
-The PrePoMax is a solution which consists of 13 projects:
+The PrePoMax is a solution which consists of 15 projects:
 *  APIs: classes for interfacing with PrePoMax from other programs (Python, ...)
 *  CaeGlobals: global classes for all other projects to use
 *  CaeJob: classes for running the analysis
@@ -57,6 +57,10 @@ The PrePoMax is a solution which consists of 13 projects:
 *  GmshCaller: a stand alone executable used for running the Gmsh routines
 *  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
 *  PrePoMax: classes for user interface
+*  PrePoMaxCmd: the console subsystem launcher deployed as PrePoMax.com, so that a command line run
+   waits and receives the exit code
+*  PrePoMaxMcp: the MCP server an AI agent client starts; it relays to the automation server of a
+   running PrePoMax
 *  STL: classes for stl geometry import
 *  ThreeMF: classes for 3MF geometry export
 *  UserControls: classes for more complex user controls, as model tree view...

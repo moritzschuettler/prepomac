@@ -66,6 +66,13 @@ namespace PrePoMax
                                                                      "limit. On expiry the running analyses are killed and the " +
                                                                      "application exits.")]
         public int Timeout { get; set; }
+        // Automation server
+        [Option("rpc", Required = false, Default = "Off", HelpText = "Start the automation server so an AI agent can drive " +
+                                                                     "this session: On | ReadOnly | Off. ReadOnly refuses " +
+                                                                     "every call that would change the model. The server " +
+                                                                     "accepts only the user that runs PrePoMax and uses no " +
+                                                                     "network connection.")]
+        public string Rpc { get; set; }
         // Settings
         [Option("settings", Required = false, HelpText = "The settings file name to be used instead of the settings file " +
                                                           "located next to the executable.")]
@@ -279,8 +286,11 @@ namespace PrePoMax
                         throw new CaeException("The overwrite switch can only be used for regeneration.");
                     if (cmdOptions.Parameters != null)
                         throw new CaeException("The parameters switch can only be used for regeneration.");
-                    if (cmdOptions.ShowGui == "No" && cmdOptions.ScriptFileName == null)
-                        throw new CaeException("The No GUI switch can only be used for regeneration or for running a script.");
+                    if (cmdOptions.ShowGui == "No" && cmdOptions.ScriptFileName == null && cmdOptions.Rpc == "Off")
+                    {
+                        throw new CaeException("The No GUI switch can only be used for regeneration, for running a script " +
+                                               "or with the automation server.");
+                    }
                 }
                 // Script
                 if (cmdOptions.ScriptFileName != null)
@@ -331,6 +341,12 @@ namespace PrePoMax
                     if (reportDirectory != null && reportDirectory.Length > 0 && !Directory.Exists(reportDirectory))
                         throw new CaeException("The report directory " + reportDirectory + " does not exist.");
                 }
+                // Automation server
+                string rpc = cmdOptions.Rpc == null ? "OFF" : cmdOptions.Rpc.ToUpper().Trim();
+                if (rpc == "ON") cmdOptions.Rpc = "On";                    // fix all caps and spaces
+                else if (rpc == "READONLY") cmdOptions.Rpc = "ReadOnly";   // fix all caps and spaces
+                else if (rpc == "OFF") cmdOptions.Rpc = "Off";             // fix all caps and spaces
+                else throw new CaeException("The rpc switch can only be set to On, ReadOnly or Off.");
                 // Timeout
                 if (cmdOptions.Timeout < 0)
                     throw new CaeException("The timeout switch must not be negative.");
