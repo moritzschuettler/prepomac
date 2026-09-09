@@ -19,10 +19,11 @@ namespace APIs.Python.Model
             "relative_size: bool = None, factor_max: float = None, factor_min: float = None, " +
             "max_size: float = None, min_size: float = None, fineness: float = None, grading: float = None, " +
             "elements_per_edge: float = None, elements_per_curve: float = None, " +
-            "factor_hausdorff: float = None, hausdorff: float = None, optimize_steps_2d: int = None, " +
-            "optimize_steps_3d: int = None, second_order: bool = None, quad_dominated: bool = None, " +
-            "midside_nodes_on_geometry: bool = None, use_mmg: bool = None, " +
-            "split_compound_mesh: bool = None, merge_compound_parts: bool = None, " +
+            "optimize_steps_2d: int = None, optimize_steps_3d: int = None, second_order: bool = None, " +
+            "quad_dominated: bool = None, midside_nodes_on_geometry: bool = None, " +
+            "split_compound_mesh: bool = None, merge_compound_parts: bool = None";
+        private const string ShellMmgArguments =
+            "relative_size: bool = None, relative_hausdorff: float = None, hausdorff: float = None, " +
             "keep_model_edges: bool = None";
         private const string GmshRecombineArguments =
             "algorithm_recombine: str = None, transfinite_three_sided: bool = None, " +
@@ -54,10 +55,8 @@ namespace APIs.Python.Model
                                                        object elements_per_curve = null, object second_order = null,
                                                        object quad_dominated = null,
                                                        object midside_nodes_on_geometry = null,
-                                                       object use_mmg = null, object keep_model_edges = null,
                                                        object relative_size = null, object factor_max = null,
-                                                       object factor_min = null, object factor_hausdorff = null,
-                                                       object hausdorff = null, object optimize_steps_2d = null,
+                                                       object factor_min = null, object optimize_steps_2d = null,
                                                        object optimize_steps_3d = null,
                                                        object split_compound_mesh = null,
                                                        object merge_compound_parts = null)
@@ -67,8 +66,7 @@ namespace APIs.Python.Model
             _service.ApplyPartDefaults(item);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
-                                   use_mmg, keep_model_edges, relative_size, factor_max, factor_min,
-                                   factor_hausdorff, hausdorff, optimize_steps_2d, optimize_steps_3d,
+                                   relative_size, factor_max, factor_min, optimize_steps_2d, optimize_steps_3d,
                                    split_compound_mesh, merge_compound_parts);
             _service.AddPreparedItem(item);
             return this[name];
@@ -85,10 +83,8 @@ namespace APIs.Python.Model
                                                            object elements_per_curve = null,
                                                            object second_order = null, object quad_dominated = null,
                                                            object midside_nodes_on_geometry = null,
-                                                           object use_mmg = null, object keep_model_edges = null,
                                                            object relative_size = null, object factor_max = null,
-                                                           object factor_min = null, object factor_hausdorff = null,
-                                                           object hausdorff = null, object optimize_steps_2d = null,
+                                                           object factor_min = null, object optimize_steps_2d = null,
                                                            object optimize_steps_3d = null,
                                                            object split_compound_mesh = null,
                                                            object merge_compound_parts = null)
@@ -96,8 +92,7 @@ namespace APIs.Python.Model
             MeshingParameters item = (MeshingParameters)_service.CloneItem(old_name);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
-                                   use_mmg, keep_model_edges, relative_size, factor_max, factor_min,
-                                   factor_hausdorff, hausdorff, optimize_steps_2d, optimize_steps_3d,
+                                   relative_size, factor_max, factor_min, optimize_steps_2d, optimize_steps_3d,
                                    split_compound_mesh, merge_compound_parts);
             return Replace(old_name, name, item, selection);
         }
@@ -128,6 +123,36 @@ namespace APIs.Python.Model
         {
             LocalMeshSize item = (LocalMeshSize)_service.CloneItem(old_name);
             ApplyLocalMeshSize(item, element_size, number_of_elements);
+            return Replace(old_name, name, item, selection);
+        }
+
+        [PythonAPI("Adds a shell MMG mesh setup item, which selects MMG for the selected STL shell parts.",
+                   Arguments = "name: str, selection: Selection, " + ShellMmgArguments,
+                   Returns = "MeshSetupItem",
+                   Example = "pmx.model.mesh.setup_items.add_shell_mmg('Shell_Mmg-1', selection)")]
+        public MeshSetupItemAPI add_shell_mmg(string name, SelectionAPI selection, object relative_size = null,
+                                              object relative_hausdorff = null, object hausdorff = null,
+                                              object keep_model_edges = null)
+        {
+            ShellMmg item = _service.CreateDefaultShellMmg(name);
+            _service.PrepareItem(item, name, selection);
+            _service.ApplyPartDefaults(item);
+            ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
+            _service.AddPreparedItem(item);
+            return this[name];
+        }
+
+        [PythonAPI("Replaces a shell MMG mesh setup item, keeping every value that is not given.",
+                   Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
+                               ShellMmgArguments,
+                   Returns = "MeshSetupItem")]
+        public MeshSetupItemAPI replace_shell_mmg(string old_name, string name = null,
+                                                  SelectionAPI selection = null, object relative_size = null,
+                                                  object relative_hausdorff = null, object hausdorff = null,
+                                                  object keep_model_edges = null)
+        {
+            ShellMmg item = (ShellMmg)_service.CloneItem(old_name);
+            ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             return Replace(old_name, name, item, selection);
         }
 
@@ -539,11 +564,10 @@ namespace APIs.Python.Model
         private static void ApplyMeshingParameters(MeshingParameters item, object maxSize, object minSize,
                                                    object fineness, object grading, object elementsPerEdge,
                                                    object elementsPerCurve, object secondOrder, object quadDominated,
-                                                   object midsideNodesOnGeometry, object useMmg,
-                                                   object keepModelEdges, object relativeSize, object factorMax,
-                                                   object factorMin, object factorHausdorff, object hausdorff,
-                                                   object optimizeSteps2D, object optimizeSteps3D,
-                                                   object splitCompoundMesh, object mergeCompoundParts)
+                                                   object midsideNodesOnGeometry, object relativeSize,
+                                                   object factorMax, object factorMin, object optimizeSteps2D,
+                                                   object optimizeSteps3D, object splitCompoundMesh,
+                                                   object mergeCompoundParts)
         {
             if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
             if (factorMax != null) item.FactorMax = PythonValueConverter.ToFiniteDouble(factorMax, "factor_max");
@@ -556,9 +580,6 @@ namespace APIs.Python.Model
                 item.ElementsPerEdge = PythonValueConverter.ToFiniteDouble(elementsPerEdge, "elements_per_edge");
             if (elementsPerCurve != null)
                 item.ElementsPerCurve = PythonValueConverter.ToFiniteDouble(elementsPerCurve, "elements_per_curve");
-            if (factorHausdorff != null)
-                item.FactorHausdorff = PythonValueConverter.ToFiniteDouble(factorHausdorff, "factor_hausdorff");
-            if (hausdorff != null) item.Hausdorff = PythonValueConverter.ToFiniteDouble(hausdorff, "hausdorff");
             if (optimizeSteps2D != null)
                 item.OptimizeSteps2D = PythonValueConverter.ToInt(optimizeSteps2D, "optimize_steps_2d");
             if (optimizeSteps3D != null)
@@ -570,11 +591,18 @@ namespace APIs.Python.Model
             if (midsideNodesOnGeometry != null)
                 item.MidsideNodesOnGeometry = PythonValueConverter.ToBool(midsideNodesOnGeometry,
                                                                           "midside_nodes_on_geometry");
-            if (useMmg != null) item.UseMmg = PythonValueConverter.ToBool(useMmg, "use_mmg");
             if (splitCompoundMesh != null)
                 item.SplitCompoundMesh = PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh");
             if (mergeCompoundParts != null)
                 item.MergeCompoundParts = PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts");
+        }
+        private static void ApplyShellMmg(ShellMmg item, object relativeSize, object relativeHausdorff,
+                                          object hausdorff, object keepModelEdges)
+        {
+            if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
+            if (relativeHausdorff != null)
+                item.RelativeHausdorff = PythonValueConverter.ToFiniteDouble(relativeHausdorff, "relative_hausdorff");
+            if (hausdorff != null) item.Hausdorff = PythonValueConverter.ToFiniteDouble(hausdorff, "hausdorff");
             if (keepModelEdges != null)
                 item.KeepModelEdges = PythonValueConverter.ToBool(keepModelEdges, "keep_model_edges");
         }

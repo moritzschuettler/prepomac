@@ -27,7 +27,7 @@ namespace PrePoMax.Forms
         private string _meshSetupItemToEditName;
         private ViewMeshSetupItem _viewMeshSetupItem;
         private Controller _controller;
-        private bool _meshingParametersChanged;
+        private HashSet<ViewMeshSetupItem> _viewsChangedByUser;
         //
         private ContextMenuStrip cmsPropertyGrid;
         private System.ComponentModel.IContainer components;
@@ -69,6 +69,7 @@ namespace PrePoMax.Forms
             //
             _controller = controller;
             _viewMeshSetupItem = null;
+            _viewsChangedByUser = new HashSet<ViewMeshSetupItem>();
         }
         private void InitializeComponent()
         {
@@ -173,7 +174,13 @@ namespace PrePoMax.Forms
             {
                 mp.CopyFrom(GetDefaultMeshingParameters(MeshSetupItem.CreationIds));
                 ((ViewMeshingParameters)_viewMeshSetupItem).AdvancedView = mp.AdvancedView;  // update advanced view
-                _meshingParametersChanged = false;
+                _viewsChangedByUser.Remove(_viewMeshSetupItem);
+            }
+            else if (MeshSetupItem is ShellMmg smmg)
+            {
+                smmg.CopyFrom(GetDefaultShellMmg(MeshSetupItem.CreationIds));
+                ((ViewShellMmg)_viewMeshSetupItem).UpdateVisibility();
+                _viewsChangedByUser.Remove(_viewMeshSetupItem);
             }
             else
             {
@@ -193,7 +200,8 @@ namespace PrePoMax.Forms
                 ItemSetDataEditor.SelectionForm.Enabled = false;
                 //
                 string[] partNames;
-                if (MeshSetupItem is MeshingParameters || MeshSetupItem is TetrahedralGmsh || MeshSetupItem is TransfiniteMesh)
+                if (MeshSetupItem is MeshingParameters || MeshSetupItem is ShellMmg ||
+                    MeshSetupItem is TetrahedralGmsh || MeshSetupItem is TransfiniteMesh)
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
                 }
@@ -232,6 +240,7 @@ namespace PrePoMax.Forms
                 object itemTag = lvTypes.SelectedItems[0].Tag;
                 if (itemTag is ViewMeshingParameters vmp) _viewMeshSetupItem = vmp;
                 else if (itemTag is ViewLocalMeshSize vlms) _viewMeshSetupItem = vlms;
+                else if (itemTag is ViewShellMmg vsmmg) _viewMeshSetupItem = vsmmg;
                 else if (itemTag is ViewShellGmsh vsg) _viewMeshSetupItem = vsg;
                 else if (itemTag is ViewShellQuadWild vsqw) _viewMeshSetupItem = vsqw;
                 else if (itemTag is ViewThickenShellMesh vtsm) _viewMeshSetupItem = vtsm;
@@ -255,9 +264,14 @@ namespace PrePoMax.Forms
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
             if (_viewMeshSetupItem is ViewMeshingParameters vmp &&
-                property != nameof(vmp.Name) && property != nameof(vmp.AdvancedView))
+                property != nameof(vmp.Name) && property != nameof(vmp.AdvancedView) && property != nameof(vmp.Relative))
             {
-                _meshingParametersChanged = true;
+                _viewsChangedByUser.Add(_viewMeshSetupItem);
+            }
+            else if (_viewMeshSetupItem is ViewShellMmg vsmmg &&
+                property != nameof(vsmmg.Name) && property != nameof(vsmmg.Relative))
+            {
+                _viewsChangedByUser.Add(_viewMeshSetupItem);
             }
             else if (_viewMeshSetupItem is ViewLocalMeshSize vlms && property == nameof(vlms.Type))
             {
@@ -335,13 +349,12 @@ namespace PrePoMax.Forms
             _viewMeshSetupItem = null;
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;
-            _meshingParametersChanged = false;
+            _viewsChangedByUser.Clear();
             _controller.ClearAllSelection();
             btnPreview.Enabled = true;
             //
             _meshSetupItemNames = _controller.GetMeshSetupItemNames();
             _meshSetupItemToEditName = meshSetupItemToEditName;
-            _meshingParametersChanged = _meshSetupItemToEditName != null;
             //
             if (_meshSetupItemNames == null)
                 throw new CaeException("The mesh setup item names must be defined first.");
@@ -357,6 +370,7 @@ namespace PrePoMax.Forms
             else
             {
                 MeshSetupItem = _controller.GetMeshSetupItem(_meshSetupItemToEditName);   // to clone
+                _viewsChangedByUser.Add(_viewMeshSetupItem);   // the stored values are the user's
                 // Check validity
                 if (!MeshSetupItem.Valid)
                 {
@@ -379,6 +393,27 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
+        // The Hausdorff distance is a length, so it follows the size of the selected parts the same
+        // way the maximum and the minimum element size do
+        private ShellMmg GetDefaultShellMmg(int[] ids)
+        {
+            ShellMmg shellMmg = (ShellMmg)MeshSetupItem;
+            ShellMmg defaultShellMmg = null;
+            //
+            if (ids != null && ids.Length > 0)
+            {
+                string[] partNames = _controller.Model.Geometry.GetPartNamesFromPartIds(ids);
+                defaultShellMmg = _controller.GetPartDefaultShellMmg(partNames);
+            }
+            if (defaultShellMmg == null) defaultShellMmg = new ShellMmg(shellMmg.Name);
+            //
+            defaultShellMmg.Name = shellMmg.Name;
+            defaultShellMmg.RelativeSize = shellMmg.RelativeSize;
+            defaultShellMmg.CreationIds = shellMmg.CreationIds;
+            defaultShellMmg.CreationData = shellMmg.CreationData;
+            //
+            return defaultShellMmg;
+        }
         private MeshingParameters GetDefaultMeshingParameters(int[] ids)
         {
             MeshingParameters meshingParameters = _controller.Settings.Meshing.MeshingParameters;
@@ -412,6 +447,7 @@ namespace PrePoMax.Forms
             //
             int selectedId = MeshSetupItemTypes.GetIndex(IsTwoD(), meshSetupItem);
             _viewMeshSetupItem = MeshSetupItemTypes.CreateView(_controller, meshSetupItem);
+            _viewsChangedByUser.Add(_viewMeshSetupItem);   // the stored values are the user's
             //
             _viewMeshSetupItem.HideName();
             btnOkAddNew.Visible = false;
@@ -505,6 +541,7 @@ namespace PrePoMax.Forms
                     else if (lms.Type == LocalMeshSizeTypeEnum.NumberOfElements) _controller.SetSelectItemToGeometryEdge();
                     else throw new NotSupportedException();
                 }
+                else if (MeshSetupItem is ShellMmg) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ShellGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ShellQuadWild) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ThickenShellMesh) _controller.SetSelectItemToPart();
@@ -524,14 +561,19 @@ namespace PrePoMax.Forms
             if (MeshSetupItem != null)
             {
                 if (MeshSetupItem is MeshingParameters || MeshSetupItem is LocalMeshSize ||
-                    MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
+                    MeshSetupItem is ShellMmg || MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
                     MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
                     MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||
                     MeshSetupItem is RevolveMesh)
                 {
-                    if (MeshSetupItem is MeshingParameters mp && !_meshingParametersChanged)
+                    bool changedByUser = _viewsChangedByUser.Contains(_viewMeshSetupItem);
+                    if (MeshSetupItem is MeshingParameters mp && !changedByUser)
                     {
                         mp.CopyFrom(GetDefaultMeshingParameters(ids));
+                    }
+                    else if (MeshSetupItem is ShellMmg smmg && !changedByUser)
+                    {
+                        smmg.CopyFrom(GetDefaultShellMmg(ids));
                     }
                     else if (MeshSetupItem is RevolveMesh rm)
                     {
@@ -543,7 +585,8 @@ namespace PrePoMax.Forms
                     //
                     if (ids.Length != 0) HighlightMeshSetupItem(); // this will redraw the selection with correct backfaceCulling
                     // The highlight computes the revolve mesh properties - update
-                    if (_viewMeshSetupItem is ViewMeshingParameters vmp) vmp.UpdateVisibility(); // for mmg
+                    if (_viewMeshSetupItem is ViewMeshingParameters vmp) vmp.UpdateVisibility();
+                    else if (_viewMeshSetupItem is ViewShellMmg vsmmg) vsmmg.UpdateVisibility();
                     else if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
                     //
                     propertyGrid.Refresh();

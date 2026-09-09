@@ -27,6 +27,9 @@ The NetGenMesher build already produces exactly this set in
 
 Only `NetGenMesher.exe` (~80 KB) and `nglib.dll` (~2 MB) normally change between Netgen rebuilds;
 the OpenCASCADE and runtime dlls change when their corresponding dependencies are upgraded.
+Deploy `NetGenMesher.exe` and `nglib.dll` as a matched pair. The current pair supports
+`STL_SURFACE_MESH` for open STL shells and open-boundary `STL_EDGE_MESH`; optional refinement and
+edge-node files may be omitted.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.

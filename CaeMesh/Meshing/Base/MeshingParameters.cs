@@ -28,7 +28,6 @@ namespace CaeMesh
         // Variables                                                                                                                
         public static readonly double DefaultFactorMax = 0.05;
         public static readonly double DefaultFactorMin = 0.001;
-        public static readonly double DefaultFactorHausdorff = 0.001;
         //
         private bool _advancedView;                 //ISerializable
         private bool _defaultSizeIsRelative;        //ISerializable
@@ -36,7 +35,6 @@ namespace CaeMesh
         //
         private double _factorMax;                  //ISerializable
         private double _factorMin;                  //ISerializable
-        private double _factorHausdorff;            //ISerializable
         //
         private double _maxH;                       //ISerializable
         private double _minH;                       //ISerializable
@@ -51,10 +49,6 @@ namespace CaeMesh
         private int _optimizeSteps3D;               //ISerializable
         private bool _splitCompoundMesh;            //ISerializable
         private bool _mergeCompoundParts;           //ISerializable
-        // mmgPlatform
-        private bool _useMmg;                       //ISerializable
-        private double _hausdorff;                  //ISerializable  0.01 for objects of size 1; allowed distance from geometry
-        private bool _keepModelEdges;               //ISerializable
 
 
         // Properties                                                                                                               
@@ -81,15 +75,6 @@ namespace CaeMesh
                 if (value > 1) throw new Exception("The value must be smaller than 1.");
                 _factorMin = value;
                 if (value > _factorMax) _factorMax = _factorMin;
-            }
-        }
-        public double FactorHausdorff
-        {
-            get { return _factorHausdorff; }
-            set
-            {
-                if (value <= 0) throw new Exception("The value must be larger than 0.");
-                _factorHausdorff = value;
             }
         }
         public double MaxH 
@@ -192,18 +177,6 @@ namespace CaeMesh
                 if (_mergeCompoundParts) _splitCompoundMesh = false;
             }
         }
-        // mmgPlatform
-        public bool UseMmg { get { return _useMmg; } set { _useMmg = value; } }
-        public double Hausdorff
-        {
-            get { return _hausdorff; }
-            set
-            {
-                if (value <= 0) throw new Exception("The value must be larger than 0.");
-                _hausdorff = value;
-            }
-        }
-        public bool KeepModelEdges { get { return _keepModelEdges; } set { _keepModelEdges = value; } }
 
 
         // Constructors                                                                                                             
@@ -235,8 +208,6 @@ namespace CaeMesh
                         _factorMax = (double)entry.Value; break;
                     case "_factorMin":
                         _factorMin = (double)entry.Value; break;
-                    case "_factorHausdorff":
-                        _factorHausdorff = (double)entry.Value; break;
                     //
                     case "_maxH":
                         _maxH = (double)entry.Value; break;
@@ -266,13 +237,9 @@ namespace CaeMesh
                         _splitCompoundMesh = (bool)entry.Value; break;
                     case "_mergeCompoundParts":
                         _mergeCompoundParts = (bool)entry.Value; break;
-                    //
-                    case "_useMmg":
-                        _useMmg = (bool)entry.Value; break;
-                    case "_hausdorff":
-                        _hausdorff = (double)entry.Value; break;
-                    case "_keepModelEdges":
-                        _keepModelEdges = (bool)entry.Value; break;
+                    // Compatibility for version v2.6.2: _useMmg, _factorHausdorff, _hausdorff and
+                    // _keepModelEdges belong to ShellMmg and are intentionally dropped, so a model
+                    // that selected MMG through the meshing parameters loads and uses Netgen
                     default:
                         break;
                 }
@@ -289,7 +256,6 @@ namespace CaeMesh
             _relativeSize = false;
             _factorMax = DefaultFactorMax;
             _factorMin = DefaultFactorMin;
-            _factorHausdorff = DefaultFactorHausdorff;
             //
             _maxH = 1000;
             _minH = 0;
@@ -304,10 +270,6 @@ namespace CaeMesh
             _midsideNodesOnGeometry = false;
             _splitCompoundMesh = false;
             _mergeCompoundParts = false;
-            //
-            _useMmg = false;
-            _hausdorff = 0.01;
-            _keepModelEdges = true;
         }
         public void SetCheckName(bool checkName)
         {
@@ -382,7 +344,6 @@ namespace CaeMesh
             //
             _factorMax = meshingParameters.FactorMax;
             _factorMin = meshingParameters.FactorMin;
-            _factorHausdorff = meshingParameters.FactorHausdorff;
             //
             _maxH = meshingParameters.MaxH;
             _minH = meshingParameters.MinH;
@@ -397,10 +358,6 @@ namespace CaeMesh
             _midsideNodesOnGeometry = meshingParameters.MidsideNodesOnGeometry;
             _splitCompoundMesh = meshingParameters.SplitCompoundMesh;
             _mergeCompoundParts = meshingParameters.MergeCompoundParts;
-            //
-            _useMmg = meshingParameters.UseMmg;
-            _hausdorff = meshingParameters.Hausdorff;
-            _keepModelEdges = meshingParameters.KeepModelEdges;
         }
         public MeshingParameters DeepCopy()
         {
@@ -417,7 +374,6 @@ namespace CaeMesh
             if (meshingParameters1._relativeSize != meshingParameters2._relativeSize) return false;
             if (meshingParameters1._factorMax != meshingParameters2._factorMax) return false;
             if (meshingParameters1._factorMin != meshingParameters2._factorMin) return false;
-            if (meshingParameters1._factorHausdorff != meshingParameters2._factorHausdorff) return false;
             //
             if (meshingParameters1._maxH != meshingParameters2._maxH) return false;
             if (meshingParameters1._minH != meshingParameters2._minH) return false;
@@ -432,10 +388,6 @@ namespace CaeMesh
             if (meshingParameters1._midsideNodesOnGeometry != meshingParameters2._midsideNodesOnGeometry) return false;
             if (meshingParameters1._splitCompoundMesh != meshingParameters2._splitCompoundMesh) return false;
             if (meshingParameters1._mergeCompoundParts != meshingParameters2._mergeCompoundParts) return false;
-            //
-            if (meshingParameters1._useMmg != meshingParameters2._useMmg) return false;
-            if (meshingParameters1._hausdorff != meshingParameters2._hausdorff) return false;
-            if (meshingParameters1._keepModelEdges != meshingParameters2._keepModelEdges) return false;
             return true;
         }
         // ISerialization
@@ -449,7 +401,6 @@ namespace CaeMesh
             //
             info.AddValue("_factorMax", _factorMax, typeof(double));
             info.AddValue("_factorMin", _factorMin, typeof(double));
-            info.AddValue("_factorHausdorff", _factorHausdorff, typeof(double));
             //
             info.AddValue("_maxH", _maxH, typeof(double));
             info.AddValue("_minH", _minH, typeof(double));
@@ -464,10 +415,6 @@ namespace CaeMesh
             info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
             info.AddValue("_splitCompoundMesh", _splitCompoundMesh, typeof(bool));
             info.AddValue("_mergeCompoundParts", _mergeCompoundParts, typeof(bool));
-            //
-            info.AddValue("_useMmg", _useMmg, typeof(bool));
-            info.AddValue("_hausdorff", _hausdorff, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
     }
 }

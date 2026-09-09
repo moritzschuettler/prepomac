@@ -494,6 +494,7 @@
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewGmshSetupItem.cs" />
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewExtrudeMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\QuadWild\ViewShellQuadWild.cs" />
+    <Compile Include="Forms\11_MeshSetup\Mmg\ViewShellMmg.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\MeshSetupItemTypes.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />

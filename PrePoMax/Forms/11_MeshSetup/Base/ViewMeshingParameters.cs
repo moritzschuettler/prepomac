@@ -120,22 +120,6 @@ namespace PrePoMax.Forms
         [TypeConverter(typeof(StringDoubleConverter))]
         [Id(8, 3)]
         public double ElementsPerCurve { get { return _parameters.ElementsPerCurve; } set { _parameters.ElementsPerCurve = value; } }
-        // Hausdorff factor
-        [Category("Mesh size")]
-        [OrderedDisplayName(8, 10, "Hausdorff factor")]
-        [Description("The relative factor for the Hausdorff distance in regard to the bounding box diagonal.")]
-        [Id(9, 3)]
-        public double FactorHausdorff { get { return _parameters.FactorHausdorff; } set { _parameters.FactorHausdorff = value; } }
-        // Maximal Hausdorff distance for the boundaries approximation.
-        [Category("Mesh size")]
-        [OrderedDisplayName(9, 10, "Hausdorff")]
-        [Description("Maximal Hausdorff distance for the boundaries approximation. " +
-                     "A value of 0.01 is a suitable value for an object of size 1 in each direction.")]
-        [TypeConverter(typeof(StringLengthConverter))]
-        [Id(10, 3)]
-        public double Hausdorff { get { return _parameters.Hausdorff; } set { _parameters.Hausdorff = value; } }
-        //
-        //
         [Category("Mesh optimization")]
         [OrderedDisplayName(0, 10, "Optimize steps 2D")]
         [Description("Number of optimize steps to use for 2-D mesh optimization.")]
@@ -195,14 +179,6 @@ namespace PrePoMax.Forms
             get { return _parameters.MergeCompoundParts; }
             set { _parameters.MergeCompoundParts = value; }
         }
-        //
-        [Category("Mesh operations")]
-        [OrderedDisplayName(2, 10, "Keep model edges")]
-        [Description("Select Yes to keep and No to ignore the model edges.")]
-        [Id(3, 6)]
-        public bool KeepModelEdges { get { return _parameters.KeepModelEdges; } set { _parameters.KeepModelEdges = value; } }
-
-
         // Constructors                                                                                                             
         public ViewMeshingParameters(MeshingParameters parameters)
             : this(parameters, parameters.RelativeSize)
@@ -231,7 +207,6 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(QuadDominated));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SplitCompoundMesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(MergeCompoundParts));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(KeepModelEdges));
             //
             UpdateVisibility();
         }
@@ -254,27 +229,17 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(MaxH)).SetIsBrowsable(!visible);
             _dctd.GetProperty(nameof(MinH)).SetIsBrowsable(!visible);
             //
-            visible = (_parameters.UseMmg && _parameters.RelativeSize) || _settingsView;
-            _dctd.GetProperty(nameof(FactorHausdorff)).SetIsBrowsable(visible); // mmg only
-            //
-            _dctd.GetProperty(nameof(Grading)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(ElementsPerEdge)).SetIsBrowsable(!_parameters.UseMmg);
-            _dctd.GetProperty(nameof(ElementsPerCurve)).SetIsBrowsable(!_parameters.UseMmg);
-            _dctd.GetProperty(nameof(Hausdorff)).SetIsBrowsable(_parameters.UseMmg && !_parameters.RelativeSize);   // mmg only
-            _dctd.GetProperty(nameof(OptimizeSteps2D)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(OptimizeSteps3D)).SetIsBrowsable(!_parameters.UseMmg && advanced);
+            _dctd.GetProperty(nameof(Grading)).SetIsBrowsable(advanced);
+            _dctd.GetProperty(nameof(ElementsPerEdge)).SetIsBrowsable(true);
+            _dctd.GetProperty(nameof(ElementsPerCurve)).SetIsBrowsable(true);
+            _dctd.GetProperty(nameof(OptimizeSteps2D)).SetIsBrowsable(advanced);
+            _dctd.GetProperty(nameof(OptimizeSteps3D)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(SecondOrder)).SetIsBrowsable(true);
-            _dctd.GetProperty(nameof(MidsideNodesOnGeometry)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(QuadDominated)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(SplitCompoundMesh)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(MergeCompoundParts)).SetIsBrowsable(!_parameters.UseMmg && advanced);
-            _dctd.GetProperty(nameof(KeepModelEdges)).SetIsBrowsable(_parameters.UseMmg || _settingsView);  // mmg only
-            // To show/hide the MediumNodesOnGeometry property
-            if (!_parameters.UseMmg)
-            {
-                _dctd.GetProperty(nameof(MidsideNodesOnGeometry)).SetIsBrowsable(_parameters.SecondOrder && advanced);
-                _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
-            }
+            _dctd.GetProperty(nameof(MidsideNodesOnGeometry)).SetIsBrowsable(_parameters.SecondOrder && advanced);
+            _dctd.GetProperty(nameof(QuadDominated)).SetIsBrowsable(advanced);
+            _dctd.GetProperty(nameof(SplitCompoundMesh)).SetIsBrowsable(advanced);
+            _dctd.GetProperty(nameof(MergeCompoundParts)).SetIsBrowsable(advanced);
+            _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
         }
     }
 }

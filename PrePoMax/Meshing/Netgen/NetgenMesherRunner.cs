@@ -44,13 +44,12 @@ namespace PrePoMax
         }
         public bool CanCreateMeshFromStl(GeometryPart part)
         {
-            return part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell;
+            return part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
+                   part.PartType == PartType.Shell;
         }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
-            if (part.PartType == PartType.Shell) return false;  // not supported
-            //
             string workDirectory = _controller.Settings.GetWorkDirectory();
             //
             if (workDirectory == null || !Directory.Exists(workDirectory))
@@ -92,10 +91,12 @@ namespace PrePoMax
             // Job completed
             if (jobStatus == JobStatus.OK)
             {
+                if (!File.Exists(volFileName))
+                    throw new CaeException("Netgen reported success but did not create the STL edge mesh output.");
                 _controller.ImportGeneratedNodeMesh(volFileName, part, false);
                 return true;
             }
-            else return false;
+            else throw new CaeException("Netgen could not create the STL edge mesh for part '" + part.Name + "'.");
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
                                             OrderedDictionary<string, MeshSetupItem> meshSetupItems)
@@ -145,11 +146,9 @@ namespace PrePoMax
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
-            if (!part.IsCADPart)
-                throw new CaeException("Netgen cannot mesh an STL shell. It only accepts closed manifold STL " +
-                                       "geometry; select Gmsh or MMG for the QuadWild triangulation.");
             MeshSetupItem[] setupItems = new MeshSetupItem[0];
-            return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems);
+            if (part.IsCADPart) return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems);
+            else return PreviewEdgeMeshFromStl(part, setupItems, meshSetupItems);
         }
         public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
                                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
@@ -203,7 +202,7 @@ namespace PrePoMax
             }
             else
             {
-                argument = "STL_MESH " +
+                argument = "STL_SURFACE_MESH " +
                            "\"" + geometryFileName + "\" " +
                            "\"" + volFileName + "\" " +
                            "\"" + meshParametersFileName + "\" " +
@@ -214,6 +213,8 @@ namespace PrePoMax
                                                              _controller.Form.WriteDataToOutput);
             if (jobStatus != JobStatus.OK)
                 throw new CaeException("Netgen could not create the triangular QuadWild input mesh.");
+            if (!File.Exists(volFileName))
+                throw new CaeException("Netgen reported success but did not create the QuadWild input mesh.");
             //
             FeMesh mesh = _controller.Model.PrepareGeneratedMeshFromMeshFile(volFileName, part,
                                                                               false, false, false);
@@ -242,7 +243,8 @@ namespace PrePoMax
             {
                 FileInOut.Output.StlFileWriter.Write(stlFileName, _controller.Model.Geometry, partNames);
                 _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-                _controller.GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                _controller.GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName,
+                                                                            part.BoundingBox.GetDiagonal());
                 _controller.Model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
             }
             finally
@@ -250,7 +252,8 @@ namespace PrePoMax
                 _controller.ResumeExplodedViews(false);
             }
             //
-            string argument = "STL_MESH " +
+            string command = part.PartType == PartType.Shell ? "STL_SURFACE_MESH" : "STL_MESH";
+            string argument = command + " " +
                               "\"" + stlFileName + "\" " +
                               "\"" + volFileName + "\" " +
                               "\"" + meshParametersFileName + "\" " +
@@ -262,6 +265,9 @@ namespace PrePoMax
             // Job completed
             if (jobStatus == JobStatus.OK)
             {
+                if (!File.Exists(volFileName))
+                    throw new CaeException("Netgen reported success but did not create the mesh output for part '" +
+                                           part.Name + "'.");
                 return new GeneratedMeshData()
                 {
                     GeometryPart = part,
@@ -269,7 +275,12 @@ namespace PrePoMax
                     SmoothShaded = false
                 };
             }
-            else throw new CaeException("Mesh generation failed.");
+            else
+            {
+                string description = command == "STL_SURFACE_MESH" ? "surface" : "volume";
+                throw new CaeException("Netgen could not create the STL " + description + " mesh for part '" +
+                                       part.Name + "'.");
+            }
         }
         public GeneratedMeshData CreateMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems, string workDirectory)
         {

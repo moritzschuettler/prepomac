@@ -516,12 +516,15 @@ namespace CaeMesh
             int partId;
             foreach (var entry in _meshSetupItems)
             {
-                if (entry.Value is MeshingParameters mp)
+                if (entry.Value is MeshingParameters || entry.Value is ShellMmg)
                 {
-                    valid = mp.Valid;              // this is set to invalid after deleting a part
-                    if (!valid) mp.Valid = true;   // set this to true to detect a change in validity
+                    MeshSetupItem parameters = entry.Value;
+                    valid = parameters.Valid;              // this is set to invalid after deleting a part
+                    if (!valid) parameters.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(mp.CreationIds);
+                    string[] partNames = GetPartNamesFromPartIds(parameters.CreationIds);
+                    if (partNames == null || partNames.Length == 0)
+                        partNames = GetPartNamesFromGeometryIds(parameters.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -535,8 +538,12 @@ namespace CaeMesh
                         }
                     }
                     //
-                    SetItemValidity(mp, valid, items);
-                    if (!valid && mp.Active) invalidItems.Add("Meshing parameters: " + mp.Name);
+                    SetItemValidity(parameters, valid, items);
+                    if (!valid && parameters.Active)
+                    {
+                        string type = parameters is ShellMmg ? "Shell Mmg: " : "Meshing parameters: ";
+                        invalidItems.Add(type + parameters.Name);
+                    }
                 }
                 else if (entry.Value is LocalMeshSize lms)
                 {
@@ -8098,7 +8105,8 @@ namespace CaeMesh
             //
             foreach (var entry in _meshSetupItems)
             {
-                if (entry.Value is MeshingParameters || entry.Value is ShellGmsh || entry.Value is ShellQuadWild ||
+                if (entry.Value is MeshingParameters || entry.Value is ShellMmg ||
+                    entry.Value is ShellGmsh || entry.Value is ShellQuadWild ||
                     entry.Value is ThickenShellMesh || entry.Value is TetrahedralGmsh ||
                     entry.Value is TransfiniteMesh)
                 {

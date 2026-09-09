@@ -14,7 +14,6 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
-using System.ComponentModel;
 using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
@@ -24,10 +23,6 @@ namespace PrePoMax.Settings
     {
         // Variables                                                                                                                
         MeshingSettings _meshingSettings;
-
-
-        // Properties                                                                                                               
-
 
         // Constructors                                                                                                             
         public ViewMeshingSettings(MeshingSettings meshingSettings)
@@ -40,9 +35,9 @@ namespace PrePoMax.Settings
             //
             _dctd.GetProperty(nameof(AdvancedView)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(Name)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(RegionType)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(MaxH)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(MinH)).SetIsBrowsable(false);
-            _dctd.GetProperty(nameof(Hausdorff)).SetIsBrowsable(false);
         }
 
 

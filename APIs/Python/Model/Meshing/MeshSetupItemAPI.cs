@@ -24,7 +24,7 @@ namespace APIs.Python.Model
         public string name { get { return _service.ResolveItem(_itemName).Name; } }
         [PythonAPI("The mesh setup item type, for example MeshingParameters or LocalMeshSize.", Returns = "str")]
         public string item_type { get { return _service.ResolveItem(_itemName).GetType().Name; } }
-        [PythonAPI("The mesher used by the item: None, Netgen, Gmsh or QuadWild.", Returns = "str")]
+        [PythonAPI("The mesher used by the item: None, Netgen, Mmg, Gmsh or QuadWild.", Returns = "str")]
         public string mesher_type { get { return _service.ResolveItem(_itemName).MesherType.ToString(); } }
         [PythonAPI("True when the item takes part in the meshing.", Returns = "bool")]
         public bool active { get { return _service.ResolveItem(_itemName).Active; } }

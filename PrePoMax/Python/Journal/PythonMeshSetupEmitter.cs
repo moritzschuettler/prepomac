@@ -133,6 +133,11 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Text(tetrahedralGmsh.OptimizeHighOrder.ToString()));
                 return "tetrahedral_gmsh";
             }
+            if (item is ShellMmg shellMmg)
+            {
+                AddShellMmgValues(arguments, shellMmg);
+                return "shell_mmg";
+            }
             if (item is MeshingParameters parameters)
             {
                 AddMeshingParameterValues(arguments, parameters);
@@ -190,18 +195,21 @@ namespace PrePoMax.Python.Journal
             arguments.Add("quad_dominated=" + PythonValueFormatter.Format(parameters.QuadDominated));
             arguments.Add("midside_nodes_on_geometry=" +
                           PythonValueFormatter.Format(parameters.MidsideNodesOnGeometry));
-            arguments.Add("use_mmg=" + PythonValueFormatter.Format(parameters.UseMmg));
-            arguments.Add("keep_model_edges=" + PythonValueFormatter.Format(parameters.KeepModelEdges));
             arguments.Add("relative_size=" + PythonValueFormatter.Format(parameters.RelativeSize));
             arguments.Add("factor_max=" + PythonValueFormatter.Number(parameters.FactorMax));
             arguments.Add("factor_min=" + PythonValueFormatter.Number(parameters.FactorMin));
-            arguments.Add("factor_hausdorff=" + PythonValueFormatter.Number(parameters.FactorHausdorff));
-            arguments.Add("hausdorff=" + PythonValueFormatter.Number(parameters.Hausdorff));
             arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(parameters.OptimizeSteps2D));
             arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(parameters.OptimizeSteps3D));
             arguments.Add("split_compound_mesh=" + PythonValueFormatter.Format(parameters.SplitCompoundMesh));
             arguments.Add("merge_compound_parts=" +
                           PythonValueFormatter.Format(parameters.MergeCompoundParts));
+        }
+        private static void AddShellMmgValues(List<string> arguments, ShellMmg shellMmg)
+        {
+            arguments.Add("relative_size=" + PythonValueFormatter.Format(shellMmg.RelativeSize));
+            arguments.Add("relative_hausdorff=" + PythonValueFormatter.Number(shellMmg.RelativeHausdorff));
+            arguments.Add("hausdorff=" + PythonValueFormatter.Number(shellMmg.Hausdorff));
+            arguments.Add("keep_model_edges=" + PythonValueFormatter.Format(shellMmg.KeepModelEdges));
         }
     }
 }

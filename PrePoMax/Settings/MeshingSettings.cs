@@ -37,20 +37,17 @@ namespace PrePoMax
         {
             _meshingParameters = new MeshingParameters("Settings");
         }
-        public MeshingSettings(MeshingParameters meshingParameters)
-        {
-            _meshingParameters = meshingParameters;
-        }
 
 
         // Methods                                                                                                                  
         public void CheckValues()
         {
+            if (_meshingParameters == null) _meshingParameters = new MeshingParameters("Settings");
         }
         public void Reset()
         {
-            _meshingParameters.Reset();
+            if (_meshingParameters == null) CheckValues();
+            else _meshingParameters.Reset();
         }
-        
     }
 }

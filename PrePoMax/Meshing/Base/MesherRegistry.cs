@@ -47,11 +47,6 @@ namespace PrePoMax
         }
         public MesherTypeEnum GetDefaultMesherType(BasePart part)
         {
-            if (part.PartType == PartType.Shell)
-            {
-                if (part is GeometryPart gp && !gp.IsCADPart) return MesherTypeEnum.Mmg;
-                else if (part is MeshPart) return MesherTypeEnum.Mmg;
-            }
             return MesherTypeEnum.Netgen;
         }
         public IMesherRunner GetBrepRunner(GeometryPart part, MeshSetupItem[] mesherSetupItems)
@@ -74,8 +69,9 @@ namespace PrePoMax
         }
         private MesherTypeEnum GetDefaultStlMesherType(GeometryPart part)
         {
-            if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) return MesherTypeEnum.Netgen;
-            else if (part.PartType == PartType.Shell) return MesherTypeEnum.Mmg;
+            if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
+                part.PartType == PartType.Shell)
+                return MesherTypeEnum.Netgen;
             else throw new NotSupportedException();
         }
     }

@@ -521,6 +521,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | --- | --- |
 | `add_meshing_parameters(name, selection, ...)` | Meshing parameters. Every value that is not given keeps the application default. |
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
+| `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
@@ -529,14 +530,20 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
 | `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. |
 | `add_shell_quad_wild(name, selection, preview=None, remesh=None, smooth=None, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. Every value that is not given keeps the application default. |
-| `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
+| `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`, `min_size`,
-`fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `factor_hausdorff`, `hausdorff`,
-`optimize_steps_2d`, `optimize_steps_3d`, `second_order`, `quad_dominated`,
-`midside_nodes_on_geometry`, `use_mmg`, `split_compound_mesh`, `merge_compound_parts` and
-`keep_model_edges`. Like the dialog, it derives `max_size`, `min_size`, `hausdorff` and `use_mmg`
-from the size of the selected parts, and the arguments of the call are applied on top of those.
+`fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `optimize_steps_2d`,
+`optimize_steps_3d`, `second_order`, `quad_dominated`, `midside_nodes_on_geometry`,
+`split_compound_mesh` and `merge_compound_parts`. Like the dialog, it derives `max_size` and
+`min_size` from the size of the selected parts, and the arguments of the call are applied on top of
+those.
+
+`add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
+Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
+Like the dialog, it derives `hausdorff` from the size of the selected parts - the bounding box
+diagonal times `relative_hausdorff` - and the arguments of the call are applied on top of that. MMG
+continues to use the shared maximum/minimum size and element order values from `meshing_parameters`.
 
 Every Gmsh item accepts the settings its dialog shows and no others, so the arguments differ per
 item:
@@ -550,11 +557,12 @@ item:
 | `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer` |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
-journal replays: a whole part mesher - `meshing_parameters`, `shell_gmsh`, `shell_quad_wild`,
-`thicken_shell_mesh`, `tetrahedral_gmsh` and `transfinite_mesh` - takes a `parts` selection or the
-`geometry` those parts cover, an element size takes `geometry`, a number of elements takes `edges`,
-and an extruded, revolved or swept mesh takes `geometry_surfaces` - the source faces it is built
-from. A target the item is not defined on is refused rather than silently stored.
+journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,
+`shell_quad_wild`, `thicken_shell_mesh`, `tetrahedral_gmsh` and `transfinite_mesh` - takes a `parts`
+selection or the `geometry` those parts cover, an element size takes `geometry`, a number of
+elements takes `edges`, and an extruded, revolved or swept mesh takes `geometry_surfaces` - the
+source faces it is built from. A target the item is not defined on is refused rather than silently
+stored.
 
 The extrusion direction and centre, and the revolution axis, angle and middle radius, are derived by
 the model from the selected source surfaces. `add_extrude_mesh` and `add_revolve_mesh` still name
@@ -574,7 +582,7 @@ pmx.model.mesh.create(part.name)
 | --- | --- |
 | `name` | The item name. |
 | `item_type` | The item type, for example `MeshingParameters` or `LocalMeshSize`. |
-| `mesher_type` | `None`, `Netgen`, `Gmsh` or `QuadWild`. |
+| `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from. |
 | `get_settings()` | The stored mesher settings of this item type, as a dictionary. List valued settings such as `layer_sizes` and `num_of_elements_per_layer` are included, so the dictionary is the complete definition. |

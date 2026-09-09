@@ -398,7 +398,8 @@ namespace PrePoMax.Forms
                             MeshingParameters meshingParameters = _controller.GetPartDefaultMeshingParameters(basePart.Name);
                             SplitPartMeshData.MaxH = meshingParameters.MaxH;
                             SplitPartMeshData.MinH = meshingParameters.MinH;
-                            SplitPartMeshData.Hausdorff = meshingParameters.Hausdorff;
+                            SplitPartMeshData.Hausdorff =
+                                _controller.GetPartDefaultShellMmg(basePart.Name).Hausdorff;
                             sizeSet = true;
                         }
                     }

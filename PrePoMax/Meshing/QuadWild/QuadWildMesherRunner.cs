@@ -86,12 +86,6 @@ namespace PrePoMax
             ShellQuadWild shellQuadWild = GetShellQuadWild(mesherSetupItems);
             if (String.IsNullOrWhiteSpace(workDirectory) || !Directory.Exists(workDirectory))
                 throw new CaeException("The QuadWild work directory does not exist.");
-            if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Netgen && !part.IsCADPart)
-            {
-                string warning = GetNetgenStlWarning();
-                _controller.Form.WriteDataToOutput("Warning: " + warning);
-                throw new CaeException(warning);
-            }
             if (Double.IsNaN(shellQuadWild.ScaleFactor) || Double.IsInfinity(shellQuadWild.ScaleFactor) ||
                 shellQuadWild.ScaleFactor <= 0)
                 throw new CaeException("The QuadWild quad edge multiplier must be a positive finite number.");
@@ -241,16 +235,7 @@ namespace PrePoMax
             if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Gmsh)
                 return _gmshRunner.PreviewEdgeNodesForQuadWild(part, meshSetupItems);
             else if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Netgen)
-            {
-                if (!part.IsCADPart)
-                {
-                    string warning = GetNetgenStlWarning();
-                    _controller.Form.WriteDataToOutput("Warning: " + warning);
-                    MessageBoxes.ShowWarning(warning);
-                    return false;
-                }
                 return _netgenRunner.PreviewEdgeNodesForQuadWild(part, meshSetupItems);
-            }
             else if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Mmg)
                 return PreviewModelEdgeNodes(part, "MMG");
             else throw new CaeException("The selected QuadWild triangulation mesher is not supported.");
@@ -276,7 +261,7 @@ namespace PrePoMax
         {
             if (mesherSetupItems == null || mesherSetupItems.Length != 1 ||
                 !(mesherSetupItems[0] is ShellQuadWild shellQuadWild))
-                throw new CaeException("Exactly one active QuadWild shell setup item is required for a part.");
+                throw new CaeException("Exactly one active shell setup item is required for a part.");
             return shellQuadWild;
         }
         private static void ValidateTriangularMesh(FeMesh mesh, string partName)
@@ -367,11 +352,6 @@ namespace PrePoMax
         {
             if (mesherType == MesherTypeEnum.Mmg) return "MMG";
             else return mesherType.ToString();
-        }
-        private static string GetNetgenStlWarning()
-        {
-            return "Netgen cannot mesh an STL shell. It only accepts closed manifold STL geometry; " +
-                   "select Gmsh or MMG for the QuadWild triangulation.";
         }
         private void RunStage(string jobName, string stageName, string executable, string argument,
                               string workDirectory, params string[] expectedFileNames)

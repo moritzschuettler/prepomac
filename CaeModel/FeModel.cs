@@ -1553,6 +1553,19 @@ namespace CaeModel
                 mesh.FixShellPartOrientation(_geometry, part);
             }
             else throw new NotSupportedException();
+            //
+            if (mesh == null)
+                throw new CaeException("The generated mesh file could not be read: " + fileName);
+            if (mesh.Nodes == null || mesh.Nodes.Count == 0)
+                throw new CaeException("The generated mesh file contains no nodes: " + fileName);
+            if (mesh.Elements == null || mesh.Elements.Count == 0)
+                throw new CaeException("The generated mesh file contains no requested elements: " + fileName);
+            if (elementsToImport == ElementsToImport.Shell &&
+                !mesh.Elements.Values.Any(element => element is FeElement2D))
+                throw new CaeException("The generated mesh file contains no shell elements: " + fileName);
+            if (elementsToImport == ElementsToImport.Solid &&
+                !mesh.Elements.Values.Any(element => element is FeElement3D))
+                throw new CaeException("The generated mesh file contains no solid elements: " + fileName);
             // Split compound mesh
             if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
             // Merge parts if only one part is expected
@@ -2035,6 +2048,7 @@ namespace CaeModel
         {
             if (meshSetupItem is MeshingParameters) return null;
             else if (meshSetupItem is LocalMeshSize) return null;
+            else if (meshSetupItem is ShellMmg smmg) return IsShellMmgProperlyDefined(smmg);
             else if (meshSetupItem is ShellGmsh sg) return IsShellGmshProperlyDefined(sg);
             else if (meshSetupItem is ShellQuadWild sqw) return IsShellQuadWildProperlyDefined(sqw);
             else if (meshSetupItem is ThickenShellMesh tsm) return IsThickenShellMeshProperlyDefined(tsm);
@@ -2044,6 +2058,17 @@ namespace CaeModel
             else if (meshSetupItem is SweepMesh sm) return IsSweepMeshProperlyDefined(sm);
             else if (meshSetupItem is RevolveMesh rm) return IsRevolveMeshProperlyDefined(rm);
             else throw new NotSupportedException("MeshSetupItemTypeException");
+        }
+        private string IsShellMmgProperlyDefined(ShellMmg shellMmg)
+        {
+            int[] partIds = FeMesh.GetPartIdsFromGeometryIds(shellMmg.CreationIds);
+            foreach (int partId in partIds)
+            {
+                GeometryPart part = _geometry.GetPartFromId(partId) as GeometryPart;
+                if (part == null || part.PartType != PartType.Shell || part.IsCADPart)
+                    return "The shell MMG mesh setup item can only be defined on STL shell parts.";
+            }
+            return null;
         }
         private string IsShellGmshProperlyDefined(ShellGmsh shellGmsh)
         {
@@ -2081,9 +2106,6 @@ namespace CaeModel
                 //
                 if (part.PartType != PartType.Shell)
                     return "The shell QuadWild mesh setup item can only be defined on shell parts.";
-                if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Netgen && !part.IsCADPart)
-                    return "Netgen cannot mesh an STL shell. It only accepts closed manifold STL geometry; " +
-                           "select Gmsh or MMG for the QuadWild triangulation.";
             }
             return null;
         }

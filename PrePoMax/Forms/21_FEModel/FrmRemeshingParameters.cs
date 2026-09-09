@@ -157,7 +157,13 @@ namespace PrePoMax.Forms
             //
             _controller.RemeshElementsCommand(RemeshingParameters);
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew
-            if (onOkAddNew) _prevRemeshingParameters = RemeshingParameters.DeepClone();
+            if (onOkAddNew)
+            {
+                _prevRemeshingParameters = RemeshingParameters.DeepClone();
+                // The remeshed elements were replaced by elements with new ids, so the selection
+                // that created them can no longer be resolved and must not be reselected
+                ClearRegionSelection(_prevRemeshingParameters);
+            }
             else ItemSetDataEditor.SelectionForm.Hide();
         }
         protected override void OnHideOrClose()
@@ -181,9 +187,11 @@ namespace PrePoMax.Forms
             // Create new
             if (_prevRemeshingParameters == null)
             {
-                MeshingParameters meshingParameters =
-                    _controller.GetPartDefaultMeshingParameters(_controller.Model.Mesh.Parts.Keys.ToArray(), false);
+                string[] meshPartNames = _controller.Model.Mesh.Parts.Keys.ToArray();
+                MeshingParameters meshingParameters = _controller.GetPartDefaultMeshingParameters(meshPartNames);
                 RemeshingParameters = new RemeshingParameters("", RegionTypeEnum.Selection, meshingParameters);
+                ShellMmg shellMmg = _controller.GetPartDefaultShellMmg(meshPartNames);
+                if (shellMmg != null) RemeshingParameters.Hausdorff = shellMmg.Hausdorff;
                 //
                 RemeshingParameters.CreationData = new Selection();
                 RemeshingParameters.CreationData.SelectItem = vtkSelectItem.Element;
@@ -217,6 +225,14 @@ namespace PrePoMax.Forms
             if (RemeshingParameters.RegionType == RegionTypeEnum.Selection &&
                 (RemeshingParameters.CreationIds == null || RemeshingParameters.CreationIds.Length == 0))
                 throw new CaeException("The element set for remeshing selection must contain at least one item.");
+        }
+        private void ClearRegionSelection(RemeshingParameters remeshingParameters)
+        {
+            if (remeshingParameters.RegionType != RegionTypeEnum.Selection) return;
+            //
+            remeshingParameters.CreationIds = null;
+            remeshingParameters.CreationData = new Selection();
+            remeshingParameters.CreationData.SelectItem = vtkSelectItem.Element;
         }
         private void HighlightElementSet(bool clear = true)
         {

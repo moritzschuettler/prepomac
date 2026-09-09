@@ -82,6 +82,7 @@ namespace PrePoMax
             if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
             //
             MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
+            ShellMmg shellMmg = GetShellMmg(part, meshSetupItems?.Values);
             meshingParameters.SecondOrder = false;
             meshingParameters.QuadDominated = false;
             Dictionary<int, double> sourceNodeIdMeshSize =
@@ -97,9 +98,8 @@ namespace PrePoMax
             }
             //
             PerformanceCounter ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-            double hausdorff = meshingParameters.Hausdorff;
-            if (meshingParameters.RelativeSize)
-                hausdorff = part.BoundingBox.GetDiagonal() * meshingParameters.FactorHausdorff;
+            double hausdorff = shellMmg.Hausdorff;
+            if (shellMmg.RelativeSize) hausdorff = part.BoundingBox.GetDiagonal() * shellMmg.RelativeHausdorff;
             _controller.Form.WriteDataToOutput("MMG QuadWild pre-pass: reconstructing the STL surface...");
             string argument = "-m " + ramCounter.NextValue() * 0.9 + " " +
                               "-ar 0.01 " +
@@ -301,9 +301,10 @@ namespace PrePoMax
             //
             _controller.SuppressExplodedView(new string[] { part.Name });
             MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name);
+            ShellMmg shellMmg = GetShellMmg(part, mesherSetupItems);
             try
             {
-                MmgFileWriter.Write(mmgInFileName, part, _controller.Model.Geometry, meshingParameters.KeepModelEdges, false);
+                MmgFileWriter.Write(mmgInFileName, part, _controller.Model.Geometry, shellMmg.KeepModelEdges, false);
             }
             finally
             {
@@ -312,8 +313,8 @@ namespace PrePoMax
             //
             System.Diagnostics.PerformanceCounter ramCounter;
             ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
-            double hausdorff = meshingParameters.Hausdorff;
-            if (meshingParameters.RelativeSize) hausdorff = part.BoundingBox.GetDiagonal() * meshingParameters.FactorHausdorff;
+            double hausdorff = shellMmg.Hausdorff;
+            if (shellMmg.RelativeSize) hausdorff = part.BoundingBox.GetDiagonal() * shellMmg.RelativeHausdorff;
             //
             string argument = //"-nr " + 
                               "-m " + ramCounter.NextValue() * 0.9 + " " +
@@ -340,7 +341,7 @@ namespace PrePoMax
                 if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
                 if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
                 //
-                MmgFileWriter.Write(mmgInFileName, partOut, mesh, meshingParameters.KeepModelEdges, true);
+                MmgFileWriter.Write(mmgInFileName, partOut, mesh, shellMmg.KeepModelEdges, true);
                 //
                 argument = "-nr " +
                            "-m " + ramCounter.NextValue() * 0.9 + " " +
@@ -353,7 +354,7 @@ namespace PrePoMax
                            "-out \"" + mmgOutFileName + "\" ";
                 //
                 jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
-                                           _controller.Form.WriteDataToOutput);
+                                                      _controller.Form.WriteDataToOutput);
                 //
                 if (jobStatus == JobStatus.OK)
                 {
@@ -367,6 +368,20 @@ namespace PrePoMax
                 else throw new CaeException("Mesh generation failed.");
             }
             else throw new CaeException("Mesh generation failed.");
+        }
+        private ShellMmg GetShellMmg(GeometryPart part, IEnumerable<MeshSetupItem> meshSetupItems)
+        {
+            ShellMmg shellMmg = null;
+            if (meshSetupItems != null)
+            {
+                foreach (MeshSetupItem item in meshSetupItems)
+                {
+                    if (item is ShellMmg mmg && mmg.Active && mmg.Valid && mmg.CreationIds != null &&
+                        FeMesh.GetPartIdsFromGeometryIds(mmg.CreationIds).Contains(part.PartId))
+                        shellMmg = mmg;
+                }
+            }
+            return shellMmg?.DeepClone() ?? _controller.GetPartDefaultShellMmg(part.Name);
         }
         public bool RemeshShellElementsByPart(MeshPart part, int[] elementIds, RemeshingParameters remeshingParameters,
                                                bool preview)

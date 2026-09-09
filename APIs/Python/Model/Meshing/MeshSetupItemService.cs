@@ -64,6 +64,7 @@ namespace APIs.Python.Model
             MeshSetupItem item = ResolveItem(name);
             if (item is MeshingParameters) return new MeshingParameters((MeshingParameters)item);
             if (item is LocalMeshSize) return new LocalMeshSize((LocalMeshSize)item);
+            if (item is ShellMmg) return new ShellMmg((ShellMmg)item);
             if (item is ThickenShellMesh) return new ThickenShellMesh((ThickenShellMesh)item);
             if (item is TetrahedralGmsh) return new TetrahedralGmsh((TetrahedralGmsh)item);
             if (item is ShellGmsh) return new ShellGmsh((ShellGmsh)item);
@@ -90,6 +91,10 @@ namespace APIs.Python.Model
             //
             return parameters;
         }
+        public ShellMmg CreateDefaultShellMmg(string name)
+        {
+            return new ShellMmg(name);
+        }
         public void Add(MeshSetupItem item, string name, SelectionAPI selection)
         {
             PrepareItem(item, name, selection);
@@ -114,6 +119,17 @@ namespace APIs.Python.Model
         {
             MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,
                                                                                           item.CreationIds);
+            if (partDefaults == null) return;
+            //
+            int[] creationIds = item.CreationIds;
+            Selection creationData = item.CreationData;
+            item.CopyFrom(partDefaults);
+            item.CreationIds = creationIds;
+            item.CreationData = creationData;
+        }
+        public void ApplyPartDefaults(ShellMmg item)
+        {
+            ShellMmg partDefaults = _meshGateway.GetPartDefaultShellMmg(item.Name, item.CreationIds);
             if (partDefaults == null) return;
             //
             int[] creationIds = item.CreationIds;

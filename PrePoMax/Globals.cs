@@ -55,6 +55,7 @@ namespace PrePoMax
         public static string SplittingFacesText = "Splitting faces...";
         public static string DefeaturingText = "Defeaturing...";
         public static string DeletingFacesText = "Deleting faces...";
+        public static string MergingText = "Merging...";
         public static string ExplodePartsText = "Explode parts...";
         public static string SelectionText = "Selection...";
         public static string PythonScriptText = "Running Python script...";

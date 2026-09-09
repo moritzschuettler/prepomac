@@ -34,21 +34,39 @@ namespace PrePoMax.Python
         }
         public MeshingParameters GetPartDefaultMeshingParameters(string name, int[] creationIds)
         {
-            if (creationIds == null || creationIds.Length == 0) return null;
-            //
-            FeMesh geometry = _controller.Model?.Geometry;
-            if (geometry == null) return null;
-            //
-            string[] partNames = geometry.GetPartNamesFromPartIds(creationIds);
-            if (partNames.Length == 0)
-                partNames = geometry.GetPartNamesFromPartIds(FeMesh.GetPartIdsFromGeometryIds(creationIds));
-            if (partNames.Length == 0) return null;
+            string[] partNames = GetPartNames(creationIds);
+            if (partNames == null) return null;
             //
             MeshingParameters meshingParameters = _controller.GetPartDefaultMeshingParameters(partNames);
             if (meshingParameters == null) return null;
             //
             meshingParameters.Name = name;
             return meshingParameters;
+        }
+        public ShellMmg GetPartDefaultShellMmg(string name, int[] creationIds)
+        {
+            string[] partNames = GetPartNames(creationIds);
+            if (partNames == null) return null;
+            //
+            ShellMmg shellMmg = _controller.GetPartDefaultShellMmg(partNames);
+            if (shellMmg == null) return null;
+            //
+            shellMmg.Name = name;
+            return shellMmg;
+        }
+        private string[] GetPartNames(int[] creationIds)
+        {
+            if (creationIds == null || creationIds.Length == 0) return null;
+            //
+            FeMesh geometry = _controller.Model?.Geometry;
+            if (geometry == null) return null;
+            // A script may name the parts or the geometry they cover, so both forms of id are resolved
+            string[] partNames = geometry.GetPartNamesFromPartIds(creationIds);
+            if (partNames.Length == 0)
+                partNames = geometry.GetPartNamesFromPartIds(FeMesh.GetPartIdsFromGeometryIds(creationIds));
+            if (partNames.Length == 0) return null;
+            //
+            return partNames;
         }
         public void AddMeshSetupItem(MeshSetupItem meshSetupItem)
         {

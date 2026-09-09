@@ -1530,7 +1530,6 @@ namespace PrePoMax
                         {
                             gp.MeshingParameters.FactorMax = MeshingParameters.DefaultFactorMax;
                             gp.MeshingParameters.FactorMin = MeshingParameters.DefaultFactorMin;
-                            gp.MeshingParameters.FactorHausdorff = MeshingParameters.DefaultFactorHausdorff;
                             gp.MeshingParameters.SetCheckName(true);
                             string name = model.Geometry.MeshSetupItems.GetNextNumberedKey("Meshing_Parameters");
                             gp.MeshingParameters.Name = name;
@@ -5014,27 +5013,43 @@ namespace PrePoMax
             MeshingParameters defaultMeshingParameters = GetDefaultMeshingParameters("Default");
             double factorMax = defaultMeshingParameters.FactorMax;
             double factorMin = defaultMeshingParameters.FactorMin;
-            double factorHausdorff = defaultMeshingParameters.FactorHausdorff;
             double diagonal = part.BoundingBox.GetDiagonal();
-            //
-            if (part.PartType == PartType.Shell && part is GeometryPart gp && !gp.IsCADPart)
-                defaultMeshingParameters.UseMmg = true;
-            else if (part.PartType == PartType.Shell && part is MeshPart)   // for remeshing
-                defaultMeshingParameters.UseMmg = true;
             //
             defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(diagonal * factorMax, 2);
             defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(diagonal * factorMin, 2);
-            defaultMeshingParameters.Hausdorff = Tools.RoundToSignificantDigits(diagonal * factorHausdorff, 2);
             //
             return defaultMeshingParameters;
         }
-        public MeshingParameters GetPartDefaultMeshingParameters(string[] partNames, bool onlyOneMeshType = true)
+        public ShellMmg GetPartDefaultShellMmg(string partName)
+        {
+            BasePart part = GetGeometryPart(partName);
+            if (part == null) part = GetModelPart(partName);
+            if (part == null) return null;
+            //
+            ShellMmg shellMmg = new ShellMmg("Default");
+            shellMmg.Hausdorff = Tools.RoundToSignificantDigits(
+                part.BoundingBox.GetDiagonal() * shellMmg.RelativeHausdorff, 2);
+            return shellMmg;
+        }
+        public ShellMmg GetPartDefaultShellMmg(string[] partNames)
+        {
+            if (partNames == null || partNames.Length == 0) return null;
+            double sumHausdorff = 0;
+            ShellMmg shellMmg = null;
+            foreach (string partName in partNames)
+            {
+                shellMmg = GetPartDefaultShellMmg(partName);
+                if (shellMmg == null) return null;
+                sumHausdorff += shellMmg.Hausdorff;
+            }
+            shellMmg.Hausdorff = Tools.RoundToSignificantDigits(sumHausdorff / partNames.Length, 2);
+            return shellMmg;
+        }
+        public MeshingParameters GetPartDefaultMeshingParameters(string[] partNames)
         {
             double sumMax = 0;
             double sumMin = 0;
-            double sumHausdorff = 0;
             MeshingParameters defaultMeshingParameters = null;
-            HashSet<bool> useMmg = new HashSet<bool>();
             foreach (var partName in partNames)
             {
                 // Default parameters
@@ -5042,12 +5057,8 @@ namespace PrePoMax
                 // If part is not found return null
                 if (defaultMeshingParameters != null)
                 {
-                    // Check for different types of meshes
-                    useMmg.Add(defaultMeshingParameters.UseMmg);
-                    //
                     sumMax += defaultMeshingParameters.MaxH;
                     sumMin += defaultMeshingParameters.MinH;
-                    sumHausdorff += defaultMeshingParameters.Hausdorff;
                 }
                 // Part was not found
                 else return null;
@@ -5055,14 +5066,7 @@ namespace PrePoMax
             //
             defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(sumMax / partNames.Length, 2);
             defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(sumMin / partNames.Length, 2);
-            defaultMeshingParameters.Hausdorff = Tools.RoundToSignificantDigits(sumHausdorff / partNames.Length, 2);
-            // All parts must be of either netgen type or mmg type
-            if (onlyOneMeshType)
-            {
-                if (useMmg.Count() == 1) return defaultMeshingParameters;
-                else return null;
-            }
-            else return defaultMeshingParameters;
+            return defaultMeshingParameters;
         }
         //
         public void GetMeshItemSizes(string partName, ref GmshData gmshData,
@@ -6740,28 +6744,39 @@ namespace PrePoMax
         }
         public void MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
-            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_" + 
-                                                                  CaeMesh.Globals.MergedCoincidentNodes);
-            FeNodeSet nodeSet = new FeNodeSet(name, null);
-            nodeSet.CreationData = mergeCoincidentNodes.CreationData;
-            nodeSet.Internal = true;
-            AddNodeSet(nodeSet);
-            //
-            bool isExplodedViewActive = IsExplodedViewActive();
-            if (isExplodedViewActive) TurnExplodedViewOnOff(false);
-            SuppressExplodedView();
-            //
-            _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
-            //
-            UpdateAfterPartsChanged();
-            //
-            UpdateGeometryBasedItems(false, true);
-            //
-            if (isExplodedViewActive) TurnExplodedViewOnOff(false);
-            //
-            RemoveNodeSets(new string[] { name }, false);
-            //
-            FeModelUpdate(UpdateType.DrawModel | UpdateType.Check | UpdateType.RedrawSymbols);
+            try
+            {
+                _form.SetStateWorking(Globals.MergingText);
+                //
+                string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_" +
+                                                                      CaeMesh.Globals.MergedCoincidentNodes);
+                FeNodeSet nodeSet = new FeNodeSet(name, null);
+                nodeSet.CreationData = mergeCoincidentNodes.CreationData;
+                nodeSet.Internal = true;
+                AddNodeSet(nodeSet);
+                //
+                bool isExplodedViewActive = IsExplodedViewActive();
+                if (isExplodedViewActive) TurnExplodedViewOnOff(false);
+                SuppressExplodedView();
+                //
+                _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
+                //
+                RemoveNodeSets(new string[] { name }, false);
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
+                // Redraw the geometry for update of the selection based sets
+                FeModelUpdate(UpdateType.DrawModel);
+                // Update sets - must be called with rendering off - SetStateWorking
+                UpdateGeometryBasedItems(false, true);
+                //
+                if (isExplodedViewActive) TurnExplodedViewOnOff(false);
+                //
+                FeModelUpdate(UpdateType.DrawModel | UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                _form.SetStateReady(Globals.MergingText);
+            }
         }
         public void PreviewMergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
@@ -20908,7 +20923,8 @@ namespace PrePoMax
         public void HighlightMeshSetupItem(MeshSetupItem meshSetupItem, bool highlightNodes = true,
                                            bool useSecondaryHighlightColor = false)
         {
-            if (meshSetupItem is MeshingParameters || meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
+            if (meshSetupItem is MeshingParameters || meshSetupItem is ShellMmg ||
+                meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
                 meshSetupItem is ThickenShellMesh || meshSetupItem is TetrahedralGmsh ||
                 meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);

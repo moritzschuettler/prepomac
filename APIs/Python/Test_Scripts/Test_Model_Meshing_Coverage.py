@@ -50,6 +50,17 @@ def test_local_mesh_size(items, selection):
                  "two mesh size definitions at once were accepted")
 
 
+def test_shell_mmg(items, selection):
+    items.add_shell_mmg(PREFIX + "MMG", selection, relative_size=True, relative_hausdorff=0.002,
+                        keep_model_edges=False)
+    items.replace_shell_mmg(PREFIX + "MMG", relative_hausdorff=0.003)
+    values = settings(items, PREFIX + "MMG")
+    check(values["relative_size"], "the MMG Hausdorff definition was not stored")
+    check(values["relative_hausdorff"] == 0.003, "the MMG Hausdorff factor was not replaced")
+    check(values["keep_model_edges"] is False, "the omitted MMG edge setting was not kept")
+    check(items[PREFIX + "MMG"].mesher_type == "Mmg", "the shell MMG item does not select MMG")
+
+
 def test_thicken_shell(items, selection):
     items.add_thicken_shell_mesh(PREFIX + "Thicken", selection, thickness=1.0, number_of_layers=3)
     items.replace_thicken_shell_mesh(PREFIX + "Thicken", thickness=2.0)
@@ -171,6 +182,7 @@ def main():
     #
     test_meshing_parameters(items, selection)
     test_local_mesh_size(items, selection)
+    test_shell_mmg(items, selection)
     test_thicken_shell(items, selection)
     test_gmsh_items(items, selection)
     test_derived_arguments(items, selection)

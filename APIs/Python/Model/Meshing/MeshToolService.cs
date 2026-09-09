@@ -53,11 +53,11 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The default meshing parameters are not available.");
             if (maxSize != null) meshingParameters.MaxH = PythonValueConverter.ToDouble(maxSize, "max_size");
             if (minSize != null) meshingParameters.MinH = PythonValueConverter.ToDouble(minSize, "min_size");
-            if (hausdorff != null)
-                meshingParameters.FactorHausdorff = PythonValueConverter.ToDouble(hausdorff, "hausdorff");
             //
             RemeshingParameters remeshingParameters =
                 new RemeshingParameters(null, RegionTypeEnum.Selection, meshingParameters);
+            if (hausdorff != null)
+                remeshingParameters.Hausdorff = PythonValueConverter.ToDouble(hausdorff, "hausdorff");
             // The dialog offers a selection or a named element set, so the operation takes both
             RegionApplier.Apply(remeshingParameters, region, "region", "geometry", _selectionService,
                                 _modelResolver);

@@ -53,6 +53,13 @@ namespace PrePoMax.Forms
             },
             new MeshSetupItemType()
             {
+                DisplayName = "Shell Mmg", DefaultNameRoot = "Shell_Mmg", AvailableInTwoD = true,
+                ItemType = typeof(ShellMmg), ViewType = typeof(ViewShellMmg),
+                CreateDefaultView = (controller, name) => new ViewShellMmg(new ShellMmg(name)),
+                CreateView = (controller, item) => new ViewShellMmg(((ShellMmg)item).DeepClone())
+            },
+            new MeshSetupItemType()
+            {
                 DisplayName = "Shell Gmsh", DefaultNameRoot = "Shell_Gmsh", AvailableInTwoD = true,
                 ItemType = typeof(ShellGmsh), ViewType = typeof(ViewShellGmsh),
                 CreateDefaultView = (controller, name) => new ViewShellGmsh(new ShellGmsh(name)),
