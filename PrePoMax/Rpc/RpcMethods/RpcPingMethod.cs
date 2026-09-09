@@ -29,6 +29,7 @@ namespace PrePoMax.Rpc
             writer.WriteValue("applicationName", Globals.ProgramName);
             writer.WriteValue("processId", Process.GetCurrentProcess().Id);
             writer.WriteValue("pipeName", server.PipeName == null ? "" : server.PipeName);
+            writer.WriteValue("endpointUrl", server.EndpointUrl);
             writer.EndObject();
             return writer.ToString();
         }

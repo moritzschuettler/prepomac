@@ -308,8 +308,11 @@ a temp `.npy` path rather than inline JSON. A `describe()` method can be generat
 then a few hundred lines. Avoid gRPC on .NET Framework 4.8 - the only build that supports it is long
 deprecated. Layers 1 and 2 are implemented, so this is no longer deferred, and the layer is now
 largely built: the working-level plan and its implementation status are in
-[Python_API_Layer3_Plan.md](Python_API_Layer3_Plan.md). An MCP client drives a live session
-through `PrePoMaxMcp.exe`; the long operation step is the one that remains.
+[Python_API_Layer3_Plan.md](Python_API_Layer3_Plan.md). An MCP client drives a live session through
+the endpoint the application serves itself, on loopback HTTP - the satellite bridge that did it first
+was retired for outliving the application, which
+[Mcp_Http_Transport_Plan.md](Mcp_Http_Transport_Plan.md) covers. The long operation step is the one
+that remains.
 
 # Risks
 

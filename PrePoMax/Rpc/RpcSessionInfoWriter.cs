@@ -12,13 +12,20 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Windows.Forms;
 
 namespace PrePoMax.Rpc
 {
-    // How the bridge finds a running instance. One file per process, named after the process id, so
+    // How a client finds a running instance. One file per process, named after the process id, so
     // two instances never race on it and a stale file left by a crash is recognized by the reader
     // rather than trusted: the process it names no longer exists.
+    //
+    // The file carries the access token of the endpoint, so the folder it lives in is the one piece of
+    // this feature whose permissions matter. It is per user rather than per portable copy, because a
+    // client has to find every instance the user runs without knowing which folder any of them
+    // started from.
     public static class RpcSessionInfoWriter
     {
         // Variables                                                                                                                
@@ -39,16 +46,19 @@ namespace PrePoMax.Rpc
         {
             return "PrePoMax." + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture);
         }
-        public static string Write(string modelFileName, DateTime startTime)
+        public static string Write(string modelFileName, DateTime startTime, string endpointUrl, int port,
+                                   string accessToken)
         {
-            string directory = GetSessionsDirectory();
-            if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+            EnsureSessionsDirectory();
             //
             Process process = Process.GetCurrentProcess();
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
             writer.WriteValue("processId", process.Id);
             writer.WriteValue("pipeName", GetPipeName());
+            writer.WriteValue("url", endpointUrl == null ? "" : endpointUrl);
+            writer.WriteValue("port", port);
+            writer.WriteValue("token", accessToken == null ? "" : accessToken);
             writer.WriteValue("protocolVersion", ProtocolVersion);
             writer.WriteValue("applicationVersion", Application.ProductVersion);
             writer.WriteValue("modelFileName", modelFileName == null ? "" : modelFileName);
@@ -69,6 +79,47 @@ namespace PrePoMax.Rpc
             catch
             {
                 // The file is a hint for the bridge, not state the application depends on
+            }
+        }
+        // The folder holds the access token of every instance the user is running, so it is created
+        // with an explicit rule for that user alone and with inheritance switched off. An older
+        // version left it inheriting from the profile, which is user private on an ordinary machine
+        // but need not be, so an existing folder is protected as well rather than trusted
+        private static void EnsureSessionsDirectory()
+        {
+            string directory = GetSessionsDirectory();
+            SecurityIdentifier user = WindowsIdentity.GetCurrent().User;
+            FileSystemAccessRule rule = new FileSystemAccessRule(user, FileSystemRights.FullControl,
+                                                                 InheritanceFlags.ContainerInherit |
+                                                                 InheritanceFlags.ObjectInherit,
+                                                                 PropagationFlags.None, AccessControlType.Allow);
+            if (!Directory.Exists(directory))
+            {
+                DirectorySecurity security = new DirectorySecurity();
+                security.SetAccessRuleProtection(true, false);
+                security.AddAccessRule(rule);
+                Directory.CreateDirectory(directory, security);
+                return;
+            }
+            // A folder that already works is not worth refusing to start over: the tightening is
+            // reported and skipped, while a folder that cannot be created at all is fatal above
+            try
+            {
+                DirectorySecurity existing = Directory.GetAccessControl(directory, AccessControlSections.Access);
+                if (existing.AreAccessRulesProtected) return;
+                //
+                existing.SetAccessRuleProtection(true, false);
+                existing.AddAccessRule(rule);
+                Directory.SetAccessControl(directory, existing);
+            }
+            catch (Exception exception)
+            {
+                Action<string> write = MessageBoxes.WriteDataToOutput;
+                if (write != null)
+                {
+                    write("The permissions of " + directory + " could not be restricted to the current user: " +
+                          exception.Message);
+                }
             }
         }
         private static string GetFileName()

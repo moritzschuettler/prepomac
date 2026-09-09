@@ -69,10 +69,15 @@ namespace PrePoMax
         // Automation server
         [Option("rpc", Required = false, Default = "Off", HelpText = "Start the automation server so an AI agent can drive " +
                                                                      "this session: On | ReadOnly | Off. ReadOnly refuses " +
-                                                                     "every call that would change the model. The server " +
-                                                                     "accepts only the user that runs PrePoMax and uses no " +
-                                                                     "network connection.")]
+                                                                     "every call that would change the model. The MCP " +
+                                                                     "endpoint listens on this computer only and needs the " +
+                                                                     "access token of the session.")]
         public string Rpc { get; set; }
+        // Automation server port
+        [Option("rpcPort", Required = false, Default = 0, HelpText = "The port the MCP endpoint listens on, instead of the " +
+                                                                      "one in the settings. When it is taken the endpoint " +
+                                                                      "takes the first free port above it.")]
+        public int RpcPort { get; set; }
         // Settings
         [Option("settings", Required = false, HelpText = "The settings file name to be used instead of the settings file " +
                                                           "located next to the executable.")]
@@ -347,6 +352,13 @@ namespace PrePoMax
                 else if (rpc == "READONLY") cmdOptions.Rpc = "ReadOnly";   // fix all caps and spaces
                 else if (rpc == "OFF") cmdOptions.Rpc = "Off";             // fix all caps and spaces
                 else throw new CaeException("The rpc switch can only be set to On, ReadOnly or Off.");
+                // Zero is what says the settings decide, so it is not out of range
+                if (cmdOptions.RpcPort != 0 &&
+                    (cmdOptions.RpcPort < AutomationSettings.MinPort || cmdOptions.RpcPort > AutomationSettings.MaxPort))
+                {
+                    throw new CaeException("The rpcPort switch must be between " + AutomationSettings.MinPort +
+                                           " and " + AutomationSettings.MaxPort + ".");
+                }
                 // Timeout
                 if (cmdOptions.Timeout < 0)
                     throw new CaeException("The timeout switch must not be negative.");

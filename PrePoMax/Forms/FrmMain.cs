@@ -7880,6 +7880,17 @@ namespace PrePoMax
         {
             ToggleAutomationServer();
         }
+        private void tsmiAutomationAccessToken_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                RegenerateAutomationAccessToken();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void ToggleAutomationServer()
         {
             try
@@ -7924,10 +7935,39 @@ namespace PrePoMax
             if (_automationServer.IsRunning) return;
             //
             if (_cmdOptions != null && _cmdOptions.Rpc == "ReadOnly") _automationServer.IsReadOnlyRequested = true;
+            // A run started for an agent names its own port, because it has no settings of its own
+            if (_cmdOptions != null && _cmdOptions.RpcPort != 0)
+                _controller.AutomationSettings.Port = _cmdOptions.RpcPort;
             _automationServer.Start();
-            WriteDataToOutput("The automation server accepts calls on the pipe " +
-                              _automationServer.PipeName + ".");
+            WriteDataToOutput("The MCP endpoint of the automation server is " + _automationServer.EndpointUrl +
+                              ", and it also accepts calls on the pipe " + _automationServer.PipeName + ".");
+            // A run that may not write the settings has a token for this run only, so the output is
+            // the only place its client can read it from besides the session file
+            if (_automationServer.HttpServer.IsAccessTokenEphemeral)
+            {
+                WriteDataToOutput("Its access token, for this run only, is " +
+                                  _automationServer.HttpServer.AccessToken + ".");
+            }
             UpdateAutomationServerIndicators();
+        }
+        // Every client configuration that holds the old token stops working, so the user is asked
+        // first, and a server that is running is restarted onto the new one rather than left serving
+        // the token it was started with
+        private void RegenerateAutomationAccessToken()
+        {
+            if (_controller == null) return;
+            //
+            string question = "Replace the access token of the automation server?" + Environment.NewLine +
+                              Environment.NewLine +
+                              "Every AI agent client that was configured with the current token will have to be " +
+                              "given the new one, which is shown in Tools - Settings - Automation.";
+            if (MessageBoxes.ShowQuestionYesNo("Automation", question) != DialogResult.Yes) return;
+            //
+            bool wasRunning = _automationServer != null && _automationServer.IsRunning;
+            if (wasRunning) StopAutomationServer();
+            _controller.SaveAutomationAccessToken(Mcp.McpAccessToken.Generate());
+            WriteDataToOutput("The access token of the automation server was replaced.");
+            if (wasRunning) StartAutomationServer();
         }
         private void StopAutomationServer()
         {
@@ -8058,7 +8098,10 @@ namespace PrePoMax
             int connections = _automationServer.ConnectionCount;
             bool isReadOnly = _automationServer.IsReadOnly;
             string state = connections == 0 ? "waiting" : connections + " connected";
-            tsslAutomation.Text = "Automation: " + state + (isReadOnly ? ", read only" : "");
+            // The port is in the label because a second instance answers on another one, and the
+            // address is what the user has to give the client
+            tsslAutomation.Text = "Automation " + _automationServer.EndpointPort + ": " + state +
+                                  (isReadOnly ? ", read only" : "");
         }
         //
         private void ShowColorBarSettings()

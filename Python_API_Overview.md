@@ -109,37 +109,64 @@ An AI agent can drive **the session the user has open**, through the same Python
 describes. The model changes in the viewport and the tree while the agent works, every change is
 recorded as the command the user would have produced by hand, and the user keeps working alongside it.
 
-The path has two pieces. Inside PrePoMax, the **automation server** listens on a named pipe that only
-the user running PrePoMax may open, and serves one call at a time. Next
-to `PrePoMax.exe`, **`PrePoMaxMcp.exe`** is the MCP server an agent client starts; it speaks MCP on
-stdin and stdout and relays to the pipe. It is a process of its own because an MCP client starts its
-server, and PrePoMax is already running.
+PrePoMax serves the **MCP endpoint itself**, over HTTP on this computer only. There is no bridge
+process: the client connects to an address instead of starting anything, so nothing is left running
+when PrePoMax is closed. The same **automation server** also keeps its named pipe, for a client that
+speaks the protocol directly rather than MCP; both fronts go through one dispatcher, and both go up
+and down on the one switch.
 
 ### Turning it on
 
-The server is off until the user turns it on. Nothing about installing PrePoMax opens it.
+The server is off until the user turns it on. Unpacking PrePoMax opens nothing.
 
 | Where | What it does |
 | --- | --- |
-| **Tools - Automation Server** | Starts and stops the server for this session. The status bar shows it while it runs. |
-| **Tools - Settings - Automation** | *Start with the application*, *Read only*, *Echo to the Python panel*, and the request timeout. |
+| **Tools - Automation Server** | Starts and stops the server for this session. The status bar shows the port while it runs. |
+| **Tools - Settings - Automation** | *Start with the application*, *Read only*, *Echo to the Python panel*, the request timeout, and under *Endpoint* the port, the address and the access token. |
+| **Tools - Regenerate Automation Token** | Replaces the access token. Every client configured with the old one has to be given the new one. |
 | `--rpc On` | Starts the server for the run. It also allows `-g No` on its own, which is a session with no window for an agent to drive. |
 | `--rpc ReadOnly` | The same, with the model protected against change for the whole run. |
+| `--rpcPort <n>` | The port for this run, instead of the one in the settings. |
 
-Point the agent client at the bridge. For Claude Code:
+Point the agent client at the address. For Claude Code:
 
 ```bash
-claude mcp add prepomax -- "C:\Program Files\PrePoMax\PrePoMaxMcp.exe"
+claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
 
-`PrePoMaxMcp.exe --list` prints the sessions that are listening, and `--pid <id>` attaches to one of
-them. With exactly one session running, neither is needed.
+The address and the token are both in **Tools - Settings - Automation**. The token is made the first
+time the endpoint starts and then kept in the settings of that PrePoMax folder, so a client is
+configured once; a run started with `--noSettingsSave` cannot keep one and uses a token for that run
+only, which it prints and writes into its session file.
+
+**A client that cannot connect is telling you that PrePoMax is closed, or that its automation server
+is off.** Nothing answers on the address unless the session is open - that is the point of serving it
+from the application - so the fix is to open PrePoMax and switch the server on, not to retry. It is
+worth telling the agent so in the project's own instructions:
+
+```markdown
+The prepomax MCP server drives a live PrePoMax session. If it cannot connect, ask me to open
+PrePoMax and switch on Tools - Automation Server; do not work around it.
+```
+
+### Migrating from PrePoMaxMcp.exe
+
+An earlier version shipped `PrePoMaxMcp.exe`, a bridge the client started on stdio. It is gone,
+because a process the client starts outlives the application it serves: with PrePoMax closed, every
+open agent session still held an idle bridge. Remove the old entry and add the address:
+
+```bash
+claude mcp remove prepomax
+```
+
+Nothing else changes - the same ten tools, the same behaviour. The new entry names no path, so moving
+the PrePoMax folder or unpacking a new version leaves it correct, which the old one never did.
 
 ### The tools
 
 | Tool | What it does |
 | --- | --- |
-| `list_sessions` | The running instances whose server is on. |
+| `list_sessions` | The running instances whose server is on, each with the address it answers on, marking the one that answered. |
 | `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx` or of any path under it, read off the API itself, with the names a collection holds right now. |
 | `read_model` | A JSON snapshot of the model: properties, collections, steps with their content, analyses with their status. |
@@ -153,8 +180,13 @@ them. With exactly one session running, neither is needed.
 The surface is deliberately small. The model surface is the Python API, which the agent writes
 through `run_python` and learns through `describe_api`, so there is no tool per API member - 965 of
 them could not be listed, and a second front door would be free to drift from the first. A tool that
-is not a protocol primitive is a piece of Python the bridge holds: `read_model` is one, so adding
+is not a protocol primitive is a piece of Python the catalog holds: `read_model` is one, so adding
 another costs nothing on the application side.
+
+Every tool also takes an optional `process_id`. **It is checked, not routed.** One address serves one
+session, so a call that names another instance is refused with the address that would have served it,
+rather than served against the wrong model. `list_sessions` is the directory of what is open - use it
+to tell the user which address to configure, not to switch.
 
 ### What an agent may and may not do
 
@@ -194,11 +226,40 @@ removed or reordered there, and **Edit - Regenerate** rebuilds the model without
 
 ### The protocol, for another client
 
-The bridge is thin, and the pipe is documented so that another client can speak to it directly. It is
-JSON-RPC 2.0, one object per line, UTF-8, on `\\.\pipe\PrePoMax.<process id>`. A running instance
-writes `%LOCALAPPDATA%\PrePoMax\sessions\<process id>.json` while its server is on, which is how a
-client finds it; a file whose process no longer exists is stale and is pruned by the next client that
-reads it.
+The MCP endpoint is Streamable HTTP, and only its JSON half: a client `POST`s one JSON-RPC 2.0
+object to `http://127.0.0.1:<port>/mcp` with `Content-Type: application/json` and
+`Authorization: Bearer <token>`, and gets one JSON-RPC response back. `GET` is answered `405` - the
+endpoint serves no event stream, because nothing in its surface pushes - and no session id is issued,
+so a client written against either revision of the specification works. A request that reaches the
+protocol and fails there is a `200` carrying a JSON-RPC error; a request refused by a gate is an HTTP
+status, because it never reached the protocol.
+
+**The gates.** Three, and each stops something the other two do not. Only the two loopback prefixes
+are claimed, so nothing off this computer can reach it. The bearer token is required on every
+request and compared in constant time. Any request carrying an `Origin` header is refused, `OPTIONS`
+is refused, and no `Access-Control-Allow-*` header is ever answered with, so no page in a browser can
+reach the endpoint even if it is told that its own name resolves to `127.0.0.1`. A body over 4 MB, a
+body that is not JSON, and any other path are refused as well.
+
+What the token bounds is worth being exact about: it lives in the settings of that PrePoMax folder
+and in the session file under the user's own profile, so anything running **as that user** can read
+it - exactly as anything running as that user can open the pipe. It stops a web page, which cannot
+read a file, and another account on the machine, which cannot read that profile. It is not a defence
+against code already running as the user.
+
+**The port.** 8756 by default, set in *Tools - Settings - Automation* or with `--rpcPort`. When it is
+taken - by another PrePoMax, or by another program - the endpoint takes the first free port in the
+sixteen above it and says which in the output window and the status bar. One port per instance, so
+the address is the address of one session.
+
+**The pipe.** The same dispatcher is also served on `\\.\pipe\PrePoMax.<process id>`, JSON-RPC
+2.0, one object per line, UTF-8, with no token: the operating system authenticates the caller, and
+only the user running PrePoMax may open it. It is there for a client that speaks the protocol
+directly. Either way a running instance writes
+`%LOCALAPPDATA%\PrePoMax\sessions\<process id>.json` while its server is on - process id, pipe
+name, `url`, `port`, `token`, versions, model file, start time - which is how a client finds it. A
+file whose process no longer exists is stale, and the next instance asked for `list_sessions` prunes
+it. The folder is restricted to the current user, because the token is in it.
 
 | Method | What it does |
 | --- | --- |
@@ -215,8 +276,9 @@ reads it.
 The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32002`
 read only, `-32003` a refused prompt, `-32004` an API error, `-32005` an unknown task.
 
-`Test_Rpc_Server.py`, `Test_Rpc_Live_Session.py` and `Test_Mcp_Bridge.py` in `APIs/Python/Test_Scripts`
-check the three layers of this: the protocol, what a driven session records, and the MCP handshake.
+`Test_Rpc_Server.py`, `Test_Rpc_Live_Session.py`, `Test_Mcp_Http.py` and `Test_Mcp_Workflow.py` in
+`APIs/Python/Test_Scripts` check the layers of this: the protocol on the pipe, what a driven session
+records, the endpoint with every gate and tool, and a whole analysis driven through the tools alone.
 
 ## Typical access path
 

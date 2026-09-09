@@ -9,12 +9,12 @@
 
 using System;
 
-namespace PrePoMaxMcp
+namespace PrePoMax.Mcp
 {
-    // The read_model tool, as the Python it sends. A tool that is not a protocol primitive is a piece
-    // of Python this bridge holds rather than a method the application has to grow: it reads through
+    // The read_model tool, as the Python it runs. A tool that is not a protocol primitive is a piece
+    // of Python the catalog holds rather than a method the application has to grow: it reads through
     // the same API an agent uses, so it cannot report something the API does not have, and adding
-    // another one costs nothing on the application side.
+    // another one costs nothing but a string.
     //
     // A collection it cannot read is named in "unreadable" rather than left as a null nobody notices.
     // The first version of this script asked for boundary_conditions, which the step API calls bcs,

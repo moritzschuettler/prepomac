@@ -15,6 +15,15 @@ Layer 3 is therefore two pieces:
 - **`PrePoMaxMcp.exe`**, a small satellite process that speaks MCP on stdio and relays to the pipe,
   because an MCP client spawns its server and cannot spawn an already running desktop application.
 
+> **Superseded in part.** The second piece is gone. `PrePoMaxMcp.exe` was a process the *client*
+> started, so it outlived the application it served, and because it ran from PrePoMax's own output
+> folder and referenced `CaeGlobals` an idle one broke the build. The application now serves MCP
+> itself over loopback HTTP, which decision L3-D2 already named as the reversible alternative to the
+> pipe. The pipe stays, on the same dispatcher, for a client that speaks the protocol directly.
+> [Mcp_Http_Transport_Plan.md](Mcp_Http_Transport_Plan.md) is that plan and records what was
+> implemented; everything below about the server, the threading contract, the protocol and the tools
+> is unchanged and still current.
+
 ## Baseline
 
 Facts measured in the current tree. They are the reason this layer is small.

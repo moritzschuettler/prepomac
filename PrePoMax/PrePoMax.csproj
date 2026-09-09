@@ -124,6 +124,14 @@
     <Compile Include="Python\Journal\PythonSelectionEmitter.cs" />
     <Compile Include="Python\Journal\PythonValueFormatter.cs" />
     <Compile Include="Python\PythonScriptException.cs" />
+    <Compile Include="Mcp\McpAccessToken.cs" />
+    <Compile Include="Mcp\McpException.cs" />
+    <Compile Include="Mcp\McpHttpRequestHandler.cs" />
+    <Compile Include="Mcp\McpHttpServer.cs" />
+    <Compile Include="Mcp\McpModelScript.cs" />
+    <Compile Include="Mcp\McpProtocolServer.cs" />
+    <Compile Include="Mcp\McpTool.cs" />
+    <Compile Include="Mcp\McpToolCatalog.cs" />
     <Compile Include="Rpc\RpcErrorCode.cs" />
     <Compile Include="Rpc\RpcException.cs" />
     <Compile Include="Rpc\RpcRequest.cs" />
@@ -143,6 +151,8 @@
     <Compile Include="Rpc\RpcSession.cs" />
     <Compile Include="Rpc\RpcDispatcher.cs" />
     <Compile Include="Rpc\RpcSessionInfoWriter.cs" />
+    <Compile Include="Rpc\RpcSessionInfoReader.cs" />
+    <Compile Include="Rpc\RpcSessionInfo.cs" />
     <Compile Include="Rpc\RpcMethods\RpcPingMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcStatusMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcShutdownMethod.cs" />
@@ -1402,11 +1412,6 @@ rem PrePoMaxCmd is the console subsystem launcher deployed as PrePoMax.com so th
 rem keeps the shell waiting and receives the exit code - see PrePoMaxCmd\Program.cs
 copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)PrePoMax.com"
 IF EXIST "$(TargetDir)PrePoMax.com.config" del "$(TargetDir)PrePoMax.com.config"
-
-rem PrePoMaxMcp is the MCP server an AI agent client starts; it relays to the automation server of
-rem a running PrePoMax over a named pipe - see PrePoMaxMcp\Program.cs
-copy "$(SolutionDir)PrePoMaxMcp\bin\x64\$(ConfigurationName)\PrePoMaxMcp.exe" "$(TargetDir)PrePoMaxMcp.exe"
-rem The config carries the binding redirects the referenced assemblies need
-IF EXIST "$(SolutionDir)PrePoMaxMcp\bin\x64\$(ConfigurationName)\PrePoMaxMcp.exe.config" copy "$(SolutionDir)PrePoMaxMcp\bin\x64\$(ConfigurationName)\PrePoMaxMcp.exe.config" "$(TargetDir)PrePoMaxMcp.exe.config"</PostBuildEvent>
+</PostBuildEvent>
   </PropertyGroup>
 </Project>

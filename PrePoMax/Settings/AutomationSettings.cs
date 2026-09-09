@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using System.Runtime.Serialization;
 using CaeGlobals;
 
 namespace PrePoMax
@@ -19,10 +20,18 @@ namespace PrePoMax
     public class AutomationSettings : ISettings
     {
         // Variables                                                                                                                
+        public const int DefaultPort = 8756;
+        public const int MinPort = 1024;
+        public const int MaxPort = 65535;
+        // How far above the wanted port the server looks when it is taken. A predictable small range,
+        // so that the address stays something the user can write into a client configuration
+        public const int PortProbeCount = 16;
         private bool _startWithApplication;
         private bool _isReadOnly;
         private bool _echoToPythonPanel;
         private int _requestTimeout;
+        private int _port;
+        private string _accessToken;
 
 
         // Properties                                                                                                               
@@ -46,6 +55,19 @@ namespace PrePoMax
             get { return _requestTimeout; }
             set { _requestTimeout = Math.Min(600, Math.Max(5, value)); }
         }
+        public int Port
+        {
+            get { return _port; }
+            set { _port = Math.Min(MaxPort, Math.Max(MinPort, value)); }
+        }
+        // What a client sends to prove it is the client the user configured. It is empty until the
+        // endpoint first needs one, and it is written into the session file so that a client which can
+        // read that file needs no configuration at all
+        public string AccessToken
+        {
+            get { return _accessToken == null ? "" : _accessToken; }
+            set { _accessToken = value == null ? "" : value.Trim(); }
+        }
 
 
         // Constructors                                                                                                             
@@ -59,12 +81,23 @@ namespace PrePoMax
         public void CheckValues()
         {
         }
+        // The port and the token were added after the settings file format was already in use, and
+        // deserialization does not run the constructor, so a file written by an older version leaves
+        // the port at zero rather than at its default
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (_port < MinPort || _port > MaxPort) _port = DefaultPort;
+            if (_accessToken == null) _accessToken = "";
+        }
         public void Reset()
         {
             _startWithApplication = false;
             _isReadOnly = false;
             _echoToPythonPanel = true;
             _requestTimeout = 30;
+            _port = DefaultPort;
+            _accessToken = "";
         }
     }
 }

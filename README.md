@@ -45,6 +45,38 @@ See [Licenses/README.md](Licenses/README.md) for the full inventory, the corresp
 obligation, and the handful of libraries bundled with the OpenCASCADE distribution whose terms are
 still to be established.
 
+# Driving PrePoMax from an AI agent
+
+PrePoMax serves an MCP endpoint itself, on this computer only, while its automation server is on. An
+agent client connects to an address rather than starting a process, so nothing is left running when
+PrePoMax is closed.
+
+1. In PrePoMax, switch on **Tools - Automation Server**, or leave it on with
+   **Tools - Settings - Automation - Start with the application**.
+2. Read the address and the access token from **Tools - Settings - Automation**, under *Endpoint*.
+3. Point the client at them. For Claude Code:
+
+```bash
+claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
+```
+
+The token is made the first time the endpoint starts and then kept in the settings of that PrePoMax
+folder, so this is done once. The address contains no path, so moving the folder or unpacking a new
+version leaves the client configuration correct.
+
+**A client that cannot connect means PrePoMax is closed, or its automation server is off.** Nothing
+answers on the address unless the session is open - that is what serving it from the application
+buys - so open PrePoMax and switch the server on. It is worth telling the agent as much in the
+project's own instructions, so that it asks rather than working around it.
+
+An earlier version shipped `PrePoMaxMcp.exe`, a bridge the client started on stdio. It is gone: a
+process the client starts outlives the application it serves, and with PrePoMax closed every open
+agent session still held an idle one. Remove the old `prepomax` entry from the client and add the
+address instead; the tools and their behaviour are unchanged.
+
+`Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
+port, and the pipe the same server also keeps for a client that speaks its protocol directly.
+
 # Structure
 
 The PrePoMax is a solution which consists of 15 projects:
@@ -59,8 +91,6 @@ The PrePoMax is a solution which consists of 15 projects:
 *  PrePoMax: classes for user interface
 *  PrePoMaxCmd: the console subsystem launcher deployed as PrePoMax.com, so that a command line run
    waits and receives the exit code
-*  PrePoMaxMcp: the MCP server an AI agent client starts; it relays to the automation server of a
-   running PrePoMax
 *  STL: classes for stl geometry import
 *  ThreeMF: classes for 3MF geometry export
 *  UserControls: classes for more complex user controls, as model tree view...

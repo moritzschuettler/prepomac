@@ -37,6 +37,8 @@ namespace PrePoMax.Rpc
             writer.WriteValue("protocolVersion", RpcSessionInfoWriter.ProtocolVersion);
             writer.WriteValue("isRunning", server.IsRunning);
             writer.WriteValue("pipeName", server.PipeName == null ? "" : server.PipeName);
+            writer.WriteValue("endpointUrl", server.EndpointUrl);
+            writer.WriteValue("endpointPort", server.EndpointPort);
             writer.WriteValue("startTime", server.StartTime.ToString("s", CultureInfo.InvariantCulture));
             writer.WriteValue("connectionCount", server.ConnectionCount);
             writer.WriteValue("isWindowHidden", server.Form != null && server.Form.IsWindowHidden);

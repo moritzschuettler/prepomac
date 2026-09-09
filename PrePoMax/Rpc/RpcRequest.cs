@@ -44,6 +44,14 @@ namespace PrePoMax.Rpc
 
 
         // Static methods                                                                                                           
+        // Builds a request in process, for a caller that has a method and named arguments rather than
+        // a line. It is not a notification: a caller that waits for the answer has an identity, even
+        // when nothing writes it back out.
+        public static RpcRequest Create(string method, Dictionary<string, object> parameters)
+        {
+            if (string.IsNullOrEmpty(method)) throw new ArgumentNullException("method");
+            return new RpcRequest(method, null, true, parameters);
+        }
         // Reads one line. A line that is not a valid request produces the response that has to be sent
         // instead of it, which is why the failure is a response rather than a message.
         public static bool TryParse(string line, out RpcRequest request, out RpcResponse failure)

@@ -5,6 +5,9 @@
 #nothing else. It builds the model, solves it, reads a result value back, and journals the session
 #it produced - the way an agent would.
 #
+#The tools are reached over the MCP endpoint the application serves itself, on loopback HTTP, at the
+#address the session publishes in its session file.
+#
 #It also checks what a long call does to the rest of the session. A handler runs on the connection
 #it arrived on, the way a --script run drives the controller from a thread pool thread, so a call
 #that takes six seconds must leave the window and the other connections alone. Marshalling the
@@ -17,13 +20,18 @@
 
 import json
 import os
+import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
 
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
+SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
 PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 600
 PREFIX = "Mcp_"
@@ -38,34 +46,58 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-class Bridge(object):
-    """PrePoMaxMcp.exe, driven the way an MCP client drives it."""
+def free_port(first=8800):
+    """A port nothing else holds, so the session lands on the one it is given."""
+    for port in range(first, first + 40):
+        probe = socket.socket()
+        try:
+            probe.bind(("127.0.0.1", port))
+            return port
+        except OSError:
+            continue
+        finally:
+            probe.close()
+    raise Exception("TEST FAILED: no free port to test with")
 
-    def __init__(self, process_id):
-        executable = os.path.join(os.path.dirname(sys.executable), "PrePoMaxMcp.exe")
-        check(os.path.exists(executable), "PrePoMaxMcp.exe is missing from " + os.path.dirname(executable))
-        self.log = open(os.path.join(tempfile.gettempdir(), "mcp_workflow_bridge.log"), "w")
-        self.process = subprocess.Popen([executable, "--pid", str(process_id)],
-                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log)
+
+class Endpoint(object):
+    """The MCP endpoint of the session, driven the way an MCP client drives it."""
+
+    def __init__(self, url, token):
+        self.url = url
+        self.token = token
         self._id = 0
         self.call("initialize", {"protocolVersion": PROTOCOL_VERSION, "capabilities": {},
                                  "clientInfo": {"name": "Test_Mcp_Workflow", "version": "1.0"}})
-        self.process.stdin.write((json.dumps({"jsonrpc": "2.0",
-                                              "method": "notifications/initialized"}) + "\n").encode("utf-8"))
-        self.process.stdin.flush()
+        self.notify("notifications/initialized")
 
-    def call(self, method, parameters=None):
+    def _post(self, message, timeout):
+        request = urllib.request.Request(self.url, data=json.dumps(message).encode("utf-8"), method="POST")
+        request.add_header("Content-Type", "application/json")
+        request.add_header("Authorization", "Bearer " + self.token)
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as answer:
+                return answer.status, answer.read().decode("utf-8")
+        except urllib.error.HTTPError as error:
+            return error.code, error.read().decode("utf-8")
+
+    def call(self, method, parameters=None, timeout=300):
         self._id += 1
         message = {"jsonrpc": "2.0", "id": self._id, "method": method}
         if parameters is not None:
             message["params"] = parameters
-        self.process.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
-        self.process.stdin.flush()
-        line = self.process.stdout.readline()
-        check(line, "the bridge answered nothing to " + method)
-        answer = json.loads(line.decode("utf-8"))
+        status, text = self._post(message, timeout)
+        check(status == 200, method + " answered HTTP " + str(status) + ": " + text)
+        answer = json.loads(text)
         check("error" not in answer, method + " failed: " + str(answer.get("error")))
         return answer["result"]
+
+    def notify(self, method, parameters=None):
+        message = {"jsonrpc": "2.0", "method": method}
+        if parameters is not None:
+            message["params"] = parameters
+        status, text = self._post(message, 60)
+        check(status == 202, method + " answered HTTP " + str(status) + ": " + text)
 
     def tool(self, name, arguments=None):
         result = self.call("tools/call", {"name": name, "arguments": arguments or {}})
@@ -81,19 +113,9 @@ class Bridge(object):
         return self.json_tool("run_python", {"source": source})
 
     def close(self):
-        try:
-            self.process.stdin.close()
-        except (IOError, OSError):
-            pass
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            if self.process.poll() is not None:
-                self.log.close()
-                return self.process.returncode
-            time.sleep(0.1)
-        self.process.kill()
-        self.log.close()
-        return None
+        # There is nothing to shut down: the endpoint is the application, and an HTTP request holds
+        # no connection of its own between calls
+        return 0
 
 
 class PipeProbe(object):
@@ -104,7 +126,7 @@ class PipeProbe(object):
         self._id = 0
         # The listener arms one instance at a time, so a connection that arrives while it is arming
         # the next one is told the pipe is busy. A real client waits for it - that is what
-        # NamedPipeClientStream.Connect does for the bridge - and a raw client has to do it itself
+        # NamedPipeClientStream.Connect does - and a raw client has to do it itself
         deadline = time.time() + timeout
         while True:
             try:
@@ -134,40 +156,54 @@ class PipeProbe(object):
 
 
 class ChildSession(object):
-    """A PrePoMax session with no window of its own, for the bridge to attach to."""
+    """A PrePoMax session with no window of its own, serving its own MCP endpoint."""
 
     def __init__(self, model=None, unit_system="MM_TON_S_C"):
         self.directory = tempfile.mkdtemp(prefix="mcp_flow_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
-        arguments = [sys.executable, "--rpc", "On", "-g", "No", "--noSettingsSave",
-                     "--timeout", str(CHILD_TIMEOUT), "-w", self.directory]
+        arguments = [sys.executable, "--rpc", "On", "--rpcPort", str(free_port()), "-g", "No",
+                     "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT), "-w", self.directory]
         if model is not None:
             arguments += ["-f", os.path.join(MODELS, model), "-u", unit_system]
         self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT)
+        self.info = None
 
-    def wait_until_listening(self, timeout=90.0):
+    @property
+    def path(self):
+        return os.path.join(SESSIONS, str(self.process.pid) + ".json")
+
+    def wait_until_listening(self, timeout=120.0):
+        """The session file is the discovery contract, written once the endpoint is up."""
         deadline = time.time() + timeout
-        name = "\\\\.\\pipe\\PrePoMax." + str(self.process.pid)
         while time.time() < deadline:
-            try:
-                pipe = open(name, "r+b", buffering=0)
-                pipe.close()
-                return
-            except (IOError, OSError):
-                time.sleep(0.1)
-        raise Exception("TEST FAILED: the child session never opened " + name)
+            check(self.process.poll() is None, "the child session exited early")
+            if os.path.exists(self.path):
+                try:
+                    self.info = json.load(open(self.path))
+                    if self.info.get("url"):
+                        return self.info
+                except (ValueError, IOError):
+                    pass
+            time.sleep(0.2)
+        raise Exception("TEST FAILED: no session file appeared at " + self.path)
+
+    def endpoint(self):
+        return Endpoint(self.info["url"], self.info["token"])
 
     def close(self):
-        self.process.kill()
+        if self.process.poll() is None:
+            self.process.kill()
+            self.process.wait()
         self.log.close()
+        shutil.rmtree(self.directory, ignore_errors=True)
 
 
-def wait_until_idle(bridge, timeout=120.0):
+def wait_until_idle(endpoint, timeout=120.0):
     """The server answers before the file on the command line is open, and says so until it is."""
     deadline = time.time() + timeout
     reason = ""
     while time.time() < deadline:
-        status = bridge.json_tool("get_status")
+        status = endpoint.json_tool("get_status")
         if status["isIdle"]:
             return
         reason = status["busyReason"]
@@ -175,37 +211,37 @@ def wait_until_idle(bridge, timeout=120.0):
     raise Exception("TEST FAILED: the session stayed busy: " + reason)
 
 
-def build_the_model(bridge):
+def build_the_model(endpoint):
     """Everything a static analysis needs, one agent call per step of the work."""
-    model = bridge.json_tool("read_model")
+    model = endpoint.json_tool("read_model")
     check(model["parts"], "the mesh must have been imported: " + str(model["parts"]))
     # A snapshot that could not read something says so rather than reporting it as empty
     check(model["unreadable"] == [], "read_model could not read: " + str(model["unreadable"]))
     print("read_model: part " + str(model["parts"][0]) + ", " + str(model["properties"]["unit_system"]))
     # An agent looks the call up before it writes it
-    described = bridge.json_tool("describe_api", {"path": "pmx.model.materials"})
+    described = endpoint.json_tool("describe_api", {"path": "pmx.model.materials"})
     names = [member["name"] for member in described["members"]]
     check("add" in names, "the material collection must describe add: " + str(names))
     #
-    result = bridge.python("pmx.model.materials.add('" + PREFIX + "Steel', "
+    result = endpoint.python("pmx.model.materials.add('" + PREFIX + "Steel', "
                            "[pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])")
     check(result["recordedCommands"] == ["CAddMaterial"],
           "the material must be one command: " + str(result["recordedCommands"]))
     #
-    bridge.python("part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts', "
+    endpoint.python("part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts', "
                   "[pmx.model.parts.first().id])" + os.linesep +
                   "pmx.model.sections.add_solid('" + PREFIX + "Section', '" + PREFIX + "Steel', "
                   "part_selection)")
     # The cube is a single hexahedron: nodes 1 to 4 are the bottom face, 5 to 8 the top one
-    bridge.python("pmx.model.node_sets.add('" + PREFIX + "Bottom', "
+    endpoint.python("pmx.model.node_sets.add('" + PREFIX + "Bottom', "
                   "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))")
-    bridge.python("step = pmx.model.steps.add_static('" + STEP + "', time_period=1.0)" + os.linesep +
+    endpoint.python("step = pmx.model.steps.add_static('" + STEP + "', time_period=1.0)" + os.linesep +
                   "step.bcs.add_fixed('" + PREFIX + "Fix', "
                   "pmx.create.region('NodeSetName', '" + PREFIX + "Bottom'))" + os.linesep +
                   "step.loads.add_concentrated_force('" + PREFIX + "Force', "
                   "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5, 6, 7, 8]), f3=-1000)")
     #
-    model = bridge.json_tool("read_model")
+    model = endpoint.json_tool("read_model")
     check(PREFIX + "Steel" in model["materials"], "the material is missing: " + str(model["materials"]))
     check(PREFIX + "Section" in model["sections"], "the section is missing: " + str(model["sections"]))
     check(STEP in model["steps"], "the step is missing: " + str(model["steps"]))
@@ -215,30 +251,30 @@ def build_the_model(bridge):
     print("built: material, section, node set, step, bc and load, all through run_python")
 
 
-def solve(bridge):
+def solve(endpoint):
     """The analysis, started without waiting and polled the way an agent has to poll it."""
-    bridge.python("pmx.jobs.add('" + JOB + "')")
+    endpoint.python("pmx.jobs.add('" + JOB + "')")
     started = time.time()
-    result = bridge.json_tool("run_job", {"name": JOB})
+    result = endpoint.json_tool("run_job", {"name": JOB})
     check(not result["failed"], "the analysis could not be started: " + result["error"])
     print("run_job: returned in %.1f s, recorded %s" % (time.time() - started, result["recordedCommands"]))
     #
     deadline = time.time() + 300
     status = None
     while time.time() < deadline:
-        status = bridge.json_tool("get_job", {"name": JOB})["value"]["status"]
+        status = endpoint.json_tool("get_job", {"name": JOB})["value"]["status"]
         if status not in ("None", "InQueue", "Running"):
             break
         time.sleep(0.5)
     check(status == "OK", "the analysis did not succeed, got " + str(status) + "\n" +
-          bridge.json_tool("get_job", {"name": JOB, "include_output": True})["value"].get("output", ""))
+          endpoint.json_tool("get_job", {"name": JOB, "include_output": True})["value"].get("output", ""))
     print("get_job: %s after %.1f s" % (status, time.time() - started))
 
 
-def read_the_result(bridge):
+def read_the_result(endpoint):
     """The value the whole workflow exists to produce."""
-    bridge.python("pmx.jobs.open_results('" + JOB + "')")
-    value = bridge.json_tool("eval_expression", {"expression":
+    endpoint.python("pmx.jobs.open_results('" + JOB + "')")
+    value = endpoint.json_tool("eval_expression", {"expression":
         "[pmx.results.current.get_nodal_value("
         "list(pmx.results.current.steps.get_ids())[0], "
         "list(pmx.results.current.steps[list(pmx.results.current.steps.get_ids())[0]]"
@@ -250,9 +286,9 @@ def read_the_result(bridge):
     print("result: the fixed node is at %g, the loaded node at %g" % (fixed, loaded))
 
 
-def journal_the_session(bridge):
+def journal_the_session(endpoint):
     """What the agent did, as the script a user would have written."""
-    history = bridge.json_tool("get_history", {"include_journal": True})
+    history = endpoint.json_tool("get_history", {"include_journal": True})
     journal = history["journal"]
     check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
     check(journal["emittedCommandCount"] == history["commandCount"],
@@ -264,21 +300,21 @@ def journal_the_session(bridge):
     print("get_history: %d commands journalled into %d lines of Python"
           % (history["commandCount"], len(source.splitlines())))
     #
-    result = bridge.json_tool("screenshot")
+    result = endpoint.json_tool("screenshot")
     check(os.path.exists(result["fileName"]), "the screenshot is missing: " + result["fileName"])
     os.remove(result["fileName"])
     print("screenshot: " + result["length"] + " bytes of the solved model")
 
 
-def check_a_fast_call_does_not_mark_the_session_busy(bridge):
+def check_a_fast_call_does_not_mark_the_session_busy(endpoint):
     """The state is only worth showing for a call that lasts, so a fast one must not touch it."""
-    bridge.python("fast_call_probe = 1 + 1")
-    status = bridge.json_tool("get_status")
+    endpoint.python("fast_call_probe = 1 + 1")
+    status = endpoint.json_tool("get_status")
     check(status["isIdle"], "a fast call must leave the session idle: " + status["busyReason"])
     print("fast call: the session stayed idle")
 
 
-def check_a_long_call_blocks_nothing(session, bridge):
+def check_a_long_call_blocks_nothing(session, endpoint):
     """A long call must mark itself busy, and leave the window and the other connections alone.
 
     It runs on the connection it arrived on, so the thread that owns the window stays free: ping is
@@ -319,7 +355,7 @@ def check_a_long_call_blocks_nothing(session, bridge):
         # A sleep is the honest proxy for a mesher: it holds the thread and nothing else
         source = "import time" + os.linesep + "time.sleep(" + str(LONG_CALL_SECONDS) + ")"
         threading.Timer(1.0, waiter.start).start()
-        bridge.python(source)
+        endpoint.python(source)
         elapsed = time.time() - started
     finally:
         stop.set()
@@ -346,27 +382,27 @@ def check_a_long_call_blocks_nothing(session, bridge):
           % waited)
     print("long call: while it ran the session reported busy - " + status["busyReason"])
     # And the state is given back
-    after = bridge.json_tool("get_status")
+    after = endpoint.json_tool("get_status")
     check(after["isIdle"], "the state must be given back when the call ends: " + after["busyReason"])
     print("long call: the state was given back")
 
 
 def run_the_workflow():
     session = ChildSession("cube.inp")
-    bridge = None
+    endpoint = None
     try:
         session.wait_until_listening()
-        bridge = Bridge(session.process.pid)
-        wait_until_idle(bridge)
-        build_the_model(bridge)
-        solve(bridge)
-        read_the_result(bridge)
-        journal_the_session(bridge)
-        check_a_fast_call_does_not_mark_the_session_busy(bridge)
-        check_a_long_call_blocks_nothing(session, bridge)
+        endpoint = session.endpoint()
+        wait_until_idle(endpoint)
+        build_the_model(endpoint)
+        solve(endpoint)
+        read_the_result(endpoint)
+        journal_the_session(endpoint)
+        check_a_fast_call_does_not_mark_the_session_busy(endpoint)
+        check_a_long_call_blocks_nothing(session, endpoint)
     finally:
-        if bridge is not None:
-            bridge.close()
+        if endpoint is not None:
+            endpoint.close()
         session.close()
 
 

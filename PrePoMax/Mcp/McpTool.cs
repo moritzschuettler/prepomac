@@ -9,7 +9,7 @@
 
 using System;
 
-namespace PrePoMaxMcp
+namespace PrePoMax.Mcp
 {
     // One tool as an agent sees it. The schema is written as JSON rather than built from a type,
     // because it is documentation for a reader that has to get the call right first time.

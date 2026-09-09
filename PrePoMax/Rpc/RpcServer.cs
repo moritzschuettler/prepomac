@@ -19,10 +19,14 @@ using System.Windows.Forms;
 
 namespace PrePoMax.Rpc
 {
-    // The automation server. It listens on a named pipe that only the user running PrePoMax may open,
-    // and hands every accepted connection to an RpcSession on its own thread. It never touches the
-    // model itself: a handler reaches the application through the dispatcher, which marshals to the
-    // user interface thread.
+    // The automation server. It serves two fronts onto one dispatcher: the MCP endpoint an agent
+    // client connects to, on loopback HTTP, and a named pipe that only the user running PrePoMax may
+    // open, for a client that speaks the protocol directly. It never touches the model itself - a
+    // handler reaches the application through the dispatcher - and neither front owns a handler of
+    // its own.
+    //
+    // Both go up and down together, on the one switch the user has: an endpoint that is open while
+    // nobody is looking is the thing this server may not become.
     public class RpcServer
     {
         // Variables                                                                                                                
@@ -33,6 +37,7 @@ namespace PrePoMax.Rpc
         private readonly RpcUiThread _uiThread;
         private readonly object _connectionLock;
         private readonly List<RpcSession> _sessions;
+        private readonly Mcp.McpHttpServer _httpServer;
         private string _pipeName;
         private DateTime _startTime;
         private Thread _listener;
@@ -46,6 +51,9 @@ namespace PrePoMax.Rpc
         // Properties                                                                                                               
         public bool IsRunning { get { return _isRunning; } }
         public string PipeName { get { return _pipeName; } }
+        public Mcp.McpHttpServer HttpServer { get { return _httpServer; } }
+        public string EndpointUrl { get { return _httpServer.EndpointUrl; } }
+        public int EndpointPort { get { return _httpServer.Port; } }
         public DateTime StartTime { get { return _startTime; } }
         public string LastError { get { return _lastError; } }
         public Controller Controller { get { return _controller; } }
@@ -89,6 +97,7 @@ namespace PrePoMax.Rpc
             _dispatcher = new RpcDispatcher(this);
             _connectionLock = new object();
             _sessions = new List<RpcSession>();
+            _httpServer = new Mcp.McpHttpServer(this);
             _pipeName = null;
             _startTime = DateTime.MinValue;
             _listener = null;
@@ -104,6 +113,9 @@ namespace PrePoMax.Rpc
         public void Start()
         {
             if (_isRunning) return;
+            // The endpoint is opened first, so that a port which cannot be had leaves nothing running
+            // and nothing to stop: the caller is told, and a manual start says so in a dialog
+            _httpServer.Start();
             //
             _pipeName = RpcSessionInfoWriter.GetPipeName();
             _startTime = DateTime.Now;
@@ -115,7 +127,8 @@ namespace PrePoMax.Rpc
             _listener.Name = "PrePoMax automation server";
             _listener.Start();
             //
-            RpcSessionInfoWriter.Write(_controller == null ? null : _controller.OpenedFileName, _startTime);
+            RpcSessionInfoWriter.Write(_controller == null ? null : _controller.OpenedFileName, _startTime,
+                                       _httpServer.EndpointUrl, _httpServer.Port, _httpServer.AccessToken);
             OnStateChanged();
         }
         public void Stop()
@@ -137,6 +150,7 @@ namespace PrePoMax.Rpc
             lock (_connectionLock) sessions = new List<RpcSession>(_sessions);
             foreach (RpcSession session in sessions) session.Close();
             //
+            _httpServer.Stop();
             RpcSessionInfoWriter.Remove();
             _pipeName = null;
             OnStateChanged();

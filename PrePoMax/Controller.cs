@@ -168,6 +168,14 @@ namespace PrePoMax
         {
             _commands.UnblockCommands();
         }
+        // The endpoint cannot serve without a token, and a portable copy that has never served has
+        // none. It is remembered the way any other choice is, so that a client is configured once and
+        // keeps working the next time the application is opened
+        public void SaveAutomationAccessToken(string accessToken)
+        {
+            _settings.Automation.AccessToken = accessToken;
+            _settings.SaveToFile();
+        }
         public string RegenerationWorkDirectory
         {
             get { return _settings.GetRegenerationWorkDirectory(); }

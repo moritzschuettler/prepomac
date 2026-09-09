@@ -9,11 +9,11 @@
 
 using System;
 
-namespace PrePoMaxMcp
+namespace PrePoMax.Mcp
 {
-    // Something the agent has to be told about rather than a failure of the bridge itself: no session
-    // to attach to, a server that is off, a connection that dropped. Every message here is written to
-    // be read by an agent that has to decide what to do next.
+    // Something the agent has to be told about rather than a failure of the endpoint itself: a tool
+    // argument that is missing, a session it named that is not this one, Python that raised. Every
+    // message here is written to be read by an agent that has to decide what to do next.
     public class McpException : Exception
     {
         // Constructors                                                                                                             

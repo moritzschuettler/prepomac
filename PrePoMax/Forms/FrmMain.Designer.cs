@@ -556,6 +556,7 @@ namespace PrePoMax
             this.tsmiConvertOdbToFrd = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerTools4 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAutomationServer = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAutomationAccessToken = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHelp = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHelpAdvisor = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHomePage = new System.Windows.Forms.ToolStripMenuItem();
@@ -4728,7 +4729,8 @@ namespace PrePoMax
             this.tsmiBidirectionalMeshConverter,
             this.tsmiConvertOdbToFrd,
             this.tsmiDividerTools4,
-            this.tsmiAutomationServer});
+            this.tsmiAutomationServer,
+            this.tsmiAutomationAccessToken});
             this.tsmiTools.Name = "tsmiTools";
             this.tsmiTools.Size = new System.Drawing.Size(47, 20);
             this.tsmiTools.Text = "Tools";
@@ -4850,6 +4852,13 @@ namespace PrePoMax
             this.tsmiAutomationServer.Size = new System.Drawing.Size(227, 22);
             this.tsmiAutomationServer.Text = "Automation Server";
             this.tsmiAutomationServer.Click += new System.EventHandler(this.tsmiAutomationServer_Click);
+            //
+            // tsmiAutomationAccessToken
+            //
+            this.tsmiAutomationAccessToken.Name = "tsmiAutomationAccessToken";
+            this.tsmiAutomationAccessToken.Size = new System.Drawing.Size(227, 22);
+            this.tsmiAutomationAccessToken.Text = "Regenerate Automation Token";
+            this.tsmiAutomationAccessToken.Click += new System.EventHandler(this.tsmiAutomationAccessToken_Click);
             // 
             // tsmiHelp
             // 
@@ -5815,6 +5824,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertOdbToFrd;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools4;
         private System.Windows.Forms.ToolStripMenuItem tsmiAutomationServer;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAutomationAccessToken;
         private System.Windows.Forms.ToolStripMenuItem tsmiMirrorModelParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiBoxZoom;
         private System.Windows.Forms.ToolStripButton tsbBoxZoom;

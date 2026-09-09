@@ -67,6 +67,47 @@ namespace PrePoMax.Settings
             get { return _automationSettings.RequestTimeout; }
             set { _automationSettings.RequestTimeout = value; }
         }
+        //
+        [CategoryAttribute("Endpoint")]
+        [OrderedDisplayName(0, 10, "Port")]
+        [DescriptionAttribute("Set the port the MCP endpoint listens on. It listens on this computer only. When the " +
+                              "port is taken - by another PrePoMax, or by another program - the endpoint takes the " +
+                              "first free port above it and says which one in the output.")]
+        [Id(1, 2)]
+        public int Port
+        {
+            get { return _automationSettings.Port; }
+            set { _automationSettings.Port = value; }
+        }
+        //
+        [CategoryAttribute("Endpoint")]
+        [OrderedDisplayName(1, 10, "Address")]
+        [DescriptionAttribute("The address to give the AI agent client. It answers only while PrePoMax is open with " +
+                              "its automation server on, so a client that cannot connect is telling you that " +
+                              "PrePoMax is closed or that the server is off - turn it on in Tools - Automation " +
+                              "Server, or leave it on with Start with the application.")]
+        [ReadOnly(true)]
+        [Id(2, 2)]
+        public string Endpoint
+        {
+            get { return Mcp.McpHttpServer.GetEndpointUrl(_automationSettings.Port); }
+            set { }
+        }
+        //
+        [CategoryAttribute("Endpoint")]
+        [OrderedDisplayName(2, 10, "Access token")]
+        [DescriptionAttribute("The token the client sends in an Authorization: Bearer header. It is made the first " +
+                              "time the endpoint starts and then kept, so a client is configured once. Anything " +
+                              "running as you can read it, exactly as anything running as you can drive PrePoMax; " +
+                              "what it stops is a web page and another account on this computer. Replace it from " +
+                              "Tools - Automation Server - Regenerate the access token.")]
+        [ReadOnly(true)]
+        [Id(3, 2)]
+        public string AccessToken
+        {
+            get { return _automationSettings.AccessToken; }
+            set { }
+        }
 
 
         // Constructors                                                                                                             

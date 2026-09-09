@@ -13,28 +13,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
-namespace PrePoMaxMcp
+namespace PrePoMax.Rpc
 {
-    // Finds the running instances. Each one writes a file named after its process id when its server
-    // starts and removes it when the server stops, so a file left by a crash is recognized rather
-    // than trusted: the process it names no longer exists.
-    public static class SessionLocator
+    // Finds the instances that are listening. Each one writes a file named after its process id when
+    // its server starts and removes it when the server stops, so a file left by a crash is recognized
+    // rather than trusted: the process it names no longer exists.
+    //
+    // The reader lives next to the writer because the only thing that reads these files is now the
+    // application itself, answering list_sessions for an agent that has reached one instance and asks
+    // what else is open. The folder is per user, so it holds every portable copy the user runs.
+    public static class RpcSessionInfoReader
     {
-        // Variables                                                                                                                
-        private const string ApplicationFolderName = "PrePoMax";
-        private const string SessionsFolderName = "sessions";
-
-
         // Static methods                                                                                                           
-        public static string GetSessionsDirectory()
+        public static List<RpcSessionInfo> GetSessions()
         {
-            string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(Path.Combine(root, ApplicationFolderName), SessionsFolderName);
-        }
-        public static List<SessionInfo> GetSessions()
-        {
-            List<SessionInfo> sessions = new List<SessionInfo>();
-            string directory = GetSessionsDirectory();
+            List<RpcSessionInfo> sessions = new List<RpcSessionInfo>();
+            string directory = RpcSessionInfoWriter.GetSessionsDirectory();
             if (!Directory.Exists(directory)) return sessions;
             //
             string[] fileNames;
@@ -48,7 +42,7 @@ namespace PrePoMaxMcp
             }
             foreach (string fileName in fileNames)
             {
-                SessionInfo session = Read(fileName);
+                RpcSessionInfo session = Read(fileName);
                 if (session == null) continue;
                 if (!IsAlive(session.ProcessId))
                 {
@@ -59,7 +53,15 @@ namespace PrePoMaxMcp
             }
             return sessions;
         }
-        private static SessionInfo Read(string fileName)
+        public static RpcSessionInfo Find(int processId)
+        {
+            foreach (RpcSessionInfo session in GetSessions())
+            {
+                if (session.ProcessId == processId) return session;
+            }
+            return null;
+        }
+        private static RpcSessionInfo Read(string fileName)
         {
             try
             {
@@ -68,14 +70,17 @@ namespace PrePoMaxMcp
                 if (!JsonReader.TryParse(File.ReadAllText(fileName), out document, out error)) return null;
                 //
                 int processId = JsonReader.GetInt(document, "processId", 0);
-                string pipeName = JsonReader.GetString(document, "pipeName", null);
-                if (processId <= 0 || pipeName == null) return null;
+                if (processId <= 0) return null;
                 //
-                return new SessionInfo(processId, pipeName,
-                                       JsonReader.GetString(document, "protocolVersion", ""),
-                                       JsonReader.GetString(document, "applicationVersion", ""),
-                                       JsonReader.GetString(document, "modelFileName", ""),
-                                       JsonReader.GetString(document, "startTime", ""));
+                return new RpcSessionInfo(processId,
+                                          JsonReader.GetString(document, "pipeName", ""),
+                                          JsonReader.GetString(document, "url", ""),
+                                          JsonReader.GetInt(document, "port", 0),
+                                          JsonReader.GetString(document, "token", ""),
+                                          JsonReader.GetString(document, "protocolVersion", ""),
+                                          JsonReader.GetString(document, "applicationVersion", ""),
+                                          JsonReader.GetString(document, "modelFileName", ""),
+                                          JsonReader.GetString(document, "startTime", ""));
             }
             catch (Exception)
             {
@@ -87,7 +92,7 @@ namespace PrePoMaxMcp
             try
             {
                 // GetProcessById still finds a process that has exited while somebody holds a
-                // handle to it - the client that started it, for instance - so it is not enough
+                // handle to it, so it is not enough on its own
                 using (Process process = Process.GetProcessById(processId))
                 {
                     return !process.HasExited;
@@ -111,7 +116,7 @@ namespace PrePoMaxMcp
             }
             catch (Exception)
             {
-                // Another client may be pruning the same file
+                // Another reader may be pruning the same file
             }
         }
     }

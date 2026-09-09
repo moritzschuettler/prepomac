@@ -8,18 +8,20 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Rpc;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
-namespace PrePoMaxMcp
+namespace PrePoMax.Mcp
 {
-    // The tools, and what each one sends to the automation server. The list is deliberately short:
+    // The tools, and what each one asks the automation server for. The list is deliberately short:
     // the model surface is the Python API, which an agent writes directly through run_python and
     // learns through describe_api, so a tool per API member would be both impossible to list and a
     // second front door free to drift from the first.
     //
-    // A tool that is not a protocol primitive is a piece of Python this bridge sends - read_model is
+    // A tool that is not a protocol primitive is a piece of Python the catalog holds - read_model is
     // one - so a new tool costs a string here and no change to the application.
     public static class McpToolCatalog
     {
@@ -35,10 +37,11 @@ namespace PrePoMaxMcp
             //
             _tools = new List<McpTool>();
             _tools.Add(new McpTool("list_sessions", "List PrePoMax sessions",
-                "Lists the running PrePoMax instances that have their automation server on. Call this first when a " +
-                "tool reports that there is no session, or when the user has more than one PrePoMax open. Every " +
-                "other tool takes the process id of the session it should act on; with exactly one session running " +
-                "it may be left out.",
+                "Lists the running PrePoMax instances that have their automation server on, each with the URL it " +
+                "answers on, and marks the one this connection reaches. Every tool here acts on that one session - " +
+                "the URL is the address, so there is nothing to switch. Call this when the user has more than one " +
+                "PrePoMax open, and tell them which URL to point the client at; do not try to reach another " +
+                "session yourself.",
                 NoArguments, true));
             _tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
@@ -141,25 +144,28 @@ namespace PrePoMaxMcp
             }
             return null;
         }
-        // Sends what the tool asks for and returns the text of the answer
-        public static string Execute(string name, object arguments, PipeClient client)
+        // Asks for what the tool needs and returns the text of the answer
+        public static string Execute(string name, object arguments, RpcDispatcher dispatcher)
         {
-            if (name == "get_status") return CallAndPrint(client, "status", null);
+            // The directory is the one tool that is not about this session, so it is answered before
+            // the assertion that the call reached the session it meant
+            if (name == "list_sessions") return ListSessions();
+            AssertSession(arguments);
+            //
+            if (name == "get_status") return Call(dispatcher, "status", null);
             if (name == "describe_api")
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 string path = JsonReader.GetString(arguments, "path", null);
                 if (path != null) parameters.Add("path", path);
-                return CallAndPrint(client, "describe", parameters);
+                return Call(dispatcher, "describe", parameters);
             }
-            // The snapshot is what the script printed, so it is returned as it was printed rather
-            // than wrapped in the answer of the call that ran it
-            if (name == "read_model") return CallAndReadOutput(client, McpModelScript.Source);
+            if (name == "read_model") return CallAndReadOutput(dispatcher, McpModelScript.Source);
             if (name == "eval_expression")
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("expression", RequireString(arguments, "expression"));
-                return CallAndPrint(client, "eval", parameters);
+                return Call(dispatcher, "eval", parameters);
             }
             if (name == "run_python")
             {
@@ -167,7 +173,7 @@ namespace PrePoMaxMcp
                 parameters.Add("source", RequireString(arguments, "source"));
                 string record = JsonReader.GetString(arguments, "record", null);
                 if (record != null) parameters.Add("record", record);
-                return CallAndPrint(client, "exec", parameters);
+                return Call(dispatcher, "exec", parameters);
             }
             if (name == "get_history")
             {
@@ -175,13 +181,13 @@ namespace PrePoMaxMcp
                 parameters.Add("include_journal", JsonReader.GetBool(arguments, "include_journal", false));
                 if (JsonReader.HasItem(arguments, "limit"))
                     parameters.Add("limit", JsonReader.GetInt(arguments, "limit", 200));
-                return CallAndPrint(client, "history", parameters);
+                return Call(dispatcher, "history", parameters);
             }
             if (name == "run_job")
             {
                 string jobName = RequireString(arguments, "name");
                 string source = "pmx.jobs[" + Quote(jobName) + "].run(wait=False)";
-                return CallAndPrint(client, "exec", ExecArguments(source));
+                return Call(dispatcher, "exec", ExecArguments(source));
             }
             if (name == "get_job")
             {
@@ -194,30 +200,29 @@ namespace PrePoMaxMcp
                                       "pmx.jobs[" + Quote(jobName) + "].is_up_to_date}";
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("expression", expression);
-                return CallAndPrint(client, "eval", parameters);
+                return Call(dispatcher, "eval", parameters);
             }
             if (name == "screenshot")
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 string fileName = JsonReader.GetString(arguments, "file_name", null);
                 if (fileName != null) parameters.Add("file_name", fileName);
-                return CallAndPrint(client, "screenshot", parameters);
+                return Call(dispatcher, "screenshot", parameters);
             }
             throw new McpException("There is no tool named " + name + ".");
         }
-        private static string CallAndReadOutput(PipeClient client, string source)
+        // The snapshot is what the script printed, so it is returned as it was printed rather than
+        // wrapped in the answer of the call that ran it
+        private static string CallAndReadOutput(RpcDispatcher dispatcher, string source)
         {
-            object answer = client.Call("exec", ExecArguments(source));
-            Dictionary<string, object> error = JsonReader.GetObject(answer, "error");
-            if (error != null)
-            {
-                throw new McpException(JsonReader.GetString(error, "name", "Error") + ": " +
-                                       JsonReader.GetString(error, "message", ""));
-            }
-            object result = JsonReader.GetObject(answer, "result");
-            if (JsonReader.GetBool(result, "failed", false))
-                throw new McpException(JsonReader.GetString(result, "error", "The script failed."));
-            return JsonReader.GetString(result, "output", "");
+            string result = Invoke(dispatcher, "exec", ExecArguments(source));
+            object document;
+            string error;
+            if (!JsonReader.TryParse(result, out document, out error)) return result;
+            //
+            if (JsonReader.GetBool(document, "failed", false))
+                throw new McpException(JsonReader.GetString(document, "error", "The script failed."));
+            return JsonReader.GetString(document, "output", "");
         }
         private static Dictionary<string, object> ExecArguments(string source)
         {
@@ -225,23 +230,94 @@ namespace PrePoMaxMcp
             parameters.Add("source", source);
             return parameters;
         }
-        private static string CallAndPrint(PipeClient client, string method, Dictionary<string, object> parameters)
+        private static string Call(RpcDispatcher dispatcher, string method, Dictionary<string, object> parameters)
         {
-            object answer = client.Call(method, parameters);
-            Dictionary<string, object> error = JsonReader.GetObject(answer, "error");
-            if (error != null)
-            {
-                string errorName = JsonReader.GetString(error, "name", "Error");
-                string message = JsonReader.GetString(error, "message", "");
-                throw new McpException(errorName + ": " + message);
-            }
-            object result = JsonReader.GetObject(answer, "result");
-            if (result == null) return "{}";
-            string text = JsonValuePrinter.Write(result);
+            string result = Invoke(dispatcher, method, parameters);
             // Python that failed is reported as a failed tool call, with the whole answer as the
             // text: the traceback is in it, and so is what was recorded before it failed
-            if (JsonReader.GetBool(result, "failed", false)) throw new McpException(text);
-            return text;
+            if (IsFailed(result)) throw new McpException(result);
+            return result;
+        }
+        // The one place the endpoint reaches the application, and it reaches it through the dispatcher
+        // the named pipe reaches it through. A refusal keeps the name the protocol gave it, so an
+        // agent reads the same Busy or ApiError text whichever front it came in by
+        private static string Invoke(RpcDispatcher dispatcher, string method,
+                                     Dictionary<string, object> parameters)
+        {
+            if (dispatcher == null) throw new McpException("The automation server is not running.");
+            //
+            try
+            {
+                string result = dispatcher.Invoke(RpcRequest.Create(method, parameters));
+                return string.IsNullOrEmpty(result) ? "{}" : result;
+            }
+            catch (RpcException exception)
+            {
+                throw new McpException(RpcErrorCode.GetName(exception.Code) + ": " + exception.Message);
+            }
+            catch (PromptRefusedException exception)
+            {
+                throw new McpException(RpcErrorCode.GetName(RpcErrorCode.PromptRefused) + ": " +
+                                       exception.Message);
+            }
+            catch (APIs.Python.PythonAPIException exception)
+            {
+                throw new McpException(RpcErrorCode.GetName(RpcErrorCode.ApiError) + ": " + exception.Message);
+            }
+        }
+        private static bool IsFailed(string result)
+        {
+            object document;
+            string error;
+            if (!JsonReader.TryParse(result, out document, out error)) return false;
+            return JsonReader.GetBool(document, "failed", false);
+        }
+        // The directory of what the user has open. The access token of a session is deliberately not
+        // in it: an agent never needs it, and a tool result is read and stored in places a token
+        // should not reach
+        private static string ListSessions()
+        {
+            List<RpcSessionInfo> sessions = RpcSessionInfoReader.GetSessions();
+            int current = Process.GetCurrentProcess().Id;
+            JsonWriter writer = new JsonWriter();
+            writer.BeginObject();
+            writer.WriteValue("count", sessions.Count);
+            writer.BeginArray("sessions");
+            foreach (RpcSessionInfo session in sessions)
+            {
+                writer.BeginObject();
+                writer.WriteValue("processId", session.ProcessId);
+                writer.WriteValue("isThisSession", session.ProcessId == current);
+                writer.WriteValue("url", session.EndpointUrl);
+                writer.WriteValue("port", session.Port);
+                writer.WriteValue("applicationVersion", session.ApplicationVersion);
+                writer.WriteValue("protocolVersion", session.ProtocolVersion);
+                writer.WriteValue("modelFileName", session.ModelFileName);
+                writer.WriteValue("startTime", session.StartTime);
+                writer.EndObject();
+            }
+            writer.EndArray();
+            writer.EndObject();
+            return writer.ToString();
+        }
+        // This endpoint can only ever answer for its own model, so a process id is an assertion rather
+        // than a route: a call that names another instance is refused with the address that would have
+        // served it, instead of quietly changing a third model
+        private static void AssertSession(object arguments)
+        {
+            int processId = JsonReader.GetInt(arguments, "process_id", 0);
+            if (processId <= 0) return;
+            //
+            int current = Process.GetCurrentProcess().Id;
+            if (processId == current) return;
+            //
+            RpcSessionInfo session = RpcSessionInfoReader.Find(processId);
+            string where = session == null || session.EndpointUrl.Length == 0
+                           ? "no PrePoMax with that process id is listening"
+                           : "it answers on " + session.EndpointUrl;
+            throw new McpException("This URL serves PrePoMax process " + current + ", not process " + processId +
+                                   " - " + where + ". Call list_sessions for the sessions that are open, and ask " +
+                                   "the user to point the client at the URL of the one they mean.");
         }
         private static string RequireString(object arguments, string name)
         {
@@ -264,8 +340,9 @@ namespace PrePoMaxMcp
             schema.Append("{\"type\": \"object\", \"properties\": {");
             if (properties != null) schema.Append(properties).Append(", ");
             schema.Append("\"process_id\": {\"type\": \"integer\", \"description\": ");
-            schema.Append("\"The process id of the PrePoMax session to act on, from list_sessions. ");
-            schema.Append("Only needed when more than one is running.\"}}");
+            schema.Append("\"The process id this call expects to reach, from list_sessions. It is checked, not ");
+            schema.Append("routed: this URL serves one session, so a call naming another one is refused rather ");
+            schema.Append("than served against the wrong model. Leave it out unless you mean to assert.\"}}");
             if (required != null) schema.Append(", \"required\": [").Append(required).Append("]");
             schema.Append("}");
             return schema.ToString();

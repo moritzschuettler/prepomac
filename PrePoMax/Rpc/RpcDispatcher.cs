@@ -40,15 +40,7 @@ namespace PrePoMax.Rpc
         {
             try
             {
-                // A method that only reports is answered while another one is still working, so a
-                // client can always ask what is going on; anything that reaches the model waits its
-                // turn, whichever connection it arrived on
-                if (!IsSerialized(request.Method)) return RpcResponse.FromResult(request.Id, Execute(request));
-                //
-                lock (_requestLock)
-                {
-                    return RpcResponse.FromResult(request.Id, Execute(request));
-                }
+                return RpcResponse.FromResult(request.Id, Invoke(request));
             }
             catch (RpcException exception)
             {
@@ -66,6 +58,21 @@ namespace PrePoMax.Rpc
             catch (Exception exception)
             {
                 return RpcResponse.FromError(request.Id, RpcErrorCode.InternalError, exception.Message);
+            }
+        }
+        // The method table without the envelope, for a caller that is already inside the process and
+        // has no line to parse: it returns the result as the JSON value a handler wrote and lets the
+        // refusals out, so the two fronts share one table and neither owns a handler of its own
+        public string Invoke(RpcRequest request)
+        {
+            // A method that only reports is answered while another one is still working, so a
+            // client can always ask what is going on; anything that reaches the model waits its
+            // turn, whichever connection it arrived on
+            if (!IsSerialized(request.Method)) return Execute(request);
+            //
+            lock (_requestLock)
+            {
+                return Execute(request);
             }
         }
         // The methods that run whatever Python they are given: they can take as long as the work
