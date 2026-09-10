@@ -1222,6 +1222,10 @@ A degree of freedom of a displacement and rotation boundary condition that is **
 unconstrained**, and reads back as `None`. Because a missing argument means "keep" on a replace,
 `replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again.
 
+A reference point region is accepted only by a fixed and by a displacement and rotation boundary
+condition, the two types the dialogs offer it for. `add_submodel` and `add_temperature` refuse
+one before a command is recorded.
+
 The step decides which types it supports - a static step takes no temperature boundary condition, a
 heat transfer step takes nothing else - and the API rejects an unsupported type before it records a
 command, naming the step type.

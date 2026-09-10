@@ -13,6 +13,7 @@ STEP = PREFIX + "Static"
 NEXT_STEP = PREFIX + "Static_2"
 THERMAL_STEP = PREFIX + "Thermal"
 NODE_SET = PREFIX + "Bottom"
+REFERENCE_POINT = PREFIX + "RP"
 
 
 def check(condition, message):
@@ -35,10 +36,14 @@ def clean():
     names = [n for n in pmx.model.node_sets.get_names() if n.startswith(PREFIX)]
     if names:
         pmx.model.node_sets.remove(names)
+    names = [n for n in pmx.model.reference_points.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.reference_points.remove(names)
 
 
 def setup():
     pmx.model.node_sets.add(NODE_SET, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))
+    pmx.model.reference_points.add(REFERENCE_POINT, [0.5, 0.5, 2.0])
     pmx.model.steps.add_static(STEP, time_period=1.0)
     pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
@@ -122,6 +127,13 @@ def test_submodel():
     bc = bcs.replace_submodel(PREFIX + "SM", u2=True)
     check(bc.get_value("u1"), "u1 must survive a replace")
     check(bc.get_value("u2"), "u2 was not replaced")
+    # A submodel boundary condition does not accept a reference point region, and the dialog does
+    # not offer one for it
+    check_raises(lambda: bcs.add_submodel(PREFIX + "Bad",
+                                          pmx.create.region('ReferencePointName', REFERENCE_POINT),
+                                          step_number=1),
+                 "a submodel boundary condition on a reference point must be rejected")
+    check(not bcs.contains(PREFIX + "Bad"), "the refused submodel boundary condition was recorded")
 
 
 def test_temperature():
@@ -141,6 +153,13 @@ def test_temperature():
                  "an unknown distribution must be rejected")
     bc = thermal.replace_temperature(PREFIX + "T", temperature=250)
     check(bc.get_value("temperature") == 250, "the temperature was not replaced")
+    # A temperature boundary condition does not accept a reference point region either
+    check_raises(lambda: thermal.add_temperature(PREFIX + "Bad",
+                                                 pmx.create.region('ReferencePointName', REFERENCE_POINT),
+                                                 100),
+                 "a temperature boundary condition on a reference point must be rejected")
+    check(not thermal.contains(PREFIX + "Bad"),
+          "the refused temperature boundary condition was recorded")
 
 
 def test_collection_verbs():

@@ -49,6 +49,12 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("A " + boundaryCondition.GetType().Name + " is not supported by " +
                                              "the step '" + stepName + "', which is a " + step.GetType().Name +
                                              ".");
+            // Only some of the types support a reference point, and the dialogs of the others do not
+            // offer one. The model check that would catch it runs after the command is already recorded.
+            if (boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName &&
+                !IsReferencePointRegionSupported(boundaryCondition))
+                throw new PythonAPIException("A " + boundaryCondition.GetType().Name + " does not support a " +
+                                             "reference point region. Give a region of another type.");
             //
             EnsureCommandsAvailable();
             ModelGateway.AddBoundaryCondition(stepName, boundaryCondition);
@@ -60,6 +66,10 @@ namespace APIs.Python.Model
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceBoundaryCondition(stepName, oldName, boundaryCondition);
+        }
+        private static bool IsReferencePointRegionSupported(BoundaryCondition boundaryCondition)
+        {
+            return boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation;
         }
         public void Duplicate(string stepName, string[] names)
         {
