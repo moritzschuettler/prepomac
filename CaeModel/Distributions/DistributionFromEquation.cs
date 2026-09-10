@@ -114,9 +114,9 @@ namespace CaeModel
             //
             try
             {
-                MyNCalc.ExistingParameters["x"] = 0.111;
-                MyNCalc.ExistingParameters["y"] = 0.222;
-                MyNCalc.ExistingParameters["z"] = 0.333;
+                MyNCalc.SetParameterValue("x", 0.111);
+                MyNCalc.SetParameterValue("y", 0.222);
+                MyNCalc.SetParameterValue("z", 0.333);
                 //
                 MyNCalc.HasErrors(equation, out _);
                 //
@@ -166,9 +166,9 @@ namespace CaeModel
                         z[i] = localCoor[2];
                     }
                 }
-                MyNCalc.ExistingParameters["x"] = x;
-                MyNCalc.ExistingParameters["y"] = y;
-                MyNCalc.ExistingParameters["z"] = z;
+                MyNCalc.SetParameterValue("x", x);
+                MyNCalc.SetParameterValue("y", y);
+                MyNCalc.SetParameterValue("z", z);
                 //
                 if (_distributionType == DistributionTypeEnum.Scalar)
                 {

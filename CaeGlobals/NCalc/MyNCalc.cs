@@ -25,10 +25,17 @@ namespace CaeGlobals
     {
         // Variables                                                                                                                
         public static OrderedDictionary<string, object> _existingParameters = null;
+        // The parameter count grows with the model - a parameter is registered for every face of every
+        // part - and an equation is evaluated once per symbol draw, so nothing that is derived from the
+        // parameters may be rebuilt per evaluation. These three are, and they are dropped together
+        // whenever the parameters are replaced or a name is added
+        private static List<string> _sortedDottedParameterNames = null;
+        private static Dictionary<string, string> _bracketedEquations = null;
+        private static Dictionary<string, object> _ncalcParameters = null;
         public static OrderedDictionary<string, object> ExistingParameters
         {
             get { return _existingParameters; }
-            set { _existingParameters = value; }
+            set { _existingParameters = value; ClearParameterCaches(); }
         }
         public static Func<int, int, double> Dist;
         public static Func<int, int, double> DistX;
@@ -208,12 +215,14 @@ namespace CaeGlobals
         static public Expression GetExpression(string expression)
         {
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase);
-            AddParametersToExpression(e);
+            e.Parameters = GetNCalcParameters();
             AddFunctionsToExpression(e);
             return e;
         }
         static public Expression GetArrayExpression(string expression)
         {
+            // IterateParameters writes the current value of each enumerated parameter back into
+            // Parameters, so this must not be given the shared dictionary
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase | EvaluateOptions.IterateParameters);
             AddParametersToExpression(e);
             return e;
@@ -228,6 +237,54 @@ namespace CaeGlobals
             {
                 foreach (var entry in _existingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
+        }
+        /// <summary>
+        /// Sets the value of a single parameter. Writing to ExistingParameters directly leaves the
+        /// prepared parameters of the expressions holding the previous value
+        /// </summary>
+        static public void SetParameterValue(string name, object value)
+        {
+            if (_existingParameters == null) return;
+            //
+            bool newName = !_existingParameters.ContainsKey(name);
+            _existingParameters[name] = value;
+            // A name that already exists cannot change how an equation is rewritten or which
+            // parameters an expression is given, so only its value is carried over
+            if (newName) ClearParameterCaches();
+            else if (_ncalcParameters != null) _ncalcParameters[name] = value;
+        }
+        static private void ClearParameterCaches()
+        {
+            _sortedDottedParameterNames = null;
+            _bracketedEquations = null;
+            _ncalcParameters = null;
+        }
+        static private Dictionary<string, object> GetNCalcParameters()
+        {
+            PrepareParameterCaches();
+            return _ncalcParameters;
+        }
+        static private void PrepareParameterCaches()
+        {
+            if (_ncalcParameters != null) return;
+            //
+            _sortedDottedParameterNames = new List<string>();
+            _ncalcParameters = new Dictionary<string, object>();
+            _bracketedEquations = new Dictionary<string, string>();
+            //
+            if (_existingParameters != null)
+            {
+                foreach (var entry in _existingParameters)
+                {
+                    if (entry.Key.Contains('.')) _sortedDottedParameterNames.Add(entry.Key);
+                    _ncalcParameters[entry.Key] = entry.Value;
+                }
+                // Longest first, so that a name that contains a shorter one is replaced before it
+                _sortedDottedParameterNames.Sort((first, second) => second.Length.CompareTo(first.Length));
+            }
+            // The constants are added last so that they cannot be overwritten by a parameter
+            _ncalcParameters["pi"] = Math.PI;
+            _ncalcParameters["Pi"] = Math.PI;
         }
         static private void AddFunctionsToExpression(Expression e)
         {
@@ -258,19 +315,26 @@ namespace CaeGlobals
         //
         static public string AddBracketsToSpecialParameterNames(string expr)
         {
-            // Sort parameter names by length (longest first)
-            var sortedNames = _existingParameters.Keys
-                .OrderByDescending(name => name.Length)
-                .ToList();
+            PrepareParameterCaches();
+            // The rewriting depends on the equation and on the parameter names, and both are stable
+            // between the evaluations of one drawn model
+            string bracketedExpr;
+            if (_bracketedEquations.TryGetValue(expr, out bracketedExpr)) return bracketedExpr;
+            //
+            bracketedExpr = GetExprWithBracketedParameterNames(expr);
+            _bracketedEquations[expr] = bracketedExpr;
+            return bracketedExpr;
+        }
+        static private string GetExprWithBracketedParameterNames(string expr)
+        {
             // Step 1: Replace each parameter with a unique placeholder
             int count = 0;
             string placeholder;
             string bracketedParam;
             Dictionary<string, string> placeholders = new Dictionary<string, string>();
             //
-            foreach (var param in sortedNames)
+            foreach (var param in _sortedDottedParameterNames)
             {
-                if (!param.Contains('.')) continue; // skip parameters without dots
                 // Create a unique placeholder
                 placeholder = $"@{count++}@";
                 bracketedParam = $"[{param}]";

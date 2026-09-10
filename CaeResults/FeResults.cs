@@ -4344,7 +4344,7 @@ namespace CaeResults
                 //
                 if (numValues < 0) return null;
                 // Evaluate the equation
-                foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value;
+                foreach (var entry in parameterNameValues) MyNCalc.SetParameterValue(entry.Key, entry.Value);
                 values = MyNCalc.SolveArrayEquation(resultFieldOutput.Equation).ToFloat();
                 //
                 return new float[][] { values };
@@ -4645,7 +4645,7 @@ namespace CaeResults
                 string[] possibleEquationParameters = GetPossibleFieldEquationParameters();
                 foreach (var possibleParameter in possibleEquationParameters)
                 {
-                    MyNCalc.ExistingParameters[possibleParameter] = count++ * 0.111;
+                    MyNCalc.SetParameterValue(possibleParameter, count++ * 0.111);
                 }
                 //
                 HashSet<string> parameterNames;
@@ -5195,7 +5195,7 @@ namespace CaeResults
                     entryNames = new string[] { "1" };
                 }
                 // Evaluate the array equation
-                foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value;
+                foreach (var entry in parameterNameValues) MyNCalc.SetParameterValue(entry.Key, entry.Value);
                 values = MyNCalc.SolveArrayEquation(resultHistoryOutput.Equation).ToJaggedArray(numRow);
                 // Create result history set
                 HistoryResultEntries historyResultEntries;
@@ -6266,7 +6266,7 @@ namespace CaeResults
                  string[] possibleEquationParameters = GetPossibleHistoryEquationParameters();
                 foreach (var possibleParameter in possibleEquationParameters)
                 {
-                    MyNCalc.ExistingParameters[possibleParameter] = count++ * 0.111;
+                    MyNCalc.SetParameterValue(possibleParameter, count++ * 0.111);
                 }
                 //
                 HashSet<string> parameterNames;
