@@ -20,6 +20,7 @@ namespace CaeMesh
     {
         None,
         BySurfaceAngle,
-        ByParts
+        ByParts,
+        ByContactGraph
     }
 }

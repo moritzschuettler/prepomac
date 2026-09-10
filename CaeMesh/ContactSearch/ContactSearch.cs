@@ -87,6 +87,8 @@ namespace CaeMesh
                 throw new NotSupportedException();
             else if (_groupContactPairsBy == GroupContactPairsByEnum.ByParts)
                 return GroupContactPairsByParts(contactSurfacePairs, tryToResolve);
+            else if (_groupContactPairsBy == GroupContactPairsByEnum.ByContactGraph)
+                return GroupContactPairsByContactGraph(contactSurfacePairs);
             else throw new NotSupportedException();
         }
         private void ComputeCellBoundingBoxes(double distance, bool ignoreHidden)
@@ -484,7 +486,24 @@ namespace CaeMesh
             List<MasterSlaveItem> masterSlaveItems = contactGraph.GetMasterSlaveItems(tryToResolve);
             //
             return masterSlaveItems;
-          }
+        }
+        private List<MasterSlaveItem> GroupContactPairsByContactGraph(List<ContactSurface[]> contactSurfacePairs)
+        {
+            List<MasterSlaveItem> masterSlaveItems = new List<MasterSlaveItem>();
+            //
+            foreach (var csp in contactSurfacePairs)
+            {
+                masterSlaveItems.Add(new MasterSlaveItem(csp[0].Part.Name, csp[1].Part.Name,
+                                                         new HashSet<int>() { csp[0].GeometryId },
+                                                         new HashSet<int>() { csp[1].GeometryId }));
+            }
+            // Merge the surfaces sharing mesh nodes to use a mesh node as a slave node only once
+            ContactGraph contactGraph = new ContactGraph();
+            contactGraph.AddMasterSlaveItems(masterSlaveItems, _mesh, true);
+            masterSlaveItems = contactGraph.GetGroupedMasterSlaveItems(_mesh);
+            //
+            return masterSlaveItems;
+        }
         private Dictionary<int,int> GetPartIdsMergedByCompounds()
         {
             int maxPartId = 0;

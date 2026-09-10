@@ -65,6 +65,7 @@ namespace PrePoMax.Forms
             // Group
             cbGroupBy.Items.Add("None");
             cbGroupBy.Items.Add("Parts");
+            cbGroupBy.Items.Add("Graph");
             cbGroupBy.SelectedIndex = 1;
             //
             _selectedContactPairs = new List<SearchContactPair>(); 
@@ -141,6 +142,7 @@ namespace PrePoMax.Forms
                 GroupContactPairsByEnum groupBy;
                 if (cbGroupBy.SelectedIndex == 0) groupBy = GroupContactPairsByEnum.None;
                 else if (cbGroupBy.SelectedIndex == 1) groupBy = GroupContactPairsByEnum.ByParts;
+                else if (cbGroupBy.SelectedIndex == 2) groupBy = GroupContactPairsByEnum.ByContactGraph;
                 else throw new NotSupportedException();
                 // Geometry filters
                 GeometryFilterEnum filter = GeometryFilterEnum.None; 

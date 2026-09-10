@@ -32,18 +32,26 @@ namespace CaeMesh
         // Methods                                                                                                                  
         public void AddMasterSlaveItems(IEnumerable<MasterSlaveItem> masterSlaveItems, FeMesh mesh)
         {
+            AddMasterSlaveItems(masterSlaveItems, mesh, false);
+        }
+        public void AddMasterSlaveItems(IEnumerable<MasterSlaveItem> masterSlaveItems, FeMesh mesh,
+                                        bool mergeNodeOverlaps)
+        {
             HashSet<int> mergedItemIds;
             List<HashSet<int>> itemIdsList = new List<HashSet<int>>();
             List<HashSet<int>> itemIdsListToRemove = new List<HashSet<int>>();
+            Dictionary<int, int> itemIdGroupIds = null;
+            if (mergeNodeOverlaps) itemIdGroupIds = GetItemIdGroupIds(masterSlaveItems, mesh);
             // Collect item ids
             foreach (var masterSlaveItem in masterSlaveItems)
             {
                 // Master side                                                          
+                itemIdsListToRemove.Clear();
                 mergedItemIds = new HashSet<int>(masterSlaveItem.MasterGeometryIds);
                 // Find intersecting
                 foreach (var node in itemIdsList)
                 {
-                    if (node.Intersect(mergedItemIds).Count() > 0)
+                    if (ItemIdSetsOverlap(node, mergedItemIds, itemIdGroupIds))
                     {
                         mergedItemIds.UnionWith(node);
                         itemIdsListToRemove.Add(node);
@@ -59,7 +67,7 @@ namespace CaeMesh
                 // Find intersecting
                 foreach (var node in itemIdsList)
                 {
-                    if (node.Intersect(mergedItemIds).Count() > 0)
+                    if (ItemIdSetsOverlap(node, mergedItemIds, itemIdGroupIds))
                     {
                         mergedItemIds.UnionWith(node);
                         itemIdsListToRemove.Add(node);
@@ -103,9 +111,90 @@ namespace CaeMesh
                         slaveNode = node;
                     if (masterNode != null && slaveNode != null) break;
                 }
-                //
-                _graph.AddUndirectedEdge(masterNode, slaveNode);
+                // Surfaces merged into a single graph node are already connected by the mesh
+                if (masterNode != slaveNode) _graph.AddUndirectedEdge(masterNode, slaveNode);
             }
+        }
+        private static bool ItemIdSetsOverlap(HashSet<int> firstItemIds, HashSet<int> secondItemIds,
+                                              Dictionary<int, int> itemIdGroupIds)
+        {
+            if (firstItemIds.Overlaps(secondItemIds)) return true;
+            if (itemIdGroupIds == null) return false;
+            //
+            HashSet<int> firstGroupIds = new HashSet<int>();
+            foreach (int itemId in firstItemIds) firstGroupIds.Add(itemIdGroupIds[itemId]);
+            foreach (int itemId in secondItemIds)
+            {
+                if (firstGroupIds.Contains(itemIdGroupIds[itemId])) return true;
+            }
+            //
+            return false;
+        }
+        private static Dictionary<int, int> GetItemIdGroupIds(IEnumerable<MasterSlaveItem> masterSlaveItems, FeMesh mesh)
+        {
+            HashSet<int> allItemIds = new HashSet<int>();
+            foreach (var masterSlaveItem in masterSlaveItems)
+            {
+                if (masterSlaveItem.MasterGeometryIds != null) allItemIds.UnionWith(masterSlaveItem.MasterGeometryIds);
+                if (masterSlaveItem.SlaveGeometryIds != null) allItemIds.UnionWith(masterSlaveItem.SlaveGeometryIds);
+            }
+            //
+            List<int> sortedItemIds = allItemIds.ToList();
+            sortedItemIds.Sort();
+            Dictionary<int, int> itemIdParents = new Dictionary<int, int>();
+            foreach (int itemId in sortedItemIds) itemIdParents.Add(itemId, itemId);
+            // Union all items sharing a mesh node - the union is transitive
+            int sharedItemId;
+            Dictionary<int, int> nodeIdItemIds = new Dictionary<int, int>();
+            foreach (int itemId in sortedItemIds)
+            {
+                foreach (int nodeId in GetGeometryNodeIds(itemId, mesh))
+                {
+                    if (nodeIdItemIds.TryGetValue(nodeId, out sharedItemId))
+                        UnionItemIds(sharedItemId, itemId, itemIdParents);
+                    else nodeIdItemIds.Add(nodeId, itemId);
+                }
+            }
+            //
+            Dictionary<int, int> itemIdGroupIds = new Dictionary<int, int>();
+            foreach (int itemId in sortedItemIds) itemIdGroupIds.Add(itemId, GetRootItemId(itemId, itemIdParents));
+            //
+            return itemIdGroupIds;
+        }
+        private static void UnionItemIds(int firstItemId, int secondItemId, Dictionary<int, int> itemIdParents)
+        {
+            int firstRootItemId = GetRootItemId(firstItemId, itemIdParents);
+            int secondRootItemId = GetRootItemId(secondItemId, itemIdParents);
+            //
+            if (firstRootItemId < secondRootItemId) itemIdParents[secondRootItemId] = firstRootItemId;
+            else if (secondRootItemId < firstRootItemId) itemIdParents[firstRootItemId] = secondRootItemId;
+        }
+        private static int GetRootItemId(int itemId, Dictionary<int, int> itemIdParents)
+        {
+            int parentItemId = itemIdParents[itemId];
+            while (parentItemId != itemId)
+            {
+                itemId = parentItemId;
+                parentItemId = itemIdParents[itemId];
+            }
+            return itemId;
+        }
+        private static HashSet<int> GetGeometryNodeIds(int geometryId, FeMesh mesh)
+        {
+            HashSet<int> nodeIds;
+            int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+            GeometryType geometryType = (GeometryType)itemTypePartIds[1];
+            VisualizationData visualization = mesh.GetPartFromId(itemTypePartIds[2]).Visualization;
+            //
+            if (geometryType == GeometryType.ShellEdgeSurface)
+                nodeIds = visualization.GetNodeIdsForEdgeId(itemTypePartIds[0]);
+            else if (geometryType == GeometryType.SolidSurface ||
+                     geometryType == GeometryType.ShellFrontSurface ||
+                     geometryType == GeometryType.ShellBackSurface)
+                nodeIds = visualization.GetNodeIdsForSurfaceId(itemTypePartIds[0]);
+            else throw new NotSupportedException();
+            //
+            return nodeIds;
         }
         //
         public List<MasterSlaveItem> GetMasterSlaveItems(bool checkUnresolved)
@@ -129,6 +218,146 @@ namespace CaeMesh
                 }
             }
             return masterSlaveItems;
+        }
+        public List<MasterSlaveItem> GetGroupedMasterSlaveItems(FeMesh mesh)
+        {
+            List<Graph<NodeData>> connectedSubgraphList = _graph.GetConnectedSubgraphs();
+            List<MasterSlaveItem> masterSlaveItems = new List<MasterSlaveItem>();
+            List<string> allNames = new List<string>();
+            HashSet<Node<NodeData>> firstNodes;
+            HashSet<Node<NodeData>> secondNodes;
+            //
+            foreach (var connectedGraph in connectedSubgraphList)
+            {
+                // A two colorable graph is resolved by a single master slave item
+                if (TryGetBipartiteNodeSets(connectedGraph, out firstNodes, out secondNodes))
+                {
+                    if (firstNodes.Count == 0 || secondNodes.Count == 0) continue;
+                    //
+                    if (GetNodeSetSize(firstNodes) >= GetNodeSetSize(secondNodes))
+                        AddMasterSlaveItem(firstNodes, secondNodes, masterSlaveItems, allNames, mesh);
+                    else
+                        AddMasterSlaveItem(secondNodes, firstNodes, masterSlaveItems, allNames, mesh);
+                }
+                else AddMasterSlaveItemsByNodeSize(connectedGraph, masterSlaveItems, allNames, mesh);
+            }
+            //
+            return masterSlaveItems;
+        }
+        private static void AddMasterSlaveItemsByNodeSize(Graph<NodeData> graph, List<MasterSlaveItem> masterSlaveItems,
+                                                          List<string> allNames, FeMesh mesh)
+        {
+            // Use the largest surfaces as masters
+            List<Node<NodeData>> orderedNodes = new List<Node<NodeData>>(graph.Nodes);
+            orderedNodes.Sort(CompareNodesBySize);
+            //
+            int order = 0;
+            Dictionary<Node<NodeData>, int> nodeOrders = new Dictionary<Node<NodeData>, int>();
+            foreach (var node in orderedNodes) nodeOrders.Add(node, order++);
+            // A node is a slave to all the neighbours ordered before it and is thus a slave only once
+            int itemId;
+            HashSet<Node<NodeData>> masterNodes;
+            List<HashSet<Node<NodeData>>> masterNodesList = new List<HashSet<Node<NodeData>>>();
+            List<HashSet<Node<NodeData>>> slaveNodesList = new List<HashSet<Node<NodeData>>>();
+            foreach (var node in orderedNodes)
+            {
+                masterNodes = new HashSet<Node<NodeData>>();
+                foreach (var neighbour in node.Neighbours)
+                {
+                    if (nodeOrders[neighbour] < nodeOrders[node]) masterNodes.Add(neighbour);
+                }
+                if (masterNodes.Count == 0) continue;
+                // Collect the slaves sharing the same masters
+                itemId = -1;
+                for (int i = 0; i < masterNodesList.Count; i++)
+                {
+                    if (masterNodesList[i].SetEquals(masterNodes)) { itemId = i; break; }
+                }
+                if (itemId == -1)
+                {
+                    masterNodesList.Add(masterNodes);
+                    slaveNodesList.Add(new HashSet<Node<NodeData>>() { node });
+                }
+                else slaveNodesList[itemId].Add(node);
+            }
+            //
+            for (int i = 0; i < masterNodesList.Count; i++)
+            {
+                AddMasterSlaveItem(masterNodesList[i], slaveNodesList[i], masterSlaveItems, allNames, mesh);
+            }
+        }
+        private static void AddMasterSlaveItem(IEnumerable<Node<NodeData>> masterNodes,
+                                               IEnumerable<Node<NodeData>> slaveNodes,
+                                               List<MasterSlaveItem> masterSlaveItems, List<string> allNames,
+                                               FeMesh mesh)
+        {
+            HashSet<int> masterItemIds = GetItemIds(masterNodes);
+            HashSet<int> slaveItemIds = GetItemIds(slaveNodes);
+            //
+            string masterName = GetNameFromItemIds(masterItemIds, allNames, mesh);
+            allNames.Add(masterName);
+            string slaveName = GetNameFromItemIds(slaveItemIds, allNames, mesh);
+            allNames.Add(slaveName);
+            //
+            masterSlaveItems.Add(new MasterSlaveItem(masterName, slaveName, masterItemIds, slaveItemIds));
+        }
+        private static int CompareNodesBySize(Node<NodeData> first, Node<NodeData> second)
+        {
+            int result = first.Value.CompareTo(second.Value);
+            if (result == 0) result = first.Value.Id.CompareTo(second.Value.Id);
+            return result;
+        }
+        private static bool TryGetBipartiteNodeSets(Graph<NodeData> graph, out HashSet<Node<NodeData>> firstNodes,
+                                                    out HashSet<Node<NodeData>> secondNodes)
+        {
+            bool currentColor;
+            bool neighbourColor;
+            Queue<Node<NodeData>> queue = new Queue<Node<NodeData>>();
+            Dictionary<Node<NodeData>, bool> nodeColors = new Dictionary<Node<NodeData>, bool>();
+            firstNodes = new HashSet<Node<NodeData>>();
+            secondNodes = new HashSet<Node<NodeData>>();
+            //
+            foreach (var startNode in graph.Nodes)
+            {
+                if (nodeColors.ContainsKey(startNode)) continue;
+                nodeColors.Add(startNode, false);
+                queue.Enqueue(startNode);
+                //
+                while (queue.Count > 0)
+                {
+                    Node<NodeData> currentNode = queue.Dequeue();
+                    currentColor = nodeColors[currentNode];
+                    if (currentColor) secondNodes.Add(currentNode);
+                    else firstNodes.Add(currentNode);
+                    //
+                    foreach (var neighbour in currentNode.Neighbours)
+                    {
+                        if (nodeColors.TryGetValue(neighbour, out neighbourColor))
+                        {
+                            if (neighbourColor == currentColor) return false;
+                        }
+                        else
+                        {
+                            nodeColors.Add(neighbour, !currentColor);
+                            queue.Enqueue(neighbour);
+                        }
+                    }
+                }
+            }
+            //
+            return true;
+        }
+        private static HashSet<int> GetItemIds(IEnumerable<Node<NodeData>> nodes)
+        {
+            HashSet<int> itemIds = new HashSet<int>();
+            foreach (var node in nodes) itemIds.UnionWith(node.Value.ItemIds);
+            return itemIds;
+        }
+        private static double GetNodeSetSize(IEnumerable<Node<NodeData>> nodes)
+        {
+            double size = 0;
+            foreach (var node in nodes) size += node.Value.Value;
+            return size;
         }
         //
         public static string GetNameFromItemIds(HashSet<int> itemIds, List<string> allNames, FeMesh mesh)
