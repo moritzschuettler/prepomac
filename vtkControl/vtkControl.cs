@@ -545,19 +545,19 @@ namespace vtkControl
         {
             switch (target)
             {
-                case vtkMaxCoorSysTarget.XPositive: SetAxisView(true, new double[] { 1, 0, 0 }); break;
-                case vtkMaxCoorSysTarget.XNegative: SetAxisView(true, new double[] { -1, 0, 0 }); break;
-                case vtkMaxCoorSysTarget.YPositive: SetAxisView(true, new double[] { 0, 1, 0 }); break;
-                case vtkMaxCoorSysTarget.YNegative: SetAxisView(true, new double[] { 0, -1, 0 }); break;
-                case vtkMaxCoorSysTarget.ZPositive: SetAxisView(true, new double[] { 0, 0, 1 }); break;
-                case vtkMaxCoorSysTarget.ZNegative: SetAxisView(true, new double[] { 0, 0, -1 }); break;
-                case vtkMaxCoorSysTarget.XPositiveVertical: SetVerticalAxisView(true, new double[] { 1, 0, 0 }); break;
-                case vtkMaxCoorSysTarget.XNegativeVertical: SetVerticalAxisView(true, new double[] { -1, 0, 0 }); break;
-                case vtkMaxCoorSysTarget.YPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 1, 0 }); break;
-                case vtkMaxCoorSysTarget.YNegativeVertical: SetVerticalAxisView(true, new double[] { 0, -1, 0 }); break;
-                case vtkMaxCoorSysTarget.ZPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 0, 1 }); break;
-                case vtkMaxCoorSysTarget.ZNegativeVertical: SetVerticalAxisView(true, new double[] { 0, 0, -1 }); break;
-                case vtkMaxCoorSysTarget.Origin: SetIsometricView(true, true); break;
+                case vtkMaxCoorSysTarget.XPositive: SetAxisView(true, new double[] { 1, 0, 0 }, false); break;
+                case vtkMaxCoorSysTarget.XNegative: SetAxisView(true, new double[] { -1, 0, 0 }, false); break;
+                case vtkMaxCoorSysTarget.YPositive: SetAxisView(true, new double[] { 0, 1, 0 }, false); break;
+                case vtkMaxCoorSysTarget.YNegative: SetAxisView(true, new double[] { 0, -1, 0 }, false); break;
+                case vtkMaxCoorSysTarget.ZPositive: SetAxisView(true, new double[] { 0, 0, 1 }, false); break;
+                case vtkMaxCoorSysTarget.ZNegative: SetAxisView(true, new double[] { 0, 0, -1 }, false); break;
+                case vtkMaxCoorSysTarget.XPositiveVertical: SetVerticalAxisView(true, new double[] { 1, 0, 0 }, false); break;
+                case vtkMaxCoorSysTarget.XNegativeVertical: SetVerticalAxisView(true, new double[] { -1, 0, 0 }, false); break;
+                case vtkMaxCoorSysTarget.YPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 1, 0 }, false); break;
+                case vtkMaxCoorSysTarget.YNegativeVertical: SetVerticalAxisView(true, new double[] { 0, -1, 0 }, false); break;
+                case vtkMaxCoorSysTarget.ZPositiveVertical: SetVerticalAxisView(true, new double[] { 0, 0, 1 }, false); break;
+                case vtkMaxCoorSysTarget.ZNegativeVertical: SetVerticalAxisView(true, new double[] { 0, 0, -1 }, false); break;
+                case vtkMaxCoorSysTarget.Origin: SetIsometricView(true, true, false); break;
                 default: break;
             }
         }
@@ -2862,7 +2862,7 @@ namespace vtkControl
             //
             FinishViewChange(animate, cameraStart, camera);
         }
-        public void SetAxisView(bool animate, double[] axis)
+        public void SetAxisView(bool animate, double[] axis, bool zoomToFit = true)
         {
             if (_animating) return;
             _animating = animate;
@@ -2874,14 +2874,59 @@ namespace vtkControl
             cameraStart.DeepCopy(camera);
             //
             double[] viewUp = GetClosestAxisViewUp(camera, axis);
+            double[] rotationPivot = GetViewRotationPivot();
+            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
+            double distance = camera.GetDistance();
             //
             double[] fPos = camera.GetFocalPoint();
             camera.SetPosition(fPos[0] + axis[0], fPos[1] + axis[1], fPos[2] + axis[2]);
             camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
             //
-            ResetCamera();
+            if (zoomToFit) ResetCamera();
+            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
             //
             FinishViewChange(animate, cameraStart, camera);
+        }
+        private double[] GetViewRotationPivot()
+        {
+            double[] pivot = _style.GetRotationPoint();
+            if (pivot != null) return pivot;
+            //
+            double[] bounds = _renderer.ComputeVisiblePropBounds();
+            return new double[] { (bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2 };
+        }
+        private void KeepZoomAndRotationPivot(vtkCamera camera, double[] pivot, double[] pivotDisplay, double distance)
+        {
+            // The parallel scale is left untouched so that the view only turns. The turn goes around the
+            // pivot, the same point the mouse rotation turns the view around, which stays under the
+            // position of the screen it was under
+            camera.OrthogonalizeViewUp();
+            _style.ResetClippingRange();
+            //
+            double[] normal = camera.GetViewPlaneNormal();
+            double[] fPos = camera.GetFocalPoint();
+            // The point the new orientation brought under the screen position of the pivot
+            double[] target = vtkInteractorStyleControl.DisplayToWorld(_renderer, pivotDisplay);
+            double targetOffset = normal[0] * (target[0] - pivot[0]) +
+                                  normal[1] * (target[1] - pivot[1]) +
+                                  normal[2] * (target[2] - pivot[2]);
+            double focalOffset = normal[0] * (fPos[0] - pivot[0]) +
+                                 normal[1] * (fPos[1] - pivot[1]) +
+                                 normal[2] * (fPos[2] - pivot[2]);
+            // The camera moves by the distance of the two points inside the plane of the pivot, which brings
+            // the pivot back under its screen position, and the focal point is taken into that plane. The
+            // animation turns the camera around the focal point, so a focal point out of the plane of the
+            // pivot swings the model aside and back while the view turns
+            double offset = targetOffset - focalOffset;
+            double[] newFPos = new double[] { fPos[0] + pivot[0] - target[0] + offset * normal[0],
+                                              fPos[1] + pivot[1] - target[1] + offset * normal[1],
+                                              fPos[2] + pivot[2] - target[2] + offset * normal[2] };
+            camera.SetFocalPoint(newFPos[0], newFPos[1], newFPos[2]);
+            camera.SetPosition(newFPos[0] + distance * normal[0],
+                               newFPos[1] + distance * normal[1],
+                               newFPos[2] + distance * normal[2]);
+            //
+            _style.ResetClippingRange();
         }
         private double[] GetClosestAxisViewUp(vtkCamera camera, double[] axis)
         {
@@ -2947,7 +2992,7 @@ namespace vtkControl
             //
             FinishViewChange(animate, cameraStart, camera);
         }
-        public void SetVerticalAxisView(bool animate, double[] axis)
+        public void SetVerticalAxisView(bool animate, double[] axis, bool zoomToFit = true)
         {
             if (_animating) return;
             _animating = animate;
@@ -2957,6 +3002,10 @@ namespace vtkControl
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
+            //
+            double[] rotationPivot = GetViewRotationPivot();
+            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
+            double distance = camera.GetDistance();
             // The axis cannot be vertical while the view looks along it - turn the view
             // towards the current vertical direction first
             double[] normal = camera.GetViewPlaneNormal();
@@ -2969,7 +3018,8 @@ namespace vtkControl
             camera.SetViewUp(axis[0], axis[1], axis[2]);
             camera.OrthogonalizeViewUp();
             //
-            ResetCamera();
+            if (zoomToFit) ResetCamera();
+            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
             //
             FinishViewChange(animate, cameraStart, camera);
         }
@@ -3019,7 +3069,7 @@ namespace vtkControl
             //
             return closestUp;
         }
-        public void SetIsometricView(bool animate, bool positive)
+        public void SetIsometricView(bool animate, bool positive, bool zoomToFit = true)
         {
             if (_animating) return;
             _animating = animate;
@@ -3033,7 +3083,12 @@ namespace vtkControl
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
 
-            SetVerticalView(false, false);
+            double[] rotationPivot = GetViewRotationPivot();
+            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
+            double distance = camera.GetDistance();
+
+            double[] closestUp = GetClosestUpView();
+            camera.SetViewUp(closestUp[0], closestUp[1], closestUp[2]);
 
             double[] fPos = camera.GetFocalPoint();
             int q = GetClosestIsoDirectionQuadrant(camera.GetViewPlaneNormal());
@@ -3065,7 +3120,8 @@ namespace vtkControl
             else if (maxID == 1) camera.SetViewUp(0, Math.Sign(up[1]), 0);
             else camera.SetViewUp(0, 0, Math.Sign(up[2]));
 
-            ResetCamera();
+            if (zoomToFit) ResetCamera();
+            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
 
             FinishViewChange(animate, cameraStart, camera);
         }

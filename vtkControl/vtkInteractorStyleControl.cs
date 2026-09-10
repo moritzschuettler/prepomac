@@ -202,6 +202,10 @@ namespace vtkControl
         // Getters
         public bool IsBoxSelectionActive { get { return _boxSelection; } }
         public bool NavigationAllowed { get { return !_animating && this.GetState() == VTKIS_NONE; } }
+        public double[] GetRotationPoint()
+        {
+            return _rotationCenterWorld;
+        }
 
 
         // Callbacks
