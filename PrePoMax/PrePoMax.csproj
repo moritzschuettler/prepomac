@@ -401,6 +401,7 @@
     <Compile Include="Commands\0090_Tools\CAddParameter.cs" />
     <Compile Include="Commands\0090_Tools\CRemoveParameters.cs" />
     <Compile Include="Commands\0090_Tools\CReplaceParameter.cs" />
+    <Compile Include="Commands\0090_Tools\CSetParameters.cs" />
     <Compile Include="Commands\0100_Analysis\CAddJob.cs" />
     <Compile Include="Commands\0100_Analysis\CDuplicateJobs.cs" />
     <Compile Include="Commands\0100_Analysis\CRemoveJobs.cs" />
@@ -470,6 +471,7 @@
     <Compile Include="Forms\00_Parameters\FrmEquationParameters.Designer.cs">
       <DependentUpon>FrmEquationParameters.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\00_Parameters\ViewEquationParameter.cs" />
     <Compile Include="Forms\01_Edit\DataGridViewExtension.cs" />
     <Compile Include="Forms\01_Edit\FrmEditCommands.cs">
       <SubType>Form</SubType>

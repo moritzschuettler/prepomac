@@ -12249,6 +12249,11 @@ namespace PrePoMax
             CRemoveParameters comm = new CRemoveParameters(parameterNames);
             _commands.AddAndExecute(comm);
         }
+        public void SetParametersCommand(EquationParameter[] parameters)
+        {
+            CSetParameters comm = new CSetParameters(parameters);
+            _commands.AddAndExecute(comm);
+        }
         //******************************************************************************************
         public void ExportParametersToFile(string fileName)
         {
@@ -12277,6 +12282,13 @@ namespace PrePoMax
         public void RemoveParameters(string[] parameterNames)
         {
             foreach (var name in parameterNames) _model.Parameters.Remove(name);
+            UpdateNCalcParameters();
+        }
+        public void SetParameters(EquationParameter[] parameters)
+        {
+            // The overridden parameters of a batch run are kept: Add substitutes them by name
+            _model.Parameters.Clear();
+            foreach (EquationParameter parameter in parameters) _model.Parameters.Add(parameter.Name, parameter);
             UpdateNCalcParameters();
         }
         //

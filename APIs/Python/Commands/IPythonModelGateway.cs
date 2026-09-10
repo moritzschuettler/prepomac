@@ -53,6 +53,7 @@ namespace APIs.Python
         void AddParameter(EquationParameter parameter);
         void ReplaceParameter(string oldParameterName, EquationParameter parameter);
         void RemoveParameters(string[] parameterNames);
+        void SetParameters(EquationParameter[] parameters);
         void ImportParameters(string fileName);
         void ExportParameters(string fileName);
         // Amplitudes, distributions and initial conditions

@@ -251,6 +251,10 @@ namespace PrePoMax.Python
         {
             _controller.RemoveParametersCommand(parameterNames);
         }
+        public void SetParameters(EquationParameter[] parameters)
+        {
+            _controller.SetParametersCommand(parameters);
+        }
         public void ImportParameters(string fileName)
         {
             _controller.ImportParametersCommand(fileName);

@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeModel;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -82,6 +83,53 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.RemoveParameters(names);
         }
+        public void SetAll(object names, object values)
+        {
+            string[] parameterNames = PythonStringListConverter.ToStringArrayOrSingle(names, "names");
+            if (parameterNames == null || parameterNames.Length == 0)
+                throw new PythonAPIException("The argument 'names' must not be empty.");
+            EquationString[] equations = PythonValueConverter.ToEquationArray(values, "values", parameterNames.Length);
+            //
+            HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < parameterNames.Length; i++)
+            {
+                ValidateNameFormat(parameterNames[i], "names");
+                parameterNames[i] = parameterNames[i].Trim();
+                if (!usedNames.Add(parameterNames[i]))
+                    throw new PythonAPIException("The parameter '" + parameterNames[i] + "' is given more than once.");
+            }
+            // A parameter may use a parameter that is given after it, so all of the values are resolved before
+            // the parameters are built: EquationContainer evaluates an equation before it stores it
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            EquationParameter[] parameters = new EquationParameter[parameterNames.Length];
+            try
+            {
+                List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+                for (int i = 0; i < parameterNames.Length; i++)
+                    nameEquations.Add(new KeyValuePair<string, string>(parameterNames[i], equations[i].Equation));
+                //
+                Dictionary<string, double> resolvedValues;
+                Dictionary<string, string> errors =
+                    EquationParameterResolver.Evaluate(nameEquations, _modelResolver.GetModel().GetPropertyParameters(),
+                                                       out resolvedValues);
+                if (errors.Count > 0) throw new PythonAPIException(GetFirstError(parameterNames, errors));
+                //
+                for (int i = 0; i < parameterNames.Length; i++)
+                {
+                    parameters[i] = new EquationParameter();
+                    parameters[i].Name = parameterNames[i];
+                    parameters[i].EquationStr = equations[i];
+                }
+            }
+            finally
+            {
+                // A rejected call must leave the parameters of the model registered
+                MyNCalc.ExistingParameters = existingParameters;
+            }
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.SetParameters(parameters);
+        }
         public void Rename(EquationParameter parameter, string newName)
         {
             // The parameters have no rename command, so the replacement carries the new name
@@ -118,13 +166,19 @@ namespace APIs.Python.Model
             //
             return parameter;
         }
+        private static string GetFirstError(string[] parameterNames, Dictionary<string, string> errors)
+        {
+            foreach (string name in parameterNames)
+            {
+                if (errors.ContainsKey(name))
+                    return "The parameter '" + name + "' cannot be evaluated: " + errors[name];
+            }
+            //
+            return "The parameters cannot be evaluated.";
+        }
         private void ValidateName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
-            // The parameter name is used inside equations, so it must not carry the minus character
-            if (name.Contains("-"))
-                throw new PythonAPIException("The parameter name must not contain the hyphen character.");
+            ValidateNameFormat(name, "name");
             if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
@@ -132,6 +186,14 @@ namespace APIs.Python.Model
                 if (string.Equals(name, existingName))
                     throw new PythonAPIException("The parameter '" + name + "' already exists.");
             }
+        }
+        private static void ValidateNameFormat(string name, string argumentName)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
+            // The parameter name is used inside equations, so it must not carry the minus character
+            if (name.Contains("-"))
+                throw new PythonAPIException("The parameter name must not contain the hyphen character.");
         }
         private static string ResolveFileName(string fileName)
         {

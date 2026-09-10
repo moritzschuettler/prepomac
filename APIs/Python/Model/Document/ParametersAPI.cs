@@ -44,6 +44,16 @@ namespace APIs.Python.Model
             return this[name == null ? old_name : name];
         }
 
+        [PythonAPI("Replaces the whole parameter table using command history. The names and the values are " +
+                   "given in the order the parameters are shown, and a parameter may use a parameter that is " +
+                   "given after it.",
+                   Arguments = "names: list[str], values: list[float or str]", Returns = "None",
+                   Example = "pmx.model.parameters.set_all(['t', 'h'], [2.5, 't*2'])")]
+        public void set_all(object names, object values)
+        {
+            _service.SetAll(names, values);
+        }
+
         [PythonAPI("Imports the parameters from a .pmp file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
         public void import_from_file(string file_name)

@@ -79,6 +79,30 @@ def test_parameters():
     check(len(pmx.model.parameters) == count_before, "the parameters were not removed")
 
 
+def test_parameters_set_all():
+    # set_all replaces the whole table, so whatever is there is put back at the end
+    kept_names = list(pmx.model.parameters.get_names())
+    kept_values = [pmx.model.parameters[name].equation for name in kept_names]
+    # A parameter may use a parameter that is given after it, which add cannot do
+    pmx.model.parameters.set_all(kept_names + ["pytest_g", "pytest_f"], kept_values + ["pytest_f * 2", 4.0])
+    check(pmx.model.parameters["pytest_g"].value == 8.0,
+          "the forward reference did not evaluate, got " + str(pmx.model.parameters["pytest_g"].value))
+    names = list(pmx.model.parameters.get_names())
+    check(names[-2:] == ["pytest_g", "pytest_f"], "the order of the table was not kept: " + str(names))
+    # A table that cannot be evaluated is rejected before anything is recorded
+    check_raises(lambda: pmx.model.parameters.set_all(["pytest_h"], ["pytest_missing * 2"]),
+                 "a table that cannot be evaluated must be rejected")
+    check_raises(lambda: pmx.model.parameters.set_all(["pytest_i", "pytest_j"],
+                                                      ["pytest_j + 1", "pytest_i + 1"]),
+                 "a circular reference must be rejected")
+    check_raises(lambda: pmx.model.parameters.set_all(["pytest_k", "pytest_k"], [1.0, 2.0]),
+                 "a repeated name must be rejected")
+    check(list(pmx.model.parameters.get_names()) == names, "a rejected call must not change the table")
+    #
+    pmx.model.parameters.remove(["pytest_g", "pytest_f"])
+    check(list(pmx.model.parameters.get_names()) == kept_names, "the parameters were not restored")
+
+
 def test_export():
     file_name = os.path.join(tempfile.gettempdir(), "pytest_model.inp")
     if os.path.isfile(file_name):
@@ -104,6 +128,7 @@ def test_open_is_refused_in_a_script():
 def main():
     test_properties()
     test_parameters()
+    test_parameters_set_all()
     test_export()
     test_open_is_refused_in_a_script()
     print("TEST PASSED")

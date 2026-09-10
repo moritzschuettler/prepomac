@@ -504,6 +504,7 @@ pmx.model.properties.absolute_zero = -273.15
 | --- | --- |
 | `add(name, value)` | Adds a parameter. The value is a number or an equation string. |
 | `replace(old_name, name=None, value=None)` | Replaces a parameter. A value that is not given is kept. |
+| `set_all(names, values)` | Replaces the whole table. The two lists give the parameters in the order they are shown. |
 | `import_from_file(file_name)` | Imports the parameters from a .pmp file. |
 | `export_to_file(file_name)` | Exports the parameters to a .pmp file. |
 
@@ -511,11 +512,17 @@ pmx.model.properties.absolute_zero = -273.15
 pmx.model.parameters.add('t', 2.5)
 pmx.model.parameters.add('area', 't * 4')
 print(pmx.model.parameters['area'].value)
+pmx.model.parameters.set_all(['area', 't'], ['t * 4', 2.5])
 ```
 
 A number argument is a value in the current model units; a string argument is an equation. Parameters
 have no duplicate command, so `duplicate` raises. `rename` is carried out as a replacement, and a
 renamed parameter is **not** rewritten inside the equations that reference it.
+
+`add` and `replace` evaluate the equation as they are called, so they can only use a parameter that
+already exists. `set_all` resolves the whole table at once, so a parameter may use a parameter that
+is given after it - which is what the parameters editor of the application records when its rows are
+reordered. The order of the two lists is the order of the table, and both must be the same length.
 
 ### `Parameter`
 

@@ -18,6 +18,7 @@ namespace PrePoMax.Forms
     using CaeGlobals;
     using PrePoMax.Settings;
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Data;
     using System.Drawing;
@@ -165,9 +166,11 @@ namespace PrePoMax.Forms
                         if (selectedRow.Index < rowIndexTo) rowsAboveDropRow++;
                     }
                     //
+                    // The bound type is not known here: every grid that reorders its rows is reordered
                     var bindingSource = dataGridView.DataSource as BindingSource;
-                    List<ViewCommand> list = (List<ViewCommand>)bindingSource.DataSource;
-                    List<ViewCommand> listCopy = list.DeepClone();
+                    IList list = (IList)bindingSource.DataSource;
+                    object[] listCopy = new object[list.Count];
+                    list.CopyTo(listCopy, 0);
                     // Remove
                     int[] reversedIndices = sortedRowIndicesToMove.ToArray().Reverse().ToArray();
                     foreach (var index in reversedIndices) list.RemoveAt(index);

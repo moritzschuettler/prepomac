@@ -227,6 +227,11 @@ def build_the_model(endpoint):
                            "[pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])")
     check(result["recordedCommands"] == ["CAddMaterial"],
           "the material must be one command: " + str(result["recordedCommands"]))
+    # The whole parameter table is one command, and a parameter may use one given after it
+    result = endpoint.python("pmx.model.parameters.set_all(['" + PREFIX + "load', '" + PREFIX + "unit'], "
+                           "['" + PREFIX + "unit * 1000', 1.0])")
+    check(result["recordedCommands"] == ["CSetParameters"],
+          "the parameter table must be one command: " + str(result["recordedCommands"]))
     #
     endpoint.python("part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts', "
                   "[pmx.model.parts.first().id])" + os.linesep +
@@ -294,8 +299,9 @@ def journal_the_session(endpoint):
     check(journal["emittedCommandCount"] == history["commandCount"],
           "every command must be emitted: " + str(journal))
     source = journal["source"]
-    for expected in ["pmx.model.materials.add", "pmx.model.sections.add_solid", "pmx.model.node_sets.add",
-                     "pmx.model.steps.add_static", "add_fixed", "add_concentrated_force", "pmx.jobs.add"]:
+    for expected in ["pmx.model.materials.add", "pmx.model.parameters.set_all", "pmx.model.sections.add_solid",
+                     "pmx.model.node_sets.add", "pmx.model.steps.add_static", "add_fixed",
+                     "add_concentrated_force", "pmx.jobs.add"]:
         check(expected in source, expected + " is missing from the journal:" + os.linesep + source)
     print("get_history: %d commands journalled into %d lines of Python"
           % (history["commandCount"], len(source.splitlines())))

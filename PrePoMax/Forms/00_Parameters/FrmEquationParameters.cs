@@ -28,9 +28,13 @@ namespace PrePoMax.Forms
     public partial class FrmParametersEditor : Form
     {
         // Variables                                                                                                                
+        private static readonly Color ErrorColor = Color.FromArgb(255, 225, 225);
         private Controller _controller;
-        private List<EquationParameter> _parameters;
+        private List<ViewEquationParameter> _parameters;
         private Dictionary<string, object> _propertyParameters;
+        private HashSet<string> _unusableNames;
+        private int _nameColumnIndex;
+        private int _equationColumnIndex;
         private int _cellRow;
         private int _cellCol;
         private bool _bindingInProgress;
@@ -42,12 +46,18 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
+            dgvData.EnableDragAndDropRows();
             _controller = controller;
+            _nameColumnIndex = 0;
+            _equationColumnIndex = 1;
             _cellRow = -1;
             _cellCol = -1;
             dgvData.ShowErrorMsg = false;
             //
             _propertyParameters = _controller.GetPropertyParameters();
+            _unusableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _unusableNames.UnionWith(MyNCalc.GetReservedParameterNames());
+            _unusableNames.UnionWith(_propertyParameters.Keys);
             _bindingInProgress = false;
         }
 
@@ -59,14 +69,15 @@ namespace PrePoMax.Forms
             {
                 if (_controller.Model != null)
                 {
-                    _parameters = new List<EquationParameter>();
-                    foreach (var entry in _controller.Model.Parameters) _parameters.Add(entry.Value.DeepClone());
+                    _parameters = new List<ViewEquationParameter>();
+                    foreach (var entry in _controller.Model.Parameters)
+                        _parameters.Add(new ViewEquationParameter(entry.Value));
                     // Binding
                     _bindingInProgress = true;
                     SetDataGridViewBinding(_parameters);
                     _bindingInProgress = false;
                     //
-                    UpdateNCalcParameters();
+                    EvaluateParameters();
                 }
             }
             catch (Exception ex)
@@ -82,11 +93,11 @@ namespace PrePoMax.Forms
         //
         private void dgvData_RowsAdded(object sender, DataGridViewRowsAddedEventArgs e)
         {
-            if (!_bindingInProgress) UpdateNCalcParameters();
+            if (!_bindingInProgress) EvaluateParameters();
         }
         private void dgvData_RowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e)
         {
-            if (!_bindingInProgress) UpdateNCalcParameters();
+            if (!_bindingInProgress) EvaluateParameters();
         }
         //
         private void dgvData_CellBeginEdit(object sender, DataGridViewCellCancelEventArgs e)
@@ -99,36 +110,14 @@ namespace PrePoMax.Forms
             // This is executed before the actual value of the cell is modified
             try
             {
-                if (e.RowIndex == _cellRow && e.ColumnIndex == _cellCol)
+                // Only a name is refused at the cell. An equation that cannot be evaluated yet is kept and
+                // reported in the Evaluates to column, so that a parameter may use one defined below it
+                if (e.RowIndex == _cellRow && e.ColumnIndex == _cellCol && e.ColumnIndex == _nameColumnIndex)
                 {
-                    HashSet<string> existingNames = new HashSet<string>(MyNCalc.ExistingParameters.Keys);
-                    HashSet<string> reservedNames = new HashSet<string>(MyNCalc.GetReservedParameterNames());
-                    existingNames.UnionWith(reservedNames);
-                    // If an existing parameter is renamed remove it from a list
-                    existingNames.Remove(_parameters[e.RowIndex].Name);
-                    //
-                    UpdateNCalcParameters(e.RowIndex, false);
-                    //
-                    string value = e.FormattedValue.ToString();
-                    EquationParameter ep = new EquationParameter();
-                    // Test the name
-                    if (e.ColumnIndex == 0)
-                    {
-                        if (value.Length > 0 && char.IsDigit(value[0]))
-                            throw new CaeException("The parameter name '" + value + "' must not start with a digit.");
-                        if (reservedNames.Contains(value))
-                            throw new CaeException("The parameter name '" + value + "' cannot be used since it is a reserved name.");
-                        else if (existingNames.Contains(value))
-                            throw new CaeException("The parameter named '" + value + "' already exists.");
-                        //
-                        ep.Name = value;
-                    }
-                    // Test the equation
-                    else if (e.ColumnIndex == 1)
-                    {
-                        ep.Equation.SetEquation(value);
-                        double tmp = ep.Value;
-                    }
+                    string name = e.FormattedValue.ToString().Trim();
+                    string error = GetNameError(name);
+                    if (error == null && ContainsName(name, e.RowIndex)) error = GetDuplicateNameError(name);
+                    if (error != null) throw new CaeException(error);
                 }
             }
             catch (Exception ex)
@@ -139,57 +128,47 @@ namespace PrePoMax.Forms
         }
         private void dgvData_CellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex == _cellRow && e.ColumnIndex == _cellCol)
-            {
-                // At CellEndEdit the value of the cell actually changed
-                UpdateNCalcParameters();
-            }
-            //
             _cellRow = -1;
             _cellCol = -1;
+        }
+        private void dgvData_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            // A pasted cell is changed without an edit, so this is the event that sees every change
+            if (!_bindingInProgress) EvaluateParameters();
+        }
+        private void dgvData_DragDrop(object sender, DragEventArgs e)
+        {
+            // The rows are reordered by a handler that runs after this one, so the errors of the rows
+            // are repainted once the new order is in
+            BeginInvoke(new Action(EvaluateParameters));
         }
         //
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
             {
-                double tmp;
-                EquationParameter existingParameter;
-                HashSet<string> parameterNames = new HashSet<string>();
-                // Check all equation
-                foreach (var parameter in _parameters)
-                {
-                    try
-                    {
-                        tmp = parameter.Value;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new CaeException("There is an error in the '" + parameter.Name + "' parameter equation.");
-                    }
-                }
-                // Clear overridden parameters
-                _controller.Model.Parameters.OverriddenParameters.Clear();
-                // Add parameters
-                foreach (var parameter in _parameters)
-                {
-                    parameterNames.Add(parameter.Name);
-                    //
-                    if (_controller.Model.Parameters.TryGetValue(parameter.Name, out existingParameter))
-                    {
-                        // No changes
-                        if (parameter.EquationStr.EqualsEquation(existingParameter.EquationStr)) { }
-                        // Replace
-                        else _controller.ReplaceParameterCommand(existingParameter.Name, parameter);
-                    }
-                    // Add
-                    else _controller.AddParameterCommand(parameter);
-                }
-                // Remove
-                string[] parameterNamesToRemove = _controller.Model.Parameters.Keys.Except(parameterNames).ToArray();
-                if (parameterNamesToRemove.Length > 0) _controller.RemoveParametersCommand(parameterNamesToRemove);
+                dgvData.EndEdit();
                 //
-                btnCancel_Click(null, null);
+                EvaluateParameters();
+                int errorRow = GetFirstErrorRow();
+                if (errorRow >= 0)
+                {
+                    SelectRow(errorRow);
+                    string name = _parameters[errorRow].Name;
+                    string message = name.Length > 0 ? "The parameter '" + name + "' cannot be used."
+                                                     : "The parameter in row " + (errorRow + 1) + " cannot be used.";
+                    throw new CaeException(message + Environment.NewLine + _parameters[errorRow].Error);
+                }
+                // The values the user typed replace the ones a batch run overrode
+                _controller.Model.Parameters.OverriddenParameters.Clear();
+                //
+                List<EquationParameter> parameters = new List<EquationParameter>();
+                foreach (ViewEquationParameter parameter in _parameters) parameters.Add(parameter.GetParameter());
+                // The whole table is one command: applied one parameter at a time, an intermediate state
+                // would hold an equation whose parameter is renamed, removed or not added yet
+                if (AreParametersChanged(parameters)) _controller.SetParametersCommand(parameters.ToArray());
+                //
+                Close();
             }
             catch (Exception ex)
             {
@@ -216,9 +195,12 @@ namespace PrePoMax.Forms
             binding.DataSource = data;
             dgvData.DataSource = binding; // bind datagridview to binding source - enables adding of new lines
             //
+            _nameColumnIndex = dgvData.Columns["Name"].Index;
+            _equationColumnIndex = dgvData.Columns["Equation"].Index;
+            //
             foreach (DataGridViewColumn column in dgvData.Columns)
             {
-                if (column.Index == 1)
+                if (column.Index == _equationColumnIndex)
                 {
                     column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
                     column.MinimumWidth = 150;
@@ -229,47 +211,119 @@ namespace PrePoMax.Forms
                 column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomLeft;
             }
         }
-        private void UpdateNCalcParameters(int upToRow = int.MaxValue, bool refresh = true)
+        private void EvaluateParameters()
         {
-            int rowCount = 0;
-            HashSet<string> autocompleteItems = new HashSet<string>();
+            if (_parameters == null) return;
             //
-            // Clearing the dictionary keeps the prepared NCalc parameters of the previous state
-            MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
-            MyNCalc.ExistingParameters.AddRange(_propertyParameters);
-            autocompleteItems.UnionWith(_propertyParameters.Keys);
-            //
-            foreach (var parameter in _parameters)
+            double value;
+            string error;
+            HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+            Dictionary<int, string> nameErrors = new Dictionary<int, string>();
+            // A row whose name cannot be used is not given to the resolver, it is reported on its own
+            for (int i = 0; i < _parameters.Count; i++)
             {
-                // Add parameters up to this row
-                if (rowCount < upToRow)
+                error = GetNameError(_parameters[i].Name);
+                if (error == null && !usedNames.Add(_parameters[i].Name))
+                    error = GetDuplicateNameError(_parameters[i].Name);
+                //
+                if (error != null) nameErrors.Add(i, error);
+                else nameEquations.Add(new KeyValuePair<string, string>(_parameters[i].Name, _parameters[i].Equation));
+            }
+            //
+            Dictionary<string, double> values;
+            Dictionary<string, string> errors = EquationParameterResolver.Evaluate(nameEquations, _propertyParameters,
+                                                                                   out values);
+            //
+            HashSet<string> autocompleteItems = new HashSet<string>(_propertyParameters.Keys);
+            for (int i = 0; i < _parameters.Count; i++)
+            {
+                if (nameErrors.TryGetValue(i, out error)) _parameters[i].SetError(error);
+                else if (errors.TryGetValue(_parameters[i].Name, out error)) _parameters[i].SetError(error);
+                else if (values.TryGetValue(_parameters[i].Name, out value))
                 {
-                    try
-                    {
-                        MyNCalc.SetParameterValue(parameter.Name, parameter.Value);
-                        autocompleteItems.Add(parameter.Name);
-                    }
-                    catch { }
+                    _parameters[i].SetValue(value);
+                    autocompleteItems.Add(_parameters[i].Name);
                 }
-                rowCount++;
             }
-            // Add property parameters and parameters up to editing row
-            dgvData.BuildAutocompleteMenu(autocompleteItems, 1);
             //
-            if (refresh) dgvData.Refresh();
+            dgvData.BuildAutocompleteMenu(autocompleteItems, _equationColumnIndex);
+            UpdateRowErrors();
+            dgvData.Refresh();
         }
-        private void SavePmp(string fileName)
+        private void UpdateRowErrors()
         {
-            bool focused = dgvData.Focused;
-            if (focused) btnCancel.Focus(); // removes the last uncomitted row
-            //
-            //_controller.AddParameter
-            //
-            if (focused)
+            DataGridViewRow row;
+            for (int i = 0; i < _parameters.Count && i < dgvData.Rows.Count; i++)
             {
-                dgvData.ClearSelection();
-                dgvData.Focus();
+                row = dgvData.Rows[i];
+                if (_parameters[i].Error == null)
+                {
+                    row.ErrorText = "";
+                    row.DefaultCellStyle.BackColor = Color.Empty;
+                }
+                else
+                {
+                    row.ErrorText = _parameters[i].Error;
+                    row.DefaultCellStyle.BackColor = ErrorColor;
+                }
             }
+        }
+        private string GetNameError(string name)
+        {
+            string error = NamedClass.CheckNameError(name, null);
+            if (error != null) return error;
+            //
+            if (char.IsDigit(name[0]))
+                return "The parameter name '" + name + "' must not start with a digit.";
+            if (_unusableNames.Contains(name))
+                return "The parameter name '" + name + "' cannot be used since it is a reserved name.";
+            //
+            return null;
+        }
+        private string GetDuplicateNameError(string name)
+        {
+            return "The parameter named '" + name + "' already exists.";
+        }
+        private bool ContainsName(string name, int skipRowIndex)
+        {
+            for (int i = 0; i < _parameters.Count; i++)
+            {
+                if (i == skipRowIndex) continue;
+                if (StringComparer.OrdinalIgnoreCase.Equals(_parameters[i].Name, name)) return true;
+            }
+            //
+            return false;
+        }
+        private int GetFirstErrorRow()
+        {
+            for (int i = 0; i < _parameters.Count; i++)
+            {
+                if (_parameters[i].Error != null) return i;
+            }
+            //
+            return -1;
+        }
+        private void SelectRow(int rowIndex)
+        {
+            dgvData.ClearSelection();
+            dgvData.Rows[rowIndex].Selected = true;
+            dgvData.CurrentCell = dgvData.Rows[rowIndex].Cells[_nameColumnIndex];
+        }
+        private bool AreParametersChanged(List<EquationParameter> parameters)
+        {
+            EquationParameterCollection existingParameters = _controller.Model.Parameters;
+            if (existingParameters.Keys.Count != parameters.Count) return true;
+            //
+            int i = 0;
+            foreach (var entry in existingParameters)
+            {
+                if (entry.Key != parameters[i].Name) return true;
+                if (!entry.Value.EquationStr.EqualsEquation(parameters[i].EquationStr)) return true;
+                i++;
+            }
+            //
+            return false;
         }
 
 
