@@ -5666,8 +5666,11 @@ namespace vtkControl
             sectionViewActor.Name = GetSectionViewActorName(actor.Name);
             sectionViewActor.BackfaceCulling = false;
             sectionViewActor.CellLocator = null;
-            // Get the surface
-            vtkPolyData surface = vtkPolyData.SafeDownCast(actor.GeometryMapper.GetInput());
+            // The geometry poly data duplicates the nodes on the face boundaries, the locator grid shares them
+            vtkGeometryFilter geometryFilter = vtkGeometryFilter.New();
+            geometryFilter.SetInput(actor.FrustumCellLocator.GetDataSet());
+            geometryFilter.Update();
+            vtkPolyData surface = geometryFilter.GetOutput();
             // Create a cutter
             vtkCutter cutter = vtkCutter.New();
             cutter.SetCutFunction(_sectionViewData.Plane);
@@ -5681,7 +5684,7 @@ namespace vtkControl
             // GEOMETRY  ##########################################################################
             // Only a closed surface can be capped
             vtkPolyData polyData;
-            if (surface != null && IsClosedSurface(surface)) polyData = GetSectionCap(surface);
+            if (IsClosedSurface(surface)) polyData = GetSectionCap(surface);
             else polyData = vtkPolyData.New();
             // Create the mapper for the geometry actor
             vtkPolyDataMapper polyMapper = vtkPolyDataMapper.New();
