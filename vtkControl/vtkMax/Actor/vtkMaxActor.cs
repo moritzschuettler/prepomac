@@ -52,6 +52,9 @@ namespace vtkControl
         protected vtkCellLocator _frustumCellLocator;   // for volume picking
         protected vtkPointData _frustumPointData;
         protected vtkMaxActor _sectionViewActor;
+        protected vtkMaxActor _sectionViewSkinActor;
+        protected bool _geometryHiddenBySectionView;
+        protected HashSet<FaceNodeKey> _sectionViewOuterFaces;
         protected List<vtkMaxActor> _copies;
         protected vtkMaxActorAnimationData[] _animationData;
         protected Dictionary<int, int> _animationNodeIdToPointId;
@@ -163,6 +166,17 @@ namespace vtkControl
         public vtkCellLocator FrustumCellLocator { get { return _frustumCellLocator; } set { _frustumCellLocator = value; } }
         public vtkPointData FrustumPointData { get { return _frustumPointData; } }
         public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
+        public vtkMaxActor SectionViewSkinActor { get { return _sectionViewSkinActor; } set { _sectionViewSkinActor = value; } }
+        public bool GeometryHiddenBySectionView
+        {
+            get { return _geometryHiddenBySectionView; }
+            set { _geometryHiddenBySectionView = value; }
+        }
+        public HashSet<FaceNodeKey> SectionViewOuterFaces
+        {
+            get { return _sectionViewOuterFaces; }
+            set { _sectionViewOuterFaces = value; }
+        }
         public List<vtkMaxActor> Copies { get { return _copies; } }
         //
         public int GetNumberOfElements()
@@ -267,6 +281,9 @@ namespace vtkControl
             _cellLocator = null;
             _frustumCellLocator = null;
             _sectionViewActor = null;
+            _sectionViewSkinActor = null;
+            _geometryHiddenBySectionView = false;
+            _sectionViewOuterFaces = null;
             _copies = new List<vtkMaxActor>();
             _geometryResultField = null;
             _frustumResultField = null;
@@ -423,6 +440,10 @@ namespace vtkControl
             _geometryProperty.SetLighting(data.Lighting);
         }
         public vtkMaxActor(vtkMaxActor sourceActor)
+          : this(sourceActor, true)
+        {
+        }
+        public vtkMaxActor(vtkMaxActor sourceActor, bool copyDataSets)
           : this()
         {
             _name = sourceActor.Name;
@@ -432,29 +453,32 @@ namespace vtkControl
             if (sourceActor.MaxNode != null) _maxNode = new vtkMaxExtreemeNode(sourceActor.MaxNode);
             //
             // Geometry                                                         
-            // Poly data
-            vtkPolyData polyData = vtkPolyData.New();
-            polyData.DeepCopy(sourceActor.Geometry.GetMapper().GetInput());
-            // Mapper
-            vtkDataSetMapper mapper = vtkDataSetMapper.New();
-            mapper.SetInput(polyData);
-            _geometryMapper = mapper;
-            // Actor
-            _geometry.SetMapper(_geometryMapper);
+            if (copyDataSets)
+            {
+                // Poly data
+                vtkPolyData polyData = vtkPolyData.New();
+                polyData.DeepCopy(sourceActor.Geometry.GetMapper().GetInput());
+                // Mapper
+                vtkDataSetMapper mapper = vtkDataSetMapper.New();
+                mapper.SetInput(polyData);
+                _geometryMapper = mapper;
+                // Actor
+                _geometry.SetMapper(_geometryMapper);
+            }
             _geometry.GetProperty().DeepCopy(sourceActor.GeometryProperty);
             _geometryProperty = _geometry.GetProperty();
             //_geometry.GetProperty().SetLineWidth(sourceActor.Geometry.GetProperty().GetLineWidth());
             _geometry.SetVisibility(sourceActor.Geometry.GetVisibility());
             _geometry.SetPickable(sourceActor.Geometry.GetPickable());
             // Cell Locator
-            if (sourceActor.CellLocator != null)
+            if (copyDataSets && sourceActor.CellLocator != null)
             {
                 _cellLocator = vtkCellLocator.New();
                 _cellLocator.SetDataSet(_geometryMapper.GetInputAsDataSet());
                 _cellLocator.LazyEvaluationOn();
             }
             // Frustum Locator
-            if (sourceActor.FrustumCellLocator != null)
+            if (copyDataSets && sourceActor.FrustumCellLocator != null)
             {
                 vtkUnstructuredGrid grid = vtkUnstructuredGrid.New();
                 grid.DeepCopy(sourceActor.FrustumCellLocator.GetDataSet());
@@ -464,13 +488,13 @@ namespace vtkControl
                 _frustumCellLocator.LazyEvaluationOn();
             }
             // Element edges                                                    
-            if (sourceActor.ElementEdges != null)
+            if (copyDataSets && sourceActor.ElementEdges != null)
             {
                 // Poly data
-                polyData = vtkPolyData.New();
+                vtkPolyData polyData = vtkPolyData.New();
                 polyData.DeepCopy(sourceActor.ElementEdges.GetMapper().GetInput());
                 // Mapper
-                mapper = vtkDataSetMapper.New();
+                vtkDataSetMapper mapper = vtkDataSetMapper.New();
                 mapper.SetInput(polyData);
                 // Actor
                 _elementEdges = new vtkActor();
@@ -482,13 +506,13 @@ namespace vtkControl
                 _elementEdgesProperty = _elementEdges.GetProperty();
             }
             // Model edges                                                      
-            if (sourceActor.ModelEdges != null)
+            if (copyDataSets && sourceActor.ModelEdges != null)
             {
                 // Poly data
-                polyData = vtkPolyData.New();
+                vtkPolyData polyData = vtkPolyData.New();
                 polyData.DeepCopy(sourceActor.ModelEdges.GetMapper().GetInput());
                 // Mapper
-                mapper = vtkDataSetMapper.New();
+                vtkDataSetMapper mapper = vtkDataSetMapper.New();
                 mapper.SetInput(polyData);
                 // Actor
                 _modelEdges = vtkActor.New();
@@ -500,7 +524,7 @@ namespace vtkControl
                 _modelEdgesProperty = _modelEdges.GetProperty();
             }
             // Section view
-            _sectionViewActor = sourceActor.SectionViewActor;
+            _sectionViewActor = copyDataSets ? sourceActor.SectionViewActor : null;
             // transformed copies
             _copies = new List<vtkMaxActor>(sourceActor.Copies);
             // Result field transformation data is immutable and shared by actor copies.
@@ -528,7 +552,7 @@ namespace vtkControl
             _layer = sourceActor.Layer;
             //
             _memorySize = sourceActor.MemorySize;
-            UpdateColor();
+            if (copyDataSets) UpdateColor();
         }
 
         // Methods                                                                                                                  

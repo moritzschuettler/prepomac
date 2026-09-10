@@ -11334,14 +11334,16 @@ namespace PrePoMax
         }
 
         // Section view
-        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
+        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
+                                      bool elementWise)
         {
-            InvokeIfRequired(_vtk.CreateSectionView, point, normal, lightenColors, sectionColor);
+            InvokeIfRequired(_vtk.CreateSectionView, point, normal, lightenColors, sectionColor, elementWise);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
-        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
+        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
+                                      bool elementWise)
         {
-            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, lightenColors, sectionColor);
+            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, lightenColors, sectionColor, elementWise);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
         public void RemoveSectionView()

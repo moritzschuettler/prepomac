@@ -26,12 +26,14 @@ namespace PrePoMax
         private Dictionary<string, Octree.Plane> _resultNameSectionViewPlane;
         private bool _lightenColors;
         private Color _sectionColor;
+        private bool _elementWise;
 
 
         // Properties                                                                                                               
         public string CurrentResultName { get { return _controller.AllResults.GetCurrentResultName(); } }
         public bool LightenColors { get { return _lightenColors; } set { _lightenColors = value; } }
         public Color SectionColor { get { return _sectionColor; } set { _sectionColor = value; } }
+        public bool ElementWise { get { return _elementWise; } set { _elementWise = value; } }
 
 
         // Constructors                                                                                                             
@@ -42,6 +44,7 @@ namespace PrePoMax
             _resultNameSectionViewPlane = new Dictionary<string, Octree.Plane>();
             _lightenColors = true;
             _sectionColor = Color.Empty;
+            _elementWise = false;
         }
 
 

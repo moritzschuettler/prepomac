@@ -33,6 +33,7 @@ namespace PrePoMax.Forms
         private bool _lightenColors = true;
         private bool _useSingleColor = false;
         private Color _sectionColor = Color.LightGreen;
+        private bool _elementWise = false;
 
 
         // Properties                                                                                                               
@@ -153,6 +154,14 @@ namespace PrePoMax.Forms
             set { _sectionColor = value; }
         }
         //
+        //
+        [Category("Section type")]
+        [OrderedDisplayName(0, 10, "Element-wise section")]
+        [Description("Select Yes to remove the finite elements cut by the plane and to show the faces of the remaining " +
+                     "elements instead of a planar cut. Nodes, elements and parts can be selected on the exposed faces.")]
+        [Id(1, 4)]
+        public bool ElementWise { get { return _elementWise; } set { _elementWise = value; } }
+        //
         [Browsable(false)]
         public double[] Point { get { return _point; } set { _point = value; } }
         [Browsable(false)]
@@ -176,6 +185,7 @@ namespace PrePoMax.Forms
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(LightenColors));
             _dctd.RenameBooleanPropertyToYesNo(nameof(UseSingleColor));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ElementWise));
             //
             UpdateVisibility();
         }

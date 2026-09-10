@@ -24,6 +24,8 @@ namespace vtkControl
         public vtkPlane Plane;
         public bool LightenColors;
         public Color SectionColor;
+        public bool ElementWise;
+        public HashSet<int> KeptElementIds;
 
 
         // Constructors                                                                                                             
@@ -41,6 +43,8 @@ namespace vtkControl
             Plane.SetNormal(normal[0], normal[1], normal[2]);
             LightenColors = sectionViewData.LightenColors;
             SectionColor = sectionViewData.SectionColor;
+            ElementWise = sectionViewData.ElementWise;
+            KeptElementIds = null;
         }
 
 
@@ -51,6 +55,8 @@ namespace vtkControl
             Plane = null;
             LightenColors = true;
             SectionColor = Color.Empty;
+            ElementWise = false;
+            KeptElementIds = null;
         }
         public SectionViewData DeepCopy()
         {

@@ -81,7 +81,8 @@ namespace PrePoMax.Forms
                     }
                     //
                     _controller.CreateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
-                                                  _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor);
+                                                  _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor,
+                                                  _sectionViewParameters.ElementWise);
                     //
                     this.Enabled = true;
                 }
@@ -328,7 +329,8 @@ namespace PrePoMax.Forms
                 _sectionViewParameters = (SectionViewParameters)propertyGrid.SelectedObject;
                 //
                 _controller.UpdateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
-                                              _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor);
+                                              _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor,
+                                              _sectionViewParameters.ElementWise);
                 //
                 //System.Diagnostics.Debug.WriteLine("Section cut time: " + DateTime.Now.ToLongTimeString() + "   Duration: " + watch.ElapsedMilliseconds);
             }

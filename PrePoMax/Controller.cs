@@ -2911,27 +2911,32 @@ namespace PrePoMax
         {
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
             if (plane != null) CreateSectionView(plane.Point.Coor, plane.Normal.Coor,
-                                                _sectionViews.LightenColors, _sectionViews.SectionColor);
+                                                _sectionViews.LightenColors, _sectionViews.SectionColor,
+                                                _sectionViews.ElementWise);
         }
-        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
+        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
+                                      bool elementWise)
         {
             _sectionViews.SetCurrentSectionViewPlane(point, normal);
             _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
-            _form.CreateSectionView(point, normal, lightenColors, sectionColor);
+            _sectionViews.ElementWise = elementWise;
+            _form.CreateSectionView(point, normal, lightenColors, sectionColor, elementWise);
         }
-        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
+        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
+                                      bool elementWise)
         {
             _sectionViews.SetCurrentPointAndNormal(point, normal);
             _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
-            _form.UpdateSectionView(point, normal, lightenColors, sectionColor);
+            _sectionViews.ElementWise = elementWise;
+            _form.UpdateSectionView(point, normal, lightenColors, sectionColor, elementWise);
         }
         public void TurnSectionViewOnOff()
         {
             if (_sectionViews.IsSectionViewActive()) RemoveSectionView();
             else CreateSectionView(GetSectionViewBBCenter().Coor, GetDefaultSectionViewNormal(),
-                                   _sectionViews.LightenColors, _sectionViews.SectionColor);
+                                   _sectionViews.LightenColors, _sectionViews.SectionColor, _sectionViews.ElementWise);
         }
         public void ResetSectionView()
         {
@@ -3268,7 +3273,8 @@ namespace PrePoMax
             ResumeItemIds();
             // Resume section view
             if (sectionViewPlane != null) CreateSectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor,
-                                                           _sectionViews.LightenColors, _sectionViews.SectionColor);
+                                                           _sectionViews.LightenColors, _sectionViews.SectionColor,
+                                                           _sectionViews.ElementWise);
             // Resume undeformed results view
             if (_currentView == ViewGeometryModelResults.Results)
             {
@@ -20718,7 +20724,7 @@ namespace PrePoMax
                         {
                             vtkMaxActorData data = new vtkMaxActorData();
                             mesh.GetSurfaceGeometry(surfaceName, out data.Geometry.Nodes.Coor, out data.Geometry.Cells.CellNodeIds,
-                                                    out data.Geometry.Cells.Types, onlyVisible);
+                                                    out data.Geometry.Cells.Types, out data.Geometry.Cells.Ids, onlyVisible);
                             //
                             if (!countOnly)
                             {

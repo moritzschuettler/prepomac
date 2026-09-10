@@ -4837,10 +4837,16 @@ namespace CaeMesh
         public void GetSurfaceGeometry(string name, out double[][] nodeCoor, out int[][] cells, out int[] cellTypes,
                                        bool onlyVisible)
         {
+            GetSurfaceGeometry(name, out nodeCoor, out cells, out cellTypes, out _, onlyVisible);
+        }
+        public void GetSurfaceGeometry(string name, out double[][] nodeCoor, out int[][] cells, out int[] cellTypes,
+                                       out int[] cellElementIds, bool onlyVisible)
+        {
             FeSurface surface = _surfaces[name];
             KeyValuePair<FeFaceName, string>[] elementSets = surface.ElementFaces.ToArray();
             //
             List<int[]> cellList = new List<int[]>();
+            List<int> cellElementIdList = new List<int>();
             FeElement element;
             //
             Dictionary<int, bool> partVisibilities = new Dictionary<int, bool>();
@@ -4851,10 +4857,15 @@ namespace CaeMesh
                 foreach (int elementId in _elementSets[entry.Value].Labels)
                 {
                     element = _elements[elementId];
-                    if (!(onlyVisible && !partVisibilities[element.PartId])) cellList.Add(element.GetVtkCellFromFaceName(entry.Key));
+                    if (!(onlyVisible && !partVisibilities[element.PartId]))
+                    {
+                        cellList.Add(element.GetVtkCellFromFaceName(entry.Key));
+                        cellElementIdList.Add(elementId);
+                    }
                 }
             }
             cells = cellList.ToArray();
+            cellElementIds = cellElementIdList.ToArray();
             //
             GetSurfaceGeometry(cells, out nodeCoor, out cellTypes);
         }
