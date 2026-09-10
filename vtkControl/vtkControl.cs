@@ -1701,11 +1701,20 @@ namespace vtkControl
         }
         private double[] GetPickPoint(out vtkActor pickedActor, int x, int y)
         {
+            return GetPickPoint(out pickedActor, x, y, false);
+        }
+        private double[] GetRotationPointPickPoint(out vtkActor pickedActor, int x, int y)
+        {
+            return GetPickPoint(out pickedActor, x, y, true);
+        }
+        private double[] GetPickPoint(out vtkActor pickedActor, int x, int y, bool rotationPoint)
+        {
             pickedActor = null;
             if (_style.IsPositionOverWidget(x, y)) return null;
             //
             double[] p = null;
-            int cellId = -1;
+            bool hit = false;
+            bool sectionViewPick = false;
             // Make all actors visible
             foreach (var entry in _actors)
             {
@@ -1714,7 +1723,8 @@ namespace vtkControl
                     if (_selectableActorsFilter != null)
                     {
                         // Change the visibility of geometry only to enable reset
-                        if (_selectableActorsFilter.Contains(entry.Value.Name)) entry.Value.Geometry.VisibilityOn();
+                        if (_selectableActorsFilter.Contains(GetSelectableActorName(entry.Value)))
+                            entry.Value.Geometry.VisibilityOn();
                         else entry.Value.Geometry.VisibilityOff();
                     }
                     // Set opacity for all visible actors to 1
@@ -1733,10 +1743,12 @@ namespace vtkControl
             if (pickedActor != null)
             {
                 p = GetPropPickerPickPosition(x, y);
-                cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
+                sectionViewPick = IsSectionViewActor(pickedActor);
+                if (sectionViewPick) hit = ResolveSectionViewPick(ref pickedActor, ref p, rotationPoint);
+                else hit = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _) != -1;
             }
             // If the exact pixel misses, pick geometry within a fixed screen-space tolerance.
-            if (cellId == -1)
+            if (!hit && !sectionViewPick)
             {
                 int[] windowSize = _renderWindow.GetSize();
                 double windowDiagonal = Math.Sqrt(windowSize[0] * windowSize[0] + windowSize[1] * windowSize[1]);
@@ -1747,7 +1759,8 @@ namespace vtkControl
                 if (pickedActor != null)
                 {
                     p = _cellPicker.GetPickPosition();
-                    cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
+                    if (IsSectionViewActor(pickedActor)) hit = ResolveSectionViewPick(ref pickedActor, ref p, rotationPoint);
+                    else hit = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _) != -1;
                 }
             }
             // Reset the actor visibility
@@ -1761,13 +1774,86 @@ namespace vtkControl
                 }
             }
             //
-            if (cellId == -1)
+            if (!hit)
             {
                 p = null;
                 pickedActor = null;
             }
             //
             return p;
+        }
+        private bool IsSectionViewActor(vtkActor actor)
+        {
+            return GetSectionViewParentActor(actor) != null;
+        }
+        private vtkMaxActor GetSectionViewParentActor(vtkActor sectionViewGeometry)
+        {
+            if (!_sectionViewData.Active || sectionViewGeometry == null) return null;
+            //
+            foreach (var entry in _actors)
+            {
+                if (entry.Value.SectionViewActor != null && entry.Value.SectionViewActor.Geometry == sectionViewGeometry)
+                    return entry.Value;
+            }
+            //
+            return null;
+        }
+        private string GetSelectableActorName(vtkMaxActor actor)
+        {
+            vtkMaxActor parentActor = GetSectionViewParentActor(actor.Geometry);
+            return parentActor != null ? parentActor.Name : actor.Name;
+        }
+        private bool ResolveSectionViewPick(ref vtkActor pickedActor, ref double[] point, bool rotationPoint)
+        {
+            // The section cut face is a hit only for the rotation point and for the selection of parts
+            vtkMaxActor parentActor = GetSectionViewParentActor(pickedActor);
+            //
+            if (rotationPoint)
+            {
+                pickedActor = parentActor.Geometry;
+                return true;
+            }
+            else if (_selectBy == vtkSelectBy.Default || _selectBy == vtkSelectBy.Part ||
+                     _selectBy == vtkSelectBy.GeometryPart || _selectItem == vtkSelectItem.Part)
+            {
+                // A point on the part surface selects the part now and resolves to the same part on regeneration
+                double[] surfacePoint = GetClosestPointOnActorSurface(parentActor, point);
+                if (surfacePoint != null)
+                {
+                    point = surfacePoint;
+                    pickedActor = parentActor.Geometry;
+                    return true;
+                }
+            }
+            //
+            pickedActor = null;
+            point = null;
+            return false;
+        }
+        private double[] GetClosestPointOnActorSurface(vtkMaxActor actor, double[] point)
+        {
+            if (actor.CellLocator == null) return null;
+            //
+            IntPtr x = Marshal.AllocHGlobal(3 * 8);
+            IntPtr closestPoint = Marshal.AllocHGlobal(3 * 8);
+            Marshal.Copy(point, 0, x, 3);
+            //
+            long cellId = -1;
+            int subId = -1;
+            double distance2 = -1;
+            actor.CellLocator.FindClosestPoint(x, closestPoint, ref cellId, ref subId, ref distance2);
+            //
+            double[] surfacePoint = null;
+            if (distance2 >= 0)
+            {
+                surfacePoint = new double[3];
+                Marshal.Copy(closestPoint, surfacePoint, 0, 3);
+            }
+            //
+            Marshal.FreeHGlobal(x);
+            Marshal.FreeHGlobal(closestPoint);
+            //
+            return surfacePoint;
         }
         private double[] GetPropPickerPickPosition(int x, int y)
         {
@@ -2087,7 +2173,7 @@ namespace vtkControl
             _style.SetCurrentRenderer(_renderer);
             _style.SetOverlayRenderer(_overlayRenderer);
             _style.SetSelectionRenderer(_selectionRenderer);
-            _style.GetPickPoint = this.GetPickPoint;
+            _style.GetPickPoint = this.GetRotationPointPickPoint;
             _style.SetBoxZoom = SetBoxZoom;
             _style.BoxZoomEnded = BoxZoomEnded;
             //
@@ -3593,6 +3679,9 @@ namespace vtkControl
                 }
                 double[] fpStart = cameraStart.GetFocalPoint();
                 double zStart = cameraStart.GetParallelScale();
+                    //
+                    camera.SetViewUp(up[0], up[1], up[2]);
+                    camera.OrthogonalizeViewUp();
                 double distanceStart = cameraStart.GetDistance();
                 double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
                 // A quaternion and its negation are the same rotation but only the one in the
@@ -3679,9 +3768,6 @@ namespace vtkControl
                     // Pan the camera to look at the model center 
                     camera.SetPosition(pos[0] + fpDelta[0], pos[1] + fpDelta[1], pos[2] + fpDelta[2]);
                     camera.SetFocalPoint(fp[0] + fpDelta[0], fp[1] + fpDelta[1], fp[2] + fpDelta[2]);
-                    //
-                    camera.SetViewUp(up[0], up[1], up[2]);
-                    camera.OrthogonalizeViewUp();
                     // The widget highlights stay visible and follow the widgets during the animation
                     _style.AdjustCameraDistanceAndClipping(false);
                     _style.RefreshWidgetHighlights();
@@ -5011,9 +5097,9 @@ namespace vtkControl
         #region Highlight geometry  ################################################################################################
         public void HighlightActor(string actorName)
         {
-            string sectionViewActorName = GetSectionViewActorName(actorName);
             HighlightAllActorsByName(actorName);
-            if (_sectionViewData.Active) HighlightAllActorsByName(sectionViewActorName);
+            if (_sectionViewData.Active && _actors.TryGetValue(actorName, out vtkMaxActor actor) && actor.SectionViewActor != null)
+                HighlightAllActorsByName(actor.SectionViewActor.Name);
         }
         private void HighlightAllActorsByName(string actorName)
         {
@@ -5335,6 +5421,7 @@ namespace vtkControl
                     _renderer.RemoveActor(sectionVewActor.Geometry);
                     if (sectionVewActor.ElementEdges != null) _renderer.RemoveActor(sectionVewActor.ElementEdges);
                     if (sectionVewActor.ModelEdges != null) _renderer.RemoveActor(sectionVewActor.ModelEdges);
+                    if (sectionVewActor.Geometry.GetPickable() == 1) _propPicker.DeletePickList(sectionVewActor.Geometry);
                     //
                     _actors.Remove(sectionVewActor.Name);
                     entry.Value.SectionViewActor = null;
@@ -5348,11 +5435,14 @@ namespace vtkControl
                 if (actor.ActorRepresentation == vtkMaxActorRepresentation.Solid ||
                     actor.ActorRepresentation == vtkMaxActorRepresentation.Shell)
                 {
-                    return GetSectionViewActorFromSolid(actor);
+                    if (actor.ActorRepresentation == vtkMaxActorRepresentation.Solid && !HasVolumeCells(actor))
+                        return GetSectionViewActorFromClosedSurface(actor);
+                    else
+                        return GetSectionViewActorFromSolid(actor);
                 }
                 else if (actor.ActorRepresentation == vtkMaxActorRepresentation.SolidAsShell)
                 {
-                    return GetSectionViewActorFromSolidAsShell(actor);
+                    return GetSectionViewActorFromClosedSurface(actor);
                 }
                 else
                     return null;
@@ -5361,6 +5451,11 @@ namespace vtkControl
             {
                 return null;
             }
+        }
+        private bool HasVolumeCells(vtkMaxActor actor)
+        {
+            vtkDataSet grid = actor.FrustumCellLocator.GetDataSet();
+            return grid.GetNumberOfCells() > 0 && grid.GetCell(0).GetCellDimension() == 3;
         }
         private void GetSectionViewActorProperties(vtkMaxActor actor, double[] point)
         {
@@ -5429,6 +5524,7 @@ namespace vtkControl
             vtkMaxActor sectionViewActor = new vtkMaxActor(actor);
             sectionViewActor.Name = GetSectionViewActorName(actor.Name);
             sectionViewActor.BackfaceCulling = false;
+            sectionViewActor.CellLocator = null;
             // Get the unstructured grid
             vtkUnstructuredGrid grid = vtkUnstructuredGrid.New();
             grid.DeepCopy(actor.FrustumCellLocator.GetDataSet());
@@ -5451,7 +5547,7 @@ namespace vtkControl
             sectionViewActor.Geometry = vtkActor.New();
             sectionViewActor.GeometryMapper = polyMapper;
             sectionViewActor.GeometryProperty.DeepCopy(actor.GeometryProperty);
-            sectionViewActor.Geometry.PickableOff();
+            sectionViewActor.Geometry.SetPickable(actor.Geometry.GetPickable());
             sectionViewActor.Geometry.SetVisibility(actor.Geometry.GetVisibility());
             // EDGES  #############################################################################
             // The best function would be:                                                          
@@ -5564,228 +5660,94 @@ namespace vtkControl
             //
             return sectionViewActor;
         }
-        private vtkMaxActor GetSectionViewActorFromSolidAsShell(vtkMaxActor actor)
+        private vtkMaxActor GetSectionViewActorFromClosedSurface(vtkMaxActor actor)
         {
             vtkMaxActor sectionViewActor = new vtkMaxActor(actor);
             sectionViewActor.Name = GetSectionViewActorName(actor.Name);
-            sectionViewActor.BackfaceCulling = false;            
-
-            // Get the unstructured grid
-            vtkUnstructuredGrid grid = vtkUnstructuredGrid.New();
-            grid.DeepCopy(actor.FrustumCellLocator.GetDataSet());
-
+            sectionViewActor.BackfaceCulling = false;
+            sectionViewActor.CellLocator = null;
+            // Get the surface
+            vtkPolyData surface = vtkPolyData.SafeDownCast(actor.GeometryMapper.GetInput());
             // Create a cutter
             vtkCutter cutter = vtkCutter.New();
             cutter.SetCutFunction(_sectionViewData.Plane);
-            //cutter.SetInput(grid);
             cutter.SetInput(actor.GeometryMapper.GetInput());
+            cutter.GenerateCutScalarsOff();
             cutter.Update();
-
+            //
             vtkStripper cutStrips = vtkStripper.New();
             cutStrips.SetInput(cutter.GetOutput());
             cutStrips.Update();
-
+            // GEOMETRY  ##########################################################################
+            // Only a closed surface can be capped
             vtkPolyData polyData;
-            vtkPolyDataMapper polyMapper;
-            ///////////////////////////////////////////////////////////////////////////////////////
-            polyData = vtkPolyData.New();
-            polyMapper = vtkPolyDataMapper.New();
+            if (surface != null && IsClosedSurface(surface)) polyData = GetSectionCap(surface);
+            else polyData = vtkPolyData.New();
+            // Create the mapper for the geometry actor
+            vtkPolyDataMapper polyMapper = vtkPolyDataMapper.New();
             polyMapper.SetInput(polyData);
-
-            sectionViewActor.Geometry = vtkActor.New();
-            sectionViewActor.GeometryMapper = polyMapper;
-
-            polyData = cutStrips.GetOutput();
-            polyMapper = vtkPolyDataMapper.New();
-            polyMapper.SetInput(polyData);
-
-            sectionViewActor.ElementEdges = vtkActor.New();
-            sectionViewActor.ElementEdges.SetMapper(polyMapper);
-            sectionViewActor.ElementEdgesProperty.DeepCopy(actor.ElementEdgesProperty);
-            sectionViewActor.ElementEdges.PickableOff();
-            sectionViewActor.ElementEdges.SetVisibility(actor.ElementEdges.GetVisibility());
-
-            sectionViewActor.ModelEdges = vtkActor.New();
-            sectionViewActor.ModelEdges.SetMapper(polyMapper);
-            sectionViewActor.ModelEdgesProperty.DeepCopy(actor.ModelEdgesProperty);
-            sectionViewActor.ModelEdges.PickableOff();
-            sectionViewActor.ModelEdges.SetVisibility(actor.ModelEdges.GetVisibility());
-
-            return sectionViewActor;
-            ///////////////////////////////////////////////////////////////////////////////////////
-
-            if (cutter.GetOutput().GetNumberOfPoints() == 0) return null;
-
-            //System.Diagnostics.Debug.WriteLine("Cutter num. of points: " + cutter.GetOutput().GetNumberOfPoints());
-            //System.Diagnostics.Debug.WriteLine("Cutter num. of cells: " + cutter.GetOutput().GetNumberOfCells());
-            
-            // GEOMETRY                                                                             
-            //System.Diagnostics.Debug.WriteLine("CutStrips num. of points: " + cutStrips.GetOutput().GetNumberOfPoints());
-            //System.Diagnostics.Debug.WriteLine("CutStrips num. of cells: " + cutStrips.GetOutput().GetNumberOfCells());
-
-           
-            // Normal
-            double[] n = _sectionViewData.Plane.GetNormal();
-            // Axis = n X z(0,0,1)
-            double[] axis = new double[] { n[1], -n[0], 0 };
-            // Angle
-            double l2 = Math.Pow(n[0], 2) + Math.Pow(n[1], 2) + Math.Pow(n[2], 2);
-            double phi = Math.Acos(n[2] / Math.Sqrt(l2));
-            vtkTransform transform = vtkTransform.New();
-            transform.RotateWXYZ(phi, axis[0], axis[1], axis[2]);
-
-            n[0] = Math.Abs(n[0]);
-            n[1] = Math.Abs(n[1]);
-            n[2] = Math.Abs(n[2]);
-
-            if (cutStrips.GetOutput().GetNumberOfCells() > 1
-                && cutStrips.GetOutput().GetCell(0) is vtkPolyLine
-                && n[2] == Math.Max(Math.Max(n[0], n[1]), n[2])
-                //&& false
-                )
-            {                
-                polyData = cutStrips.GetOutput();
-
-                vtkPolyLine line0 = vtkPolyLine.New();
-                vtkPolyLine line1 = vtkPolyLine.New();
-                line0.DeepCopy(polyData.GetCell(0));
-                line1.DeepCopy(polyData.GetCell(1));
-
-
-                // Define a polygonal hole with a clockwise polygon
-                vtkPolygon polygon0 = vtkPolygon.New();
-                vtkPolygon polygon1 = vtkPolygon.New();
-                double[] coor;
-                long id;
-
-                for (int i = 0; i < line0.GetNumberOfPoints(); i++)
-                //for (int i = (int)line0.GetNumberOfPoints() - 1; i >= 0 ; i--)
-                {
-                    id = line0.GetPointId(i);
-                    polygon0.GetPointIds().InsertNextId(id);
-                    coor = line0.GetPoints().GetPoint(i);
-                    polygon0.GetPoints().InsertNextPoint(coor[0], coor[1], coor[2]);
-                }
-
-                for (int i = 0; i < line1.GetNumberOfPoints(); i++)
-                //for (int i = (int)line1.GetNumberOfPoints() - 1; i >= 0 ; i--)
-                {
-                    id = line1.GetPointId(i);
-                    polygon1.GetPointIds().InsertNextId(id);
-                    coor = line1.GetPoints().GetPoint(i);
-                    polygon1.GetPoints().InsertNextPoint(coor[0], coor[1], coor[2]);
-                }
-
-                double[] bounds0 = polygon0.GetBounds();
-                double[] bounds1 = polygon1.GetBounds();
-
-                vtkDelaunay3D test = vtkDelaunay3D.New();
-
-                // Create a cell array to store the polygon in
-                vtkCellArray polygonArray = vtkCellArray.New();
-                //polygonArray.InsertNextCell(polygon0);
-                //polygonArray.InsertNextCell(polygon1);
-
-                vtkPolyData allPoints = vtkPolyData.New();
-                allPoints.SetPoints(cutStrips.GetOutput().GetPoints());
-
-                // Create a poly data to store the boundary. The points must be the
-                // same as the points we will triangulate.
-                vtkPolyData boundary = vtkPolyData.New();       // this is the boundary
-                boundary.SetPoints(allPoints.GetPoints());
-                boundary.SetPolys(polygonArray);
-
-                // Triangulate the grid points
-                vtkDelaunay2D delaunay = vtkDelaunay2D.New();
-                delaunay.SetTransform(transform);
-                delaunay.SetInput(0, allPoints);
-                delaunay.SetInput(1, boundary);
-                delaunay.Update();
-
-                polyData = delaunay.GetOutput();
-
-                //polyData = boundary;
-
-                //if (polyData.GetNumberOfPoints() == 0)
-                //    return null;
-
-                polyMapper = vtkPolyDataMapper.New();
-                polyMapper.SetInput(polyData);
-                //polyMapper.SetInputConnection(delaunay.GetOutputPort());
-            }
-            else
-            {
-                polyData = vtkPolyData.New();
-                polyData.SetPoints(cutStrips.GetOutput().GetPoints());
-                polyData.SetPolys(cutStrips.GetOutput().GetLines());
-
-                vtkTriangleFilter cutTriangles = vtkTriangleFilter.New();
-                cutTriangles.SetInput(polyData);
-                cutTriangles.Update();
-
-                polyData = cutTriangles.GetOutput();
-
-                // Create the mapper for the geometry actor
-                polyMapper = vtkPolyDataMapper.New();
-                polyMapper.SetInput(polyData);
-                //polyMapper.SetInputConnection(cutTriangles.GetOutputPort());
-            }
-
-            if (polyData.GetNumberOfPoints() == 0) return null;
-
-            // Create Actor
+            // Create actor
             sectionViewActor.Geometry = vtkActor.New();
             sectionViewActor.GeometryMapper = polyMapper;
             sectionViewActor.GeometryProperty.DeepCopy(actor.GeometryProperty);
-            sectionViewActor.Geometry.PickableOff();
+            sectionViewActor.Geometry.SetPickable(actor.Geometry.GetPickable());
             sectionViewActor.Geometry.SetVisibility(actor.Geometry.GetVisibility());
-            ////////////////////////////////////////////////////////////////////////////////////////
-            //vtkClipClosedSurface clipClosed = vtkClipClosedSurface.New();                         
-            ////////////////////////////////////////////////////////////////////////////////////////
-
-            // EDGES                                                                                
-
-            //System.Diagnostics.Debug.WriteLine("Num. of points: " + polyData.GetNumberOfPoints());
-            //System.Diagnostics.Debug.WriteLine("Num. of cells: " + polyData.GetNumberOfCells());
-
-            vtkExtractEdges extractEdges = vtkExtractEdges.New();
-            extractEdges.SetInput(polyData);
-            extractEdges.Update();
-
-            // Create the mapper for the geometry actor
+            // EDGES  #############################################################################
             polyMapper = vtkPolyDataMapper.New();
-            polyMapper.SetInput(extractEdges.GetOutput());
-
+            polyMapper.SetInput(cutStrips.GetOutput());
+            // Create actor
             sectionViewActor.ElementEdges = vtkActor.New();
             sectionViewActor.ElementEdges.SetMapper(polyMapper);
             sectionViewActor.ElementEdgesProperty.DeepCopy(actor.ElementEdgesProperty);
             sectionViewActor.ElementEdges.PickableOff();
             sectionViewActor.ElementEdges.SetVisibility(actor.ElementEdges.GetVisibility());
-
-
-            // MODEL EDGES                                                                          
-
-            vtkFeatureEdges featureEdges = vtkFeatureEdges.New();
-            featureEdges.SetInput(polyData);
-            featureEdges.BoundaryEdgesOn();
-            featureEdges.FeatureEdgesOff();
-            featureEdges.ManifoldEdgesOff();
-            featureEdges.NonManifoldEdgesOff();
-            featureEdges.SetColoring(0);
-            featureEdges.Update();
-
-            // Create the mapper for the geometry actor
-            polyMapper = vtkPolyDataMapper.New();
-            //polyMapper.SetInput(featureEdges.GetOutput());
-            polyMapper.SetInput(cutStrips.GetOutput());
-
+            // MODEL EDGES  #######################################################################
             sectionViewActor.ModelEdges = vtkActor.New();
             sectionViewActor.ModelEdges.SetMapper(polyMapper);
             sectionViewActor.ModelEdgesProperty.DeepCopy(actor.ModelEdgesProperty);
             sectionViewActor.ModelEdges.PickableOff();
             sectionViewActor.ModelEdges.SetVisibility(actor.ModelEdges.GetVisibility());
-
+            //
             return sectionViewActor;
+        }
+        private bool IsClosedSurface(vtkPolyData surface)
+        {
+            vtkFeatureEdges featureEdges = vtkFeatureEdges.New();
+            featureEdges.SetInput(surface);
+            featureEdges.BoundaryEdgesOn();
+            featureEdges.FeatureEdgesOff();
+            featureEdges.ManifoldEdgesOff();
+            featureEdges.NonManifoldEdgesOn();
+            featureEdges.SetColoring(0);
+            featureEdges.Update();
+            return featureEdges.GetOutput().GetNumberOfCells() == 0;
+        }
+        private vtkPolyData GetSectionCap(vtkPolyData surface)
+        {
+            // Clip the closed surface and keep only the faces created on the section plane
+            vtkPlaneCollection planes = vtkPlaneCollection.New();
+            planes.AddItem(_sectionViewData.Plane);
+            //
+            vtkClipClosedSurface clipper = vtkClipClosedSurface.New();
+            clipper.SetInput(surface);
+            clipper.SetClippingPlanes(planes);
+            clipper.GenerateFacesOn();
+            clipper.GenerateOutlineOff();
+            clipper.SetScalarModeToLabels();
+            clipper.Update();
+            //
+            vtkPolyData clipped = clipper.GetOutput();
+            vtkDataArray labels = clipped.GetCellData().GetScalars();
+            vtkCellArray capCells = vtkCellArray.New();
+            for (int i = 0; i < clipped.GetNumberOfCells(); i++)
+            {
+                if (labels.GetTuple1(i) == 1) capCells.InsertNextCell(clipped.GetCell(i).GetPointIds());
+            }
+            //
+            vtkPolyData cap = vtkPolyData.New();
+            cap.SetPoints(clipped.GetPoints());
+            cap.SetPolys(capCells);
+            return cap;
         }
         //
         private string GetSectionViewActorName(string actorName)
