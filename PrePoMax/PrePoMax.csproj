@@ -118,6 +118,7 @@
     <Compile Include="Python\Journal\PythonJobEmitter.cs" />
     <Compile Include="Python\Journal\PythonSectionEmitter.cs" />
     <Compile Include="Python\Journal\PythonMaterialEmitter.cs" />
+    <Compile Include="Python\Journal\PythonParameterEmitter.cs" />
     <Compile Include="Python\Journal\PythonRegionEmitter.cs" />
     <Compile Include="Python\Journal\PythonReferencePointEmitter.cs" />
     <Compile Include="Python\Journal\PythonModelItemEmitter.cs" />

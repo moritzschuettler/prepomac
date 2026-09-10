@@ -53,14 +53,15 @@ namespace APIs.Python.Model
             //
             return parameter;
         }
-        public void Add(string name, object value)
+        public void Add(string name, object value, string description)
         {
             EquationParameter parameter = Build(name, value, null);
+            parameter.Description = description;
             //
             EnsureCommandsAvailable();
             _modelGateway.AddParameter(parameter);
         }
-        public void Replace(string oldName, string name, object value)
+        public void Replace(string oldName, string name, object value, string description)
         {
             EquationParameter existing = ResolveParameter(oldName);
             string newName = name == null ? oldName : name;
@@ -74,6 +75,8 @@ namespace APIs.Python.Model
                 parameter.EquationStr = new EquationString(existing.EquationStr.Equation);
             }
             else parameter = Build(newName, value, oldName);
+            // A description that is not given is kept, and an empty one clears it
+            parameter.Description = description == null ? existing.Description : description;
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceParameter(oldName, parameter);
@@ -83,12 +86,20 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.RemoveParameters(names);
         }
-        public void SetAll(object names, object values)
+        public void SetAll(object names, object values, object descriptions)
         {
             string[] parameterNames = PythonStringListConverter.ToStringArrayOrSingle(names, "names");
             if (parameterNames == null || parameterNames.Length == 0)
                 throw new PythonAPIException("The argument 'names' must not be empty.");
             EquationString[] equations = PythonValueConverter.ToEquationArray(values, "values", parameterNames.Length);
+            string[] parameterDescriptions = null;
+            if (descriptions != null)
+            {
+                parameterDescriptions = PythonStringListConverter.ToStringArrayOrSingle(descriptions, "descriptions");
+                if (parameterDescriptions.Length != parameterNames.Length)
+                    throw new PythonAPIException("The argument 'descriptions' must contain " + parameterNames.Length +
+                                                 " items, one for every name.");
+            }
             //
             HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < parameterNames.Length; i++)
@@ -119,6 +130,8 @@ namespace APIs.Python.Model
                     parameters[i] = new EquationParameter();
                     parameters[i].Name = parameterNames[i];
                     parameters[i].EquationStr = equations[i];
+                    if (parameterDescriptions != null && parameterDescriptions[i].Length > 0)
+                        parameters[i].Description = parameterDescriptions[i];
                 }
             }
             finally
@@ -133,7 +146,7 @@ namespace APIs.Python.Model
         public void Rename(EquationParameter parameter, string newName)
         {
             // The parameters have no rename command, so the replacement carries the new name
-            Replace(parameter.Name, newName, parameter.EquationStr.Equation);
+            Replace(parameter.Name, newName, parameter.EquationStr.Equation, null);
         }
         public void ImportFromFile(string fileName)
         {

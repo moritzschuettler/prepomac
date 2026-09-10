@@ -54,17 +54,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            List<object> names = new List<object>();
-            List<object> equations = new List<object>();
-            foreach (EquationParameter parameter in _parameters)
-            {
-                names.Add(parameter.Name);
-                equations.Add(parameter.Equation);
-            }
-            //
-            writer.Statement(writer.Call("pmx.model.parameters", "set_all", PythonValueFormatter.List(names),
-                                         PythonValueFormatter.List(equations)));
-            writer.CountEmittedCommand();
+            PythonParameterEmitter.SetAll(writer, _parameters);
         }
         public override string GetCommandString()
         {

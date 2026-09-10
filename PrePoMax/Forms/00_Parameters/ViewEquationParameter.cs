@@ -22,6 +22,7 @@ namespace PrePoMax.Forms
         private string _name;
         private string _equation;
         private string _evaluatesTo;
+        private string _description;
         private string _error;
 
 
@@ -49,6 +50,16 @@ namespace PrePoMax.Forms
         [DescriptionAttribute("Parameter value, or an error when the equation cannot be evaluated.")]
         public string EvaluatesTo { get { return _evaluatesTo; } }
         //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(3, 10, "Description")]
+        [DescriptionAttribute("Parameter description.")]
+        public string Description
+        {
+            get { return _description; }
+            // A tab or a new line would break the row the table is copied to the clipboard as
+            set { _description = value == null ? "" : value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ').Trim(); }
+        }
+        //
         [Browsable(false)]
         public string Error { get { return _error; } }
 
@@ -59,6 +70,7 @@ namespace PrePoMax.Forms
             _name = "";
             _equation = "";
             _evaluatesTo = "";
+            _description = "";
             _error = null;
         }
         public ViewEquationParameter(EquationParameter parameter)
@@ -66,6 +78,7 @@ namespace PrePoMax.Forms
             _name = parameter.Name;
             _equation = parameter.Equation.String;
             _evaluatesTo = "";
+            _description = parameter.Description == null ? "" : parameter.Description;
             _error = null;
         }
 
@@ -86,6 +99,7 @@ namespace PrePoMax.Forms
             EquationParameter parameter = new EquationParameter();
             parameter.Name = _name;
             parameter.EquationStr = new EquationString(_equation);
+            parameter.Description = _description.Length > 0 ? _description : null;
             return parameter;
         }
     }

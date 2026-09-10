@@ -33,7 +33,11 @@ namespace CaeModel
             set
             {
                 EquationParameter parameter;
-                if (_overriddenParameters.TryGetValue(name, out parameter)) _parameters[name] = parameter;
+                if (_overriddenParameters.TryGetValue(name, out parameter))
+                {
+                    KeepDescription(parameter, value);
+                    _parameters[name] = parameter;
+                }
                 else _parameters[name] = value;
             }
         }
@@ -79,8 +83,19 @@ namespace CaeModel
         public void Add(string name, EquationParameter value)
         {
             EquationParameter parameter;
-            if (_overriddenParameters.TryGetValue(name, out parameter)) _parameters.Add(name, parameter);
+            if (_overriddenParameters.TryGetValue(name, out parameter))
+            {
+                KeepDescription(parameter, value);
+                _parameters.Add(name, parameter);
+            }
             else _parameters.Add(name, value);
+        }
+        // An overridden parameter is built from a value alone, and it replaces the parameter of the model
+        // rather than only its equation, so the description the model carries would be lost with it
+        private static void KeepDescription(EquationParameter overriddenParameter, EquationParameter parameter)
+        {
+            if (overriddenParameter.Description == null && parameter != null)
+                overriddenParameter.Description = parameter.Description;
         }
         public void AddOverriddenParametersFromString(string parametersString)
         {
@@ -121,7 +136,11 @@ namespace CaeModel
         public void Replace(string oldName, EquationParameter parameter)
         {
             EquationParameter op;
-            if (_overriddenParameters.TryGetValue(parameter.Name, out op)) _parameters.Replace(oldName, parameter.Name, op);
+            if (_overriddenParameters.TryGetValue(parameter.Name, out op))
+            {
+                KeepDescription(op, parameter);
+                _parameters.Replace(oldName, parameter.Name, op);
+            }
             else _parameters.Replace(oldName, parameter.Name, parameter);
         }
         public bool Remove(string name)
@@ -150,12 +169,13 @@ namespace CaeModel
         {
            StringBuilder sb = new StringBuilder();
             //
-            sb.AppendFormat("${0};{1};{2}", "Name", "Value/Equation", "Evaluates to");
+            sb.AppendFormat("${0};{1};{2};{3}", "Name", "Value/Equation", "Evaluates to", "Description");
             //
             foreach (var entry in _parameters)
             {
                 sb.AppendLine();
-                sb.AppendFormat("{0};{1};{2}", entry.Value.Name, entry.Value.EquationStr.Equation, entry.Value.Value);
+                sb.AppendFormat("{0};{1};{2};{3}", entry.Value.Name, entry.Value.EquationStr.Equation, entry.Value.Value,
+                                GetFieldFromDescription(entry.Value.Description));
             }
             //
             System.IO.File.WriteAllText(fileName, sb.ToString());
@@ -173,6 +193,9 @@ namespace CaeModel
             for (int i = 0; i < lines.Length; i++)
             {
                 line = lines[i].Trim();
+                // A file with a description column is one a user opens in an editor, so it can end in a
+                // blank line
+                if (line.Length == 0) continue;
                 if (line[0] == '$') continue;
                 tmp = line.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                 if (tmp.Length >= 2)
@@ -182,6 +205,9 @@ namespace CaeModel
                         EquationParameter parameter = new EquationParameter();
                         parameter.Name = tmp[0].Trim();
                         parameter.Equation.SetEquation(new EquationString(tmp[1].Trim()));
+                        // The third field is the evaluated value, which is written for the reader of the
+                        // file and is not read back; a file written before the description has three
+                        if (tmp.Length >= 4) parameter.Description = tmp[3].Trim();
                         //
                         parameters.Add(parameter);
                     }
@@ -203,6 +229,12 @@ namespace CaeModel
                 _parameters.Clear();
                 foreach (var parameter in parameters) Add(parameter.Name, parameter);
             }
+        }
+        private static string GetFieldFromDescription(string description)
+        {
+            if (description == null) return "";
+            // The file is one parameter a line, with the fields separated by a semicolon
+            return description.Replace(';', ',').Replace(Environment.NewLine, " ").Replace('\n', ' ').Replace('\r', ' ');
         }
         public void OnDeserialization(object sender)
         {

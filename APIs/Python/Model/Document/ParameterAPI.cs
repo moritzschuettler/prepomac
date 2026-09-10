@@ -23,6 +23,8 @@ namespace APIs.Python.Model
         public string equation { get { return _service.ResolveParameter(_parameterName).EquationStr.Equation; } }
         [PythonAPI("The evaluated parameter value.", Returns = "float")]
         public double value { get { return _service.ResolveParameter(_parameterName).Value; } }
+        [PythonAPI("The parameter description.", Returns = "str")]
+        public string description { get { return _service.ResolveParameter(_parameterName).Description; } }
 
 
         // Constructors
@@ -37,7 +39,8 @@ namespace APIs.Python.Model
         public override string ToString()
         {
             return "Parameter(name=" + StringListAPI.ToDisplayString(_parameterName) +
-                   ", equation=" + StringListAPI.ToDisplayString(equation) + ", value=" + value + ")";
+                   ", equation=" + StringListAPI.ToDisplayString(equation) + ", value=" + value +
+                   ", description=" + StringListAPI.ToDisplayString(description) + ")";
         }
     }
 }

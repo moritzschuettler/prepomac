@@ -35,6 +35,7 @@ namespace PrePoMax.Forms
         private HashSet<string> _unusableNames;
         private int _nameColumnIndex;
         private int _equationColumnIndex;
+        private int _descriptionColumnIndex;
         private int _cellRow;
         private int _cellCol;
         private bool _bindingInProgress;
@@ -50,6 +51,7 @@ namespace PrePoMax.Forms
             _controller = controller;
             _nameColumnIndex = 0;
             _equationColumnIndex = 1;
+            _descriptionColumnIndex = 3;
             _cellRow = -1;
             _cellCol = -1;
             dgvData.ShowErrorMsg = false;
@@ -133,8 +135,9 @@ namespace PrePoMax.Forms
         }
         private void dgvData_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
-            // A pasted cell is changed without an edit, so this is the event that sees every change
-            if (!_bindingInProgress) EvaluateParameters();
+            // A pasted cell is changed without an edit, so this is the event that sees every change. A
+            // description takes no part in an equation, so it does not ask for the table to be resolved
+            if (!_bindingInProgress && e.ColumnIndex != _descriptionColumnIndex) EvaluateParameters();
         }
         private void dgvData_DragDrop(object sender, DragEventArgs e)
         {
@@ -197,16 +200,18 @@ namespace PrePoMax.Forms
             //
             _nameColumnIndex = dgvData.Columns["Name"].Index;
             _equationColumnIndex = dgvData.Columns["Equation"].Index;
+            _descriptionColumnIndex = dgvData.Columns["Description"].Index;
             //
             foreach (DataGridViewColumn column in dgvData.Columns)
             {
-                if (column.Index == _equationColumnIndex)
+                // The equation and the description are the two columns that carry text of any length
+                if (column.Index == _equationColumnIndex || column.Index == _descriptionColumnIndex)
                 {
                     column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
                     column.MinimumWidth = 150;
                 }
                 //
-                column.Width = 150;
+                column.Width = column.Index == _nameColumnIndex ? 75 : 150;
                 column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
                 column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomLeft;
             }
@@ -320,6 +325,7 @@ namespace PrePoMax.Forms
             {
                 if (entry.Key != parameters[i].Name) return true;
                 if (!entry.Value.EquationStr.EqualsEquation(parameters[i].EquationStr)) return true;
+                if (entry.Value.Description != parameters[i].Description) return true;
                 i++;
             }
             //

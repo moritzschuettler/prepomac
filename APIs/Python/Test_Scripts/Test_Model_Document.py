@@ -60,6 +60,17 @@ def test_parameters():
     check(pmx.model.parameters["pytest_e"].value == 18.0,
           "the chained equation did not evaluate, got " + str(pmx.model.parameters["pytest_e"].value))
     pmx.model.parameters.remove(["pytest_e", "pytest_d"])
+    # A description is free text kept beside the parameter
+    pmx.model.parameters.add("pytest_m", 1.0, description="A described parameter")
+    check(pmx.model.parameters["pytest_m"].description == "A described parameter",
+          "the description was not kept, got " + str(pmx.model.parameters["pytest_m"].description))
+    # A replace that is not given one keeps it, an empty one clears it
+    pmx.model.parameters.replace("pytest_m", "pytest_m", 2.0)
+    check(pmx.model.parameters["pytest_m"].description == "A described parameter",
+          "the description was not kept by the replace")
+    pmx.model.parameters.replace("pytest_m", "pytest_m", None, "")
+    check(not pmx.model.parameters["pytest_m"].description, "the description was not cleared")
+    pmx.model.parameters.remove(["pytest_m"])
     # Export
     file_name = os.path.join(tempfile.gettempdir(), "pytest_parameters.pmp")
     pmx.model.parameters.export_to_file(file_name)
@@ -98,6 +109,19 @@ def test_parameters_set_all():
     check_raises(lambda: pmx.model.parameters.set_all(["pytest_k", "pytest_k"], [1.0, 2.0]),
                  "a repeated name must be rejected")
     check(list(pmx.model.parameters.get_names()) == names, "a rejected call must not change the table")
+    # A description survives a .pmp round trip. The file is written in table order and read back in
+    # file order, and the import evaluates as it reads, so the table is put in dependency order first
+    pmx.model.parameters.set_all(kept_names + ["pytest_f", "pytest_g"], kept_values + [4.0, "pytest_f * 2"],
+                                 [""] * len(kept_names) + ["A described parameter", ""])
+    file_name = os.path.join(tempfile.gettempdir(), "pytest_described.pmp")
+    pmx.model.parameters.export_to_file(file_name)
+    pmx.model.parameters.import_from_file(file_name)
+    os.remove(file_name)
+    check(pmx.model.parameters["pytest_f"].description == "A described parameter",
+          "the description did not survive the .pmp round trip, got " +
+          str(pmx.model.parameters["pytest_f"].description))
+    check(not pmx.model.parameters["pytest_g"].description, "an empty description came back as text")
+    check(pmx.model.parameters["pytest_g"].value == 8.0, "the round tripped equation did not evaluate")
     #
     pmx.model.parameters.remove(["pytest_g", "pytest_f"])
     check(list(pmx.model.parameters.get_names()) == kept_names, "the parameters were not restored")

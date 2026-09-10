@@ -57,7 +57,7 @@ namespace PrePoMax.Forms
             this.gbParameters.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
             this.gbParameters.Name = "gbParameters";
             this.gbParameters.Padding = new System.Windows.Forms.Padding(6, 8, 6, 8);
-            this.gbParameters.Size = new System.Drawing.Size(610, 382);
+            this.gbParameters.Size = new System.Drawing.Size(696, 382);
             this.gbParameters.TabIndex = 9;
             this.gbParameters.TabStop = false;
             this.gbParameters.Text = "Parameters";
@@ -80,9 +80,10 @@ namespace PrePoMax.Forms
             this.dgvData.Location = new System.Drawing.Point(6, 24);
             this.dgvData.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
             this.dgvData.Name = "dgvData";
+            this.dgvData.PasteSplitsOnTabOnly = true;
             this.dgvData.RowHeadersWidth = 82;
             this.dgvData.ShowErrorMsg = true;
-            this.dgvData.Size = new System.Drawing.Size(598, 350);
+            this.dgvData.Size = new System.Drawing.Size(684, 350);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 1;
             this.dgvData.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.dgvData_CellBeginEdit);
@@ -96,7 +97,7 @@ namespace PrePoMax.Forms
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(460, 394);
+            this.btnOK.Location = new System.Drawing.Point(546, 394);
             this.btnOK.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
@@ -108,7 +109,7 @@ namespace PrePoMax.Forms
             // btnCancel
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnCancel.Location = new System.Drawing.Point(541, 394);
+            this.btnCancel.Location = new System.Drawing.Point(627, 394);
             this.btnCancel.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
@@ -121,7 +122,7 @@ namespace PrePoMax.Forms
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(634, 429);
+            this.ClientSize = new System.Drawing.Size(720, 429);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.gbParameters);

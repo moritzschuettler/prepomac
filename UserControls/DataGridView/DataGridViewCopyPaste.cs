@@ -28,6 +28,7 @@ namespace UserControls
         private const string DataOnlyClipboardFormat = "PrePoMax.DataGridViewCopyPaste.DataOnly";
         private string _xColName;
         private bool _showErrorMsg;
+        private bool _pasteSplitsOnTabOnly;
         private Control _editControl;
         private int _autocompleteMenuColumn;
         //
@@ -45,6 +46,9 @@ namespace UserControls
         // Properties                                                                                                               
         public string XColName { get { return _xColName; } set { _xColName = value; } }
         public bool ShowErrorMsg { get { return _showErrorMsg; } set { _showErrorMsg = value; } }
+        // A grid of numbers accepts a value separated by a space, a comma or a semicolon; one that holds
+        // free text cannot, since a space is part of the text and an empty cell must keep its column
+        public bool PasteSplitsOnTabOnly { get { return _pasteSplitsOnTabOnly; } set { _pasteSplitsOnTabOnly = value; } }
         public bool EnableCutMenu { get { return tsmiCut.Enabled; } set { tsmiCut.Enabled = value; } }
         public bool EnablePasteMenu { get { return tsmiPaste.Enabled; } set { tsmiPaste.Enabled = value; } }
         public bool EnablePlotMenu { get { return tsmiPlot.Enabled; } set { tsmiPlot.Enabled = value; } }
@@ -585,12 +589,14 @@ namespace UserControls
             //
             clipboardValue = clipboardValue.Replace("\r\n", "\n");
             string[] lines = clipboardValue.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            string[] splitter = new string[] { "\t", " ", ",", ";" };
+            string[] splitter = _pasteSplitsOnTabOnly ? new string[] { "\t" } : new string[] { "\t", " ", ",", ";" };
+            StringSplitOptions splitOptions = _pasteSplitsOnTabOnly ? StringSplitOptions.None
+                                                                    : StringSplitOptions.RemoveEmptyEntries;
             //
             for (int i = 0; i <= lines.Length - 1; i++)
             {
                 copyValues[i] = new Dictionary<int, string>();
-                string[] lineContent = lines[i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                string[] lineContent = lines[i].Split(splitter, splitOptions);
                 // If an empty cell value copied, then set the dictionary with an empty string else Set value to dictionary
                 if (lineContent.Length == 0) copyValues[i][0] = string.Empty;
                 else

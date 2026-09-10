@@ -23,6 +23,7 @@ namespace CaeModel
     {
         // Variables                                                                                                                
         private EquationContainer _equation;
+        private string _description;
 
 
         // Properties                                                                                                               
@@ -60,6 +61,17 @@ namespace CaeModel
         [OrderedDisplayName(2, 10, "Evaluates to")]
         [DescriptionAttribute("Parameter value.")]
         public double Value { get { return _equation.Value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(3, 10, "Description")]
+        [DescriptionAttribute("Parameter description.")]
+        // A parameter with no description holds null, so that the editor, a script and a parameters file
+        // cannot disagree over whether an empty description is a change
+        public string Description
+        {
+            get { return _description; }
+            set { _description = value == null || value.Trim().Length == 0 ? null : value.Trim(); }
+        }
         //
         [Browsable(false)]
         public EquationContainer Equation { get { return _equation; } set { _equation = value; } }

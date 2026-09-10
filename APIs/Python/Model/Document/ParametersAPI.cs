@@ -27,31 +27,34 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a model parameter using command history. The value is a number or an equation string.",
-                   Arguments = "name: str, value: float or str", Returns = "Parameter",
-                   Example = "pmx.model.parameters.add('t', 2.5)")]
-        public ParameterAPI add(string name, object value)
+                   Arguments = "name: str, value: float or str, description: str = None", Returns = "Parameter",
+                   Example = "pmx.model.parameters.add('t', 2.5, description='Plate thickness')")]
+        public ParameterAPI add(string name, object value, string description = null)
         {
-            _service.Add(name, value);
+            _service.Add(name, value, description);
             return this[name];
         }
 
         [PythonAPI("Replaces a model parameter using command history. A value that is not given is kept.",
-                   Arguments = "old_name: str, name: str = None, value: float or str = None",
+                   Arguments = "old_name: str, name: str = None, value: float or str = None, " +
+                               "description: str = None",
                    Returns = "Parameter")]
-        public ParameterAPI replace(string old_name, string name = null, object value = null)
+        public ParameterAPI replace(string old_name, string name = null, object value = null,
+                                    string description = null)
         {
-            _service.Replace(old_name, name, value);
+            _service.Replace(old_name, name, value, description);
             return this[name == null ? old_name : name];
         }
 
-        [PythonAPI("Replaces the whole parameter table using command history. The names and the values are " +
-                   "given in the order the parameters are shown, and a parameter may use a parameter that is " +
-                   "given after it.",
-                   Arguments = "names: list[str], values: list[float or str]", Returns = "None",
+        [PythonAPI("Replaces the whole parameter table using command history. The names, the values and the " +
+                   "descriptions are given in the order the parameters are shown, and a parameter may use a " +
+                   "parameter that is given after it. A parameter with no description takes an empty string.",
+                   Arguments = "names: list[str], values: list[float or str], descriptions: list[str] = None",
+                   Returns = "None",
                    Example = "pmx.model.parameters.set_all(['t', 'h'], [2.5, 't*2'])")]
-        public void set_all(object names, object values)
+        public void set_all(object names, object values, object descriptions = null)
         {
-            _service.SetAll(names, values);
+            _service.SetAll(names, values, descriptions);
         }
 
         [PythonAPI("Imports the parameters from a .pmp file using command history.",
