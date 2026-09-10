@@ -211,7 +211,7 @@ namespace PrePoMax.Forms
                     column.MinimumWidth = 150;
                 }
                 //
-                column.Width = column.Index == _nameColumnIndex ? 75 : 150;
+                column.Width = 150;
                 column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
                 column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomLeft;
             }
