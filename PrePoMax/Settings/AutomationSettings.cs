@@ -60,9 +60,13 @@ namespace PrePoMax
             get { return _port; }
             set { _port = Math.Min(MaxPort, Math.Max(MinPort, value)); }
         }
-        // What a client sends to prove it is the client the user configured. It is empty until the
-        // endpoint first needs one, and it is written into the session file so that a client which can
-        // read that file needs no configuration at all
+        // The access token of the endpoint. It lives here, beside the executable, so that deleting the
+        // portable folder deletes it and the user can read it back to configure a client.
+        //
+        // The settings file is part of the redistributable, so a token left in it would be shipped to
+        // every user, identical for all of them - which is why it is cleared on the first run in a
+        // folder, and why Tools - Settings - Automation offers an action to clear it before a release
+        // is prepared
         public string AccessToken
         {
             get { return _accessToken == null ? "" : _accessToken; }

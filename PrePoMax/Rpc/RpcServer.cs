@@ -45,6 +45,7 @@ namespace PrePoMax.Rpc
         private bool _isRunning;
         private bool _isStopping;
         private bool _isReadOnlyRequested;
+        private int _requestedPort;
         private string _lastError;
 
 
@@ -71,6 +72,14 @@ namespace PrePoMax.Rpc
         {
             get { return _isReadOnlyRequested; }
             set { _isReadOnlyRequested = value; }
+        }
+        // The port the command line asked for, for this run only. Zero means the settings decide;
+        // this is deliberately not written into them, because a switch for one run must not change
+        // the address the user configured a client with
+        public int RequestedPort
+        {
+            get { return _requestedPort; }
+            set { _requestedPort = value; }
         }
         public bool IsReadOnly { get { return _isReadOnlyRequested || Settings.IsReadOnly; } }
         public AutomationSettings Settings
@@ -105,6 +114,7 @@ namespace PrePoMax.Rpc
             _isRunning = false;
             _isStopping = false;
             _isReadOnlyRequested = false;
+            _requestedPort = 0;
             _lastError = null;
         }
 

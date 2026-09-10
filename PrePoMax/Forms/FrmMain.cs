@@ -78,6 +78,7 @@ namespace PrePoMax
         private SidePanelsState _sidePanelsState;
         private SidePanelsState _pendingSidePanelsState;
         private Rpc.RpcServer _automationServer;
+        private bool _isFirstRunInFolder;
         private bool _startupCompleted;
         private bool _pythonScriptTookState;
         private bool _pythonPanelStateApplied;
@@ -608,6 +609,7 @@ namespace PrePoMax
                 //
                 _frmSettings = new FrmSettings();
                 _frmSettings.UpdateSettings += UpdateSettings;
+                _frmSettings.AutomationAccessTokenChanged += SetAutomationAccessToken;
                 AddFormToAllForms(_frmSettings);
                 //
                 _frmQuery = new FrmQuery();
@@ -691,6 +693,13 @@ namespace PrePoMax
             // At the end when vtk is loaded open the file
             string fileName = null;
             UnitSystemType unitSystemType = UnitSystemType.Undefined;
+            //
+            // Asked here rather than at the end of this method, because it has to be answered before
+            // anything can start the automation server: a folder that was just unpacked must not serve
+            // the access token that shipped in its settings file. IsFirstRun writes the marker, so it
+            // can only be asked once and the answer is kept for the working directory check below
+            _isFirstRunInFolder = FirstRunChecker.IsFirstRun(Application.StartupPath);
+            if (_isFirstRunInFolder) ClearAutomationAccessTokenOfAnUnpackedFolder();
             //
             try
             {
@@ -846,7 +855,7 @@ namespace PrePoMax
                 if (!_hideWindow) this.Activate();
                 this.TopMost = false;
                 //
-                if (FirstRunChecker.IsFirstRun(Application.StartupPath))
+                if (_isFirstRunInFolder)
                 {
                     if (_controller.BatchRegenerationMode) WriteDataToOutput("Starting regeneration");
                     else _controller.Settings.CheckWorkingDirectory();
@@ -976,6 +985,7 @@ namespace PrePoMax
                         //
                         _controller.DeleteHistoryFiles();
                         //
+                        _vtk.RenderingOn = false;       // the viewport is being destroyed; do not queue redraws while clearing it
                         _vtk.Clear();
                         _vtk.Dispose();
                         _vtk = null;
@@ -7880,17 +7890,6 @@ namespace PrePoMax
         {
             ToggleAutomationServer();
         }
-        private void tsmiAutomationAccessToken_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                RegenerateAutomationAccessToken();
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
         private void ToggleAutomationServer()
         {
             try
@@ -7935,39 +7934,70 @@ namespace PrePoMax
             if (_automationServer.IsRunning) return;
             //
             if (_cmdOptions != null && _cmdOptions.Rpc == "ReadOnly") _automationServer.IsReadOnlyRequested = true;
-            // A run started for an agent names its own port, because it has no settings of its own
-            if (_cmdOptions != null && _cmdOptions.RpcPort != 0)
-                _controller.AutomationSettings.Port = _cmdOptions.RpcPort;
+            // A run started for an agent may name its own port. It is given to the server rather than
+            // written into the settings: a switch for one run must not change the address the user
+            // configured a client with
+            if (_cmdOptions != null) _automationServer.RequestedPort = _cmdOptions.RpcPort;
+            if (!EnsureAutomationAccessToken()) return;
             _automationServer.Start();
             WriteDataToOutput("The MCP endpoint of the automation server is " + _automationServer.EndpointUrl +
                               ", and it also accepts calls on the pipe " + _automationServer.PipeName + ".");
-            // A run that may not write the settings has a token for this run only, so the output is
-            // the only place its client can read it from besides the session file
-            if (_automationServer.HttpServer.IsAccessTokenEphemeral)
-            {
-                WriteDataToOutput("Its access token, for this run only, is " +
-                                  _automationServer.HttpServer.AccessToken + ".");
-            }
             UpdateAutomationServerIndicators();
         }
-        // Every client configuration that holds the old token stops working, so the user is asked
-        // first, and a server that is running is restarted onto the new one rather than left serving
-        // the token it was started with
-        private void RegenerateAutomationAccessToken()
+        // A session with no window has nobody to ask, and there is deliberately no command line
+        // switch for the token: the user runs PrePoMax once and generates it, and only then can an
+        // unattended run serve. So a hidden session is refused with the reason rather than prompted
+        private bool EnsureAutomationAccessToken()
+        {
+            if (_controller == null) return false;
+            if (_controller.AutomationSettings.AccessToken.Length > 0) return true;
+            //
+            if (_hideWindow)
+            {
+                WriteDataToOutput("The automation server has no access token. Start PrePoMax with its window, " +
+                                  "generate one in Tools - Settings - Automation, and run this again.");
+                return false;
+            }
+            string question = "The automation server needs an access token, which an AI assistant sends to prove " +
+                              "it is the assistant you set up." + Environment.NewLine + Environment.NewLine +
+                              "Generate one now? You will find it, and the address, in " +
+                              "Tools - Settings - Automation.";
+            if (MessageBoxes.ShowQuestionYesNo("Automation", question) != DialogResult.Yes) return false;
+            //
+            SetAutomationAccessToken(Mcp.McpAccessToken.Generate());
+            return true;
+        }
+        // Called by the settings dialog, which generates the value. An empty one means it was cleared,
+        // and the server cannot run without it, so it is stopped rather than left serving a token that
+        // is no longer written down anywhere
+        public void SetAutomationAccessToken(string accessToken)
         {
             if (_controller == null) return;
             //
-            string question = "Replace the access token of the automation server?" + Environment.NewLine +
-                              Environment.NewLine +
-                              "Every AI agent client that was configured with the current token will have to be " +
-                              "given the new one, which is shown in Tools - Settings - Automation.";
-            if (MessageBoxes.ShowQuestionYesNo("Automation", question) != DialogResult.Yes) return;
-            //
             bool wasRunning = _automationServer != null && _automationServer.IsRunning;
             if (wasRunning) StopAutomationServer();
-            _controller.SaveAutomationAccessToken(Mcp.McpAccessToken.Generate());
-            WriteDataToOutput("The access token of the automation server was replaced.");
+            _controller.SaveAutomationAccessToken(accessToken);
+            //
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                WriteDataToOutput("The access token of the automation server was cleared, so the server cannot " +
+                                  "run until a new one is generated.");
+                return;
+            }
+            WriteDataToOutput("The access token of the automation server was set.");
             if (wasRunning) StartAutomationServer();
+        }
+        // The settings file is part of the redistributable, so a folder that has just been unpacked
+        // may hold the token of whoever prepared the release. It is cleared before anything can serve
+        // with it; the release is also prepared with it cleared, and this is the net under that
+        private void ClearAutomationAccessTokenOfAnUnpackedFolder()
+        {
+            if (_controller == null || _controller.AutomationSettings.AccessToken.Length == 0) return;
+            //
+            _controller.SaveAutomationAccessToken("");
+            WriteDataToOutput("This PrePoMax folder is being run for the first time, so the access token found in " +
+                              "its settings was cleared. Generate one in Tools - Settings - Automation before " +
+                              "starting the automation server.");
         }
         private void StopAutomationServer()
         {

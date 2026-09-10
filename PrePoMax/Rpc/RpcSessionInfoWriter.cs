@@ -22,16 +22,15 @@ namespace PrePoMax.Rpc
     // two instances never race on it and a stale file left by a crash is recognized by the reader
     // rather than trusted: the process it names no longer exists.
     //
-    // The file carries the access token of the endpoint, so the folder it lives in is the one piece of
-    // this feature whose permissions matter. It is per user rather than per portable copy, because a
-    // client has to find every instance the user runs without knowing which folder any of them
-    // started from.
+    // The file carries the access token of the endpoint while the server runs, so this folder's
+    // permissions matter. It is per user rather than per portable copy, because a client has to find
+    // every instance the user runs without knowing which folder any of them started from, and it is
+    // the one thing this feature keeps outside the portable folder - transiently, since the file is
+    // removed when the server stops.
     public static class RpcSessionInfoWriter
     {
         // Variables                                                                                                                
         public const string ProtocolVersion = "1.0";
-        // Globals.ProgramName carries the version, and the bridge has to find the folder without
-        // knowing which version wrote it
         private const string ApplicationFolderName = "PrePoMax";
         private const string SessionsFolderName = "sessions";
 
@@ -81,10 +80,10 @@ namespace PrePoMax.Rpc
                 // The file is a hint for the bridge, not state the application depends on
             }
         }
-        // The folder holds the access token of every instance the user is running, so it is created
-        // with an explicit rule for that user alone and with inheritance switched off. An older
-        // version left it inheriting from the profile, which is user private on an ordinary machine
-        // but need not be, so an existing folder is protected as well rather than trusted
+        // The file holds the access token while the server runs, so the folder is created with an
+        // explicit rule for this user alone and with inheritance switched off. An older version left
+        // it inheriting from the profile, which is user private on an ordinary machine but need not
+        // be, so a folder that already exists is protected as well rather than trusted
         private static void EnsureSessionsDirectory()
         {
             string directory = GetSessionsDirectory();

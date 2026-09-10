@@ -14,6 +14,7 @@
 #
 #Expected process exit code 0.
 
+import io
 import json
 import os
 import shutil
@@ -176,10 +177,9 @@ def check_publication(session, port):
     check(len(info["token"]) >= 40, "the session file must carry an access token: " + str(len(info["token"])))
     check(info["pipeName"] == "PrePoMax." + str(session.process.pid),
           "the pipe must still be published for a client that speaks the protocol directly")
-    # A run started with --noSettingsSave cannot remember the token it made, so it says in the output
-    # that the token is for the run only - the session file being the other place its client reads it
-    check("for this run only" in session.output(),
-          "a run that may not write its settings must say its token is ephemeral:\n" + session.output())
+    # The token comes from this folder's settings, which is why the folder has to have been opened
+    # once and given one: the server refuses to start without it and there is no switch to supply it
+    check(len(info["token"]) == 43, "an access token is 43 characters: " + str(len(info["token"])))
     print("published: " + info["url"] + ", protocol " + info["protocolVersion"])
 
 

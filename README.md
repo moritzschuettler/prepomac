@@ -53,16 +53,24 @@ PrePoMax is closed.
 
 1. In PrePoMax, switch on **Tools - Automation Server**, or leave it on with
    **Tools - Settings - Automation - Start with the application**.
-2. Read the address and the access token from **Tools - Settings - Automation**, under *Endpoint*.
+2. Right click the *Access token* entry in **Tools - Settings - Automation** and choose *Generate the
+   access token*, then read it and the address from that page.
 3. Point the client at them. For Claude Code:
 
 ```bash
 claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
 
-The token is made the first time the endpoint starts and then kept in the settings of that PrePoMax
-folder, so this is done once. The address contains no path, so moving the folder or unpacking a new
-version leaves the client configuration correct.
+The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
+will not start without one, and there is no command line switch for it, so a folder has to be opened
+once with its window before an unattended run can serve.
+
+A newly unpacked PrePoMax starts without a token on purpose: `settings.bin` is part of the
+redistributable, and a token left in it would be shipped to everyone. The first run in a folder
+clears whatever token its settings carry - PrePoMax knows it is the first run because its own
+`trace.info` marker is absent - and the settings page has a *Clear the access token* action to use
+before preparing a release. After an update, generate a token in the new folder, or copy
+`settings.bin` forward as you would to keep any other setting.
 
 **A client that cannot connect means PrePoMax is closed, or its automation server is off.** Nothing
 answers on the address unless the session is open - that is what serving it from the application

@@ -122,11 +122,15 @@ The server is off until the user turns it on. Unpacking PrePoMax opens nothing.
 | Where | What it does |
 | --- | --- |
 | **Tools - Automation Server** | Starts and stops the server for this session. The status bar shows the port while it runs. |
-| **Tools - Settings - Automation** | *Start with the application*, *Read only*, *Echo to the Python panel*, the request timeout, and under *Endpoint* the port, the address and the access token. |
-| **Tools - Regenerate Automation Token** | Replaces the access token. Every client configured with the old one has to be given the new one. |
+| **Tools - Settings - Automation** | *Start with the application*, *Read only*, *Echo to the Python panel*, the request timeout, and under *Connection* the port, the address and the access token. |
 | `--rpc On` | Starts the server for the run. It also allows `-g No` on its own, which is a session with no window for an agent to drive. |
 | `--rpc ReadOnly` | The same, with the model protected against change for the whole run. |
 | `--rpcPort <n>` | The port for this run, instead of the one in the settings. |
+
+There is deliberately **no switch for the token**. An unattended run reads the one in the folder's
+settings, so a folder has to be opened once with its window and given a token before `-g No` can
+serve; a session with no window refuses with that instruction rather than prompting a user who is
+not there.
 
 Point the agent client at the address. For Claude Code:
 
@@ -134,10 +138,19 @@ Point the agent client at the address. For Claude Code:
 claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
 
-The address and the token are both in **Tools - Settings - Automation**. The token is made the first
-time the endpoint starts and then kept in the settings of that PrePoMax folder, so a client is
-configured once; a run started with `--noSettingsSave` cannot keep one and uses a token for that run
-only, which it prints and writes into its session file.
+The address and the token are both in **Tools - Settings - Automation**, under *Connection*. **The
+server will not start without a token**, and there is no command line switch for one: run PrePoMax
+once, right click the *Access token* entry, and choose *Generate the access token*. It is kept in
+that folder's `settings.bin`, so deleting the portable folder deletes it, and it can only be
+generated - never typed or pasted, which is what keeps it long and random.
+
+**A newly unpacked PrePoMax starts without one, deliberately.** `settings.bin` is part of the
+redistributable, so a token left in it would be shipped to every user, identical for all of them and
+readable by anyone. Two things prevent that: the settings page has a *Clear the access token* action
+to use before preparing a release, and the first run in any folder clears the token found in its
+settings before anything can serve with it - PrePoMax detects that from the absence of its own
+`trace.info` marker. So after an update you generate a new token in the new folder and give it to
+your assistant, or copy `settings.bin` forward as you would to keep any other setting.
 
 **A client that cannot connect is telling you that PrePoMax is closed, or that its automation server
 is off.** Nothing answers on the address unless the session is open - that is the point of serving it
@@ -241,16 +254,25 @@ is refused, and no `Access-Control-Allow-*` header is ever answered with, so no 
 reach the endpoint even if it is told that its own name resolves to `127.0.0.1`. A body over 4 MB, a
 body that is not JSON, and any other path are refused as well.
 
-What the token bounds is worth being exact about: it lives in the settings of that PrePoMax folder
-and in the session file under the user's own profile, so anything running **as that user** can read
-it - exactly as anything running as that user can open the pipe. It stops a web page, which cannot
-read a file, and another account on the machine, which cannot read that profile. It is not a defence
-against code already running as the user.
+What the token bounds is worth being exact about: it is stored in a file the user can read, so
+anything running **as that user** can read it, exactly as anything running as that user can open the
+pipe. It stops another account logged into the machine - which can reach a loopback port, and is the
+boundary the named pipe used to get from Windows for free - and it stops a web page, which cannot
+read a file at all. It is not a defence against code already running as the user, and nothing served
+over loopback can be. While the server runs the token is also in the session file under
+`%LOCALAPPDATA%\PrePoMax\sessions\`, which is why that folder is created with a single rule for
+that user and with inheritance switched off; the file is removed when the server stops.
 
 **The port.** 8756 by default, set in *Tools - Settings - Automation* or with `--rpcPort`. When it is
 taken - by another PrePoMax, or by another program - the endpoint takes the first free port in the
 sixteen above it and says which in the output window and the status bar. One port per instance, so
 the address is the address of one session.
+
+**Replacing and clearing it.** The context menu of the *Access token* entry offers *Generate the
+access token*, which replaces it after asking, and *Clear the access token*, which removes it - use
+that before preparing a redistributable. Either way a running server is stopped first, and restarted
+onto the new token, so it never keeps serving one that is no longer written down. Every client
+configured with the old token needs the new one. Both actions sit beside the value they change.
 
 **The pipe.** The same dispatcher is also served on `\\.\pipe\PrePoMax.<process id>`, JSON-RPC
 2.0, one object per line, UTF-8, with no token: the operating system authenticates the caller, and

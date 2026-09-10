@@ -171,12 +171,12 @@ namespace PrePoMax
         {
             _commands.UnblockCommands();
         }
-        // The endpoint cannot serve without a token, and a portable copy that has never served has
-        // none. It is remembered the way any other choice is, so that a client is configured once and
-        // keeps working the next time the application is opened
+        // The endpoint's access token, kept the way any other remembered choice is. An empty value
+        // means the endpoint has none and will refuse to start, which is what a folder gets on its
+        // first run so that a token shipped in the settings can never be served
         public void SaveAutomationAccessToken(string accessToken)
         {
-            _settings.Automation.AccessToken = accessToken;
+            _settings.Automation.AccessToken = accessToken == null ? "" : accessToken;
             _settings.SaveToFile();
         }
         public string RegenerationWorkDirectory
@@ -16466,22 +16466,6 @@ namespace PrePoMax
             else if (_currentView == ViewGeometryModelResults.Results) DrawResults(resetCamera);
             else throw new NotSupportedException();
         }
-        // Update model
-        public void FeModelUpdate(UpdateType updateType)
-        {
-            if (_updateBatchCount > 0) { _batchedModelUpdateType |= updateType; return; }
-            // First check the validity to correctly draw the symbols
-            if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateModelValidity();
-            if (updateType.HasFlag(UpdateType.DrawModel)) DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
-            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawModelSymbols();
-        }
-        public void FeResultsUpdate(UpdateType updateType)
-        {
-            if (_updateBatchCount > 0) { _batchedResultsUpdateType |= updateType; return; }
-            if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateResultValidity();
-            if (updateType.HasFlag(UpdateType.DrawResults)) DrawResults(updateType.HasFlag(UpdateType.ResetCamera));
-            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawResultSymbols();
-        }
         // An operation that creates or removes several items updates the view once instead of once per item.
         // The batches nest, so an operation that loops over another batched operation still updates once.
         public void BeginUpdateBatch()
@@ -16503,6 +16487,23 @@ namespace PrePoMax
             if (modelUpdateType != UpdateType.None) FeModelUpdate(modelUpdateType);
             if (resultsUpdateType != UpdateType.None) FeResultsUpdate(resultsUpdateType);
         }
+        // Update model
+        public void FeModelUpdate(UpdateType updateType)
+        {
+            if (_updateBatchCount > 0) { _batchedModelUpdateType |= updateType; return; }
+            // First check the validity to correctly draw the symbols
+            if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateModelValidity();
+            if (updateType.HasFlag(UpdateType.DrawModel)) DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
+            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawModelSymbols();
+        }
+        public void FeResultsUpdate(UpdateType updateType)
+        {
+            if (_updateBatchCount > 0) { _batchedResultsUpdateType |= updateType; return; }
+            if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateResultValidity();
+            if (updateType.HasFlag(UpdateType.DrawResults)) DrawResults(updateType.HasFlag(UpdateType.ResetCamera));
+            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawResultSymbols();
+        }
+        
         private vtkMaxActorRepresentation GetRepresentation(BasePart part)
         {
             if (part.PartType == PartType.Solid) return vtkMaxActorRepresentation.Solid;

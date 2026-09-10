@@ -13,15 +13,19 @@ using System.Security.Cryptography;
 namespace PrePoMax.Mcp
 {
     // What a client sends to prove it is the client the user configured. A loopback port, unlike a
-    // named pipe, is reachable by every program on the machine and by every page in the user's
-    // browser, and the operating system authenticates none of them - so the endpoint authenticates
-    // them itself.
+    // named pipe, is reachable by every program on the machine and by every account logged into it,
+    // and the operating system authenticates none of them - so the endpoint authenticates them itself.
     //
-    // What the token bounds is worth being exact about: it lives in the settings of the portable copy
-    // and in the session file under the user's own profile, so any program running as this user can
-    // read it, exactly as any such program can open the pipe. It stops the browser, which cannot read
-    // a file, and another account on the machine, which cannot read this profile. It is not a defence
-    // against code already running as the user, and nothing served over loopback can be.
+    // The value is made here and kept in the settings, beside the executable, where the user can read
+    // it back to configure a client and where deleting the portable folder deletes it too. It is only
+    // ever generated: a token the user could type would be a token the user could make short, and
+    // every comparable tool - Jupyter, Syncthing - generates rather than asks.
+    //
+    // What the token bounds is worth being exact about: it is stored in a file the user can read, so
+    // any program running as this user can read it, exactly as any such program can open the pipe. It
+    // stops another account on the machine, which cannot read this folder, and the browser, which
+    // cannot read a file at all. It is not a defence against code already running as the user, and
+    // nothing served over loopback can be.
     public static class McpAccessToken
     {
         // Variables                                                                                                                

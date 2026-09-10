@@ -36,7 +36,6 @@ namespace PrePoMax.Mcp
         private HttpListener _listener;
         private Thread _listenerThread;
         private string _accessToken;
-        private bool _isAccessTokenEphemeral;
         private int _port;
         private bool _isRunning;
         private bool _isStopping;
@@ -48,7 +47,6 @@ namespace PrePoMax.Mcp
         public bool IsRunning { get { return _isRunning; } }
         public int Port { get { return _port; } }
         public string AccessToken { get { return _accessToken == null ? "" : _accessToken; } }
-        public bool IsAccessTokenEphemeral { get { return _isAccessTokenEphemeral; } }
         public string LastError { get { return _lastError; } }
         public string EndpointUrl { get { return _isRunning ? GetEndpointUrl(_port) : ""; } }
 
@@ -60,7 +58,6 @@ namespace PrePoMax.Mcp
             _listener = null;
             _listenerThread = null;
             _accessToken = null;
-            _isAccessTokenEphemeral = false;
             _port = 0;
             _isRunning = false;
             _isStopping = false;
@@ -80,8 +77,14 @@ namespace PrePoMax.Mcp
         {
             if (_isRunning) return;
             //
-            ResolveAccessToken();
-            int wanted = _server.Settings.Port;
+            _accessToken = _server.Settings.AccessToken;
+            if (_accessToken.Length == 0)
+            {
+                throw new CaeException("The automation server has no access token, so a client could not be told " +
+                                       "how to reach it. Generate one in Tools - Settings - Automation, in the " +
+                                       "context menu of the Access token entry.");
+            }
+            int wanted = _server.RequestedPort > 0 ? _server.RequestedPort : _server.Settings.Port;
             if (wanted < AutomationSettings.MinPort || wanted > AutomationSettings.MaxPort)
                 wanted = AutomationSettings.DefaultPort;
             int last = wanted;
@@ -197,27 +200,6 @@ namespace PrePoMax.Mcp
             listener.Prefixes.Add("http://127.0.0.1" + suffix);
             listener.Prefixes.Add("http://localhost" + suffix);
             return listener;
-        }
-        // The token the user already has, or a new one. A run that may not write the settings - which
-        // is what --noSettingsSave does, and what --script turns on by default - keeps its token for
-        // the run only, and the session file is where such a run's client reads it
-        private void ResolveAccessToken()
-        {
-            string token = _server.Settings.AccessToken;
-            if (token.Length > 0)
-            {
-                _accessToken = token;
-                _isAccessTokenEphemeral = false;
-                return;
-            }
-            _accessToken = McpAccessToken.Generate();
-            Controller controller = _server.Controller;
-            if (controller != null && !SettingsContainer.IsSaveDisabled)
-            {
-                controller.SaveAutomationAccessToken(_accessToken);
-                _isAccessTokenEphemeral = false;
-            }
-            else _isAccessTokenEphemeral = true;
         }
         private static void Close(HttpListener listener)
         {

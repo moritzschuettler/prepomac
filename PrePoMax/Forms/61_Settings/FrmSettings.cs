@@ -86,6 +86,10 @@ namespace PrePoMax.Forms
 
         // Events                                                                                                                   
         public event Action<SettingsContainer> UpdateSettings;
+        // The dialog makes the value, because generating it is the user's action here, and the main
+        // form keeps it and restarts the server: the server belongs to the main form, not to a dialog
+        // that may be cancelled. An empty value means the token was cleared
+        public event Action<string> AutomationAccessTokenChanged;
 
 
         // Constructors                                                                                                             
@@ -124,6 +128,51 @@ namespace PrePoMax.Forms
                 tsmiResetAll.Enabled = true;
             else
                 tsmiResetAll.Enabled = false;
+            // Hidden rather than disabled, unlike Reset all: they apply to one page of thirteen, and
+            // a permanently greyed entry on every other page reads as something that is broken
+            ViewAutomationSettings automation = propertyGrid.SelectedObject as ViewAutomationSettings;
+            tsmiGenerateAccessToken.Visible = automation != null;
+            tsmiClearAccessToken.Visible = automation != null;
+            if (automation != null) tsmiClearAccessToken.Enabled = automation.AccessToken.Length > 0;
+        }
+        private void tsmiGenerateAccessToken_Click(object sender, EventArgs e)
+        {
+            ViewAutomationSettings automation = propertyGrid.SelectedObject as ViewAutomationSettings;
+            if (automation == null) return;
+            //
+            if (automation.AccessToken.Length > 0)
+            {
+                string question = "Replace the access token of the automation server?" + Environment.NewLine +
+                                  Environment.NewLine +
+                                  "Every AI assistant that was set up with the current token will have to be " +
+                                  "given the new one.";
+                if (MessageBoxes.ShowQuestionYesNo("Automation", question) != DialogResult.Yes) return;
+            }
+            SetAccessToken(automation, Mcp.McpAccessToken.Generate());
+        }
+        private void tsmiClearAccessToken_Click(object sender, EventArgs e)
+        {
+            ViewAutomationSettings automation = propertyGrid.SelectedObject as ViewAutomationSettings;
+            if (automation == null || automation.AccessToken.Length == 0) return;
+            //
+            string question = "Clear the access token of the automation server?" + Environment.NewLine +
+                              Environment.NewLine +
+                              "The server cannot run without one, and every AI assistant that was set up with it " +
+                              "stops working. Do this before preparing a redistributable, so that the settings " +
+                              "file does not carry a token.";
+            if (MessageBoxes.ShowQuestionYesNo("Automation", question) != DialogResult.Yes) return;
+            //
+            SetAccessToken(automation, "");
+        }
+        // The value goes into the settings being edited so the grid shows it, and to the main form so
+        // that it is kept whether or not this dialog is accepted: it is an action, not an edit
+        private void SetAccessToken(ViewAutomationSettings automation, string token)
+        {
+            automation.AccessToken = token;
+            propertyGrid.Refresh();
+            //
+            Action<string> changed = AutomationAccessTokenChanged;
+            if (changed != null) changed(token);
         }
         private void tsmiResetAll_Click(object sender, EventArgs e)
         {

@@ -47,6 +47,8 @@ namespace PrePoMax.Forms
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
             this.cmsPropertyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiResetAll = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiGenerateAccessToken = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiClearAccessToken = new System.Windows.Forms.ToolStripMenuItem();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnApply = new System.Windows.Forms.Button();
@@ -118,9 +120,11 @@ namespace PrePoMax.Forms
             // cmsPropertyGrid
             // 
             this.cmsPropertyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiResetAll});
+            this.tsmiResetAll,
+            this.tsmiGenerateAccessToken,
+            this.tsmiClearAccessToken});
             this.cmsPropertyGrid.Name = "cmsPropertyGrid";
-            this.cmsPropertyGrid.Size = new System.Drawing.Size(118, 26);
+            this.cmsPropertyGrid.Size = new System.Drawing.Size(232, 70);
             this.cmsPropertyGrid.Opening += new System.ComponentModel.CancelEventHandler(this.cmsPropertyGrid_Opening);
             // 
             // tsmiResetAll
@@ -129,6 +133,20 @@ namespace PrePoMax.Forms
             this.tsmiResetAll.Size = new System.Drawing.Size(117, 22);
             this.tsmiResetAll.Text = "Reset all";
             this.tsmiResetAll.Click += new System.EventHandler(this.tsmiResetAll_Click);
+            //
+            // tsmiGenerateAccessToken
+            //
+            this.tsmiGenerateAccessToken.Name = "tsmiGenerateAccessToken";
+            this.tsmiGenerateAccessToken.Size = new System.Drawing.Size(231, 22);
+            this.tsmiGenerateAccessToken.Text = "Generate the access token";
+            this.tsmiGenerateAccessToken.Click += new System.EventHandler(this.tsmiGenerateAccessToken_Click);
+            //
+            // tsmiClearAccessToken
+            //
+            this.tsmiClearAccessToken.Name = "tsmiClearAccessToken";
+            this.tsmiClearAccessToken.Size = new System.Drawing.Size(231, 22);
+            this.tsmiClearAccessToken.Text = "Clear the access token";
+            this.tsmiClearAccessToken.Click += new System.EventHandler(this.tsmiClearAccessToken_Click);
             // 
             // btnOK
             // 
@@ -198,6 +216,8 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.Button btnApply;
         private System.Windows.Forms.ContextMenuStrip cmsPropertyGrid;
         private System.Windows.Forms.ToolStripMenuItem tsmiResetAll;
+        private System.Windows.Forms.ToolStripMenuItem tsmiGenerateAccessToken;
+        private System.Windows.Forms.ToolStripMenuItem tsmiClearAccessToken;
         private System.Windows.Forms.ColumnHeader colName;
     }
 }

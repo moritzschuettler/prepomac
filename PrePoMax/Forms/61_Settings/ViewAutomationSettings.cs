@@ -68,11 +68,12 @@ namespace PrePoMax.Settings
             set { _automationSettings.RequestTimeout = value; }
         }
         //
-        [CategoryAttribute("Endpoint")]
+        [CategoryAttribute("Connection")]
         [OrderedDisplayName(0, 10, "Port")]
-        [DescriptionAttribute("Set the port the MCP endpoint listens on. It listens on this computer only. When the " +
-                              "port is taken - by another PrePoMax, or by another program - the endpoint takes the " +
-                              "first free port above it and says which one in the output.")]
+        [DescriptionAttribute("The AI assistant reaches PrePoMax through this port on your own computer, and nothing " +
+                              "outside your computer can connect to it. Leave it as it is unless another program " +
+                              "already uses this port: PrePoMax then takes the next free one and writes which in " +
+                              "the message window and the status bar.")]
         [Id(1, 2)]
         public int Port
         {
@@ -80,12 +81,13 @@ namespace PrePoMax.Settings
             set { _automationSettings.Port = value; }
         }
         //
-        [CategoryAttribute("Endpoint")]
+        [CategoryAttribute("Connection")]
         [OrderedDisplayName(1, 10, "Address")]
-        [DescriptionAttribute("The address to give the AI agent client. It answers only while PrePoMax is open with " +
-                              "its automation server on, so a client that cannot connect is telling you that " +
-                              "PrePoMax is closed or that the server is off - turn it on in Tools - Automation " +
-                              "Server, or leave it on with Start with the application.")]
+        [DescriptionAttribute("Give this address to your AI assistant, together with the access token below. It " +
+                              "answers only while PrePoMax is open and the automation server is switched on. So if " +
+                              "the assistant says it cannot connect, PrePoMax is closed or the server is off: " +
+                              "switch it on in Tools - Automation Server, or set Start with the application above " +
+                              "and it will be on whenever PrePoMax is.")]
         [ReadOnly(true)]
         [Id(2, 2)]
         public string Endpoint
@@ -94,19 +96,21 @@ namespace PrePoMax.Settings
             set { }
         }
         //
-        [CategoryAttribute("Endpoint")]
+        [CategoryAttribute("Connection")]
         [OrderedDisplayName(2, 10, "Access token")]
-        [DescriptionAttribute("The token the client sends in an Authorization: Bearer header. It is made the first " +
-                              "time the endpoint starts and then kept, so a client is configured once. Anything " +
-                              "running as you can read it, exactly as anything running as you can drive PrePoMax; " +
-                              "what it stops is a web page and another account on this computer. Replace it from " +
-                              "Tools - Automation Server - Regenerate the access token.")]
+        [DescriptionAttribute("A password for the address above, so that only the assistant you set up can drive " +
+                              "PrePoMax and no other program or web page on your computer can. Copy the address " +
+                              "and this token into your assistant once; the server will not run without one. " +
+                              "Treat it like any password - anyone who can use your Windows account can read it. " +
+                              "Right click here to generate one, to replace it, or to clear it before you prepare " +
+                              "a redistributable. It is kept in this folder, so a newly unpacked PrePoMax starts " +
+                              "without one.")]
         [ReadOnly(true)]
         [Id(3, 2)]
         public string AccessToken
         {
             get { return _automationSettings.AccessToken; }
-            set { }
+            set { _automationSettings.AccessToken = value; }
         }
 
 
