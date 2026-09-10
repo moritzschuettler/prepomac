@@ -97,7 +97,8 @@ namespace CaeModel
             if (overriddenParameter.Description == null && parameter != null)
                 overriddenParameter.Description = parameter.Description;
         }
-        public void AddOverriddenParametersFromString(string parametersString)
+        public void AddOverriddenParametersFromString(string parametersString,
+                                                      Dictionary<string, object> propertyParameters = null)
         {
             double value;
             string[] tmp;
@@ -122,7 +123,7 @@ namespace CaeModel
             }
             else
             {
-                ImportFromFile(parametersString, true);
+                ImportFromFile(parametersString, true, propertyParameters);
             }
         }
         public void AddOverriddenParameter(string name, EquationParameter parameter)
@@ -180,7 +181,8 @@ namespace CaeModel
             //
             System.IO.File.WriteAllText(fileName, sb.ToString());
         }
-        public void ImportFromFile(string fileName, bool overriddenParameters = false)
+        public void ImportFromFile(string fileName, bool overriddenParameters = false,
+                                   Dictionary<string, object> propertyParameters = null)
         {
             string[] lines = System.IO.File.ReadAllLines(fileName);
             //
@@ -188,7 +190,10 @@ namespace CaeModel
             string[] tmp;
             string[] splitter = new string[] { ";" };
             //
-            List<EquationParameter> parameters = new List<EquationParameter>();
+            List<int> lineNumbers = new List<int>();
+            List<string> descriptions = new List<string>();
+            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+            HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             //
             for (int i = 0; i < lines.Length; i++)
             {
@@ -198,26 +203,21 @@ namespace CaeModel
                 if (line.Length == 0) continue;
                 if (line[0] == '$') continue;
                 tmp = line.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                if (tmp.Length >= 2)
-                {
-                    try
-                    {
-                        EquationParameter parameter = new EquationParameter();
-                        parameter.Name = tmp[0].Trim();
-                        parameter.Equation.SetEquation(new EquationString(tmp[1].Trim()));
-                        // The third field is the evaluated value, which is written for the reader of the
-                        // file and is not read back; a file written before the description has three
-                        if (tmp.Length >= 4) parameter.Description = tmp[3].Trim();
-                        //
-                        parameters.Add(parameter);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new CaeException("Line " + (i + 1) + " of the parametes file in not correctly formated.");
-                    }
-                }
-                else throw new CaeException("Line " + (i+1) + " of the parametes file in not correctly formated.");
+                if (tmp.Length < 2)
+                    throw new CaeException("Line " + (i + 1) + " of the parameters file is not correctly formatted.");
+                if (!names.Add(tmp[0].Trim()))
+                    throw new CaeException("Line " + (i + 1) + " of the parameters file repeats the parameter name " +
+                                           tmp[0].Trim() + ".");
+                //
+                nameEquations.Add(new KeyValuePair<string, string>(tmp[0].Trim(), tmp[1].Trim()));
+                // The third field is the evaluated value, which is written for the reader of the file and
+                // is not read back; a file written before the description has three
+                descriptions.Add(tmp.Length >= 4 ? tmp[3].Trim() : null);
+                lineNumbers.Add(i + 1);
             }
+            //
+            List<EquationParameter> parameters = BuildParameters(nameEquations, descriptions, lineNumbers,
+                                                                 propertyParameters);
             //
             if (overriddenParameters)
             {
@@ -229,6 +229,49 @@ namespace CaeModel
                 _parameters.Clear();
                 foreach (var parameter in parameters) Add(parameter.Name, parameter);
             }
+        }
+        private static List<EquationParameter> BuildParameters(List<KeyValuePair<string, string>> nameEquations,
+                                                               List<string> descriptions, List<int> lineNumbers,
+                                                               Dictionary<string, object> propertyParameters)
+        {
+            // A parameter of the file may use a parameter written below it, so every value is resolved
+            // before the parameters are built: EquationContainer evaluates an equation before it stores it
+            List<EquationParameter> parameters = new List<EquationParameter>();
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            try
+            {
+                Dictionary<string, double> values;
+                Dictionary<string, string> errors = EquationParameterResolver.Evaluate(nameEquations, propertyParameters,
+                                                                                       out values);
+                string error;
+                EquationParameter parameter;
+                for (int i = 0; i < nameEquations.Count; i++)
+                {
+                    if (errors.TryGetValue(nameEquations[i].Key, out error))
+                        throw new CaeException("Line " + lineNumbers[i] + " of the parameters file cannot be evaluated: " +
+                                               error);
+                    try
+                    {
+                        parameter = new EquationParameter();
+                        parameter.Name = nameEquations[i].Key;
+                        parameter.Equation.SetEquation(new EquationString(nameEquations[i].Value));
+                        parameter.Description = descriptions[i];
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new CaeException("Line " + lineNumbers[i] + " of the parameters file is not correct: " +
+                                               ex.Message);
+                    }
+                    parameters.Add(parameter);
+                }
+            }
+            finally
+            {
+                // A refused file must leave the parameters of the model registered
+                MyNCalc.ExistingParameters = existingParameters;
+            }
+            //
+            return parameters;
         }
         private static string GetFieldFromDescription(string description)
         {

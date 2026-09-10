@@ -12262,7 +12262,8 @@ namespace PrePoMax
         }
         public void ImportParametersFromFile(string fileName)
         {
-            _model.Parameters.ImportFromFile(fileName);
+            // The property parameters let a parameter of the file use a geometry or mesh property
+            _model.Parameters.ImportFromFile(fileName, false, _model.GetPropertyParameters());
             UpdateNCalcParameters();
         }
         public void AddParameter(EquationParameter parameter)
@@ -12272,7 +12273,7 @@ namespace PrePoMax
         }
         public void AddOverriddenParametersFromString(string parametersString)
         {
-            _model.Parameters.AddOverriddenParametersFromString(parametersString);
+            _model.Parameters.AddOverriddenParametersFromString(parametersString, _model.GetPropertyParameters());
         }
         public void ReplaceParameter(string oldParameterName, EquationParameter parameter)
         {

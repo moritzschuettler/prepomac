@@ -109,10 +109,10 @@ def test_parameters_set_all():
     check_raises(lambda: pmx.model.parameters.set_all(["pytest_k", "pytest_k"], [1.0, 2.0]),
                  "a repeated name must be rejected")
     check(list(pmx.model.parameters.get_names()) == names, "a rejected call must not change the table")
-    # A description survives a .pmp round trip. The file is written in table order and read back in
-    # file order, and the import evaluates as it reads, so the table is put in dependency order first
-    pmx.model.parameters.set_all(kept_names + ["pytest_f", "pytest_g"], kept_values + [4.0, "pytest_f * 2"],
-                                 [""] * len(kept_names) + ["A described parameter", ""])
+    # A description survives a .pmp round trip, and the file may name a parameter before the one it
+    # uses: the import resolves the whole file before it builds the parameters
+    pmx.model.parameters.set_all(kept_names + ["pytest_g", "pytest_f"], kept_values + ["pytest_f * 2", 4.0],
+                                 [""] * len(kept_names) + ["", "A described parameter"])
     file_name = os.path.join(tempfile.gettempdir(), "pytest_described.pmp")
     pmx.model.parameters.export_to_file(file_name)
     pmx.model.parameters.import_from_file(file_name)
@@ -122,6 +122,8 @@ def test_parameters_set_all():
           str(pmx.model.parameters["pytest_f"].description))
     check(not pmx.model.parameters["pytest_g"].description, "an empty description came back as text")
     check(pmx.model.parameters["pytest_g"].value == 8.0, "the round tripped equation did not evaluate")
+    check(list(pmx.model.parameters.get_names()) == names, "the file order was not kept: " +
+          str(list(pmx.model.parameters.get_names())))
     #
     pmx.model.parameters.remove(["pytest_g", "pytest_f"])
     check(list(pmx.model.parameters.get_names()) == kept_names, "the parameters were not restored")
