@@ -49,6 +49,7 @@ namespace CaeMesh
         [NonSerialized] private Dictionary<string, double[]> _partOffsets;          // Deep copy
         [NonSerialized] private Dictionary<int, HashSet<int>> _nodeIdElementIds;    // Deep copy
         [NonSerialized] private DisassemblyExplodedViewCache _disassemblyExplodedViewCache;
+        [NonSerialized] private MeshVisibilityCache _visibilityCache;
         //
         private MeshRepresentation _meshRepresentation;                             //ISerializable
         private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
@@ -3379,6 +3380,7 @@ namespace CaeMesh
                 // Rename visualization cells and edges
                 //part2.Visualization.ResetCellNeighboursOverCell();  // internal cells now become external cells: Reset
                 part2.RenumberVisualizationNodes(newIds);
+                _visibilityCache = null;    // the part labels were renumbered in place
             }
         }
         //
@@ -4704,6 +4706,7 @@ namespace CaeMesh
                 //
                 part.RenumberVisualizationNodes(oldIdNewId);
             }
+            _visibilityCache = null;    // the part labels were renumbered in place
             // Renumber node-element map - renumbering only nodes does not work when this is called after merge coincident nodes
             UpdateNodeIdElementIds();
         }
@@ -4783,6 +4786,7 @@ namespace CaeMesh
                 // Renumber 3D part's visualization cells
                 part.RenumberVisualizationElements(oldIdNewId);
             }
+            _visibilityCache = null;    // the part labels were renumbered in place
             // Renumber node-element map
             HashSet<int> newIds;
             foreach (var entry in _nodeIdElementIds)
@@ -8769,10 +8773,7 @@ namespace CaeMesh
             //
             if (onlyVisible)
             {
-                HashSet<int> visibleNodes = new HashSet<int>();
-                foreach (var entry in _parts)
-                    if (entry.Value.Active && entry.Value.Visible)
-                        visibleNodes.UnionWith(entry.Value.NodeLabels);
+                HashSet<int> visibleNodes = GetVisibleNodeIdsSet();
                 //
                 for (int i = 0; i < nodeIds.Length; i++)
                 {
@@ -8788,26 +8789,28 @@ namespace CaeMesh
         {
             bool[] visible = new bool[nodeIds.Length];
             //
-            HashSet<int> visibleIds = new HashSet<int>();
-            foreach (var entry in _parts)
-            {
-                if (entry.Value.Active && entry.Value.Visible) visibleIds.UnionWith(entry.Value.NodeLabels);
-            }
-            visibleIds.IntersectWith(nodeIds);
-            //
-            bool allVisible = visibleIds.Count == nodeIds.Length;
-            for (int i = 0; i < nodeIds.Length; i++) visible[i] = allVisible || visibleIds.Contains(nodeIds[i]);
+            HashSet<int> visibleIds = GetVisibleNodeIdsSet();
+            for (int i = 0; i < nodeIds.Length; i++) visible[i] = visibleIds.Contains(nodeIds[i]);
             //
             return visible;
         }
         public int[] GetVisibleNodeIds()
         {
-            HashSet<int> ids = new HashSet<int>();
-            foreach (var entry in _parts)
-            {
-                if (entry.Value.Active && entry.Value.Visible) ids.UnionWith(entry.Value.NodeLabels);
-            }
-            return ids.ToArray();
+            return GetVisibleNodeIdsSet().ToArray();
+        }
+        private HashSet<int> GetVisibleNodeIdsSet()
+        {
+            return GetVisibilityCache().GetVisibleNodeIds();
+        }
+        private HashSet<int> GetVisibleElementIdsSet()
+        {
+            return GetVisibilityCache().GetVisibleElementIds();
+        }
+        private MeshVisibilityCache GetVisibilityCache()
+        {
+            if (_visibilityCache == null || !_visibilityCache.IsValidFor(_parts))
+                _visibilityCache = new MeshVisibilityCache(_parts);
+            return _visibilityCache;
         }
         public void UpdateNodalCoordinatesFromMesh(FeMesh mesh)
         {
@@ -9265,12 +9268,7 @@ namespace CaeMesh
         }
         public int[] GetVisibleElementIds()
         {
-            HashSet<int> ids = new HashSet<int>();
-            foreach (var entry in _parts)
-                if (entry.Value.Active && entry.Value.Visible)
-                    ids.UnionWith(entry.Value.Labels);
-            //
-            return ids.ToArray();
+            return GetVisibleElementIdsSet().ToArray();
         }
         public HashSet<int> GetInactiveElementIds()
         {
@@ -9284,12 +9282,12 @@ namespace CaeMesh
         public HashSet<int> GetVisibleElementIds(string elementSetName)
         {
             int[] ids = _elementSets[elementSetName].Labels;
+            HashSet<int> allVisibleIds = GetVisibleElementIdsSet();
             HashSet<int> visibleIds = new HashSet<int>();
-            foreach (var entry in _parts)
-                if (entry.Value.Active && entry.Value.Visible)
-                    visibleIds.UnionWith(entry.Value.Labels);
-            //
-            visibleIds.IntersectWith(ids);
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (allVisibleIds.Contains(ids[i])) visibleIds.Add(ids[i]);
+            }
             return visibleIds;
         }
 

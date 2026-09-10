@@ -56,6 +56,9 @@ namespace PrePoMax
         [NonSerialized] protected bool _disableDrawSymbols;
         [NonSerialized] protected bool _updatingAnimationAnnotations;
         [NonSerialized] protected bool _initializingAnimationAnnotationAnchors;
+        [NonSerialized] protected int _updateBatchCount;
+        [NonSerialized] protected UpdateType _batchedModelUpdateType;
+        [NonSerialized] protected UpdateType _batchedResultsUpdateType;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected Dictionary<string, double[]> _viewNameRotationCenter;
@@ -6189,15 +6192,23 @@ namespace PrePoMax
         }
         public void DuplicateMeshSetupItems(string[] meshSetupItemNames)
         {
-            MeshSetupItem newMeshSetupItem;
-            foreach (var name in meshSetupItemNames)
+            BeginUpdateBatch();
+            try
             {
-                newMeshSetupItem = _model.Geometry.MeshSetupItems[name].DeepClone();
-                newMeshSetupItem.Name = NamedClass.GetNameWithoutLastValue(newMeshSetupItem.Name);
-                newMeshSetupItem.Name = _model.Geometry.MeshSetupItems.GetNextNumberedKey(newMeshSetupItem.Name);
-                AddMeshSetupItem(newMeshSetupItem);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Geometry.MeshSetupItems, name, newMeshSetupItem,
-                                                     ViewGeometryModelResults.Geometry);
+                MeshSetupItem newMeshSetupItem;
+                foreach (var name in meshSetupItemNames)
+                {
+                    newMeshSetupItem = _model.Geometry.MeshSetupItems[name].DeepClone();
+                    newMeshSetupItem.Name = NamedClass.GetNameWithoutLastValue(newMeshSetupItem.Name);
+                    newMeshSetupItem.Name = _model.Geometry.MeshSetupItems.GetNextNumberedKey(newMeshSetupItem.Name);
+                    AddMeshSetupItem(newMeshSetupItem);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Geometry.MeshSetupItems, name, newMeshSetupItem,
+                                                         ViewGeometryModelResults.Geometry);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveMeshSetupItems(string[] meshSetupItemNames)
@@ -7839,15 +7850,23 @@ namespace PrePoMax
         }
         public void DuplicateNodeSets(string[] nodeSetNames)
         {
-            FeNodeSet newNodeSet;
-            foreach (var name in nodeSetNames)
+            BeginUpdateBatch();
+            try
             {
-                newNodeSet = _model.Mesh.NodeSets[name].DeepClone();
-                newNodeSet.Name = NamedClass.GetNameWithoutLastValue(newNodeSet.Name);
-                newNodeSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newNodeSet.Name);
-                AddNodeSet(newNodeSet);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.NodeSets, name, newNodeSet,
-                                                     ViewGeometryModelResults.Model);
+                FeNodeSet newNodeSet;
+                foreach (var name in nodeSetNames)
+                {
+                    newNodeSet = _model.Mesh.NodeSets[name].DeepClone();
+                    newNodeSet.Name = NamedClass.GetNameWithoutLastValue(newNodeSet.Name);
+                    newNodeSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newNodeSet.Name);
+                    AddNodeSet(newNodeSet);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.NodeSets, name, newNodeSet,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveNodeSets(string[] nodeSetNames, bool update = true)
@@ -8025,15 +8044,23 @@ namespace PrePoMax
         }
         public void DuplicateElementSets(string[] elementSetNames)
         {
-            FeElementSet newElementSet;
-            foreach (var name in elementSetNames)
+            BeginUpdateBatch();
+            try
             {
-                newElementSet = _model.Mesh.ElementSets[name].DeepClone();
-                newElementSet.Name = NamedClass.GetNameWithoutLastValue(newElementSet.Name);
-                newElementSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newElementSet.Name);
-                AddElementSet(newElementSet);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ElementSets, name, newElementSet,
-                                                     ViewGeometryModelResults.Model);
+                FeElementSet newElementSet;
+                foreach (var name in elementSetNames)
+                {
+                    newElementSet = _model.Mesh.ElementSets[name].DeepClone();
+                    newElementSet.Name = NamedClass.GetNameWithoutLastValue(newElementSet.Name);
+                    newElementSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newElementSet.Name);
+                    AddElementSet(newElementSet);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ElementSets, name, newElementSet,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ConvertElementSetsToMeshParts(string[] elementSetNames)
@@ -8264,16 +8291,24 @@ namespace PrePoMax
         }
         public void DuplicateSurfaces(string[] surfaceNames)
         {
-            FeSurface newSurface;
-            foreach (var name in surfaceNames)
+            BeginUpdateBatch();
+            try
             {
-                newSurface = _model.Mesh.Surfaces[name].DeepClone();
-                newSurface.Name = NamedClass.GetNameWithoutLastValue(newSurface.Name);
-                newSurface.Name = _model.Mesh.Surfaces.GetNextNumberedKey(newSurface.Name);
-                if (newSurface.CreationData != null) newSurface.CreatedFrom = FeSurfaceCreatedFrom.Selection;
-                AddSurface(newSurface);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.Surfaces, name, newSurface,
-                                                     ViewGeometryModelResults.Model);
+                FeSurface newSurface;
+                foreach (var name in surfaceNames)
+                {
+                    newSurface = _model.Mesh.Surfaces[name].DeepClone();
+                    newSurface.Name = NamedClass.GetNameWithoutLastValue(newSurface.Name);
+                    newSurface.Name = _model.Mesh.Surfaces.GetNextNumberedKey(newSurface.Name);
+                    if (newSurface.CreationData != null) newSurface.CreatedFrom = FeSurfaceCreatedFrom.Selection;
+                    AddSurface(newSurface);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.Surfaces, name, newSurface,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveSurfaces(string[] surfaceNames, bool update = true)
@@ -8471,15 +8506,23 @@ namespace PrePoMax
         }
         public void DuplicateModelReferencePoints(string[] referencePointNames)
         {
-            FeReferencePoint newReferencePoint;
-            foreach (var name in referencePointNames)
+            BeginUpdateBatch();
+            try
             {
-                newReferencePoint = _model.Mesh.ReferencePoints[name].DeepClone();
-                newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
-                newReferencePoint.Name = _model.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
-                AddModelReferencePoint(newReferencePoint);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ReferencePoints, name, newReferencePoint,
-                                                     ViewGeometryModelResults.Model);
+                FeReferencePoint newReferencePoint;
+                foreach (var name in referencePointNames)
+                {
+                    newReferencePoint = _model.Mesh.ReferencePoints[name].DeepClone();
+                    newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
+                    newReferencePoint.Name = _model.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
+                    AddModelReferencePoint(newReferencePoint);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ReferencePoints, name, newReferencePoint,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveModelReferencePoints(string[] referencePointNames)
@@ -8653,15 +8696,23 @@ namespace PrePoMax
         }
         public void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
         {
-            CoordinateSystem newCoordinateSystem;
-            foreach (var name in coordinateSystemNames)
+            BeginUpdateBatch();
+            try
             {
-                newCoordinateSystem = _model.Mesh.CoordinateSystems[name].DeepClone();
-                newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
-                newCoordinateSystem.Name = _model.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
-                AddModelCoordinateSystem(newCoordinateSystem);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.CoordinateSystems, name, newCoordinateSystem,
-                                                     ViewGeometryModelResults.Model);
+                CoordinateSystem newCoordinateSystem;
+                foreach (var name in coordinateSystemNames)
+                {
+                    newCoordinateSystem = _model.Mesh.CoordinateSystems[name].DeepClone();
+                    newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
+                    newCoordinateSystem.Name = _model.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
+                    AddModelCoordinateSystem(newCoordinateSystem);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.CoordinateSystems, name, newCoordinateSystem,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveModelCoordinateSystems(string[] coordinateSystemNames)
@@ -8798,15 +8849,23 @@ namespace PrePoMax
         }
         public void DuplicateMaterials(string[] materialNames)
         {
-            Material newMaterial;
-            foreach (var name in materialNames)
+            BeginUpdateBatch();
+            try
             {
-                newMaterial = _model.Materials[name].DeepClone();
-                newMaterial.Name = NamedClass.GetNameWithoutLastValue(newMaterial.Name);
-                newMaterial.Name = _model.Materials.GetNextNumberedKey(newMaterial.Name);
-                AddMaterial(newMaterial);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Materials, name, newMaterial,
-                                                     ViewGeometryModelResults.Model);
+                Material newMaterial;
+                foreach (var name in materialNames)
+                {
+                    newMaterial = _model.Materials[name].DeepClone();
+                    newMaterial.Name = NamedClass.GetNameWithoutLastValue(newMaterial.Name);
+                    newMaterial.Name = _model.Materials.GetNextNumberedKey(newMaterial.Name);
+                    AddMaterial(newMaterial);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Materials, name, newMaterial,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ExportMaterials(string[] materialNames, string fileName)
@@ -8897,14 +8956,22 @@ namespace PrePoMax
         }
         public void AddSection(Section section)
         {
-            ConvertSelectionBasedSection(section);
-            //
-            _model.Sections.Add(section.Name, section);
-            _form.AddTreeNode(ViewGeometryModelResults.Model, section, null);
-            //
-            AnnotateWithColorLegend(); 
-            //
-            CheckAndUpdateModelValidity();   // Check the model in both cases: FeModelUpdate and AnnotateWithColorLegend
+            BeginUpdateBatch();
+            try
+            {
+                ConvertSelectionBasedSection(section);
+                //
+                _model.Sections.Add(section.Name, section);
+                _form.AddTreeNode(ViewGeometryModelResults.Model, section, null);
+                //
+                AnnotateWithColorLegend(); 
+                //
+                CheckAndUpdateModelValidity();   // Check the model in both cases: FeModelUpdate and AnnotateWithColorLegend
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public Section GetSection(string sectionName)
         {
@@ -8916,19 +8983,27 @@ namespace PrePoMax
         }
         public void ReplaceSection(string oldSectionName, Section section)
         {
-            DeleteSelectionBasedSectionSets(oldSectionName);
-            ConvertSelectionBasedSection(section);
-            //
-            if (_model.Sections.Replace(oldSectionName, section.Name, section))
+            BeginUpdateBatch();
+            try
             {
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldSectionName, section, null);
+                DeleteSelectionBasedSectionSets(oldSectionName);
+                ConvertSelectionBasedSection(section);
                 //
-                AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
-                                              AnnotateWithColorEnum.SectionThicknesses;
-                if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
-                else AnnotateWithColorLegend();
-                //
-                CheckAndUpdateModelValidity();
+                if (_model.Sections.Replace(oldSectionName, section.Name, section))
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldSectionName, section, null);
+                    //
+                    AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
+                                                  AnnotateWithColorEnum.SectionThicknesses;
+                    if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
+                    else AnnotateWithColorLegend();
+                    //
+                    CheckAndUpdateModelValidity();
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RenameSection(string oldSectionName, string newSectionName)
@@ -8950,16 +9025,24 @@ namespace PrePoMax
         }
         public void DuplicateSections(string[] sectionNames)
         {
-            Section newSection;
-            foreach (var name in sectionNames)
+            BeginUpdateBatch();
+            try
             {
-                newSection = _model.Sections[name].DeepClone();
-                newSection.Name = NamedClass.GetNameWithoutLastValue(newSection.Name);
-                newSection.Name = _model.Sections.GetNextNumberedKey(newSection.Name);
-                if (newSection.CreationData != null) newSection.RegionType = RegionTypeEnum.Selection;
-                AddSection(newSection);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Sections, name, newSection,
-                                                     ViewGeometryModelResults.Model);
+                Section newSection;
+                foreach (var name in sectionNames)
+                {
+                    newSection = _model.Sections[name].DeepClone();
+                    newSection.Name = NamedClass.GetNameWithoutLastValue(newSection.Name);
+                    newSection.Name = _model.Sections.GetNextNumberedKey(newSection.Name);
+                    if (newSection.CreationData != null) newSection.RegionType = RegionTypeEnum.Selection;
+                    AddSection(newSection);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Sections, name, newSection,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveSections(string[] sectionNames)
@@ -9100,13 +9183,21 @@ namespace PrePoMax
         }
         public void AddConstraint(Constraint constraint, bool update = true)
         {
-            ConvertSelectionBasedConstraint(constraint, update);
-            //
-            _model.Constraints.Add(constraint.Name, constraint);
-            //
-            _form.AddTreeNode(ViewGeometryModelResults.Model, constraint, null);
-            //
-            if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                ConvertSelectionBasedConstraint(constraint, update);
+                //
+                _model.Constraints.Add(constraint.Name, constraint);
+                //
+                _form.AddTreeNode(ViewGeometryModelResults.Model, constraint, null);
+                //
+                if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public Constraint GetConstraint(string constraintName)
         {
@@ -9118,14 +9209,22 @@ namespace PrePoMax
         }
         public void ReplaceConstraint(string oldConstraintName, Constraint constraint)
         {
-            DeleteSelectionBasedConstraintSets(oldConstraintName);
-            ConvertSelectionBasedConstraint(constraint);
-            //
-            _model.Constraints.Replace(oldConstraintName, constraint.Name, constraint);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldConstraintName, constraint, null);
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                DeleteSelectionBasedConstraintSets(oldConstraintName);
+                ConvertSelectionBasedConstraint(constraint);
+                //
+                _model.Constraints.Replace(oldConstraintName, constraint.Name, constraint);
+                //
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldConstraintName, constraint, null);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public void RenameConstraint(string oldConstraintName, string newConstraintName)
         {
@@ -9140,20 +9239,28 @@ namespace PrePoMax
         }
         public void DuplicateConstraints(string[] constraintNames)
         {
-            Constraint newConstraint;
-            foreach (var constraintName in constraintNames)
+            BeginUpdateBatch();
+            try
             {
-                newConstraint = GetConstraint(constraintName).DeepClone();
-                newConstraint.Name = NamedClass.GetNameWithoutLastValue(newConstraint.Name);
-                newConstraint.Name = GetConstraintNames().GetNextNumberedKey(newConstraint.Name);
-                if (newConstraint.MasterCreationData != null) newConstraint.MasterRegionType = RegionTypeEnum.Selection;
-                if (newConstraint.SlaveCreationData != null) newConstraint.SlaveRegionType = RegionTypeEnum.Selection;
-                if (newConstraint is CyclicSymmetry cyclicSymmetry &&
-                    cyclicSymmetry.CreationData != null)
-                    cyclicSymmetry.RegionType = RegionTypeEnum.Selection;
-                AddConstraint(newConstraint);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Constraints, constraintName, newConstraint,
-                                                     ViewGeometryModelResults.Model);
+                Constraint newConstraint;
+                foreach (var constraintName in constraintNames)
+                {
+                    newConstraint = GetConstraint(constraintName).DeepClone();
+                    newConstraint.Name = NamedClass.GetNameWithoutLastValue(newConstraint.Name);
+                    newConstraint.Name = GetConstraintNames().GetNextNumberedKey(newConstraint.Name);
+                    if (newConstraint.MasterCreationData != null) newConstraint.MasterRegionType = RegionTypeEnum.Selection;
+                    if (newConstraint.SlaveCreationData != null) newConstraint.SlaveRegionType = RegionTypeEnum.Selection;
+                    if (newConstraint is CyclicSymmetry cyclicSymmetry &&
+                        cyclicSymmetry.CreationData != null)
+                        cyclicSymmetry.RegionType = RegionTypeEnum.Selection;
+                    AddConstraint(newConstraint);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Constraints, constraintName, newConstraint,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void SwapMasterSlaveConstraints(string[] constraintNames)
@@ -9692,15 +9799,23 @@ namespace PrePoMax
         }
         public void DuplicateSurfaceInteractions(string[] surfaceInteractionNames)
         {
-            SurfaceInteraction newSurfaceInteraction;
-            foreach (var name in surfaceInteractionNames)
+            BeginUpdateBatch();
+            try
             {
-                newSurfaceInteraction = _model.SurfaceInteractions[name].DeepClone();
-                newSurfaceInteraction.Name = NamedClass.GetNameWithoutLastValue(newSurfaceInteraction.Name);
-                newSurfaceInteraction.Name = _model.SurfaceInteractions.GetNextNumberedKey(newSurfaceInteraction.Name);
-                AddSurfaceInteraction(newSurfaceInteraction);
-                PlaceDuplicatedOrderedDictionaryItem(_model.SurfaceInteractions, name, newSurfaceInteraction,
-                                                     ViewGeometryModelResults.Model);
+                SurfaceInteraction newSurfaceInteraction;
+                foreach (var name in surfaceInteractionNames)
+                {
+                    newSurfaceInteraction = _model.SurfaceInteractions[name].DeepClone();
+                    newSurfaceInteraction.Name = NamedClass.GetNameWithoutLastValue(newSurfaceInteraction.Name);
+                    newSurfaceInteraction.Name = _model.SurfaceInteractions.GetNextNumberedKey(newSurfaceInteraction.Name);
+                    AddSurfaceInteraction(newSurfaceInteraction);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.SurfaceInteractions, name, newSurfaceInteraction,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveSurfaceInteractions(string[] surfaceInteractionNames)
@@ -9765,13 +9880,21 @@ namespace PrePoMax
         }
         public void AddContactPair(ContactPair contactPair, bool update = true)
         {
-            ConvertSelectionBasedContactPair(contactPair, update);
-            //
-            _model.ContactPairs.Add(contactPair.Name, contactPair);
-            //
-            _form.AddTreeNode(ViewGeometryModelResults.Model, contactPair, null);
-            //
-            if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                ConvertSelectionBasedContactPair(contactPair, update);
+                //
+                _model.ContactPairs.Add(contactPair.Name, contactPair);
+                //
+                _form.AddTreeNode(ViewGeometryModelResults.Model, contactPair, null);
+                //
+                if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public ContactPair GetContactPair(string contactPairName)
         {
@@ -9783,14 +9906,22 @@ namespace PrePoMax
         }
         public void ReplaceContactPair(string oldContactPairName, ContactPair contactPair)
         {
-            DeleteSelectionBasedContactPairSets(oldContactPairName);
-            ConvertSelectionBasedContactPair(contactPair);
-            //
-            _model.ContactPairs.Replace(oldContactPairName, contactPair.Name, contactPair);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldContactPairName, contactPair, null);
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                DeleteSelectionBasedContactPairSets(oldContactPairName);
+                ConvertSelectionBasedContactPair(contactPair);
+                //
+                _model.ContactPairs.Replace(oldContactPairName, contactPair.Name, contactPair);
+                //
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldContactPairName, contactPair, null);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public void RenameContactPair(string oldContactPairName, string newContactPairName)
         {
@@ -9805,17 +9936,25 @@ namespace PrePoMax
         }
         public void DuplicateContactPairs(string[] contactPairNames)
         {
-            ContactPair newContactPair;
-            foreach (var name in contactPairNames)
+            BeginUpdateBatch();
+            try
             {
-                newContactPair = _model.ContactPairs[name].DeepClone();
-                newContactPair.Name = NamedClass.GetNameWithoutLastValue(newContactPair.Name);
-                newContactPair.Name = _model.ContactPairs.GetNextNumberedKey(newContactPair.Name);
-                if (newContactPair.MasterCreationData != null) newContactPair.MasterRegionType = RegionTypeEnum.Selection;
-                if (newContactPair.SlaveCreationData != null) newContactPair.SlaveRegionType = RegionTypeEnum.Selection;
-                AddContactPair(newContactPair);
-                PlaceDuplicatedOrderedDictionaryItem(_model.ContactPairs, name, newContactPair,
-                                                     ViewGeometryModelResults.Model);
+                ContactPair newContactPair;
+                foreach (var name in contactPairNames)
+                {
+                    newContactPair = _model.ContactPairs[name].DeepClone();
+                    newContactPair.Name = NamedClass.GetNameWithoutLastValue(newContactPair.Name);
+                    newContactPair.Name = _model.ContactPairs.GetNextNumberedKey(newContactPair.Name);
+                    if (newContactPair.MasterCreationData != null) newContactPair.MasterRegionType = RegionTypeEnum.Selection;
+                    if (newContactPair.SlaveCreationData != null) newContactPair.SlaveRegionType = RegionTypeEnum.Selection;
+                    AddContactPair(newContactPair);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.ContactPairs, name, newContactPair,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void SwapMasterSlaveContactPairs(string[] contactPairNames)
@@ -10169,15 +10308,23 @@ namespace PrePoMax
         }
         public void DuplicateDistributions(string[] distributionNames)
         {
-            Distribution newDistribution;
-            foreach (var name in distributionNames)
+            BeginUpdateBatch();
+            try
             {
-                newDistribution = _model.Distributions[name].DeepClone();
-                newDistribution.Name = NamedClass.GetNameWithoutLastValue(newDistribution.Name);
-                newDistribution.Name = _model.Distributions.GetNextNumberedKey(newDistribution.Name);
-                AddDistribution(newDistribution);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Distributions, name, newDistribution,
-                                                     ViewGeometryModelResults.Model);
+                Distribution newDistribution;
+                foreach (var name in distributionNames)
+                {
+                    newDistribution = _model.Distributions[name].DeepClone();
+                    newDistribution.Name = NamedClass.GetNameWithoutLastValue(newDistribution.Name);
+                    newDistribution.Name = _model.Distributions.GetNextNumberedKey(newDistribution.Name);
+                    AddDistribution(newDistribution);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Distributions, name, newDistribution,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveDistributions(string[] distributionNames)
@@ -10252,15 +10399,23 @@ namespace PrePoMax
         }
         public void DuplicateAmplitudes(string[] amplitudeNames)
         {
-            Amplitude newAmplitude;
-            foreach (var name in amplitudeNames)
+            BeginUpdateBatch();
+            try
             {
-                newAmplitude = _model.Amplitudes[name].DeepClone();
-                newAmplitude.Name = NamedClass.GetNameWithoutLastValue(newAmplitude.Name);
-                newAmplitude.Name = _model.Amplitudes.GetNextNumberedKey(newAmplitude.Name);
-                AddAmplitude(newAmplitude);
-                PlaceDuplicatedOrderedDictionaryItem(_model.Amplitudes, name, newAmplitude,
-                                                     ViewGeometryModelResults.Model);
+                Amplitude newAmplitude;
+                foreach (var name in amplitudeNames)
+                {
+                    newAmplitude = _model.Amplitudes[name].DeepClone();
+                    newAmplitude.Name = NamedClass.GetNameWithoutLastValue(newAmplitude.Name);
+                    newAmplitude.Name = _model.Amplitudes.GetNextNumberedKey(newAmplitude.Name);
+                    AddAmplitude(newAmplitude);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.Amplitudes, name, newAmplitude,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveAmplitudes(string[] amplitudeNames)
@@ -10315,13 +10470,21 @@ namespace PrePoMax
         }
         public void AddInitialCondition(InitialCondition initialCondition)
         {
-            ConvertSelectionBasedInitialCondition(initialCondition);
-            //
-            _model.InitialConditions.Add(initialCondition.Name, initialCondition);
-            //
-            _form.AddTreeNode(ViewGeometryModelResults.Model, initialCondition, null);
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                ConvertSelectionBasedInitialCondition(initialCondition);
+                //
+                _model.InitialConditions.Add(initialCondition.Name, initialCondition);
+                //
+                _form.AddTreeNode(ViewGeometryModelResults.Model, initialCondition, null);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public InitialCondition GetInitialCondition(string initialConditionName)
         {
@@ -10356,14 +10519,22 @@ namespace PrePoMax
         }
         public void ReplaceInitialCondition(string oldInitialConditionName, InitialCondition initialCondition)
         {
-            DeleteSelectionBasedInitialConditionSets(oldInitialConditionName);
-            ConvertSelectionBasedInitialCondition(initialCondition);
-            //
-            _model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            BeginUpdateBatch();
+            try
+            {
+                DeleteSelectionBasedInitialConditionSets(oldInitialConditionName);
+                ConvertSelectionBasedInitialCondition(initialCondition);
+                //
+                _model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition);
+                //
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public void RenameInitialCondition(string oldInitialConditionName, string newInitialConditionName)
         {
@@ -10378,16 +10549,24 @@ namespace PrePoMax
         }
         public void DuplicateInitialConditions(string[] initialConditionNames)
         {
-            InitialCondition newInitialCondition;
-            foreach (var name in initialConditionNames)
+            BeginUpdateBatch();
+            try
             {
-                newInitialCondition = _model.InitialConditions[name].DeepClone();
-                newInitialCondition.Name = NamedClass.GetNameWithoutLastValue(newInitialCondition.Name);
-                newInitialCondition.Name = _model.InitialConditions.GetNextNumberedKey(newInitialCondition.Name);
-                if (newInitialCondition.CreationData != null) newInitialCondition.RegionType = RegionTypeEnum.Selection;
-                AddInitialCondition(newInitialCondition);
-                PlaceDuplicatedOrderedDictionaryItem(_model.InitialConditions, name, newInitialCondition,
-                                                     ViewGeometryModelResults.Model);
+                InitialCondition newInitialCondition;
+                foreach (var name in initialConditionNames)
+                {
+                    newInitialCondition = _model.InitialConditions[name].DeepClone();
+                    newInitialCondition.Name = NamedClass.GetNameWithoutLastValue(newInitialCondition.Name);
+                    newInitialCondition.Name = _model.InitialConditions.GetNextNumberedKey(newInitialCondition.Name);
+                    if (newInitialCondition.CreationData != null) newInitialCondition.RegionType = RegionTypeEnum.Selection;
+                    AddInitialCondition(newInitialCondition);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.InitialConditions, name, newInitialCondition,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void HideInitialConditions(string[] initialConditionNames)
@@ -10568,13 +10747,21 @@ namespace PrePoMax
         }
         public void DuplicateSteps(string[] stepNames)
         {
-            Step newStep;
-            foreach (var stepName in stepNames)
+            BeginUpdateBatch();
+            try
             {
-                newStep = GetStep(stepName).DeepClone();
-                newStep.Name = NamedClass.GetNameWithoutLastValue(newStep.Name);
-                newStep.Name = GetStepNames().GetNextNumberedKey(newStep.Name);
-                AddStep(newStep, false);
+                Step newStep;
+                foreach (var stepName in stepNames)
+                {
+                    newStep = GetStep(stepName).DeepClone();
+                    newStep.Name = NamedClass.GetNameWithoutLastValue(newStep.Name);
+                    newStep.Name = GetStepNames().GetNextNumberedKey(newStep.Name);
+                    AddStep(newStep, false);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ActivateDeactivateStep(string stepName, bool active)
@@ -10588,20 +10775,28 @@ namespace PrePoMax
         }
         public void RemoveSteps(string[] stepNames)
         {
-            Step step;
-            foreach (var name in stepNames)
+            BeginUpdateBatch();
+            try
             {
-                step = _model.StepCollection.GetStep(name);
-                RemoveHistoryOutputs(name, step.HistoryOutputs.Keys.ToArray());
-                RemoveFieldOutputs(name, step.FieldOutputs.Keys.ToArray());
-                RemoveBoundaryConditions(name, step.BoundaryConditions.Keys.ToArray());
-                RemoveLoads(name, step.Loads.Keys.ToArray());
-                _model.StepCollection.RemoveStep(name);
-                _form.RemoveTreeNode<Step>(ViewGeometryModelResults.Model, name, null);
+                Step step;
+                foreach (var name in stepNames)
+                {
+                    step = _model.StepCollection.GetStep(name);
+                    RemoveHistoryOutputs(name, step.HistoryOutputs.Keys.ToArray());
+                    RemoveFieldOutputs(name, step.FieldOutputs.Keys.ToArray());
+                    RemoveBoundaryConditions(name, step.BoundaryConditions.Keys.ToArray());
+                    RemoveLoads(name, step.Loads.Keys.ToArray());
+                    _model.StepCollection.RemoveStep(name);
+                    _form.RemoveTreeNode<Step>(ViewGeometryModelResults.Model, name, null);
+                }
+                CheckAndUpdateModelValidity(true); // must be here to reconcile the user keywords after the steps are removed
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
             }
-            CheckAndUpdateModelValidity(true); // must be here to reconcile the user keywords after the steps are removed
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         //
         public void ReplaceStepControls(string stepName, StepControls stepControls)
@@ -10648,13 +10843,21 @@ namespace PrePoMax
         }
         public void AddHistoryOutput(string stepName, HistoryOutput historyOutput)
         {
-            if (!_model.StepCollection.MultiRegionSelectionExists(stepName, historyOutput))
-                ConvertSelectionBasedHistoryOutput(historyOutput);
-            //
-            _model.StepCollection.AddHistoryOutput(historyOutput, stepName);
-            _form.AddTreeNode(ViewGeometryModelResults.Model, historyOutput, stepName);
-            //
-            CheckAndUpdateModelValidity();
+            BeginUpdateBatch();
+            try
+            {
+                if (!_model.StepCollection.MultiRegionSelectionExists(stepName, historyOutput))
+                    ConvertSelectionBasedHistoryOutput(historyOutput);
+                //
+                _model.StepCollection.AddHistoryOutput(historyOutput, stepName);
+                _form.AddTreeNode(ViewGeometryModelResults.Model, historyOutput, stepName);
+                //
+                CheckAndUpdateModelValidity();
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public HistoryOutput GetHistoryOutput(string stepName, string historyOutputName)
         {
@@ -10667,21 +10870,29 @@ namespace PrePoMax
         public void ReplaceHistoryOutput(string stepName, string oldHistoryOutputName, HistoryOutput historyOutput,
                                          bool propagated = false)
         {
-            HistoryOutput oldHistoryOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
-            // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if (!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput))
+            BeginUpdateBatch();
+            try
             {
-                DeleteSelectionBasedHistoryOutputSets(stepName, oldHistoryOutputName);
-                // If propagated it was already converted
-                if (!propagated) ConvertSelectionBasedHistoryOutput(historyOutput);
+                HistoryOutput oldHistoryOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
+                // First check for a valid region since MultiRegionChanged changes the region type and region name
+                if (!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput))
+                {
+                    DeleteSelectionBasedHistoryOutputSets(stepName, oldHistoryOutputName);
+                    // If propagated it was already converted
+                    if (!propagated) ConvertSelectionBasedHistoryOutput(historyOutput);
+                }
+                //
+                Step step = _model.StepCollection.GetStep(stepName);
+                step.HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name, historyOutput);
+                //
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldHistoryOutputName, historyOutput, stepName);
+                //
+                CheckAndUpdateModelValidity();
             }
-            //
-            Step step = _model.StepCollection.GetStep(stepName);
-            step.HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name, historyOutput);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldHistoryOutputName, historyOutput, stepName);
-            //
-            CheckAndUpdateModelValidity();
+            finally
+            {
+                EndUpdateBatch();
+            }
         }
         public void RenameHistoryOutput(string stepName, string oldHistoryOutputName, string newHistoryOutputName)
         {
@@ -10697,38 +10908,54 @@ namespace PrePoMax
         }
         public void DuplicateHistoryOutputs(string stepName, string[] historyOutputNames)
         {
-            HistoryOutput newHistoryOutput;
-            for (int i = 0; i < historyOutputNames.Length; i++)
+            BeginUpdateBatch();
+            try
             {
-                newHistoryOutput = GetHistoryOutput(stepName, historyOutputNames[i]).DeepClone();
-                newHistoryOutput.Name = NamedClass.GetNameWithoutLastValue(newHistoryOutput.Name);
-                newHistoryOutput.Name =
-                    _model.StepCollection.GetStepHistoryOutputNames(stepName).GetNextNumberedKey(newHistoryOutput.Name);
-                if (newHistoryOutput.CreationData != null) newHistoryOutput.RegionType = RegionTypeEnum.Selection;
-                AddHistoryOutput(stepName, newHistoryOutput);
-                PlaceDuplicatedOrderedDictionaryItem(
-                    _model.StepCollection.GetStep(stepName).HistoryOutputs, historyOutputNames[i],
-                    newHistoryOutput, ViewGeometryModelResults.Model, stepName);
+                HistoryOutput newHistoryOutput;
+                for (int i = 0; i < historyOutputNames.Length; i++)
+                {
+                    newHistoryOutput = GetHistoryOutput(stepName, historyOutputNames[i]).DeepClone();
+                    newHistoryOutput.Name = NamedClass.GetNameWithoutLastValue(newHistoryOutput.Name);
+                    newHistoryOutput.Name =
+                        _model.StepCollection.GetStepHistoryOutputNames(stepName).GetNextNumberedKey(newHistoryOutput.Name);
+                    if (newHistoryOutput.CreationData != null) newHistoryOutput.RegionType = RegionTypeEnum.Selection;
+                    AddHistoryOutput(stepName, newHistoryOutput);
+                    PlaceDuplicatedOrderedDictionaryItem(
+                        _model.StepCollection.GetStep(stepName).HistoryOutputs, historyOutputNames[i],
+                        newHistoryOutput, ViewGeometryModelResults.Model, stepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void PropagateHistoryOutput(string stepName, string historyOutputName)
         {
-            string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
-            HistoryOutput historyOutput = GetHistoryOutput(stepName, historyOutputName).DeepClone();
-            Step sourceStep = _model.StepCollection.GetStep(stepName);
-            Step step;
             bool treeRegenerationRequired = false;
-            foreach (var nextStepName in nextStepNames)
+            BeginUpdateBatch();
+            try
             {
-                step = _model.StepCollection.GetStep(nextStepName);
-                //
-                if (step.HistoryOutputs.ContainsKey(historyOutputName))
-                    ReplaceHistoryOutput(nextStepName, historyOutputName, historyOutput, true);
-                else
-                    AddHistoryOutput(nextStepName, historyOutput);
-                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
-                    sourceStep.HistoryOutputs, step.HistoryOutputs, historyOutputName,
-                    historyOutput, nextStepName);
+                string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
+                HistoryOutput historyOutput = GetHistoryOutput(stepName, historyOutputName).DeepClone();
+                Step sourceStep = _model.StepCollection.GetStep(stepName);
+                Step step;
+                foreach (var nextStepName in nextStepNames)
+                {
+                    step = _model.StepCollection.GetStep(nextStepName);
+                    //
+                    if (step.HistoryOutputs.ContainsKey(historyOutputName))
+                        ReplaceHistoryOutput(nextStepName, historyOutputName, historyOutput, true);
+                    else
+                        AddHistoryOutput(nextStepName, historyOutput);
+                    treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                        sourceStep.HistoryOutputs, step.HistoryOutputs, historyOutputName,
+                        historyOutput, nextStepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
             if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
@@ -10891,36 +11118,52 @@ namespace PrePoMax
         }
         public void DuplicateFieldOutputs(string stepName, string[] fieldOutputNames)
         {
-            FieldOutput newFieldOutput;
-            for (int i = 0; i < fieldOutputNames.Length; i++)
+            BeginUpdateBatch();
+            try
             {
-                newFieldOutput = GetFieldOutput(stepName, fieldOutputNames[i]).DeepClone();
-                newFieldOutput.Name = NamedClass.GetNameWithoutLastValue(newFieldOutput.Name);
-                newFieldOutput.Name =
-                    _model.StepCollection.GetStepFieldOutputNames(stepName).GetNextNumberedKey(newFieldOutput.Name);
-                AddFieldOutput(stepName, newFieldOutput);
-                PlaceDuplicatedOrderedDictionaryItem(
-                    _model.StepCollection.GetStep(stepName).FieldOutputs, fieldOutputNames[i],
-                    newFieldOutput, ViewGeometryModelResults.Model, stepName);
+                FieldOutput newFieldOutput;
+                for (int i = 0; i < fieldOutputNames.Length; i++)
+                {
+                    newFieldOutput = GetFieldOutput(stepName, fieldOutputNames[i]).DeepClone();
+                    newFieldOutput.Name = NamedClass.GetNameWithoutLastValue(newFieldOutput.Name);
+                    newFieldOutput.Name =
+                        _model.StepCollection.GetStepFieldOutputNames(stepName).GetNextNumberedKey(newFieldOutput.Name);
+                    AddFieldOutput(stepName, newFieldOutput);
+                    PlaceDuplicatedOrderedDictionaryItem(
+                        _model.StepCollection.GetStep(stepName).FieldOutputs, fieldOutputNames[i],
+                        newFieldOutput, ViewGeometryModelResults.Model, stepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void PropagateFieldOutput(string stepName, string fieldOutputName)
         {
-            string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
-            FieldOutput fieldOutput = GetFieldOutput(stepName, fieldOutputName).DeepClone();
-            Step sourceStep = _model.StepCollection.GetStep(stepName);
-            Step step;
             bool treeRegenerationRequired = false;
-            foreach (var nextStepName in nextStepNames)
+            BeginUpdateBatch();
+            try
             {
-                step = _model.StepCollection.GetStep(nextStepName);
-                //
-                if (step.FieldOutputs.ContainsKey(fieldOutputName))
-                    ReplaceFieldOutput(nextStepName, fieldOutputName, fieldOutput);
-                else
-                    AddFieldOutput(nextStepName, fieldOutput);
-                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
-                    sourceStep.FieldOutputs, step.FieldOutputs, fieldOutputName, fieldOutput, nextStepName);
+                string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
+                FieldOutput fieldOutput = GetFieldOutput(stepName, fieldOutputName).DeepClone();
+                Step sourceStep = _model.StepCollection.GetStep(stepName);
+                Step step;
+                foreach (var nextStepName in nextStepNames)
+                {
+                    step = _model.StepCollection.GetStep(nextStepName);
+                    //
+                    if (step.FieldOutputs.ContainsKey(fieldOutputName))
+                        ReplaceFieldOutput(nextStepName, fieldOutputName, fieldOutput);
+                    else
+                        AddFieldOutput(nextStepName, fieldOutput);
+                    treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                        sourceStep.FieldOutputs, step.FieldOutputs, fieldOutputName, fieldOutput, nextStepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
             if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
@@ -11000,33 +11243,49 @@ namespace PrePoMax
         //
         public void AddBoundaryCondition(string stepName, BoundaryCondition boundaryCondition)
         {
-            if (!_model.StepCollection.MultiRegionSelectionExists(stepName, boundaryCondition))
-                ConvertSelectionBasedBoundaryCondition(boundaryCondition);
-            //
-            if (_model.StepCollection.GetStep(stepName).AddBoundaryCondition(boundaryCondition))
+            BeginUpdateBatch();
+            try
             {
-                _form.AddTreeNode(ViewGeometryModelResults.Model, boundaryCondition, stepName);
+                if (!_model.StepCollection.MultiRegionSelectionExists(stepName, boundaryCondition))
+                    ConvertSelectionBasedBoundaryCondition(boundaryCondition);
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                if (_model.StepCollection.GetStep(stepName).AddBoundaryCondition(boundaryCondition))
+                {
+                    _form.AddTreeNode(ViewGeometryModelResults.Model, boundaryCondition, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ReplaceBoundaryCondition(string stepName, string oldBoundaryConditionName,
                                              BoundaryCondition boundaryCondition, bool propagated = false)
         {
-            BoundaryCondition oldBC = GetBoundaryCondition(stepName, oldBoundaryConditionName);
-            // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if (!_model.RegionValid(oldBC) || StepCollection.MultiRegionChanged(oldBC, boundaryCondition))
+            BeginUpdateBatch();
+            try
             {
-                DeleteSelectionBasedBoundaryConditionSets(stepName, oldBoundaryConditionName);
-                // If propagated it was already converted
-                if (!propagated) ConvertSelectionBasedBoundaryCondition(boundaryCondition);
-            }
-            //
-            if (_model.StepCollection.GetStep(stepName).ReplaceBoundaryCondition(oldBoundaryConditionName, boundaryCondition))
-            {
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldBoundaryConditionName, boundaryCondition, stepName);
+                BoundaryCondition oldBC = GetBoundaryCondition(stepName, oldBoundaryConditionName);
+                // First check for a valid region since MultiRegionChanged changes the region type and region name
+                if (!_model.RegionValid(oldBC) || StepCollection.MultiRegionChanged(oldBC, boundaryCondition))
+                {
+                    DeleteSelectionBasedBoundaryConditionSets(stepName, oldBoundaryConditionName);
+                    // If propagated it was already converted
+                    if (!propagated) ConvertSelectionBasedBoundaryCondition(boundaryCondition);
+                }
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                if (_model.StepCollection.GetStep(stepName).ReplaceBoundaryCondition(oldBoundaryConditionName, boundaryCondition))
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldBoundaryConditionName, boundaryCondition, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RenameBoundaryCondition(string stepName, string oldBoundaryConditionName, string newBoundaryConditionName)
@@ -11043,38 +11302,54 @@ namespace PrePoMax
         }
         public void DuplicateBoundaryConditions(string stepName, string[] boundaryConditionNames)
         {
-            BoundaryCondition newBoundaryCondition;
-            for (int i = 0; i < boundaryConditionNames.Length; i++)
+            BeginUpdateBatch();
+            try
             {
-                newBoundaryCondition = GetBoundaryCondition(stepName, boundaryConditionNames[i]).DeepClone();
-                newBoundaryCondition.Name = NamedClass.GetNameWithoutLastValue(newBoundaryCondition.Name);
-                newBoundaryCondition.Name =
-                    _model.StepCollection.GetStepBoundaryConditionNames(stepName).GetNextNumberedKey(newBoundaryCondition.Name);
-                if (newBoundaryCondition.CreationData != null) newBoundaryCondition.RegionType = RegionTypeEnum.Selection;
-                AddBoundaryCondition(stepName, newBoundaryCondition);
-                PlaceDuplicatedOrderedDictionaryItem(
-                    _model.StepCollection.GetStep(stepName).BoundaryConditions, boundaryConditionNames[i],
-                    newBoundaryCondition, ViewGeometryModelResults.Model, stepName);
+                BoundaryCondition newBoundaryCondition;
+                for (int i = 0; i < boundaryConditionNames.Length; i++)
+                {
+                    newBoundaryCondition = GetBoundaryCondition(stepName, boundaryConditionNames[i]).DeepClone();
+                    newBoundaryCondition.Name = NamedClass.GetNameWithoutLastValue(newBoundaryCondition.Name);
+                    newBoundaryCondition.Name =
+                        _model.StepCollection.GetStepBoundaryConditionNames(stepName).GetNextNumberedKey(newBoundaryCondition.Name);
+                    if (newBoundaryCondition.CreationData != null) newBoundaryCondition.RegionType = RegionTypeEnum.Selection;
+                    AddBoundaryCondition(stepName, newBoundaryCondition);
+                    PlaceDuplicatedOrderedDictionaryItem(
+                        _model.StepCollection.GetStep(stepName).BoundaryConditions, boundaryConditionNames[i],
+                        newBoundaryCondition, ViewGeometryModelResults.Model, stepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void PropagateBoundaryCondition(string stepName, string boundaryConditionName)
         {
-            string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
-            BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, boundaryConditionName);
-            Step sourceStep = _model.StepCollection.GetStep(stepName);
-            BoundaryCondition boundaryConditionClone;
             bool treeRegenerationRequired = false;
-            foreach (var nextStepName in nextStepNames)
+            BeginUpdateBatch();
+            try
             {
-                Step nextStep = _model.StepCollection.GetStep(nextStepName);
-                boundaryConditionClone = boundaryCondition.DeepClone();
-                if (nextStep.BoundaryConditions.ContainsKey(boundaryConditionName))
-                    ReplaceBoundaryCondition(nextStepName, boundaryConditionName, boundaryConditionClone, true);
-                else
-                    AddBoundaryCondition(nextStepName, boundaryConditionClone);
-                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
-                    sourceStep.BoundaryConditions, nextStep.BoundaryConditions, boundaryConditionName,
-                    boundaryConditionClone, nextStepName);
+                string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
+                BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, boundaryConditionName);
+                Step sourceStep = _model.StepCollection.GetStep(stepName);
+                BoundaryCondition boundaryConditionClone;
+                foreach (var nextStepName in nextStepNames)
+                {
+                    Step nextStep = _model.StepCollection.GetStep(nextStepName);
+                    boundaryConditionClone = boundaryCondition.DeepClone();
+                    if (nextStep.BoundaryConditions.ContainsKey(boundaryConditionName))
+                        ReplaceBoundaryCondition(nextStepName, boundaryConditionName, boundaryConditionClone, true);
+                    else
+                        AddBoundaryCondition(nextStepName, boundaryConditionClone);
+                    treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                        sourceStep.BoundaryConditions, nextStep.BoundaryConditions, boundaryConditionName,
+                        boundaryConditionClone, nextStepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
             if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
@@ -11240,32 +11515,48 @@ namespace PrePoMax
         //
         public void AddLoad(string stepName, Load load)
         {
-            if (!_model.StepCollection.MultiRegionSelectionExists(stepName, load))
-                ConvertSelectionBasedLoad(load);
-            //
-            if (_model.StepCollection.GetStep(stepName).AddLoad(load))
+            BeginUpdateBatch();
+            try
             {
-                _form.AddTreeNode(ViewGeometryModelResults.Model, load, stepName);
+                if (!_model.StepCollection.MultiRegionSelectionExists(stepName, load))
+                    ConvertSelectionBasedLoad(load);
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                if (_model.StepCollection.GetStep(stepName).AddLoad(load))
+                {
+                    _form.AddTreeNode(ViewGeometryModelResults.Model, load, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ReplaceLoad(string stepName, string oldLoadName, Load load, bool propagated = false)
         {
-            Load oldLoad = GetLoad(stepName, oldLoadName);
-            // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if (!_model.RegionValid(oldLoad) || StepCollection.MultiRegionChanged(oldLoad, load))
+            BeginUpdateBatch();
+            try
             {
-                DeleteSelectionBasedLoadSets(stepName, oldLoadName);
-                // If propagated it was already converted
-                if (!propagated) ConvertSelectionBasedLoad(load);
-            }
-            //
-            if (_model.StepCollection.GetStep(stepName).ReplaceLoad(oldLoadName, load))
-            {
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldLoadName, load, stepName);
+                Load oldLoad = GetLoad(stepName, oldLoadName);
+                // First check for a valid region since MultiRegionChanged changes the region type and region name
+                if (!_model.RegionValid(oldLoad) || StepCollection.MultiRegionChanged(oldLoad, load))
+                {
+                    DeleteSelectionBasedLoadSets(stepName, oldLoadName);
+                    // If propagated it was already converted
+                    if (!propagated) ConvertSelectionBasedLoad(load);
+                }
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                if (_model.StepCollection.GetStep(stepName).ReplaceLoad(oldLoadName, load))
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldLoadName, load, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RenameLoad(string stepName, string oldLoadName, string newLoadName)
@@ -11282,36 +11573,52 @@ namespace PrePoMax
         }
         public void DuplicateLoads(string stepName, string[] loadNames)
         {
-            Load newLoad;
-            for (int i = 0; i < loadNames.Length; i++)
+            BeginUpdateBatch();
+            try
             {
-                newLoad = GetLoad(stepName, loadNames[i]).DeepClone();
-                newLoad.Name = NamedClass.GetNameWithoutLastValue(newLoad.Name);
-                newLoad.Name = _model.StepCollection.GetStepLoadNames(stepName).GetNextNumberedKey(newLoad.Name);
-                if (newLoad.CreationData != null) newLoad.RegionType = RegionTypeEnum.Selection;
-                AddLoad(stepName, newLoad);
-                PlaceDuplicatedOrderedDictionaryItem(
-                    _model.StepCollection.GetStep(stepName).Loads, loadNames[i], newLoad,
-                    ViewGeometryModelResults.Model, stepName);
+                Load newLoad;
+                for (int i = 0; i < loadNames.Length; i++)
+                {
+                    newLoad = GetLoad(stepName, loadNames[i]).DeepClone();
+                    newLoad.Name = NamedClass.GetNameWithoutLastValue(newLoad.Name);
+                    newLoad.Name = _model.StepCollection.GetStepLoadNames(stepName).GetNextNumberedKey(newLoad.Name);
+                    if (newLoad.CreationData != null) newLoad.RegionType = RegionTypeEnum.Selection;
+                    AddLoad(stepName, newLoad);
+                    PlaceDuplicatedOrderedDictionaryItem(
+                        _model.StepCollection.GetStep(stepName).Loads, loadNames[i], newLoad,
+                        ViewGeometryModelResults.Model, stepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void PropagateLoad(string stepName, string loadName)
         {
-            string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
-            Load load = GetLoad(stepName, loadName);
-            Step sourceStep = _model.StepCollection.GetStep(stepName);
-            Load loadClone;
             bool treeRegenerationRequired = false;
-            foreach (var nextStepName in nextStepNames)
+            BeginUpdateBatch();
+            try
             {
-                Step nextStep = _model.StepCollection.GetStep(nextStepName);
-                loadClone = load.DeepClone();
-                if (nextStep.Loads.ContainsKey(loadName))
-                    ReplaceLoad(nextStepName, loadName, loadClone, true);
-                else
-                    AddLoad(nextStepName, loadClone);
-                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
-                    sourceStep.Loads, nextStep.Loads, loadName, loadClone, nextStepName);
+                string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
+                Load load = GetLoad(stepName, loadName);
+                Step sourceStep = _model.StepCollection.GetStep(stepName);
+                Load loadClone;
+                foreach (var nextStepName in nextStepNames)
+                {
+                    Step nextStep = _model.StepCollection.GetStep(nextStepName);
+                    loadClone = load.DeepClone();
+                    if (nextStep.Loads.ContainsKey(loadName))
+                        ReplaceLoad(nextStepName, loadName, loadClone, true);
+                    else
+                        AddLoad(nextStepName, loadClone);
+                    treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                        sourceStep.Loads, nextStep.Loads, loadName, loadClone, nextStepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
             if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
@@ -11522,34 +11829,50 @@ namespace PrePoMax
         //
         public void AddDefinedField(string stepName, DefinedField definedField)
         {
-            if (!_model.StepCollection.MultiRegionSelectionExists(stepName, definedField))
-                ConvertSelectionBasedDefinedField(definedField);
-            //
-            if (_model.StepCollection.GetStep(stepName).AddDefinedField(definedField))
+            BeginUpdateBatch();
+            try
             {
-                _form.AddTreeNode(ViewGeometryModelResults.Model, definedField, stepName);
+                if (!_model.StepCollection.MultiRegionSelectionExists(stepName, definedField))
+                    ConvertSelectionBasedDefinedField(definedField);
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                if (_model.StepCollection.GetStep(stepName).AddDefinedField(definedField))
+                {
+                    _form.AddTreeNode(ViewGeometryModelResults.Model, definedField, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void ReplaceDefinedField(string stepName, string oldDefinedFieldName, DefinedField definedField,
                                         bool propagated = false)
         {
-            DefinedField oldDefinedField = GetDefinedField(stepName, oldDefinedFieldName);
-            // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if (!_model.RegionValid(oldDefinedField) || StepCollection.MultiRegionChanged(oldDefinedField, definedField))
+            BeginUpdateBatch();
+            try
             {
-                DeleteSelectionBasedDefinedFieldSets(stepName, oldDefinedFieldName);
-                // If propagated it was already converted
-                if (!propagated) ConvertSelectionBasedDefinedField(definedField);
-            }
-            //
-            Step step = _model.StepCollection.GetStep(stepName);
-            if (step.DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField))
-            {
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
+                DefinedField oldDefinedField = GetDefinedField(stepName, oldDefinedFieldName);
+                // First check for a valid region since MultiRegionChanged changes the region type and region name
+                if (!_model.RegionValid(oldDefinedField) || StepCollection.MultiRegionChanged(oldDefinedField, definedField))
+                {
+                    DeleteSelectionBasedDefinedFieldSets(stepName, oldDefinedFieldName);
+                    // If propagated it was already converted
+                    if (!propagated) ConvertSelectionBasedDefinedField(definedField);
+                }
                 //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                Step step = _model.StepCollection.GetStep(stepName);
+                if (step.DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField))
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
+                    //
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RenameDefinedField(string stepName, string oldDefinedFieldName, string newDefinedFieldName)
@@ -11567,36 +11890,52 @@ namespace PrePoMax
         }
         public void DuplicateDefinedFields(string stepName, string[] definedFieldNames)
         {
-            DefinedField newDefinedField;
-            for (int i = 0; i < definedFieldNames.Length; i++)
+            BeginUpdateBatch();
+            try
             {
-                newDefinedField = GetDefinedField(stepName, definedFieldNames[i]).DeepClone();
-                newDefinedField.Name = NamedClass.GetNameWithoutLastValue(newDefinedField.Name);
-                newDefinedField.Name =
-                    _model.StepCollection.GetStepDefinedFieldNames(stepName).GetNextNumberedKey(newDefinedField.Name);
-                if (newDefinedField.CreationData != null) newDefinedField.RegionType = RegionTypeEnum.Selection;
-                AddDefinedField(stepName, newDefinedField);
-                PlaceDuplicatedOrderedDictionaryItem(
-                    _model.StepCollection.GetStep(stepName).DefinedFields, definedFieldNames[i],
-                    newDefinedField, ViewGeometryModelResults.Model, stepName);
+                DefinedField newDefinedField;
+                for (int i = 0; i < definedFieldNames.Length; i++)
+                {
+                    newDefinedField = GetDefinedField(stepName, definedFieldNames[i]).DeepClone();
+                    newDefinedField.Name = NamedClass.GetNameWithoutLastValue(newDefinedField.Name);
+                    newDefinedField.Name =
+                        _model.StepCollection.GetStepDefinedFieldNames(stepName).GetNextNumberedKey(newDefinedField.Name);
+                    if (newDefinedField.CreationData != null) newDefinedField.RegionType = RegionTypeEnum.Selection;
+                    AddDefinedField(stepName, newDefinedField);
+                    PlaceDuplicatedOrderedDictionaryItem(
+                        _model.StepCollection.GetStep(stepName).DefinedFields, definedFieldNames[i],
+                        newDefinedField, ViewGeometryModelResults.Model, stepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void PropagateDefinedField(string stepName, string definedFieldName)
         {
-            string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
-            DefinedField definedField = GetDefinedField(stepName, definedFieldName).DeepClone();
-            Step sourceStep = _model.StepCollection.GetStep(stepName);
             bool treeRegenerationRequired = false;
-            foreach (var nextStepName in nextStepNames)
+            BeginUpdateBatch();
+            try
             {
-                Step nextStep = _model.StepCollection.GetStep(nextStepName);
-                if (nextStep.DefinedFields.ContainsKey(definedFieldName))
-                    ReplaceDefinedField(nextStepName, definedFieldName, definedField, true);
-                else
-                    AddDefinedField(nextStepName, definedField);
-                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
-                    sourceStep.DefinedFields, nextStep.DefinedFields, definedFieldName,
-                    definedField, nextStepName);
+                string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
+                DefinedField definedField = GetDefinedField(stepName, definedFieldName).DeepClone();
+                Step sourceStep = _model.StepCollection.GetStep(stepName);
+                foreach (var nextStepName in nextStepNames)
+                {
+                    Step nextStep = _model.StepCollection.GetStep(nextStepName);
+                    if (nextStep.DefinedFields.ContainsKey(definedFieldName))
+                        ReplaceDefinedField(nextStepName, definedFieldName, definedField, true);
+                    else
+                        AddDefinedField(nextStepName, definedField);
+                    treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                        sourceStep.DefinedFields, nextStep.DefinedFields, definedFieldName,
+                        definedField, nextStepName);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
             if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
@@ -12217,16 +12556,24 @@ namespace PrePoMax
         }
         public void DuplicateJobs(string[] jobNames)
         {
-            AnalysisJob newAnalysisJob;
-            foreach (var name in jobNames)
+            BeginUpdateBatch();
+            try
             {
-                newAnalysisJob = _jobs[name].DeepClone();
-                newAnalysisJob.Name = NamedClass.GetNameWithoutLastValue(newAnalysisJob.Name);
-                newAnalysisJob.Name = _jobs.GetNextNumberedKey(newAnalysisJob.Name);
-                newAnalysisJob.ResetJobStatus();
-                AddJob(newAnalysisJob);
-                PlaceDuplicatedOrderedDictionaryItem(_jobs, name, newAnalysisJob,
-                                                     ViewGeometryModelResults.Model);
+                AnalysisJob newAnalysisJob;
+                foreach (var name in jobNames)
+                {
+                    newAnalysisJob = _jobs[name].DeepClone();
+                    newAnalysisJob.Name = NamedClass.GetNameWithoutLastValue(newAnalysisJob.Name);
+                    newAnalysisJob.Name = _jobs.GetNextNumberedKey(newAnalysisJob.Name);
+                    newAnalysisJob.ResetJobStatus();
+                    AddJob(newAnalysisJob);
+                    PlaceDuplicatedOrderedDictionaryItem(_jobs, name, newAnalysisJob,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
@@ -13307,17 +13654,25 @@ namespace PrePoMax
         }
         public void DuplicateResultReferencePoints(string[] referencePointNames)
         {
-            FeReferencePoint newReferencePoint;
-            foreach (var name in referencePointNames)
+            BeginUpdateBatch();
+            try
             {
-                newReferencePoint = _allResults.CurrentResult.Mesh.ReferencePoints[name].DeepClone();
-                newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
-                newReferencePoint.Name =
-                    _allResults.CurrentResult.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
-                if (newReferencePoint.CreationData != null) newReferencePoint.RegionType = RegionTypeEnum.Selection;
-                AddResultReferencePoint(newReferencePoint);
-                PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.ReferencePoints, name,
-                                                     newReferencePoint, ViewGeometryModelResults.Results);
+                FeReferencePoint newReferencePoint;
+                foreach (var name in referencePointNames)
+                {
+                    newReferencePoint = _allResults.CurrentResult.Mesh.ReferencePoints[name].DeepClone();
+                    newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
+                    newReferencePoint.Name =
+                        _allResults.CurrentResult.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
+                    if (newReferencePoint.CreationData != null) newReferencePoint.RegionType = RegionTypeEnum.Selection;
+                    AddResultReferencePoint(newReferencePoint);
+                    PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.ReferencePoints, name,
+                                                         newReferencePoint, ViewGeometryModelResults.Results);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveResultReferencePoints(string[] referencePointNames)
@@ -13476,15 +13831,24 @@ namespace PrePoMax
         }
         public void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
         {
-            CoordinateSystem newCoordinateSystem;
-            foreach (var name in coordinateSystemNames)
+            BeginUpdateBatch();
+            try
             {
-                newCoordinateSystem = _allResults.CurrentResult.Mesh.CoordinateSystems[name].DeepClone();
-                newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
-                newCoordinateSystem.Name = _allResults.CurrentResult.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
-                AddResultCoordinateSystem(newCoordinateSystem);
-                PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.CoordinateSystems, name,
-                                                     newCoordinateSystem, ViewGeometryModelResults.Results);
+                CoordinateSystem newCoordinateSystem;
+                foreach (var name in coordinateSystemNames)
+                {
+                    newCoordinateSystem = _allResults.CurrentResult.Mesh.CoordinateSystems[name].DeepClone();
+                    newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
+                    newCoordinateSystem.Name =
+                        _allResults.CurrentResult.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
+                    AddResultCoordinateSystem(newCoordinateSystem);
+                    PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.CoordinateSystems, name,
+                                                         newCoordinateSystem, ViewGeometryModelResults.Results);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         public void RemoveResultCoordinateSystems(string[] coordinateSystemNames)
@@ -13637,13 +14001,21 @@ namespace PrePoMax
         }
         public void DuplicateResultFieldOutputs(string[] resultFieldOutputNames)
         {
-            ResultFieldOutput newResultFieldOutput;
-            foreach (var name in resultFieldOutputNames)
+            BeginUpdateBatch();
+            try
             {
-                newResultFieldOutput = GetResultFieldOutput(name).DeepClone();
-                newResultFieldOutput.Name = NamedClass.GetNameWithoutLastValue(newResultFieldOutput.Name);
-                newResultFieldOutput.Name = GetResultFieldOutputNames().GetNextNumberedKey(newResultFieldOutput.Name);
-                AddResultFieldOutput(newResultFieldOutput);
+                ResultFieldOutput newResultFieldOutput;
+                foreach (var name in resultFieldOutputNames)
+                {
+                    newResultFieldOutput = GetResultFieldOutput(name).DeepClone();
+                    newResultFieldOutput.Name = NamedClass.GetNameWithoutLastValue(newResultFieldOutput.Name);
+                    newResultFieldOutput.Name = GetResultFieldOutputNames().GetNextNumberedKey(newResultFieldOutput.Name);
+                    AddResultFieldOutput(newResultFieldOutput);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         private void SetFieldAndComponent(ResultFieldOutput resultFieldOutput)
@@ -13797,13 +14169,21 @@ namespace PrePoMax
         }
         public void DuplicateResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
-            ResultHistoryOutput newResultHistoryOutput;
-            foreach (var name in resultHistoryOutputNames)
+            BeginUpdateBatch();
+            try
             {
-                newResultHistoryOutput = GetResultHistoryOutput(name).DeepClone();
-                newResultHistoryOutput.Name = NamedClass.GetNameWithoutLastValue(newResultHistoryOutput.Name);
-                newResultHistoryOutput.Name = GetHistoryResultSetNames().GetNextNumberedKey(newResultHistoryOutput.Name);
-                AddResultHistoryOutput(newResultHistoryOutput);
+                ResultHistoryOutput newResultHistoryOutput;
+                foreach (var name in resultHistoryOutputNames)
+                {
+                    newResultHistoryOutput = GetResultHistoryOutput(name).DeepClone();
+                    newResultHistoryOutput.Name = NamedClass.GetNameWithoutLastValue(newResultHistoryOutput.Name);
+                    newResultHistoryOutput.Name = GetHistoryResultSetNames().GetNextNumberedKey(newResultHistoryOutput.Name);
+                    AddResultHistoryOutput(newResultHistoryOutput);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
             }
         }
         // Remove
@@ -16076,6 +16456,7 @@ namespace PrePoMax
         // Update model
         public void FeModelUpdate(UpdateType updateType)
         {
+            if (_updateBatchCount > 0) { _batchedModelUpdateType |= updateType; return; }
             // First check the validity to correctly draw the symbols
             if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateModelValidity();
             if (updateType.HasFlag(UpdateType.DrawModel)) DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
@@ -16083,9 +16464,31 @@ namespace PrePoMax
         }
         public void FeResultsUpdate(UpdateType updateType)
         {
+            if (_updateBatchCount > 0) { _batchedResultsUpdateType |= updateType; return; }
             if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateResultValidity();
             if (updateType.HasFlag(UpdateType.DrawResults)) DrawResults(updateType.HasFlag(UpdateType.ResetCamera));
             if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawResultSymbols();
+        }
+        // An operation that creates or removes several items updates the view once instead of once per item.
+        // The batches nest, so an operation that loops over another batched operation still updates once.
+        public void BeginUpdateBatch()
+        {
+            _updateBatchCount++;
+        }
+        public void EndUpdateBatch()
+        {
+            if (_updateBatchCount <= 0) throw new InvalidOperationException("The view update batching is not active.");
+            //
+            _updateBatchCount--;
+            if (_updateBatchCount > 0) return;
+            //
+            UpdateType modelUpdateType = _batchedModelUpdateType;
+            UpdateType resultsUpdateType = _batchedResultsUpdateType;
+            _batchedModelUpdateType = UpdateType.None;
+            _batchedResultsUpdateType = UpdateType.None;
+            //
+            if (modelUpdateType != UpdateType.None) FeModelUpdate(modelUpdateType);
+            if (resultsUpdateType != UpdateType.None) FeResultsUpdate(resultsUpdateType);
         }
         private vtkMaxActorRepresentation GetRepresentation(BasePart part)
         {

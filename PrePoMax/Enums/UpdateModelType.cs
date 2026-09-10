@@ -19,6 +19,7 @@ namespace PrePoMax
     [Flags]
     public enum UpdateType
     {
+        None = 0,
         Check = 1,
         DrawModel = 2,
         DrawResults = 4,
