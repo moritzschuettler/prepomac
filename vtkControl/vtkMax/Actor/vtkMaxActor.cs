@@ -1578,8 +1578,9 @@ namespace vtkControl
             int id2;
             int id3;
             HashSet<int> uniqueVertexIds = new HashSet<int>();
-            HashSet<int[]> uniqueEdgeCells = new HashSet<int[]>();
-            HashSet<int[]> uniquePolyEdgeCells = new HashSet<int[]>();
+            CompareIntArray comparer = new CompareIntArray();
+            HashSet<int[]> uniqueEdgeCells = new HashSet<int[]>(comparer);
+            HashSet<int[]> uniquePolyEdgeCells = new HashSet<int[]>(comparer);
             //
             for (int i = 0; i < data.Cells.CellNodeIds.Length; i++)
             {
