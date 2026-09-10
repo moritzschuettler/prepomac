@@ -2479,9 +2479,9 @@ namespace FileInOut.Input
                         GravityLoad gLoad = new GravityLoad(name, regionName, RegionTypeEnum.ElementSetName,
                                                             0, 0, 0, false, false, 0);
                         //
-                        gLoad.F1.SetEquationFromValue(double.Parse(recordDL[3]) * gValue);
-                        gLoad.F2.SetEquationFromValue(double.Parse(recordDL[4]) * gValue);
-                        gLoad.F3.SetEquationFromValue(double.Parse(recordDL[5]) * gValue);
+                        gLoad.F1.SetEquationFromValue(double.Parse(recordDL[3]) * gValue, true);
+                        gLoad.F2.SetEquationFromValue(double.Parse(recordDL[4]) * gValue, true);
+                        gLoad.F3.SetEquationFromValue(double.Parse(recordDL[5]) * gValue, true);
                         //
                         step.AddLoad(gLoad);
                     }
