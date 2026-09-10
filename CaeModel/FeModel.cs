@@ -3937,7 +3937,9 @@ namespace CaeModel
             {
                 MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
                 MyNCalc.ExistingParameters.AddRange(GetPropertyParameters());
-                foreach (var entry in _parameters) MyNCalc.ExistingParameters.Add(entry.Key, entry.Value.Value);
+                // A parameter is evaluated here and the next one may use it, so it must reach the prepared
+                // NCalc parameters, which a write straight through the dictionary does not do
+                foreach (var entry in _parameters) MyNCalc.SetParameterValue(entry.Key, entry.Value.Value);
             }
             catch
             {

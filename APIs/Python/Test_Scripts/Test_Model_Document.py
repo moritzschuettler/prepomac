@@ -54,6 +54,12 @@ def test_parameters():
     # Replace
     pmx.model.parameters.replace("pytest_a", "pytest_a", 3.0)
     check(pmx.model.parameters["pytest_b"].value == 12.0, "the dependent parameter did not update")
+    # A parameter that is itself an equation must be visible to the one that follows it
+    pmx.model.parameters.add("pytest_d", "2 * 3")
+    pmx.model.parameters.add("pytest_e", "pytest_d * 3")
+    check(pmx.model.parameters["pytest_e"].value == 18.0,
+          "the chained equation did not evaluate, got " + str(pmx.model.parameters["pytest_e"].value))
+    pmx.model.parameters.remove(["pytest_e", "pytest_d"])
     # Export
     file_name = os.path.join(tempfile.gettempdir(), "pytest_parameters.pmp")
     pmx.model.parameters.export_to_file(file_name)

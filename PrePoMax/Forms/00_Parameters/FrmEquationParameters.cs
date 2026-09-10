@@ -234,7 +234,8 @@ namespace PrePoMax.Forms
             int rowCount = 0;
             HashSet<string> autocompleteItems = new HashSet<string>();
             //
-            MyNCalc.ExistingParameters.Clear();
+            // Clearing the dictionary keeps the prepared NCalc parameters of the previous state
+            MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
             MyNCalc.ExistingParameters.AddRange(_propertyParameters);
             autocompleteItems.UnionWith(_propertyParameters.Keys);
             //
@@ -245,7 +246,7 @@ namespace PrePoMax.Forms
                 {
                     try
                     {
-                        MyNCalc.ExistingParameters.Add(parameter.Name, parameter.Value);
+                        MyNCalc.SetParameterValue(parameter.Name, parameter.Value);
                         autocompleteItems.Add(parameter.Name);
                     }
                     catch { }
