@@ -60,6 +60,18 @@ namespace PrePoMax.Mcp
             "    return properties\n" +
             "\n" +
             "\n" +
+            "def read_parameters():\n" +
+            "    parameters = []\n" +
+            "    for parameter_name in names(pmx.model, 'parameters', 'model.parameters') or []:\n" +
+            "        parameter = pmx.model.parameters[parameter_name]\n" +
+            "        parameters.append({'name': parameter_name,\n" +
+            "                           'equation': value(parameter, 'equation', parameter_name + '.equation'),\n" +
+            "                           'value': value(parameter, 'value', parameter_name + '.value'),\n" +
+            "                           'description': value(parameter, 'description',\n" +
+            "                                                parameter_name + '.description')})\n" +
+            "    return parameters\n" +
+            "\n" +
+            "\n" +
             "def read_steps():\n" +
             "    steps = []\n" +
             "    for step_name in names(pmx.model, 'steps', 'model.steps') or []:\n" +
@@ -88,6 +100,8 @@ namespace PrePoMax.Mcp
             "        model[collection] = names(pmx.model, collection, 'model.' + collection)\n" +
             "    # The geometry parts are the unmeshed ones; model parts are what meshing produced\n" +
             "    model['geometry_parts'] = names(pmx.model.geometry, 'parts', 'model.geometry.parts')\n" +
+            "    # A parameter is read whole: a name alone says nothing about what it drives\n" +
+            "    model['parameters_detail'] = read_parameters()\n" +
             "    model['steps_detail'] = read_steps()\n" +
             "    model['jobs'] = read_jobs()\n" +
             "    model['results'] = names(pmx, 'results', 'results')\n" +

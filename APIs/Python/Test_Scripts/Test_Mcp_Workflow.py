@@ -253,6 +253,12 @@ def build_the_model(endpoint):
     step = model["steps_detail"][0]
     check(PREFIX + "Fix" in step["bcs"], "the bc is missing: " + str(step))
     check(PREFIX + "Force" in step["loads"], "the load is missing: " + str(step))
+    # A parameter is reported whole, so that an agent sees what it evaluates to and what it is for
+    described = [p for p in model["parameters_detail"] if p["name"] == PREFIX + "load"]
+    check(len(described) == 1, "the parameter is missing: " + str(model["parameters_detail"]))
+    check(described[0]["value"] == 1000.0 and described[0]["description"] == "The applied force" and
+          described[0]["equation"] == "=" + PREFIX + "unit*1000",
+          "the parameter was not read whole: " + str(described[0]))
     print("built: material, section, node set, step, bc and load, all through run_python")
 
 

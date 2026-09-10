@@ -59,9 +59,9 @@ namespace PrePoMax.Mcp
                               "pmx.model.steps['Step-1'].loads. Defaults to pmx.\"}"), true));
             _tools.Add(new McpTool("read_model", "Read the model",
                 "Returns a snapshot of the open model as JSON: the model properties, the parts with their mesh " +
-                "state, the item names of every collection, the steps with what they contain, and the analyses " +
-                "with their status. Nothing is changed. This is the cheapest way to see what is in the model " +
-                "before deciding what to do to it.",
+                "state, the item names of every collection, the parameters with their equation, value and " +
+                "description, the steps with what they contain, and the analyses with their status. Nothing is " +
+                "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
             _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
