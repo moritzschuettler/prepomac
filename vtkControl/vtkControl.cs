@@ -2975,11 +2975,22 @@ namespace vtkControl
         }
         private double[] GetViewRotationPivot()
         {
-            double[] pivot = _style.GetRotationPoint();
-            if (pivot != null) return pivot;
-            //
+            // The view turns around the point under the center of the screen, taken at the depth of the
+            // visible geometry, so that what the user looks at stays where it is. The center of the
+            // geometry would be off the screen in a zoomed in view and would throw it out of the view
+            vtkCamera camera = _renderer.GetActiveCamera();
+            double[] normal = camera.GetViewPlaneNormal();
+            double[] fPos = camera.GetFocalPoint();
             double[] bounds = _renderer.ComputeVisiblePropBounds();
-            return new double[] { (bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2 };
+            double[] center = new double[] { (bounds[0] + bounds[1]) / 2,
+                                             (bounds[2] + bounds[3]) / 2,
+                                             (bounds[4] + bounds[5]) / 2 };
+            double depth = normal[0] * (fPos[0] - center[0]) +
+                           normal[1] * (fPos[1] - center[1]) +
+                           normal[2] * (fPos[2] - center[2]);
+            return new double[] { fPos[0] - depth * normal[0],
+                                  fPos[1] - depth * normal[1],
+                                  fPos[2] - depth * normal[2] };
         }
         private void KeepZoomAndRotationPivot(vtkCamera camera, double[] pivot, double[] pivotDisplay, double distance)
         {
@@ -3679,9 +3690,6 @@ namespace vtkControl
                 }
                 double[] fpStart = cameraStart.GetFocalPoint();
                 double zStart = cameraStart.GetParallelScale();
-                    //
-                    camera.SetViewUp(up[0], up[1], up[2]);
-                    camera.OrthogonalizeViewUp();
                 double distanceStart = cameraStart.GetDistance();
                 double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
                 // A quaternion and its negation are the same rotation but only the one in the
@@ -3753,10 +3761,15 @@ namespace vtkControl
                     up[0] = rOutT[0][1];
                     up[1] = rOutT[1][1];
                     up[2] = rOutT[2][1];
-                    // Update camera to get correct projections
+                    // Update camera to get correct projections. The view up belongs to this frame as well:
+                    // the display coordinates of the pan below are taken along it, and the one of the
+                    // previous frame is the one of the last frame during the first pass, which can even be
+                    // parallel to the view direction of this frame
                     camera.SetPosition(pos[0], pos[1], pos[2]);
                     camera.SetFocalPoint(fp[0], fp[1], fp[2]);
                     camera.SetParallelScale(z);
+                    camera.SetViewUp(up[0], up[1], up[2]);
+                    camera.OrthogonalizeViewUp();
                     // Pan the camera in the 2D display coordinates                                 
                     fpXY = QuaternionHelper.VectorLerp(fpStartXY, fpEndXY, t);
                     fpEndworld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpEndXY);
