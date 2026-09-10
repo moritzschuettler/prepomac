@@ -204,15 +204,16 @@ namespace PrePoMax.Forms
             //
             foreach (DataGridViewColumn column in dgvData.Columns)
             {
-                // The equation and the description carry text of any length, so they take the width the
-                // form is given and share it equally; a width given to a filled column is a fill weight
-                if (column.Index == _equationColumnIndex || column.Index == _descriptionColumnIndex)
+                // The description is the one column that takes the width the form is given, so that a
+                // wider dialog buys room for the text, and the columns beside it do not move
+                if (column.Index == _descriptionColumnIndex)
                 {
                     column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
                     column.MinimumWidth = 150;
-                    column.FillWeight = 100;
                 }
-                else column.Width = column.Index == _nameColumnIndex ? 75 : 150;
+                else if (column.Index == _nameColumnIndex) column.Width = 75;
+                else if (column.Index == _equationColumnIndex) column.Width = 200;
+                else column.Width = 150;
                 //
                 column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
                 column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomLeft;
