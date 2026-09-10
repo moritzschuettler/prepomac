@@ -3933,17 +3933,17 @@ namespace CaeModel
         // Parameters                                                                               
         public void UpdateNCalcParameters()
         {
-            try
+            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+            foreach (var entry in _parameters)
+                nameEquations.Add(new KeyValuePair<string, string>(entry.Key, entry.Value.Equation.String));
+            //
+            Dictionary<string, string> errors = EquationParameterResolver.Evaluate(nameEquations, GetPropertyParameters(),
+                                                                                   out _);
+            if (errors.Count > 0)
             {
-                MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
-                MyNCalc.ExistingParameters.AddRange(GetPropertyParameters());
-                // A parameter is evaluated here and the next one may use it, so it must reach the prepared
-                // NCalc parameters, which a write straight through the dictionary does not do
-                foreach (var entry in _parameters) MyNCalc.SetParameterValue(entry.Key, entry.Value.Value);
-            }
-            catch
-            {
-                MessageBoxes.ShowError("The parameters could not be evaluated. Check the parameter equations.");
+                MessageBoxes.ShowError("The following parameters could not be evaluated: " +
+                                       string.Join(", ", errors.Keys) + "." + Environment.NewLine +
+                                       "Check the parameter equations.");
             }
         }
         
