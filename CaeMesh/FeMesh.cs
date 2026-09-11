@@ -2700,18 +2700,34 @@ namespace CaeMesh
                                                   Dictionary<int, GeomFaceType> faceTypes = null, // Plane, Cylinder, ...
                                                   Dictionary<string, Dictionary<int, int>> partIdNewSurfIdOldSurfId = null)
         {
+            // Prepare a list of surfaces for each node id - speedup
+            // All parts share the same surfaceIdNodeIds, so this is built once instead
+            // of once per part
+            List<int> surfaceIds;
+            Dictionary<int, List<int>> nodeIdSurfaceIds = new Dictionary<int, List<int>>();
+            foreach (var entry in surfaceIdNodeIds)
+            {
+                foreach (var nodeId in entry.Value)
+                {
+                    if (nodeIdSurfaceIds.TryGetValue(nodeId, out surfaceIds)) surfaceIds.Add(entry.Key);
+                    else nodeIdSurfaceIds.Add(nodeId, new List<int> { entry.Key });
+                }
+            }
+            //
             Dictionary<int, int> newSurfIdOldSurfId;
             // For each part
             foreach (var entry in _parts)
             {
-                newSurfIdOldSurfId = RenumberVisualizationSurfaces(entry.Value, surfaceIdNodeIds, faceTypes);
+                newSurfIdOldSurfId = RenumberVisualizationSurfaces(entry.Value, surfaceIdNodeIds, faceTypes,
+                                                                  nodeIdSurfaceIds);
                 if (partIdNewSurfIdOldSurfId != null && newSurfIdOldSurfId != null)
                     partIdNewSurfIdOldSurfId.Add(entry.Key, newSurfIdOldSurfId);
                 if (faceTypes != null) CheckForFreeAndErrorElementsInCADPart(entry.Value);
             }
         }
         public Dictionary<int, int> RenumberVisualizationSurfaces(BasePart part, Dictionary<int, HashSet<int>> surfaceIdNodeIds,
-                                                                  Dictionary<int, GeomFaceType> faceTypes = null)
+                                                                  Dictionary<int, GeomFaceType> faceTypes = null,
+                                                                  Dictionary<int, List<int>> nodeIdSurfaceIds = null)
         {
             VisualizationData vis;
             HashSet<int> faceNodeIds;        // node ids of the part surface
@@ -2733,13 +2749,16 @@ namespace CaeMesh
             Dictionary<int, HashSet<int>> faceIdNodeIds = vis.GetSurfaceIdNodeIds();
             // Prepare a list of surfaces for each node id for netgen ids
             List<int> surfaceIds;
-            Dictionary<int, List<int>> nodeIdSurfaceIds = new Dictionary<int, List<int>>();
-            foreach (var entry in surfaceIdNodeIds)
+            if (nodeIdSurfaceIds == null)
             {
-                foreach (var nodeId in entry.Value)
+                nodeIdSurfaceIds = new Dictionary<int, List<int>>();
+                foreach (var entry in surfaceIdNodeIds)
                 {
-                    if (nodeIdSurfaceIds.TryGetValue(nodeId, out surfaceIds)) surfaceIds.Add(entry.Key);
-                    else nodeIdSurfaceIds.Add(nodeId, new List<int> { entry.Key });
+                    foreach (var nodeId in entry.Value)
+                    {
+                        if (nodeIdSurfaceIds.TryGetValue(nodeId, out surfaceIds)) surfaceIds.Add(entry.Key);
+                        else nodeIdSurfaceIds.Add(nodeId, new List<int> { entry.Key });
+                    }
                 }
             }
             // For each part surface
