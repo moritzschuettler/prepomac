@@ -317,6 +317,16 @@ namespace UserControls
         {
             if (ReferenceEquals(_dropInsertionLineNode, node) && _dropInsertionLineAfter == after) return;
             //
+            // Behind one node and in front of the next one are the same line. Only the node it is anchored
+            // to changes, so redrawing it would make it flicker while the cursor crosses the row border.
+            Rectangle lineBounds = GetDropInsertionLineBounds(node, after);
+            if (_dropInsertionLineNode != null && lineBounds == _dropInsertionLineBounds)
+            {
+                _dropInsertionLineNode = node;
+                _dropInsertionLineAfter = after;
+                return;
+            }
+            //
             ClearDropInsertionLine();
             _dropInsertionLineNode = node;
             _dropInsertionLineAfter = after;
