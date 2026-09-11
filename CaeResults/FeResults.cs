@@ -2214,7 +2214,6 @@ namespace CaeResults
                 FeElement3D pyramidElement;
                 VisualizationData oldVis;
                 VisualizationData newVis;
-                HashSet<int> elementIds = new HashSet<int>();
                 Dictionary<int, List<int>> elementIdCellIds = new Dictionary<int, List<int>>();
                 foreach (var pyramidPart in pyramidContainingParts)
                 {
@@ -2227,17 +2226,16 @@ namespace CaeResults
                         if (elementIdCellIds.TryGetValue(elementId, out cellIds)) cellIds.Add(i);
                         else elementIdCellIds.Add(elementId, new List<int> { i });
                     }
-                    // All pyramid element ids
-                    foreach (var pyramidElementId in pyramidPart.Labels)
+                    // Pyramid element ids with at least one visualization cell
+                    foreach (var entry in elementIdCellIds)
                     {
-                        oldElement = mesh.Elements[pyramidElementId];
+                        oldElement = mesh.Elements[entry.Key];
                         elementType = oldElement.GetType();
                         if (elementType == typeof(LinearPyramidElement) || elementType == typeof(ParabolicPyramidElement))
                         {
                             pyramidElement = (FeElement3D)oldElement;
-                            newElement = _mesh.Elements[pyramidElementId];
-                            cellIds = elementIdCellIds[pyramidElement.Id];
-                            foreach (var cellId in cellIds)
+                            newElement = _mesh.Elements[entry.Key];
+                            foreach (var cellId in entry.Value)
                             {
                                 cell = oldVis.Cells[cellId].ToArray();
                                 faceName = (FeFaceName)(pyramidElement.GetVtkCellIdFromCell(cell) + 1);
