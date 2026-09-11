@@ -30,8 +30,10 @@ PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 240
 MAXIMUM_BODY = 4 * 1024 * 1024
 SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
-EXPECTED_TOOLS = ["list_sessions", "get_status", "describe_api", "read_model", "eval_expression",
-                  "run_python", "get_history", "run_job", "get_job", "screenshot"]
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
+EXPECTED_TOOLS = ["get_guide", "list_sessions", "get_status", "describe_api", "read_model",
+                  "read_topology", "eval_expression", "run_python", "get_history", "run_job",
+                  "get_job", "screenshot"]
 
 
 def check(condition, message):
@@ -124,8 +126,11 @@ class ChildSession(object):
     def __init__(self, port):
         self.directory = tempfile.mkdtemp(prefix="mcp_http_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
+        # The cube is given explicitly, so that what the tools report is the cube and not whatever
+        # the application would have started with
         self.process = subprocess.Popen([sys.executable, "--rpc", "On", "--rpcPort", str(port),
                                          "-g", "No", "--noSettingsSave",
+                                         "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory],
                                         stdout=self.log, stderr=subprocess.STDOUT)
         self.info = None
@@ -168,6 +173,19 @@ class ChildSession(object):
             self.process.wait()
         self.log.close()
         shutil.rmtree(self.directory, ignore_errors=True)
+
+
+def wait_until_idle(endpoint, timeout=120.0):
+    """The server answers before the session has finished starting, and says so until it has."""
+    deadline = time.time() + timeout
+    reason = ""
+    while time.time() < deadline:
+        status = json.loads(endpoint.tool("get_status"))
+        if status["isIdle"]:
+            return
+        reason = status["busyReason"]
+        time.sleep(0.2)
+    raise Exception("TEST FAILED: the session stayed busy: " + reason)
 
 
 def check_publication(session, port):
@@ -268,16 +286,74 @@ def check_reading_tools(endpoint, session):
     print("read_model: " + str(len(model)) + " entries, unit system " + str(model["properties"]["unit_system"]))
     #
     described = json.loads(endpoint.tool("describe_api", {"path": "pmx.model"}))
+    check(described["resolvedAs"] == "path", "a path must be reported as one: " + str(described["resolvedAs"]))
     names = [member["name"] for member in described["members"]]
     check("parts" in names, "pmx.model must describe its collections: " + str(names))
     print("describe_api: pmx.model offers " + str(len(names)) + " members")
+    #
+    topology = json.loads(endpoint.tool("read_topology"))
+    check("note" in topology, "the topology must say what its IDs are for: " + str(sorted(topology)))
+    check("model" in topology and "geometry" in topology,
+          "the topology must cover both part collections: " + str(sorted(topology)))
+    check(len(topology["model"]) == 1, "the cube is one part: " + str(topology["model"]))
+    part = topology["model"][0]
+    check(part["face_count"] == 6 and part["edge_count"] == 12 and part["vertex_count"] == 8,
+          "the cube topology must be 6 faces, 12 edges and 8 vertices: " + str(part))
+    # The top face, found the way an agent finds it, and named by the ID a selection takes
+    top = [face for face in part["faces"] if face["normal"] == [0.0, 0.0, 1.0]]
+    check(len(top) == 1, "exactly one face must point up: " + str(part["faces"]))
+    check(top[0]["centroid"][2] == 1.0, "the top face must sit at z = 1: " + str(top[0]))
+    check(top[0]["id"] in range(1, 7), "the face ID must be a 1-based face ID: " + str(top[0]))
+    print("read_topology: the cube has " + str(part["face_count"]) + " faces and face " +
+          str(top[0]["id"]) + " points up")
+
+
+def check_the_guide(endpoint):
+    guide = endpoint.tool("get_guide")
+    check(len(guide) > 2000, "the guide must be a guide, not a sentence: " + str(len(guide)))
+    # The three things a caller cannot work out for itself, and the guide exists to say them
+    for phrase in ("unit system", "preview()", "Edit - Commands", "describe_api", "run_python"):
+        check(phrase in guide, "the guide must mention " + phrase)
+    print("get_guide: " + str(len(guide)) + " characters")
+
+
+def check_describing_a_type(endpoint):
+    """The half of the API that hangs off something the model does not have yet."""
+    described = json.loads(endpoint.tool("describe_api", {"path": "Loads"}))
+    check(described["resolvedAs"] == "type", "a type must be reported as one: " + str(described))
+    names = [member["name"] for member in described["members"]]
+    check("add_pressure" in names, "Loads must describe its add methods: " + str(names))
+    check("names" not in described, "a type carries no item names: " + str(sorted(described)))
+    # The schema carries the real parameters, with the default and the accepted values
+    pressure = [member for member in described["members"] if member["name"] == "add_pressure"][0]
+    parameters = dict((parameter["name"], parameter) for parameter in pressure["parameters"])
+    check("region" in parameters, "add_pressure must declare its region: " + str(sorted(parameters)))
+    check(parameters["name"]["isOptional"] is False, "the name of a load is required")
+    check(parameters["distribution_name"]["default"] == "None",
+          "an optional argument must report its default: " + str(parameters["distribution_name"]))
+    #
+    step = json.loads(endpoint.tool("describe_api", {"path": "Model.Steps"}))
+    static = [member for member in step["members"] if member["name"] == "add_static"][0]
+    parameters = dict((parameter["name"], parameter) for parameter in static["parameters"])
+    check("Automatic" in parameters["incrementation_type"]["values"],
+          "an enumeration valued argument must list its values: " + str(parameters["incrementation_type"]))
+    print("describe_api: Loads and Model.Steps described by name, with values and defaults")
+    #
+    # The model and the results sides both own Nodes, so the bare name is refused with the candidates
+    text = endpoint.failing_tool("describe_api", {"path": "Nodes"})
+    check("Model.Nodes" in text, "the refusal must name the candidates: " + text)
+    described = json.loads(endpoint.tool("describe_api", {"path": "Model.Nodes"}))
+    check(described["resolvedAs"] == "type", "the qualified name must resolve: " + str(described))
+    print("describe_api: an ambiguous type name is refused with its candidates")
 
 
 def check_writing_tools(endpoint):
     result = json.loads(endpoint.tool("run_python", {"source": "pmx.model.parameters.add('mcp_a', 1.5)"}))
     check(not result["failed"], "the call must not fail: " + result["error"])
-    check(result["recordedCommands"] == ["CAddParameter"],
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CAddParameter"],
           "the change must be recorded as one command: " + str(result["recordedCommands"]))
+    check("mcp_a" in result["recordedCommands"][0]["description"],
+          "the recorded command must name the item: " + str(result["recordedCommands"]))
     #
     value = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.model.parameters['mcp_a'].value"}))
     check(not value["failed"], "the parameter must be readable: " + value["error"])
@@ -295,6 +371,18 @@ def check_screenshot(endpoint):
     check(os.path.exists(result["fileName"]), "the screenshot must exist: " + result["fileName"])
     print("screenshot: " + result["length"] + " bytes")
     os.remove(result["fileName"])
+    # The optional arguments set the shot up through pmx.view before it is taken
+    result = json.loads(endpoint.tool("screenshot", {"view": "femodel", "orientation": "Isometric",
+                                                     "zoom_to_fit": True}))
+    check(os.path.exists(result["fileName"]), "the set up screenshot must exist: " + result["fileName"])
+    os.remove(result["fileName"])
+    view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
+    check(view["value"] == "femodel", "the view must have been switched: " + str(view["value"]))
+    print("screenshot: taken again after switching the view and the camera")
+    # A view change is not a model change, so it records nothing
+    history = json.loads(endpoint.tool("get_history"))
+    for command in history["commands"]:
+        check("view" not in command["type"].lower(), "a view change must not be recorded: " + str(command))
 
 
 def check_refusals(endpoint):
@@ -370,7 +458,10 @@ def main():
         endpoint = session.endpoint()
         check_handshake(endpoint)
         check_tool_list(endpoint)
+        check_the_guide(endpoint)
+        wait_until_idle(endpoint)
         check_reading_tools(endpoint, session)
+        check_describing_a_type(endpoint)
         check_writing_tools(endpoint)
         check_screenshot(endpoint)
         check_refusals(endpoint)

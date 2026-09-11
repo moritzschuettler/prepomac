@@ -27,6 +27,9 @@ namespace PrePoMax.Mcp
     {
         // Variables                                                                                                                
         private const string NoArguments = "{\"type\": \"object\", \"properties\": {}}";
+        private const int DefaultTopologyLimit = 40;
+        // The whole answer stops detailing parts after this many listed faces, edges and vertices
+        private const int TopologyRowBudget = 240;
         private static List<McpTool> _tools;
 
 
@@ -36,6 +39,12 @@ namespace PrePoMax.Mcp
             if (_tools != null) return _tools;
             //
             _tools = new List<McpTool>();
+            _tools.Add(new McpTool("get_guide", "Read the driving guide",
+                "How to drive a PrePoMax session: the order the work goes in, what a number without a unit " +
+                "means, how to find the face you meant before you load it, how to run an analysis and read it " +
+                "back, and what to do when a call is refused. It is served by the application, so it is the " +
+                "guide of this version. Read it before the first change of a session.",
+                NoArguments, true));
             _tools.Add(new McpTool("list_sessions", "List PrePoMax sessions",
                 "Lists the running PrePoMax instances that have their automation server on, each with the URL it " +
                 "answers on, and marks the one this connection reaches. Every tool here acts on that one session - " +
@@ -63,6 +72,19 @@ namespace PrePoMax.Mcp
                 "description, the steps with what they contain, and the analyses with their status. Nothing is " +
                 "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
+            _tools.Add(new McpTool("read_topology", "Read the part geometry",
+                "Returns the faces, edges and vertices of the parts as JSON, each with the ID a selection " +
+                "takes, its size, its centroid and - for a face - its normal. This is how to find the entity " +
+                "you mean without seeing the viewport: the top face of a box is the one whose normal points " +
+                "up. Nothing is changed.\n\n" +
+                "Every part is summarized with its counts and its bounding box. The faces, edges and vertices " +
+                "of a part are listed largest first, capped per part and capped again for the whole answer, " +
+                "so on an assembly the first parts are detailed and the rest say to ask for them by name. " +
+                "Read the remainder of one part through get_face_data and get_edge_data on it.",
+                SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
+                              "\"description\": \"The parts to read. All of them when this is left out.\"}, " +
+                              "\"limit\": {\"type\": \"integer\", \"description\": " +
+                              "\"How many faces, edges and vertices to list per part. Defaults to 40.\"}"), true));
             _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
                 "it has a JSON form and as its repr. Use it for reading - a name list, a property, a computed " +
@@ -111,11 +133,28 @@ namespace PrePoMax.Mcp
                               "\"include_output\": {\"type\": \"boolean\", \"description\": " +
                               "\"Return the solver output as well. Defaults to false.\"}", "\"name\""), true));
             _tools.Add(new McpTool("screenshot", "Picture the viewport",
-                "Writes a PNG of the 3D viewport as it looks right now and returns the path. Use it to see what " +
-                "the user sees - a picture settles a question about orientation, a selection or a result plot that " +
-                "no amount of reading the model can.",
+                "Writes a PNG of the 3D viewport and returns the path. Use it to see what the user sees - a " +
+                "picture settles a question about orientation, a selection or a result plot that no amount of " +
+                "reading the model can.\n\n" +
+                "The optional arguments set up the shot before it is taken, through pmx.view, and are the same " +
+                "calls you could send with run_python. They move the user's view and it stays moved, so ask " +
+                "for what you need and no more. None of it is recorded in the command history, because none " +
+                "of it changes the model.",
                 SessionSchema("\"file_name\": {\"type\": \"string\", \"description\": " +
-                              "\"Where to write the .png. Defaults to a file in the temporary folder.\"}"), true));
+                              "\"Where to write the .png. Defaults to a file in the temporary folder.\"}, " +
+                              "\"view\": {\"type\": \"string\", \"enum\": [\"geometry\", \"femodel\", " +
+                              "\"results\"], \"description\": \"The tree to display first.\"}, " +
+                              "\"orientation\": {\"type\": \"string\", \"enum\": [\"Front\", \"Back\", " +
+                              "\"Top\", \"Bottom\", \"Left\", \"Right\", \"Isometric\", " +
+                              "\"IsometricNegative\", \"Normal\", \"Vertical\"], \"description\": " +
+                              "\"Where to put the camera.\"}, " +
+                              "\"zoom_to_fit\": {\"type\": \"boolean\", \"description\": " +
+                              "\"Fit everything visible in the viewport first.\"}, " +
+                              "\"field\": {\"type\": \"string\", \"description\": " +
+                              "\"The result field to plot, for example DISP. Needs an open result.\"}, " +
+                              "\"component\": {\"type\": \"string\", \"description\": " +
+                              "\"The component of that field, for example U3. Defaults to the first one.\"}"),
+                true));
             return _tools;
         }
         public static string GetInstructions()
@@ -124,9 +163,17 @@ namespace PrePoMax.Mcp
             text.Append("These tools drive a running PrePoMax session - the one the user has open on their own ");
             text.Append("desktop. The model changes in front of them while you work, so treat it as their model: ");
             text.Append("read it before you change it, and change it the way they asked.\n\n");
+            text.Append("Call get_guide before the first change of a session. It is short, it is served by ");
+            text.Append("this application so it matches this version, and it says how the work is ordered and ");
+            text.Append("where a scripted model usually goes wrong.\n\n");
             text.Append("The model surface is the PrePoMax Python API. 'pmx' is its root object, describe_api is ");
             text.Append("how to learn it, and run_python is how to use it. Look a call up rather than guessing: ");
             text.Append("the API refuses what it does not recognize, and the refusal names the reason.\n\n");
+            text.Append("A plain number is a value in the model's unit system, which get_status reports as ");
+            text.Append("unitSystem. Nothing converts it and nothing warns you, so read the unit system before ");
+            text.Append("you write the first number: 210000 is a steel modulus in MM_TON_S_C and wrong in ");
+            text.Append("M_KG_S_C. Where the user could type an expression you may pass one as a string, and ");
+            text.Append("it is stored as an equation that re-evaluates.\n\n");
             text.Append("Everything you change is recorded in the command history as the command the user would ");
             text.Append("have produced by hand. They can see it in the model tree, remove it in ");
             text.Append("Edit - Command history and regenerate, so a mistake is recoverable - but it is still ");
@@ -147,8 +194,9 @@ namespace PrePoMax.Mcp
         // Asks for what the tool needs and returns the text of the answer
         public static string Execute(string name, object arguments, RpcDispatcher dispatcher)
         {
-            // The directory is the one tool that is not about this session, so it is answered before
-            // the assertion that the call reached the session it meant
+            // The two tools that are not about this session are answered before the assertion that the
+            // call reached the session it meant
+            if (name == "get_guide") return McpAgentGuide.Text;
             if (name == "list_sessions") return ListSessions();
             AssertSession(arguments);
             //
@@ -161,6 +209,15 @@ namespace PrePoMax.Mcp
                 return Call(dispatcher, "describe", parameters);
             }
             if (name == "read_model") return CallAndReadOutput(dispatcher, McpModelScript.Source);
+            if (name == "read_topology")
+            {
+                List<string> names = JsonReader.ToStringList(JsonReader.GetArray(arguments, "part_names"));
+                string[] partNames = names == null ? null : names.ToArray();
+                int limit = JsonReader.GetInt(arguments, "limit", DefaultTopologyLimit);
+                if (limit <= 0) limit = DefaultTopologyLimit;
+                return CallAndReadOutput(dispatcher,
+                                         McpTopologyScript.GetSource(partNames, limit, TopologyRowBudget));
+            }
             if (name == "eval_expression")
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
@@ -204,6 +261,11 @@ namespace PrePoMax.Mcp
             }
             if (name == "screenshot")
             {
+                // The view is set up through the API, so the picture is taken of what the same calls
+                // would have produced from run_python and the endpoint grows no primitive for it
+                string setUp = GetViewSource(arguments);
+                if (setUp.Length > 0) Call(dispatcher, "exec", ExecArguments(setUp));
+                //
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 string fileName = JsonReader.GetString(arguments, "file_name", null);
                 if (fileName != null) parameters.Add("file_name", fileName);
@@ -223,6 +285,29 @@ namespace PrePoMax.Mcp
             if (JsonReader.GetBool(document, "failed", false))
                 throw new McpException(JsonReader.GetString(document, "error", "The script failed."));
             return JsonReader.GetString(document, "output", "");
+        }
+        // The pmx.view calls the optional screenshot arguments stand for, in the order they have to
+        // happen: the tree first, then what is plotted in it, then the camera
+        private static string GetViewSource(object arguments)
+        {
+            StringBuilder source = new StringBuilder();
+            string view = JsonReader.GetString(arguments, "view", null);
+            if (view != null) source.Append("pmx.view.current = ").Append(Quote(view)).Append("\n");
+            //
+            string field = JsonReader.GetString(arguments, "field", null);
+            if (field != null)
+            {
+                string component = JsonReader.GetString(arguments, "component", null);
+                source.Append("pmx.view.set_result_field(").Append(Quote(field));
+                if (component != null) source.Append(", ").Append(Quote(component));
+                source.Append(")\n");
+            }
+            string orientation = JsonReader.GetString(arguments, "orientation", null);
+            if (orientation != null)
+                source.Append("pmx.view.set_orientation(").Append(Quote(orientation)).Append(")\n");
+            if (JsonReader.GetBool(arguments, "zoom_to_fit", false)) source.Append("pmx.view.zoom_to_fit()\n");
+            //
+            return source.ToString();
         }
         private static Dictionary<string, object> ExecArguments(string source)
         {

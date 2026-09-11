@@ -82,6 +82,12 @@ process the client starts outlives the application it serves, and with PrePoMax 
 agent session still held an idle one. Remove the old `prepomax` entry from the client and add the
 address instead; the tools and their behaviour are unchanged.
 
+The application serves the agent its own guide: **`get_guide`** is how the work is ordered, what a
+number without a unit means, how to find the face that was meant, and what to do when a call is
+refused. It travels with the version, so there is nothing to keep in step on the client side.
+`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that points an agent at it; copy that
+folder into a project to have it there.
+
 `Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
 port, and the pipe the same server also keeps for a client that speaks its protocol directly.
 

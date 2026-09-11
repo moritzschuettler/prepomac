@@ -111,6 +111,15 @@ namespace APIs.Python
         {
             return new IntListAPI(_service.ResolveIds(this));
         }
+        [PythonAPI("Resolves this selection and reports what it found - the count, the IDs, the parts, the " +
+                   "bounding box and the centroid - without creating a model item and without recording " +
+                   "anything. A count of zero and a centroid in the wrong place are how a wrong pick is " +
+                   "caught before it becomes a boundary condition.", Returns = "SelectionPreview",
+                   Example = "pmx.create.selection_by_pick('femodel', 'nodes', [0, 0, 1], 'Surface').preview()")]
+        public SelectionPreviewAPI preview()
+        {
+            return _service.Preview(this);
+        }
         [PythonAPI("Returns the source item types used by this selection.", Returns = "StringList")]
         public StringListAPI get_sources()
         {

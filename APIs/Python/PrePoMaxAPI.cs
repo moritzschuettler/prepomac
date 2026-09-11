@@ -23,6 +23,7 @@ namespace APIs.Python
         private readonly SelectionFactoryAPI _selection;
         private readonly CreateAPI _create;
         private readonly JobsAPI _jobs;
+        private readonly ViewAPI _view;
 
 
         // Properties
@@ -36,16 +37,20 @@ namespace APIs.Python
         public CreateAPI create { get { return _create; } }
         [PythonAPI("The analyses of the model.", Returns = "Jobs")]
         public JobsAPI jobs { get { return _jobs; } }
+        [PythonAPI("What the application shows - the displayed tree, the camera, the plotted result - and a " +
+                   "picture of it. None of it is a model change, so none of it is recorded.", Returns = "View")]
+        public ViewAPI view { get { return _view; } }
 
 
         // Constructors
         public PrePoMaxAPI(ResultsCollection results)
-            : this(results, null, null, null, null, null)
+            : this(results, null, null, null, null, null, null)
         {
         }
         public PrePoMaxAPI(ResultsCollection results, IPythonCommandGateway commandGateway,
                            IPythonSelectionGateway selectionGateway, IPythonModelGateway modelGateway,
-                           IPythonMeshGateway meshGateway, IPythonJobGateway jobGateway)
+                           IPythonMeshGateway meshGateway, IPythonJobGateway jobGateway,
+                           IPythonViewGateway viewGateway)
         {
             _resolver = new ResultResolver(results);
             _modelResolver = new ModelResolver(modelGateway);
@@ -92,6 +97,7 @@ namespace APIs.Python
             _selection = new SelectionFactoryAPI(selectionService);
             _create = new CreateAPI(selectionService);
             _jobs = new JobsAPI(new JobService(jobGateway));
+            _view = new ViewAPI(viewGateway);
         }
 
 

@@ -73,8 +73,33 @@ namespace APIs.Python.Model
             int[] labels = ResolvePart().Labels;
             return new IntListAPI(labels == null ? new int[0] : labels);
         }
+
+        [PythonAPI("Returns the faces of the part with the IDs a selection takes, and with the area, the " +
+                   "centroid, the normal and the geometric type of each one. This is how a script finds the " +
+                   "face it means without picking it in the viewport.", Returns = "FaceData",
+                   Example = "faces = part.get_face_data()\n" +
+                             "top = int(faces.ids[list(faces.normals[:, 2]).index(max(faces.normals[:, 2]))])")]
+        public FaceDataAPI get_face_data()
+        {
+            return PartTopologyReader.GetFaceData(ResolveMesh(), ResolvePart());
+        }
+
+        [PythonAPI("Returns the edges of the part with the IDs a selection takes, and with the length, the " +
+                   "centroid and the geometric type of each one.", Returns = "EdgeData")]
+        public EdgeDataAPI get_edge_data()
+        {
+            return PartTopologyReader.GetEdgeData(ResolveMesh(), ResolvePart());
+        }
+
+        [PythonAPI("Returns the vertices of the part with their node IDs, geometry IDs and coordinates.",
+                   Returns = "VertexData")]
+        public VertexDataAPI get_vertex_data()
+        {
+            return PartTopologyReader.GetVertexData(ResolveMesh(), ResolvePart());
+        }
         //
         protected abstract BasePart ResolvePart();
+        protected abstract FeMesh ResolveMesh();
         //
         public override string ToString()
         {

@@ -52,6 +52,9 @@
     <Compile Include="Python\Jobs\JobService.cs" />
     <Compile Include="Python\Jobs\JobsAPI.cs" />
     <Compile Include="Python\Commands\IPythonMeshGateway.cs" />
+    <Compile Include="Python\Commands\IPythonViewGateway.cs" />
+    <Compile Include="Python\View\ViewAPI.cs" />
+    <Compile Include="Python\Common\PythonEnumVocabulary.cs" />
     <Compile Include="Python\Model\Meshing\MeshAPI.cs" />
     <Compile Include="Python\Model\Meshing\MeshToolService.cs" />
     <Compile Include="Python\Model\Mesh\MeshEditService.cs" />
@@ -63,6 +66,11 @@
     <Compile Include="Python\Common\PythonColorConverter.cs" />
     <Compile Include="Python\Model\Geometry\GeometryAPI.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartAPI.cs" />
+    <Compile Include="Python\Model\Parts\PartTopologyReader.cs" />
+    <Compile Include="Python\Model\Parts\FaceDataAPI.cs" />
+    <Compile Include="Python\Model\Parts\EdgeDataAPI.cs" />
+    <Compile Include="Python\Model\Parts\VertexDataAPI.cs" />
+    <Compile Include="Python\Selection\SelectionPreviewAPI.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartService.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartsAPI.cs" />
     <Compile Include="Python\Model\Parts\ModelPartAPI.cs" />

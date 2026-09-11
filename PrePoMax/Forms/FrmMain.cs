@@ -8011,7 +8011,7 @@ namespace PrePoMax
         public void SaveAutomationScreenshot(string fileName)
         {
             if (_vtk == null) throw new CaeException("The 3D view is not available.");
-            _vtk.RenderToPNG(fileName);
+            InvokeIfRequired(_vtk.RenderToPNG, fileName);
         }
         // A session started with -g No has no window anyone is looking at
         public bool IsWindowHidden { get { return _hideWindow; } }
@@ -11290,6 +11290,24 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetFrontBackView, animate, front);
         }
+        // The standard views of the View menu, by name, for a script or the automation server
+        public void SetStandardView(string orientation, bool animate)
+        {
+            InvokeIfRequired(() =>
+            {
+                if (orientation == "Front") _vtk.SetFrontBackView(animate, true);
+                else if (orientation == "Back") _vtk.SetFrontBackView(animate, false);
+                else if (orientation == "Top") _vtk.SetTopBottomView(animate, true);
+                else if (orientation == "Bottom") _vtk.SetTopBottomView(animate, false);
+                else if (orientation == "Left") _vtk.SetLeftRightView(animate, true);
+                else if (orientation == "Right") _vtk.SetLeftRightView(animate, false);
+                else if (orientation == "Isometric") _vtk.SetIsometricView(animate, true);
+                else if (orientation == "IsometricNegative") _vtk.SetIsometricView(animate, false);
+                else if (orientation == "Normal") _vtk.SetNormalView(animate);
+                else if (orientation == "Vertical") _vtk.SetVerticalView(animate, true);
+                else throw new CaeException("The view orientation " + orientation + " does not exist.");
+            });
+        }
         public void SetZoomToFit(bool animate)
         {
             InvokeIfRequired(_vtk.SetZoomToFit, animate);
@@ -11739,6 +11757,19 @@ namespace PrePoMax
             InvokeIfRequired(() =>
             {
                 SetFieldData(name, component, GetCurrentFieldOutputStepId(), GetCurrentFieldOutputStepIncrementId());
+            });
+        }
+        // The results plot type, as the results toolbar sets it. Setting the controller property alone
+        // leaves the undeformed model and the toolbar states behind, so this takes the same path
+        public void SetViewResultsType(ViewResultsTypeEnum viewResultsType)
+        {
+            InvokeIfRequired(() =>
+            {
+                UndeformedModelTypeEnum undeformedModelType =
+                    viewResultsType == ViewResultsTypeEnum.Undeformed ||
+                    viewResultsType == ViewResultsTypeEnum.Deformed
+                    ? UndeformedModelTypeEnum.None : _controller.GetUndeformedModelType();
+                SetUndeformedModelType(viewResultsType, undeformedModelType);
             });
         }
         public void SetFieldData(string name, string component, int stepId, int stepIncrementId)

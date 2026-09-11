@@ -31,5 +31,9 @@ namespace APIs.Python.Model
         {
             return _service.ResolvePart(_partName);
         }
+        protected override FeMesh ResolveMesh()
+        {
+            return _service.ResolveMesh();
+        }
     }
 }

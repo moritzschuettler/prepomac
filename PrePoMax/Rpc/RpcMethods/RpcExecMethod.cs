@@ -45,7 +45,7 @@ namespace PrePoMax.Rpc
             if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
             else result = PythonEngineManager.ExecuteScript(source);
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<string> recorded = GetRecordedCommands(controller, commandsBefore);
+            List<Command> recorded = GetRecordedCommands(controller, commandsBefore);
             //
             server.Form.EchoAutomationExecution("Automation server - exec", source, result.Output, result.Error);
             //
@@ -67,25 +67,45 @@ namespace PrePoMax.Rpc
         }
         // The commands the call added to the history, in the order they were recorded. This is what
         // makes an agent's work visible as ordinary user actions: the user can delete any of them in
-        // the command history editor and regenerate
-        public static List<string> GetRecordedCommands(Controller controller, int countBefore)
+        // the command history editor and regenerate.
+        //
+        // Each one is reported as its class name and as the line the command history editor shows,
+        // which names the item. A call that writes several items is otherwise a list of types that
+        // says how many things happened but not to what
+        public static List<Command> GetRecordedCommands(Controller controller, int countBefore)
         {
-            List<string> names = new List<string>();
+            List<Command> recorded = new List<Command>();
             List<Command> commands = controller.GetCommands();
-            if (commands == null) return names;
+            if (commands == null) return recorded;
             //
-            for (int i = countBefore; i < commands.Count; i++)
-            {
-                Command command = commands[i];
-                names.Add(command == null ? "" : command.GetType().Name);
-            }
-            return names;
+            for (int i = countBefore; i < commands.Count; i++) recorded.Add(commands[i]);
+            return recorded;
         }
-        public static void WriteRecordedCommands(JsonWriter writer, List<string> recorded)
+        public static void WriteRecordedCommands(JsonWriter writer, List<Command> recorded)
         {
             writer.BeginArray("recordedCommands");
-            for (int i = 0; i < recorded.Count; i++) writer.WriteValue(recorded[i]);
+            for (int i = 0; i < recorded.Count; i++)
+            {
+                Command command = recorded[i];
+                writer.BeginObject();
+                writer.WriteValue("type", command == null ? "" : command.GetType().Name);
+                writer.WriteValue("description", GetDescription(command));
+                writer.EndObject();
+            }
             writer.EndArray();
+        }
+        // The command history line without the timestamp it opens with, which is noise to a caller
+        // that already knows when it made the call
+        public static string GetDescription(Command command)
+        {
+            if (command == null) return "";
+            //
+            string text = command.GetCommandString();
+            if (text == null) return "";
+            if (command.Name == null || command.Name.Length == 0) return text.Trim();
+            //
+            int index = text.IndexOf(command.Name, StringComparison.Ordinal);
+            return (index < 0 ? text : text.Substring(index)).Trim();
         }
     }
 }

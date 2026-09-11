@@ -179,22 +179,60 @@ the PrePoMax folder or unpacking a new version leaves it correct, which the old 
 
 | Tool | What it does |
 | --- | --- |
+| `get_guide` | How to drive a session, served by the application so it matches the version. The first thing to read. |
 | `list_sessions` | The running instances whose server is on, each with the address it answers on, marking the one that answered. |
 | `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. |
-| `describe_api` | The `[PythonAPI]` schema of `pmx` or of any path under it, read off the API itself, with the names a collection holds right now. |
+| `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
 | `read_model` | A JSON snapshot of the model: properties, collections, steps with their content, analyses with their status. |
+| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. |
 | `get_history` | The command history, and the journal of it as a Python script. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface. |
 | `get_job` | The status of an analysis, and its solver output on request. |
-| `screenshot` | A PNG of the viewport as the user sees it. |
+| `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. |
 
 The surface is deliberately small. The model surface is the Python API, which the agent writes
 through `run_python` and learns through `describe_api`, so there is no tool per API member - 965 of
 them could not be listed, and a second front door would be free to drift from the first. A tool that
-is not a protocol primitive is a piece of Python the catalog holds: `read_model` is one, so adding
-another costs nothing on the application side.
+is not a protocol primitive is a piece of Python the catalog holds: `read_model` and `read_topology`
+are both one, so adding another costs nothing on the application side.
+
+### What the agent gets that it cannot guess
+
+Four things an agent has no way to work out from the model alone, and where each one comes from.
+
+- **How the work is ordered.** `get_guide` is a short procedural guide held by the application, not
+  by the client, so a client of any kind gets the guide of the version it is talking to. The MCP
+  `instructions` string says to read it before the first change.
+- **The values an argument accepts.** `describe_api` reports, for every method, its real parameters
+  with the default the signature carries and - for a string argument the API validates against an
+  enumeration - the values it accepts. The enumerations come from `PythonEnumVocabulary`, which is
+  audited against every `ToEnum` site by `Test_Api_Enum_Vocabulary.py`, so an argument added without
+  an entry is reported rather than silently described without its values.
+- **A collection that does not exist yet.** `describe_api` also takes an API type name - `Loads`,
+  `Model.Steps` - so the half of the API that hangs off something the model does not have can still
+  be read. Creating a step to see what loads it would offer is a change to the user's model made for
+  no other reason. A name the model and the results sides share is refused with the candidates.
+- **Which entity is which.** `read_topology` names every face by the ID a selection takes and gives
+  it an area, a centroid and a normal, so the top face of a part is found rather than guessed. The
+  answer is bounded twice: per part, and over the whole answer, so an assembly reports every part's
+  summary and details the first of them.
+
+**What a call recorded is named.** `run_python` and `eval_expression` report `recordedCommands` as
+the command class and the line the command history editor shows, which names the item, so a call
+that wrote several things is not just a list of types. `get_history` carries the same description.
+
+**Units are not converted.** A plain number is a value in the model's unit system, which `get_status`
+reports as `unitSystem`. The instructions say so, because nothing else will: 210000 is a correct
+steel modulus in `MM_TON_S_C` and wrong by a factor of a million in `M_KG_S_C`.
+
+### A skill for a client project
+
+`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that tells an agent to read `get_guide`
+first and names the handful of habits that are specific to this application. It is short on purpose:
+the guide and the schema are served by the application and cannot drift, and a skill that repeated
+them would. Copy that folder into a client project to have it available there.
 
 Every tool also takes an optional `process_id`. **It is checked, not routed.** One address serves one
 session, so a call that names another instance is refused with the address that would have served it,
@@ -411,6 +449,7 @@ Root object exposed as `pmx`.
 | `selection` | Creates and highlights reusable view-aware selections. |
 | `create` | Creates the detached parts that model items take as arguments. |
 | `jobs` | The analyses of the model. |
+| `view` | What the application shows, and a picture of it. |
 | `help()` | Prints documented members. |
 
 The document methods listed under **Document** below also live on this object.
@@ -743,8 +782,40 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 | `visible`, `active` | Part state. |
 | `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. |
 | `get_node_ids()`, `get_element_ids()` | The part node and element IDs. |
+| `get_face_data()` | The faces of the part as `FaceData`. |
+| `get_edge_data()` | The edges of the part as `EdgeData`. |
+| `get_vertex_data()` | The vertices of the part as `VertexData`. |
 
 `GeometryPart` adds `is_cad_part`.
+
+#### `FaceData`, `EdgeData` and `VertexData`
+
+The topology of one part, read off the visualization the application keeps for picking. It is how a
+script finds the entity it means without a pick in the viewport, and the IDs it reports are the ones
+a selection takes.
+
+| Member | Description |
+| --- | --- |
+| `count` | The number of faces, edges or vertices. |
+| `ids` | The 1-based face or edge IDs of the part, as the `surfaces` and `edges` selection sources take them. `VertexData` has `node_ids` instead, because a vertex is named by its node. |
+| `geometry_ids` | The geometry ID of every entity, as the `geometry` selection source takes them. |
+| `areas`, `lengths` | The area of every face and the length of every edge, in model units. |
+| `centroids` | The centroid of every face or edge with shape `(count, 3)`, as the mean of its node coordinates. `VertexData` has `coordinates`. |
+| `normals` | Faces only. The mean of the cell normals of every face with shape `(count, 3)`. A curved face has no single normal, so it is the direction the face points on average. |
+| `types` | The geometric type of every entity: `Plane`, `Cylinder`, `Cone` and so on for a face, `Line`, `Circle`, `Ellipse` and so on for an edge. |
+
+Every array is a NumPy array where NumPy is available, and an `IntList` or `NumericArray` otherwise.
+A part type that has no faces - a wire, or a compound whose surfaces are picked on its sub parts -
+reports `count` 0 rather than failing.
+
+```python
+part = pmx.model.parts['Solid_part-1']
+faces = part.get_face_data()
+# The top face is the one whose normal points up
+top = max(range(faces.count), key=lambda i: faces.normals[i][2])
+selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
+                                        {part.id: [int(faces.ids[top])]})
+```
 
 ### `Amplitudes`
 
@@ -1519,6 +1590,44 @@ A refused prompt during a run ends the process with exit code 5. Running an anal
 have no section assignment is the usual way to meet one, because the application asks whether to
 continue.
 
+## View
+
+### `View`
+
+`pmx.view` is what the application shows: which of the three trees is displayed, where the camera
+is, which result is plotted, and a picture of it.
+
+**Nothing here is recorded in the command history**, because none of it changes the model. The same
+reasoning that keeps a camera angle out of the `.pmx` keeps it out of Regenerate, so a script that
+moved the view should put it back itself rather than expecting replay to.
+
+| Member | Description |
+| --- | --- |
+| `current` | The displayed tree: `'geometry'`, `'femodel'` or `'results'`. Settable. |
+| `result_type` | How the results are plotted: `Undeformed`, `Deformed`, `ColorContours`, `VectorPlot` or `TensorPlot`. Settable. |
+| `set_orientation(orientation)` | Points the camera along a standard direction: `Front`, `Back`, `Top`, `Bottom`, `Left`, `Right`, `Isometric`, `IsometricNegative`, `Normal` or `Vertical`. |
+| `get_orientation_names()` | The orientation names `set_orientation` accepts. |
+| `zoom_to_fit()` | Fits everything visible in the viewport. |
+| `get_parameters()` | The camera as 10 values: position, focal point and view up, three each, then the parallel scale. |
+| `set_parameters(parameters)` | Sets the camera from those 10 values. |
+| `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
+| `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports. |
+| `get_result_field()` | What is plotted now, as `[field_name, component_name, step_id, increment_id]`. |
+| `save_image(file_name=None)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. |
+
+Part visibility is not here: `hide` and `show` on the part collections are model changes and go
+through the command history like any other.
+
+```python
+camera = pmx.view.get_parameters()
+pmx.view.current = 'results'
+pmx.view.set_result_field('DISP', 'U3')
+pmx.view.set_orientation('Isometric')
+pmx.view.zoom_to_fit()
+path = pmx.view.save_image()
+pmx.view.set_parameters(camera)
+```
+
 ## Selections
 
 ### `SelectionFactory`
@@ -1645,11 +1754,36 @@ Three things to know about how the application resolves a selection:
 | `view` | Immutable selection view. |
 | `target` | Immutable resulting item type. |
 | `count` | Number of source IDs. |
-| `add_by_ids(source, ids, operation=None)` | Adds another compatible ID source. |
+| `add_by_ids(source, ids, operation=None, geometry_select_mode='SelectId')` | Adds another compatible ID source. The select mode applies only to geometry source IDs. |
 | `add_all(operation=None)` | Adds everything the view holds. |
 | `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
 | `get_options()` | The recorded selection options. |
 | `get_sources()` | Returns the source types as `StringList`. |
+| `get_ids()` | Resolves the selection against the current mesh and returns the IDs. |
+| `preview()` | Resolves the selection and reports what it found, as `SelectionPreview`. |
+
+### `SelectionPreview`
+
+The dry run of a selection: what it resolves to right now, without creating a model item and without
+recording anything. A pick that found the wrong face is caught here rather than after it has become
+a boundary condition.
+
+| Member | Description |
+| --- | --- |
+| `target` | The resolved item type. |
+| `count` | The number of resolved items. Zero means the selection finds nothing in the current view, which is reported rather than thrown. |
+| `ids` | The resolved IDs: node IDs, element IDs, part IDs or geometry IDs, following the target. |
+| `part_names` | The names of the parts the resolved items belong to. |
+| `bounding_box` | `[xMin, xMax, yMin, yMax, zMin, zMax]` of the resolved items, or an empty array when nothing resolved. |
+| `centroid` | The mean of the node coordinates of the resolved items, or an empty array. |
+
+```python
+top = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
+preview = top.preview()
+if preview.count == 0 or abs(preview.centroid[2] - 1.0) > 1e-6:
+    raise Exception('the pick did not find the top face')
+pmx.model.node_sets.add('Top', top)
+```
 ## Results collection
 
 ### `Results`

@@ -94,6 +94,7 @@
     <Compile Include="Python\Commands\ControllerPythonJobGateway.cs" />
     <Compile Include="Python\Commands\ControllerPythonMeshGateway.cs" />
     <Compile Include="Python\Commands\ControllerPythonSelectionGateway.cs" />
+    <Compile Include="Python\Commands\ControllerPythonViewGateway.cs" />
     <Compile Include="Python\Engine\PythonConsoleResult.cs" />
     <Compile Include="Python\Engine\PythonEngineManager.cs" />
     <Compile Include="Python\Journal\PythonCodeFormatter.cs" />
@@ -130,6 +131,8 @@
     <Compile Include="Mcp\McpHttpRequestHandler.cs" />
     <Compile Include="Mcp\McpHttpServer.cs" />
     <Compile Include="Mcp\McpModelScript.cs" />
+    <Compile Include="Mcp\McpTopologyScript.cs" />
+    <Compile Include="Mcp\McpAgentGuide.cs" />
     <Compile Include="Mcp\McpProtocolServer.cs" />
     <Compile Include="Mcp\McpTool.cs" />
     <Compile Include="Mcp\McpToolCatalog.cs" />
@@ -141,6 +144,7 @@
     <Compile Include="Rpc\RpcCall.cs" />
     <Compile Include="Rpc\RpcUiThread.cs" />
     <Compile Include="Rpc\RpcDescribeBuilder.cs" />
+    <Compile Include="Rpc\RpcApiTypeLocator.cs" />
     <Compile Include="Rpc\RpcMethods\RpcHistoryMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcScreenshotMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcDescribeMethod.cs" />

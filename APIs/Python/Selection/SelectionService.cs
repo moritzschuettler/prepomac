@@ -159,6 +159,87 @@ namespace APIs.Python
         {
             return Compile(selection, ResolveMesh(selection, null), selection.view, selection.target, true).Ids;
         }
+        // The dry run: what the selection resolves to, and where it is, without creating anything. An
+        // empty result is reported rather than thrown, because that is the answer the caller asked for
+        public SelectionPreviewAPI Preview(SelectionAPI selection)
+        {
+            FeMesh mesh = ResolveMesh(selection, null);
+            int[] ids = Compile(selection, mesh, selection.view, selection.target, true).Ids;
+            HashSet<int> nodeIds = GetPreviewNodeIds(selection.target, ids, mesh);
+            BoundingBox boundingBox = new BoundingBox();
+            double[] sum = new double[3];
+            int used = 0;
+            foreach (int nodeId in nodeIds)
+            {
+                FeNode node;
+                if (!mesh.Nodes.TryGetValue(nodeId, out node)) continue;
+                if (used == 0) boundingBox.IncludeFirstCoor(node.Coor);
+                else boundingBox.IncludeCoorFast(node.Coor);
+                sum[0] += node.X;
+                sum[1] += node.Y;
+                sum[2] += node.Z;
+                used++;
+            }
+            double[] box = used == 0
+                           ? new double[0]
+                           : new double[] { boundingBox.MinX, boundingBox.MaxX, boundingBox.MinY,
+                                            boundingBox.MaxY, boundingBox.MinZ, boundingBox.MaxZ };
+            double[] centroid = used == 0
+                                ? new double[0]
+                                : new double[] { sum[0] / used, sum[1] / used, sum[2] / used };
+            //
+            return new SelectionPreviewAPI(selection.target, ids, GetPreviewPartNames(nodeIds, mesh), box,
+                                           centroid);
+        }
+        // The resolved IDs name nodes, elements, parts or geometry items, following the target, and
+        // every one of them is reduced to the nodes it covers so that one summary serves them all
+        private static HashSet<int> GetPreviewNodeIds(string target, int[] ids, FeMesh mesh)
+        {
+            HashSet<int> nodeIds = new HashSet<int>();
+            if (ids == null) return nodeIds;
+            //
+            if (target == "nodes")
+            {
+                nodeIds.UnionWith(ids);
+                return nodeIds;
+            }
+            foreach (int id in ids)
+            {
+                if (target == "elements")
+                {
+                    FeElement element;
+                    if (mesh.Elements.TryGetValue(id, out element) && element.NodeIds != null)
+                        nodeIds.UnionWith(element.NodeIds);
+                }
+                else if (target == "parts")
+                {
+                    BasePart part = mesh.GetPartFromId(id);
+                    if (part != null && part.NodeLabels != null) nodeIds.UnionWith(part.NodeLabels);
+                }
+                else nodeIds.UnionWith(mesh.GetNodeIdsFromGeometryId(id));
+            }
+            //
+            return nodeIds;
+        }
+        private static string[] GetPreviewPartNames(HashSet<int> nodeIds, FeMesh mesh)
+        {
+            List<string> partNames = new List<string>();
+            if (nodeIds.Count == 0) return partNames.ToArray();
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                int[] partNodeIds = entry.Value.NodeLabels;
+                if (partNodeIds == null) continue;
+                for (int i = 0; i < partNodeIds.Length; i++)
+                {
+                    if (!nodeIds.Contains(partNodeIds[i])) continue;
+                    partNames.Add(entry.Key);
+                    break;
+                }
+            }
+            //
+            return partNames.ToArray();
+        }
         private static void ValidateAllTarget(SelectionAPI selection)
         {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
@@ -522,7 +603,7 @@ namespace APIs.Python
         {
             return part != null && part.Visible && part.Active;
         }
-        private static GeometryType GetSurfaceGeometryType(BasePart part)
+        internal static GeometryType GetSurfaceGeometryType(BasePart part)
         {
             if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
                 return GeometryType.ShellFrontSurface;

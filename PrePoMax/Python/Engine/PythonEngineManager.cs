@@ -147,8 +147,11 @@ namespace PrePoMax.Python
             IPythonJobGateway jobGateway = controller != null
                                            ? new ControllerPythonJobGateway(controller)
                                            : null;
+            IPythonViewGateway viewGateway = controller != null
+                                             ? new ControllerPythonViewGateway(controller)
+                                             : null;
             PrePoMaxAPI pmx = new PrePoMaxAPI(results, commandGateway, selectionGateway, modelGateway,
-                                              meshGateway, jobGateway);
+                                              meshGateway, jobGateway, viewGateway);
             //
             using (PyObject pmxObject = pmx.ToPython())
             {

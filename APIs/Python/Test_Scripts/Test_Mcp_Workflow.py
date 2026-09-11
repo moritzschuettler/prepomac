@@ -225,12 +225,12 @@ def build_the_model(endpoint):
     #
     result = endpoint.python("pmx.model.materials.add('" + PREFIX + "Steel', "
                            "[pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])")
-    check(result["recordedCommands"] == ["CAddMaterial"],
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CAddMaterial"],
           "the material must be one command: " + str(result["recordedCommands"]))
     # The whole parameter table is one command, and a parameter may use one given after it
     result = endpoint.python("pmx.model.parameters.set_all(['" + PREFIX + "load', '" + PREFIX + "unit'], "
                            "['" + PREFIX + "unit * 1000', 1.0], ['The applied force', ''])")
-    check(result["recordedCommands"] == ["CSetParameters"],
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CSetParameters"],
           "the parameter table must be one command: " + str(result["recordedCommands"]))
     #
     endpoint.python("part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts', "

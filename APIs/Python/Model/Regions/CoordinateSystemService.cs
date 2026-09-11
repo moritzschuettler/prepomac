@@ -213,7 +213,10 @@ namespace APIs.Python.Model
                 return;
             }
             if (createdFrom == null && selection == null) return;
-            ApplyPoint(createdFrom, selection, "point_created_from", "point_selection",
+            // The three points are three pairs of arguments, so a refusal names the pair the caller
+            // wrote rather than a generic point that is not an argument of anything
+            string pointName = point == 1 ? "origin" : (point == 2 ? "point_on_x" : "point_in_xy");
+            ApplyPoint(createdFrom, selection, pointName + "_created_from", pointName + "_selection",
                        delegate (CsPointCreatedFromEnum mode, SelectionCompilation compilation)
                        {
                            if (point == 1)

@@ -51,6 +51,7 @@ namespace PrePoMax.Rpc
                 writer.WriteValue("index", i);
                 writer.WriteValue("type", command == null ? "" : command.GetType().Name);
                 writer.WriteValue("name", command == null || command.Name == null ? "" : command.Name);
+                writer.WriteValue("description", RpcExecMethod.GetDescription(command));
                 writer.EndObject();
             }
             writer.EndArray();

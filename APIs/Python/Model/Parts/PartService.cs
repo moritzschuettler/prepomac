@@ -72,6 +72,13 @@ namespace APIs.Python.Model
             //
             return part;
         }
+        public FeMesh ResolveMesh()
+        {
+            FeMesh mesh = GetMeshOrNull();
+            if (mesh == null) throw new PythonAPIException("There is no mesh in this view.");
+            //
+            return mesh;
+        }
         public void SetColor(string[] partNames, object color)
         {
             Color colorValue = PythonColorConverter.ToColor(color, "color");

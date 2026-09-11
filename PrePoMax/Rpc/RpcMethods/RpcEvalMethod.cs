@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Commands;
 using PrePoMax.Python;
 using System;
 using System.Collections.Generic;
@@ -32,7 +33,7 @@ namespace PrePoMax.Rpc
             DateTime started = DateTime.Now;
             PythonEvalResult result = PythonEngineManager.Evaluate(expression);
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<string> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore);
+            List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore);
             //
             server.Form.EchoAutomationExecution("Automation server - eval", expression, result.Output, result.Error);
             //

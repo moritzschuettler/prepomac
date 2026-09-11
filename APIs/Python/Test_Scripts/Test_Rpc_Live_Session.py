@@ -22,6 +22,7 @@ import tempfile
 import time
 
 CHILD_TIMEOUT = 180
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 
 
 def check(condition, message):
@@ -87,14 +88,27 @@ class ChildSession(object):
     def __init__(self, mode):
         self.directory = tempfile.mkdtemp(prefix="rpc_child_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
+        # The cube is given explicitly. A session with no window still opens the last file of the
+        # interactive user when the setting says so, and the history of that model is not what this
+        # test is about
         self.process = subprocess.Popen([sys.executable, "--rpc", mode, "-g", "No", "--noSettingsSave",
+                                         "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory],
                                         stdout=self.log, stderr=subprocess.STDOUT)
         self.client = None
 
     def connect(self):
+        """The server answers before the session has finished starting, and says so until it has."""
         self.client = Client(self.process.pid)
-        return self.client
+        deadline = time.time() + 120
+        reason = ""
+        while time.time() < deadline:
+            status = self.client.result("status")
+            if status["isIdle"]:
+                return self.client
+            reason = status["busyReason"]
+            time.sleep(0.2)
+        raise Exception("TEST FAILED: the child stayed busy: " + reason)
 
     def close(self):
         if self.client is not None:
@@ -130,8 +144,11 @@ def check_recording(client):
     result = client.result("exec", {"source": "pmx.model.parameters.add('live_a', 1.0)"})
     check(not result["failed"], "adding a parameter must not fail: " + result["error"])
     check(len(result["recordedCommands"]) == 1, "one command must be recorded: " + str(result["recordedCommands"]))
-    recorded = result["recordedCommands"][0]
+    recorded = result["recordedCommands"][0]["type"]
     check(recorded.startswith("C"), "a recorded command must be a command class: " + recorded)
+    # The description names the item, so a caller can tell one recorded command from the next
+    described = result["recordedCommands"][0]["description"]
+    check("live_a" in described, "the description must name the item: " + described)
     status = client.result("status")
     check(status["model"]["commandCount"] == before + 1,
           "the history must have grown by one: " + str(status["model"]["commandCount"]))
@@ -148,7 +165,7 @@ def check_recording(client):
                                               "pmx.model.parameters.add('live_e', 5.0)",
                                     "record": "script"})
     check(not result["failed"], "the recorded script must not fail: " + result["error"])
-    check(result["recordedCommands"] == ["CRunPythonScript"],
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CRunPythonScript"],
           "a script must be recorded as one command: " + str(result["recordedCommands"]))
     print("recording: two calls recorded two commands, a script recorded one")
     # Everything the agent asked for is in the model
