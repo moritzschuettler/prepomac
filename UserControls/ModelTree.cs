@@ -129,6 +129,12 @@ namespace UserControls
             public TreeNode[] Nodes;
             public string[] StepNames;
         }
+        private enum TreeDropPosition
+        {
+            Into,
+            Before,
+            After
+        }
         // Variables                                                                                                                
         private bool _screenUpdating;
         private bool _doubleClick;
@@ -140,6 +146,9 @@ namespace UserControls
         private Dictionary<TreeNode, OrderedDictionaryGroupInfo> _orderedDictionaryGroups;
         private TreeNode _dragOverNode;
         private Color _dragOverNodeBackColor;
+        private CodersLabTreeView _dropInsertionLineTree;
+        private Rectangle _dropInsertionLineBounds;
+        private const int _dropInsertionLineHalfHeight = 6;
         // Geometry
         private TreeNode _geomParts;                // 1
         private TreeNode _meshSetupItems;           // 1
@@ -851,6 +860,9 @@ namespace UserControls
             Guid? parentGroupId)
         {
             CodersLabTreeView previousTree = previousContext.RootNode.TreeView as CodersLabTreeView;
+            CodersLabTreeView rebuiltTree = null;
+            string topNodeIdentity = previousTree != null && previousTree.TopNode != null
+                                   ? GetStableTreeNodeIdentity(previousTree.TopNode) : null;
             previousTree?.BeginUpdate();
             try
             {
@@ -872,6 +884,7 @@ namespace UserControls
                 if (context == null) return;
                 //
                 CodersLabTreeView tree = context.RootNode.TreeView as CodersLabTreeView;
+                rebuiltTree = tree;
                 SetStableTreeExpandCollapseState(tree, expandCollapseState);
                 //
                 TreeNode parentNode = context.RootNode;
@@ -914,7 +927,35 @@ namespace UserControls
             finally
             {
                 previousTree?.EndUpdate();
+                // The rebuilt tree starts at its first row and the restored selection scrolls it again.
+                // EndUpdate only invalidates, so the view is corrected before the single repaint.
+                RestoreTreeTopNode(rebuiltTree, topNodeIdentity);
             }
+        }
+        private void RestoreTreeTopNode(CodersLabTreeView tree, string topNodeIdentity)
+        {
+            if (tree == null || topNodeIdentity == null) return;
+            //
+            TreeNode topNode = FindTreeNodeByStableIdentity(tree.Nodes, topNodeIdentity);
+            if (topNode == null) return;
+            //
+            for (TreeNode parentNode = topNode.Parent; parentNode != null; parentNode = parentNode.Parent)
+            {
+                if (!parentNode.IsExpanded) return;
+            }
+            tree.TopNode = topNode;
+        }
+        private TreeNode FindTreeNodeByStableIdentity(TreeNodeCollection nodes, string topNodeIdentity)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                if (String.Equals(GetStableTreeNodeIdentity(node), topNodeIdentity, StringComparison.Ordinal))
+                    return node;
+                //
+                TreeNode foundNode = FindTreeNodeByStableIdentity(node.Nodes, topNodeIdentity);
+                if (foundNode != null) return foundNode;
+            }
+            return null;
         }
         private void SelectOrderedDictionaryItems(CodersLabTreeView tree, OrderedDictionaryTreeContext context,
                                                   string[] itemNames)
@@ -1200,7 +1241,7 @@ namespace UserControls
             }
             finally
             {
-                ClearDragOverNode();
+                ClearDropTargetFeedback();
             }
         }
         private void cltv_DragEnter(object sender, DragEventArgs e)
@@ -1220,21 +1261,21 @@ namespace UserControls
                 if (!ReferenceEquals(stepData.Tree, tree))
                 {
                     e.Effect = DragDropEffects.None;
-                    ClearDragOverNode();
+                    ClearDropTargetFeedback();
                     return;
                 }
                 //
                 Point stepPoint = tree.PointToClient(new Point(e.X, e.Y));
                 if (TryGetStepDropTarget(tree, stepPoint, stepData, out TreeNode stepTargetNode,
-                                         out int stepTargetIndex))
+                                         out TreeDropPosition stepPosition, out int stepTargetIndex))
                 {
                     e.Effect = DragDropEffects.Move;
-                    SetDragOverNode(stepTargetNode);
+                    SetDropTargetFeedback(tree, stepTargetNode, stepPosition);
                 }
                 else
                 {
                     e.Effect = DragDropEffects.None;
-                    ClearDragOverNode();
+                    ClearDropTargetFeedback();
                 }
                 return;
             }
@@ -1244,21 +1285,22 @@ namespace UserControls
             if (data == null || !ReferenceEquals(data.Tree, tree))
             {
                 e.Effect = DragDropEffects.None;
-                ClearDragOverNode();
+                ClearDropTargetFeedback();
                 return;
             }
             //
             Point point = tree.PointToClient(new Point(e.X, e.Y));
             if (TryGetOrderedDictionaryDropTarget(tree, point, data, out TreeNode targetNode,
-                                                   out Guid? targetGroupId, out int targetIndex))
+                                                   out TreeDropPosition position, out Guid? targetGroupId,
+                                                   out int targetIndex))
             {
                 e.Effect = DragDropEffects.Move;
-                SetDragOverNode(targetNode);
+                SetDropTargetFeedback(tree, targetNode, position);
             }
             else
             {
                 e.Effect = DragDropEffects.None;
-                ClearDragOverNode();
+                ClearDropTargetFeedback();
             }
         }
         private void cltv_DragDrop(object sender, DragEventArgs e)
@@ -1273,9 +1315,11 @@ namespace UserControls
                     if (!ReferenceEquals(stepData.Tree, tree)) return;
                     //
                     Point stepPoint = tree.PointToClient(new Point(e.X, e.Y));
-                    if (TryGetStepDropTarget(tree, stepPoint, stepData, out TreeNode stepTargetNode,
-                                             out int stepTargetIndex))
+                    if (TryGetStepDropTarget(tree, stepPoint, stepData, out _, out _, out int stepTargetIndex))
+                    {
+                        DiscardDropTargetFeedback();
                         MoveStepsEvent?.Invoke(stepData.StepNames, stepTargetIndex);
+                    }
                     return;
                 }
                 OrderedDictionaryTreeDragData data =
@@ -1283,9 +1327,11 @@ namespace UserControls
                 if (data == null || !ReferenceEquals(data.Tree, tree)) return;
                 //
                 Point point = tree.PointToClient(new Point(e.X, e.Y));
-                if (!TryGetOrderedDictionaryDropTarget(tree, point, data, out TreeNode targetNode,
+                if (!TryGetOrderedDictionaryDropTarget(tree, point, data, out _, out _,
                                                         out Guid? targetGroupId, out int targetIndex))
                     return;
+                //
+                DiscardDropTargetFeedback();
                 //
                 if (data.IsGroup)
                 {
@@ -1311,25 +1357,28 @@ namespace UserControls
             }
             finally
             {
-                ClearDragOverNode();
+                ClearDropTargetFeedback();
             }
         }
         private void cltv_DragLeave(object sender, EventArgs e)
         {
-            ClearDragOverNode();
+            ClearDropTargetFeedback();
         }
         private bool TryGetStepDropTarget(CodersLabTreeView tree, Point point, StepTreeDragData data,
-                                          out TreeNode targetNode, out int targetIndex)
+                                          out TreeNode targetNode, out TreeDropPosition position,
+                                          out int targetIndex)
         {
             targetNode = tree.GetNodeAt(point);
+            position = TreeDropPosition.Into;
             targetIndex = -1;
             if (targetNode == null) return false;
             //
             if (ReferenceEquals(targetNode, _steps)) targetIndex = _steps.Nodes.Count;
             else if (IsStepTreeNode(targetNode))
             {
+                position = GetTreeDropPosition(targetNode, point, false);
                 targetIndex = targetNode.Index;
-                if (ShouldInsertAfterDropTarget(data.Nodes, targetNode)) targetIndex++;
+                if (position == TreeDropPosition.After) targetIndex++;
             }
             else return false;
             //
@@ -1348,10 +1397,11 @@ namespace UserControls
         }
         private bool TryGetOrderedDictionaryDropTarget(CodersLabTreeView tree, Point point,
                                                         OrderedDictionaryTreeDragData data,
-                                                        out TreeNode targetNode, out Guid? targetGroupId,
-                                                        out int targetIndex)
+                                                        out TreeNode targetNode, out TreeDropPosition position,
+                                                        out Guid? targetGroupId, out int targetIndex)
         {
             targetNode = tree.GetNodeAt(point);
+            position = TreeDropPosition.Into;
             targetGroupId = null;
             targetIndex = -1;
             if (targetNode == null) return false;
@@ -1373,19 +1423,27 @@ namespace UserControls
             }
             else if (_orderedDictionaryGroups.TryGetValue(targetNode, out OrderedDictionaryGroupInfo targetGroup))
             {
-                // Without an insertion-line renderer, the highlighted group row has one
-                // unambiguous meaning: append the dragged nodes inside the group.
-                targetGroupId = targetGroup.Id;
-                targetIndex = GetLayoutChildren(layout.Nodes, targetGroup.Id).Count;
+                // The middle band of a group row drops the dragged nodes inside the group,
+                // the top and the bottom band place them next to it.
+                position = GetTreeDropPosition(targetNode, point, true);
+                if (position == TreeDropPosition.Into)
+                {
+                    targetGroupId = targetGroup.Id;
+                    targetIndex = GetLayoutChildren(layout.Nodes, targetGroup.Id).Count;
+                }
+                else
+                {
+                    FindLayoutGroup(layout.Nodes, targetGroup.Id, null, out targetGroupId, out targetIndex);
+                    if (position == TreeDropPosition.After) targetIndex++;
+                }
             }
             else if (IsOrderedDictionaryItemNode(targetNode, targetContext))
             {
+                position = GetTreeDropPosition(targetNode, point, false);
                 string key = ((NamedClass)targetNode.Tag).Name;
                 FindLayoutItem(layout.Nodes, key, targetContext.Dictionary.Comparer,
                                out targetGroupId, out targetIndex);
-                // A row below the dragged nodes means after; a row above them means before.
-                // The result no longer depends on the vertical release point within the row.
-                if (ShouldInsertAfterDropTarget(data.Nodes, targetNode)) targetIndex++;
+                if (position == TreeDropPosition.After) targetIndex++;
             }
             else return false;
             //
@@ -1397,30 +1455,49 @@ namespace UserControls
             }
             //
             targetIndex = AdjustDropTargetIndex(layout, data, targetGroupId, targetIndex);
-            return targetIndex >= 0;
+            if (targetIndex < 0) return false;
+            return !IsOrderedDictionaryMoveUnchanged(layout, data, targetGroupId, targetIndex);
         }
-        private static bool ShouldInsertAfterDropTarget(IEnumerable<TreeNode> draggedNodes, TreeNode targetNode)
+        private static TreeDropPosition GetTreeDropPosition(TreeNode node, Point point, bool canDropInto)
         {
-            bool sourceBeforeTarget = false;
-            bool sourceAfterTarget = false;
-            foreach (TreeNode draggedNode in draggedNodes)
-            {
-                if (ReferenceEquals(draggedNode, targetNode)) continue;
-                //
-                if (IsTreeNodeBefore(draggedNode, targetNode)) sourceBeforeTarget = true;
-                else if (IsTreeNodeBefore(targetNode, draggedNode)) sourceAfterTarget = true;
-            }
-            return sourceBeforeTarget && !sourceAfterTarget;
+            Rectangle bounds = node.Bounds;
+            if (bounds.Height <= 0) return canDropInto ? TreeDropPosition.Into : TreeDropPosition.Before;
+            //
+            if (!canDropInto)
+                return point.Y < bounds.Top + bounds.Height / 2 ? TreeDropPosition.Before : TreeDropPosition.After;
+            //
+            int band = Math.Max(1, bounds.Height / 4);
+            if (point.Y < bounds.Top + band) return TreeDropPosition.Before;
+            if (point.Y >= bounds.Bottom - band) return TreeDropPosition.After;
+            return TreeDropPosition.Into;
         }
-        private static bool IsTreeNodeBefore(TreeNode firstNode, TreeNode secondNode)
+        private bool IsOrderedDictionaryMoveUnchanged(OrderedDictionaryItemLayout<string> layout,
+                                                      OrderedDictionaryTreeDragData data, Guid? targetGroupId,
+                                                      int targetIndex)
         {
-            TreeNode node = firstNode.NextVisibleNode;
-            while (node != null)
+            IList<OrderedDictionaryItemNode<string>> targetChildren = targetGroupId.HasValue
+                ? GetLayoutChildren(layout.Nodes, targetGroupId.Value) : layout.Nodes;
+            if (targetChildren == null) return false;
+            //
+            List<OrderedDictionaryItemNode<string>> movedNodes = new List<OrderedDictionaryItemNode<string>>();
+            if (data.IsGroup)
             {
-                if (ReferenceEquals(node, secondNode)) return true;
-                node = node.NextVisibleNode;
+                Guid groupId = _orderedDictionaryGroups[data.Nodes[0]].Id;
+                movedNodes.AddRange(targetChildren.Where(node => node.IsGroup && node.Id == groupId));
+                if (movedNodes.Count != 1) return false;
             }
-            return false;
+            else
+            {
+                HashSet<string> itemNames = new HashSet<string>(data.ItemNames, data.Context.Dictionary.Comparer);
+                movedNodes.AddRange(targetChildren.Where(node => node.IsItem && itemNames.Contains(node.Key)));
+                if (movedNodes.Count != itemNames.Count) return false;
+            }
+            //
+            List<OrderedDictionaryItemNode<string>> remainingNodes =
+                targetChildren.Where(node => !movedNodes.Contains(node)).ToList();
+            if (targetIndex > remainingNodes.Count) return false;
+            remainingNodes.InsertRange(targetIndex, movedNodes);
+            return targetChildren.SequenceEqual(remainingNodes);
         }
         private static void FindLayoutGroup(IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId,
                                             Guid? currentParentId, out Guid? parentGroupId, out int index)
@@ -1493,6 +1570,36 @@ namespace UserControls
             }
             return targetIndex - beforeTarget;
         }
+        private void SetDropTargetFeedback(CodersLabTreeView tree, TreeNode node, TreeDropPosition position)
+        {
+            if (position == TreeDropPosition.Into)
+            {
+                ClearDropInsertionLine();
+                SetDragOverNode(node);
+            }
+            else
+            {
+                ClearDragOverNode();
+                SetDropInsertionLine(tree, node, position == TreeDropPosition.After);
+            }
+        }
+        private void ClearDropTargetFeedback()
+        {
+            ClearDragOverNode();
+            ClearDropInsertionLine();
+        }
+        private void DiscardDropTargetFeedback()
+        {
+            // The tree is about to be rebuilt and repainted as a whole. Erasing the feedback on its own
+            // would only add a second repaint, so the state is dropped without invalidating anything.
+            if (_dragOverNode != null)
+            {
+                _dragOverNode.BackColor = _dragOverNodeBackColor;
+                _dragOverNode = null;
+            }
+            _dropInsertionLineTree = null;
+            _dropInsertionLineBounds = Rectangle.Empty;
+        }
         private void SetDragOverNode(TreeNode node)
         {
             if (ReferenceEquals(_dragOverNode, node)) return;
@@ -1506,9 +1613,64 @@ namespace UserControls
         {
             if (_dragOverNode != null)
             {
-                _dragOverNode.BackColor = _dragOverNodeBackColor;
+                TreeNode node = _dragOverNode;
                 _dragOverNode = null;
+                node.BackColor = _dragOverNodeBackColor;
+                // The restored row is repainted before an insertion line is drawn over it.
+                node.TreeView?.Update();
             }
+        }
+        private void SetDropInsertionLine(CodersLabTreeView tree, TreeNode node, bool after)
+        {
+            Rectangle nodeBounds = node.Bounds;
+            int y = after ? nodeBounds.Bottom : nodeBounds.Top;
+            y = Math.Max(_dropInsertionLineHalfHeight, Math.Min(y, tree.ClientSize.Height - _dropInsertionLineHalfHeight));
+            // The node bounds hold the text only, so the icon is added to span the whole row content.
+            int left = Math.Max(0, nodeBounds.Left - 2 * GetTreeNodeImageWidth(tree, node) + 1 -
+                                   _dropInsertionLineHalfHeight);
+            Rectangle lineBounds = new Rectangle(left, y - _dropInsertionLineHalfHeight,
+                                                 Math.Max(0, tree.ClientSize.Width - left),
+                                                 2 * _dropInsertionLineHalfHeight);
+            if (ReferenceEquals(_dropInsertionLineTree, tree) && _dropInsertionLineBounds == lineBounds) return;
+            //
+            ClearDropInsertionLine();
+            _dropInsertionLineTree = tree;
+            _dropInsertionLineBounds = lineBounds;
+            DrawDropInsertionLine();
+        }
+        private static int GetTreeNodeImageWidth(CodersLabTreeView tree, TreeNode node)
+        {
+            if (tree.ImageList == null) return 0;
+            if (node.ImageIndex < 0 && String.IsNullOrEmpty(node.ImageKey) && tree.ImageIndex < 0) return 0;
+            return tree.ImageList.ImageSize.Width;
+        }
+        private void DrawDropInsertionLine()
+        {
+            if (_dropInsertionLineTree == null || _dropInsertionLineBounds.Width == 0) return;
+            //
+            using (Graphics graphics = _dropInsertionLineTree.CreateGraphics())
+            using (Pen pen = new Pen(Color.SteelBlue, 2))
+            using (SolidBrush penBackground = new SolidBrush(Color.White))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                int y = _dropInsertionLineBounds.Top + _dropInsertionLineHalfHeight;
+                int left = _dropInsertionLineBounds.Left + 1;
+                int diameter = _dropInsertionLineHalfHeight;
+                graphics.DrawLine(pen, left + diameter, y, _dropInsertionLineBounds.Right - 1, y);
+                graphics.FillEllipse(penBackground, left + diameter / 2, y - diameter / 2, diameter, diameter);
+                graphics.DrawEllipse(pen, left + diameter / 2, y - diameter / 2, diameter, diameter);
+            }
+        }
+        private void ClearDropInsertionLine()
+        {
+            if (_dropInsertionLineTree == null) return;
+            //
+            CodersLabTreeView tree = _dropInsertionLineTree;
+            Rectangle lineBounds = _dropInsertionLineBounds;
+            _dropInsertionLineTree = null;
+            _dropInsertionLineBounds = Rectangle.Empty;
+            tree.Invalidate(lineBounds);
+            tree.Update();
         }
 
         private void PrepareToolStripItem(CodersLabTreeView tree)
@@ -2934,7 +3096,7 @@ namespace UserControls
         // Clear                                                                                                                    
         public void Clear()
         {
-            ClearDragOverNode();
+            ClearDropTargetFeedback();
             _orderedDictionaryContexts.Clear();
             _orderedDictionaryGroups.Clear();
             // Geometry
