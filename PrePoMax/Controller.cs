@@ -2158,17 +2158,11 @@ namespace PrePoMax
             List<string> partNames = new List<string>();
             if (part is CompoundGeometryPart cgp) { partNames.Add(cgp.Name); partNames.AddRange(cgp.SubPartNames); }
             else partNames.Add(part.Name);
-            // The compound part only exists in the geometry. Its subparts are the matching parts in the FE mesh.
-            string[] replacedMeshPartNames;
-            if (part is CompoundGeometryPart compoundPart) replacedMeshPartNames = compoundPart.SubPartNames.ToArray();
-            else replacedMeshPartNames = new string[] { part.Name };
-            //
             OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
-            string[] oldMeshPartNames = null;
-            if (_model.Mesh != null &&
-                replacedMeshPartNames.Any(name => _model.Mesh.Parts.ContainsKey(name)))
+            HashSet<string> oldMeshPartNames = new HashSet<string>();
+            if (_model.Mesh != null)
             {
-                oldMeshPartNames = _model.Mesh.Parts.Keys.ToArray();
+                oldMeshPartNames = new HashSet<string>(_model.Mesh.Parts.Keys, _model.Mesh.Parts.Comparer);
                 oldMeshPartLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
             }
             //
@@ -2198,21 +2192,13 @@ namespace PrePoMax
             RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
             _model.ImportGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
                                                    mergeCompoundParts, revolveMesh);
-            // A remesh removes and recreates the same FE parts. Restore the complete layout so their order and groups
-            // remain unchanged. For a first mesh, or if the set of generated FE parts changed, retain the normal add order.
-            if (oldMeshPartLayout != null &&
-                oldMeshPartNames.Length == _model.Mesh.Parts.Count &&
-                new HashSet<string>(oldMeshPartNames, _model.Mesh.Parts.Comparer).SetEquals(_model.Mesh.Parts.Keys))
-            {
-                _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
-            }
-            else
-            {
-                string[] firstMeshPartNames = partNames
-                    .Where(name => _model.Mesh.Parts.ContainsKey(name))
-                    .ToArray();
-                PlaceFirstMeshedPartsInLinkedGroups((GeometryPart)part, firstMeshPartNames);
-            }
+            // A remesh removes and recreates the FE parts. Restore the layout so that the parts that already existed
+            // keep their order and groups, and place only the newly created FE parts into their linked groups.
+            if (oldMeshPartLayout != null) _model.Mesh.Parts.RestoreItemLayout(oldMeshPartLayout);
+            string[] meshPartNames = partNames.Where(name => _model.Mesh.Parts.ContainsKey(name)).ToArray();
+            string[] newMeshPartNames = meshPartNames.Where(name => !oldMeshPartNames.Contains(name)).ToArray();
+            if (newMeshPartNames.Length > 0)
+                PlaceNewMeshedPartsInLinkedGroups((GeometryPart)part, meshPartNames, newMeshPartNames);
             // Calculate the number of new nodes and elements
             BasePart basePart;
             if (convertToSecondOrder || Path.GetExtension(fileName) == ".inp")
@@ -5501,14 +5487,10 @@ namespace PrePoMax
         private void CommitGeneratedMeshes(List<GeneratedMeshData> generatedMeshes, MeshBatchPerformance performance)
         {
             OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
-            string[] oldMeshPartNames = null;
-            HashSet<string> oldMeshPartNameSet = _model.Mesh?.Parts != null
-                ? new HashSet<string>(_model.Mesh.Parts.Comparer)
-                : new HashSet<string>();
+            HashSet<string> oldMeshPartNames = new HashSet<string>();
             if (_model.Mesh != null)
             {
-                oldMeshPartNames = _model.Mesh.Parts.Keys.ToArray();
-                oldMeshPartNameSet.UnionWith(oldMeshPartNames);
+                oldMeshPartNames = new HashSet<string>(_model.Mesh.Parts.Keys, _model.Mesh.Parts.Comparer);
                 oldMeshPartLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
             }
             //
@@ -5546,7 +5528,7 @@ namespace PrePoMax
                             renumbered = true;
                         }
                         //
-                        if (oldMeshPartNameSet.Contains(partName) && meshPart is MeshPart modelPart)
+                        if (oldMeshPartNames.Contains(partName) && meshPart is MeshPart modelPart)
                             modelPart.SetElementTypeEnums(GetGeometryPart(partName).GetElementTypeEnums());
                         //
                         if (generatedMesh.SmoothShaded) meshPart.SmoothShaded = true;
@@ -5561,13 +5543,8 @@ namespace PrePoMax
             phaseWatch.Stop();
             performance.Adjacency = phaseWatch.Elapsed.TotalSeconds;
             //
-            if (oldMeshPartLayout != null &&
-                oldMeshPartNames.Length == _model.Mesh.Parts.Count &&
-                new HashSet<string>(oldMeshPartNames, _model.Mesh.Parts.Comparer).SetEquals(_model.Mesh.Parts.Keys))
-            {
-                _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
-            }
-            CreateFirstMeshPartGroups(generatedMeshes, oldMeshPartNameSet);
+            if (oldMeshPartLayout != null) _model.Mesh.Parts.RestoreItemLayout(oldMeshPartLayout);
+            CreateNewMeshPartGroups(generatedMeshes, oldMeshPartNames);
             _model.UpdateMeshPartsElementTypes(false);
             //
             phaseWatch.Restart();
@@ -5590,21 +5567,22 @@ namespace PrePoMax
             phaseWatch.Stop();
             performance.Finalization += phaseWatch.Elapsed.TotalSeconds;
         }
-        private void CreateFirstMeshPartGroups(List<GeneratedMeshData> generatedMeshes,
-                                               HashSet<string> oldMeshPartNames)
+        private void CreateNewMeshPartGroups(List<GeneratedMeshData> generatedMeshes,
+                                             HashSet<string> oldMeshPartNames)
         {
             foreach (GeneratedMeshData generatedMesh in generatedMeshes)
             {
                 string[] meshPartNames = generatedMesh.Mesh.Parts.Keys.ToArray();
-                if (meshPartNames.Length == 0 ||
-                    generatedMesh.RelatedPartNames.Any(name => oldMeshPartNames.Contains(name)))
-                    continue;
-                PlaceFirstMeshedPartsInLinkedGroups(generatedMesh.GeometryPart, meshPartNames);
+                string[] newMeshPartNames =
+                    meshPartNames.Where(name => !oldMeshPartNames.Contains(name)).ToArray();
+                if (newMeshPartNames.Length == 0) continue;
+                PlaceNewMeshedPartsInLinkedGroups(generatedMesh.GeometryPart, meshPartNames, newMeshPartNames);
             }
         }
-        private void PlaceFirstMeshedPartsInLinkedGroups(GeometryPart geometryPart, string[] meshPartNames)
+        private void PlaceNewMeshedPartsInLinkedGroups(GeometryPart geometryPart, string[] meshPartNames,
+                                                       string[] newMeshPartNames)
         {
-            if (geometryPart == null || meshPartNames == null || meshPartNames.Length == 0 ||
+            if (geometryPart == null || newMeshPartNames == null || newMeshPartNames.Length == 0 ||
                 _model.Geometry?.Parts == null || _model.Mesh?.Parts == null)
                 return;
             //
@@ -5627,7 +5605,7 @@ namespace PrePoMax
                                                      targetGroupId);
             }
             //
-            MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, meshPartNames, targetGroupId);
+            MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, newMeshPartNames, targetGroupId);
         }
         private static bool TryGetOrderedDictionaryItemGroupPath(
             IEnumerable<OrderedDictionaryItemNode<string>> nodes, string itemName,
@@ -5715,18 +5693,22 @@ namespace PrePoMax
             OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
             if (GetOrderedDictionaryGroupNode(layout.Nodes, groupId) != null) return groupId;
             //
-            int targetIndex;
+            IList<OrderedDictionaryItemNode<string>> siblings;
             if (parentGroupId.HasValue)
             {
                 OrderedDictionaryItemNode<string> parentGroup =
                     GetOrderedDictionaryGroupNode(layout.Nodes, parentGroupId.Value);
                 if (parentGroup == null)
                     throw new KeyNotFoundException("The linked parent group was not found.");
-                targetIndex = parentGroup.Children.Count;
+                siblings = parentGroup.Children;
             }
-            else targetIndex = layout.Nodes.Count;
+            else siblings = layout.Nodes;
             //
-            _model.Mesh.Parts.CreateGroup(groupId, groupName, parentGroupId, targetIndex);
+            OrderedDictionaryItemNode<string> existingGroup = siblings.FirstOrDefault(
+                node => node.IsGroup && String.Equals(node.Name, groupName, StringComparison.OrdinalIgnoreCase));
+            if (existingGroup != null) return existingGroup.Id;
+            //
+            _model.Mesh.Parts.CreateGroup(groupId, groupName, parentGroupId, siblings.Count);
             return groupId;
         }
         internal static Guid? GetLastOrderedDictionaryItemParentGroupId(

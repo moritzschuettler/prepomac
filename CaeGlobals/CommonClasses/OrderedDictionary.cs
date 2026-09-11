@@ -600,6 +600,32 @@ namespace CaeGlobals
         }
 
         /// <summary>
+        /// Applies a hierarchy that no longer matches the dictionary keys. Item nodes of keys that were removed
+        /// from the dictionary are dropped, empty groups are retained and dictionary keys that are missing from
+        /// the hierarchy are appended to the layout root in their current order.
+        /// </summary>
+        public void RestoreItemLayout(OrderedDictionaryItemLayout<TKey> itemLayout)
+        {
+            if (itemLayout == null)
+            {
+                ResetItemLayout();
+                return;
+            }
+            //
+            OrderedDictionaryItemLayout<TKey> layoutCopy = itemLayout.DeepCopy();
+            HashSet<TKey> layoutKeys = new HashSet<TKey>(_dictionary.Comparer);
+            RemoveUnknownItemNodes(layoutCopy.MutableNodes, layoutKeys);
+            //
+            foreach (TKey key in _list)
+            {
+                if (layoutKeys.Contains(key)) continue;
+                layoutCopy.MutableNodes.Add(OrderedDictionaryItemNode<TKey>.CreateItem(key));
+            }
+            //
+            SetItemLayout(layoutCopy);
+        }
+
+        /// <summary>
         /// Removes all organizational groups while retaining the current flat item order.
         /// </summary>
         public void ResetItemLayout()
@@ -805,6 +831,21 @@ namespace CaeGlobals
             List<OrderedDictionaryItemNode<TKey>> nodes = new List<OrderedDictionaryItemNode<TKey>>(_list.Count);
             foreach (TKey key in _list) nodes.Add(OrderedDictionaryItemNode<TKey>.CreateItem(key));
             return new OrderedDictionaryItemLayout<TKey>(nodes);
+        }
+        private void RemoveUnknownItemNodes(List<OrderedDictionaryItemNode<TKey>> nodes, HashSet<TKey> itemKeys)
+        {
+            int i = 0;
+            while (i < nodes.Count)
+            {
+                OrderedDictionaryItemNode<TKey> node = nodes[i];
+                if (node.IsGroup) RemoveUnknownItemNodes(node.MutableChildren, itemKeys);
+                else if (!_dictionary.ContainsKey(node.Key) || !itemKeys.Add(node.Key))
+                {
+                    nodes.RemoveAt(i);
+                    continue;
+                }
+                i++;
+            }
         }
         private void NormalizeItemLayout()
         {
