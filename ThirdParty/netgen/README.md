@@ -29,7 +29,10 @@ Only `NetGenMesher.exe` (~80 KB) and `nglib.dll` (~2 MB) normally change between
 the OpenCASCADE and runtime dlls change when their corresponding dependencies are upgraded.
 Deploy `NetGenMesher.exe` and `nglib.dll` as a matched pair. The current pair supports
 `STL_SURFACE_MESH` for open STL shells and open-boundary `STL_EDGE_MESH`; optional refinement and
-edge-node files may be omitted.
+edge-node files may be omitted. It recomputes the SameParameter and SameRange flags after the
+periodic-face split driven by *Split periodic faces*, without which the written brep is invalid
+and BRepMesh silently drops whole faces, and it warns on stdout about every face it could not
+triangulate.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.

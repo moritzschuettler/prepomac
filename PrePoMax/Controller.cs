@@ -1909,7 +1909,13 @@ namespace PrePoMax
                 //
                 return brepFiles.ToArray();
             }
-            else return null;
+            else
+            {
+                MessageBoxes.ShowError("Splitting the file: '" + assemblyFileName + "' failed." + Environment.NewLine +
+                                       "The job " + executable + " ended with the status: " + jobStatus + "." +
+                                       Environment.NewLine + "See the output window for the details.");
+                return null;
+            }
         }
         public void CreateAndImportCompoundPart(string[] partNames, out string compoundPartName, out string[] importedPartNames)
         {
