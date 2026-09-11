@@ -42,9 +42,6 @@ namespace CaeMesh
         protected double[] _edgeLengths;
         protected GeomCurveType[] _edgeTypes;
         protected int[] _vertexNodeIds;
-        //
-        [NonSerialized]
-        private Dictionary<SortedIntKey, CellNeighbour> _cellNeighboursOverCell; // this are solid cell neighbours to extract surface
 
 
         // Properties                                                                                                               
@@ -190,7 +187,6 @@ namespace CaeMesh
             _edgeLengths = null;
             _edgeTypes = null;
             _vertexNodeIds = null;
-            _cellNeighboursOverCell = null;
         }
         public VisualizationData(VisualizationData visualization)
             : this()
@@ -279,8 +275,6 @@ namespace CaeMesh
             else _edgeTypes = null;
             //
             _vertexNodeIds = visualization.VertexNodeIds != null ? visualization.VertexNodeIds.ToArray() : null;
-            // Reference exchange - for speed and memory - might be a problem
-            _cellNeighboursOverCell = visualization._cellNeighboursOverCell != null ? visualization._cellNeighboursOverCell : null;
         }
 
 
@@ -361,19 +355,14 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        public void ResetCellNeighboursOverCell()
-        {
-           
-        }
-        //
         public void ExtractVisualizationCellsFromElements3D(Dictionary<int, FeElement> elements, int[] elementIds)
         {
-            ExtractCellNeighboursOverCell(elements, elementIds);
+            Dictionary<SortedIntKey, CellNeighbour> cellNeighboursOverCell = ExtractCellNeighboursOverCell(elements, elementIds);
             //
             List<int[]> visualizationCells = new List<int[]>();
             List<int> visualizationCellsIds = new List<int>();
             // Extract free faces
-            foreach (var entry in _cellNeighboursOverCell)
+            foreach (var entry in cellNeighboursOverCell)
             {
                 if (entry.Value.Id2 == -1)
                 {
@@ -387,8 +376,6 @@ namespace CaeMesh
         }
         public void ExtractVisualizationCellsFromElements2D(Dictionary<int, FeElement> elements, int[] elementIds)
         {
-            _cellNeighboursOverCell = null;
-            //
             int count;
             int[][] visualizationCells = new int[elementIds.Length][];
             int[] visualizationCellsIds = new int[elementIds.Length];
@@ -405,14 +392,14 @@ namespace CaeMesh
         }
         public void SetCellsAndCellIds(int[][] cells, int[] cellIds)
         {
-            _cellNeighboursOverCell = null;
-            //
             _cells = cells;
             _cellIds = cellIds;
         }
-        private void ExtractCellNeighboursOverCell(Dictionary<int, FeElement> elements, int[] elementIds)
+        private static Dictionary<SortedIntKey, CellNeighbour> ExtractCellNeighboursOverCell(Dictionary<int, FeElement> elements,
+                                                                                  int[] elementIds)
         {
-            _cellNeighboursOverCell = new Dictionary<SortedIntKey, CellNeighbour>(elementIds.Length * 6);
+            Dictionary<SortedIntKey, CellNeighbour> cellNeighboursOverCell =
+                new Dictionary<SortedIntKey, CellNeighbour>(elementIds.Length * 6);
             //
             foreach (var id in elementIds)
             {
@@ -420,10 +407,12 @@ namespace CaeMesh
                 {
                     var key = new SortedIntKey(cell);
                     //
-                    if (_cellNeighboursOverCell.TryGetValue(key, out var neighbour)) neighbour.Id2 = id;
-                    else _cellNeighboursOverCell.Add(key, new CellNeighbour(id, -1, cell));
+                    if (cellNeighboursOverCell.TryGetValue(key, out var neighbour)) neighbour.Id2 = id;
+                    else cellNeighboursOverCell.Add(key, new CellNeighbour(id, -1, cell));
                 }
             }
+            //
+            return cellNeighboursOverCell;
         }
         //
         public void RenumberNodes(Dictionary<int, int> newIds)
@@ -459,56 +448,6 @@ namespace CaeMesh
                     if (newIds.TryGetValue(_vertexNodeIds[i], out id)) _vertexNodeIds[i] = id;
                 }
             }
-            // Cell neighbours over cell
-            bool error = false;
-            int[] cellIds = new int[4];
-            if (_cellNeighboursOverCell != null)
-            {
-                int[] renumberedCell;
-                CellNeighbour cellNeighbour;
-                CellNeighbour existingCellNeighbour;
-                Dictionary<SortedIntKey, CellNeighbour> renumberedNeighbours =
-                    new Dictionary<SortedIntKey, CellNeighbour>(_cellNeighboursOverCell.Count);
-                //
-                foreach (var entry in _cellNeighboursOverCell)
-                {
-                    renumberedCell = entry.Value.Cell1;//.ToArray();   // copy!
-                    //
-                    for (int i = 0; i < renumberedCell.Length; i++)
-                    {
-                        if (newIds.TryGetValue(entry.Value.Cell1[i], out id)) renumberedCell[i] = id;
-                    }
-                    //
-                    var renumberedKey = new SortedIntKey(renumberedCell);
-                    cellNeighbour = entry.Value;
-                    cellNeighbour.Cell1 = renumberedCell;
-                    //
-                    if (renumberedNeighbours.TryGetValue(renumberedKey, out existingCellNeighbour))
-                    {
-                        //cellIds[0] = cellNeighbour.Id1;
-                        //cellIds[1] = cellNeighbour.Id2;
-                        //cellIds[2] = existingCellNeighbour.Id1;
-                        //cellIds[3] = existingCellNeighbour.Id2;
-                        //Array.Sort(cellIds);
-                        //// The same cell
-                        //if (cellIds[0] == cellIds[1] && cellIds[2] == cellIds[3])
-                        //    error = true;
-                        //// Two outer cells connected together
-                        //else if (cellIds[0] == -1 && cellIds[1] == -1 && cellIds[2] != -1 && cellIds[3] != -1)
-                        //{
-                        //    existingCellNeighbour.Id1 = cellIds[2];
-                        //    existingCellNeighbour.Id2 = cellIds[3];
-                        //}
-                        //// The rest
-                        //else
-                        error = true;
-                    }
-                    else renumberedNeighbours.Add(renumberedKey, cellNeighbour);
-                }
-                _cellNeighboursOverCell = renumberedNeighbours;
-            }
-            //
-            if (Debugger.IsAttached && error) Debugger.Break();   //VisualizationData:RenumberNodes: This should not happen!
         }
         public void RenumberElements(Dictionary<int, int> newIds)
         {
@@ -518,16 +457,6 @@ namespace CaeMesh
                 for (int i = 0; i < _cellIds.Length; i++)
                 {
                     if (newIds.TryGetValue(_cellIds[i], out id)) _cellIds[i] = id;
-                }
-            }
-            // Cell neighbours over cell
-            if (_cellNeighboursOverCell != null)
-            {
-                foreach (var entry in _cellNeighboursOverCell)
-                {
-
-                    if (entry.Value.Id1 != -1 && newIds.TryGetValue(entry.Value.Id1, out id)) entry.Value.Id1 = id;
-                    if (entry.Value.Id2 != -1 && newIds.TryGetValue(entry.Value.Id2, out id)) entry.Value.Id2 = id;
                 }
             }
         }
@@ -2026,274 +1955,6 @@ namespace CaeMesh
             sideSurfaceIds = visitedSurfaceIds.Except(sourceSurfaceIds).ToArray();
             //
             return true;
-        }
-        // Section cut
-        public void ApplySectionView(Dictionary<int, FeElement> elements, int[] elementIds, HashSet<int> frontNodes,
-                                     HashSet<int> backNodes)
-        {
-            HashSet<int> visibleNodes;
-            SectionCutCells(elements, frontNodes, backNodes, out visibleNodes);
-            SectionCutEdgeCells(visibleNodes);
-            //_cells = new int[0][];
-            //_cellIds = new int[0];
-            //_cellIdsByFace = new int[0][];
-            CreateSectionPlaneCellsAndEdges(elements, elementIds, frontNodes, backNodes);
-        }
-        public void RemoveSectionView()
-        {
-
-        }
-        private HashSet<int> SectionCutCells(Dictionary<int, FeElement> elements, HashSet<int> frontNodes, HashSet<int> backNodes,
-                                             out HashSet<int> visibleNodes)
-        {
-            // Split visualization cells                                                    
-            FeElement element;
-            bool insert;
-            int[] cellMap = new int[_cells.Length];
-            List<int[]> splitCells = new List<int[]>();
-            List<int> splitCellIds = new List<int>();
-            visibleNodes = new HashSet<int>();
-            for (int i = 0; i < _cells.Length; i++)
-            {
-                element = elements[CellIds[i]];
-                insert = true;
-                for (int j = 0; j < element.NodeIds.Length; j++)
-                {
-                    if (frontNodes.Contains(element.NodeIds[j]))
-                    {
-                        insert = false;
-                        break;
-                    }
-                }
-                if (insert)
-                {
-                    cellMap[i] = splitCells.Count;
-                    splitCells.Add(_cells[i]);
-                    splitCellIds.Add(_cellIds[i]);
-                    visibleNodes.UnionWith(_cells[i]);
-                }
-                else
-                {
-                    cellMap[i] = -1;
-                }
-            }
-            // Renumber cell ids by face
-            int cellId;
-            List<int> cellIds = new List<int>();
-            for (int i = 0; i < _cellIdsByFace.Length; i++)
-            {
-                cellIds.Clear();
-                for (int j = 0; j < _cellIdsByFace[i].Length; j++)
-                {
-                    cellId = cellMap[_cellIdsByFace[i][j]];
-                    if (cellId != -1) cellIds.Add(cellId);
-                }
-                _cellIdsByFace[i] = cellIds.ToArray();
-            }
-            // Save
-            _cells = splitCells.ToArray();
-            _cellIds = splitCellIds.ToArray();
-
-            return visibleNodes;
-        }
-        private void SectionCutEdgeCells(HashSet<int> visibleNodes)
-        {
-            // Split visualization edges                                                    
-            bool insert;
-            int[] cellMap = new int[_edgeCells.Length];
-            List<int[]> splitEdgeCells = new List<int[]>();
-            for (int i = 0; i < _edgeCells.Length; i++)
-            {
-                insert = true;
-                for (int j = 0; j < _edgeCells[i].Length; j++)
-                {
-                    if (!visibleNodes.Contains(_edgeCells[i][j]))
-                    {
-                        insert = false;
-                        break;
-                    }
-                }
-
-                if (insert)
-                {
-                    cellMap[i] = splitEdgeCells.Count;
-                    splitEdgeCells.Add(_edgeCells[i]);
-                }
-                else
-                {
-                    cellMap[i] = -1;
-                }
-            }
-            // Renumber edge cell ids by edge
-            int cellId;
-            List<int> cellIds = new List<int>();
-            for (int i = 0; i < _edgeCellIdsByEdge.Length; i++)
-            {
-                cellIds.Clear();
-                for (int j = 0; j < _edgeCellIdsByEdge[i].Length; j++)
-                {
-                    cellId = cellMap[_edgeCellIdsByEdge[i][j]];
-                    if (cellId != -1) cellIds.Add(cellId);
-                }
-                _edgeCellIdsByEdge[i] = cellIds.ToArray();
-            }
-            _edgeCells = splitEdgeCells.ToArray();
-        }
-        private void CreateSectionPlaneCellsAndEdges(Dictionary<int, FeElement> elements, int[] elementIds, HashSet<int> frontNodes,
-                                                     HashSet<int> backNodes)
-        {
-            List<int[]> sectionPlaneCells;
-            List<int> sectionPlaneCellIds;            
-
-            GetSectionElementsAndIds(elements, elementIds, frontNodes, backNodes, out sectionPlaneCells, out sectionPlaneCellIds);
-            AddSectionPlaneCellsAndIds(sectionPlaneCells, sectionPlaneCellIds);
-            AddSectionPlaneEdgeCellsAndIds(sectionPlaneCells);
-        }
-        private void GetSectionElementsAndIds(Dictionary<int, FeElement> elements, int[] elementIds, 
-                                              HashSet<int> frontNodes, HashSet<int> backNodes,
-                                              out List<int[]> sectionPlaneCells, out List<int> sectionPlaneCellIds)
-        {
-            // Check if cell neighbours exists
-            if (_cellNeighboursOverCell == null) ExtractCellNeighboursOverCell(elements, elementIds);
-
-            // Get vtk cells on the plane                                                   
-            int countFront;
-            int countBack;
-            bool insert;
-            int id;
-            int[] cell;
-            int[][] vtkCells;
-            int[][] vtkCells2;
-            CellNeighbour cellNeighbour;
-            sectionPlaneCells = new List<int[]>();
-            sectionPlaneCellIds = new List<int>();
-            CompareIntArray comparer = new CompareIntArray();
-            for (int i = 0; i < elementIds.Length; i++)
-            {
-                if (elements[elementIds[i]] is FeElement3D element)
-                {
-                    countFront = 0;
-                    countBack = 0;
-                    for (int j = 0; j < element.NodeIds.Length; j++)
-                    {
-                        if (frontNodes.Contains(element.NodeIds[j])) countFront++;
-                        else if (backNodes.Contains(element.NodeIds[j])) countBack++;
-                        if (countFront > 0 && countBack > 0)
-                        {
-                            // The element is on the plane
-                            vtkCells = element.GetAllVtkCells();                            
-                            for (int k = 0; k < vtkCells.Length; k++)
-                            {
-                                insert = true;
-                                for (int l = 0; l < vtkCells[k].Length; l++)
-                                {
-                                    if (frontNodes.Contains(vtkCells[k][l]))
-                                    {
-                                        insert = false;
-                                        break;
-                                    }
-                                }
-                                if (insert)
-                                {
-                                    cell = null;
-                                    var sorted = new SortedIntKey(vtkCells[k]);
-                                    cellNeighbour =_cellNeighboursOverCell[sorted];
-                                    // Add only cells with elements on the other side
-                                    if (cellNeighbour.Id2 != -1)
-                                    {
-                                        // Looking for the other element of the vtkCell where cell orientation is positive
-                                        if (cellNeighbour.Id1 == element.Id)
-                                        {
-                                            id = cellNeighbour.Id2;
-                                            // Find the appropriate element cell
-                                            element = elements[id] as FeElement3D;
-                                            vtkCells2 = element.GetAllVtkCells();
-                                            for (int m = 0; m < vtkCells2.Length; m++)
-                                            {
-                                                var sorted2 = new SortedIntKey(vtkCells2[m]);
-
-                                                if (sorted.Equals(sorted2))
-                                                {
-                                                    cell = vtkCells2[m];
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            id = cellNeighbour.Id1;
-                                            cell = cellNeighbour.Cell1;
-                                        }
-                                        if (cell == null) throw new Exception("The vtk cell was not found.");
-                                        // The vtk cell is in front of the plane
-                                        sectionPlaneCells.Add(cell);
-                                        sectionPlaneCellIds.Add(id);
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        private void AddSectionPlaneCellsAndIds(List<int[]> sectionPlaneCells, List<int> sectionPlaneCellIds)
-        {
-            // Add section face to visualization                                        
-            List<int[]> splitCells = new List<int[]>(_cells);
-            List<int> splitCellIds = new List<int>(_cellIds);
-            int firstOnPlaneCellLocalId = splitCells.Count;
-            splitCells.AddRange(sectionPlaneCells);
-            splitCellIds.AddRange(sectionPlaneCellIds);
-
-            // Cell ids by face
-            int[][] cellIdsByFace = new int[_cellIdsByFace.Length + 1][];
-            for (int i = 0; i < _cellIdsByFace.Length; i++) cellIdsByFace[i] = _cellIdsByFace[i];
-            cellIdsByFace[_cellIdsByFace.Length] = new int[sectionPlaneCells.Count];
-            for (int i = 0; i < sectionPlaneCells.Count; i++)
-                cellIdsByFace[_cellIdsByFace.Length][i] = firstOnPlaneCellLocalId + i;
-            
-            // Save
-            _cells = splitCells.ToArray();
-            _cellIds = splitCellIds.ToArray();
-            _cellIdsByFace = cellIdsByFace.ToArray();
-        }
-        private void AddSectionPlaneEdgeCellsAndIds(List<int[]> sectionPlaneCells)
-        {
-            // Add section edge to visualization                                        
-            int[] sorted;
-            int[][] cellEdges;
-            CompareIntArray comparer = new CompareIntArray();
-            Dictionary<int[], int[]> allEdgeCells = new Dictionary<int[], int[]>(comparer);
-            foreach (int[] cell in sectionPlaneCells)
-            {
-                cellEdges = FeMesh.GetVisualizationEdgeCells(cell, ElementFaceType.Face);
-                for (int i = 0; i < cellEdges.Length; i++)
-                {
-                    sorted = cellEdges[i].ToArray();
-                    Array.Sort(sorted);
-                    if (!allEdgeCells.Remove(sorted)) allEdgeCells.Add(sorted, cellEdges[i]);
-                }
-            }
-            List<int[]> splitEdgeCells = new List<int[]>(_edgeCells);
-            int firstOnPlaneEdgeCellLocalId = splitEdgeCells.Count;
-            splitEdgeCells.AddRange(allEdgeCells.Values);
-
-            // Edge cell ids by edge
-            int[][] edgeCellIdsByEdge = new int[_edgeCellIdsByEdge.Length + 1][];
-            for (int i = 0; i < _edgeCellIdsByEdge.Length; i++) edgeCellIdsByEdge[i] = _edgeCellIdsByEdge[i];
-            edgeCellIdsByEdge[_edgeCellIdsByEdge.Length] = new int[allEdgeCells.Count];
-            for (int i = 0; i < allEdgeCells.Count; i++)
-                edgeCellIdsByEdge[_edgeCellIdsByEdge.Length][i] = firstOnPlaneEdgeCellLocalId + i;
-
-            // Face edge ids
-            List<int[]> faceEdgeIds = new List<int[]>(_faceEdgeIds);
-            faceEdgeIds.Add(new int[] { edgeCellIdsByEdge.Length - 1 });
-
-            // Save
-            _edgeCells = splitEdgeCells.ToArray();
-            _edgeCellIdsByEdge = edgeCellIdsByEdge.ToArray();
-            _faceEdgeIds = faceEdgeIds.ToArray();
         }
     }
 }

@@ -3378,7 +3378,6 @@ namespace CaeMesh
                     if (newIds.TryGetValue(part2.NodeLabels[i], out id)) part2.NodeLabels[i] = id;
                 }
                 // Rename visualization cells and edges
-                //part2.Visualization.ResetCellNeighboursOverCell();  // internal cells now become external cells: Reset
                 part2.RenumberVisualizationNodes(newIds);
                 _visibilityCache = null;    // the part labels were renumbered in place
             }
