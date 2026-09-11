@@ -8775,6 +8775,20 @@ namespace CaeMesh
             for (int i = 0; i < nodeIds.Length; i++) coor.Add(_nodes[nodeIds[i]].Coor);
             return coor.ToArray();
         }
+        public float[] GetNodeSetFlatCoor(int[] nodeIds)
+        {
+            FeNode node;
+            float[] coor = new float[3 * nodeIds.Length];
+            int count = 0;
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                node = _nodes[nodeIds[i]];
+                coor[count++] = (float)node.X;
+                coor[count++] = (float)node.Y;
+                coor[count++] = (float)node.Z;
+            }
+            return coor;
+        }
         public double[][] GetNodeSetCoor(int[] nodeIds, bool onlyVisible)
         {
             int nodeId;

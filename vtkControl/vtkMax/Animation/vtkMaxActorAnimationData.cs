@@ -42,10 +42,8 @@ namespace vtkControl
         public ResultFieldExchangeData LocatorResultField { get { return _locatorResultField; } }
 
         // Constructors                                                                                                             
-        public vtkMaxActorAnimationData(double[][] nodes, double[][] modelEdgesNodes, float[] values,
-                                        NodesExchangeData extremeNodes, double[][] locatorNodes, float[] locatorValues,
-                                        ResultFieldExchangeData resultField,
-                                        ResultFieldExchangeData locatorResultField)
+        public vtkMaxActorAnimationData(NodesExchangeData nodes, NodesExchangeData modelEdgesNodes,
+                                        NodesExchangeData extremeNodes, NodesExchangeData locatorNodes)
         {
             // Nodes
             _points = CreatePoints(nodes);
@@ -54,7 +52,7 @@ namespace vtkControl
             // Model edges nodes
             _modelEdgesPoints = CreatePoints(modelEdgesNodes);
             // Values
-            _values = CreateValues(values);
+            _values = CreateValues(nodes?.Values);
             // Extreme nodes
             if (extremeNodes == null)
             {
@@ -69,10 +67,32 @@ namespace vtkControl
             // Locator nodes
             _locatorPoints = CreatePoints(locatorNodes);
             // Locator values
-            _locatorValues = CreateValues(locatorValues);
+            _locatorValues = CreateValues(locatorNodes?.Values);
             // Complete result components used by transformed actor copies
-            _resultField = resultField;
-            _locatorResultField = locatorResultField;
+            _resultField = nodes?.ResultField;
+            _locatorResultField = locatorNodes?.ResultField;
+        }
+
+        public void SetLocatorData(NodesExchangeData locatorNodes)
+        {
+            if (locatorNodes == null) return;
+            _locatorPoints = CreatePoints(locatorNodes);
+            _locatorValues = CreateValues(locatorNodes.Values);
+            _locatorResultField = locatorNodes.ResultField;
+        }
+
+        public void ClearLocatorData()
+        {
+            _locatorPoints = null;
+            _locatorValues = null;
+            _locatorResultField = null;
+        }
+
+        private static vtkPoints CreatePoints(NodesExchangeData nodes)
+        {
+            if (nodes == null) return null;
+            if (nodes.FlatCoor != null) return CreatePoints(nodes.FlatCoor);
+            return CreatePoints(nodes.Coor);
         }
 
         private static vtkPoints CreatePoints(double[][] nodes)
@@ -87,6 +107,12 @@ namespace vtkControl
                 coordinates[count++] = (float)nodes[i][1];
                 coordinates[count++] = (float)nodes[i][2];
             }
+            return CreatePoints(coordinates);
+        }
+
+        private static vtkPoints CreatePoints(float[] coordinates)
+        {
+            if (coordinates == null) return null;
 
             vtkFloatArray vtkCoordinates = vtkFloatArray.New();
             vtkCoordinates.SetNumberOfComponents(3);

@@ -59,6 +59,7 @@ namespace vtkControl
         protected vtkMaxActorAnimationData[] _animationData;
         protected Dictionary<int, int> _animationNodeIdToPointId;
         protected Dictionary<int, int> _animationLocatorNodeIdToPointId;
+        protected int _animationLocatorFrameNumber;
         protected ResultFieldExchangeData _geometryResultField;
         protected ResultFieldExchangeData _frustumResultField;
         protected double[] _resultFieldTransformation;
@@ -1966,6 +1967,7 @@ namespace vtkControl
 
             int numOfFrames = data.Geometry.NodesAnimation.Length;
             _animationData = new vtkMaxActorAnimationData[numOfFrames];
+            _animationLocatorFrameNumber = -1;
             _animationNodeIdToPointId = new Dictionary<int, int>();
             if (data.Geometry.Nodes.Ids != null)
             {
@@ -1986,29 +1988,21 @@ namespace vtkControl
 
             for (int frameNumber = 0; frameNumber < numOfFrames; frameNumber++)
             {
-                double[][] modelEdgesNodes = null;
+                NodesExchangeData modelEdgesNodes = null;
                 if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
-                    modelEdgesNodes = data.ModelEdges.NodesAnimation[frameNumber].Coor;
-                double[][] locatorNodes = null;
-                float[] locatorValues = null;
+                    modelEdgesNodes = data.ModelEdges.NodesAnimation[frameNumber];
+                NodesExchangeData locatorNodes = null;
                 if (data.CellLocator != null && data.CellLocator.NodesAnimation != null)
-                {
-                    locatorNodes = data.CellLocator.NodesAnimation[frameNumber].Coor;
-                    locatorValues = data.CellLocator.NodesAnimation[frameNumber].Values;
-                }
+                    locatorNodes = data.CellLocator.NodesAnimation[frameNumber];
                 NodesExchangeData extremeNodes = null;
                 if (data.Geometry.ExtremeNodesAnimation != null)
                     extremeNodes = data.Geometry.ExtremeNodesAnimation[frameNumber];
                 //
                 vtkMaxActorAnimationData animationData =
-                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber].Coor, 
+                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber],
                                                  modelEdgesNodes,
-                                                 data.Geometry.NodesAnimation[frameNumber].Values,
                                                  extremeNodes,
-                                                 locatorNodes,
-                                                 locatorValues,
-                                                 data.Geometry.NodesAnimation[frameNumber].ResultField,
-                                                 data.CellLocator?.NodesAnimation?[frameNumber]?.ResultField);
+                                                 locatorNodes);
                 if (computeNormals && animationData.Points != null)
                 {
                     geometryPointSet.SetPoints(animationData.Points);
@@ -2016,10 +2010,32 @@ namespace vtkControl
                 }
                 _animationData[frameNumber] = animationData;
                 memorySizeKb += animationData.GetActualMemorySizeKb();
+                ReleaseConvertedAnimationFrame(data, frameNumber);
             }
 
             SetAnimationFrame(0);
             return memorySizeKb;
+        }
+        internal void SetAnimationLocatorNodes(int frameNumber, NodesExchangeData locatorNodes)
+        {
+            if (locatorNodes == null || _animationData == null ||
+                frameNumber < 0 || frameNumber >= _animationData.Length) return;
+            // Only the displayed frame keeps the locator nodes of the whole part
+            if (_animationLocatorFrameNumber >= 0 && _animationLocatorFrameNumber != frameNumber &&
+                _animationLocatorFrameNumber < _animationData.Length)
+                _animationData[_animationLocatorFrameNumber].ClearLocatorData();
+            //
+            _animationData[frameNumber].SetLocatorData(locatorNodes);
+            _animationLocatorFrameNumber = frameNumber;
+        }
+        private static void ReleaseConvertedAnimationFrame(vtkMaxActorData data, int frameNumber)
+        {
+            // Without this every frame is held twice - as a managed array and as a VTK array
+            data.Geometry.NodesAnimation[frameNumber] = null;
+            if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
+                data.ModelEdges.NodesAnimation[frameNumber] = null;
+            if (data.CellLocator != null && data.CellLocator.NodesAnimation != null)
+                data.CellLocator.NodesAnimation[frameNumber] = null;
         }
 
         public void SetAnimationFrame(int frameNumber)

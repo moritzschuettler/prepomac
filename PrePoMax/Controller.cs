@@ -56,6 +56,9 @@ namespace PrePoMax
         [NonSerialized] protected bool _disableDrawSymbols;
         [NonSerialized] protected bool _updatingAnimationAnnotations;
         [NonSerialized] protected bool _initializingAnimationAnnotationAnchors;
+        [NonSerialized] protected Dictionary<string, int[]> _animationLocatorNodeIds;
+        [NonSerialized] protected FieldData[] _animationLocatorFieldData;
+        [NonSerialized] protected float _animationLocatorScale;
         [NonSerialized] protected int _updateBatchCount;
         [NonSerialized] protected UpdateType _batchedModelUpdateType;
         [NonSerialized] protected UpdateType _batchedResultsUpdateType;
@@ -22694,7 +22697,7 @@ namespace PrePoMax
                 NodesExchangeData resultFrame = resultData.Geometry.NodesAnimation[i];
                 frames[i] = new NodesExchangeData();
                 frames[i].Ids = nodeIds;
-                frames[i].Coor = GetIndexedCoordinates(resultFrame.Coor, sourceIndices);
+                frames[i].Coor = GetIndexedCoordinates(resultFrame, sourceIndices);
                 frames[i].Values = GetIndexedValues(resultFrame.Values, sourceIndices);
                 frames[i].Normals = _viewResultsType == ViewResultsTypeEnum.VectorPlot
                     ? ScaleDirections(baseDirections, ratios[i])
@@ -22735,7 +22738,7 @@ namespace PrePoMax
                 NodesExchangeData resultFrame = resultData.Geometry.NodesAnimation[i];
                 frames[i] = new NodesExchangeData();
                 frames[i].Ids = nodeIds;
-                frames[i].Coor = GetIndexedCoordinates(resultFrame.Coor, sourceIndices);
+                frames[i].Coor = GetIndexedCoordinates(resultFrame, sourceIndices);
                 frames[i].Normals = directions;
                 frames[i].Values = GetIndexedValues(resultFrame.Values, sourceIndices);
                 UpdateAnimatedPlotMaximum(frames[i], _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
@@ -22957,6 +22960,20 @@ namespace PrePoMax
                 indexedCoordinates[i] = coordinates[indices[i]];
             return indexedCoordinates;
         }
+        private static double[][] GetIndexedCoordinates(NodesExchangeData nodes, int[] indices)
+        {
+            if (nodes.FlatCoor == null) return GetIndexedCoordinates(nodes.Coor, indices);
+            //
+            int index;
+            double[][] indexedCoordinates = new double[indices.Length][];
+            for (int i = 0; i < indices.Length; i++)
+            {
+                index = 3 * indices[i];
+                indexedCoordinates[i] = new double[] { nodes.FlatCoor[index], nodes.FlatCoor[index + 1],
+                                                       nodes.FlatCoor[index + 2] };
+            }
+            return indexedCoordinates;
+        }
         private static float[] GetIndexedValues(float[] values, int[] indices)
         {
             float[] indexedValues = new float[indices.Length];
@@ -23055,6 +23072,7 @@ namespace PrePoMax
         public bool DrawScaleFactorAnimation(int numFrames)
         {
             _form.Clear3D();
+            ClearAnimationLocatorData();
             //
             if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return false;
             if (_allResults.CurrentResult.GetAllComponentNames().Length == 0) _viewResultsType = ViewResultsTypeEnum.Undeformed;
@@ -23171,6 +23189,10 @@ namespace PrePoMax
             SetPostLegendAndStatusBlockSettings();
             SetStatusBlock(scale);
             FieldData[] animationFieldData = GetTimeIncrementAnimationFieldData(_currentFieldData);
+            // The locator nodes of each frame are regenerated on demand
+            _animationLocatorNodeIds = new Dictionary<string, int[]>();
+            _animationLocatorFieldData = animationFieldData;
+            _animationLocatorScale = scale;
             //
             vtkMaxActorData data = null;
             vtkRendererLayer layer = vtkRendererLayer.Base;
@@ -23192,6 +23214,8 @@ namespace PrePoMax
                                                postSettings.UndeformedModelColor, layer);
                     // Results
                     data = GetTimeIncrementAnimationDataFromPart(resultPart, _currentFieldData, scale);
+                    if (data.CellLocator != null && data.CellLocator.Nodes != null)
+                        _animationLocatorNodeIds[resultPart.Name] = data.CellLocator.Nodes.Ids;
                     vtkMaxActorData plotData =
                         GetTimeIncrementAnimatedPlotActorData(resultPart, data, animationFieldData,
                                                               out double partPlotMaxValue);
@@ -23206,8 +23230,11 @@ namespace PrePoMax
                     {
                         foreach (NodesExchangeData nData in data.Geometry.ExtremeNodesAnimation)
                         {
-                            if (nData.Values[0] < allFramesScalarRange[0]) allFramesScalarRange[0] = nData.Values[0];
-                            if (nData.Values[1] > allFramesScalarRange[1]) allFramesScalarRange[1] = nData.Values[1];
+                            if (nData != null && nData.Values != null)
+                            {
+                                if (nData.Values[0] < allFramesScalarRange[0]) allFramesScalarRange[0] = nData.Values[0];
+                                if (nData.Values[1] > allFramesScalarRange[1]) allFramesScalarRange[1] = nData.Values[1];
+                            }
                         }
                     }
                     //
@@ -23262,8 +23289,26 @@ namespace PrePoMax
             //
             return result;
         }
+        public NodesExchangeData GetAnimationLocatorNodes(string actorName, int frameNumber)
+        {
+            if (_animationLocatorNodeIds == null || _animationLocatorFieldData == null) return null;
+            if (frameNumber < 0 || frameNumber >= _animationLocatorFieldData.Length) return null;
+            if (!_animationLocatorNodeIds.TryGetValue(actorName, out int[] nodeIds) || nodeIds == null) return null;
+            if (_allResults.CurrentResult == null ||
+                !_allResults.CurrentResult.Mesh.Parts.TryGetValue(actorName, out BasePart part)) return null;
+            //
+            return _allResults.CurrentResult.GetDeformedNodes(part, nodeIds, _animationLocatorFieldData[frameNumber],
+                                                              _animationLocatorScale);
+        }
+        private void ClearAnimationLocatorData()
+        {
+            _animationLocatorNodeIds = null;
+            _animationLocatorFieldData = null;
+            _animationLocatorScale = 0;
+        }
         public bool DrawHarmonicAnimation(int numFrames)
         {
+            ClearAnimationLocatorData();
             if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return false;
             if (_allResults.CurrentResult.GetAllComponentNames().Length == 0) _viewResultsType = ViewResultsTypeEnum.Undeformed;
             //

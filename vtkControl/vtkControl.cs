@@ -325,6 +325,7 @@ namespace vtkControl
         // Callbacks                                                                                                                
         public Func<string, string> Controller_GetAnnotationText;
         public Action<int, bool> Controller_AnimationFrameChanged;
+        public Func<string, int, NodesExchangeData> Controller_GetAnimationLocatorNodes;
         public Func<int[], vtkMaxActorData> Controller_GetNodeActorData;
         public Func<int[], int[], vtkMaxActorData> Controller_GetCellActorData;
         public Func<int, int[], vtkMaxActorData> Controller_GetCellFaceActorData;
@@ -8333,6 +8334,9 @@ namespace vtkControl
             bool applyTransforms = _transforms.Count > 0;
             if (applyTransforms) RemoveTransformedActors();
             //
+            if (applySectionView || _animationArrowAnchors.Count > 0 || _animationArrowAnchorRequests.Count > 0)
+                UpdateAnimationLocatorNodes(frameNumber);
+            //
             foreach (vtkMaxActor actor in _animationActors.Values) actor.SetAnimationFrame(frameNumber);
             _currentAnimationFrameNumber = frameNumber;
             //
@@ -8352,6 +8356,14 @@ namespace vtkControl
             _style.AdjustCameraDistanceAndClipping(false);
             _style.RefreshWidgetHighlights();
             RenderScene();
+        }
+        private void UpdateAnimationLocatorNodes(int frameNumber)
+        {
+            if (Controller_GetAnimationLocatorNodes == null) return;
+            //
+            foreach (var entry in _animationActors)
+                entry.Value.SetAnimationLocatorNodes(frameNumber,
+                                                     Controller_GetAnimationLocatorNodes(entry.Key, frameNumber));
         }
         public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
         {

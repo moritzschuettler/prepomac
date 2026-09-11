@@ -22,6 +22,7 @@ namespace CaeGlobals
         // Variables                                                                                                                
         public int[] Ids;
         public double[][] Coor;
+        public float[] FlatCoor;                            // x, y, z, x, y, z, ...
         public double[][] Normals;
         public float[] Values;
         public ResultFieldExchangeData ResultField;
@@ -42,6 +43,7 @@ namespace CaeGlobals
                 Coor = new double[nodesExchangeData.Coor.Length][];
                 for (int i = 0; i < Coor.Length; i++) Coor[i] = nodesExchangeData.Coor[i].ToArray();
             }
+            if (nodesExchangeData.FlatCoor != null) FlatCoor = nodesExchangeData.FlatCoor.ToArray();
             if (nodesExchangeData.Normals != null)
             {
                 Normals = new double[nodesExchangeData.Normals.Length][];
@@ -57,6 +59,7 @@ namespace CaeGlobals
         {
             Ids = null;
             Coor = null;
+            FlatCoor = null;
             Normals = null;
             Values = null;
             ResultField = null;

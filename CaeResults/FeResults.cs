@@ -6553,16 +6553,17 @@ namespace CaeResults
                 SetPartDeformation(part, absoluteScale, fData.StepId, fData.StepIncrementId);
                 // Get scaled model
                 modelResultData.NodesAnimation[i] = new NodesExchangeData();
-                modelResultData.NodesAnimation[i].Coor = _mesh.GetNodeSetCoor(modelResultData.Nodes.Ids);
+                modelResultData.NodesAnimation[i].FlatCoor = _mesh.GetNodeSetFlatCoor(modelResultData.Nodes.Ids);
                 // Get scaled edges
                 if (modelEdges)
                 {
                     modelEdgesResultData.NodesAnimation[i] = new NodesExchangeData();
-                    modelEdgesResultData.NodesAnimation[i].Coor = _mesh.GetNodeSetCoor(modelEdgesResultData.Nodes.Ids);
+                    modelEdgesResultData.NodesAnimation[i].FlatCoor =
+                        _mesh.GetNodeSetFlatCoor(modelEdgesResultData.Nodes.Ids);
                 }
                 // Get scaled locator
                 locatorResultData.NodesAnimation[i] = new NodesExchangeData();
-                locatorResultData.NodesAnimation[i].Coor = _mesh.GetNodeSetCoor(locatorResultData.Nodes.Ids);
+                locatorResultData.NodesAnimation[i].FlatCoor = _mesh.GetNodeSetFlatCoor(locatorResultData.Nodes.Ids);
                 // Scale values
                 if (invariant) relativeScale = Math.Abs(relativeScale);
                 // Model
@@ -6572,7 +6573,7 @@ namespace CaeResults
                         modelResultData.Nodes.ResultField.WithScaleFactor(relativeScale);
                 // Locator
                 ScaleValuesAndGetExtreme(relativeScale, locatorResultData.Nodes.Ids,
-                                         locatorResultData.NodesAnimation[i].Coor, locatorResultData.Nodes.Values,
+                                         locatorResultData.NodesAnimation[i].FlatCoor, locatorResultData.Nodes.Values,
                                          out locatorResultData.NodesAnimation[i].Values,
                                          out modelResultData.ExtremeNodesAnimation[i]);
                 if (locatorResultData.Nodes.ResultField != null)
@@ -6604,9 +6605,8 @@ namespace CaeResults
             modelResultData.NodesAnimation = new NodesExchangeData[numFrames];
             modelResultData.ExtremeNodesAnimation = new NodesExchangeData[numFrames];
             if (modelEdges) modelEdgesResultData.NodesAnimation = new NodesExchangeData[numFrames];
-            locatorResultData.NodesAnimation = new NodesExchangeData[numFrames];
+            // The locator frames hold the whole part - they are regenerated on demand from GetDeformedNodes
             //
-            PartExchangeData data;
             FieldData tmpFieldData = new FieldData(fData);  // create a copy
             int count = 0;
             foreach (var entry in existingStepIncrementIds)
@@ -6618,18 +6618,17 @@ namespace CaeResults
                     // Deform part
                     SetPartDeformation(part, scale, tmpFieldData.StepId, tmpFieldData.StepIncrementId);
                     // Model
-                    data = GetVisualizationNodesCellsAndValues(part, tmpFieldData);
-                    modelResultData.NodesAnimation[count] = data.Nodes;
-                    modelResultData.ExtremeNodesAnimation[count] = data.ExtremeNodes;
+                    modelResultData.NodesAnimation[count] =
+                        GetAnimationFrameNodes(modelResultData.Nodes.Ids, tmpFieldData);
+                    modelResultData.ExtremeNodesAnimation[count] =
+                        tmpFieldData.Valid ? GetScaledExtremeValues(part.Name, tmpFieldData, 1) : null;
                     // Edges
                     if (modelEdges)
                     {
-                        data = GetEdgesNodesAndCells(part, tmpFieldData);
-                        modelEdgesResultData.NodesAnimation[count] = data.Nodes;
+                        modelEdgesResultData.NodesAnimation[count] = new NodesExchangeData();
+                        modelEdgesResultData.NodesAnimation[count].FlatCoor =
+                            _mesh.GetNodeSetFlatCoor(modelEdgesResultData.Nodes.Ids);
                     }
-                    // Locator
-                    data = GetSetNodesCellsAndValues(part, tmpFieldData);
-                    locatorResultData.NodesAnimation[count] = data.Nodes;
                     //
                     count++;
                 }
@@ -6696,7 +6695,7 @@ namespace CaeResults
                 }
             }
         }
-        private void ScaleValuesAndGetExtreme(float scale, int[] nodeIds, double[][] coordinates, float[] values,
+        private void ScaleValuesAndGetExtreme(float scale, int[] nodeIds, float[] flatCoordinates, float[] values,
                                               out float[] scaledValues, out NodesExchangeData extremeNodes)
         {
             ScaleValues(scale, values, out scaledValues);
@@ -6737,9 +6736,31 @@ namespace CaeResults
             extremeNodes = new NodesExchangeData
             {
                 Ids = new int[] { nodeIds[minIndex], nodeIds[maxIndex] },
-                Coor = new double[][] { coordinates[minIndex], coordinates[maxIndex] },
+                Coor = new double[][] { GetFlatCoordinate(flatCoordinates, minIndex),
+                                        GetFlatCoordinate(flatCoordinates, maxIndex) },
                 Values = new float[] { minValue, maxValue }
             };
+        }
+        private static double[] GetFlatCoordinate(float[] flatCoordinates, int index)
+        {
+            return new double[] { flatCoordinates[3 * index], flatCoordinates[3 * index + 1],
+                                  flatCoordinates[3 * index + 2] };
+        }
+        public NodesExchangeData GetDeformedNodes(BasePart part, int[] nodeIds, FieldData fData, float scale)
+        {
+            SetPartDeformation(part, scale, fData.StepId, fData.StepIncrementId);
+            return GetAnimationFrameNodes(nodeIds, fData);
+        }
+        private NodesExchangeData GetAnimationFrameNodes(int[] nodeIds, FieldData fData)
+        {
+            NodesExchangeData nodes = new NodesExchangeData();
+            nodes.FlatCoor = _mesh.GetNodeSetFlatCoor(nodeIds);
+            if (fData.Valid)
+            {
+                nodes.Values = GetValues(fData, nodeIds);
+                nodes.ResultField = GetResultFieldExchangeData(fData, nodeIds);
+            }
+            return nodes;
         }
         //
         public float GetMaxDeformation()

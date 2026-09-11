@@ -434,6 +434,7 @@ namespace PrePoMax
                 _vtk.RotationPointChanged += _vtk_RotationPointChanged;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
                 _vtk.Controller_AnimationFrameChanged = _controller.AnimationFrameChanged;
+                _vtk.Controller_GetAnimationLocatorNodes = _controller.GetAnimationLocatorNodes;
                 _vtk.Controller_GetNodeActorData = _controller.GetNodeActorData;
                 _vtk.Controller_GetCellActorData = _controller.GetCellActorData;
                 _vtk.Controller_GetCellFaceActorData = _controller.GetCellFaceActorData;
