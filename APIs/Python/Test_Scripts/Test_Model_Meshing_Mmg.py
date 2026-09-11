@@ -32,11 +32,19 @@ def main():
     mmg = items.add_shell_mmg(PREFIX + "Mesher", selection, keep_model_edges=True)
     check(mmg.mesher_type == "Mmg", "the shell MMG setup item does not select MMG")
     check(mmg.valid, "the shell MMG setup item is not valid on the open STL shell")
-    # The dialog scales the Hausdorff distance with the part, so the API must do the same: the
-    # bounding box of the model is 20 x 10 x 20, and its diagonal times the 0.001 factor is 0.03
-    hausdorff = mmg.get_settings()["hausdorff"]
-    check(abs(hausdorff - 0.03) < 1E-9,
-          "the Hausdorff distance does not follow the size of the part: " + str(hausdorff))
+    # The dialog scales the Hausdorff distance with the part, so the API must do the same: it is the
+    # diagonal of the part bounding box times the relative factor, rounded to two significant digits.
+    # The expectation is derived rather than written down, so that retuning the factor does not make
+    # this a false failure; the tolerance is the 5 percent that rounding to two digits can move.
+    settings = mmg.get_settings()
+    hausdorff = settings["hausdorff"]
+    box = [float(value) for value in list(part.get_bounding_box())]
+    diagonal = ((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) ** 0.5
+    expected = diagonal * settings["relative_hausdorff"]
+    check(expected > 0, "the part must have a size: " + str(box))
+    check(abs(hausdorff - expected) <= 0.05 * expected,
+          "the Hausdorff distance does not follow the size of the part: " + str(hausdorff) +
+          " against " + str(expected))
     #
     pmx.model.mesh.create(part.name)
     check(len(pmx.model.parts) == 1, "MMG did not create one shell mesh part")

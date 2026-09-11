@@ -793,8 +793,12 @@ namespace PrePoMax
                                 parameters = _cmdOptions.UnitSystem;
                             }
                         }
-                        // Check for open last file
-                        else if (!scriptMode && _controller.Settings.General.OpenLastFile)
+                        // Check for open last file - for the same reason the recovery question above
+                        // is not asked, a session without a window does not open it: the setting is a
+                        // convenience for the person who last closed the application, and a hidden
+                        // session an agent or a script drives would inherit that person's model and
+                        // their whole command history without being told to
+                        else if (!scriptMode && !_hideWindow && _controller.Settings.General.OpenLastFile)
                             fileName = _controller.OpenedFileName;
                     }
                     //

@@ -132,6 +132,12 @@ settings, so a folder has to be opened once with its window and given a token be
 serve; a session with no window refuses with that instruction rather than prompting a user who is
 not there.
 
+**A session with no window starts empty unless it is given a file.** It does not open the last file
+of the interactive user, for the same reason it is not asked whether to recover a crashed session:
+the setting is a convenience for the person who last closed the application, and a hidden session
+would otherwise inherit that person's model and their whole command history without being told to.
+Name the model with `-f` when an agent should find one open.
+
 Point the agent client at the address. For Claude Code:
 
 ```bash
