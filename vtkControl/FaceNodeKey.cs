@@ -23,15 +23,23 @@ namespace vtkControl
         {
             _sortedNodeIds = new int[count];
             for (int i = 0; i < count; i++) _sortedNodeIds[i] = pointNodeIds[connectivity[start + i]];
-            Array.Sort(_sortedNodeIds);
-            //
-            int hashCode = count;
-            for (int i = 0; i < count; i++) hashCode = unchecked(hashCode * 31 + _sortedNodeIds[i]);
-            _hashCode = hashCode;
+            _hashCode = SortAndHash(_sortedNodeIds);
+        }
+        public FaceNodeKey(int[] nodeIds)
+        {
+            _sortedNodeIds = nodeIds;
+            _hashCode = SortAndHash(_sortedNodeIds);
         }
 
 
         // Methods                                                                                                      
+        private static int SortAndHash(int[] nodeIds)
+        {
+            Array.Sort(nodeIds);
+            int hashCode = nodeIds.Length;
+            for (int i = 0; i < nodeIds.Length; i++) hashCode = unchecked(hashCode * 31 + nodeIds[i]);
+            return hashCode;
+        }
         public bool Equals(FaceNodeKey other)
         {
             if (_sortedNodeIds.Length != other._sortedNodeIds.Length) return false;

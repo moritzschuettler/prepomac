@@ -5636,6 +5636,9 @@ namespace vtkControl
             //
             vtkCell cell;
             vtkCell cellFace;
+            vtkIdList facePointIds;
+            int[] faceNodeIds;
+            HashSet<FaceNodeKey> faces = new HashSet<FaceNodeKey>();
             vtkUnstructuredGrid cellGrid = vtkUnstructuredGrid.New();
             cellGrid.SetPoints(extract.GetOutput().GetPoints());
             //
@@ -5645,7 +5648,11 @@ namespace vtkControl
                 for (int j = 0; j < cell.GetNumberOfFaces(); j++)
                 {
                     cellFace = cell.GetFace(j);
-                    cellGrid.InsertNextCell(cellFace.GetCellType(), cellFace.GetPointIds());
+                    facePointIds = cellFace.GetPointIds();
+                    faceNodeIds = new int[facePointIds.GetNumberOfIds()];
+                    for (int k = 0; k < faceNodeIds.Length; k++) faceNodeIds[k] = (int)facePointIds.GetId(k);
+                    // A face shared by two cells is cut once, or its edge would be drawn twice
+                    if (faces.Add(new FaceNodeKey(faceNodeIds))) cellGrid.InsertNextCell(cellFace.GetCellType(), facePointIds);
                 }
             }
             cellGrid.Update();
