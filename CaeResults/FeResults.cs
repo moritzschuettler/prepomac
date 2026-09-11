@@ -6615,24 +6615,25 @@ namespace CaeResults
                 foreach (var incrementId in entry.Value)
                 {
                     tmpFieldData.StepIncrementId = incrementId;
-                    // Deform part
-                    SetPartDeformation(part, scale, tmpFieldData.StepId, tmpFieldData.StepIncrementId);
                     // Model
                     modelResultData.NodesAnimation[count] =
-                        GetAnimationFrameNodes(modelResultData.Nodes.Ids, tmpFieldData);
+                        GetDeformedNodes(part, modelResultData.Nodes.Ids, tmpFieldData, scale);
                     modelResultData.ExtremeNodesAnimation[count] =
-                        tmpFieldData.Valid ? GetScaledExtremeValues(part.Name, tmpFieldData, 1) : null;
+                        GetDeformedExtremeValues(part, tmpFieldData, scale);
                     // Edges
                     if (modelEdges)
                     {
                         modelEdgesResultData.NodesAnimation[count] = new NodesExchangeData();
                         modelEdgesResultData.NodesAnimation[count].FlatCoor =
-                            _mesh.GetNodeSetFlatCoor(modelEdgesResultData.Nodes.Ids);
+                            GetDeformedFlatCoor(part, modelEdgesResultData.Nodes.Ids, scale, tmpFieldData.StepId,
+                                                tmpFieldData.StepIncrementId);
                     }
                     //
                     count++;
                 }
             }
+            // Leave the mesh deformed to the last frame
+            SetPartDeformation(part, scale, tmpFieldData.StepId, tmpFieldData.StepIncrementId);
         }
         //
         private float[] GetRelativeScales(int numFrames)
@@ -6748,19 +6749,57 @@ namespace CaeResults
         }
         public NodesExchangeData GetDeformedNodes(BasePart part, int[] nodeIds, FieldData fData, float scale)
         {
-            SetPartDeformation(part, scale, fData.StepId, fData.StepIncrementId);
-            return GetAnimationFrameNodes(nodeIds, fData);
+            return GetAnimationFrameNodes(nodeIds, fData,
+                                          GetDeformedFlatCoor(part, nodeIds, scale, fData.StepId,
+                                                              fData.StepIncrementId));
         }
-        private NodesExchangeData GetAnimationFrameNodes(int[] nodeIds, FieldData fData)
+        public float[] GetDeformedFlatCoor(BasePart part, int[] nodeIds, float scale, int stepId, int stepIncrementId)
+        {
+            float[][] deformations = scale != 0 ? GetNodalMeshDeformations(stepId, stepIncrementId) : null;
+            double[] offset = part.Offset;
+            float[] coor = new float[3 * nodeIds.Length];
+            int count = 0;
+            int resultNodeId;
+            FeNode node;
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                node = _undeformedNodes[nodeIds[i]];
+                if (deformations != null && TryGetResultNodeId(nodeIds[i], out resultNodeId))
+                {
+                    coor[count++] = (float)(node.X + offset[0] + scale * deformations[0][resultNodeId]);
+                    coor[count++] = (float)(node.Y + offset[1] + scale * deformations[1][resultNodeId]);
+                    coor[count++] = (float)(node.Z + offset[2] + scale * deformations[2][resultNodeId]);
+                }
+                else
+                {
+                    coor[count++] = (float)(node.X + offset[0]);
+                    coor[count++] = (float)(node.Y + offset[1]);
+                    coor[count++] = (float)(node.Z + offset[2]);
+                }
+            }
+            return coor;
+        }
+        private NodesExchangeData GetAnimationFrameNodes(int[] nodeIds, FieldData fData, float[] flatCoor)
         {
             NodesExchangeData nodes = new NodesExchangeData();
-            nodes.FlatCoor = _mesh.GetNodeSetFlatCoor(nodeIds);
+            nodes.FlatCoor = flatCoor;
             if (fData.Valid)
             {
                 nodes.Values = GetValues(fData, nodeIds);
                 nodes.ResultField = GetResultFieldExchangeData(fData, nodeIds);
             }
             return nodes;
+        }
+        private NodesExchangeData GetDeformedExtremeValues(BasePart part, FieldData fData, float scale)
+        {
+            if (!fData.Valid) return null;
+            //
+            NodesExchangeData extremeNodes = GetScaledExtremeValues(part.Name, fData, 1);
+            if (extremeNodes == null || extremeNodes.Ids == null || extremeNodes.Ids.Length != 2) return extremeNodes;
+            // The mesh itself is no longer deformed for every frame
+            float[] flatCoor = GetDeformedFlatCoor(part, extremeNodes.Ids, scale, fData.StepId, fData.StepIncrementId);
+            extremeNodes.Coor = new double[][] { GetFlatCoordinate(flatCoor, 0), GetFlatCoordinate(flatCoor, 1) };
+            return extremeNodes;
         }
         //
         public float GetMaxDeformation()

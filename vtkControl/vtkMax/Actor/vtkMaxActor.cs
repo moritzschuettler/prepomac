@@ -2013,8 +2013,18 @@ namespace vtkControl
                 ReleaseConvertedAnimationFrame(data, frameNumber);
             }
 
+            SetAnimationImmediateModeRendering();
             SetAnimationFrame(0);
             return memorySizeKb;
+        }
+        private void SetAnimationImmediateModeRendering()
+        {
+            // Animated points change for every frame, so a display list is rebuilt for every frame and never reused
+            if (_geometryMapper != null) _geometryMapper.ImmediateModeRenderingOn();
+            if (_elementEdges != null && _elementEdges.GetMapper() != null)
+                _elementEdges.GetMapper().ImmediateModeRenderingOn();
+            if (_modelEdges != null && _modelEdges.GetMapper() != null)
+                _modelEdges.GetMapper().ImmediateModeRenderingOn();
         }
         internal void SetAnimationLocatorNodes(int frameNumber, NodesExchangeData locatorNodes)
         {
