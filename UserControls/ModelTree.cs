@@ -786,36 +786,65 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                TreeNode[] groupNodes = tree.SelectedNodes.Cast<TreeNode>()
-                                                .Where(node => _orderedDictionaryGroups.ContainsKey(node))
-                                                .OrderByDescending(node => node.Level)
-                                                .ThenBy(node => node.Index)
-                                                .ToArray();
-                if (groupNodes.Length == 0 || groupNodes.Length != tree.SelectedNodes.Count) return;
+                TreeNode[] selectedNodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
+                if (selectedNodes.Any(node => !_orderedDictionaryGroups.ContainsKey(node))) return;
                 //
-                OrderedDictionaryGroupInfo firstGroupInfo = _orderedDictionaryGroups[groupNodes[0]];
-                if (groupNodes.Any(node =>
-                    !ReferenceEquals(_orderedDictionaryGroups[node].Context, firstGroupInfo.Context)))
-                    return;
-                //
-                Guid? parentGroupId = null;
-                TreeNode commonParent = groupNodes[0].Parent;
-                if (groupNodes.All(node => ReferenceEquals(node.Parent, commonParent)) &&
-                    commonParent != null &&
-                    _orderedDictionaryGroups.TryGetValue(commonParent, out OrderedDictionaryGroupInfo parentGroupInfo))
-                    parentGroupId = parentGroupInfo.Id;
-                //
-                Guid[] groupIds = groupNodes.Select(node => _orderedDictionaryGroups[node].Id).ToArray();
-                InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
-                    OrderedDictionaryTreeLayoutChange.RemoveGroups(
-                        firstGroupInfo.Context.View, firstGroupInfo.Context.ItemType,
-                        firstGroupInfo.Context.ParentName, groupIds),
-                    firstGroupInfo.Context, parentGroupId);
+                OrderedDictionaryTreeLayoutChange change;
+                Guid? parentGroupId;
+                if (!TryGetSelectedGroupRemoval(selectedNodes, out change, out parentGroupId)) return;
+                InvokeOrderedDictionaryGroupRemoval(change, parentGroupId);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        private bool TryGetSelectedGroupRemoval(TreeNode[] selectedNodes,
+                                                out OrderedDictionaryTreeLayoutChange change,
+                                                out Guid? parentGroupId)
+        {
+            change = null;
+            parentGroupId = null;
+            //
+            TreeNode[] groupNodes = selectedNodes.Where(node => _orderedDictionaryGroups.ContainsKey(node))
+                                                 .OrderByDescending(node => node.Level)
+                                                 .ThenBy(node => node.Index)
+                                                 .ToArray();
+            if (groupNodes.Length == 0) return false;
+            //
+            OrderedDictionaryGroupInfo firstGroupInfo = _orderedDictionaryGroups[groupNodes[0]];
+            if (groupNodes.Any(node =>
+                !ReferenceEquals(_orderedDictionaryGroups[node].Context, firstGroupInfo.Context)))
+                return false;
+            //
+            TreeNode commonParent = groupNodes[0].Parent;
+            if (groupNodes.All(node => ReferenceEquals(node.Parent, commonParent)) &&
+                commonParent != null &&
+                _orderedDictionaryGroups.TryGetValue(commonParent, out OrderedDictionaryGroupInfo parentGroupInfo))
+                parentGroupId = parentGroupInfo.Id;
+            //
+            Guid[] groupIds = groupNodes.Select(node => _orderedDictionaryGroups[node].Id).ToArray();
+            change = OrderedDictionaryTreeLayoutChange.RemoveGroups(
+                firstGroupInfo.Context.View, firstGroupInfo.Context.ItemType,
+                firstGroupInfo.Context.ParentName, groupIds);
+            return true;
+        }
+        private void InvokeOrderedDictionaryGroupRemoval(OrderedDictionaryTreeLayoutChange change,
+                                                         Guid? parentGroupId)
+        {
+            OrderedDictionaryTreeContext context = _orderedDictionaryContexts.Values.FirstOrDefault(
+                item => item.View == change.View && item.ItemType == change.ItemType &&
+                        String.Equals(item.ParentName, change.ParentName, StringComparison.Ordinal));
+            if (context == null) return;
+            //
+            Guid[] groupIds = change.GroupIds
+                .Where(groupId => FindOrderedDictionaryGroupNode(context, groupId) != null).ToArray();
+            if (groupIds.Length == 0) return;
+            if (groupIds.Length != change.GroupIds.Length)
+                change = OrderedDictionaryTreeLayoutChange.RemoveGroups(change.View, change.ItemType,
+                                                                        change.ParentName, groupIds);
+            //
+            InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(change, context, parentGroupId);
         }
         private void InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
             OrderedDictionaryTreeLayoutChange change, OrderedDictionaryTreeContext previousContext,
@@ -1629,9 +1658,11 @@ namespace UserControls
             TreeNode[] selectedGroupNodes = selectedNodes
                                                      .Where(node => _orderedDictionaryGroups.ContainsKey(node))
                                                      .ToArray();
-            bool compatibleGroupSelection = selectedGroupNodes.Length == selectedNodes.Length &&
+            bool compatibleGroupSelection = selectedGroupNodes.Length > 0 &&
                 selectedGroupNodes.Select(node => _orderedDictionaryGroups[node].Context).Distinct().Count() == 1;
-            if (selectedGroupNodes.Length > 0) visible = compatibleGroupSelection;
+            if (selectedGroupNodes.Length == selectedNodes.Length) visible = compatibleGroupSelection;
+            else if (selectedGroupNodes.Length > 0)
+                visible = compatibleGroupSelection && hasActionNodes && menuFields.Delete == n;
             else visible = hasActionNodes && menuFields.Delete == n;
             tsmiSpaceDelete.Visible = visible && oneAboveVisible;
             tsmiDelete.Visible = visible;
@@ -2805,18 +2836,23 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 TreeNode[] selectedNodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
                 bool groupSelected = selectedNodes.Any(node => _orderedDictionaryGroups.ContainsKey(node));
-                if (groupSelected)
+                if (groupSelected && selectedNodes.All(node => _orderedDictionaryGroups.ContainsKey(node)))
                 {
-                    if (selectedNodes.All(node => _orderedDictionaryGroups.ContainsKey(node)))
-                        RemoveSelectedGroups();
+                    RemoveSelectedGroups();
                     return;
                 }
+                // The selected groups are removed after the selected items are deleted, since deleting an item
+                // rebuilds the tree and invalidates the tree nodes. The group ids outlive the rebuild.
+                OrderedDictionaryTreeLayoutChange groupRemoval = null;
+                Guid? groupRemovalParentGroupId = null;
+                if (groupSelected)
+                    TryGetSelectedGroupRemoval(selectedNodes, out groupRemoval, out groupRemovalParentGroupId);
                 //
                 List<NamedClass> items = new List<NamedClass>();
                 string parentName;
                 List<string> parentNames = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in selectedNodes)
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -2838,6 +2874,8 @@ namespace UserControls
                     DeleteEvent?.Invoke(items.ToArray(), parentNames.ToArray());
                     RenderingOn?.Invoke();
                 }
+                //
+                if (groupRemoval != null) InvokeOrderedDictionaryGroupRemoval(groupRemoval, groupRemovalParentGroupId);
             }
             catch (Exception ex)
             {
