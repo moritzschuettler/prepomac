@@ -1498,14 +1498,6 @@ namespace CaeModel
             return noErrors;
         }
         
-        public void ImportGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
-                                                    bool splitCompoundMesh, bool mergeCompoundParts,
-                                                    RevolveMesh revolveMesh = null)
-        {
-            FeMesh mesh = PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder,
-                                                           splitCompoundMesh, mergeCompoundParts, revolveMesh);
-            ImportGeneratedMesh(mesh);
-        }
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                        bool splitCompoundMesh, bool mergeCompoundParts,
                                                        RevolveMesh revolveMesh = null)

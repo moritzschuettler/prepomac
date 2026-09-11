@@ -2158,125 +2158,6 @@ namespace PrePoMax
                 return null;
             }
         }
-        public void ImportGeneratedMesh(string fileName, BasePart part, bool fromBrep)
-        {
-            if (!File.Exists(fileName))
-                throw new CaeException("The file: '" + fileName + "' does not exist." + Environment.NewLine +
-                                       "The reason is a failed mesh generation procedure for part: " + part.Name);
-            //
-            List<string> partNames = new List<string>();
-            if (part is CompoundGeometryPart cgp) { partNames.Add(cgp.Name); partNames.AddRange(cgp.SubPartNames); }
-            else partNames.Add(part.Name);
-            OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
-            HashSet<string> oldMeshPartNames = new HashSet<string>();
-            if (_model.Mesh != null)
-            {
-                oldMeshPartNames = new HashSet<string>(_model.Mesh.Parts.Keys, _model.Mesh.Parts.Comparer);
-                oldMeshPartLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
-            }
-            //
-            int[] removedPartIds = RemoveModelParts(partNames.ToArray(), false, true);
-            //
-            bool convertToSecondOrder = false;
-            bool splitCompoundMesh = false;
-            bool mergeCompoundParts = false;
-            MeshingParameters meshingParameters;
-            if (part is GeometryPart gp)
-            {
-                meshingParameters = GetPartMeshingParameters(gp.Name);
-                // Convert mesh to second order
-                if (Path.GetExtension(fileName) == ".mesh") convertToSecondOrder = meshingParameters.SecondOrder;   // mmg
-                else if (Path.GetExtension(fileName) == ".inp") convertToSecondOrder = false;   // Gmsh already converted it
-                else if (Path.GetExtension(fileName) == ".obj")
-                    convertToSecondOrder = meshingParameters.SecondOrder;
-                else convertToSecondOrder = meshingParameters.SecondOrder && !meshingParameters.MidsideNodesOnGeometry;
-                //
-                if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
-                // Split compound mesh
-                splitCompoundMesh = meshingParameters.SplitCompoundMesh;
-                // Merge compound parts
-                mergeCompoundParts = meshingParameters.MergeCompoundParts;
-            }
-            // Import, convert and split mesh
-            RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
-            _model.ImportGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
-                                                   mergeCompoundParts, revolveMesh);
-            // A remesh removes and recreates the FE parts. Restore the layout so that the parts that already existed
-            // keep their order and groups, and place only the newly created FE parts into their linked groups.
-            if (oldMeshPartLayout != null) _model.Mesh.Parts.RestoreItemLayout(oldMeshPartLayout);
-            string[] meshPartNames = partNames.Where(name => _model.Mesh.Parts.ContainsKey(name)).ToArray();
-            string[] newMeshPartNames = meshPartNames.Where(name => !oldMeshPartNames.Contains(name)).ToArray();
-            if (newMeshPartNames.Length > 0)
-                PlaceNewMeshedPartsInLinkedGroups((GeometryPart)part, meshPartNames, newMeshPartNames);
-            // Calculate the number of new nodes and elements
-            BasePart basePart;
-            if (convertToSecondOrder || Path.GetExtension(fileName) == ".inp")
-            {
-                int numPoints = 0;
-                int numElements = 0;
-                foreach (var partName in partNames)
-                {
-                    if (_model.Mesh.Parts.TryGetValue(partName, out basePart))
-                    {
-                        numPoints += basePart.NodeLabels.Length;
-                        numElements += basePart.Labels.Length;
-                    }
-                }
-                _form.WriteDataToOutput("Nodes: " + numPoints);
-                _form.WriteDataToOutput("Elements: " + numElements);
-            }
-            // Renumber mesh parts to geometry parts
-            bool renumbered = false;
-            foreach (var partName in partNames)
-            {
-                if (_model.Mesh.Parts.ContainsKey(partName) && _model.Geometry.Parts.ContainsKey(partName))
-                {
-                    _model.Mesh.ChangePartId(partName, _model.Geometry.Parts[partName].PartId);
-                    renumbered = true;
-                }
-            }
-            // This is not executed for the first meshing                               
-            // For geometry based sets the part id must remain the same after remesh    
-            if (removedPartIds != null)
-            {
-                for (int i = 0; i < removedPartIds.Length; i++)
-                {
-                    if (removedPartIds[i] != -1 && _model.Mesh.Parts.ContainsKey(partNames[i]))    // -1 for compound
-                    {
-                        // Set finite element types from previous meshing
-                        GetModelPart(partNames[i]).SetElementTypeEnums(GetGeometryPart(partNames[i]).GetElementTypeEnums());
-                    }
-                }
-            }
-            // Update finite element types based on model dimensionality
-            _model.UpdateMeshPartsElementTypes(false);
-            // Shading
-            if (fromBrep)
-            {
-                foreach (var partName in partNames)
-                {
-                    if (_model.Mesh.Parts.TryGetValue(partName, out basePart)) basePart.SmoothShaded = true;
-                }
-            }
-            //
-            UpdateAfterPartsChanged(); // must be here before any drawing
-            // Regenerate and change the DisplayedMesh to Model before updating sets
-            _form.Clear3D();
-            _currentView = ViewGeometryModelResults.Model;
-            _form.SetCurrentView(_currentView);
-            // Redraw to be able to update sets based on selection
-            FeModelUpdate(UpdateType.DrawModel);
-            // At the end update the sets
-            if (renumbered)
-            {
-                // Update sets - must be called with rendering off - SetStateWorking
-                UpdateGeometryBasedItems(false, true);
-            }
-            // Update the sets and symbols
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
-            // Regenerate tree
-            _form.RegenerateTree(true);
-        }
         public void ImportGeneratedRemesh(string fileName, int[] elementIds, BasePart part,
                                           bool convertToSecondOrder, Dictionary<(int, int), FeNode> midNodes,
                                           bool preview)
@@ -5407,6 +5288,8 @@ namespace PrePoMax
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
                                                                           revolveMesh, out elementIdMaterialName);
+            if (convertToSecondOrder) _form.WriteDataToOutput("Done.");
+            //
             if (generatedMesh.QuadWildInputFileInfo != null)
             {
                 _form.WriteDataToOutput("Recovering QuadWild model edges...");
@@ -5519,6 +5402,7 @@ namespace PrePoMax
             performance.Removal = phaseWatch.Elapsed.TotalSeconds;
             //
             bool renumbered = false;
+            int numOfMeshedParts = 0;
             phaseWatch.Restart();
             foreach (GeneratedMeshData generatedMesh in generatedMeshes)
             {
@@ -5528,8 +5412,9 @@ namespace PrePoMax
                 {
                     if (_model.Mesh.Parts.TryGetValue(partName, out BasePart meshPart))
                     {
-                        _form.WriteDataToOutput("Nodes: " + meshPart.NodeLabels.Length);
-                        _form.WriteDataToOutput("Elements: " + meshPart.Labels.Length);
+                        numOfMeshedParts++;
+                        _form.WriteDataToOutput(partName + ": " + meshPart.NodeLabels.Length + " nodes, " +
+                                                meshPart.Labels.Length + " elements");
                         //
                         if (_model.Geometry.Parts.ContainsKey(partName))
                         {
@@ -5546,6 +5431,10 @@ namespace PrePoMax
             }
             phaseWatch.Stop();
             performance.Import = phaseWatch.Elapsed.TotalSeconds;
+            //
+            if (numOfMeshedParts > 1)
+                _form.WriteDataToOutput("Model mesh: " + _model.Mesh.Nodes.Count + " nodes, " +
+                                        _model.Mesh.Elements.Count + " elements");
             //
             phaseWatch.Restart();
             _model.Mesh.UpdateNodeIdElementIds();
