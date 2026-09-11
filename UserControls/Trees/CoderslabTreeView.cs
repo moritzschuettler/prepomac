@@ -111,6 +111,29 @@ namespace UserControls
 
 	#endregion
 
+	#region TreeDropPosition enumeration
+
+	/// <summary>
+	/// Position of a drag and drop operation relative to the tree node under the cursor.
+	/// </summary>
+	public enum TreeDropPosition
+	{
+		/// <summary>
+		/// The dragged nodes are dropped into the node under the cursor.
+		/// </summary>
+		Into,
+		/// <summary>
+		/// The dragged nodes are inserted in front of the node under the cursor.
+		/// </summary>
+		Before,
+		/// <summary>
+		/// The dragged nodes are inserted behind the node under the cursor.
+		/// </summary>
+		After
+	}
+
+	#endregion
+
 	#region Delegates
 
 	/// <summary>
@@ -184,6 +207,8 @@ namespace UserControls
                     //
                     base.WndProc(ref m);
                     //
+                    // The drop indicator is painted over the tree, so it is restored after every repaint.
+                    if (m.Msg == WM_PAINT && _dropInsertionLineNode != null) DrawDropInsertionLine();
                     if (m.Msg == 277 || m.Msg == 276) OnAfterScroll();
                 }
             }
@@ -203,6 +228,149 @@ namespace UserControls
             return new Point(
                 GetScrollPos((int)this.Handle, ScrollBarHorizontal),
                 GetScrollPos((int)this.Handle, ScrollBarVertical));
+        }
+        // Drag and drop indicator
+        private const int WM_PAINT = 0x000F;
+        private const int _dropInsertionLineHalfHeight = 6;
+        private TreeNode _dragOverNode;
+        private Color _dragOverNodeBackColor;
+        private TreeNode _dropInsertionLineNode;
+        private bool _dropInsertionLineAfter;
+        private Rectangle _dropInsertionLineBounds;
+        /// <summary>
+        /// Returns the drop position the release point stands for. The top and the bottom band of the node
+        /// row insert in front of and behind the node; the band in between drops into it when that is allowed.
+        /// </summary>
+        public TreeDropPosition GetDropPosition(TreeNode node, Point point, bool canDropInto)
+        {
+            Rectangle nodeBounds = node.Bounds;
+            if (nodeBounds.Height <= 0) return canDropInto ? TreeDropPosition.Into : TreeDropPosition.Before;
+            //
+            if (!canDropInto)
+                return point.Y < nodeBounds.Top + nodeBounds.Height / 2
+                     ? TreeDropPosition.Before : TreeDropPosition.After;
+            //
+            int band = Math.Max(1, nodeBounds.Height / 4);
+            if (point.Y < nodeBounds.Top + band) return TreeDropPosition.Before;
+            if (point.Y >= nodeBounds.Bottom - band) return TreeDropPosition.After;
+            return TreeDropPosition.Into;
+        }
+        /// <summary>
+        /// Marks the drop target: the node row is highlighted for a drop into it and an insertion line is
+        /// drawn at its top or bottom edge otherwise.
+        /// </summary>
+        public void ShowDropIndicator(TreeNode node, TreeDropPosition position)
+        {
+            if (position == TreeDropPosition.Into)
+            {
+                ClearDropInsertionLine();
+                SetDragOverNode(node);
+            }
+            else
+            {
+                ClearDragOverNode();
+                SetDropInsertionLine(node, position == TreeDropPosition.After);
+            }
+        }
+        /// <summary>
+        /// Removes the drop target marking and repaints the area it covered.
+        /// </summary>
+        public void HideDropIndicator()
+        {
+            ClearDragOverNode();
+            ClearDropInsertionLine();
+        }
+        /// <summary>
+        /// Forgets the drop target marking without repainting anything. This is used when the tree is about
+        /// to be rebuilt and repainted as a whole, so that the marking does not cost a second repaint.
+        /// </summary>
+        public void DiscardDropIndicator()
+        {
+            if (_dragOverNode != null)
+            {
+                _dragOverNode.BackColor = _dragOverNodeBackColor;
+                _dragOverNode = null;
+            }
+            _dropInsertionLineNode = null;
+            _dropInsertionLineBounds = Rectangle.Empty;
+        }
+        private void SetDragOverNode(TreeNode node)
+        {
+            if (ReferenceEquals(_dragOverNode, node)) return;
+            ClearDragOverNode();
+            //
+            _dragOverNode = node;
+            _dragOverNodeBackColor = node.BackColor;
+            node.BackColor = Color.LightSteelBlue;
+        }
+        private void ClearDragOverNode()
+        {
+            if (_dragOverNode == null) return;
+            //
+            TreeNode node = _dragOverNode;
+            _dragOverNode = null;
+            node.BackColor = _dragOverNodeBackColor;
+            // The restored row is repainted before an insertion line is drawn over it.
+            Update();
+        }
+        private void SetDropInsertionLine(TreeNode node, bool after)
+        {
+            if (ReferenceEquals(_dropInsertionLineNode, node) && _dropInsertionLineAfter == after) return;
+            //
+            ClearDropInsertionLine();
+            _dropInsertionLineNode = node;
+            _dropInsertionLineAfter = after;
+            DrawDropInsertionLine();
+        }
+        private void ClearDropInsertionLine()
+        {
+            if (_dropInsertionLineNode == null) return;
+            //
+            Rectangle lineBounds = _dropInsertionLineBounds;
+            _dropInsertionLineNode = null;
+            _dropInsertionLineBounds = Rectangle.Empty;
+            Invalidate(lineBounds);
+            Update();
+        }
+        private void DrawDropInsertionLine()
+        {
+            if (_dropInsertionLineNode == null) return;
+            //
+            _dropInsertionLineBounds = GetDropInsertionLineBounds(_dropInsertionLineNode, _dropInsertionLineAfter);
+            if (_dropInsertionLineBounds.Width == 0) return;
+            //
+            using (Graphics graphics = CreateGraphics())
+            using (Pen pen = new Pen(Color.SteelBlue, 2))
+            using (SolidBrush penBackground = new SolidBrush(Color.White))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                int y = _dropInsertionLineBounds.Top + _dropInsertionLineHalfHeight;
+                int left = _dropInsertionLineBounds.Left + 1;
+                int diameter = _dropInsertionLineHalfHeight;
+                graphics.DrawLine(pen, left + diameter, y, _dropInsertionLineBounds.Right - 1, y);
+                graphics.FillEllipse(penBackground, left + diameter / 2, y - diameter / 2, diameter, diameter);
+                graphics.DrawEllipse(pen, left + diameter / 2, y - diameter / 2, diameter, diameter);
+            }
+        }
+        private Rectangle GetDropInsertionLineBounds(TreeNode node, bool after)
+        {
+            Rectangle nodeBounds = node.Bounds;
+            if (nodeBounds.Height <= 0) return Rectangle.Empty;
+            //
+            int y = after ? nodeBounds.Bottom : nodeBounds.Top;
+            y = Math.Max(_dropInsertionLineHalfHeight,
+                         Math.Min(y, ClientSize.Height - _dropInsertionLineHalfHeight));
+            // The node bounds hold the text only, so the icon is added to span the whole row content.
+            int left = Math.Max(0, nodeBounds.Left - 2 * GetNodeImageWidth(node) + 1 -
+                                   _dropInsertionLineHalfHeight);
+            return new Rectangle(left, y - _dropInsertionLineHalfHeight,
+                                 Math.Max(0, ClientSize.Width - left), 2 * _dropInsertionLineHalfHeight);
+        }
+        private int GetNodeImageWidth(TreeNode node)
+        {
+            if (ImageList == null) return 0;
+            if (node.ImageIndex < 0 && String.IsNullOrEmpty(node.ImageKey) && ImageIndex < 0) return 0;
+            return ImageList.ImageSize.Width;
         }
 
 
