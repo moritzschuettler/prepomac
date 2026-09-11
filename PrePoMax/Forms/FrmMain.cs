@@ -218,7 +218,11 @@ namespace PrePoMax
             });
         }
         public bool ScreenUpdating { get { return _modelTree.ScreenUpdating; } set { _modelTree.ScreenUpdating = value; } }
-        public bool RenderingOn { get { return _vtk.RenderingOn; } set { _vtk.RenderingOn = value; } }
+        public bool RenderingOn
+        {
+            get { return InvokeIfRequired(() => _vtk.RenderingOn); }
+            set { InvokeIfRequired(() => _vtk.RenderingOn = value); }
+        }
         private ViewType GetViewType(ViewGeometryModelResults view)
         {
             ViewType viewType;
