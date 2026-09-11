@@ -125,7 +125,8 @@ namespace CaeMesh
                 Gmsh.Logger.Stop();
                 Gmsh.FinalizeAll();
                 // Check if the thread was not aborted on error
-                if (_error != null) File.Delete(_gmshData.InpFileName);
+                if (_error != null && _gmshData.InpFileName != null && File.Exists(_gmshData.InpFileName))
+                    File.Delete(_gmshData.InpFileName);
             }
         }
         // Meshing                                                                                                                  
@@ -1254,25 +1255,34 @@ namespace CaeMesh
         }
         private void DefeatureBackground()
         {
-            if (_gmshData.SurfaceIds == null || _gmshData.SurfaceIds.Length == 0) return;
-            //
-            Tuple<int, int>[] outDimTags;
-            Gmsh.Model.OCC.ImportShapes(_gmshData.GeometryFileName, out outDimTags, false, "");
-            //
-            Synchronize(); // must be here
-            //
-            RenumberGmshDataByCoor();
-            //
-            int[] volumeTags = new int[] { 1 };
-            int[] surfaceTags = _gmshData.SurfaceIds;
-            //
-            Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
-            //
-            Synchronize();
-            //
-            Gmsh.Write(_gmshData.GeometryFileName);
-            //
-            return;
+            try
+            {
+                if (_gmshData.SurfaceIds == null || _gmshData.SurfaceIds.Length == 0) return;
+                // With OCCAutoFix on, Gmsh defeatures a ShapeFix_Solid copy that no longer contains the faces to remove
+                Gmsh.Option.SetNumber("Geometry.OCCAutoFix", 0);
+                //
+                Tuple<int, int>[] outDimTags;
+                Gmsh.Model.OCC.ImportShapes(_gmshData.GeometryFileName, out outDimTags, false, "");
+                //
+                Synchronize(); // must be here
+                //
+                RenumberGmshDataByCoor();
+                //
+                int[] volumeTags = new int[] { 1 };
+                int[] surfaceTags = _gmshData.SurfaceIds;
+                //
+                Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
+                //
+                Synchronize();
+                //
+                Gmsh.Write(_gmshData.GeometryFileName);
+                //
+                _error = null;
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
         }
         private void GetCoordinatesFromParameterizationBackground()
         {
