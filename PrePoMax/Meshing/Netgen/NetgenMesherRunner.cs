@@ -75,7 +75,8 @@ namespace PrePoMax
             FileInOut.Output.StlFileWriter.Write(stlFileName, _controller.Model.Geometry, new string[] { part.Name });
             _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
             MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
-            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                                          _controller.Settings.Meshing.ParallelMeshingThreads);
             _controller.Model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
             _controller.ResumeExplodedViews(false);
             //
@@ -124,7 +125,8 @@ namespace PrePoMax
             File.WriteAllText(brepFileName, part.CADFileData);
             _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
             MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
-            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                                          _controller.Settings.Meshing.ParallelMeshingThreads);
             _controller.ResumeExplodedViews(false);
             //
             string argument = "BREP_EDGE_MESH " +
@@ -183,7 +185,8 @@ namespace PrePoMax
                 MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
                 meshingParameters.SecondOrder = false;
                 meshingParameters.QuadDominated = false;
-                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                                              _controller.Settings.Meshing.ParallelMeshingThreads);
                 if (!part.IsCADPart) _controller.Model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
             }
             finally
@@ -243,8 +246,9 @@ namespace PrePoMax
             {
                 FileInOut.Output.StlFileWriter.Write(stlFileName, _controller.Model.Geometry, partNames);
                 _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-                _controller.GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName,
-                                                                            part.BoundingBox.GetDiagonal());
+                _controller.GetPartMeshingParameters(part.Name).WriteToFile(
+                    meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                    _controller.Settings.Meshing.ParallelMeshingThreads);
                 _controller.Model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
             }
             finally
@@ -301,7 +305,8 @@ namespace PrePoMax
             {
                 File.WriteAllText(brepFileName, part.CADFileData);
                 meshingParameters = _controller.GetPartMeshingParameters(part.Name);
-                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                                              _controller.Settings.Meshing.ParallelMeshingThreads);
                 _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
             }
             finally

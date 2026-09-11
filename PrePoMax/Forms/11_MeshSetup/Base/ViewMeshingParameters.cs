@@ -180,15 +180,33 @@ namespace PrePoMax.Forms
             set { _parameters.MergeCompoundParts = value; }
         }
         // Constructors                                                                                                             
-        public ViewMeshingParameters(MeshingParameters parameters)
-            : this(parameters, parameters.RelativeSize)
+        protected ViewMeshingParameters()
         {
+        }
+        public ViewMeshingParameters(MeshingParameters parameters)
+        {
+            SetBase(parameters);
         }
         public ViewMeshingParameters(MeshingParameters parameters, bool defaultSizeIsRelative)
-            : this(parameters, defaultSizeIsRelative, parameters.AdvancedView)
         {
+            SetBase(parameters, defaultSizeIsRelative);
         }
         public ViewMeshingParameters(MeshingParameters parameters, bool defaultSizeIsRelative, bool advancedView)
+        {
+            SetBase(parameters, defaultSizeIsRelative, advancedView);
+        }
+
+
+        // Methods                                                                                                                  
+        public void SetBase(MeshingParameters parameters)
+        {
+            SetBase(parameters, parameters.RelativeSize);
+        }
+        public void SetBase(MeshingParameters parameters, bool defaultSizeIsRelative)
+        {
+            SetBase(parameters, defaultSizeIsRelative, parameters.AdvancedView);
+        }
+        public void SetBase(MeshingParameters parameters, bool defaultSizeIsRelative, bool advancedView)
         {
             _parameters = parameters;
             _parameters.AdvancedView = advancedView;
@@ -210,9 +228,6 @@ namespace PrePoMax.Forms
             //
             UpdateVisibility();
         }
-
-
-        // Methods                                                                                                                  
         public override MeshSetupItem GetBase()
         {
             return _parameters;

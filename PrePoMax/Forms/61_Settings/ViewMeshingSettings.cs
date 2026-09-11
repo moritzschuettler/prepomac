@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel;
 using CaeMesh;
 using CaeGlobals;
 using DynamicTypeDescriptor;
@@ -24,14 +25,28 @@ namespace PrePoMax.Settings
         // Variables                                                                                                                
         MeshingSettings _meshingSettings;
 
+
+        // Properties                                                                                                               
+        [CategoryAttribute("Parallelization")]
+        [OrderedDisplayName(0, 10, "Number of threads")]
+        [DescriptionAttribute("Set the number of threads used for Netgen meshing. Select Auto to use the automatic " +
+                              "worker count, 1 for serial meshing, or a larger value for an explicit worker limit.")]
+        [TypeConverter(typeof(ParallelMeshingThreadsConverter))]
+        [Id(1, 7)]
+        public int ParallelMeshingThreads
+        {
+            get { return _meshingSettings.ParallelMeshingThreads; }
+            set { _meshingSettings.ParallelMeshingThreads = value; }
+        }
+
+
         // Constructors                                                                                                             
         public ViewMeshingSettings(MeshingSettings meshingSettings)
-            : base(meshingSettings.MeshingParameters)
         {
             _meshingSettings = meshingSettings;
-            //
             _settingsView = true;
-            UpdateVisibility(); // apply settings view
+            //
+            SetBase(_meshingSettings.MeshingParameters);
             //
             _dctd.GetProperty(nameof(AdvancedView)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(Name)).SetIsBrowsable(false);

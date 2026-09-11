@@ -26,16 +26,26 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private MeshingParameters _meshingParameters;
+        private int _parallelMeshingThreads;
 
 
         // Properties                                                                                                               
         public MeshingParameters MeshingParameters { get { return _meshingParameters; } set { _meshingParameters = value; } }
+        public int ParallelMeshingThreads
+        {
+            get { return _parallelMeshingThreads; }
+            set
+            {
+                if (value < 0) throw new Exception("The number of parallel meshing threads must be larger or equal to 0.");
+                _parallelMeshingThreads = value;
+            }
+        }
 
 
         // Constructors                                                                                                             
         public MeshingSettings()
         {
-            _meshingParameters = new MeshingParameters("Settings");
+            Reset();
         }
 
 
@@ -48,6 +58,7 @@ namespace PrePoMax
         {
             if (_meshingParameters == null) CheckValues();
             else _meshingParameters.Reset();
+            _parallelMeshingThreads = 1;
         }
     }
 }

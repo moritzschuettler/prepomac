@@ -277,6 +277,13 @@ namespace CaeMesh
         }
         public void WriteToFile(string fileName, double bbDiagonal)
         {
+            WriteToFile(fileName, bbDiagonal, 1);
+        }
+        public void WriteToFile(string fileName, double bbDiagonal, int parallelMeshingThreads)
+        {
+            if (parallelMeshingThreads < 0)
+                throw new ArgumentOutOfRangeException(nameof(parallelMeshingThreads),
+                                                      "The number of parallel meshing threads must be larger or equal to 0.");
             StringBuilder sb = new StringBuilder();
             //
             bool relativeSize = _relativeSize;
@@ -330,6 +337,9 @@ namespace CaeMesh
             sb.AppendLine("1");
             sb.AppendLine("double   deflection	                ... Open cascade visualization deflection.");
             sb.AppendLine("0.01");
+            sb.AppendLine("int      parallel_meshing_threads    ... 0 = automatic, 1 = serial, " +
+                          "greater than 1 = explicit worker count.");
+            sb.AppendLine(parallelMeshingThreads.ToString());
             //
             //Encoding encoding = Encoding.Unicode;
             System.IO.File.WriteAllText(fileName, sb.ToString());
