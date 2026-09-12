@@ -327,6 +327,7 @@ namespace vtkControl
         public Action<int, bool> Controller_AnimationFrameChanged;
         public Func<string, int, NodesExchangeData> Controller_GetAnimationLocatorNodes;
         public Func<string, int, PartExchangeData> Controller_GetVolumeGridData;
+        public Func<string, int, int[], NodesExchangeData> Controller_GetAnimationNodes;
         public Func<int[], vtkMaxActorData> Controller_GetNodeActorData;
         public Func<int[], int[], vtkMaxActorData> Controller_GetCellActorData;
         public Func<int, int[], vtkMaxActorData> Controller_GetCellFaceActorData;
@@ -1001,7 +1002,8 @@ namespace vtkControl
             vtkCell cell;
             vtkCellLocator cellLocator;
             string actorName = GetActorName(pickedActor);
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             //
             _mouseSelectionCurrentIds = new int[] { globalCellId };
             //
@@ -1044,7 +1046,8 @@ namespace vtkControl
             vtkCell cell;
             vtkCellLocator cellLocator;
             int globalPointId = GetNodeIdOnCellFaceClosestToPoint(pickedPoint);
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             vtkMaxActorData cellFaceData = Controller_GetCellFaceActorData(globalCellId, globalCellFaceNodeIds); // works on undeformed mesh
             //
@@ -1092,7 +1095,8 @@ namespace vtkControl
             //
             vtkCell cell;
             vtkCellLocator cellLocator;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             // Works on deformed mesh
             vtkMaxActorData cellFaceData = Controller_GetCellFaceActorData(globalCellId, globalCellFaceNodeIds);
@@ -1284,7 +1288,8 @@ namespace vtkControl
             //
             vtkCellLocator cellLocator;
             vtkCell cell;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             //
             string noEdgePartName;
@@ -1331,7 +1336,8 @@ namespace vtkControl
 
             vtkCell cell;
             vtkCellLocator cellLocator;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
 
             vtkMaxActorData data = Controller_GetCellFaceActorData(globalCellId, globalCellFaceNodeIds); // works on undeformed mesh
@@ -1359,7 +1365,8 @@ namespace vtkControl
             //
             vtkCellLocator cellLocator;
             vtkCell cell;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             //
             string actorName = GetActorName(pickedActor);
             vtkMaxActor actor = GetHighlightActorFromActorName(actorName);
@@ -1405,7 +1412,8 @@ namespace vtkControl
             //
             vtkCellLocator cellLocator;
             vtkCell cell;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellEdgeNodeIds = GetEdgeNodeIds(pickedPoint, globalCellId, cell, cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             //double distance = GetSelectionPrecision();
@@ -1451,7 +1459,8 @@ namespace vtkControl
             //
             vtkCellLocator cellLocator;
             vtkCell cell;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellEdgeNodeIds = GetEdgeNodeIds(pickedPoint, globalCellId, cell, cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             //double distance = GetSelectionPrecision();
@@ -1480,7 +1489,8 @@ namespace vtkControl
             vtkCell cell;
             vtkCellLocator cellLocator;
             int globalPointId = GetNodeIdOnCellFaceClosestToPoint(pickedPoint);
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+                                                               out cellLocator);
             int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
             // Works on deformed mesh
             vtkMaxActorData cellFaceData = Controller_GetCellFaceActorData(globalCellId, globalCellFaceNodeIds);
@@ -1745,7 +1755,7 @@ namespace vtkControl
                 p = GetPropPickerPickPosition(x, y);
                 sectionViewPick = IsSectionViewActor(pickedActor);
                 if (sectionViewPick) hit = ResolveSectionViewPick(ref pickedActor, ref p, rotationPoint);
-                else hit = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _) != -1;
+                else hit = GetGlobalCellIdClosestTo3DPoint(ref p, GetMaxActor(pickedActor), out _, out _) != -1;
             }
             // If the exact pixel misses, pick geometry within a fixed screen-space tolerance.
             if (!hit && !sectionViewPick)
@@ -1760,7 +1770,7 @@ namespace vtkControl
                 {
                     p = _cellPicker.GetPickPosition();
                     if (IsSectionViewActor(pickedActor)) hit = ResolveSectionViewPick(ref pickedActor, ref p, rotationPoint);
-                    else hit = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _) != -1;
+                    else hit = GetGlobalCellIdClosestTo3DPoint(ref p, GetMaxActor(pickedActor), out _, out _) != -1;
                 }
             }
             // Reset the actor visibility
@@ -1832,7 +1842,7 @@ namespace vtkControl
             if (facesWithIds && (skin || partSelection || _selectBy == vtkSelectBy.Node || _selectBy == vtkSelectBy.Element))
             {
                 pickedActor = parentActor.Geometry;
-                if (GetGlobalCellIdClosestTo3DPoint(ref point, out _, out _) != -1) return true;
+                if (GetGlobalCellIdClosestTo3DPoint(ref point, parentActor, out _, out _) != -1) return true;
             }
             else if (partSelection)
             {
@@ -1888,7 +1898,24 @@ namespace vtkControl
         }
 
         // Item selection - Point                                                                                                   
-        private int GetGlobalCellIdClosestTo3DPoint(ref double[] point, out vtkCell cell, out vtkCellLocator cellLocator)
+        private int GetGlobalCellIdClosestTo3DPoint(ref double[] point, vtkMaxActor pickedActor, out vtkCell cell,
+                                                    out vtkCellLocator cellLocator)
+        {
+            // The hardware pick already named the actor, so only its surface is searched
+            if (pickedActor != null && pickedActor.CellLocator != null)
+            {
+                double[] pickedPoint = point.ToArray();
+                int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, out cell, out cellLocator, pickedActor);
+                if (globalCellId != -1)
+                {
+                    point = pickedPoint;
+                    return globalCellId;
+                }
+            }
+            return GetGlobalCellIdClosestTo3DPoint(ref point, out cell, out cellLocator);
+        }
+        private int GetGlobalCellIdClosestTo3DPoint(ref double[] point, out vtkCell cell, out vtkCellLocator cellLocator,
+                                                    vtkMaxActor onlyActor = null)
         {
             // a 3D point is saved in history and used for regenerate
             cell = null;
@@ -1909,6 +1936,7 @@ namespace vtkControl
             //
             foreach (var entry in _actors)
             {
+                if (onlyActor != null && entry.Value != onlyActor) continue;
                 // Set filtered actors
                 if (_selectableActorsFilter != null)
                 {
@@ -4962,7 +4990,11 @@ namespace vtkControl
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
                 _actors.Add(actor.Name, actor);
                 _renderer.AddActor(actor.Geometry);
-                if (actor.VolumeGridAvailable) actor.VolumeGridProvider = GetVolumeGridData;
+                if (actor.VolumeGridAvailable)
+                {
+                    actor.VolumeGridProvider = GetVolumeGridData;
+                    actor.AnimationNodesProvider = Controller_GetAnimationNodes;
+                }
                 //
                 if (actor.Geometry.GetPickable() == 1)
                 {
@@ -8311,7 +8343,7 @@ namespace vtkControl
             bool applyTransforms = _transforms.Count > 0;
             if (applyTransforms) RemoveTransformedActors();
             //
-            UpdateAnimationLocatorNodes(frameNumber);
+            UpdateAnimationLocatorNodes(frameNumber, applySectionView);
             //
             foreach (vtkMaxActor actor in _animationActors.Values) actor.SetAnimationFrame(frameNumber);
             _currentAnimationFrameNumber = frameNumber;
@@ -8333,11 +8365,13 @@ namespace vtkControl
             _style.RefreshWidgetHighlights();
             RenderScene();
         }
-        private void UpdateAnimationLocatorNodes(int frameNumber)
+        private void UpdateAnimationLocatorNodes(int frameNumber, bool wholeGrid)
         {
             if (Controller_GetAnimationLocatorNodes == null) return;
+            // Only the section view needs every point of a part at the frame - an anchor or an interior
+            // annotation brings its own points to the frame when it reads them
+            if (!wholeGrid) return;
             //
-            // Only a part whose volume grid exists - section view, anchor, interior annotation - is deformed
             foreach (var entry in _animationActors)
             {
                 if (!entry.Value.HasVolumeGrid) continue;

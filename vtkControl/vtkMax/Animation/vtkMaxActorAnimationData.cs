@@ -160,17 +160,23 @@ namespace vtkControl
         private long[] _pointIds;
         private double[] _weights;
         private double[] _offset;
+        private vtkMaxActor _volumeGridActor;
 
-        public vtkMaxAnimationArrowAnchor(vtkPointSet pointSet, long[] pointIds, double[] weights, double[] offset)
+        public vtkMaxAnimationArrowAnchor(vtkPointSet pointSet, long[] pointIds, double[] weights, double[] offset,
+                                          vtkMaxActor volumeGridActor)
         {
             _pointSet = pointSet;
             _pointIds = pointIds;
             _weights = weights;
             _offset = offset;
+            _volumeGridActor = volumeGridActor;
         }
 
         public double[] GetAnchorPoint()
         {
+            // An anchor inside a part only needs its own points at the displayed frame
+            if (_volumeGridActor != null) _volumeGridActor.EnsureVolumeGridPoints(_pointIds);
+            //
             double[] anchorPoint = new double[] { _offset[0], _offset[1], _offset[2] };
             for (int i = 0; i < _pointIds.Length; i++)
             {

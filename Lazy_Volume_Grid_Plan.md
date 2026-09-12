@@ -117,9 +117,16 @@ are satisfied by `BasePart.NodeLabels` without any VTK object.
 
 ## Implementation status
 
-Steps S1 to S5 are implemented and `PrePoMax.sln` builds. S0 was not run, because it needs the
-application on screen; the S8 checklist is still to be run by hand for the same reason. S6 and S7 are
-not started.
+Steps S1 to S6 are implemented and `PrePoMax.sln` builds. S0 was not run, because it needs the
+application on screen; the S8 checklist was run by hand for S1 to S5. S7 is not started.
+
+S6 as landed: during an animation the frame update fills every point of a part's grid only while a
+section view is open. Otherwise `vtkMaxActor.SetAnimationFrame` marks the grid points incomplete for
+the frame, and an arrow anchor or an interior node annotation brings just its own points to the frame
+through `Controller.GetAnimationNodes(actorName, frameNumber, nodeIds)`; anything that needs the whole
+grid, such as a section view opened mid-animation, completes it first. The interactive pick resolves
+the closest cell on the hardware-picked actor alone and falls back to the search over all actors when
+that finds nothing; regeneration, which has no hardware pick, still searches all actors.
 
 What landed, against the plan:
 

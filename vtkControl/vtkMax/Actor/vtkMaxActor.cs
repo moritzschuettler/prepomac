@@ -52,8 +52,14 @@ namespace vtkControl
         // The whole part mesh is built on first need from the provider - section view, box selection, anchors
         protected vtkUnstructuredGrid _volumeGrid;
         protected bool _volumeGridStale;
+        protected int[] _volumeGridNodeIds;
+        // During an animation without a section view only the points that are read are deformed
+        protected bool _volumeGridPointsComplete;
+        protected HashSet<long> _volumeGridUpdatedPointIds;
+        protected int _animationFrameNumber;
         protected vtkCellLocator _volumeLocator;
         protected Func<string, PartExchangeData> _volumeGridProvider;
+        protected Func<string, int, int[], NodesExchangeData> _animationNodesProvider;
         protected string _volumeGridSourceName;
         protected vtkTransform _volumeGridTransform;
         protected bool _volumeGridAvailable;
@@ -177,6 +183,11 @@ namespace vtkControl
             get { return _volumeGridProvider; }
             set { _volumeGridProvider = value; }
         }
+        public Func<string, int, int[], NodesExchangeData> AnimationNodesProvider
+        {
+            get { return _animationNodesProvider; }
+            set { _animationNodesProvider = value; }
+        }
         public string VolumeGridSourceName { get { return _volumeGridSourceName; } }
         public bool VolumeGridAvailable { get { return _volumeGridAvailable; } }
         public bool HasVolumeGrid { get { return _volumeGrid != null; } }
@@ -298,8 +309,13 @@ namespace vtkControl
             _cellLocator = null;
             _volumeGrid = null;
             _volumeGridStale = false;
+            _volumeGridNodeIds = null;
+            _volumeGridPointsComplete = true;
+            _volumeGridUpdatedPointIds = null;
+            _animationFrameNumber = -1;
             _volumeLocator = null;
             _volumeGridProvider = null;
+            _animationNodesProvider = null;
             _volumeGridSourceName = null;
             _volumeGridTransform = null;
             _volumeGridAvailable = false;
@@ -2069,13 +2085,25 @@ namespace vtkControl
             if (animationData.MinNode != null) _minNode = animationData.MinNode;
             if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;
             // Volume grid points and values
-            if (animationData.LocatorPoints != null && _volumeGrid != null)
+            _animationFrameNumber = frameNumber;
+            if (_volumeGrid != null)
             {
-                _volumeGrid.SetPoints(animationData.LocatorPoints);
+                if (animationData.LocatorPoints != null)
+                {
+                    _volumeGrid.SetPoints(animationData.LocatorPoints);
+                    _volumeGridPointsComplete = true;
+                }
+                else
+                {
+                    // Without a section view only the points that are read get the frame coordinates
+                    _volumeGridPointsComplete = false;
+                    if (_volumeGridUpdatedPointIds == null) _volumeGridUpdatedPointIds = new HashSet<long>();
+                    else _volumeGridUpdatedPointIds.Clear();
+                }
                 _volumeLocator = null;
+                if (animationData.LocatorValues != null)
+                    _volumeGrid.GetPointData().SetScalars(animationData.LocatorValues);
             }
-            if (animationData.LocatorValues != null && _volumeGrid != null)
-                _volumeGrid.GetPointData().SetScalars(animationData.LocatorValues);
         }
         internal int GetAnimationFrameCount()
         {
@@ -2121,13 +2149,16 @@ namespace vtkControl
             value = float.NaN;
             vtkPointSet pointSet;
             int pointId;
-            vtkUnstructuredGrid volumeGrid;
             if (_animationNodeIdToPointId != null &&
                 _animationNodeIdToPointId.TryGetValue(nodeId, out pointId))
                 pointSet = _geometryMapper.GetInput() as vtkPointSet;
-            else if (TryGetVolumeGrid(out volumeGrid) && _animationLocatorNodeIdToPointId != null &&
+            else if ((_volumeGrid != null || TryGetVolumeGrid(out _)) && _animationLocatorNodeIdToPointId != null &&
                      _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId))
-                pointSet = volumeGrid;
+            {
+                // An interior node - only its point is brought to the displayed frame
+                EnsureVolumeGridPoints(new long[] { pointId });
+                pointSet = _volumeGrid;
+            }
             else return false;
 
             if (pointSet == null) return false;
@@ -2217,7 +2248,8 @@ namespace vtkControl
                 double[] offset = new double[] { anchorPoint[0] - interpolatedPoint[0],
                                                  anchorPoint[1] - interpolatedPoint[1],
                                                  anchorPoint[2] - interpolatedPoint[2] };
-                anchor = new vtkMaxAnimationArrowAnchor(pointSet, pointIds, weights, offset);
+                anchor = new vtkMaxAnimationArrowAnchor(pointSet, pointIds, weights, offset,
+                                                        locator == _volumeLocator ? this : null);
                 return true;
             }
             finally
@@ -2256,7 +2288,11 @@ namespace vtkControl
         public bool TryGetVolumeGrid(out vtkUnstructuredGrid volumeGrid)
         {
             volumeGrid = _volumeGrid;
-            if (volumeGrid != null && !_volumeGridStale) return true;
+            if (volumeGrid != null && !_volumeGridStale)
+            {
+                EnsureAllVolumeGridPoints();
+                return true;
+            }
             if (!_volumeGridAvailable || _volumeGridProvider == null) return volumeGrid != null;
             //
             PartExchangeData data = _volumeGridProvider(_volumeGridSourceName ?? _name);
@@ -2278,7 +2314,9 @@ namespace vtkControl
             _volumeGrid = grid;
             _volumeLocator = null;
             _volumeGridStale = false;
-            SetVolumeGridScalars(data);
+            _volumeGridPointsComplete = true;
+            _volumeGridNodeIds = data.Nodes.Ids;
+            SetVolumeGridScalars(data.Nodes);
             // Node map for the animation
             _animationLocatorNodeIdToPointId = null;
             if (data.Nodes.Ids != null)
@@ -2290,16 +2328,21 @@ namespace vtkControl
         private void RefreshVolumeGrid(PartExchangeData data)
         {
             // The part is the same, so the grid object stays and the anchors that reference it stay valid
+            SetVolumeGridPoints(data.Nodes);
+            _volumeGridStale = false;
+        }
+        private void SetVolumeGridPoints(NodesExchangeData nodes)
+        {
             vtkPoints points = vtkPoints.New();
-            if (data.Nodes.Coor != null)
+            if (nodes.Coor != null)
             {
-                points.SetNumberOfPoints(data.Nodes.Coor.Length);
-                for (int i = 0; i < data.Nodes.Coor.Length; i++)
-                    points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
+                points.SetNumberOfPoints(nodes.Coor.Length);
+                for (int i = 0; i < nodes.Coor.Length; i++)
+                    points.SetPoint(i, nodes.Coor[i][0], nodes.Coor[i][1], nodes.Coor[i][2]);
             }
             else
             {
-                float[] flatCoor = data.Nodes.FlatCoor;
+                float[] flatCoor = nodes.FlatCoor;
                 int numOfPoints = flatCoor.Length / 3;
                 points.SetNumberOfPoints(numOfPoints);
                 for (int i = 0; i < numOfPoints; i++)
@@ -2313,24 +2356,71 @@ namespace vtkControl
             }
             _volumeGrid.SetPoints(points);
             _volumeLocator = null;
-            _volumeGridStale = false;
-            SetVolumeGridScalars(data);
+            _volumeGridPointsComplete = true;
+            SetVolumeGridScalars(nodes);
         }
-        private void SetVolumeGridScalars(PartExchangeData data)
+        private void SetVolumeGridScalars(NodesExchangeData nodes)
         {
-            if (data.Nodes.Values != null)
+            if (nodes.Values != null)
             {
                 vtkFloatArray scalars = vtkFloatArray.New();
                 scalars.SetName(Globals.ScalarArrayName);
-                scalars.SetNumberOfValues(data.Nodes.Values.Length);
-                for (int i = 0; i < data.Nodes.Values.Length; i++) scalars.SetValue(i, data.Nodes.Values[i]);
+                scalars.SetNumberOfValues(nodes.Values.Length);
+                for (int i = 0; i < nodes.Values.Length; i++) scalars.SetValue(i, nodes.Values[i]);
                 _volumeGrid.GetPointData().SetScalars(scalars);
             }
             else _volumeGrid.GetPointData().RemoveArray(Globals.ScalarArrayName);
             // A transformed copy shows the transformed result component
-            _volumeResultField = GetCompatibleResultField(data.Nodes.ResultField, _volumeGrid.GetNumberOfPoints());
+            _volumeResultField = GetCompatibleResultField(nodes.ResultField, _volumeGrid.GetNumberOfPoints());
             if (_volumeResultField != null && _volumeGridSourceName != null)
                 SetTransformedValues(_volumeGrid, _volumeResultField);
+        }
+        private void EnsureAllVolumeGridPoints()
+        {
+            if (_volumeGridPointsComplete || _volumeGrid == null) return;
+            if (_animationNodesProvider == null || _volumeGridNodeIds == null || _animationFrameNumber < 0) return;
+            //
+            NodesExchangeData nodes = _animationNodesProvider(_name, _animationFrameNumber, _volumeGridNodeIds);
+            if (nodes == null || (nodes.Coor == null && nodes.FlatCoor == null)) return;
+            //
+            SetVolumeGridPoints(nodes);
+        }
+        internal void EnsureVolumeGridPoints(long[] pointIds)
+        {
+            if (_volumeGridPointsComplete || _volumeGrid == null) return;
+            if (_animationNodesProvider == null || _volumeGridNodeIds == null || _animationFrameNumber < 0) return;
+            //
+            List<long> missingPointIds = new List<long>();
+            foreach (long pointId in pointIds)
+            {
+                if (pointId >= 0 && pointId < _volumeGridNodeIds.Length && !_volumeGridUpdatedPointIds.Contains(pointId))
+                    missingPointIds.Add(pointId);
+            }
+            if (missingPointIds.Count == 0) return;
+            //
+            int[] nodeIds = new int[missingPointIds.Count];
+            for (int i = 0; i < nodeIds.Length; i++) nodeIds[i] = _volumeGridNodeIds[missingPointIds[i]];
+            NodesExchangeData nodes = _animationNodesProvider(_name, _animationFrameNumber, nodeIds);
+            if (nodes == null || nodes.FlatCoor == null || nodes.FlatCoor.Length != 3 * nodeIds.Length) return;
+            //
+            vtkPoints points = _volumeGrid.GetPoints();
+            vtkDataArray scalars = _volumeGrid.GetPointData().GetScalars();
+            double[] coor = new double[3];
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                coor[0] = nodes.FlatCoor[3 * i];
+                coor[1] = nodes.FlatCoor[3 * i + 1];
+                coor[2] = nodes.FlatCoor[3 * i + 2];
+                if (_volumeGridTransform != null)
+                    coor = _volumeGridTransform.TransformDoublePoint(coor[0], coor[1], coor[2]);
+                points.SetPoint(missingPointIds[i], coor[0], coor[1], coor[2]);
+                if (scalars != null && nodes.Values != null && i < nodes.Values.Length)
+                    scalars.SetTuple1(missingPointIds[i], nodes.Values[i]);
+                _volumeGridUpdatedPointIds.Add(missingPointIds[i]);
+            }
+            points.Modified();
+            if (scalars != null) scalars.Modified();
+            _volumeLocator = null;
         }
         private static vtkUnstructuredGrid TransformVolumeGrid(vtkUnstructuredGrid grid, vtkTransform transform)
         {

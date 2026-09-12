@@ -23280,6 +23280,16 @@ namespace PrePoMax
             return GetAnimationFrameNodes(part, nodeIds, frameNumber);
         }
         private NodesExchangeData GetAnimationFrameNodes(BasePart part, int[] nodeIds, int frameNumber)
+        public NodesExchangeData GetAnimationNodes(string actorName, int frameNumber, int[] nodeIds)
+        {
+            // The frame coordinates and values of the given nodes only - an anchor or an interior annotation
+            if (_animationLocatorFieldData == null || nodeIds == null) return null;
+            if (frameNumber < 0 || frameNumber >= _animationLocatorFieldData.Length) return null;
+            if (_allResults.CurrentResult == null ||
+                !_allResults.CurrentResult.Mesh.Parts.TryGetValue(actorName, out BasePart part)) return null;
+            //
+            return GetAnimationFrameNodes(part, nodeIds, frameNumber);
+        }
         {
             FeResults result = _allResults.CurrentResult;
             FieldData fieldData = _animationLocatorFieldData[frameNumber];
