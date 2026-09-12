@@ -435,6 +435,7 @@ namespace PrePoMax
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
                 _vtk.Controller_AnimationFrameChanged = _controller.AnimationFrameChanged;
                 _vtk.Controller_GetAnimationLocatorNodes = _controller.GetAnimationLocatorNodes;
+                _vtk.Controller_GetVolumeGridData = _controller.GetVolumeGridData;
                 _vtk.Controller_GetNodeActorData = _controller.GetNodeActorData;
                 _vtk.Controller_GetCellActorData = _controller.GetCellActorData;
                 _vtk.Controller_GetCellFaceActorData = _controller.GetCellFaceActorData;
@@ -11477,13 +11478,9 @@ namespace PrePoMax
             return _vtk.AddAnimatedScalarFieldOnCells(actorData);
         }
         public void UpdateActorSurfaceScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
-                                                  float[] frustumCellLocatorValues,
-                                                  ResultFieldExchangeData resultField,
-                                                  ResultFieldExchangeData frustumResultField, bool update)
+                                                  ResultFieldExchangeData resultField, bool update)
         {
-            InvokeIfRequired(() => _vtk.UpdateActorScalarField(actorName, values, extremeNodes,
-                                                               frustumCellLocatorValues, resultField,
-                                                               frustumResultField, update));
+            InvokeIfRequired(() => _vtk.UpdateActorScalarField(actorName, values, extremeNodes, resultField, update));
         }
         public void UpdateActorColorContoursVisibility(string[] actorNames, bool colorContour)
         {

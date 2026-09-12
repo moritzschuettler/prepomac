@@ -49,8 +49,16 @@ namespace vtkControl
         protected vtkPointSet _animationElementEdgesPointSet;
         protected vtkPointSet _animationModelEdgesPointSet;
         protected vtkCellLocator _cellLocator;          // for surface picking
-        protected vtkCellLocator _frustumCellLocator;   // for volume picking
-        protected vtkPointData _frustumPointData;
+        // The whole part mesh is built on first need from the provider - section view, box selection, anchors
+        protected vtkUnstructuredGrid _volumeGrid;
+        protected bool _volumeGridStale;
+        protected vtkCellLocator _volumeLocator;
+        protected Func<string, PartExchangeData> _volumeGridProvider;
+        protected string _volumeGridSourceName;
+        protected vtkTransform _volumeGridTransform;
+        protected bool _volumeGridAvailable;
+        protected bool _hasVolumeCells;
+        protected int[] _partNodeIds;
         protected vtkMaxActor _sectionViewActor;
         protected vtkMaxActor _sectionViewSkinActor;
         protected bool _geometryHiddenBySectionView;
@@ -61,7 +69,7 @@ namespace vtkControl
         protected Dictionary<int, int> _animationLocatorNodeIdToPointId;
         protected int _animationLocatorFrameNumber;
         protected ResultFieldExchangeData _geometryResultField;
-        protected ResultFieldExchangeData _frustumResultField;
+        protected ResultFieldExchangeData _volumeResultField;
         protected double[] _resultFieldTransformation;
         //
         protected bool _isAPart;
@@ -164,8 +172,16 @@ namespace vtkControl
         //
         public vtkPointData GeometryPointData { get { return _geometryPointData; } }
         public vtkCellLocator CellLocator { get { return _cellLocator; } set { _cellLocator = value; } }
-        public vtkCellLocator FrustumCellLocator { get { return _frustumCellLocator; } set { _frustumCellLocator = value; } }
-        public vtkPointData FrustumPointData { get { return _frustumPointData; } }
+        public Func<string, PartExchangeData> VolumeGridProvider
+        {
+            get { return _volumeGridProvider; }
+            set { _volumeGridProvider = value; }
+        }
+        public string VolumeGridSourceName { get { return _volumeGridSourceName; } }
+        public bool VolumeGridAvailable { get { return _volumeGridAvailable; } }
+        public bool HasVolumeGrid { get { return _volumeGrid != null; } }
+        public bool HasVolumeCells { get { return _hasVolumeCells; } }
+        public int[] PartNodeIds { get { return _partNodeIds; } }
         public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
         public vtkMaxActor SectionViewSkinActor { get { return _sectionViewSkinActor; } set { _sectionViewSkinActor = value; } }
         public bool GeometryHiddenBySectionView
@@ -280,14 +296,22 @@ namespace vtkControl
             _geometryMapper = _geometry.GetMapper();
             //
             _cellLocator = null;
-            _frustumCellLocator = null;
+            _volumeGrid = null;
+            _volumeGridStale = false;
+            _volumeLocator = null;
+            _volumeGridProvider = null;
+            _volumeGridSourceName = null;
+            _volumeGridTransform = null;
+            _volumeGridAvailable = false;
+            _hasVolumeCells = false;
+            _partNodeIds = null;
             _sectionViewActor = null;
             _sectionViewSkinActor = null;
             _geometryHiddenBySectionView = false;
             _sectionViewOuterFaces = null;
             _copies = new List<vtkMaxActor>();
             _geometryResultField = null;
-            _frustumResultField = null;
+            _volumeResultField = null;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             //
             _isAPart = false;
@@ -417,6 +441,9 @@ namespace vtkControl
             if (_elementEdgesProperty != null) _elementEdgesProperty.SetPointSize(data.NodeSize);
             //
             _isAPart = data.IsAPart;
+            _volumeGridAvailable = data.Layer == vtkRendererLayer.Base && data.VolumeGridAvailable;
+            _hasVolumeCells = data.HasVolumeCells;
+            _partNodeIds = data.PartNodeIds;
             _actorRepresentation = data.ActorRepresentation;
             _backfaceCulling = data.BackfaceCulling;
             _color = data.Color;
@@ -478,15 +505,19 @@ namespace vtkControl
                 _cellLocator.SetDataSet(_geometryMapper.GetInputAsDataSet());
                 _cellLocator.LazyEvaluationOn();
             }
-            // Frustum Locator
-            if (copyDataSets && sourceActor.FrustumCellLocator != null)
+            // Volume grid - a copy builds its own from the source part when it is first needed
+            if (copyDataSets && sourceActor.VolumeGridAvailable)
             {
-                vtkUnstructuredGrid grid = vtkUnstructuredGrid.New();
-                grid.DeepCopy(sourceActor.FrustumCellLocator.GetDataSet());
-                //
-                _frustumCellLocator = vtkCellLocator.New();
-                _frustumCellLocator.SetDataSet(grid);
-                _frustumCellLocator.LazyEvaluationOn();
+                _volumeGridAvailable = true;
+                _hasVolumeCells = sourceActor.HasVolumeCells;
+                _partNodeIds = sourceActor.PartNodeIds;
+                _volumeGridProvider = sourceActor.VolumeGridProvider;
+                _volumeGridSourceName = sourceActor.VolumeGridSourceName ?? sourceActor.Name;
+                if (sourceActor._volumeGridTransform != null)
+                {
+                    _volumeGridTransform = vtkTransform.New();
+                    _volumeGridTransform.SetMatrix(sourceActor._volumeGridTransform.GetMatrix());
+                }
             }
             // Element edges                                                    
             if (copyDataSets && sourceActor.ElementEdges != null)
@@ -530,7 +561,7 @@ namespace vtkControl
             _copies = new List<vtkMaxActor>(sourceActor.Copies);
             // Result field transformation data is immutable and shared by actor copies.
             _geometryResultField = sourceActor._geometryResultField;
-            _frustumResultField = sourceActor._frustumResultField;
+            _volumeResultField = sourceActor._volumeResultField;
             _resultFieldTransformation = (double[])sourceActor._resultFieldTransformation.Clone();
             //
             _isAPart = sourceActor.IsAPart;
@@ -561,9 +592,7 @@ namespace vtkControl
         {
             _geometryResultField = GetCompatibleResultField(data?.Geometry?.Nodes?.ResultField,
                                                              _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
-            long numberOfLocatorPoints = _frustumCellLocator?.GetDataSet()?.GetNumberOfPoints() ?? 0;
-            _frustumResultField = GetCompatibleResultField(data?.CellLocator?.Nodes?.ResultField,
-                                                            numberOfLocatorPoints);
+            _volumeResultField = null;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
         }
         private static ResultFieldExchangeData GetCompatibleResultField(ResultFieldExchangeData resultField,
@@ -573,24 +602,16 @@ namespace vtkControl
                 resultField.GetNumberOfValues() != numberOfPoints) return null;
             return resultField;
         }
-        public void UpdateResultFields(ResultFieldExchangeData geometryResultField,
-                                       ResultFieldExchangeData frustumResultField)
+        public void UpdateResultFields(ResultFieldExchangeData geometryResultField)
         {
             _geometryResultField = GetCompatibleResultField(geometryResultField,
                                                              _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
-            long numberOfLocatorPoints = _frustumCellLocator?.GetDataSet()?.GetNumberOfPoints() ?? 0;
-            _frustumResultField = GetCompatibleResultField(frustumResultField, numberOfLocatorPoints);
             // Keep the actor's cumulative transformation and reconstruct the newly selected component.
             if (_geometryResultField != null)
             {
                 vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
                 float[] values = SetTransformedValues(pointSet, _geometryResultField);
                 UpdateResultExtremes(pointSet, values);
-            }
-            if (_frustumResultField != null && _frustumCellLocator != null)
-            {
-                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
-                SetTransformedValues(pointSet, _frustumResultField);
             }
         }
         public void ApplyResultFieldTransformation(double[] transformation)
@@ -599,7 +620,7 @@ namespace vtkControl
             // A later component selection can then reconstruct its directional values correctly.
             _resultFieldTransformation = ResultFieldExchangeData.MultiplyTransformations(transformation,
                                                                                          _resultFieldTransformation);
-            if (_geometryResultField == null && _frustumResultField == null) return;
+            if (_geometryResultField == null && _volumeResultField == null) return;
             //
             float[] geometryValues = null;
             if (_geometryResultField != null)
@@ -608,11 +629,8 @@ namespace vtkControl
                 geometryValues = SetTransformedValues(pointSet, _geometryResultField);
                 UpdateResultExtremes(pointSet, geometryValues);
             }
-            if (_frustumResultField != null && _frustumCellLocator != null)
-            {
-                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
-                SetTransformedValues(pointSet, _frustumResultField);
-            }
+            if (_volumeResultField != null && _volumeGrid != null)
+                SetTransformedValues(_volumeGrid, _volumeResultField);
         }
         internal bool TryGetAnimationResultRange(IEnumerable<double[]> transformations, out double minimum,
                                                   out double maximum)
@@ -968,35 +986,7 @@ namespace vtkControl
             else _geometry.PickableOff();
             //
             _geometryProperty = _geometry.GetProperty();
-            // Frustum locator
-            //if (data.Layer == vtkRendererLayer.Base && data.Pickable && data.CellLocator != null)
-            if (data.Layer == vtkRendererLayer.Base && data.CellLocator != null)
-            {
-                vtkUnstructuredGrid uGridCellLocator;
-                //
-                AddNodeAndCellDataToGrid(data.CellLocator, out uGridCellLocator);
-                //
-                _frustumCellLocator = vtkCellLocator.New();
-                _frustumCellLocator.SetDataSet(uGridCellLocator);
-                _frustumCellLocator.LazyEvaluationOn();
-                _frustumCellLocator.GetDataSet().GetPointData().SetGlobalIds((vtkUnsignedLongArray)uGridCellLocator.GetPointData().GetGlobalIds());
-                _frustumCellLocator.GetDataSet().GetCellData().SetGlobalIds((vtkUnsignedLongArray)uGridCellLocator.GetCellData().GetGlobalIds());
-                // Add scalars
-                if (data.CellLocator.Nodes.Values != null)
-                {
-                    vtkFloatArray scalars = vtkFloatArray.New();
-                    scalars.SetName(Globals.ScalarArrayName);
-                    scalars.SetNumberOfValues(data.CellLocator.Nodes.Values.Length);
-                    for (int i = 0; i < data.CellLocator.Nodes.Values.Length; i++)
-                    {
-                        scalars.SetValue(i, data.CellLocator.Nodes.Values[i]);
-                    }
-                    // Set scalars
-                    _frustumPointData = _frustumCellLocator.GetDataSet().GetPointData();
-                    _frustumPointData.SetScalars(scalars);
-                }
-            }
-            // Element edges                                                                                                        
+            // Element edges
             if (data.CanHaveElementEdges)
             {
                 // Mapper
@@ -1088,11 +1078,23 @@ namespace vtkControl
 
             // Add the points
             vtkPoints points = vtkPoints.New();
-            points.SetNumberOfPoints(data.Nodes.Coor.Length);
-
-            for (int i = 0; i < data.Nodes.Coor.Length; i++)
+            if (data.Nodes.Coor != null)
             {
-                points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
+                points.SetNumberOfPoints(data.Nodes.Coor.Length);
+                for (int i = 0; i < data.Nodes.Coor.Length; i++)
+                {
+                    points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
+                }
+            }
+            else
+            {
+                float[] flatCoor = data.Nodes.FlatCoor;
+                int numOfPoints = flatCoor.Length / 3;
+                points.SetNumberOfPoints(numOfPoints);
+                for (int i = 0; i < numOfPoints; i++)
+                {
+                    points.SetPoint(i, flatCoor[3 * i], flatCoor[3 * i + 1], flatCoor[3 * i + 2]);
+                }
             }
             uGridActor.SetPoints(points);
             uGridEdges.SetPoints(points);
@@ -1974,12 +1976,7 @@ namespace vtkControl
                 for (int i = 0; i < data.Geometry.Nodes.Ids.Length; i++)
                     _animationNodeIdToPointId[data.Geometry.Nodes.Ids[i]] = i;
             }
-            _animationLocatorNodeIdToPointId = new Dictionary<int, int>();
-            if (data.CellLocator?.Nodes?.Ids != null)
-            {
-                for (int i = 0; i < data.CellLocator.Nodes.Ids.Length; i++)
-                    _animationLocatorNodeIdToPointId[data.CellLocator.Nodes.Ids[i]] = i;
-            }
+            // The volume grid node map is built together with the grid
             InvalidateAnimationInputs();
             EnsureAnimationInputs();
             vtkPointSet geometryPointSet = _animationGeometryPointSet;
@@ -1992,8 +1989,6 @@ namespace vtkControl
                 if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
                     modelEdgesNodes = data.ModelEdges.NodesAnimation[frameNumber];
                 NodesExchangeData locatorNodes = null;
-                if (data.CellLocator != null && data.CellLocator.NodesAnimation != null)
-                    locatorNodes = data.CellLocator.NodesAnimation[frameNumber];
                 NodesExchangeData extremeNodes = null;
                 if (data.Geometry.ExtremeNodesAnimation != null)
                     extremeNodes = data.Geometry.ExtremeNodesAnimation[frameNumber];
@@ -2044,8 +2039,6 @@ namespace vtkControl
             data.Geometry.NodesAnimation[frameNumber] = null;
             if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
                 data.ModelEdges.NodesAnimation[frameNumber] = null;
-            if (data.CellLocator != null && data.CellLocator.NodesAnimation != null)
-                data.CellLocator.NodesAnimation[frameNumber] = null;
         }
 
         public void SetAnimationFrame(int frameNumber)
@@ -2055,7 +2048,7 @@ namespace vtkControl
 
             vtkMaxActorAnimationData animationData = _animationData[frameNumber];
             _geometryResultField = animationData.ResultField;
-            _frustumResultField = animationData.LocatorResultField;
+            _volumeResultField = animationData.LocatorResultField;
             _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             // Actor points
             EnsureAnimationInputs();
@@ -2075,15 +2068,14 @@ namespace vtkControl
             // Min/max
             if (animationData.MinNode != null) _minNode = animationData.MinNode;
             if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;
-            // Locator points
-            if (animationData.LocatorPoints != null && _frustumCellLocator != null)
+            // Volume grid points and values
+            if (animationData.LocatorPoints != null && _volumeGrid != null)
             {
-                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
-                pointSet.SetPoints(animationData.LocatorPoints);
+                _volumeGrid.SetPoints(animationData.LocatorPoints);
+                _volumeLocator = null;
             }
-            // Locator values
-            if (animationData.LocatorValues != null && _frustumCellLocator != null)
-                _frustumCellLocator.GetDataSet().GetPointData().SetScalars(animationData.LocatorValues);
+            if (animationData.LocatorValues != null && _volumeGrid != null)
+                _volumeGrid.GetPointData().SetScalars(animationData.LocatorValues);
         }
         internal int GetAnimationFrameCount()
         {
@@ -2129,12 +2121,13 @@ namespace vtkControl
             value = float.NaN;
             vtkPointSet pointSet;
             int pointId;
+            vtkUnstructuredGrid volumeGrid;
             if (_animationNodeIdToPointId != null &&
                 _animationNodeIdToPointId.TryGetValue(nodeId, out pointId))
                 pointSet = _geometryMapper.GetInput() as vtkPointSet;
-            else if (_animationLocatorNodeIdToPointId != null &&
+            else if (TryGetVolumeGrid(out volumeGrid) && _animationLocatorNodeIdToPointId != null &&
                      _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId))
-                pointSet = _frustumCellLocator?.GetDataSet() as vtkPointSet;
+                pointSet = volumeGrid;
             else return false;
 
             if (pointSet == null) return false;
@@ -2148,7 +2141,19 @@ namespace vtkControl
         internal bool TryCreateAnimationArrowAnchor(double[] anchorPoint, out vtkMaxAnimationArrowAnchor anchor)
         {
             anchor = null;
-            vtkCellLocator locator = _frustumCellLocator ?? _cellLocator;
+            vtkCellLocator locator;
+            vtkUnstructuredGrid volumeGrid;
+            if (TryGetVolumeGrid(out volumeGrid))
+            {
+                if (_volumeLocator == null)
+                {
+                    _volumeLocator = vtkCellLocator.New();
+                    _volumeLocator.SetDataSet(volumeGrid);
+                    _volumeLocator.LazyEvaluationOn();
+                }
+                locator = _volumeLocator;
+            }
+            else locator = _cellLocator;
             vtkPointSet pointSet = locator?.GetDataSet() as vtkPointSet;
             if (pointSet == null) return false;
             locator.BuildLocator();
@@ -2247,11 +2252,125 @@ namespace vtkControl
             if (ElementEdges != null) ElementEdges.GetMapper().RemoveAllClippingPlanes();
             if (ModelEdges != null) ModelEdges.GetMapper().RemoveAllClippingPlanes();
         }
+        // Volume grid
+        public bool TryGetVolumeGrid(out vtkUnstructuredGrid volumeGrid)
+        {
+            volumeGrid = _volumeGrid;
+            if (volumeGrid != null && !_volumeGridStale) return true;
+            if (!_volumeGridAvailable || _volumeGridProvider == null) return volumeGrid != null;
+            //
+            PartExchangeData data = _volumeGridProvider(_volumeGridSourceName ?? _name);
+            if (data == null || data.Nodes == null || data.Cells == null || data.Cells.CellNodeIds == null ||
+                (data.Nodes.Coor == null && data.Nodes.FlatCoor == null)) return volumeGrid != null;
+            //
+            if (_volumeGrid == null) BuildVolumeGrid(data);
+            else RefreshVolumeGrid(data);
+            volumeGrid = _volumeGrid;
+            return true;
+        }
+        private void BuildVolumeGrid(PartExchangeData data)
+        {
+            vtkUnstructuredGrid grid;
+            AddNodeAndCellDataToGrid(data, out grid);
+            // A transformed copy is built from the source part
+            if (_volumeGridTransform != null) grid = TransformVolumeGrid(grid, _volumeGridTransform);
+            //
+            _volumeGrid = grid;
+            _volumeLocator = null;
+            _volumeGridStale = false;
+            SetVolumeGridScalars(data);
+            // Node map for the animation
+            _animationLocatorNodeIdToPointId = null;
+            if (data.Nodes.Ids != null)
+            {
+                _animationLocatorNodeIdToPointId = new Dictionary<int, int>(data.Nodes.Ids.Length);
+                for (int i = 0; i < data.Nodes.Ids.Length; i++) _animationLocatorNodeIdToPointId[data.Nodes.Ids[i]] = i;
+            }
+        }
+        private void RefreshVolumeGrid(PartExchangeData data)
+        {
+            // The part is the same, so the grid object stays and the anchors that reference it stay valid
+            vtkPoints points = vtkPoints.New();
+            if (data.Nodes.Coor != null)
+            {
+                points.SetNumberOfPoints(data.Nodes.Coor.Length);
+                for (int i = 0; i < data.Nodes.Coor.Length; i++)
+                    points.SetPoint(i, data.Nodes.Coor[i][0], data.Nodes.Coor[i][1], data.Nodes.Coor[i][2]);
+            }
+            else
+            {
+                float[] flatCoor = data.Nodes.FlatCoor;
+                int numOfPoints = flatCoor.Length / 3;
+                points.SetNumberOfPoints(numOfPoints);
+                for (int i = 0; i < numOfPoints; i++)
+                    points.SetPoint(i, flatCoor[3 * i], flatCoor[3 * i + 1], flatCoor[3 * i + 2]);
+            }
+            if (_volumeGridTransform != null)
+            {
+                vtkPoints transformedPoints = vtkPoints.New();
+                _volumeGridTransform.TransformPoints(points, transformedPoints);
+                points = transformedPoints;
+            }
+            _volumeGrid.SetPoints(points);
+            _volumeLocator = null;
+            _volumeGridStale = false;
+            SetVolumeGridScalars(data);
+        }
+        private void SetVolumeGridScalars(PartExchangeData data)
+        {
+            if (data.Nodes.Values != null)
+            {
+                vtkFloatArray scalars = vtkFloatArray.New();
+                scalars.SetName(Globals.ScalarArrayName);
+                scalars.SetNumberOfValues(data.Nodes.Values.Length);
+                for (int i = 0; i < data.Nodes.Values.Length; i++) scalars.SetValue(i, data.Nodes.Values[i]);
+                _volumeGrid.GetPointData().SetScalars(scalars);
+            }
+            else _volumeGrid.GetPointData().RemoveArray(Globals.ScalarArrayName);
+            // A transformed copy shows the transformed result component
+            _volumeResultField = GetCompatibleResultField(data.Nodes.ResultField, _volumeGrid.GetNumberOfPoints());
+            if (_volumeResultField != null && _volumeGridSourceName != null)
+                SetTransformedValues(_volumeGrid, _volumeResultField);
+        }
+        private static vtkUnstructuredGrid TransformVolumeGrid(vtkUnstructuredGrid grid, vtkTransform transform)
+        {
+            vtkTransformFilter transformFilter = vtkTransformFilter.New();
+            transformFilter.SetInput(grid);
+            transformFilter.SetTransform(transform);
+            transformFilter.Update();
+            return vtkUnstructuredGrid.SafeDownCast(transformFilter.GetOutput());
+        }
+        public void InvalidateVolumeGrid()
+        {
+            // An existing grid is refreshed in place when it is next needed
+            _volumeGridStale = true;
+            _volumeLocator = null;
+        }
+        public void AppendVolumeGridTransform(vtkTransform transform)
+        {
+            if (!_volumeGridAvailable) return;
+            //
+            if (_volumeGridTransform == null)
+            {
+                _volumeGridTransform = vtkTransform.New();
+                _volumeGridTransform.Identity();
+            }
+            _volumeGridTransform.PostMultiply();
+            _volumeGridTransform.Concatenate(transform.GetMatrix());
+            //
+            if (_volumeGrid != null)
+            {
+                _volumeGrid = TransformVolumeGrid(_volumeGrid, transform);
+                _volumeLocator = null;
+            }
+        }
         // Memory
         public void RecomputeMemorySize()
         {
             if (_geometryMapper != null && _geometryMapper.GetInput() != null)
                 _memorySize += _geometryMapper.GetInput().GetActualMemorySize();
+            //
+            if (_volumeGrid != null) _memorySize += _volumeGrid.GetActualMemorySize();
             //
             if (_elementEdges != null && _elementEdges.GetMapper() != null && _elementEdges.GetMapper().GetInput() != null)
                 _memorySize += _elementEdges.GetMapper().GetInput().GetActualMemorySize();

@@ -53,12 +53,14 @@ namespace vtkControl
         public bool UseSecondaryHighlightColor;
         public vtkMaxActorRepresentation ActorRepresentation;
         public bool SectionViewPossible;
+        public bool VolumeGridAvailable;
+        public bool HasVolumeCells;
+        public int[] PartNodeIds;
         //
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;
         public PartExchangeData ElementEdges;
-        public PartExchangeData CellLocator;
-        
+
 
         // Constructors                                                                                                             
         public vtkMaxActorData()
@@ -87,11 +89,13 @@ namespace vtkControl
             UseSecondaryHighlightColor = false;
             ActorRepresentation = vtkMaxActorRepresentation.Unknown;
             SectionViewPossible = true;
+            VolumeGridAvailable = false;
+            HasVolumeCells = false;
+            PartNodeIds = null;
             //
             Geometry = new PartExchangeData();
             ModelEdges = null;
             ElementEdges = null;
-            CellLocator = null;
         }
 
         // Methods                                                                                                                  

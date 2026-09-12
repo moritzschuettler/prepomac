@@ -82,7 +82,6 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="FaceNodeKey.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="Locator\vtkMaxLocator.cs" />
     <Compile Include="SectionViewProperites.cs" />
     <Compile Include="Tools\Extensions.cs" />
     <Compile Include="Tools\QuaternionHelper.cs" />

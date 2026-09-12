@@ -326,6 +326,7 @@ namespace vtkControl
         public Func<string, string> Controller_GetAnnotationText;
         public Action<int, bool> Controller_AnimationFrameChanged;
         public Func<string, int, NodesExchangeData> Controller_GetAnimationLocatorNodes;
+        public Func<string, int, PartExchangeData> Controller_GetVolumeGridData;
         public Func<int[], vtkMaxActorData> Controller_GetNodeActorData;
         public Func<int[], int[], vtkMaxActorData> Controller_GetCellActorData;
         public Func<int, int[], vtkMaxActorData> Controller_GetCellFaceActorData;
@@ -1513,7 +1514,7 @@ namespace vtkControl
             pickedActors.InitTraversal();
             pickedActor = (vtkActor)pickedActors.GetNextProp3D();
             //
-            vtkCellLocator locator;
+            vtkUnstructuredGrid volumeGrid;
             vtkExtractSelectedFrustum extractor;
             //
             while (pickedActor != null)
@@ -1522,21 +1523,19 @@ namespace vtkControl
                 vtkMaxActor maxActor;
                 //
                 if (pickedActorName == null ||
-                    !(_actors.TryGetValue(pickedActorName, out maxActor) && maxActor.FrustumCellLocator != null))
+                    !(_actors.TryGetValue(pickedActorName, out maxActor) && maxActor.TryGetVolumeGrid(out volumeGrid)))
                 {
-                    // Actor has no locator
+                    // Actor has no volume grid
                 }
                 else
                 {
-                    // Actors               
+                    // Actors
                     selectedActorNames.Add(pickedActorName);
-                    //
-                    locator = maxActor.FrustumCellLocator;
-                    // Points               
+                    // Points
                     extractor = vtkExtractSelectedFrustum.New(); // must be inside the loop
                     extractor.SetFieldType((int)vtkSelectionField.POINT);
                     extractor.SetContainingCells(0);
-                    extractor.SetInput(0, locator.GetDataSet());
+                    extractor.SetInput(0, volumeGrid);
                     extractor.SetFrustum(planes);
                     extractor.Update();
                     //
@@ -2068,7 +2067,8 @@ namespace vtkControl
             vtkUnsignedLongArray globalCellIdsDataArray;
             HashSet<int> globalPointIds = new HashSet<int>();
             HashSet<int> globalCellIds = new HashSet<int>();
-            vtkCellLocator locator;
+            vtkUnstructuredGrid volumeGrid;
+            FrustumBoxResultEnum boxResult;
             //
             foreach (var entry in _actors)
             {
@@ -2079,25 +2079,24 @@ namespace vtkControl
                 // Skip invisible actors
                 if (visible)
                 {
-                    locator = entry.Value.FrustumCellLocator;
-                    if (locator != null)
+                    if (entry.Value.VolumeGridAvailable)
                     {
-                        bb = new CaeMesh.BoundingBox(locator.GetDataSet().GetBounds());
-                        switch (bb.TestBoundsAgainstFrustum(planeParameters))
+                        // The surface bounds are the part bounds, so an actor outside the frustum builds no grid
+                        bb = new CaeMesh.BoundingBox(entry.Value.Geometry.GetBounds());
+                        boxResult = bb.TestBoundsAgainstFrustum(planeParameters);
+                        if (boxResult == FrustumBoxResultEnum.Outside) continue;
+                        if (!entry.Value.TryGetVolumeGrid(out volumeGrid)) continue;
+                        if (boxResult == FrustumBoxResultEnum.Inside)
                         {
-                            case FrustumBoxResultEnum.Outside: continue;
-                            case FrustumBoxResultEnum.Inside:
-                                AddAllGlobalPointIds(locator.GetDataSet(), globalPointIds);
-                                AddAllGlobalCellIds(locator.GetDataSet(), globalCellIds);
-                                continue;
-                            case FrustumBoxResultEnum.Intersecting:
-                                break;
+                            AddAllGlobalPointIds(volumeGrid, globalPointIds);
+                            AddAllGlobalCellIds(volumeGrid, globalCellIds);
+                            continue;
                         }
-                        // Inside points                
+                        // Inside points
                         extractor = vtkExtractSelectedFrustum.New(); // must be inside the loop
                         extractor.SetFieldType((int)vtkSelectionField.POINT);
                         extractor.SetContainingCells(0);
-                        extractor.SetInput(0, locator.GetDataSet());
+                        extractor.SetInput(0, volumeGrid);
                         extractor.SetFrustum(planes);
                         extractor.Update();
                         //
@@ -4937,6 +4936,13 @@ namespace vtkControl
         {
             AddActor(actor, actor.Layer);
         }
+        private PartExchangeData GetVolumeGridData(string sourceName)
+        {
+            if (Controller_GetVolumeGridData == null) return null;
+            // An animated part is built for the displayed frame
+            int frameNumber = _animationActors.ContainsKey(sourceName) ? _currentAnimationFrameNumber : -1;
+            return Controller_GetVolumeGridData(sourceName, frameNumber);
+        }
         private void AddActor(vtkMaxActor actor, vtkRendererLayer layer)
         {
             // Add actor
@@ -4956,6 +4962,7 @@ namespace vtkControl
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
                 _actors.Add(actor.Name, actor);
                 _renderer.AddActor(actor.Geometry);
+                if (actor.VolumeGridAvailable) actor.VolumeGridProvider = GetVolumeGridData;
                 //
                 if (actor.Geometry.GetPickable() == 1)
                 {
@@ -5526,8 +5533,7 @@ namespace vtkControl
         }
         private bool HasVolumeCells(vtkMaxActor actor)
         {
-            vtkDataSet grid = actor.FrustumCellLocator.GetDataSet();
-            return grid.GetNumberOfCells() > 0 && grid.GetCell(0).GetCellDimension() == 3;
+            return actor.HasVolumeCells;
         }
         private void GetSectionViewActorProperties(vtkMaxActor actor, double[] point)
         {
@@ -5593,13 +5599,16 @@ namespace vtkControl
         }
         private vtkMaxActor GetSectionViewActorFromSolid(vtkMaxActor actor)
         {
+            vtkUnstructuredGrid volumeGrid;
+            if (!actor.TryGetVolumeGrid(out volumeGrid)) return null;
+            //
             vtkMaxActor sectionViewActor = new vtkMaxActor(actor, false);
             sectionViewActor.Name = GetSectionViewActorName(actor.Name);
             sectionViewActor.BackfaceCulling = false;
             sectionViewActor.CellLocator = null;
             // Get the unstructured grid
             vtkUnstructuredGrid grid = vtkUnstructuredGrid.New();
-            grid.DeepCopy(actor.FrustumCellLocator.GetDataSet());
+            grid.DeepCopy(volumeGrid);
             // Create a cutter
             vtkCutter cutter = vtkCutter.New();
             cutter.SetCutFunction(_sectionViewData.Plane);
@@ -5741,13 +5750,16 @@ namespace vtkControl
         }
         private vtkMaxActor GetSectionViewActorFromClosedSurface(vtkMaxActor actor)
         {
+            vtkUnstructuredGrid volumeGrid;
+            if (!actor.TryGetVolumeGrid(out volumeGrid)) return null;
+            //
             vtkMaxActor sectionViewActor = new vtkMaxActor(actor, false);
             sectionViewActor.Name = GetSectionViewActorName(actor.Name);
             sectionViewActor.BackfaceCulling = false;
             sectionViewActor.CellLocator = null;
-            // The geometry poly data duplicates the nodes on the face boundaries, the locator grid shares them
+            // The geometry poly data duplicates the nodes on the face boundaries, the volume grid shares them
             vtkGeometryFilter geometryFilter = vtkGeometryFilter.New();
-            geometryFilter.SetInput(actor.FrustumCellLocator.GetDataSet());
+            geometryFilter.SetInput(volumeGrid);
             geometryFilter.Update();
             vtkPolyData surface = geometryFilter.GetOutput();
             // Create a cutter
@@ -5834,8 +5846,8 @@ namespace vtkControl
         private vtkMaxActor GetSectionViewActorsElementWise(vtkMaxActor actor, out vtkMaxActor skinActor)
         {
             skinActor = null;
-            vtkUnstructuredGrid grid = vtkUnstructuredGrid.SafeDownCast(actor.FrustumCellLocator.GetDataSet());
-            if (grid == null) return GetSectionViewActorFromSolid(actor);
+            vtkUnstructuredGrid grid;
+            if (!actor.TryGetVolumeGrid(out grid)) return null;
             //
             AddSectionViewIdArrays(grid);
             // A part the plane does not reach is either untouched or gone
@@ -6219,7 +6231,7 @@ namespace vtkControl
             // Surfaces drawn on the parts - loads, contact regions... - keep the faces of the remaining elements
             foreach (var actor in _actors.Values.ToArray())     // must be copied to array
             {
-                if (actor.IsAPart || !actor.SectionViewPossible || actor.FrustumCellLocator != null ||
+                if (actor.IsAPart || !actor.SectionViewPossible || actor.VolumeGridAvailable ||
                     actor.SectionViewSkinActor != null || actor is vtkMaxCaptionActor || actor.Layer != vtkRendererLayer.Base ||
                     actor.GeometryMapper == null || IsSectionViewActor(actor.Geometry)) continue;
                 //
@@ -6769,16 +6781,8 @@ namespace vtkControl
             TransformActor(vtkMaxActor.Geometry, transform);
             if (vtkMaxActor.ElementEdges != null) TransformActor(vtkMaxActor.ElementEdges, transform);
             if (vtkMaxActor.ModelEdges != null) TransformActor(vtkMaxActor.ModelEdges, transform);
-            // Transform locator to enable section view
-            if (vtkMaxActor.FrustumCellLocator != null)
-            {
-                vtkTransformFilter transformFilter = vtkTransformFilter.New();
-                transformFilter.SetInput(vtkMaxActor.FrustumCellLocator.GetDataSet());
-                transformFilter.SetTransform(transform);
-                transformFilter.Update();
-                //
-                vtkMaxActor.FrustumCellLocator.SetDataSet(transformFilter.GetOutput());
-            }
+            // The volume grid of a copy is transformed when it is built
+            vtkMaxActor.AppendVolumeGridTransform(transform);
             // Reconstruct the selected directional result component after geometry transformation.
             vtkMaxActor.ApplyResultFieldTransformation(GetResultFieldTransformation(transform));
         }
@@ -7782,7 +7786,7 @@ namespace vtkControl
             _animationActors.Add(actor.Name, actor);
             _currentAnimationFrameNumber = 0;
             int[] animationNodeIds = registerNodeIds
-                ? data.CellLocator?.Nodes?.Ids ?? data.Geometry.Nodes.Ids
+                ? data.PartNodeIds ?? data.Geometry.Nodes.Ids
                 : null;
             if (animationNodeIds != null)
             {
@@ -8030,14 +8034,8 @@ namespace vtkControl
             return minNode != null && maxNode != null;
         }
         public void UpdateActorScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
-                                           float[] frustumCellLocatorValues, ResultFieldExchangeData resultField,
-                                           ResultFieldExchangeData frustumResultField, bool update)
+                                           ResultFieldExchangeData resultField, bool update)
         {
-            if (System.Diagnostics.Debugger.IsAttached && false)
-            {
-                Test(actorName, values, extremeNodes, frustumCellLocatorValues);
-                return;
-            }
             // Add scalars
             if (values != null)
             {
@@ -8046,13 +8044,7 @@ namespace vtkControl
                 scalars.SetNumberOfValues(values.Length);
                 for (int i = 0; i < values.Length; i++) scalars.SetValue(i, values[i]);
                 //
-                vtkFloatArray frustumScalars = vtkFloatArray.New();
-                frustumScalars.SetName(Globals.ScalarArrayName);
-                frustumScalars.SetNumberOfValues(frustumCellLocatorValues.Length);
-                for (int i = 0; i < frustumCellLocatorValues.Length; i++) frustumScalars.SetValue(i, frustumCellLocatorValues[i]);
-                //
-                UpdateActorScalarField(actorName, scalars, frustumScalars, extremeNodes,
-                                       resultField, frustumResultField);
+                UpdateActorScalarField(actorName, scalars, extremeNodes, resultField);
             }
             else
             {
@@ -8061,23 +8053,20 @@ namespace vtkControl
             //
             if (update) UpdateScalarsAndRedraw();
         }
-        private void UpdateActorScalarField(string actorName, vtkFloatArray scalars, vtkFloatArray frustumScalars,
-                                            NodesExchangeData extremeNodes, ResultFieldExchangeData resultField,
-                                            ResultFieldExchangeData frustumResultField)
+        private void UpdateActorScalarField(string actorName, vtkFloatArray scalars, NodesExchangeData extremeNodes,
+                                            ResultFieldExchangeData resultField)
         {
             vtkMaxActor actor = _actors[actorName];
             // Transformed copies
-            foreach (var copy in actor.Copies)
-                UpdateActorScalarField(copy.Name, scalars, frustumScalars, extremeNodes,
-                                       resultField, frustumResultField);
+            foreach (var copy in actor.Copies) UpdateActorScalarField(copy.Name, scalars, extremeNodes, resultField);
             // Set scalars
             actor.GeometryMapper.GetInput().GetPointData().SetScalars(scalars);
             actor.MinNode = new vtkMaxExtreemeNode(extremeNodes.Ids[0], extremeNodes.Coor[0], extremeNodes.Values[0]);
             actor.MaxNode = new vtkMaxExtreemeNode(extremeNodes.Ids[1], extremeNodes.Coor[1], extremeNodes.Values[1]);
-            // Set frustum scalars
-            actor.FrustumCellLocator.GetDataSet().GetPointData().SetScalars(frustumScalars);
+            // The volume grid carries the new values when it is next built
+            actor.InvalidateVolumeGrid();
             // Refresh the complete directional field and reconstruct this actor's selected component.
-            actor.UpdateResultFields(resultField, frustumResultField);
+            actor.UpdateResultFields(resultField);
         }
 
         private void RemoveActorScalarField(string actorName)
@@ -8091,16 +8080,14 @@ namespace vtkControl
                 actor.GeometryMapper.GetInput().GetPointData().RemoveArray(Globals.ScalarArrayName);
                 actor.MinNode = null;
                 actor.MaxNode = null;
-                actor.UpdateResultFields(null, null);
-                // Remove frustum scalars
-                actor.FrustumCellLocator.GetDataSet().GetPointData().RemoveArray(Globals.ScalarArrayName);
+                actor.UpdateResultFields(null);
+                actor.InvalidateVolumeGrid();
                 //
                 vtkMapper mapper = actor.GeometryMapper;
                 if (mapper.GetInterpolateScalarsBeforeMapping() != 0) mapper.SetInterpolateScalarsBeforeMapping(0);
             }
         }
-        private void Test(string actorName, float[] values, CaeGlobals.NodesExchangeData extremeNodes,
-                                            float[] frustumCellLocatorValues)
+        private void Test(string actorName, float[] values, CaeGlobals.NodesExchangeData extremeNodes)
         {
             // Add scalars
             if (values != null)
@@ -8113,14 +8100,6 @@ namespace vtkControl
                     scalars.SetValue(i, values[i]);
                 }
 
-                vtkFloatArray frustumScalars = vtkFloatArray.New();
-                frustumScalars.SetName(Globals.ScalarArrayName);
-                frustumScalars.SetNumberOfValues(frustumCellLocatorValues.Length);
-                for (int i = 0; i < frustumCellLocatorValues.Length; i++)
-                {
-                    frustumScalars.SetValue(i, frustumCellLocatorValues[i]);
-                }
-                
                 if (_actors.ContainsKey(actorName)) // added for testing
                 {
                     // Set scalars
@@ -8128,8 +8107,6 @@ namespace vtkControl
                     //
                     _actors[actorName].MinNode = new vtkMaxExtreemeNode(extremeNodes.Ids[0], extremeNodes.Coor[0], extremeNodes.Values[0]);
                     _actors[actorName].MaxNode = new vtkMaxExtreemeNode(extremeNodes.Ids[1], extremeNodes.Coor[1], extremeNodes.Values[1]);
-                    //Set frustum scalars
-                    _actors[actorName].FrustumPointData.SetScalars(frustumScalars);
                     //up to here 185000++
                 }
                 
@@ -8334,8 +8311,7 @@ namespace vtkControl
             bool applyTransforms = _transforms.Count > 0;
             if (applyTransforms) RemoveTransformedActors();
             //
-            if (applySectionView || _animationArrowAnchors.Count > 0 || _animationArrowAnchorRequests.Count > 0)
-                UpdateAnimationLocatorNodes(frameNumber);
+            UpdateAnimationLocatorNodes(frameNumber);
             //
             foreach (vtkMaxActor actor in _animationActors.Values) actor.SetAnimationFrame(frameNumber);
             _currentAnimationFrameNumber = frameNumber;
@@ -8361,9 +8337,13 @@ namespace vtkControl
         {
             if (Controller_GetAnimationLocatorNodes == null) return;
             //
+            // Only a part whose volume grid exists - section view, anchor, interior annotation - is deformed
             foreach (var entry in _animationActors)
+            {
+                if (!entry.Value.HasVolumeGrid) continue;
                 entry.Value.SetAnimationLocatorNodes(frameNumber,
                                                      Controller_GetAnimationLocatorNodes(entry.Key, frameNumber));
+            }
         }
         public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
         {

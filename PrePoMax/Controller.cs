@@ -59,6 +59,8 @@ namespace PrePoMax
         [NonSerialized] protected Dictionary<string, int[]> _animationLocatorNodeIds;
         [NonSerialized] protected FieldData[] _animationLocatorFieldData;
         [NonSerialized] protected float _animationLocatorScale;
+        [NonSerialized] protected float[] _animationLocatorRatios;
+        [NonSerialized] protected float[] _animationLocatorAngles;
         [NonSerialized] protected int _updateBatchCount;
         [NonSerialized] protected UpdateType _batchedModelUpdateType;
         [NonSerialized] protected UpdateType _batchedResultsUpdateType;
@@ -3154,14 +3156,16 @@ namespace PrePoMax
             // Resume undeformed results view
             if (_currentView == ViewGeometryModelResults.Results)
             {
-                // Show transformed actors
+                // The transformed copies were removed for the exploded view, so they are redrawn
                 _transformations.SetCurrentTransformations(transformations);
+                bool redraw = transformations != null && transformations.Count > 0;
                 //
                 if (undeformedType != UndeformedModelTypeEnum.None)
                 {
                     SetUndeformedModelType(undeformedType);
-                    DrawResults(false);
+                    redraw = true;
                 }
+                if (redraw) DrawResults(false);
             }
             //
             UpdateTreeSelection();
@@ -12347,9 +12351,98 @@ namespace PrePoMax
             }
             // xMin, xMax, yMin, yMax, zMin, zMax
             if (!includedPart) return new double[6];
-            else return new double[] { boundingBox.MinX, boundingBox.MaxX,
-                                       boundingBox.MinY, boundingBox.MaxY,
-                                       boundingBox.MinZ, boundingBox.MaxZ };
+            //
+            IncludeTransformedCopies(boundingBox);
+            //
+            return new double[] { boundingBox.MinX, boundingBox.MaxX,
+                                  boundingBox.MinY, boundingBox.MaxY,
+                                  boundingBox.MinZ, boundingBox.MaxZ };
+        }
+        private void IncludeTransformedCopies(BoundingBox boundingBox)
+        {
+            // The copies are chained the same way the view chains the transformed actors
+            List<Transformation> transformations = _transformations.GetCurrentTransformations();
+            if (transformations == null) return;
+            //
+            foreach (var transformation in transformations)
+            {
+                double[][] corners = GetBoundingBoxCorners(boundingBox);
+                int numOfItems;
+                Func<double[], double[]> transform;
+                if (transformation is Symmetry sym)
+                {
+                    numOfItems = 2;
+                    transform = coor => Mirror(coor, sym.PointCoor, (int)sym.SymmetryPlane);
+                }
+                else if (transformation is LinearPattern lp)
+                {
+                    numOfItems = lp.NumberOfItems;
+                    double[] displacement = lp.Displacement;
+                    transform = coor => Translate(coor, displacement);
+                }
+                else if (transformation is CircularPattern cp)
+                {
+                    numOfItems = cp.NumberOfItems;
+                    double[] axisPoint = cp.AxisFirstPoint;
+                    double[] axisNormal = cp.AxisNormal;
+                    double angleRad = cp.Angle * Math.PI / 180;
+                    transform = coor => Rotate(coor, axisPoint, axisNormal, angleRad);
+                }
+                else throw new NotSupportedException();
+                //
+                for (int i = 1; i < numOfItems; i++)
+                {
+                    for (int j = 0; j < corners.Length; j++)
+                    {
+                        corners[j] = transform(corners[j]);
+                        boundingBox.IncludeCoor(corners[j]);
+                    }
+                }
+            }
+        }
+        private static double[][] GetBoundingBoxCorners(BoundingBox box)
+        {
+            double[][] corners = new double[8][];
+            int count = 0;
+            for (int i = 0; i < 2; i++)
+            {
+                for (int j = 0; j < 2; j++)
+                {
+                    for (int k = 0; k < 2; k++)
+                    {
+                        corners[count++] = new double[] { i == 0 ? box.MinX : box.MaxX,
+                                                          j == 0 ? box.MinY : box.MaxY,
+                                                          k == 0 ? box.MinZ : box.MaxZ };
+                    }
+                }
+            }
+            return corners;
+        }
+        private static double[] Mirror(double[] coor, double[] planePoint, int axis)
+        {
+            double[] mirrored = coor.ToArray();
+            mirrored[axis] = 2 * planePoint[axis] - coor[axis];
+            return mirrored;
+        }
+        private static double[] Translate(double[] coor, double[] displacement)
+        {
+            return new double[] { coor[0] + displacement[0], coor[1] + displacement[1], coor[2] + displacement[2] };
+        }
+        private static double[] Rotate(double[] coor, double[] axisPoint, double[] axisNormal, double angleRad)
+        {
+            double[] v = new double[] { coor[0] - axisPoint[0], coor[1] - axisPoint[1], coor[2] - axisPoint[2] };
+            double cos = Math.Cos(angleRad);
+            double sin = Math.Sin(angleRad);
+            double dot = axisNormal[0] * v[0] + axisNormal[1] * v[1] + axisNormal[2] * v[2];
+            double[] cross = new double[] { axisNormal[1] * v[2] - axisNormal[2] * v[1],
+                                            axisNormal[2] * v[0] - axisNormal[0] * v[2],
+                                            axisNormal[0] * v[1] - axisNormal[1] * v[0] };
+            double[] rotated = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                rotated[i] = axisPoint[i] + v[i] * cos + cross[i] * sin + axisNormal[i] * dot * (1 - cos);
+            }
+            return rotated;
         }
         #endregion   ###############################################################################################################
 
@@ -16011,7 +16104,7 @@ namespace PrePoMax
             {
                 PartExchangeData actorResultData =
                     _allResults.CurrentResult.GetSetNodesCellsAndValues(elementSet, _currentFieldData);
-                data = GetVtkData(actorResultData, null, null);
+                data = GetVtkData(actorResultData, null);
             }
             else throw new NotSupportedException();
             //
@@ -16484,14 +16577,8 @@ namespace PrePoMax
             data.SmoothShaded = part.SmoothShaded;
             data.IsAPart = true;
             data.ActorRepresentation = GetRepresentation(part);
-            // Get all nodes and elements - renumbered
-            if (pickable)
-            {
-                data.CellLocator = new PartExchangeData();
-                mesh.GetSetNodesAndCells(part, out data.CellLocator.Nodes.Ids, out data.CellLocator.Nodes.Coor,
-                                         out data.CellLocator.Cells.Ids, out data.CellLocator.Cells.CellNodeIds,
-                                         out data.CellLocator.Cells.Types);
-            }
+            // All nodes and elements are built on demand
+            if (pickable) SetVolumeGridData(data, mesh, part);
             // Get only needed nodes and elements - renumbered
             mesh.GetVisualizationNodesAndCells(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
                                                out data.Geometry.Cells.Ids, out data.Geometry.Cells.CellNodeIds,
@@ -16624,12 +16711,8 @@ namespace PrePoMax
             data.SmoothShaded = part.SmoothShaded;
             data.IsAPart = true;
             data.ActorRepresentation = GetRepresentation(part);
-            // Get all nodes and elements for selection - renumbered
-            data.CellLocator = new PartExchangeData();
-            mesh.GetSetNodesAndCells(part, out data.CellLocator.Nodes.Ids, out data.CellLocator.Nodes.Coor,
-                                     out data.CellLocator.Cells.Ids,
-                                     out data.CellLocator.Cells.CellNodeIds,
-                                     out data.CellLocator.Cells.Types);
+            // All nodes and elements for selection are built on demand
+            SetVolumeGridData(data, mesh, part);
             // Get only needed nodes and elements - renumbered
             mesh.GetVisualizationNodesAndCells(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
                                                out data.Geometry.Cells.Ids,
@@ -22226,6 +22309,7 @@ namespace PrePoMax
                     if (rendering) _form.RenderingOn = false;
                     _form.Clear3D();    // Removes section cut
                     //
+                    ClearAnimationLocatorData();
                     if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return;
                     if (_allResults.CurrentResult.GetAllComponentNames().Length == 0)
                         _viewResultsType = ViewResultsTypeEnum.Undeformed;
@@ -22332,10 +22416,9 @@ namespace PrePoMax
             {
                 modelEdgesResultData = _allResults.CurrentResult.GetEdgesNodesAndCells(part, fieldData);
             }
-            // Get all needed nodes and elements - renumbered               
-            PartExchangeData locatorResultData = _allResults.CurrentResult.GetSetNodesCellsAndValues(part, fieldData);
             //
-            vtkMaxActorData data = GetVtkData(actorResultData, modelEdgesResultData, locatorResultData);
+            vtkMaxActorData data = GetVtkData(actorResultData, modelEdgesResultData);
+            SetVolumeGridData(data, _allResults.CurrentResult.Mesh, part);
             data.Name = part.Name;
             GetPartColor(part, ref data.Color, ref data.BackfaceColor);
             data.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours &&
@@ -22978,6 +23061,12 @@ namespace PrePoMax
             SetPostLegendAndStatusBlockSettings();
             SetStatusBlock(scale);
             //
+            // The volume grid nodes of each frame are regenerated on demand
+            FieldData[] frameFieldData = new FieldData[numFrames];
+            for (int i = 0; i < numFrames; i++) frameFieldData[i] = _currentFieldData;
+            SetAnimationLocatorData(frameFieldData, scale,
+                                    _allResults.CurrentResult.GetAnimationScaleRatios(_currentFieldData, numFrames),
+                                    null);
             vtkMaxActorData data;
             vtkRendererLayer layer = vtkRendererLayer.Base;
             //
@@ -23084,10 +23173,8 @@ namespace PrePoMax
             SetPostLegendAndStatusBlockSettings();
             SetStatusBlock(scale);
             FieldData[] animationFieldData = GetTimeIncrementAnimationFieldData(_currentFieldData);
-            // The locator nodes of each frame are regenerated on demand
-            _animationLocatorNodeIds = new Dictionary<string, int[]>();
-            _animationLocatorFieldData = animationFieldData;
-            _animationLocatorScale = scale;
+            // The volume grid nodes of each frame are regenerated on demand
+            SetAnimationLocatorData(animationFieldData, scale, null, null);
             //
             vtkMaxActorData data = null;
             vtkRendererLayer layer = vtkRendererLayer.Base;
@@ -23109,8 +23196,6 @@ namespace PrePoMax
                                                postSettings.UndeformedModelColor, layer);
                     // Results
                     data = GetTimeIncrementAnimationDataFromPart(resultPart, _currentFieldData, scale);
-                    if (data.CellLocator != null && data.CellLocator.Nodes != null)
-                        _animationLocatorNodeIds[resultPart.Name] = data.CellLocator.Nodes.Ids;
                     vtkMaxActorData plotData =
                         GetTimeIncrementAnimatedPlotActorData(resultPart, data, animationFieldData,
                                                               out double partPlotMaxValue);
@@ -23192,8 +23277,41 @@ namespace PrePoMax
             if (_allResults.CurrentResult == null ||
                 !_allResults.CurrentResult.Mesh.Parts.TryGetValue(actorName, out BasePart part)) return null;
             //
-            return _allResults.CurrentResult.GetDeformedNodes(part, nodeIds, _animationLocatorFieldData[frameNumber],
-                                                              _animationLocatorScale);
+            return GetAnimationFrameNodes(part, nodeIds, frameNumber);
+        }
+        private NodesExchangeData GetAnimationFrameNodes(BasePart part, int[] nodeIds, int frameNumber)
+        {
+            FeResults result = _allResults.CurrentResult;
+            FieldData fieldData = _animationLocatorFieldData[frameNumber];
+            // Scale factor animation
+            if (_animationLocatorRatios != null)
+                return result.GetScaledDeformedNodes(part, nodeIds, fieldData, _animationLocatorScale,
+                                                     _animationLocatorRatios[frameNumber]);
+            // Time increment animation
+            if (_animationLocatorAngles == null)
+                return result.GetDeformedNodes(part, nodeIds, fieldData, _animationLocatorScale);
+            // Harmonic animation - the frame angle replaces the displayed one and is restored
+            ComplexResultTypeEnum complexResultType = result.ComplexResultType;
+            float complexAngleDeg = result.ComplexAngleDeg;
+            try
+            {
+                result.SetComplexResultTypeAndAngle(ComplexResultTypeEnum.RealAtAngle,
+                                                    _animationLocatorAngles[frameNumber], fieldData);
+                return result.GetDeformedNodes(part, nodeIds, fieldData, _animationLocatorScale);
+            }
+            finally
+            {
+                result.SetComplexResultTypeAndAngle(complexResultType, complexAngleDeg, fieldData);
+            }
+        }
+        private void SetAnimationLocatorData(FieldData[] frameFieldData, float scale, float[] frameRatios,
+                                             float[] frameAngles)
+        {
+            _animationLocatorNodeIds = new Dictionary<string, int[]>();
+            _animationLocatorFieldData = frameFieldData;
+            _animationLocatorScale = scale;
+            _animationLocatorRatios = frameRatios;
+            _animationLocatorAngles = frameAngles;
         }
         private void ClearAnimationLocatorData()
         {
@@ -23201,6 +23319,8 @@ namespace PrePoMax
             _animationLocatorFieldData = null;
             _animationLocatorScale = 0;
         }
+            _animationLocatorRatios = null;
+            _animationLocatorAngles = null;
         public bool DrawHarmonicAnimation(int numFrames)
         {
             ClearAnimationLocatorData();
@@ -23213,6 +23333,10 @@ namespace PrePoMax
             float[] angles = new float[numFrames];
             for (int i = 0; i < numFrames; i++) angles[i] = i * delta;
             //
+            // The volume grid nodes of each frame are regenerated on demand
+            FieldData[] frameFieldData = new FieldData[numFrames];
+            for (int i = 0; i < numFrames; i++) frameFieldData[i] = _currentFieldData;
+            SetAnimationLocatorData(frameFieldData, scale, null, angles);
             vtkMaxActorData frameData;
             vtkMaxActorData existingData;
             Dictionary<ResultPart, vtkMaxActorData> partData = new Dictionary<ResultPart, vtkMaxActorData>();
@@ -23241,12 +23365,10 @@ namespace PrePoMax
                         {
                             frameData.Geometry.NodesAnimation = new NodesExchangeData[numFrames];
                             frameData.Geometry.ExtremeNodesAnimation = new NodesExchangeData[numFrames];
-                            frameData.CellLocator.NodesAnimation = new NodesExchangeData[numFrames];
                             frameData.ModelEdges.NodesAnimation = new NodesExchangeData[numFrames];
                             //
                             frameData.Geometry.NodesAnimation[i] = frameData.Geometry.Nodes;
                             frameData.Geometry.ExtremeNodesAnimation[i] = frameData.Geometry.ExtremeNodes;
-                            frameData.CellLocator.NodesAnimation[i] = frameData.CellLocator.Nodes;
                             frameData.ModelEdges.NodesAnimation[i] = frameData.ModelEdges.Nodes;
                             //
                             partData.Add(resultPart, frameData);
@@ -23268,7 +23390,6 @@ namespace PrePoMax
                             {
                                 existingData.Geometry.NodesAnimation[i] = frameData.Geometry.Nodes;
                                 existingData.Geometry.ExtremeNodesAnimation[i] = frameData.Geometry.ExtremeNodes;
-                                existingData.CellLocator.NodesAnimation[i] = frameData.CellLocator.Nodes;
                                 existingData.ModelEdges.NodesAnimation[i] = frameData.ModelEdges.Nodes;
                             }
                             if (plotPartData.TryGetValue(resultPart, out vtkMaxActorData existingPlotData))
@@ -23385,12 +23506,11 @@ namespace PrePoMax
             // Get visualization nodes and renumbered elements
             PartExchangeData modelResultData;
             PartExchangeData modelEdgesResultData;
-            PartExchangeData locatorResultData;
             _allResults.CurrentResult.GetScaleFactorAnimationData(part, fieldData, scale, numFrames,
-                                                                  out modelResultData, out modelEdgesResultData,
-                                                                  out locatorResultData);
+                                                                  out modelResultData, out modelEdgesResultData);
             //
-            vtkMaxActorData data = GetVtkData(modelResultData, modelEdgesResultData, locatorResultData);
+            vtkMaxActorData data = GetVtkData(modelResultData, modelEdgesResultData);
+            SetVolumeGridData(data, _allResults.CurrentResult.Mesh, part);
             data.Name = part.Name;
             GetPartColor(part, ref data.Color, ref data.BackfaceColor);
             data.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours &&
@@ -23412,12 +23532,11 @@ namespace PrePoMax
             // Get visualization nodes and renumbered elements
             PartExchangeData modelResultData;
             PartExchangeData modelEdgesResultData;
-            PartExchangeData locatorResultData;
             _allResults.CurrentResult.GetTimeIncrementAnimationData(part, fieldData, scale,
-                                                                    out modelResultData, out modelEdgesResultData,
-                                                                    out locatorResultData);
+                                                                    out modelResultData, out modelEdgesResultData);
             //
-            vtkMaxActorData data = GetVtkData(modelResultData, modelEdgesResultData, locatorResultData);
+            vtkMaxActorData data = GetVtkData(modelResultData, modelEdgesResultData);
+            SetVolumeGridData(data, _allResults.CurrentResult.Mesh, part);
             data.Name = part.Name;
             GetPartColor(part, ref data.Color, ref data.BackfaceColor);
             data.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours &&
@@ -23542,17 +23661,12 @@ namespace PrePoMax
             {
                 if (entry.Value is ResultPart)
                 {
-                    // Get all needed nodes and elements - renumbered
-                    PartExchangeData locatorResultData =
-                        _allResults.CurrentResult.GetSetNodesCellsAndValues(entry.Value, _currentFieldData);
                     // Get visualization nodes and renumbered elements - to scale min nad max nodes coor
                     PartExchangeData actorResultData =
                         _allResults.CurrentResult.GetVisualizationNodesCellsAndValues(entry.Value, _currentFieldData);
-                    //
+                    // The volume grid values are fetched when the grid is next built
                     _form.UpdateActorSurfaceScalarField(entry.Key, actorResultData.Nodes.Values, actorResultData.ExtremeNodes,
-                                                        locatorResultData.Nodes.Values,
-                                                        actorResultData.Nodes.ResultField,
-                                                        locatorResultData.Nodes.ResultField, false);
+                                                        actorResultData.Nodes.ResultField, false);
                 }
             }
             // Annotations
@@ -23620,18 +23734,53 @@ namespace PrePoMax
             }
         }
         //
-        private vtkMaxActorData GetVtkData(PartExchangeData actorData, PartExchangeData modelEdgesData,
-                                           PartExchangeData locatorData)
+        private vtkMaxActorData GetVtkData(PartExchangeData actorData, PartExchangeData modelEdgesData)
         {
             vtkMaxActorData vtkData = new vtkMaxActorData();
             //
             vtkData.Geometry = actorData;
             vtkData.ModelEdges = modelEdgesData;
-            vtkData.CellLocator = locatorData;
             //
             return vtkData;
         }
         // Scale 
+        private void SetVolumeGridData(vtkMaxActorData data, FeMesh mesh, BasePart part)
+        {
+            data.VolumeGridAvailable = true;
+            data.HasVolumeCells = part.Labels.Length > 0 && mesh.Elements[part.Labels[0]] is FeElement3D;
+            data.PartNodeIds = part.NodeLabels;
+        }
+        public PartExchangeData GetVolumeGridData(string partName, int frameNumber)
+        {
+            FeMesh mesh = DisplayedMesh;
+            BasePart part;
+            if (mesh == null || !mesh.Parts.TryGetValue(partName, out part)) return null;
+            //
+            PartExchangeData data;
+            if (_currentView == ViewGeometryModelResults.Results && _allResults.CurrentResult != null)
+            {
+                if (frameNumber >= 0 && _animationLocatorFieldData != null &&
+                    frameNumber < _animationLocatorFieldData.Length)
+                {
+                    // An animation frame - the nodes are computed without deforming the mesh
+                    int[] nodeIds;
+                    data = new PartExchangeData();
+                    mesh.GetSetNodesAndCells(part, out nodeIds, out _, out data.Cells.Ids, out data.Cells.CellNodeIds,
+                                             out data.Cells.Types);
+                    data.Nodes = GetAnimationFrameNodes(part, nodeIds, frameNumber);
+                    data.Nodes.Ids = nodeIds;
+                    if (_animationLocatorNodeIds != null) _animationLocatorNodeIds[partName] = nodeIds;
+                }
+                else data = _allResults.CurrentResult.GetSetNodesCellsAndValues(part, _currentFieldData);
+            }
+            else
+            {
+                data = new PartExchangeData();
+                mesh.GetSetNodesAndCells(part, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Ids,
+                                         out data.Cells.CellNodeIds, out data.Cells.Types);
+            }
+            return data;
+        }
         public FeNode GetScaledNode(float scale, int nodeId)
         {
             return GetScaledNode(FOFieldNames.Default, scale, nodeId, true);
