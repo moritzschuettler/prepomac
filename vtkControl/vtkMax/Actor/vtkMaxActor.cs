@@ -65,6 +65,7 @@ namespace vtkControl
         protected bool _volumeGridAvailable;
         protected bool _hasVolumeCells;
         protected int[] _partNodeIds;
+        protected int[] _partElementIds;
         protected vtkMaxActor _sectionViewActor;
         protected vtkMaxActor _sectionViewSkinActor;
         protected bool _geometryHiddenBySectionView;
@@ -193,6 +194,7 @@ namespace vtkControl
         public bool HasVolumeGrid { get { return _volumeGrid != null; } }
         public bool HasVolumeCells { get { return _hasVolumeCells; } }
         public int[] PartNodeIds { get { return _partNodeIds; } }
+        public int[] PartElementIds { get { return _partElementIds; } }
         public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
         public vtkMaxActor SectionViewSkinActor { get { return _sectionViewSkinActor; } set { _sectionViewSkinActor = value; } }
         public bool GeometryHiddenBySectionView
@@ -321,6 +323,7 @@ namespace vtkControl
             _volumeGridAvailable = false;
             _hasVolumeCells = false;
             _partNodeIds = null;
+            _partElementIds = null;
             _sectionViewActor = null;
             _sectionViewSkinActor = null;
             _geometryHiddenBySectionView = false;
@@ -460,6 +463,7 @@ namespace vtkControl
             _volumeGridAvailable = data.Layer == vtkRendererLayer.Base && data.VolumeGridAvailable;
             _hasVolumeCells = data.HasVolumeCells;
             _partNodeIds = data.PartNodeIds;
+            _partElementIds = data.PartElementIds;
             _actorRepresentation = data.ActorRepresentation;
             _backfaceCulling = data.BackfaceCulling;
             _color = data.Color;
@@ -527,7 +531,9 @@ namespace vtkControl
                 _volumeGridAvailable = true;
                 _hasVolumeCells = sourceActor.HasVolumeCells;
                 _partNodeIds = sourceActor.PartNodeIds;
+                _partElementIds = sourceActor.PartElementIds;
                 _volumeGridProvider = sourceActor.VolumeGridProvider;
+                _animationNodesProvider = sourceActor.AnimationNodesProvider;
                 _volumeGridSourceName = sourceActor.VolumeGridSourceName ?? sourceActor.Name;
                 if (sourceActor._volumeGridTransform != null)
                 {
@@ -2435,6 +2441,18 @@ namespace vtkControl
             // An existing grid is refreshed in place when it is next needed
             _volumeGridStale = true;
             _volumeLocator = null;
+        }
+        public void ReleaseVolumeGrid()
+        {
+            // The grid is built again when it is next needed
+            _volumeGrid = null;
+            _volumeGridStale = false;
+            _volumeGridNodeIds = null;
+            _volumeGridPointsComplete = true;
+            _volumeGridUpdatedPointIds = null;
+            _volumeLocator = null;
+            _volumeResultField = null;
+            _animationLocatorNodeIdToPointId = null;
         }
         public void AppendVolumeGridTransform(vtkTransform transform)
         {

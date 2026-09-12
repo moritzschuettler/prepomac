@@ -56,6 +56,7 @@ namespace vtkControl
         public bool VolumeGridAvailable;
         public bool HasVolumeCells;
         public int[] PartNodeIds;
+        public int[] PartElementIds;
         //
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;
@@ -92,6 +93,7 @@ namespace vtkControl
             VolumeGridAvailable = false;
             HasVolumeCells = false;
             PartNodeIds = null;
+            PartElementIds = null;
             //
             Geometry = new PartExchangeData();
             ModelEdges = null;

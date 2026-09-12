@@ -117,8 +117,18 @@ are satisfied by `BasePart.NodeLabels` without any VTK object.
 
 ## Implementation status
 
-Steps S1 to S6 are implemented and `PrePoMax.sln` builds. S0 was not run, because it needs the
-application on screen; the S8 checklist was run by hand for S1 to S5. S7 is not started.
+Steps S1 to S7 are implemented and `PrePoMax.sln` builds. S0 was not run, because it needs the
+application on screen; the S8 checklist was run by hand for S1 to S6.
+
+S7 as landed: a section view the user switches off releases the volume grids of all actors, unless
+an animation is running and its anchors hold them; a section view that is removed only to be
+re-applied, after a field change or an exploded view toggle, keeps them. In both box selection paths
+a part whose surface bounds lie completely inside the frustum contributes `part.NodeLabels` and
+`part.Labels` directly, so no grid is built for it; a part the frustum intersects still goes through
+`vtkExtractSelectedFrustum` on its grid. The mesh-side containment test for intersecting parts was
+deliberately not done: the frustum planes are what a recorded selection stores, and a test that does
+not reproduce the extractor's cell criterion exactly would change which elements an old history
+selects on Regenerate.
 
 S6 as landed: during an animation the frame update fills every point of a part's grid only while a
 section view is open. Otherwise `vtkMaxActor.SetAnimationFrame` marks the grid points incomplete for

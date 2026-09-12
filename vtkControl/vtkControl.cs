@@ -887,21 +887,7 @@ namespace vtkControl
                     PickByArea(mea.Location.X, mea.Location.Y, x2, y2, false, out pickedActorNames);
                     //
                     if (!(pickedActorNames == null || pickedActorNames.Length == 0))
-                    {
-                        vtkPlanes planes = _areaPicker.GetFrustum();
-                        vtkPlane plane;
-                        double[] origin;
-                        double[] normal;
-                        planeParameters = new double[planes.GetNumberOfPlanes()][];
-                        //
-                        for (int i = 0; i < planes.GetNumberOfPlanes(); i++)
-                        {
-                            plane = planes.GetPlane(i);
-                            origin = plane.GetOrigin();
-                            normal = plane.GetNormal();
-                            planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
-                        }
-                    }
+                        planeParameters = GetPlaneParameters(_areaPicker.GetFrustum());
                     //
                     OnMouseLeftButtonUpSelection?.Invoke(null, null, planeParameters, completelyInside,
                                                          selectOperation, pickedActorNames);
@@ -1510,10 +1496,35 @@ namespace vtkControl
             }
         }
         //
+        private static double[][] GetPlaneParameters(vtkPlanes planes)
+        {
+            // Ox, Oy, Oz, Nx, Ny, Nz
+            vtkPlane plane;
+            double[] origin;
+            double[] normal;
+            double[][] planeParameters = new double[planes.GetNumberOfPlanes()][];
+            for (int i = 0; i < planes.GetNumberOfPlanes(); i++)
+            {
+                plane = planes.GetPlane(i);
+                origin = plane.GetOrigin();
+                normal = plane.GetNormal();
+                planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
+            }
+            return planeParameters;
+        }
+        private static bool TryAddWholePart(vtkMaxActor actor, HashSet<int> globalPointIds, HashSet<int> globalCellIds)
+        {
+            // A part completely inside the frustum contributes all its nodes and elements without a grid
+            if (actor.PartNodeIds == null || actor.PartElementIds == null) return false;
+            globalPointIds.UnionWith(actor.PartNodeIds);
+            globalCellIds.UnionWith(actor.PartElementIds);
+            return true;
+        }
         private void PickByArea(int x1, int y1, int x2, int y2, bool highlight, out string[] pickedActorNames)
         {
             _areaPicker.AreaPick(x1, y1, x2, y2, _renderer);
             vtkPlanes planes = _areaPicker.GetFrustum();
+            double[][] planeParameters = GetPlaneParameters(planes);
             //
             List<string> selectedActorNames = new List<string>();
             HashSet<int> selectedPointGlobalIds = new HashSet<int>();
@@ -1532,8 +1543,19 @@ namespace vtkControl
                 string pickedActorName = GetActorName(pickedActor);
                 vtkMaxActor maxActor;
                 //
-                if (pickedActorName == null ||
-                    !(_actors.TryGetValue(pickedActorName, out maxActor) && maxActor.TryGetVolumeGrid(out volumeGrid)))
+                if (pickedActorName == null || !_actors.TryGetValue(pickedActorName, out maxActor) ||
+                    !maxActor.VolumeGridAvailable)
+                {
+                    // Actor has no volume grid
+                }
+                else if (new CaeMesh.BoundingBox(maxActor.Geometry.GetBounds())
+                         .TestBoundsAgainstFrustum(planeParameters) == FrustumBoxResultEnum.Inside &&
+                         TryAddWholePart(maxActor, selectedPointGlobalIds, selectedCellGlobalIds))
+                {
+                    // Actor completely inside the frustum
+                    selectedActorNames.Add(pickedActorName);
+                }
+                else if (!maxActor.TryGetVolumeGrid(out volumeGrid))
                 {
                     // Actor has no volume grid
                 }
@@ -2113,6 +2135,8 @@ namespace vtkControl
                         bb = new CaeMesh.BoundingBox(entry.Value.Geometry.GetBounds());
                         boxResult = bb.TestBoundsAgainstFrustum(planeParameters);
                         if (boxResult == FrustumBoxResultEnum.Outside) continue;
+                        if (boxResult == FrustumBoxResultEnum.Inside &&
+                            TryAddWholePart(entry.Value, globalPointIds, globalCellIds)) continue;
                         if (!entry.Value.TryGetVolumeGrid(out volumeGrid)) continue;
                         if (boxResult == FrustumBoxResultEnum.Inside)
                         {
@@ -5453,7 +5477,7 @@ namespace vtkControl
                 }
             }
         }
-        public void RemoveSectionView()
+        public void RemoveSectionView(bool releaseVolumeGrids = false)
         {
             lock (myLock)
             {
@@ -5462,6 +5486,11 @@ namespace vtkControl
                     foreach (var entry in _actors) entry.Value.RemoveAllClippingPlanes();
                     // Remove previous section cut actors
                     ClearSectionViewActors();
+                    // The section view was the reason for the volume grids - an animation keeps them for its anchors
+                    if (releaseVolumeGrids && _animationActors.Count == 0)
+                    {
+                        foreach (var entry in _actors) entry.Value.ReleaseVolumeGrid();
+                    }
                     //
                     _sectionViewData.Reset();
                     //

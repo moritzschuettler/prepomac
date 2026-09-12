@@ -2827,7 +2827,8 @@ namespace PrePoMax
         public void RemoveSectionView(bool keepSectionPlane = false)
         {
             if (!keepSectionPlane) _sectionViews.RemoveCurrentSectionView();
-            _form.RemoveSectionView();
+            // A section view that is not coming back releases the volume grids it needed
+            _form.RemoveSectionView(!keepSectionPlane);
         }
         //
         public double[] GetViewPlaneNormal()
@@ -23759,6 +23760,7 @@ namespace PrePoMax
             data.VolumeGridAvailable = true;
             data.HasVolumeCells = part.Labels.Length > 0 && mesh.Elements[part.Labels[0]] is FeElement3D;
             data.PartNodeIds = part.NodeLabels;
+            data.PartElementIds = part.Labels;
         }
         public PartExchangeData GetVolumeGridData(string partName, int frameNumber)
         {

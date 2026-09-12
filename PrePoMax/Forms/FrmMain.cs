@@ -11375,9 +11375,9 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.UpdateSectionView, point, normal, lightenColors, sectionColor, elementWise);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
-        public void RemoveSectionView()
+        public void RemoveSectionView(bool releaseVolumeGrids = false)
         {
-            InvokeIfRequired(_vtk.RemoveSectionView);
+            InvokeIfRequired(() => _vtk.RemoveSectionView(releaseVolumeGrids));
             InvokeIfRequired(() => { tsbSectionView.Checked = false; });
         }
         // Exploded view
