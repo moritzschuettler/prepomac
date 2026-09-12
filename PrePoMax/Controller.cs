@@ -23574,9 +23574,11 @@ namespace PrePoMax
                 UpdateCurrentFieldData();
             }
             //
-            bool resultPlotActive = _viewResultsType == ViewResultsTypeEnum.ColorContours ||
-                                    _viewResultsType == ViewResultsTypeEnum.VectorPlot ||
-                                    _viewResultsType == ViewResultsTypeEnum.TensorPlot;
+            // the legend and the status block are drawn only while the results view is displayed
+            bool resultPlotActive = _currentView == ViewGeometryModelResults.Results &&
+                                    (_viewResultsType == ViewResultsTypeEnum.ColorContours ||
+                                     _viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                                     _viewResultsType == ViewResultsTypeEnum.TensorPlot);
             _form.SetScalarBarVisibility(resultPlotActive);
             //
             if (resultPlotActive)
