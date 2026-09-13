@@ -642,7 +642,7 @@ Reached as `pmx.model.mesh`.
 | Member | Description |
 | --- | --- |
 | `setup_items` | The mesh setup items of the model. |
-| `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished. |
+| `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
 | `create_boundary_layer(selection, thickness)` | Creates a prismatic boundary layer on the selected faces. |
 | `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. |
 | `thicken_shell_mesh(selection, thickness, number_of_layers=1, offset=0)` | Thickens the selected shell mesh. |
@@ -726,7 +726,7 @@ overwritten.
 part = pmx.model.geometry.parts.first()
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
 pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)
-pmx.model.mesh.create(part.name)
+failed = {name: why for name, why in pmx.model.mesh.create(part.name).items() if why}
 ```
 
 ### `MeshSetupItem`
@@ -775,7 +775,13 @@ Every `part_names` argument accepts a single name or a list of names.
 `defeature`, `split_face`, `flip_stl_normals` and `delete_stl_faces`. The four selection based methods
 take a selection built in the `geometry` view with the `geometry` target.
 
-`defeature` returns the number of faces every selected part actually lost, as a `dict[str, int]`.
+Each of `defeature`, `flip_face_orientations`, `split_face` and `delete_stl_faces` reports what it
+did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
+zero. They all act on one kind of part only - defeaturing and splitting on a CAD solid, flipping on
+a CAD shell, deleting on an STL part - and a selection that names any other kind is not refused, it
+simply leaves that part alone, which is what the zero says.
+
+`defeature` returns the number of faces every selected part actually lost.
 The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`
 is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
 well as its wall.
