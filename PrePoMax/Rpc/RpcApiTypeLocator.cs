@@ -62,6 +62,110 @@ namespace PrePoMax.Rpc
             //
             return found;
         }
+        // A type name followed by a member path - Result.mesh, Result.steps.last().increments - names
+        // the type a member returns, so the API below a type can be read without an object of it: the
+        // results side before an analysis has run. The longest head that is one type is taken and the
+        // tail is walked through the declared member types. A member declared as object cannot be
+        // walked, and the error says to describe it as a live path instead
+        public static Type FindByMemberPath(string path, out string resolvedName, out string error)
+        {
+            resolvedName = null;
+            error = null;
+            if (string.IsNullOrEmpty(path)) return null;
+            //
+            string[] segments = path.Trim().Split('.');
+            for (int count = segments.Length - 1; count >= 1; count--)
+            {
+                string head = string.Join(".", segments, 0, count);
+                List<Type> heads = Find(head);
+                if (heads.Count == 0) continue;
+                if (heads.Count > 1)
+                {
+                    error = "Its head " + head + " is shared by " + heads.Count + " API types. Ask for one of " +
+                            GetNames(heads) + ".";
+                    return null;
+                }
+                //
+                Type type = heads[0];
+                string name = GetShortName(type);
+                for (int i = count; i < segments.Length; i++)
+                {
+                    type = WalkMember(type, segments[i], out error);
+                    if (type == null) return null;
+                    name += "." + segments[i].Trim();
+                }
+                resolvedName = name;
+                return type;
+            }
+            //
+            return null;
+        }
+        private static Type WalkMember(Type type, string segment, out string error)
+        {
+            error = null;
+            string memberName = segment.Trim();
+            int suffix = memberName.IndexOfAny(new char[] { '(', '[' });
+            if (suffix >= 0) memberName = memberName.Substring(0, suffix).Trim();
+            //
+            Type memberType = GetMemberType(type, memberName);
+            if (memberType == null)
+            {
+                error = GetShortName(type) + " has no member " + memberName + ".";
+                return null;
+            }
+            if (segment.IndexOf('[') >= 0)
+            {
+                Type itemType = GetItemType(memberType);
+                if (itemType == null)
+                {
+                    error = "The items of " + GetShortName(memberType) + " are not declared with one type, so an " +
+                            "item cannot be described by name. Describe it as a live path instead.";
+                    return null;
+                }
+                memberType = itemType;
+            }
+            if (!typeof(BaseAPI).IsAssignableFrom(memberType))
+            {
+                error = "The member " + memberName + " of " + GetShortName(type) + " is declared as " +
+                        memberType.Name + ", so what it returns cannot be described by name. Describe it as a " +
+                        "live path instead.";
+                return null;
+            }
+            //
+            return memberType;
+        }
+        private static Type GetMemberType(Type type, string memberName)
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+            foreach (PropertyInfo property in type.GetProperties(flags))
+            {
+                if (property.GetIndexParameters().Length > 0) continue;
+                if (string.Equals(property.Name, memberName, StringComparison.OrdinalIgnoreCase))
+                    return property.PropertyType;
+            }
+            foreach (MethodInfo method in type.GetMethods(flags))
+            {
+                if (method.IsSpecialName) continue;
+                if (string.Equals(method.Name, memberName, StringComparison.OrdinalIgnoreCase)) return method.ReturnType;
+            }
+            //
+            return null;
+        }
+        private static Type GetItemType(Type type)
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+            foreach (PropertyInfo property in type.GetProperties(flags))
+            {
+                if (property.GetIndexParameters().Length > 0 && typeof(BaseAPI).IsAssignableFrom(property.PropertyType))
+                    return property.PropertyType;
+            }
+            foreach (MethodInfo method in type.GetMethods(flags))
+            {
+                if (method.Name == "get" && typeof(BaseAPI).IsAssignableFrom(method.ReturnType)) return method.ReturnType;
+            }
+            //
+            return null;
+        }
         public static string GetNames(List<Type> types)
         {
             List<string> names = new List<string>();

@@ -219,7 +219,11 @@ Four things an agent has no way to work out from the model alone, and where each
 - **A collection that does not exist yet.** `describe_api` also takes an API type name - `Loads`,
   `Model.Steps` - so the half of the API that hangs off something the model does not have can still
   be read. Creating a step to see what loads it would offer is a change to the user's model made for
-  no other reason. A name the model and the results sides share is refused with the candidates.
+  no other reason. A type name followed by a member path - `Result.mesh`,
+  `Result.steps.last().increments` - is walked through the declared member types for the same
+  reason, so the results side can be read before an analysis has run; a member declared as `object`
+  ends the walk with a message to describe it as a live path. A name the model and the results sides
+  share is refused with the candidates.
 - **Which entity is which.** `read_topology` names every face by the ID a selection takes and gives
   it an area, a centroid and a normal, so the top face of a part is found rather than guessed. The
   answer is bounded twice: per part, and over the whole answer, so an assembly reports every part's

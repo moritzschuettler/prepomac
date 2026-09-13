@@ -238,6 +238,18 @@ def check_describe(client):
         check(result["type"] == "MeshSetupItemsAPI",
               spelling + " must resolve to the mesh setup items: " + result["type"])
     print("describe: a type name resolves however its separators are written")
+    # A type name followed by a member path names the type the member returns, so the results side
+    # can be read before an analysis has run
+    result = client.result("describe", {"path": "Result.mesh.nodes"})
+    check(result["resolvedAs"] == "type", "a member path below a type must resolve as a type: " + str(result))
+    check(result["type"] == "NodesAPI", "Result.mesh.nodes must resolve to the result nodes: " + result["type"])
+    result = client.result("describe", {"path": "Result.steps.last().increments"})
+    check(result["type"] == "ResultIncrementsAPI",
+          "a called member must be walked through its return type: " + result["type"])
+    error = client.error("describe", {"path": "Result.no_such_member"})
+    check(error["code"] == INVALID_PARAMS and "no member" in error["message"],
+          "a missing member must be refused by name: " + str(error))
+    print("describe: a member path below a type is walked through the declared member types")
     # A name that is neither a path nor a type is refused rather than left to block the connection
     error = client.error("describe", {"path": "Mesh.NoSuchThing"})
     check(error["code"] == INVALID_PARAMS, "an unknown type name must be InvalidParams: " + str(error))

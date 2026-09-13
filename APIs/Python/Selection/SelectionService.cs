@@ -191,8 +191,10 @@ namespace APIs.Python
             return new SelectionPreviewAPI(selection.target, ids, GetPreviewPartNames(nodeIds, mesh), box,
                                            centroid);
         }
-        // The resolved IDs name nodes, elements, parts or geometry items, following the target, and
-        // every one of them is reduced to the nodes it covers so that one summary serves them all
+        // The resolved IDs name nodes, elements, element faces, parts or geometry items, following the
+        // target, and every one of them is reduced to the nodes it covers so that one summary serves
+        // them all. A surface target resolves to element face IDs, which carry the element ID and the
+        // face index rather than a geometry ID, so they are decoded as faces
         private static HashSet<int> GetPreviewNodeIds(string target, int[] ids, FeMesh mesh)
         {
             HashSet<int> nodeIds = new HashSet<int>();
@@ -210,6 +212,11 @@ namespace APIs.Python
                     FeElement element;
                     if (mesh.Elements.TryGetValue(id, out element) && element.NodeIds != null)
                         nodeIds.UnionWith(element.NodeIds);
+                }
+                else if (target == "surfaces")
+                {
+                    int[] faceNodeIds = mesh.GetCellFromFaceId(id, out _, out _);
+                    if (faceNodeIds != null) nodeIds.UnionWith(faceNodeIds);
                 }
                 else if (target == "parts")
                 {

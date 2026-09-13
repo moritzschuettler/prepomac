@@ -2952,9 +2952,10 @@ namespace vtkControl
             camera.SetPosition(position[0], position[1], position[2]);
             camera.SetFocalPoint(focalPoint[0], focalPoint[1], focalPoint[2]);
             camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
-            //
-            ResetCamera();
             camera.SetParallelScale(parallelScale);
+            //
+            _style.ResetClippingRange();
+            SetAllCaptionPositions();
             //
             FinishViewChange(animate, cameraStart, camera);
         }

@@ -51,8 +51,10 @@ step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
   kept, so a replace changes only what you name.
 - Variables survive from one `run_python` call to the next, because the scope is the Python console's.
 - `describe_api` also takes an API type name - `Loads`, `Model.Steps` - so you can read what a
-  collection offers before the step that would hold it exists. A name the model and the results sides
-  share is refused with the candidates to choose from.
+  collection offers before the step that would hold it exists, and a type name followed by a member
+  path - `Result.mesh`, `Result.steps.last().increments` - so you can read the results side before
+  an analysis has run. A name the model and the results sides share is refused with the candidates
+  to choose from.
 
 ## Numbers have units
 

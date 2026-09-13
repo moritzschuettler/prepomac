@@ -18,8 +18,9 @@ namespace PrePoMax.Rpc
     // reports the names it holds right now.
     //
     // A name that is not a path is taken as an API type name, so the half of the API that hangs off
-    // something the model does not have yet can still be read. The path is tried first: a mistyped
-    // path is reported as a path, not as a missing type.
+    // something the model does not have yet can still be read. A type name followed by a member path
+    // - Result.mesh - is walked through the declared member types for the same reason. The path is
+    // tried first: a mistyped path is reported as a path, not as a missing type.
     public static class RpcDescribeMethod
     {
         // Variables                                                                                                                
@@ -46,9 +47,16 @@ namespace PrePoMax.Rpc
                                                                    types.Count + " API types. Ask for one of " +
                                                                    RpcApiTypeLocator.GetNames(types) + ".");
             }
+            //
+            string resolvedName;
+            string memberError;
+            Type memberType = RpcApiTypeLocator.FindByMemberPath(path, out resolvedName, out memberError);
+            if (memberType != null) return RpcDescribeBuilder.BuildForType(resolvedName, memberType);
+            //
             throw new RpcException(RpcErrorCode.InvalidParams, "The path " + path + " cannot be resolved: " +
                                                                error.TrimEnd() + " It is not an API type name " +
-                                                               "either.");
+                                                               "either." +
+                                                               (memberError == null ? "" : " " + memberError));
         }
     }
 }

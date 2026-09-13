@@ -17,10 +17,12 @@ namespace PrePoMax.Rpc
     // A picture of the viewport. It has to be served from inside the application: the viewport is an
     // OpenGL child window, so nothing outside the process can capture it, and only the renderer can
     // read its own buffer. The image is written to a file and the path is returned, because an image
-    // does not belong in a JSON answer.
+    // does not belong in a JSON answer. A folder the file name points into is created when it is
+    // missing, the way the temporary folder is, because a caller collecting pictures for a report
+    // names the folder before anything has been written to it.
     public static class RpcScreenshotMethod
     {
-        // Static methods                                                                                                           
+        // Static methods
         public static string Execute(RpcRequest request, RpcServer server)
         {
             string fileName = request.GetString("file_name", null);
@@ -30,7 +32,18 @@ namespace PrePoMax.Rpc
             //
             string directory = Path.GetDirectoryName(fileName);
             if (directory != null && directory.Length > 0 && !Directory.Exists(directory))
-                throw new RpcException(RpcErrorCode.InvalidParams, "The directory " + directory + " does not exist.");
+            {
+                try
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                catch (Exception exception)
+                {
+                    throw new RpcException(RpcErrorCode.InvalidParams, "The directory " + directory +
+                                                                       " does not exist and could not be created: " +
+                                                                       exception.Message);
+                }
+            }
             //
             server.Form.SaveAutomationScreenshot(fileName);
             //

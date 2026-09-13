@@ -110,6 +110,15 @@ def test_preview(part, top_face_id):
           "the top face nodes must all lie at z = 1: " + str(box))
     centroid = [float(v) for v in preview.centroid]
     check(abs(centroid[2] - 1.0) < 1e-6, "the preview centroid must lie at z = 1: " + str(centroid))
+    # A surface target resolves to element faces, and the preview reduces them to the nodes of the face
+    faces = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {part.id: [top_face_id]}).preview()
+    check(faces.target == "surfaces", "the face preview must report the target: " + faces.target)
+    check(faces.count == 1, "the top face of one hexahedron is one element face, got " + str(faces.count))
+    check(list(faces.part_names) == [part.name],
+          "the face preview must name the part: " + str(list(faces.part_names)))
+    box = [float(v) for v in faces.bounding_box]
+    check(len(box) == 6 and abs(box[4] - 1.0) < 1e-6 and abs(box[5] - 1.0) < 1e-6,
+          "the face preview must lie at z = 1: " + str(box))
     # Nothing was recorded: a preview is a dry run
     before = len(list(pmx.model.node_sets.get_names()))
     selection.preview()
