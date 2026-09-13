@@ -195,6 +195,41 @@ namespace APIs.Python
         {
             _documentService.ExportDeformedPartsToCalculix(part_names, file_name);
         }
+
+        [PythonAPI("Exports the named geometry parts using command history. The file extension picks the format: " +
+                   ".stp or .step and .brep need CAD parts, .stl takes any geometry part and .mesh (Mmg) a solid or " +
+                   "shell part. Give 'format' to override the extension.",
+                   Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
+        public void export_geometry(object part_names, string file_name, string format = null)
+        {
+            _documentService.ExportGeometry(part_names, file_name, format);
+        }
+
+        [PythonAPI("Exports the nodes and elements of the named mesh parts using command history. The file " +
+                   "extension picks the format: .inp is CalculiX unless format='abaqus', .msh is Gmsh, .mesh is Mmg " +
+                   "and .stl the visualization surface. Give 'format' to override the extension.",
+                   Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
+        public void export_mesh(object part_names, string file_name, string format = null)
+        {
+            _documentService.ExportMesh(part_names, file_name, format);
+        }
+
+        [PythonAPI("Exports the whole model as a solver input deck using command history. An .inp file is " +
+                   "CalculiX unless format='abaqus'.",
+                   Arguments = "file_name: str, format: str = None", Returns = "None")]
+        public void export_model(string file_name, string format = null)
+        {
+            _documentService.ExportModel(file_name, format);
+        }
+
+        [PythonAPI("Exports the named parts of the current result in their deformed shape using command history. " +
+                   "The file extension picks the format: .inp is a CalculiX mesh, .stl the deformed visualization " +
+                   "surface. Give 'format' to override the extension.",
+                   Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
+        public void export_results(object part_names, string file_name, string format = null)
+        {
+            _documentService.ExportResults(part_names, file_name, format);
+        }
         public override string ToString()
         {
             return "PrePoMaxAPI(model=" + (_model.is_open() ? "open" : "none") +

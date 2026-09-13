@@ -13,6 +13,7 @@ using APIs.Python;
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using FileInOut.Output;
 using UserControls;
 
 namespace PrePoMax.Python
@@ -113,6 +114,18 @@ namespace PrePoMax.Python
         public void ExportDeformedPartsToCalculix(string[] partNames, string fileName)
         {
             _controller.ExportDeformedPartsToCalculixCommand(partNames, fileName);
+        }
+        public void ExportGeometry(string[] partNames, string fileName, GeometryExportFormatEnum format)
+        {
+            _controller.ExportGeometryPartsCommand(partNames, fileName, format);
+        }
+        public void ExportMesh(string[] partNames, string fileName, MeshExportFormatEnum format)
+        {
+            _controller.ExportMeshPartsCommand(partNames, fileName, format);
+        }
+        public void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format)
+        {
+            _controller.ExportResultPartsCommand(partNames, fileName, format);
         }
         // Model properties
         public void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType)

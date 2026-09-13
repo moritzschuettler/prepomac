@@ -1887,7 +1887,7 @@ namespace PrePoMax
             }
         }
         //
-        private void tsmiExportToStep_Click(object sender, EventArgs e)
+        private void tsmiExportGeometry_Click(object sender, EventArgs e)
         {
             try
             {
@@ -1895,7 +1895,7 @@ namespace PrePoMax
                 //
                 if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
                 {
-                    SelectMultipleEntities("Parts", _controller.GetCADGeometryParts(), SaveCADPartsAsStep);
+                    SelectMultipleEntities("Parts", _controller.GetGeometryParts(), ExportGeometryParts);
                 }
                 else throw new CaeException("No geometry to export.");
             }
@@ -1904,17 +1904,48 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiExportToBrep_Click(object sender, EventArgs e)
+        private void tsmiExportMesh_Click(object sender, EventArgs e)
         {
             try
             {
-                _controller.CurrentView = ViewGeometryModelResults.Geometry;
+                _controller.CurrentView = ViewGeometryModelResults.Model;
                 //
-                if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
+                if (_controller.Model.Mesh != null && _controller.Model.Mesh.Parts != null)
                 {
-                    SelectMultipleEntities("Parts", _controller.GetCADGeometryParts(), SaveCADPartsAsBrep);
+                    SelectMultipleEntities("Parts", _controller.GetModelParts(), ExportMeshParts);
                 }
-                else throw new CaeException("No geometry to export.");
+                else throw new CaeException("No mesh to export.");
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExportModel_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _controller.CurrentView = ViewGeometryModelResults.Model;
+                //
+                if (CheckValidity()) ExportModel();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExportResults_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _controller.CurrentView = ViewGeometryModelResults.Results;
+                //
+                if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null &&
+                    _controller.CurrentResult.Mesh.Parts != null)
+                {
+                    SelectMultipleEntities("Parts", _controller.GetResultParts(), ExportResultParts);
+                }
+                else throw new CaeException("No results to export.");
             }
             catch (Exception ex)
             {
@@ -1932,65 +1963,6 @@ namespace PrePoMax
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiExportToStereolithography_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                ViewGeometryModelResults currentView = GetCurrentView();
-                if (currentView == ViewGeometryModelResults.Geometry)
-                {
-                    if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
-                    {
-                        SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SavePartsAsStl);
-                    }
-                    else throw new CaeException("No geometry parts to export.");
-                }
-                else if (currentView == ViewGeometryModelResults.Model)
-                {
-                    if (_controller.Model.Mesh != null && _controller.Model.Mesh.Parts != null)
-                    {
-                        SelectMultipleEntities("Parts", _controller.GetModelParts(), SavePartsAsStl);
-                    }
-                    else throw new CaeException("No mesh parts to export.");
-                }
-                else MessageBoxes.ShowError("To export the results use the option Export â†’ Deformed visualization.");
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiExportToCalculix_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Model;
-                //
-                if (CheckValidity())
-                {
-                    using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                    {
-                        saveFileDialog.Filter = "Calculix files | *.inp";
-                        if (_controller.OpenedFileName != null)
-                            saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
-                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                        {
-                            // the filter adds the extension to the file name
-                            SetStateWorking(Globals.ExportingText);
-                            _controller.ExportToCalculixCommand(saveFileDialog.FileName);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.ExportingText);
             }
         }
         private void tsmiExportToPythonJournal_Click(object sender, EventArgs e)
@@ -2026,118 +1998,6 @@ namespace PrePoMax
             //
             WriteDataToOutput(report.GetSummary());
             foreach (string refusal in report.Refusals) WriteDataToOutput("   Not emitted: " + refusal);
-        }
-        private void tsmiExportToAbaqus_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Model;
-                //
-                if (CheckValidity())
-                {
-                    using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                    {
-                        saveFileDialog.Filter = "Abaqus files | *.inp";
-                        if (_controller.OpenedFileName != null)
-                            saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
-                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                        {
-                            // the filter adds the extension to the file name
-                            SetStateWorking(Globals.ExportingText);
-                            //_controller.ExportToCalculix(saveFileDialog.FileName);
-                            _controller.ExportToAbaqusCommand(saveFileDialog.FileName);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.ExportingText);
-            }
-        }
-        private void tsmiExportToGmshMesh_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Model;
-                //
-                if (_controller.Model.Mesh != null && _controller.Model.Mesh.Parts != null)
-                {
-                    SavePartsAsGmshMesh();
-                }
-                else throw new CaeException("No mesh to export.");
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiExportToMmgMesh_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                //_controller.CurrentView = ViewGeometryModelResults.Geometry;
-                //
-                if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
-                {
-                    if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
-                    {
-                        SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SavePartsAsMmgMesh);
-                    }
-                    else throw new CaeException("No geometry to export.");
-                }
-                else if (_controller.CurrentView == ViewGeometryModelResults.Model)
-                {
-                    if (_controller.Model.Mesh != null && _controller.Model.Mesh.Parts != null)
-                    {
-                        SelectMultipleEntities("Parts", _controller.GetModelParts(), SavePartsAsMmgMesh);
-                    }
-                    else throw new CaeException("No mesh to export.");
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiExportToDeformedInp_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Results;
-                //
-                if (_controller.CurrentResult.Mesh != null && _controller.CurrentResult.Mesh.Parts != null)
-                {
-                    SelectMultipleEntities("Parts", _controller.GetResultParts(), SaveDeformedPartsAsInp);
-                }
-                else MessageBoxes.ShowError("There is no mesh to export.");
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-
-        }
-        private void tsmiExportToDeformedStl_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Results;
-                //
-                if (_controller.CurrentResult.Mesh != null && _controller.CurrentResult.Mesh.Parts != null)
-                {
-                    SelectMultipleEntities("Parts", _controller.GetResultParts(), SavePartsAsStl);
-                }
-                else MessageBoxes.ShowError("There is no mesh to export.");
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
         }
         private async void ExportUsingFileProperties(ExportFileProperties properties)
         {
@@ -2405,23 +2265,44 @@ namespace PrePoMax
                 SetStateReady(Globals.SavingText);
             }
         }
-        private async void SaveCADPartsAsStep(string[] partNames)
+        private bool GetExportFileName(string filter, out string fileName, out int filterIndex)
+        {
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            {
+                saveFileDialog.Filter = filter;
+                if (_controller.OpenedFileName != null)
+                    saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName);
+                //
+                if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    // The filter adds its extension to a file name typed without one
+                    fileName = saveFileDialog.FileName;
+                    filterIndex = saveFileDialog.FilterIndex - 1;
+                    return true;
+                }
+            }
+            fileName = null;
+            filterIndex = -1;
+            return false;
+        }
+        private async void ExportGeometryParts(string[] partNames)
         {
             try
             {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                string fileName;
+                int filterIndex;
+                string filter = "STEP files (*.stp)|*.stp|BREP files (*.brep)|*.brep|" +
+                                "Stereolithography files (*.stl)|*.stl|Mmg files (*.mesh)|*.mesh";
+                GeometryExportFormatEnum[] formats = new GeometryExportFormatEnum[] { GeometryExportFormatEnum.Step,
+                                                                                      GeometryExportFormatEnum.Brep,
+                                                                                      GeometryExportFormatEnum.Stl,
+                                                                                      GeometryExportFormatEnum.Mmg };
+                if (GetExportFileName(filter, out fileName, out filterIndex))
                 {
-                    saveFileDialog.Filter = "Step files | *.stp";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".stp";
+                    GeometryExportFormatEnum format = ExportFormatTools.GetGeometryFormat(fileName, formats[filterIndex]);
+                    SetStateWorking(Globals.ExportingText);
                     //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportCADGeometryPartsAsStepCommand(partNames, saveFileDialog.FileName));
-                    }
+                    await Task.Run(() => _controller.ExportGeometryPartsCommand(partNames, fileName, format));
                 }
             }
             catch (Exception ex)
@@ -2433,23 +2314,25 @@ namespace PrePoMax
                 SetStateReady(Globals.ExportingText);
             }
         }
-        private async void SaveCADPartsAsBrep(string[] partNames)
+        private async void ExportMeshParts(string[] partNames)
         {
             try
             {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                string fileName;
+                int filterIndex;
+                string filter = "CalculiX files (*.inp)|*.inp|Abaqus files (*.inp)|*.inp|Gmsh mesh files (*.msh)|*.msh|" +
+                                "Mmg files (*.mesh)|*.mesh|Stereolithography files (*.stl)|*.stl";
+                MeshExportFormatEnum[] formats = new MeshExportFormatEnum[] { MeshExportFormatEnum.Calculix,
+                                                                              MeshExportFormatEnum.Abaqus,
+                                                                              MeshExportFormatEnum.Gmsh,
+                                                                              MeshExportFormatEnum.Mmg,
+                                                                              MeshExportFormatEnum.Stl };
+                if (GetExportFileName(filter, out fileName, out filterIndex))
                 {
-                    saveFileDialog.Filter = "Brep files | *.brep";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".brep";
+                    MeshExportFormatEnum format = ExportFormatTools.GetMeshFormat(fileName, formats[filterIndex]);
+                    SetStateWorking(Globals.ExportingText);
                     //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportCADGeometryPartsAsBrepCommand(partNames, saveFileDialog.FileName));
-                    }
+                    await Task.Run(() => _controller.ExportMeshPartsCommand(partNames, fileName, format));
                 }
             }
             catch (Exception ex)
@@ -2461,23 +2344,19 @@ namespace PrePoMax
                 SetStateReady(Globals.ExportingText);
             }
         }
-        private async void SavePartsAsStl(string[] partNames)
+        private void ExportModel()
         {
             try
             {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                string fileName;
+                int filterIndex;
+                string filter = "CalculiX files (*.inp)|*.inp|Abaqus files (*.inp)|*.inp";
+                if (GetExportFileName(filter, out fileName, out filterIndex))
                 {
-                    saveFileDialog.Filter = "Stereolithography files | *.stl";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".stl";
+                    SetStateWorking(Globals.ExportingText);
                     //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportToStlCommand(partNames, saveFileDialog.FileName));
-                    }
+                    if (filterIndex == 1) _controller.ExportToAbaqusCommand(fileName);
+                    else _controller.ExportToCalculixCommand(fileName);
                 }
             }
             catch (Exception ex)
@@ -2489,79 +2368,21 @@ namespace PrePoMax
                 SetStateReady(Globals.ExportingText);
             }
         }
-        private async void SavePartsAsGmshMesh()
+        private async void ExportResultParts(string[] partNames)
         {
             try
             {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                string fileName;
+                int filterIndex;
+                string filter = "CalculiX files (*.inp)|*.inp|Stereolithography files (*.stl)|*.stl";
+                ResultsExportFormatEnum[] formats = new ResultsExportFormatEnum[] { ResultsExportFormatEnum.Calculix,
+                                                                                    ResultsExportFormatEnum.Stl };
+                if (GetExportFileName(filter, out fileName, out filterIndex))
                 {
-                    saveFileDialog.Filter = "Gmsh mesh files | *.msh";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".msh";
+                    ResultsExportFormatEnum format = ExportFormatTools.GetResultsFormat(fileName, formats[filterIndex]);
+                    SetStateWorking(Globals.ExportingText);
                     //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportPartsAsGmshMeshCommand(saveFileDialog.FileName));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.ExportingText);
-            }
-        }
-        private async void SavePartsAsMmgMesh(string[] partNames)
-        {
-            try
-            {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                {
-                    saveFileDialog.Filter = "Mmg files | *.mesh";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".mesh";
-                    //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportPartsAsMmgMeshCommand(partNames, saveFileDialog.FileName));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.ExportingText);
-            }
-        }
-        private async void SaveDeformedPartsAsInp(string[] partNames)
-        {
-            try
-            {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                {
-                    saveFileDialog.Filter = "Calculix files | *.inp";
-                    if (_controller.OpenedFileName != null)
-                        saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
-                    //
-                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // The filter adds the extension to the file name
-                        SetStateWorking(Globals.ExportingText);
-                        //
-                        await Task.Run(() => _controller.ExportDeformedPartsToCalculixCommand(partNames, saveFileDialog.FileName));
-                    }
+                    await Task.Run(() => _controller.ExportResultPartsCommand(partNames, fileName, format));
                 }
             }
             catch (Exception ex)

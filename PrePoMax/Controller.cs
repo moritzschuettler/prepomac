@@ -842,6 +842,22 @@ namespace PrePoMax
             CExportDeformedPartsToCalculix comm = new CExportDeformedPartsToCalculix(partNames, fileName);
             _commands.AddAndExecute(comm);
         }
+        //
+        public void ExportGeometryPartsCommand(string[] partNames, string fileName, GeometryExportFormatEnum format)
+        {
+            CExportGeometryParts comm = new CExportGeometryParts(partNames, fileName, format);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportMeshPartsCommand(string[] partNames, string fileName, MeshExportFormatEnum format)
+        {
+            CExportMeshParts comm = new CExportMeshParts(partNames, fileName, format);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportResultPartsCommand(string[] partNames, string fileName, ResultsExportFormatEnum format)
+        {
+            CExportResultParts comm = new CExportResultParts(partNames, fileName, format);
+            _commands.AddAndExecute(comm);
+        }
         
         //******************************************************************************************
         public void New()
@@ -2502,23 +2518,26 @@ namespace PrePoMax
         }
         public void ExportToStl(string[] partNames, string fileName)
         {
+            ExportPartsToStl(DisplayedMesh, partNames, fileName, _currentView);
+        }
+        private void ExportPartsToStl(FeMesh mesh, string[] partNames, string fileName, ViewGeometryModelResults source)
+        {
             SuppressExplodedView(partNames);
             //
-            FeMesh mesh = DisplayedMesh;
             vtkMaxActorData data;
             List<double[][]> stlTriangles = new List<double[][]>();
             //
             for (int i = 0; i < partNames.Length; i++)
             {
-                if (_currentView == ViewGeometryModelResults.Geometry)
+                if (source == ViewGeometryModelResults.Geometry)
                 {
                     data = GetGeometryPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, false, false);
                 }
-                else if (_currentView == ViewGeometryModelResults.Model)
+                else if (source == ViewGeometryModelResults.Model)
                 {
                     data = GetModelPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, null);
                 }
-                else if (_currentView == ViewGeometryModelResults.Results)
+                else if (source == ViewGeometryModelResults.Results)
                 {
                     data = GetResultPartActorData((ResultPart)mesh.Parts[partNames[i]], _currentFieldData);
                 }
@@ -2569,11 +2588,14 @@ namespace PrePoMax
         }
         public void ExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine = false)
         {
+            ExportPartsAsMmgMesh(DisplayedMesh, partNames, fileName, combine);
+        }
+        private void ExportPartsAsMmgMesh(FeMesh mesh, string[] partNames, string fileName, bool combine)
+        {
             string mmgFileName;
             string directory = Path.GetDirectoryName(fileName);
             string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             string extension = Path.GetExtension(fileName);
-            FeMesh mesh = DisplayedMesh;
             //
             SuppressExplodedView(partNames);
             //
@@ -2588,6 +2610,10 @@ namespace PrePoMax
                 foreach (var partName in partNames)
                 {
                     BasePart part = mesh.Parts[partName];
+                    if (part.PartType != PartType.Solid && part.PartType != PartType.Shell)
+                        throw new CaeException("The part " + partName + " is of the type " + part.PartType +
+                                               " and cannot be exported to an Mmg .mesh file. " +
+                                               "Only solid and shell parts can.");
                     if (partNames.Length == 1) mmgFileName = fileName;
                     else mmgFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
                     MmgFileWriter.Write(mmgFileName, part, mesh, true, false);
@@ -2622,6 +2648,140 @@ namespace PrePoMax
                 ResumeExplodedViews(false);
                 //
                 _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
+            }
+        }
+        //
+        public void ExportGeometryParts(string[] partNames, string fileName, GeometryExportFormatEnum format)
+        {
+            if (_model.Geometry == null || _model.Geometry.Parts == null)
+                throw new CaeException("There is no geometry to export.");
+            //
+            bool cadPartsOnly = format == GeometryExportFormatEnum.Step || format == GeometryExportFormatEnum.Brep;
+            BasePart part;
+            GeometryPart geometryPart;
+            foreach (var partName in partNames)
+            {
+                if (!_model.Geometry.Parts.TryGetValue(partName, out part))
+                    throw new CaeException("The geometry part " + partName + " does not exist.");
+                geometryPart = part as GeometryPart;
+                if (cadPartsOnly && (geometryPart == null || !geometryPart.IsCADPart))
+                    throw new CaeException("The part " + partName + " is not a CAD part and cannot be exported to a " +
+                                           ExportFormatTools.GetExtension(format) + " file.");
+            }
+            //
+            switch (format)
+            {
+                case GeometryExportFormatEnum.Step:
+                    ExportCADGeometryPartsAsStep(partNames, fileName);
+                    break;
+                case GeometryExportFormatEnum.Brep:
+                    ExportCADGeometryPartsAsBrep(partNames, fileName);
+                    break;
+                case GeometryExportFormatEnum.Stl:
+                    ExportPartsToStl(_model.Geometry, partNames, fileName, ViewGeometryModelResults.Geometry);
+                    break;
+                case GeometryExportFormatEnum.Mmg:
+                    ExportPartsAsMmgMesh(_model.Geometry, partNames, fileName, false);
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
+        }
+        public void ExportMeshParts(string[] partNames, string fileName, MeshExportFormatEnum format)
+        {
+            if (_model.Mesh == null || _model.Mesh.Parts == null) throw new CaeException("There is no mesh to export.");
+            //
+            foreach (var partName in partNames)
+            {
+                if (!_model.Mesh.Parts.ContainsKey(partName))
+                    throw new CaeException("The mesh part " + partName + " does not exist.");
+            }
+            //
+            switch (format)
+            {
+                case MeshExportFormatEnum.Calculix:
+                    ExportMeshPartsToCalculix(partNames, fileName);
+                    break;
+                case MeshExportFormatEnum.Abaqus:
+                    ExportMeshPartsToAbaqus(partNames, fileName);
+                    break;
+                case MeshExportFormatEnum.Gmsh:
+                    ExportMeshPartsAsGmshMesh(partNames, fileName);
+                    break;
+                case MeshExportFormatEnum.Mmg:
+                    ExportPartsAsMmgMesh(_model.Mesh, partNames, fileName, false);
+                    break;
+                case MeshExportFormatEnum.Stl:
+                    ExportPartsToStl(_model.Mesh, partNames, fileName, ViewGeometryModelResults.Model);
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
+        }
+        private void ExportMeshPartsToCalculix(string[] partNames, string fileName)
+        {
+            SuppressExplodedView(partNames);
+            CalculixFileWriter.Write(fileName, CreateMeshPartsModel(partNames), _settings.Solver.ConvertPyramidsTo);
+            ResumeExplodedViews(false);
+            //
+            foreach (var partName in partNames)
+            {
+                _form.WriteDataToOutput("Mesh of part " + partName + " exported to file: " + fileName);
+            }
+        }
+        private void ExportMeshPartsToAbaqus(string[] partNames, string fileName)
+        {
+            SuppressExplodedView(partNames);
+            AbaqusFileWriter.Write(fileName, CreateMeshPartsModel(partNames), _settings.Solver.ConvertPyramidsTo);
+            ResumeExplodedViews(false);
+            //
+            foreach (var partName in partNames)
+            {
+                _form.WriteDataToOutput("Mesh of part " + partName + " exported to file: " + fileName);
+            }
+        }
+        private void ExportMeshPartsAsGmshMesh(string[] partNames, string fileName)
+        {
+            SuppressExplodedView(partNames);
+            GmshMshFileWriter.Write(fileName, _model.Mesh, partNames);
+            ResumeExplodedViews(false);
+            //
+            foreach (var partName in partNames)
+            {
+                _form.WriteDataToOutput("Mesh of part " + partName + " exported to file: " + fileName);
+            }
+        }
+        private FeModel CreateMeshPartsModel(string[] partNames)
+        {
+            FeModel meshModel = new FeModel("Mesh", _model.UnitSystem, false);
+            meshModel.Properties.ModelSpace = _model.Properties.ModelSpace;
+            meshModel.Mesh.AddPartsFromMesh(_model.Mesh, partNames, null, null, false, false);
+            return meshModel;
+        }
+        public void ExportResultParts(string[] partNames, string fileName, ResultsExportFormatEnum format)
+        {
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null ||
+                _allResults.CurrentResult.Mesh.Parts == null)
+                throw new CaeException("There is no result to export.");
+            //
+            foreach (var partName in partNames)
+            {
+                if (!_allResults.CurrentResult.Mesh.Parts.ContainsKey(partName))
+                    throw new CaeException("The result part " + partName + " does not exist.");
+            }
+            //
+            switch (format)
+            {
+                case ResultsExportFormatEnum.Calculix:
+                    ExportDeformedPartsToCalculix(partNames, fileName);
+                    break;
+                case ResultsExportFormatEnum.Stl:
+                    if (_currentFieldData == null)
+                        throw new CaeException("There is no result field to export the deformed parts with.");
+                    ExportPartsToStl(_allResults.CurrentResult.Mesh, partNames, fileName, ViewGeometryModelResults.Results);
+                    break;
+                default:
+                    throw new NotSupportedException();
             }
         }
         //

@@ -495,11 +495,26 @@ model item.
 | `pmx.export_cad_parts_as_step(part_names, file_name)` | Exports the named CAD parts to .step. |
 | `pmx.export_cad_parts_as_brep(part_names, file_name)` | Exports the named CAD parts to .brep. |
 | `pmx.export_deformed_parts_to_calculix(part_names, file_name)` | Exports the named parts of the current result to a CalculiX .inp file. |
+| `pmx.export_geometry(part_names, file_name, format=None)` | Exports the named geometry parts; the extension picks .stp/.step, .brep, .stl or .mesh (Mmg). |
+| `pmx.export_mesh(part_names, file_name, format=None)` | Exports the nodes and elements of the named mesh parts; the extension picks .inp (CalculiX, or `format="abaqus"`), .msh (Gmsh), .mesh (Mmg) or .stl. |
+| `pmx.export_model(file_name, format=None)` | Exports the whole model as a solver input deck; .inp is CalculiX unless `format="abaqus"`. |
+| `pmx.export_results(part_names, file_name, format=None)` | Exports the named parts of the current result in their deformed shape; the extension picks .inp (CalculiX mesh) or .stl. |
 
-Each part export names the parts of its own source, and a name that source does not hold is
-refused: `export_to_stl` and `export_parts_as_mmg_mesh` take the parts of the **displayed** view,
-`export_cad_parts_as_step` and `export_cad_parts_as_brep` take **CAD geometry** parts, and
-`export_deformed_parts_to_calculix` takes the parts of the **current result**.
+The four source based exports mirror the **File - Export** menu, whose items are Geometry, Mesh, Model
+and Results: the item names what is exported and the save dialog's filter, or the extension typed,
+names the format. `export_geometry` takes **geometry** parts, refuses a part without CAD data for
+.stp and .brep, and refuses a part that is neither a solid nor a shell - an imported .stl body - for
+.mesh; `export_mesh` takes the parts of the **model mesh** and writes only their nodes and
+elements, which is how a part of a meshed model is handed to another program without its steps,
+loads and boundary conditions; `export_results` takes the parts of the **current result**. The
+`format` argument is needed only when the extension does not name the format - an Abaqus .inp - or
+when the file should carry another extension; its values are the format names in lower case
+(`"calculix"`, `"abaqus"`, `"gmsh"`, `"mmg"`, `"stl"`, `"step"`, `"brep"`).
+
+The older per format exports remain. Each names the parts of its own source, and a name that source
+does not hold is refused: `export_to_stl` and `export_parts_as_mmg_mesh` take the parts of the
+**displayed** view, `export_cad_parts_as_step` and `export_cad_parts_as_brep` take **CAD geometry**
+parts, and `export_deformed_parts_to_calculix` takes the parts of the **current result**.
 
 `new_model` and `open` replace the command history, which a recorded script is itself part of, so both
 raise inside a recorded script. Open the file with the `-f` command line switch instead, or call them

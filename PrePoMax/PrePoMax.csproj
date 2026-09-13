@@ -178,6 +178,9 @@
     <Compile Include="Commands\0000_File\CExportPartsAsMmgMesh.cs" />
     <Compile Include="Commands\0000_File\CExportCADGeometryPartsAsStep.cs" />
     <Compile Include="Commands\0000_File\CExportDeformedPartsToCalculix.cs" />
+    <Compile Include="Commands\0000_File\CExportGeometryParts.cs" />
+    <Compile Include="Commands\0000_File\CExportMeshParts.cs" />
+    <Compile Include="Commands\0000_File\CExportResultParts.cs" />
     <Compile Include="Commands\0000_File\CExportPartsAsGmshMesh.cs" />
     <Compile Include="Commands\0000_File\CExportToAbaqus.cs" />
     <Compile Include="Commands\0000_File\CExportToCalculix.cs" />

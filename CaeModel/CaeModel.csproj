@@ -142,6 +142,11 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalShellEdgeLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\Imported\CalImportedSTLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\ModelChange\CalModelChange.cs" />
+    <Compile Include="FileInOut\Output\ExportFormats\ExportFormatTools.cs" />
+    <Compile Include="FileInOut\Output\ExportFormats\GeometryExportFormatEnum.cs" />
+    <Compile Include="FileInOut\Output\ExportFormats\MeshExportFormatEnum.cs" />
+    <Compile Include="FileInOut\Output\ExportFormats\ModelExportFormatEnum.cs" />
+    <Compile Include="FileInOut\Output\ExportFormats\ResultsExportFormatEnum.cs" />
     <Compile Include="FileInOut\Output\Gmsh\GmshMshFileWriter.cs" />
     <Compile Include="FileInOut\Output\Mmg\MmgFileWriter.cs" />
     <Compile Include="FileInOut\Output\QuadWild\QuadWildInputFileInfo.cs" />

@@ -11,6 +11,7 @@ using CaeGlobals;
 using CaeMesh;
 using CaeModel;
 using CaeResults;
+using FileInOut.Output;
 using System;
 using System.IO;
 
@@ -121,6 +122,61 @@ namespace APIs.Python.Model
             string[] names = ResolveResultPartNames(partNames);
             EnsureCommandsAvailable();
             _modelGateway.ExportDeformedPartsToCalculix(names, ResolveOutputFileName(fileName, "file_name"));
+        }
+        // The extension of the file names the format, unless the caller gives it; .inp is CalculiX unless said otherwise
+        public void ExportGeometry(object partNames, string fileName, string format)
+        {
+            string[] names = ResolveGeometryPartNames(partNames);
+            string fullFileName = ResolveOutputFileName(fileName, "file_name");
+            GeometryExportFormatEnum formatValue;
+            if (format != null) formatValue = PythonValueConverter.ToEnum<GeometryExportFormatEnum>(format, "format");
+            else if (!ExportFormatTools.TryGetGeometryFormat(fullFileName, out formatValue))
+                throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no geometry export " +
+                                             "format. Use .stp, .brep, .stl or .mesh, or give the argument 'format'.");
+            if (formatValue == GeometryExportFormatEnum.Step || formatValue == GeometryExportFormatEnum.Brep)
+                EnsureCadPartNames(names);
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ExportGeometry(names, fullFileName, formatValue);
+        }
+        public void ExportMesh(object partNames, string fileName, string format)
+        {
+            string[] names = ResolveModelPartNames(partNames);
+            string fullFileName = ResolveOutputFileName(fileName, "file_name");
+            MeshExportFormatEnum formatValue;
+            if (format != null) formatValue = PythonValueConverter.ToEnum<MeshExportFormatEnum>(format, "format");
+            else if (!ExportFormatTools.TryGetMeshFormat(fullFileName, out formatValue))
+                throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no mesh export " +
+                                             "format. Use .inp, .msh, .mesh or .stl, or give the argument 'format'.");
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ExportMesh(names, fullFileName, formatValue);
+        }
+        public void ExportModel(string fileName, string format)
+        {
+            string fullFileName = ResolveOutputFileName(fileName, "file_name");
+            ModelExportFormatEnum formatValue;
+            if (format != null) formatValue = PythonValueConverter.ToEnum<ModelExportFormatEnum>(format, "format");
+            else if (!ExportFormatTools.TryGetModelFormat(fullFileName, out formatValue))
+                throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no model export " +
+                                             "format. Use .inp, or give the argument 'format'.");
+            //
+            EnsureCommandsAvailable();
+            if (formatValue == ModelExportFormatEnum.Abaqus) _modelGateway.ExportToAbaqus(fullFileName);
+            else _modelGateway.ExportToCalculix(fullFileName);
+        }
+        public void ExportResults(object partNames, string fileName, string format)
+        {
+            string[] names = ResolveResultPartNames(partNames);
+            string fullFileName = ResolveOutputFileName(fileName, "file_name");
+            ResultsExportFormatEnum formatValue;
+            if (format != null) formatValue = PythonValueConverter.ToEnum<ResultsExportFormatEnum>(format, "format");
+            else if (!ExportFormatTools.TryGetResultsFormat(fullFileName, out formatValue))
+                throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no results export " +
+                                             "format. Use .inp or .stl, or give the argument 'format'.");
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ExportResults(names, fullFileName, formatValue);
         }
         //
         public string GetModelType()
@@ -283,6 +339,12 @@ namespace APIs.Python.Model
         private string[] ResolveCadPartNames(object partNames)
         {
             string[] names = ToPartNames(partNames);
+            EnsureCadPartNames(names);
+            //
+            return names;
+        }
+        private void EnsureCadPartNames(string[] names)
+        {
             FeMesh geometry = _modelResolver.GetGeometry();
             foreach (string name in names)
             {
@@ -292,6 +354,28 @@ namespace APIs.Python.Model
                 GeometryPart geometryPart = part as GeometryPart;
                 if (geometryPart == null || geometryPart.CADFileData == null)
                     throw new PythonAPIException("The geometry part '" + name + "' is not a CAD part.");
+            }
+        }
+        private string[] ResolveGeometryPartNames(object partNames)
+        {
+            string[] names = ToPartNames(partNames);
+            FeMesh geometry = _modelResolver.GetGeometry();
+            foreach (string name in names)
+            {
+                if (!geometry.Parts.ContainsKey(name))
+                    throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
+            }
+            //
+            return names;
+        }
+        private string[] ResolveModelPartNames(object partNames)
+        {
+            string[] names = ToPartNames(partNames);
+            FeMesh mesh = _modelResolver.GetMesh();
+            foreach (string name in names)
+            {
+                if (!mesh.Parts.ContainsKey(name))
+                    throw new PythonAPIException("The mesh part '" + name + "' does not exist.");
             }
             //
             return names;

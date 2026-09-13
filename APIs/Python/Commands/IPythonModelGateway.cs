@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using FileInOut.Output;
 
 namespace APIs.Python
 {
@@ -39,6 +40,9 @@ namespace APIs.Python
         void ExportCadPartsAsStep(string[] partNames, string fileName);
         void ExportCadPartsAsBrep(string[] partNames, string fileName);
         void ExportDeformedPartsToCalculix(string[] partNames, string fileName);
+        void ExportGeometry(string[] partNames, string fileName, GeometryExportFormatEnum format);
+        void ExportMesh(string[] partNames, string fileName, MeshExportFormatEnum format);
+        void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format);
         // Model properties
         void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType);
         void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties);

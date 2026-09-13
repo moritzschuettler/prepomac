@@ -12,6 +12,7 @@ using CaeJob;
 using CaeMesh;
 using CaeModel;
 using CaeResults;
+using FileInOut.Output;
 using System;
 using System.Collections.Generic;
 
@@ -68,6 +69,11 @@ namespace APIs.Python
             types.Add("model_type", typeof(ModelType));
             types.Add("unit_system", typeof(UnitSystemType));
             types.Add("slip_wear_results", typeof(SlipWearResultsEnum));
+            // Exports
+            types.Add("export_geometry.format", typeof(GeometryExportFormatEnum));
+            types.Add("export_mesh.format", typeof(MeshExportFormatEnum));
+            types.Add("export_model.format", typeof(ModelExportFormatEnum));
+            types.Add("export_results.format", typeof(ResultsExportFormatEnum));
             // Selections and regions
             types.Add("region_type", typeof(RegionTypeEnum));
             types.Add("select_by", typeof(vtkSelectBy));
