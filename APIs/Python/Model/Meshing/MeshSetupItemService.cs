@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeMesh;
+using System;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -110,6 +111,7 @@ namespace APIs.Python.Model
         public void AddPreparedItem(MeshSetupItem item)
         {
             EnsureCommandsAvailable();
+            EnsureModelCanHonour(item);
             _meshGateway.AddMeshSetupItem(item);
         }
         // The dialog rebuilds the meshing parameters from the size of the selected parts in
@@ -140,14 +142,26 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection)
         {
+            Replace(oldName, item, name, selection, null);
+        }
+        // The hook is what the dialog does in FrmMeshSetupItem.SelectionChanged: a value that follows the
+        // size of the selected parts is rebuilt from the parts that are now selected. It runs only when a
+        // new region was applied, because that is the only time the sizes it derives can have changed
+        public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection,
+                            Action<MeshSetupItem> afterSelectionChanged)
+        {
             ResolveItem(oldName);
             ValidateName(name, oldName);
             item.Name = name;
             // A replacement keeps the region it was created from until a new selection is given
-            if (selection != null) ApplySelection(item, selection);
+            if (selection != null)
+            {
+                ApplySelection(item, selection);
+                if (afterSelectionChanged != null) afterSelectionChanged(item);
+            }
             //
             EnsureCommandsAvailable();
-            if (selection != null) EnsureSelectionCanBeHonoured(item);
+            if (selection != null) EnsureModelCanHonour(item);
             _meshGateway.ReplaceMeshSetupItem(oldName, item);
         }
         public void Duplicate(string[] names)
@@ -194,18 +208,18 @@ namespace APIs.Python.Model
             return names;
         }
         //
-        // A replace that is given a new selection either honours it or says why it cannot. The item would
-        // otherwise keep the new region, be marked invalid by the validity check, and then be skipped at
-        // mesh time without a word - which is how an extrude mesh setup item quietly became a tetrahedral
-        // mesh. The question also derives what the extrude, sweep and revolve items take from their
-        // selection, so asking it is what re-derives those values for the region that is now theirs
-        private void EnsureSelectionCanBeHonoured(MeshSetupItem item)
+        // An item the model cannot honour is refused, the way FrmMeshSetupItem.OnApply refuses it. It would
+        // otherwise be recorded, be marked invalid by the validity check, and then be skipped at mesh time
+        // without a word - which is how an extrude mesh setup item quietly became a tetrahedral mesh. The
+        // question also derives what the extrude, sweep and revolve items take from their selection, so
+        // asking it is what derives those values for the region that is theirs
+        private void EnsureModelCanHonour(MeshSetupItem item)
         {
             string error = _meshGateway.IsMeshSetupItemProperlyDefined(item);
             if (error == null) return;
             //
             throw new PythonAPIException("The mesh setup item '" + item.Name + "' cannot be defined on the " +
-                                         "selection it was given, so the selection was not changed. " + error);
+                                         "selected geometry, so nothing was changed. " + error);
         }
         private void ApplySelection(MeshSetupItem item, SelectionAPI selection)
         {

@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System;
 
 namespace APIs.Python.Model
 {
@@ -90,11 +91,16 @@ namespace APIs.Python.Model
                                                            object merge_compound_parts = null)
         {
             MeshingParameters item = (MeshingParameters)_service.CloneItem(old_name);
+            bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
+                                          elements_per_curve, second_order, quad_dominated,
+                                          midside_nodes_on_geometry, relative_size, factor_max, factor_min,
+                                          optimize_steps_2d, optimize_steps_3d, split_compound_mesh,
+                                          merge_compound_parts);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, optimize_steps_2d, optimize_steps_3d,
                                    split_compound_mesh, merge_compound_parts);
-            return Replace(old_name, name, item, selection);
+            return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
         [PythonAPI("Adds a local mesh size for the selected geometry. Use either element_size or " +
@@ -152,8 +158,9 @@ namespace APIs.Python.Model
                                                   object keep_model_edges = null)
         {
             ShellMmg item = (ShellMmg)_service.CloneItem(old_name);
+            bool valuesGiven = IsAnyGiven(relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
-            return Replace(old_name, name, item, selection);
+            return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
         [PythonAPI("Adds a thicken shell mesh item for the selected geometry.",
@@ -540,10 +547,38 @@ namespace APIs.Python.Model
         //
         private MeshSetupItemAPI Replace(string oldName, string name, MeshSetupItem item, SelectionAPI selection)
         {
+            return Replace(oldName, name, item, selection, null);
+        }
+        private MeshSetupItemAPI Replace(string oldName, string name, MeshSetupItem item, SelectionAPI selection,
+                                         Action<MeshSetupItem> afterSelectionChanged)
+        {
             string newName = name == null ? oldName : name;
-            _service.Replace(oldName, item, newName, selection);
+            _service.Replace(oldName, item, newName, selection, afterSelectionChanged);
             //
             return this[newName];
+        }
+        // The meshing parameters and the shell MMG item carry lengths the dialog derives from the size of
+        // the selected parts, and it rebuilds them whenever the selection changes and the user has typed
+        // none of them in that dialog. One call is one such visit: the values this call gives are the
+        // caller's and stop the rebuild, and a call that only moves the item lets the sizes follow the
+        // geometry the way clicking the same change would
+        private Action<MeshSetupItem> GetPartDefaultsRebuild(bool valuesGiven)
+        {
+            if (valuesGiven) return null;
+            //
+            return delegate (MeshSetupItem item)
+            {
+                if (item is MeshingParameters meshingParameters) _service.ApplyPartDefaults(meshingParameters);
+                else if (item is ShellMmg shellMmg) _service.ApplyPartDefaults(shellMmg);
+            };
+        }
+        private static bool IsAnyGiven(params object[] values)
+        {
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] != null) return true;
+            }
+            return false;
         }
         private static void ApplyLocalMeshSize(LocalMeshSize item, object elementSize, object numberOfElements)
         {

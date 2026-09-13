@@ -2,12 +2,21 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the mesh setup item replacements and the mesher settings: a replacement keeps the region and
-#every value it is not told about. A geometry must be open before the script runs.
+#every value it is not told about.
 #
-#  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Coverage.py -g No -x Yes -w <dir>
+#Every item type is added on geometry it can actually be defined on, because an item the model cannot
+#honour is refused the way the dialog refuses it. box_and_cylinder.brep carries the CAD box the
+#transfinite, extrude and sweep items need and the quarter cylinder the revolve item needs; the two
+#STL parts are imported for the shell items and the tetrahedral one.
+#
+#  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Coverage.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 
+import os
+import sys
+
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 PREFIX = "PyTest_Coverage_"
 
 
@@ -69,7 +78,7 @@ def test_thicken_shell(items, selection):
     check(values["number_of_layers"] == 3, "the omitted layer count was not kept")
 
 
-def test_gmsh_items(items, selection):
+def test_gmsh_items(items, selection, shell_selection, box_selection):
     items.add_tetrahedral_gmsh(PREFIX + "Tet", selection, algorithm_recombine="Simple",
                                transfinite_three_sided=True)
     items.replace_tetrahedral_gmsh(PREFIX + "Tet", optimize_high_order="HighOrder")
@@ -77,19 +86,19 @@ def test_gmsh_items(items, selection):
     check(values["algorithm_recombine"] == "Simple", "the omitted recombine algorithm was not kept")
     check(values["transfinite_three_sided"], "the omitted transfinite flag was not kept")
     #
-    items.add_shell_gmsh(PREFIX + "Shell", selection, transfinite_angle=120.0)
+    items.add_shell_gmsh(PREFIX + "Shell", shell_selection, transfinite_angle=120.0)
     items.replace_shell_gmsh(PREFIX + "Shell", algorithm_recombine="Blossom")
     check(settings(items, PREFIX + "Shell")["transfinite_angle_deg"] == 120.0,
           "the omitted transfinite angle was not kept")
     #
-    items.add_transfinite_mesh(PREFIX + "Transfinite", selection, recombine=True)
+    items.add_transfinite_mesh(PREFIX + "Transfinite", box_selection, recombine=True)
     items.replace_transfinite_mesh(PREFIX + "Transfinite", transfinite_angle=110.0)
     values = settings(items, PREFIX + "Transfinite")
     check(values["algorithm_recombine"] != "None", "the omitted recombine switch was not kept")
     check(values["transfinite_angle_deg"] == 110.0, "the transfinite angle was not replaced")
 
 
-def test_derived_arguments(items, selection):
+def test_derived_arguments(items, selection, revolve_selection):
     items.add_extrude_mesh(PREFIX + "Extrude", selection, number_of_elements=3)
     items.replace_extrude_mesh(PREFIX + "Extrude", element_scale_factor=1.5)
     check(settings(items, PREFIX + "Extrude")["number_of_elements"] == 3,
@@ -97,7 +106,7 @@ def test_derived_arguments(items, selection):
     check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Extrude", direction=[1, 0, 0]),
                  "the derived extrusion direction was accepted")
     #
-    items.add_revolve_mesh(PREFIX + "Revolve", selection)
+    items.add_revolve_mesh(PREFIX + "Revolve", revolve_selection)
     items.replace_revolve_mesh(PREFIX + "Revolve", number_of_elements=4)
     check_raises(lambda: items.replace_revolve_mesh(PREFIX + "Revolve", angle=90.0),
                  "the derived revolution angle was accepted")
@@ -170,24 +179,80 @@ def test_rejection_leaves_no_trace(items):
     check(list(items.get_names()) == before, "a refused replacement changed the collection")
 
 
+def diagonal(part):
+    box = list(part.get_bounding_box())
+    return ((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) ** 0.5
+
+
+# The dialog rebuilds the size based values from the parts that are now selected whenever the user
+# has typed none of them, so a replace that only moves the item to other geometry does the same and
+# one that also sets a value leaves the rest alone. Without this a scripted item kept the sizes of a
+# part it no longer covers, which on a much larger part is a mesh nobody asked for
+def test_size_defaults(items, small, small_selection, large, large_selection):
+    name = PREFIX + "Sizes"
+    items.add_meshing_parameters(name, small_selection)
+    small_max = settings(items, name)["max_h"]
+    check(small_max > 0, "the added item has no maximum size: " + str(small_max))
+    # Moving it to the larger part and saying nothing else lets the sizes follow the geometry
+    items.replace_meshing_parameters(name, selection=large_selection)
+    large_max = settings(items, name)["max_h"]
+    ratio = (large_max / small_max) / (diagonal(large) / diagonal(small))
+    check(abs(ratio - 1.0) < 0.1, "the maximum size did not follow the selected part: " +
+          str(small_max) + " to " + str(large_max) + " for a diagonal ratio of " +
+          str(diagonal(large) / diagonal(small)))
+    # A replace that also sets a value is the caller's, so the rest is kept rather than rebuilt
+    kept_min = settings(items, name)["min_h"]
+    items.replace_meshing_parameters(name, selection=small_selection, max_size=7.0)
+    values = settings(items, name)
+    check(values["max_h"] == 7.0, "the given maximum size was not applied: " + str(values["max_h"]))
+    check(values["min_h"] == kept_min, "a replace that sets a value must keep the rest: " +
+          str(values["min_h"]) + " against " + str(kept_min))
+    items.remove([name])
+
+
+def part_selection(part):
+    return pmx.create.selection_by_ids("geometry", "geometry", "parts", [part.id])
+
+
+def face_selection(part, face_id):
+    return pmx.create.selection_by_ids("geometry", "geometry_surfaces", "surfaces", {part.id: [face_id]})
+
+
+def import_parts(file_name):
+    before = list(pmx.model.geometry.parts.get_names())
+    pmx.import_file(os.path.join(MODELS, file_name))
+    return [part for part in pmx.model.geometry.parts if part.name not in before]
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
-    parts = pmx.model.geometry.parts
-    check(len(parts) > 0, "a geometry part is required")
-    selection = pmx.create.selection_by_ids("geometry", "geometry", "parts", [parts.first().id])
+    cad = list(pmx.model.geometry.parts)
+    check(len(cad) == 2, "the CAD model must carry the box and the quarter cylinder")
+    box = [part for part in cad if part.get_face_data().count == 6][0]
+    cylinder = [part for part in cad if part.get_face_data().count != 6][0]
+    shell = import_parts("open_shell.stl")[0]
+    solid = import_parts("cube.stl")[0]
+    check(shell.part_type == "Shell", "the shell part is a " + shell.part_type)
+    # The bottom face of the box is what an extrude and a sweep are built from, and one of the flat
+    # radial faces of the quarter cylinder is the section the solid is a revolution of
+    box_face = face_selection(box, 5)
+    revolve_face = face_selection(cylinder, 4)
+    solid_selection = part_selection(solid)
+    shell_selection = part_selection(shell)
     items = pmx.model.mesh.setup_items
     for name in list(items.get_names()):
         if name.startswith(PREFIX):
             items.remove([name])
     #
-    test_meshing_parameters(items, selection)
-    test_local_mesh_size(items, selection)
-    test_shell_mmg(items, selection)
-    test_thicken_shell(items, selection)
-    test_gmsh_items(items, selection)
-    test_derived_arguments(items, selection)
-    test_layer_validation(items, selection)
-    test_quad_wild(items, selection)
+    test_meshing_parameters(items, solid_selection)
+    test_local_mesh_size(items, solid_selection)
+    test_shell_mmg(items, shell_selection)
+    test_thicken_shell(items, shell_selection)
+    test_gmsh_items(items, solid_selection, shell_selection, part_selection(box))
+    test_derived_arguments(items, box_face, revolve_face)
+    test_layer_validation(items, box_face)
+    test_quad_wild(items, shell_selection)
+    test_size_defaults(items, solid, solid_selection, box, part_selection(box))
     test_rejection_leaves_no_trace(items)
     #
     items.remove([n for n in items.get_names() if n.startswith(PREFIX)])

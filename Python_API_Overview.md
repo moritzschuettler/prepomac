@@ -673,18 +673,30 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_shell_quad_wild(name, selection, preview=None, remesh=None, smooth=None, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
+An item the model cannot honour is **refused rather than recorded**, on an add and on a replace that
+names a new selection, and the refusal says why - a shell mesher on a solid part, an extruded mesh on
+an STL part. This is the question the dialog asks before it applies. An item that was accepted and
+later became invalid, because the part it covered was removed, becomes valid again as soon as a
+replace points it at geometry it can be defined on: a replacement is judged by the definition it
+carries, not by the verdict of the item it replaces.
+
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`, `min_size`,
 `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `optimize_steps_2d`,
 `optimize_steps_3d`, `second_order`, `quad_dominated`, `midside_nodes_on_geometry`,
 `split_compound_mesh` and `merge_compound_parts`. Like the dialog, it derives `max_size` and
 `min_size` from the size of the selected parts, and the arguments of the call are applied on top of
-those.
+those. `replace_meshing_parameters` does the same when it is given a new `selection` and no other
+value, so the sizes follow the geometry the item now covers; a replace that also sets a value is the
+caller's and keeps everything it is not told about. This is what the dialog does when the selection
+changes and nothing was typed into the property grid.
 
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
 Like the dialog, it derives `hausdorff` from the size of the selected parts - the bounding box
-diagonal times `relative_hausdorff` - and the arguments of the call are applied on top of that. MMG
-continues to use the shared maximum/minimum size and element order values from `meshing_parameters`.
+diagonal times `relative_hausdorff` - and the arguments of the call are applied on top of that.
+`replace_shell_mmg` rebuilds it from the newly selected parts under the same rule as
+`replace_meshing_parameters`. MMG continues to use the shared maximum/minimum size and element order
+values from `meshing_parameters`.
 
 Every Gmsh item accepts the settings its dialog shows and no others, so the arguments differ per
 item:
