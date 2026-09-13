@@ -854,7 +854,9 @@ Each `GeometryMetadataEntity` exposes `kind`, `id`, `property_names` and
 property becomes available without adding a dedicated Python member. Scalar values return `float` or
 `str`; vectors return a NumPy array, `NumericArray` or `StringList`. Common properties include
 `axis`, `x_direction`, `y_direction`, `radius`, `center`, `apex`, `major_radius`, `minor_radius`,
-`orientation`, `bounding_box`, `face_ids` and `edge_ids`.
+`orientation`, `bounding_box`, `face_ids` and `edge_ids`. Circular edges add `closed` and
+`sweep_angle_rad`. Cylindrical faces belonging to one solid add `convexity`: `Convex` means the
+material lies toward the cylinder axis, while `Concave` means it lies away from the axis.
 
 The property set varies by entity type - a cylinder has a `radius`, a torus adds `center`,
 `major_radius` and `minor_radius`, a cone has `apex`, `semi_angle_rad` and `reference_radius` and no

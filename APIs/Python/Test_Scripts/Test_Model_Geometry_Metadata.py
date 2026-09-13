@@ -83,8 +83,25 @@ def test_metadata(part):
             check("radius" not in list(face.property_names), "a face hid a radius it carries")
         else:
             check(radius > 0, "a cylinder radius must be positive")
+            check(face.get_property("convexity") in ("Convex", "Concave"),
+                  "a solid cylinder face must state which radial side contains material")
             with_radius += 1
     check(with_radius == 1, "exactly one face of the L bracket is a cylinder, found " + str(with_radius))
+    # Every circular edge states its angular span directly; closed is consistent with a full turn.
+    topology_edges = part.get_edge_data()
+    metadata_edges = metadata.get_entities("edge")
+    circle_count = 0
+    for i in range(topology_edges.count):
+        if topology_edges.types[i] == "Circle":
+            edge = metadata_edges.get(int(topology_edges.ids[i]))
+            sweep = edge.get_property("sweep_angle_rad")
+            closed = int(edge.get_property("closed"))
+            check(sweep is not None and 0 < sweep <= 2 * 3.141592653589793 + 1e-12,
+                  "a circular edge must carry a valid swept angle")
+            check(closed == int(abs(sweep - 2 * 3.141592653589793) < 1e-10),
+                  "a circular edge closure flag must agree with its swept angle")
+            circle_count += 1
+    check(circle_count > 0, "the CAD test part must contain at least one circular edge")
     # A name no entity carries, with and without a default
     face = faces[1]
     check(face.get_property("PyTest_no_such_property") is None,
