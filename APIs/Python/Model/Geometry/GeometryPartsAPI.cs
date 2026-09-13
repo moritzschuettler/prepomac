@@ -69,10 +69,13 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Flips the orientation of the selected faces using command history. The selection uses " +
-                   "the 'geometry' view and target.", Arguments = "selection: Selection", Returns = "None")]
-        public void flip_face_orientations(SelectionAPI selection)
+                   "the 'geometry' view and target. Returns the number of faces flipped on every selected " +
+                   "part, so a part that was skipped is visible: it reports zero. Only the faces of CAD " +
+                   "shell parts can be flipped.",
+                   Arguments = "selection: Selection", Returns = "dict[str, int]")]
+        public Dictionary<string, int> flip_face_orientations(SelectionAPI selection)
         {
-            _service.FlipFaceOrientations(selection);
+            return _service.FlipFaceOrientations(selection);
         }
 
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
@@ -86,11 +89,14 @@ namespace APIs.Python.Model
             return _service.Defeature(selection);
         }
 
-        [PythonAPI("Splits a face using two vertices. Both selections use the 'geometry' view and target.",
-                   Arguments = "surface_selection: Selection, vertices_selection: Selection", Returns = "None")]
-        public void split_face(SelectionAPI surface_selection, SelectionAPI vertices_selection)
+        [PythonAPI("Splits a face using two vertices. Both selections use the 'geometry' view and target. " +
+                   "Returns the number of faces the part gained, which is zero when the modelling kernel " +
+                   "could not make the cut. Only a face of a CAD part can be split.",
+                   Arguments = "surface_selection: Selection, vertices_selection: Selection",
+                   Returns = "dict[str, int]")]
+        public Dictionary<string, int> split_face(SelectionAPI surface_selection, SelectionAPI vertices_selection)
         {
-            _service.SplitFace(surface_selection, vertices_selection);
+            return _service.SplitFace(surface_selection, vertices_selection);
         }
 
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",
@@ -101,10 +107,13 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Deletes the selected STL part faces using command history. The selection uses the " +
-                   "'geometry' view and target.", Arguments = "selection: Selection", Returns = "None")]
-        public void delete_stl_faces(SelectionAPI selection)
+                   "'geometry' view and target. Returns the number of elements deleted from every selected " +
+                   "part, so a part that was skipped is visible: it reports zero. Only the faces of STL " +
+                   "parts can be deleted.",
+                   Arguments = "selection: Selection", Returns = "dict[str, int]")]
+        public Dictionary<string, int> delete_stl_faces(SelectionAPI selection)
         {
-            _service.DeleteStlFaces(selection);
+            return _service.DeleteStlFaces(selection);
         }
         //
         protected override GeometryPartAPI CreateItemAPI(string name)

@@ -38,6 +38,27 @@ def part_selection(part):
     return pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
 
 
+# A whole part mesher records either the parts the dialog picked or the geometry those parts cover,
+# and the API offers both. The validity check used to resolve only the part form for the shell, the
+# QuadWild, the thicken, the tetrahedral and the transfinite item, so one created from the geometry
+# form came out invalid and was then silently skipped by every mesher.
+def test_both_selection_targets(items, part):
+    by_parts = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+    by_geometry = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
+    for label, adder in (("tetrahedral_gmsh", items.add_tetrahedral_gmsh),
+                         ("shell_gmsh", items.add_shell_gmsh),
+                         ("shell_quad_wild", items.add_shell_quad_wild)):
+        for form, selection in (("parts", by_parts), ("geometry", by_geometry)):
+            name = "PyTest_Target_" + label + "_" + form
+            try:
+                item = adder(name, selection)
+            except Exception:
+                continue    # the item cannot be defined on this part type at all
+            check(item.valid, label + " created from the '" + form + "' target is invalid, so every " +
+                  "mesher would skip it")
+            items.remove([name])
+
+
 def main():
     pmx.import_file(os.path.join(MODELS, "cube.stl"))
     parts = pmx.model.geometry.parts
@@ -76,6 +97,7 @@ def main():
     check(list(items["PyTest_Validity_Renamed"].get_geometry_ids()) == geometry_ids,
           "a replace without a selection must keep the region")
     items.remove(["PyTest_Validity_Renamed"])
+    test_both_selection_targets(items, again)
     print("TEST PASSED")
 
 

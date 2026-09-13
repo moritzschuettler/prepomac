@@ -7,6 +7,8 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System.Collections.Generic;
+
 namespace APIs.Python.Model
 {
     // The meshing branch of the model tree
@@ -34,11 +36,14 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Meshes the named geometry parts using command history. The call returns when the meshing " +
-                   "has finished.", Arguments = "part_names: list[str] or str", Returns = "None",
-                   Example = "pmx.model.mesh.create('Solid-1')")]
-        public void create(object part_names)
+                   "has finished. It reports every named part with the reason it was not meshed, and an empty " +
+                   "reason for one that was, because meshing several parts can succeed for some of them. A " +
+                   "call that meshes nothing at all raises instead, and records no command.",
+                   Arguments = "part_names: list[str] or str", Returns = "dict[str, str]",
+                   Example = "failed = {k: v for k, v in pmx.model.mesh.create('Solid-1').items() if v}")]
+        public Dictionary<string, string> create(object part_names)
         {
-            _service.CreateMeshes(_service.ResolveMeshablePartNames(part_names));
+            return _service.CreateMeshes(_service.ResolveMeshablePartNames(part_names));
         }
 
         [PythonAPI("Creates a boundary layer on the selected geometry using command history.",

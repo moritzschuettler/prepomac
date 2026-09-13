@@ -131,7 +131,11 @@ def test_meshing(part_name, selection):
     pmx.model.mesh.setup_items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection, max_size=0.5)
     check_raises(lambda: pmx.model.mesh.create("NoSuchPart"), "an unknown part must be rejected")
     #
-    pmx.model.mesh.create(part_name)
+    # Meshing several parts can succeed for some of them, so the call reports every part it was
+    # given with the reason it was not meshed, and an empty reason for one that was
+    report = pmx.model.mesh.create(part_name)
+    check(part_name in report, "the meshing report must name the part it was given: " + str(dict(report)))
+    check(report[part_name] == "", "a part that meshed must report no reason: " + report[part_name])
     check(len(pmx.model.parts) > 0, "the meshing did not create a model part")
     mesh_part = pmx.model.parts.first()
     check(mesh_part.element_count > 0, "the meshed part has no elements")

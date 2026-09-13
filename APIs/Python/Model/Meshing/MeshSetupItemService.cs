@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeMesh;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -187,10 +188,10 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _meshGateway.RenameMeshSetupItem(item, newName);
         }
-        public void CreateMeshes(string[] partNames)
+        public Dictionary<string, string> CreateMeshes(string[] partNames)
         {
             EnsureCommandsAvailable();
-            _meshGateway.CreateMeshes(partNames);
+            return _meshGateway.CreateMeshes(partNames);
         }
         public string[] ResolveMeshablePartNames(object partNames)
         {

@@ -10,6 +10,7 @@
 using APIs.Python;
 using CaeGlobals;
 using CaeMesh;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 
@@ -94,9 +95,45 @@ namespace PrePoMax.Python
             // A mesh setup item lives in the geometry view
             _controller.RenameCommand(item, newName, null, ViewGeometryModelResults.Geometry);
         }
-        public void CreateMeshes(string[] partNames)
+        // The controller already collects which parts meshed and why the others did not, and writes the
+        // reasons to the output window. This hands them to the caller as well, because an agent has no
+        // output window to read. A call that meshed nothing records no command, so it raises rather than
+        // returning a report of an operation that left no trace
+        public Dictionary<string, string> CreateMeshes(string[] partNames)
         {
             _controller.CreateMeshesCommand(partNames);
+            //
+            HashSet<string> meshed = new HashSet<string>(_controller.LastMeshedPartNames);
+            string[] errors = _controller.LastMeshingErrors;
+            Dictionary<string, string> report = new Dictionary<string, string>();
+            foreach (string partName in partNames)
+            {
+                if (report.ContainsKey(partName)) continue;
+                report.Add(partName, meshed.Contains(partName) ? "" : GetMeshingError(partName, errors));
+            }
+            if (meshed.Count == 0)
+            {
+                throw new PythonAPIException("No part was meshed. " +
+                                             (errors.Length > 0 ? string.Join(" ", errors)
+                                                                : "The mesher reported no reason."));
+            }
+            return report;
+        }
+        // An error the mesher attributed to a part opens with its name; one it could not attribute - a
+        // cancelled run - belongs to every part that did not mesh
+        private static string GetMeshingError(string partName, string[] errors)
+        {
+            string prefix = partName + ": ";
+            List<string> unattributed = new List<string>();
+            foreach (string error in errors)
+            {
+                if (error == null) continue;
+                if (error.StartsWith(prefix, StringComparison.Ordinal)) return error.Substring(prefix.Length);
+                // The mesher opens an attributed error with the part name and a colon
+                if (error.IndexOf(": ", StringComparison.Ordinal) < 0) unattributed.Add(error);
+            }
+            if (unattributed.Count > 0) return string.Join(" ", unattributed.ToArray());
+            return "The mesh was not created.";
         }
         // Mesh tools
         public void CreateBoundaryLayer(GeometrySelection geometrySelection, double thickness)
@@ -204,13 +241,16 @@ namespace PrePoMax.Python
         {
             _controller.FindEdgesByAngleForGeometryPartsCommand(partNames, edgeAngle);
         }
-        public void FlipFaceOrientations(GeometrySelection geometrySelection)
+        public Dictionary<string, int> FlipFaceOrientations(GeometrySelection geometrySelection)
         {
             _controller.FlipFaceOrientationsCommand(geometrySelection);
+            return _controller.LastGeometryOperationCounts;
         }
-        public void SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
+        public Dictionary<string, int> SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection,
+                                                               GeometrySelection verticesSelection)
         {
             _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
+            return _controller.LastGeometryOperationCounts;
         }
         // The faces a part lost are counted around the command rather than reported by it, so the count is
         // the one the model ended up with and not the one the operation believed it had made
@@ -236,9 +276,10 @@ namespace PrePoMax.Python
         {
             _controller.FlipStlPartSurfacesNormalCommand(partNames);
         }
-        public void DeleteStlPartFaces(GeometrySelection geometrySelection)
+        public Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection)
         {
             _controller.DeleteStlPartFacesCommand(geometrySelection);
+            return _controller.LastGeometryOperationCounts;
         }
         // Model parts
         public void ReplaceModelPartProperties(string oldPartName, PartProperties newPartProperties)

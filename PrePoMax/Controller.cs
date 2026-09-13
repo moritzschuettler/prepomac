@@ -104,6 +104,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshedModelPartNames;
         [NonSerialized] protected string[] _lastMeshingErrors;
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
+        [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -219,6 +220,17 @@ namespace PrePoMax
         public string[] LastDefeaturedPartNames
         {
             get { return _lastDefeaturedPartNames == null ? new string[0] : _lastDefeaturedPartNames; }
+        }
+        // What the last geometry operation did to each part it was asked about, zero included. A caller
+        // that is not a person cannot read the output window, and an operation that did nothing looks
+        // exactly like one that worked
+        public Dictionary<string, int> LastGeometryOperationCounts
+        {
+            get
+            {
+                return _lastGeometryOperationCounts == null ? new Dictionary<string, int>()
+                                                            : _lastGeometryOperationCounts;
+            }
         }
         public bool ExecutableJobIdle
         {
@@ -4415,6 +4427,7 @@ namespace PrePoMax
                 }
             }
             //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
             if (partIdFaceIds.Keys.Count > 0)
             {
                 BasePart part;
@@ -4423,17 +4436,25 @@ namespace PrePoMax
                 foreach (var entry in partIdFaceIds)
                 {
                     part = _model.Geometry.GetPartFromId(entry.Key);
-                    if (part != null && part is GeometryPart gp && gp.IsCADPart && part.PartType == PartType.Shell)
+                    if (part == null) continue;
+                    // Nothing observable changes when a face is flipped, so what was done is recorded here
+                    _lastGeometryOperationCounts[part.Name] = 0;
+                    if (part is GeometryPart gp && gp.IsCADPart && part.PartType == PartType.Shell)
                     {
                         brepFileName = FlipPartFaceOrientations(gp, entry.Value.ToArray());
                         //
-                        if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                        if (brepFileName != null)
+                        {
+                            ReplacePartGeometryFromFile(gp, brepFileName, true);
+                            _lastGeometryOperationCounts[part.Name] = entry.Value.Count;
+                        }
                         else ClearAllSelection();
                         //
                         numOfShellParts++;
                     }
                 }
                 //
+                WriteGeometryOperationReport("Flip face orientations", "faces were flipped");
                 string warning = "Face orientations on solid parts or non-CAD parts cannot be flipped.";
                 if (numOfShellParts <= 0)
                     MessageBoxes.ShowWarning(warning);
@@ -4580,12 +4601,26 @@ namespace PrePoMax
                 node2.Z -= offset[2];
             }
             //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
             if (facePart != null && facePart is GeometryPart gp && gp.IsCADPart)
             {
+                // A split leaves the part with one face more, and the modelling kernel returns a shape
+                // whether or not it made the cut, so the face count is what says it happened
+                int facesBefore = gp.Visualization == null ? 0 : gp.Visualization.FaceCount;
+                _lastGeometryOperationCounts[gp.Name] = 0;
                 string brepFileName = SplitAFaceUsingTwoPoints(gp, faceId, node1, node2);
                 //
-                if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                if (brepFileName != null)
+                {
+                    string partName = gp.Name;
+                    ReplacePartGeometryFromFile(gp, brepFileName, true);
+                    BasePart splitPart;
+                    if (_model.Geometry.Parts.TryGetValue(partName, out splitPart) && splitPart.Visualization != null)
+                        _lastGeometryOperationCounts[partName] = splitPart.Visualization.FaceCount - facesBefore;
+                }
                 else ClearAllSelection();
+                //
+                WriteGeometryOperationReport("Split face", "faces were added");
             }
             else MessageBoxes.ShowWarning("Faces on non-CAD parts cannot be split.");
             //
@@ -4702,6 +4737,25 @@ namespace PrePoMax
                 faceCounts[entry.Key] = entry.Value.Visualization.FaceCount;
             }
             return faceCounts;
+        }
+        // One line per part, so a part the operation skipped is named rather than left out of a total
+        private void WriteGeometryOperationReport(string operation, string what)
+        {
+            int total = 0;
+            int changedParts = 0;
+            foreach (var entry in LastGeometryOperationCounts)
+            {
+                if (entry.Value > 0)
+                {
+                    total += entry.Value;
+                    changedParts++;
+                    _form.WriteDataToOutput(operation + ": " + entry.Value + " " + what + " on the part " +
+                                            entry.Key + ".");
+                }
+                else _form.WriteDataToOutput(operation + ": nothing was done on the part " + entry.Key + ".");
+            }
+            _form.WriteDataToOutput(operation + " finished: " + total + " " + what + " on " + changedParts +
+                                    " of the " + LastGeometryOperationCounts.Count + " selected parts.");
         }
         private void WriteDefeatureReport(Dictionary<string, int> faceCountsBefore)
         {
@@ -4839,6 +4893,7 @@ namespace PrePoMax
                 }
             }
             //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
             if (partIdFaceIds.Keys.Count > 0)
             {
                 int numOfShellParts = 0;
@@ -4849,7 +4904,9 @@ namespace PrePoMax
                 foreach (var entry in partIdFaceIds)
                 {
                     part = _model.Geometry.GetPartFromId(entry.Key);
-                    if (part != null && part is GeometryPart gp && !gp.IsCADPart &&
+                    if (part == null) continue;
+                    _lastGeometryOperationCounts[part.Name] = 0;
+                    if (part is GeometryPart gp && !gp.IsCADPart &&
                         (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell))
                     {
                         numOfShellParts++;
@@ -4859,9 +4916,11 @@ namespace PrePoMax
                         foreach (var faceId in entry.Value) selectedElementIds.UnionWith(surfaceIdElementIds[faceId]);
                         //
                         _model.Geometry.RemoveElementsUpdatingVisualization(selectedElementIds);
+                        _lastGeometryOperationCounts[part.Name] = selectedElementIds.Count;
                     }
                 }
                 //
+                WriteGeometryOperationReport("Delete stl part faces", "elements were deleted");
                 string warning = "Only faces of stl parts can be deleted using this function.";
                 if (numOfShellParts <= 0) MessageBoxes.ShowWarning(warning);
             }
@@ -5212,6 +5271,9 @@ namespace PrePoMax
             string workDirectory = _settings.GetWorkDirectory();
             if (workDirectory == null || !Directory.Exists(workDirectory))
             {
+                // The reason is recorded, not only shown, because a caller that is not a person has to
+                // be able to read why nothing was meshed
+                _lastMeshingErrors = new string[] { "The work directory does not exist." };
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }

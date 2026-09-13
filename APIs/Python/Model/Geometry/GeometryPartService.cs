@@ -61,11 +61,11 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             MeshGateway.FindEdgesByAngleForGeometryParts(partNames, angle);
         }
-        public void FlipFaceOrientations(SelectionAPI selection)
+        public Dictionary<string, int> FlipFaceOrientations(SelectionAPI selection)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
             EnsureCommandsAvailable();
-            MeshGateway.FlipFaceOrientations(geometrySelection);
+            return MeshGateway.FlipFaceOrientations(geometrySelection);
         }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
@@ -73,23 +73,23 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.Defeature(geometrySelection);
         }
-        public void SplitFace(SelectionAPI surfaceSelection, SelectionAPI verticesSelection)
+        public Dictionary<string, int> SplitFace(SelectionAPI surfaceSelection, SelectionAPI verticesSelection)
         {
             GeometrySelection surfaces = BuildGeometrySelection(surfaceSelection, "surface_selection");
             GeometrySelection vertices = BuildGeometrySelection(verticesSelection, "vertices_selection");
             EnsureCommandsAvailable();
-            MeshGateway.SplitFaceUsingTwoPoints(surfaces, vertices);
+            return MeshGateway.SplitFaceUsingTwoPoints(surfaces, vertices);
         }
         public void FlipStlNormals(string[] partNames)
         {
             EnsureCommandsAvailable();
             MeshGateway.FlipStlPartSurfacesNormal(partNames);
         }
-        public void DeleteStlFaces(SelectionAPI selection)
+        public Dictionary<string, int> DeleteStlFaces(SelectionAPI selection)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
             EnsureCommandsAvailable();
-            MeshGateway.DeleteStlPartFaces(geometrySelection);
+            return MeshGateway.DeleteStlPartFaces(geometrySelection);
         }
         //
         protected override PartProperties GetPartProperties(string partName)

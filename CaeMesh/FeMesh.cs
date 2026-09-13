@@ -523,9 +523,7 @@ namespace CaeMesh
                     valid = parameters.Valid;              // this is set to invalid after deleting a part
                     if (!valid) parameters.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(parameters.CreationIds);
-                    if (partNames == null || partNames.Length == 0)
-                        partNames = GetPartNamesFromGeometryIds(parameters.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(parameters.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -566,7 +564,7 @@ namespace CaeMesh
                     valid = sg.Valid;              // this is set to invalid after deleting a part
                     if (!valid) sg.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(sg.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(sg.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -588,7 +586,7 @@ namespace CaeMesh
                     valid = sqw.Valid;             // this is set to invalid after deleting a part
                     if (!valid) sqw.Valid = true;  // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(sqw.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(sqw.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -610,7 +608,7 @@ namespace CaeMesh
                     valid = tsm.Valid;              // this is set to invalid after deleting a part
                     if (!valid) tsm.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(tsm.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(tsm.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -632,7 +630,7 @@ namespace CaeMesh
                     valid = tg.Valid;              // this is set to invalid after deleting a part
                     if (!valid) tg.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(tg.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(tg.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -654,7 +652,7 @@ namespace CaeMesh
                     valid = tm.Valid;              // this is set to invalid after deleting a part
                     if (!valid) tm.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartIds(tm.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(tm.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -821,6 +819,15 @@ namespace CaeMesh
             }
             //
             return invalidItems.ToArray();
+        }
+        // A whole part mesher records either the parts the dialog picked or the geometry those parts
+        // cover, and both are offered. Resolving only the part form leaves an item created from the
+        // geometry form invalid, and an invalid item is silently skipped at mesh time
+        private string[] GetPartNamesFromPartOrGeometryIds(int[] creationIds)
+        {
+            string[] partNames = GetPartNamesFromPartIds(creationIds);
+            if (partNames == null || partNames.Length == 0) partNames = GetPartNamesFromGeometryIds(creationIds);
+            return partNames;
         }
         private void SetItemValidity(NamedClass item, bool validity, List<Tuple<NamedClass, string>> items)
         {

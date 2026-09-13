@@ -29,7 +29,10 @@ namespace APIs.Python
         void DuplicateMeshSetupItems(string[] meshSetupItemNames);
         void RemoveMeshSetupItems(string[] meshSetupItemNames);
         void RenameMeshSetupItem(NamedClass item, string newName);
-        void CreateMeshes(string[] partNames);
+        // Returns the reason every named part was not meshed, and an empty reason for one that was.
+        // Meshing several parts can succeed for some of them, and the errors of the rest went only to
+        // the output window, where the caller that asked for them cannot read them
+        Dictionary<string, string> CreateMeshes(string[] partNames);
         // Mesh tools
         void CreateBoundaryLayer(GeometrySelection geometrySelection, double thickness);
         void RemeshElements(RemeshingParameters remeshingParameters);
@@ -61,14 +64,17 @@ namespace APIs.Python
         void ConvertShellToSolid(string[] partNames);
         void ConvertSolidToShell(string[] partNames);
         void FindEdgesByAngleForGeometryParts(string[] partNames, double edgeAngle);
-        void FlipFaceOrientations(GeometrySelection geometrySelection);
-        void SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection);
+        // Each returns what it did to every part it was asked about, zero included, for the same reason
+        // Defeature does: the modelling kernel answers whether or not it changed anything
+        Dictionary<string, int> FlipFaceOrientations(GeometrySelection geometrySelection);
+        Dictionary<string, int> SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection,
+                                                        GeometrySelection verticesSelection);
         // Returns the number of faces each selected part lost, zero included, because a defeaturing that
         // removed nothing reports success just as loudly as one that worked
         Dictionary<string, int> Defeature(GeometrySelection geometrySelection);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
-        void DeleteStlPartFaces(GeometrySelection geometrySelection);
+        Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection);
         // Model parts
         void ReplaceModelPartProperties(string oldPartName, PartProperties newPartProperties);
         void HideModelParts(string[] partNames);
