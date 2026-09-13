@@ -27,6 +27,19 @@ namespace PrePoMax.Rpc
         // Static methods                                                                                                           
         public static List<Type> Find(string name)
         {
+            List<Type> found = FindByName(name);
+            if (found.Count > 0 || string.IsNullOrEmpty(name)) return found;
+            // The documentation name of a type is one word, and a caller who reaches it through the model
+            // tree writes that word the way the tree reads - Mesh.SetupItems for MeshSetupItems. That is the
+            // same type spelled with separators, not a second one, so it resolves rather than being refused
+            // with a message about a namespace the caller never meant
+            string joined = name.Replace(".", "").Trim();
+            if (joined.Length == 0 || joined == name.Trim()) return found;
+            //
+            return FindByName(joined);
+        }
+        private static List<Type> FindByName(string name)
+        {
             List<Type> found = new List<Type>();
             if (string.IsNullOrEmpty(name)) return found;
             //

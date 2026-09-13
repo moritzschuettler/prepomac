@@ -114,8 +114,10 @@ def emitted_names_not_on_api(root):
     api_members = set()
     for path in files(root, "APIs/Python"):
         source = path.read_text(encoding="utf-8-sig")
-        api_members.update(re.findall(r"public\s+[\w<>\[\],?]+\s+(\w+)\s*\(", source))
-        api_members.update(re.findall(r"public\s+[\w<>\[\],?]+\s+(\w+)\s*\{", source))
+        # The declared type may carry spaces of its own - Dictionary<string, int> - and may be
+        # preceded by modifiers, so it is read lazily up to the name the parameter list follows
+        api_members.update(re.findall(r"public\s+[\w<>\[\],?\s]+?\s(\w+)\s*\(", source))
+        api_members.update(re.findall(r"public\s+[\w<>\[\],?\s]+?\s(\w+)\s*\{", source))
     #
     emitted = {}
     sources = list(files(root, "PrePoMax/Python/Journal")) + list(files(root, "PrePoMax/Commands"))

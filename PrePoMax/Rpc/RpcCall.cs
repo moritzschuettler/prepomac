@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using System;
 using System.Runtime.ExceptionServices;
 using System.Threading;
@@ -48,7 +49,10 @@ namespace PrePoMax.Rpc
         public void Run()
         {
             if (Interlocked.CompareExchange(ref _state, Running, Pending) != Pending) return;
-            //
+            // The handler is the agent's, not the user's, so a dialog it would open is answered rather than
+            // shown here too: the connection thread is waiting for this one and nobody is at the keyboard
+            bool wasNonInteractive = MessageBoxes.IsNonInteractiveThread;
+            MessageBoxes.IsNonInteractiveThread = true;
             try
             {
                 _result = _handler();
@@ -58,6 +62,10 @@ namespace PrePoMax.Rpc
                 // Control.Invoke rethrows with a plain throw, which would replace the stack of the
                 // frames that actually failed with the stack of the marshalling call
                 _exception = ExceptionDispatchInfo.Capture(exception);
+            }
+            finally
+            {
+                MessageBoxes.IsNonInteractiveThread = wasNonInteractive;
             }
         }
         // Returns true when the call had not started yet and will now never run

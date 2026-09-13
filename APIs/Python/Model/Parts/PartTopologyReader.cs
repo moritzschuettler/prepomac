@@ -15,8 +15,8 @@ namespace APIs.Python.Model
 {
     // The faces, edges and vertices of a part, read off the visualization the application already
     // keeps for picking. Nothing here is computed that the application does not compute for itself:
-    // the areas, the lengths and the entity types are the stored ones, and a centroid is the mean of
-    // the entity node coordinates, which is what the Gmsh topology matching uses.
+    // the areas, lengths and entity types are the stored ones. Geometry uses exact CAD centroids when
+    // metadata provides them; otherwise a centroid is the mean of the entity node coordinates.
     //
     // The reported IDs are the ones a selection takes. A face and an edge ID are 1-based within the
     // part, the way Query displays them, and a vertex is named by its node ID; the geometry ID of
@@ -48,7 +48,9 @@ namespace APIs.Python.Model
                 types[i] = visualization.FaceTypes != null && i < visualization.FaceTypes.Length
                            ? visualization.FaceTypes[i].ToString() : GeomFaceType.Unknown.ToString();
                 HashSet<int> nodeIds;
-                if (faceIdNodeIds.TryGetValue(i, out nodeIds)) WriteCentroid(mesh, nodeIds, centroids, i);
+                if (!WriteGeometryCentroid(part, "face", i + 1, centroids, i) &&
+                    faceIdNodeIds.TryGetValue(i, out nodeIds))
+                    WriteCentroid(mesh, nodeIds, centroids, i);
                 WriteFaceNormal(mesh, visualization, i, normals);
             }
             //
@@ -71,7 +73,8 @@ namespace APIs.Python.Model
                              ? visualization.EdgeLengths[i] : 0;
                 types[i] = visualization.EdgeTypes != null && i < visualization.EdgeTypes.Length
                            ? visualization.EdgeTypes[i].ToString() : GeomCurveType.Unknown.ToString();
-                WriteCentroid(mesh, visualization.GetNodeIdsForEdgeId(i), centroids, i);
+                if (!WriteGeometryCentroid(part, "edge", i + 1, centroids, i))
+                    WriteCentroid(mesh, visualization.GetNodeIdsForEdgeId(i), centroids, i);
             }
             //
             return new EdgeDataAPI(ids, geometryIds, lengths, centroids, types);
@@ -99,6 +102,24 @@ namespace APIs.Python.Model
             //
             return new VertexDataAPI(nodeIds, geometryIds, coordinates);
         }
+        // The nodes are taken by label rather than from the mesh order, so the rows line up with the
+        // part node IDs. A result passes its undeformed nodes, which is what its node data reports
+        public static object GetNodeCoordinates(Dictionary<int, FeNode> nodes, BasePart part)
+        {
+            int[] nodeLabels = part.NodeLabels;
+            int count = nodeLabels == null ? 0 : nodeLabels.Length;
+            double[,] coordinates = new double[count, 3];
+            for (int i = 0; i < count; i++)
+            {
+                FeNode node;
+                if (nodes == null || !nodes.TryGetValue(nodeLabels[i], out node)) continue;
+                coordinates[i, 0] = node.X;
+                coordinates[i, 1] = node.Y;
+                coordinates[i, 2] = node.Z;
+            }
+            //
+            return NumPyConverter.ToPythonArray(coordinates);
+        }
         // A wire part has no faces, and the surfaces of a compound are picked on its sub parts, so
         // neither reports faces rather than failing the whole query
         private static bool HasSelectableSurfaces(BasePart part)
@@ -124,6 +145,14 @@ namespace APIs.Python.Model
             if (used == 0) return;
             //
             for (int i = 0; i < 3; i++) centroids[row, i] = sum[i] / used;
+        }
+        private static bool WriteGeometryCentroid(BasePart part, string kind, int id, double[,] centroids, int row)
+        {
+            GeometryMetadataEntity entity = part.GeometryMetadata?.GetEntity(kind, id);
+            double[] values;
+            if (entity == null || !entity.TryGetNumbers("centroid", out values) || values.Length != 3) return false;
+            for (int i = 0; i < 3; i++) centroids[row, i] = values[i];
+            return true;
         }
         // The mean of the cell normals of the face. A planar face has one normal and this is it; a
         // curved one has no single normal, and the mean is the direction it faces on average

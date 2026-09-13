@@ -120,6 +120,18 @@ namespace APIs.Python
             return new PartData(part.NodeLabels != null ? part.NodeLabels.ToArray() : new int[0],
                                       part.Labels != null ? part.Labels.ToArray() : new int[0]);
         }
+        public BasePart GetPartObject(string resultName, string partName)
+        {
+            FeResults result = ResolveResultWithMesh(resultName);
+            BasePart part;
+            if (!result.Mesh.Parts.TryGetValue(partName, out part))
+                throw new PythonAPIException("The part '" + partName + "' does not exist in result '" + resultName + "'.");
+            return part;
+        }
+        public FeMesh GetMeshObject(string resultName)
+        {
+            return ResolveResultWithMesh(resultName).Mesh;
+        }
         public string[] GetNodeSetNames(string resultName)
         {
             FeResults result = ResolveResultWithMesh(resultName);

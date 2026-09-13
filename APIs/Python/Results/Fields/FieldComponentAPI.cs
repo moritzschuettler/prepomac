@@ -46,6 +46,13 @@ namespace APIs.Python
         {
             return _dataService.GetComponentData(_resultName, _stepId, _incrementId, _fieldName, _componentName);
         }
+        [PythonAPI("Returns the largest and the smallest value of this component and the node IDs they sit " +
+                   "on. The scan happens in the application, so a peak is read without transferring the " +
+                   "values it was found in.", Returns = "FieldExtremes")]
+        public FieldExtremesAPI get_extremes()
+        {
+            return _dataService.GetExtremes(_resultName, _stepId, _incrementId, _fieldName, _componentName);
+        }
         [PythonAPI("Returns this component value for one node ID.", Arguments = "node_id: int", Returns = "float")]
         public float get_value(int nodeId)
         {

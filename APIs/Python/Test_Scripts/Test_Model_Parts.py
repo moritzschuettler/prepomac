@@ -32,7 +32,32 @@ def test_part_reading(parts, label):
     check(len(part.color) == 4, "the color must have 4 channels")
     check(len(part.get_bounding_box()) == 6, "the bounding box must have 6 values")
     check(len(part.get_node_ids()) == part.node_count, "the node ID count does not match")
+    coordinates = part.get_node_coordinates()
+    check(len(coordinates) == part.node_count, "the node coordinate count does not match")
+    check(len(coordinates[0]) == 3, "a node coordinate must have 3 values")
     check(len(part.get_element_ids()) == part.element_count, "the element ID count does not match")
+    check(part.volume >= 0, "the part volume is invalid")
+    check(part.surface_area >= 0, "the part surface area is invalid")
+    check(len(part.center_of_mass) in (0, 3), "the center of mass must be empty or have 3 values")
+    check(len(part.get_inertia_at_center_of_mass()) in (0, 3), "the center inertia matrix is invalid")
+    check(len(part.get_inertia_at_origin()) in (0, 3), "the origin inertia matrix is invalid")
+    metadata = part.get_geometry_metadata()
+    check(metadata.format_version >= 0, "the metadata format version is invalid")
+    check(len(metadata.entity_kinds) >= 0, "the metadata entity kinds are unreadable")
+    faces = metadata.get_entities("face")
+    check(len(faces) == faces.count, "the metadata face count does not match")
+    if faces.count > 0:
+        face = faces[0]
+        check(face.id > 0, "a metadata face ID is invalid")
+        for property_name in face.property_names:
+            check(face.get_property(property_name) is not None,
+                  "a metadata property could not be exported")
+        # A name this entity does not carry is answered, not refused, because the property set
+        # varies by surface type - see Test_Model_Geometry_Metadata.py, which runs against CAD
+        check(face.get_property("PyTest_no_such_property") is None,
+              "a missing metadata property must return None")
+        check(face.get_property("PyTest_no_such_property", -1.0) == -1.0,
+              "a missing metadata property must return the default")
     # Iteration and len come from the collection base
     check(len([p for p in parts]) == len(parts), "iteration failed")
     check([p.name for p in parts][0] == name, "iteration order does not match get_names")

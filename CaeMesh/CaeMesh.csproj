@@ -109,6 +109,9 @@
     <Compile Include="FeReferencePoint.cs" />
     <Compile Include="MeshVisibilityCache.cs" />
     <Compile Include="Geometry\GeometrySelection.cs" />
+    <Compile Include="GeometryMetadata\GeometryMetadata.cs" />
+    <Compile Include="GeometryMetadata\GeometryMetadataEntity.cs" />
+    <Compile Include="GeometryMetadata\GeometryMetadataProperty.cs" />
     <Compile Include="Geometry\GeomEdge.cs" />
     <Compile Include="Geometry\GeomVertex.cs" />
     <Compile Include="Geometry\GeomSurface.cs" />

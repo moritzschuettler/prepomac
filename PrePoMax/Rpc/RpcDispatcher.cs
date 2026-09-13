@@ -9,6 +9,8 @@
 
 using CaeGlobals;
 using System;
+using System.Globalization;
+using System.Threading;
 
 namespace PrePoMax.Rpc
 {
@@ -65,14 +67,44 @@ namespace PrePoMax.Rpc
         // refusals out, so the two fronts share one table and neither owns a handler of its own
         public string Invoke(RpcRequest request)
         {
-            // A method that only reports is answered while another one is still working, so a
-            // client can always ask what is going on; anything that reaches the model waits its
-            // turn, whichever connection it arrived on
-            if (!IsSerialized(request.Method)) return Execute(request);
-            //
-            lock (_requestLock)
+            // Nothing an agent runs may open a dialog. A handler runs on this connection thread while the
+            // window stays the user's, so a dialog is shown on the window and the call waits for a human at
+            // the keyboard - and it waits holding the turn below, which is how one call that could not
+            // finish stopped every later one
+            bool wasNonInteractive = MessageBoxes.IsNonInteractiveThread;
+            MessageBoxes.IsNonInteractiveThread = true;
+            try
+            {
+                // A method that only reports is answered while another one is still working, so a
+                // client can always ask what is going on; anything that reaches the model waits its
+                // turn, whichever connection it arrived on
+                if (!IsSerialized(request.Method)) return Execute(request);
+                //
+                return ExecuteWhenFree(request);
+            }
+            finally
+            {
+                MessageBoxes.IsNonInteractiveThread = wasNonInteractive;
+            }
+        }
+        // The turn is waited for with a bound, because an unbounded wait turns one call that cannot finish
+        // into a server that never answers again, and a caller cannot tell that from a slow model
+        private string ExecuteWhenFree(RpcRequest request)
+        {
+            int seconds = Math.Max(1, _server.Settings.RequestTimeout);
+            if (!Monitor.TryEnter(_requestLock, 1000 * seconds))
+            {
+                throw new RpcException(RpcErrorCode.Busy, "Another automation call is still running and this " +
+                                       "one waited " + seconds.ToString(CultureInfo.InvariantCulture) + " s for " +
+                                       "its turn. Nothing was done; call status and try again.");
+            }
+            try
             {
                 return Execute(request);
+            }
+            finally
+            {
+                Monitor.Exit(_requestLock);
             }
         }
         // The methods that run whatever Python they are given: they can take as long as the work

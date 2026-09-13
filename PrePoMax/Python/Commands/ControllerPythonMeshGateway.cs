@@ -10,6 +10,7 @@
 using APIs.Python;
 using CaeGlobals;
 using CaeMesh;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace PrePoMax.Python
@@ -67,6 +68,10 @@ namespace PrePoMax.Python
             if (partNames.Length == 0) return null;
             //
             return partNames;
+        }
+        public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)
+        {
+            return _controller.IsMeshSetupItemProperlyDefined(meshSetupItem);
         }
         public void AddMeshSetupItem(MeshSetupItem meshSetupItem)
         {
@@ -207,9 +212,24 @@ namespace PrePoMax.Python
         {
             _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
         }
-        public void Defeature(GeometrySelection geometrySelection)
+        // The faces a part lost are counted around the command rather than reported by it, so the count is
+        // the one the model ended up with and not the one the operation believed it had made
+        public Dictionary<string, int> Defeature(GeometrySelection geometrySelection)
         {
+            Dictionary<string, int> facesBefore = _controller.GetGeometryPartFaceCounts();
             _controller.DefeatureCommand(geometrySelection);
+            Dictionary<string, int> facesAfter = _controller.GetGeometryPartFaceCounts();
+            //
+            Dictionary<string, int> facesRemoved = new Dictionary<string, int>();
+            foreach (string partName in _controller.LastDefeaturedPartNames)
+            {
+                int before;
+                int after;
+                if (!facesBefore.TryGetValue(partName, out before)) continue;
+                if (!facesAfter.TryGetValue(partName, out after)) continue;
+                facesRemoved.Add(partName, before - after);
+            }
+            return facesRemoved;
         }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)

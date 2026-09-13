@@ -47,6 +47,16 @@ namespace APIs.Python
         {
             return _dataService.GetFieldData(_resultName, _stepId, _incrementId, _fieldName);
         }
+        [PythonAPI("Returns the largest and the smallest value of one component of this field and the node " +
+                   "IDs they sit on. The scan happens in the application, so a peak is read without " +
+                   "transferring the values it was found in.", Arguments = "component_name: str",
+                   Returns = "FieldExtremes",
+                   Example = "peak = increment.fields['S'].get_extremes('Mises')\n" +
+                             "print(peak.max_value, peak.unit, peak.max_node_id)")]
+        public FieldExtremesAPI get_extremes(string component_name)
+        {
+            return _dataService.GetExtremes(_resultName, _stepId, _incrementId, _fieldName, component_name);
+        }
         public override string ToString()
         {
             string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);

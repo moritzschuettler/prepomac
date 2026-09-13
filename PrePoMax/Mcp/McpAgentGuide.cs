@@ -91,7 +91,7 @@ pmx.jobs.add('Job-1')
 ```
 
 Then `run_job`, which starts the solver and returns at once, and poll `get_job`. `OK` means it
-finished. Open the results with `pmx.jobs['Job-1'].open_results()` and read values through
+finished. Open the results with `pmx.jobs.open_results('Job-1')` and read values through
 `pmx.results.current`; result steps and increments are indexed by result IDs, not by model step names.
 
 ## Looking at it

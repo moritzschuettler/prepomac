@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
@@ -29,6 +30,8 @@ namespace CaeMesh
         protected BoundingBox _boundingBox;
         protected double[] _offset;
         protected PartMassProperties _massProperties;
+        [OptionalField]
+        protected GeometryMetadata _geometryMetadata;
         //
         [NonSerialized]
         protected VisualizationData _visualization;
@@ -48,6 +51,7 @@ namespace CaeMesh
         public BoundingBox BoundingBox { get { return _boundingBox; } set { _boundingBox = value; } }
         public double[] Offset { get { return _offset; } set { _offset = value; } }
         public PartMassProperties MassProperties { get { return _massProperties; } set { _massProperties = value; } }
+        public GeometryMetadata GeometryMetadata { get { return _geometryMetadata; } set { _geometryMetadata = value; } }
         //
         public VisualizationData Visualization { get { return _visualization; } set { _visualization = value; } }
 
@@ -65,6 +69,7 @@ namespace CaeMesh
             _boundingBox = new BoundingBox();
             _offset = new double[3];
             _massProperties = new PartMassProperties(false);
+            _geometryMetadata = null;
             //
             if (IsSolid()) _partType = PartType.Solid;
             else if (IsShell()) _partType = PartType.Shell;
@@ -93,6 +98,7 @@ namespace CaeMesh
             if (part.Offset != null) _offset = part.Offset.ToArray();
             //
             _massProperties = part.MassProperties.DeepClone();
+            _geometryMetadata = part.GeometryMetadata != null ? part.GeometryMetadata.DeepCopy() : null;
         }
 
 
@@ -183,6 +189,65 @@ namespace CaeMesh
         public virtual void RenumberVisualizationEdges(int[] orderedEdgesIds)
         {
             _visualization.RenumberEdges(orderedEdgesIds);
+        }
+        public void FillMissingGeometryDataFrom(BasePart sourcePart)
+        {
+            GeometryMetadata source = sourcePart?.GeometryMetadata;
+            if (source == null) return;
+            // Entity IDs only have meaning when both parts still have the same topology counts.
+            int sourceFaceCount = sourcePart.Visualization?.FaceCount ?? 0;
+            int targetFaceCount = Visualization?.FaceCount ?? 0;
+            int sourceEdgeCount = sourcePart.Visualization?.EdgeCount ?? 0;
+            int targetEdgeCount = Visualization?.EdgeCount ?? 0;
+            bool facesMatch = sourceFaceCount > 0 && sourceFaceCount == targetFaceCount &&
+                              source.GetEntities("face").Length == sourceFaceCount;
+            bool edgesMatch = sourceEdgeCount > 0 && sourceEdgeCount == targetEdgeCount &&
+                              source.GetEntities("edge").Length == sourceEdgeCount;
+            if (_geometryMetadata == null)
+                _geometryMetadata = new GeometryMetadata(source.FormatVersion, source.CoordinateSystem,
+                                                         source.LengthUnit);
+            _geometryMetadata.FillMissingFrom(source, facesMatch, edgesMatch, true);
+            // Existing mesh/result measurements remain authoritative. CAD values fill only absent values.
+            PartMassProperties sourceMass = sourcePart.MassProperties;
+            PartMassProperties targetMass = MassProperties;
+            bool massChanged = false;
+            if (targetMass.Volume <= 0 && sourceMass.Volume > 0)
+            {
+                targetMass.Volume = sourceMass.Volume;
+                massChanged = true;
+            }
+            if (targetMass.Area <= 0 && sourceMass.Area > 0)
+            {
+                targetMass.Area = sourceMass.Area;
+                massChanged = true;
+            }
+            if (targetMass.CenterOfMass == null && sourceMass.CenterOfMass != null)
+            {
+                targetMass.CenterOfMass = sourceMass.CenterOfMass.ToArray();
+                massChanged = true;
+            }
+            if (targetMass.InertiaMatrixCG == null && sourceMass.InertiaMatrixCG != null)
+            {
+                targetMass.InertiaMatrixCG = sourceMass.InertiaMatrixCG.Select(row => row.ToArray()).ToArray();
+                massChanged = true;
+            }
+            if (targetMass.InertiaMatrixOrigin == null && sourceMass.InertiaMatrixOrigin != null)
+            {
+                targetMass.InertiaMatrixOrigin = sourceMass.InertiaMatrixOrigin.Select(row => row.ToArray()).ToArray();
+                massChanged = true;
+            }
+            if (massChanged) MassProperties = targetMass;
+            //
+            FillMissingValues(Visualization?.FaceAreas, sourcePart.Visualization?.FaceAreas, facesMatch);
+            FillMissingValues(Visualization?.EdgeLengths, sourcePart.Visualization?.EdgeLengths, edgesMatch);
+        }
+        private static void FillMissingValues(double[] target, double[] source, bool topologyMatches)
+        {
+            if (!topologyMatches || target == null || source == null || target.Length != source.Length) return;
+            for (int i = 0; i < target.Length; i++)
+            {
+                if (target[i] <= 0 && source[i] > 0) target[i] = source[i];
+            }
         }
         // Added for usage in graphs
         public int CompareTo(BasePart other)

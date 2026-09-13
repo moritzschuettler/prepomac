@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeMesh;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace APIs.Python
@@ -20,6 +21,9 @@ namespace APIs.Python
         MeshingParameters GetDefaultMeshingParameters(string name);
         MeshingParameters GetPartDefaultMeshingParameters(string name, int[] creationIds);
         ShellMmg GetPartDefaultShellMmg(string name, int[] creationIds);
+        // Returns null when the item can be honoured, and the reason it cannot otherwise. The dialog asks
+        // the same question before it applies, so a script is refused where the user interface refuses
+        string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem);
         void AddMeshSetupItem(MeshSetupItem meshSetupItem);
         void ReplaceMeshSetupItem(string oldMeshSetupItemName, MeshSetupItem meshSetupItem);
         void DuplicateMeshSetupItems(string[] meshSetupItemNames);
@@ -59,7 +63,9 @@ namespace APIs.Python
         void FindEdgesByAngleForGeometryParts(string[] partNames, double edgeAngle);
         void FlipFaceOrientations(GeometrySelection geometrySelection);
         void SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection);
-        void Defeature(GeometrySelection geometrySelection);
+        // Returns the number of faces each selected part lost, zero included, because a defeaturing that
+        // removed nothing reports success just as loudly as one that worked
+        Dictionary<string, int> Defeature(GeometrySelection geometrySelection);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
         void DeleteStlPartFaces(GeometrySelection geometrySelection);

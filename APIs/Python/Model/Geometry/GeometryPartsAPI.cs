@@ -7,6 +7,8 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System.Collections.Generic;
+
 namespace APIs.Python.Model
 {
     public class GeometryPartsAPI : PartsAPI<GeometryPartAPI>
@@ -74,10 +76,14 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
-                   "'geometry' view and target.", Arguments = "selection: Selection", Returns = "None")]
-        public void defeature(SelectionAPI selection)
+                   "'geometry' view and target. Returns the number of faces each selected part actually " +
+                   "lost, so a feature the modelling kernel could not close is visible: it reports zero. " +
+                   "A blind hole needs its bottom face selected as well as its wall.",
+                   Arguments = "selection: Selection", Returns = "dict[str, int]",
+                   Example = "removed = pmx.model.geometry.parts.defeature(selection)")]
+        public Dictionary<string, int> defeature(SelectionAPI selection)
         {
-            _service.Defeature(selection);
+            return _service.Defeature(selection);
         }
 
         [PythonAPI("Splits a face using two vertices. Both selections use the 'geometry' view and target.",

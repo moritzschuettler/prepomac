@@ -229,6 +229,18 @@ def check_describe(client):
     members = dict((member["name"], member) for member in result["members"])
     check("unit_system" in members, "the model properties must describe unit_system")
     check(members["unit_system"]["kind"] == "property", "unit_system must be a writable property")
+    # The half of the API that hangs off something the model does not have yet is described by its
+    # type name, and that name may be written the way the model tree reads it: Mesh.SetupItems is
+    # MeshSetupItems spelled with a separator, not a namespace nobody has
+    for spelling in ("MeshSetupItems", "Model.MeshSetupItems", "Mesh.SetupItems"):
+        result = client.result("describe", {"path": spelling})
+        check(result["resolvedAs"] == "type", spelling + " must resolve as a type: " + str(result))
+        check(result["type"] == "MeshSetupItemsAPI",
+              spelling + " must resolve to the mesh setup items: " + result["type"])
+    print("describe: a type name resolves however its separators are written")
+    # A name that is neither a path nor a type is refused rather than left to block the connection
+    error = client.error("describe", {"path": "Mesh.NoSuchThing"})
+    check(error["code"] == INVALID_PARAMS, "an unknown type name must be InvalidParams: " + str(error))
     # A path that does not resolve is a refusal that says why
     error = client.error("describe", {"path": "pmx.no_such_thing"})
     check(error["code"] == INVALID_PARAMS, "an unresolvable path must be InvalidParams: " + str(error))
@@ -280,6 +292,39 @@ def check_second_connection():
         first.close()
 
 
+DIALOG_PROBE = '''
+import clr
+clr.AddReference('CaeGlobals')
+from CaeGlobals import MessageBoxes, MessageBoxModeEnum
+marked = MessageBoxes.IsNonInteractiveThread
+previous = MessageBoxes.Mode
+MessageBoxes.Mode = MessageBoxModeEnum.Interactive
+refused = False
+try:
+    MessageBoxes.ShowWarning('A warning raised inside an automation call.')
+    MessageBoxes.ShowWarningQuestionYesNo('A decision raised inside an automation call.')
+except Exception:
+    refused = True
+finally:
+    MessageBoxes.Mode = previous
+print('marked', marked, 'refused', refused)
+'''
+
+
+# Nothing an agent runs may open a dialog. A handler runs on its connection thread while the window
+# stays the user's, so a dialog would be shown on the window and the call would wait for a human at
+# the keyboard - holding the turn every later call queues behind. The mode is forced to the one a
+# session with a window has, because this session has none and would answer for itself anyway.
+def check_no_dialogs(client):
+    result = client.result("exec", {"source": DIALOG_PROBE})
+    check(not result["failed"], "the dialog probe failed: " + str(result))
+    check("marked True" in result["output"],
+          "a handler must run with its prompts answered rather than shown: " + result["output"])
+    check("refused True" in result["output"],
+          "a decision must be refused rather than waited on: " + result["output"])
+    print("exec: a prompt raised inside a call is answered, never shown")
+
+
 def check_shutdown():
     client = Client()
     try:
@@ -309,6 +354,7 @@ def main():
         check_describe(client)
         check_eval(client)
         check_exec(client)
+        check_no_dialogs(client)
         check_history(client)
         check_screenshot(client)
     finally:

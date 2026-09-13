@@ -1955,6 +1955,24 @@ namespace CaeModel
                 BasePart updatedPart = mesh.Parts.First().Value;
                 //part.Visualization = updatedPart.Visualization;
                 part.MassProperties = updatedPart.MassProperties;
+                part.GeometryMetadata = updatedPart.GeometryMetadata?.DeepCopy();
+                GeometryMetadataReader.ApplyCanonicalMeasurements(part);
+            }
+        }
+        public void TransferMissingGeometryDataToMesh(BasePart requestedGeometryPart, FeMesh targetMesh)
+        {
+            if (requestedGeometryPart == null || targetMesh == null || _geometry?.Parts == null) return;
+            // A split compound produces mesh parts named after its geometry subparts. A merged compound
+            // has no unambiguous face-to-face correspondence and therefore receives no entity metadata.
+            foreach (BasePart targetPart in targetMesh.Parts.Values)
+            {
+                BasePart sourcePart;
+                if (!_geometry.Parts.TryGetValue(targetPart.Name, out sourcePart))
+                {
+                    if (targetPart.Name == requestedGeometryPart.Name) sourcePart = requestedGeometryPart;
+                    else continue;
+                }
+                targetPart.FillMissingGeometryDataFrom(sourcePart);
             }
         }
         // Setters                                                                                  

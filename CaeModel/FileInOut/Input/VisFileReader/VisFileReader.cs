@@ -31,6 +31,7 @@ namespace FileInOut.Input
             if (File.Exists(fileName))
             {
                 string data = File.ReadAllText(fileName);
+                GeometryMetadata sourceGeometryMetadata = GeometryMetadataReader.Read(data);
                 //
                 Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>();
                 Dictionary<int, HashSet<int>> edgeIdNodeIds = new Dictionary<int, HashSet<int>>();
@@ -102,13 +103,37 @@ namespace FileInOut.Input
                     //
                     mesh.ConvertLineFeElementsToEdges(vertexNodeIds, true);
                     //
-                    mesh.RenumberVisualizationSurfaces(surfaceIdNodeIds, faceTypes);
-                    mesh.RenumberVisualizationEdges(edgeIdNodeIds, edgeTypes);
+                    Dictionary<string, Dictionary<int, int>> partLocalFaceIdSourceFaceId =
+                        new Dictionary<string, Dictionary<int, int>>();
+                    Dictionary<string, Dictionary<int, int>> partLocalEdgeIdSourceEdgeId =
+                        new Dictionary<string, Dictionary<int, int>>();
+                    mesh.RenumberVisualizationSurfaces(surfaceIdNodeIds, faceTypes,
+                                                       partLocalFaceIdSourceFaceId);
+                    mesh.RenumberVisualizationEdges(edgeIdNodeIds, edgeTypes,
+                                                    partLocalEdgeIdSourceEdgeId);
                     //
                     mesh.RemoveElementsByType<FeElement1D>();
                     mesh.RemoveElementsByType<FeElement3D>();
+                    // The metadata entity IDs are converted from OCC IDs to the same local, 1-based IDs
+                    // used by PrePoMax selections. Exact CAD measurements become the canonical values of
+                    // geometry parts; later mesh transfer only fills values that the mesh does not have.
+                    if (sourceGeometryMetadata != null)
+                    {
+                        foreach (var entry in mesh.Parts)
+                        {
+                            Dictionary<int, int> localFaceIdSourceFaceId;
+                            Dictionary<int, int> localEdgeIdSourceEdgeId;
+                            partLocalFaceIdSourceFaceId.TryGetValue(entry.Key, out localFaceIdSourceFaceId);
+                            partLocalEdgeIdSourceEdgeId.TryGetValue(entry.Key, out localEdgeIdSourceEdgeId);
+                            entry.Value.GeometryMetadata =
+                                GeometryMetadataReader.CreatePartMetadata(sourceGeometryMetadata,
+                                                                          localFaceIdSourceFaceId,
+                                                                          localEdgeIdSourceEdgeId);
+                            GeometryMetadataReader.ApplyCanonicalMeasurements(entry.Value);
+                        }
+                    }
                     // Read mass data and overwrite the one computed in new FeMesh
-                    if (mesh.Parts.Count == 1)
+                    if (sourceGeometryMetadata == null && mesh.Parts.Count == 1)
                     {
                         PartMassProperties massProperties;
                         string[] massData = data.Split(new string[] { "Geometry properties" },

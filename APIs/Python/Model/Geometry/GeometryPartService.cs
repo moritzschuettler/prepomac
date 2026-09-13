@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace APIs.Python.Model
@@ -66,11 +67,11 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             MeshGateway.FlipFaceOrientations(geometrySelection);
         }
-        public void Defeature(SelectionAPI selection)
+        public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
             EnsureCommandsAvailable();
-            MeshGateway.Defeature(geometrySelection);
+            return MeshGateway.Defeature(geometrySelection);
         }
         public void SplitFace(SelectionAPI surfaceSelection, SelectionAPI verticesSelection)
         {

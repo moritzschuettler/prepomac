@@ -74,18 +74,18 @@ namespace PrePoMax.Python.Journal
             }
             if (item is ExtrudeMesh extrude)
             {
-                arguments.Add("direction=" + PythonValueFormatter.List(extrude.Direction));
-                arguments.Add("extrude_center=" + PythonValueFormatter.List(extrude.ExtrudeCenter));
+                // The direction and the centre are derived from the selected surfaces, and the API refuses
+                // them as arguments, so emitting them writes a call that cannot be replayed. They carry a
+                // value here whenever the item was applied through a dialog, which asks the model whether
+                // the item is properly defined - and that question is what derives them
                 AddSurfaceGmshValues(arguments, extrude);
                 AddLayerValues(arguments, extrude);
                 return "extrude_mesh";
             }
             if (item is RevolveMesh revolve)
             {
-                arguments.Add("axis_center=" + PythonValueFormatter.List(revolve.AxisCenter));
-                arguments.Add("axis_direction=" + PythonValueFormatter.List(revolve.AxisDirection));
-                arguments.Add("angle=" + PythonValueFormatter.Number(revolve.AngleDeg));
-                arguments.Add("middle_r=" + PythonValueFormatter.Number(revolve.MiddleR));
+                // The axis, the angle and the middle radius are derived from the selected surfaces the same
+                // way, and the API refuses them as arguments. Only the full model switch is the user's own
                 arguments.Add("create_full_360_model=" +
                               PythonValueFormatter.Format(revolve.CreateFull360Model));
                 AddSurfaceGmshValues(arguments, revolve);

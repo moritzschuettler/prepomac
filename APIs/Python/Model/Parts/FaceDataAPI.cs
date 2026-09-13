@@ -32,9 +32,11 @@ namespace APIs.Python.Model
         [PythonAPI("The geometry ID of every face, as the 'geometry' selection source takes them.",
                    Returns = "numpy.ndarray or IntList")]
         public object geometry_ids { get { return _geometryIds; } }
-        [PythonAPI("The area of every face, in model units.", Returns = "numpy.ndarray or NumericArray")]
+        [PythonAPI("The canonical area of every face, in model units. Geometry parts use exact CAD values; " +
+                   "model and result parts keep their mesh-computed values.", Returns = "numpy.ndarray or NumericArray")]
         public object areas { get { return _areas; } }
-        [PythonAPI("The centroid of every face with shape (face_count, 3), as the mean of its node coordinates.",
+        [PythonAPI("The centroid of every face with shape (face_count, 3). Geometry parts use the exact CAD " +
+                   "centroid when available; mesh parts use the mean of their node coordinates.",
                    Returns = "numpy.ndarray or NumericArray")]
         public object centroids { get { return _centroids; } }
         [PythonAPI("The outward normal of every face with shape (face_count, 3), as the mean of its cell " +

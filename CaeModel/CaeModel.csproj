@@ -207,6 +207,7 @@
     <Compile Include="FileInOut\Common\InpFeDescriptor.cs" />
     <Compile Include="FileInOut\Input\InpModel\InpFileReader.cs" />
     <Compile Include="FileInOut\Input\VisFileReader\VisFileReader.cs" />
+    <Compile Include="FileInOut\Input\VisFileReader\GeometryMetadataReader.cs" />
     <Compile Include="FileInOut\Input\Netgen\NetgenVolKeywords.cs" />
     <Compile Include="FileInOut\Input\StlGeomFile\StlFileReader.cs" />
     <Compile Include="FileInOut\Common\ElementsToImport.cs" />

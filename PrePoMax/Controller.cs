@@ -103,6 +103,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshedPartNames;
         [NonSerialized] protected string[] _lastMeshedModelPartNames;
         [NonSerialized] protected string[] _lastMeshingErrors;
+        [NonSerialized] protected string[] _lastDefeaturedPartNames;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -212,6 +213,12 @@ namespace PrePoMax
         public string[] LastMeshingErrors
         {
             get { return _lastMeshingErrors == null ? new string[0] : _lastMeshingErrors; }
+        }
+        // The CAD solid parts the last defeaturing was asked to work on, which is the set a caller has to
+        // compare face counts over: a part it was not asked about tells nothing about what was removed
+        public string[] LastDefeaturedPartNames
+        {
+            get { return _lastDefeaturedPartNames == null ? new string[0] : _lastDefeaturedPartNames; }
         }
         public bool ExecutableJobIdle
         {
@@ -4655,9 +4662,14 @@ namespace PrePoMax
             GeometryPart gp;
             string brepFileName;
             int numOfSolidParts = 0;
+            Dictionary<string, int> faceCountsBefore = new Dictionary<string, int>();
+            List<string> defeaturedPartNames = new List<string>();
             foreach (var entry in partIdFaceIds)
             {
                 gp = (GeometryPart)_model.Geometry.GetPartFromId(entry.Key);
+                // The part keeps its name across the replacement, so the face count is read back by name
+                faceCountsBefore[gp.Name] = gp.Visualization == null ? 0 : gp.Visualization.FaceCount;
+                defeaturedPartNames.Add(gp.Name);
                 //
                 brepFileName = _gmshRunner.Defeature(gp, entry.Value.ToArray());
                 //
@@ -4666,6 +4678,8 @@ namespace PrePoMax
                 //
                 numOfSolidParts++;
             }
+            _lastDefeaturedPartNames = defeaturedPartNames.ToArray();
+            WriteDefeatureReport(faceCountsBefore);
             //
             string warning = "Defeaturing on shell parts or non-CAD parts is not possible.";
             if (numOfSolidParts <= 0)
@@ -4674,6 +4688,50 @@ namespace PrePoMax
                 MessageBoxes.ShowWarning(warning + Environment.NewLine + "Only defeaturing on CAD solid parts was done.");
             //
             CheckAndUpdateModelValidity();
+        }
+        // The modelling kernel returns a shape whether or not it closed anything, and gmsh only warns about
+        // the features it could not close, so the face count is the one thing that says what was removed
+        public Dictionary<string, int> GetGeometryPartFaceCounts()
+        {
+            Dictionary<string, int> faceCounts = new Dictionary<string, int>();
+            if (_model == null || _model.Geometry == null) return faceCounts;
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value.Visualization == null) continue;
+                faceCounts[entry.Key] = entry.Value.Visualization.FaceCount;
+            }
+            return faceCounts;
+        }
+        private void WriteDefeatureReport(Dictionary<string, int> faceCountsBefore)
+        {
+            int totalRemoved = 0;
+            int changedParts = 0;
+            BasePart part;
+            foreach (var entry in faceCountsBefore)
+            {
+                int facesAfter = entry.Value;
+                if (_model.Geometry.Parts.TryGetValue(entry.Key, out part) && part.Visualization != null)
+                    facesAfter = part.Visualization.FaceCount;
+                int removed = entry.Value - facesAfter;
+                //
+                if (removed > 0)
+                {
+                    totalRemoved += removed;
+                    changedParts++;
+                    _form.WriteDataToOutput("Defeature: the part " + entry.Key + " lost " + removed + " of its " +
+                                            entry.Value + " faces.");
+                }
+                else
+                {
+                    _form.WriteDataToOutput("Defeature: the part " + entry.Key + " kept all " + entry.Value +
+                                            " of its faces - nothing was removed. A feature is only closed when " +
+                                            "every one of its faces is selected: a blind hole needs its bottom " +
+                                            "face as well as its wall.");
+                }
+            }
+            _form.WriteDataToOutput("Defeature finished: " + totalRemoved + " faces were removed from " +
+                                    changedParts + " of the " + faceCountsBefore.Count + " selected parts.");
         }
         #endregion #################################################################################################################
 
@@ -5411,6 +5469,7 @@ namespace PrePoMax
             phaseWatch.Restart();
             foreach (GeneratedMeshData generatedMesh in generatedMeshes)
             {
+                _model.TransferMissingGeometryDataToMesh(generatedMesh.GeometryPart, generatedMesh.Mesh);
                 _model.ImportGeneratedMesh(generatedMesh.Mesh, false);
                 //
                 foreach (string partName in generatedMesh.RelatedPartNames)
@@ -5929,6 +5988,10 @@ namespace PrePoMax
                 _selection.Clear();
             }
             else throw new NotSupportedException("The mesh setup item does not contain any selection data.");
+            // An item entering the model is judged by the definition it carries now. The validity check
+            // only ever narrows what it is given, so an item that arrives invalid - a duplicate of one,
+            // or one an earlier selection made invalid - could never be found valid again
+            meshSetupItem.Valid = true;
             //
             _model.Geometry.MeshSetupItems.Add(meshSetupItem.Name, meshSetupItem);
             //
@@ -6067,6 +6130,9 @@ namespace PrePoMax
                 _selection = selection;
             }
             else throw new NotSupportedException("The mesh setup item does not contain any selection data.");
+            // A replacement is a new definition and is judged as one. Without this the item would keep the
+            // verdict of the item it replaces, and a new selection could never make an invalid item valid
+            meshSetupItem.Valid = true;
             //
             _model.Geometry.MeshSetupItems.Replace(oldMeshSetupItemName, meshSetupItem.Name, meshSetupItem);
             //
@@ -22309,8 +22375,8 @@ namespace PrePoMax
                 {
                     if (rendering) _form.RenderingOn = false;
                     _form.Clear3D();    // Removes section cut
-                    //
                     ClearAnimationLocatorData();
+                    //
                     if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return;
                     if (_allResults.CurrentResult.GetAllComponentNames().Length == 0)
                         _viewResultsType = ViewResultsTypeEnum.Undeformed;
@@ -23061,13 +23127,13 @@ namespace PrePoMax
             float scale = GetScale();
             SetPostLegendAndStatusBlockSettings();
             SetStatusBlock(scale);
-            //
             // The volume grid nodes of each frame are regenerated on demand
             FieldData[] frameFieldData = new FieldData[numFrames];
             for (int i = 0; i < numFrames; i++) frameFieldData[i] = _currentFieldData;
             SetAnimationLocatorData(frameFieldData, scale,
                                     _allResults.CurrentResult.GetAnimationScaleRatios(_currentFieldData, numFrames),
                                     null);
+            //
             vtkMaxActorData data;
             vtkRendererLayer layer = vtkRendererLayer.Base;
             //
@@ -23280,7 +23346,6 @@ namespace PrePoMax
             //
             return GetAnimationFrameNodes(part, nodeIds, frameNumber);
         }
-        private NodesExchangeData GetAnimationFrameNodes(BasePart part, int[] nodeIds, int frameNumber)
         public NodesExchangeData GetAnimationNodes(string actorName, int frameNumber, int[] nodeIds)
         {
             // The frame coordinates and values of the given nodes only - an anchor or an interior annotation
@@ -23291,6 +23356,7 @@ namespace PrePoMax
             //
             return GetAnimationFrameNodes(part, nodeIds, frameNumber);
         }
+        private NodesExchangeData GetAnimationFrameNodes(BasePart part, int[] nodeIds, int frameNumber)
         {
             FeResults result = _allResults.CurrentResult;
             FieldData fieldData = _animationLocatorFieldData[frameNumber];
@@ -23329,9 +23395,9 @@ namespace PrePoMax
             _animationLocatorNodeIds = null;
             _animationLocatorFieldData = null;
             _animationLocatorScale = 0;
-        }
             _animationLocatorRatios = null;
             _animationLocatorAngles = null;
+        }
         public bool DrawHarmonicAnimation(int numFrames)
         {
             ClearAnimationLocatorData();
@@ -23343,11 +23409,11 @@ namespace PrePoMax
             float delta = 360f / numFrames; // skip the final angle which is the same as the first angle
             float[] angles = new float[numFrames];
             for (int i = 0; i < numFrames; i++) angles[i] = i * delta;
-            //
             // The volume grid nodes of each frame are regenerated on demand
             FieldData[] frameFieldData = new FieldData[numFrames];
             for (int i = 0; i < numFrames; i++) frameFieldData[i] = _currentFieldData;
             SetAnimationLocatorData(frameFieldData, scale, null, angles);
+            //
             vtkMaxActorData frameData;
             vtkMaxActorData existingData;
             Dictionary<ResultPart, vtkMaxActorData> partData = new Dictionary<ResultPart, vtkMaxActorData>();
@@ -23756,7 +23822,6 @@ namespace PrePoMax
             //
             return vtkData;
         }
-        // Scale 
         private void SetVolumeGridData(vtkMaxActorData data, FeMesh mesh, BasePart part)
         {
             data.VolumeGridAvailable = true;
@@ -23795,6 +23860,7 @@ namespace PrePoMax
             }
             return data;
         }
+        // Scale 
         public FeNode GetScaledNode(float scale, int nodeId)
         {
             return GetScaledNode(FOFieldNames.Default, scale, nodeId, true);

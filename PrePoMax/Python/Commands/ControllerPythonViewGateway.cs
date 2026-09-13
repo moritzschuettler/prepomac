@@ -156,7 +156,7 @@ namespace PrePoMax.Python
         {
             if (_controller.CurrentResult == null)
                 throw new PythonAPIException("There is no open result, so there is nothing to plot. Open one " +
-                                             "with pmx.jobs[name].open_results() or pmx.results.set_current(name).");
+                                             "with pmx.jobs.open_results(name) or pmx.results.set_current(name).");
         }
         private static string FindComponent(string[] components, string componentName)
         {

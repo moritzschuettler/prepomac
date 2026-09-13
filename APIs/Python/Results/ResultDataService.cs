@@ -121,6 +121,27 @@ namespace APIs.Python
                                         new int[] { nodeId }, ref coordinates);
             return NumPyConverter.ToPythonArray(coordinates[0]);
         }
+        // The extremes are scanned where the values already are, so a caller that wants the peak and the
+        // node it sits on does not pay for a transfer of the whole component
+        public FieldExtremesAPI GetExtremes(string resultName, int stepId, int incrementId,
+                                            string fieldName, string componentName)
+        {
+            ComponentArrays arrays = ExtractComponentArrays(resultName, stepId, incrementId, fieldName, componentName);
+            int minIndex = -1;
+            int maxIndex = -1;
+            for (int i = 0; i < arrays.Values.Length; i++)
+            {
+                float value = arrays.Values[i];
+                if (float.IsNaN(value)) continue;
+                if (minIndex < 0 || value < arrays.Values[minIndex]) minIndex = i;
+                if (maxIndex < 0 || value > arrays.Values[maxIndex]) maxIndex = i;
+            }
+            if (minIndex < 0)
+                throw new PythonAPIException("The component '" + componentName + "' of field '" + fieldName +
+                                             "' carries no value for step " + stepId + ", increment " + incrementId + ".");
+            return new FieldExtremesAPI(componentName, arrays.Values[minIndex], arrays.Ids[minIndex],
+                                        arrays.Values[maxIndex], arrays.Ids[maxIndex], arrays.Unit);
+        }
         public FieldMultiComponentDataAPI GetFieldData(string resultName, int stepId, int incrementId, string fieldName)
         {
             string[] componentNames = GetComponentNames(resultName, stepId, incrementId, fieldName);

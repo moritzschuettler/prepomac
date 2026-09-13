@@ -763,6 +763,11 @@ Every `part_names` argument accepts a single name or a list of names.
 `defeature`, `split_face`, `flip_stl_normals` and `delete_stl_faces`. The four selection based methods
 take a selection built in the `geometry` view with the `geometry` target.
 
+`defeature` returns the number of faces every selected part actually lost, as a `dict[str, int]`.
+The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`
+is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
+well as its wall.
+
 `ModelParts` adds `translate`, `rotate`, `mirror`, `merge` and `find_edges_by_angle`.
 
 ```python
@@ -771,7 +776,7 @@ pmx.model.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 45)
 pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
-pmx.model.geometry.parts.defeature(selection)
+removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
 ```
 
 `translate` and `rotate` take `number_of_copies`; a value larger than zero keeps the original and
@@ -786,11 +791,16 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 | `node_count`, `element_count` | Node and element counts. |
 | `color` | The part color as `[R, G, B, A]`. |
 | `visible`, `active` | Part state. |
-| `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. |
+| `volume`, `center_of_mass` | The canonical part measurements. Geometry parts use exact CAD values. Model parts keep mesh-computed values and use CAD only to fill a missing value. |
+| `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a meshed solid reports the area of the CAD part it was meshed from, and `0.0` when there is none - an imported mesh has none. The area of the mesh itself is the sum of `get_face_data().areas`. |
+| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices, or an empty array when unavailable. They are **second moments of volume**: the density is 1, so the values are in model length units to the fifth power, and a mass inertia is the matrix multiplied by the material density. Only CAD geometry computes them, so a meshed part carries the matrices of the CAD part it was meshed from and an imported mesh has none. |
+| `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. Geometry parts use the CAD entity bounds when available. |
 | `get_node_ids()`, `get_element_ids()` | The part node and element IDs. |
+| `get_node_coordinates()` | The coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. This is the route to the nodes of a geometry part, because `pmx.model.nodes` is the model mesh and holds nothing until the model is meshed. |
 | `get_face_data()` | The faces of the part as `FaceData`. |
 | `get_edge_data()` | The edges of the part as `EdgeData`. |
 | `get_vertex_data()` | The vertices of the part as `VertexData`. |
+| `get_geometry_metadata()` | Supplemental CAD metadata such as analytic axes, primitive parameters, orientation, entity bounds and topology links. |
 
 `GeometryPart` adds `is_cad_part`.
 
@@ -805,14 +815,49 @@ a selection takes.
 | `count` | The number of faces, edges or vertices. |
 | `ids` | The 1-based face or edge IDs of the part, as the `surfaces` and `edges` selection sources take them. `VertexData` has `node_ids` instead, because a vertex is named by its node. |
 | `geometry_ids` | The geometry ID of every entity, as the `geometry` selection source takes them. |
-| `areas`, `lengths` | The area of every face and the length of every edge, in model units. |
-| `centroids` | The centroid of every face or edge with shape `(count, 3)`, as the mean of its node coordinates. `VertexData` has `coordinates`. |
+| `areas`, `lengths` | The canonical area of every face and length of every edge, in model units. Geometry parts use exact CAD values; model and result parts keep mesh-computed values. |
+| `centroids` | The centroid of every face or edge with shape `(count, 3)`. Geometry parts use exact CAD centroids when available; mesh parts use the mean of their node coordinates. `VertexData` has `coordinates`. |
 | `normals` | Faces only. The mean of the cell normals of every face with shape `(count, 3)`. A curved face has no single normal, so it is the direction the face points on average. |
 | `types` | The geometric type of every entity: `Plane`, `Cylinder`, `Cone` and so on for a face, `Line`, `Circle`, `Ellipse` and so on for an edge. |
 
 Every array is a NumPy array where NumPy is available, and an `IntList` or `NumericArray` otherwise.
 A part type that has no faces - a wire, or a compound whose surfaces are picked on its sub parts -
 reports `count` 0 rather than failing.
+
+#### `GeometryMetadata`
+
+`get_geometry_metadata()` returns an extensible view of the versioned metadata appended to a Netgen
+`.vis` file. `available`, `format_version`, `coordinate_system`, `length_unit` and `entity_kinds`
+describe the block. `get_entities(kind)` returns the solids, shells, faces or edges as an iterable
+`GeometryMetadataEntities` collection; `get(id)` resolves a 1-based entity ID.
+
+Each `GeometryMetadataEntity` exposes `kind`, `id`, `property_names` and
+`get_property(name, default=None)`. Properties are passed through generically, so a new Netgen
+property becomes available without adding a dedicated Python member. Scalar values return `float` or
+`str`; vectors return a NumPy array, `NumericArray` or `StringList`. Common properties include
+`axis`, `x_direction`, `y_direction`, `radius`, `center`, `apex`, `major_radius`, `minor_radius`,
+`orientation`, `bounding_box`, `face_ids` and `edge_ids`.
+
+The property set varies by entity type - a cylinder has a `radius`, a torus adds `center`,
+`major_radius` and `minor_radius`, a cone has `apex`, `semi_angle_rad` and `reference_radius` and no
+`radius` at all - so `get_property` returns the default rather than raising when this entity does not
+carry the name, and a caller that walks faces of mixed types does not have to test `property_names`
+before every read. An empty name, and a canonical measurement that belongs to the part, face or edge
+data instead, are still refused.
+
+Area, length, volume, centroid and type are deliberately absent from `property_names`: the part,
+`FaceData` and `EdgeData` members above are their single canonical source. During meshing, PrePoMax
+copies only properties missing on the target and only maps face or edge metadata when the topology
+counts still agree. Results receive the resulting metadata with their mesh parts.
+
+```python
+part = pmx.model.geometry.parts.first()
+metadata = part.get_geometry_metadata()
+for face in metadata.get_entities('face'):
+    radius = face.get_property('radius')            # None on a face that carries no radius
+    if radius is not None:
+        print(face.id, radius, face.get_property('axis'))
+```
 
 ```python
 part = pmx.model.parts['Solid_part-1']
@@ -2211,6 +2256,7 @@ Single field output, such as displacement, stress, or temperature.
 | `name` | Field name. |
 | `components` | Components available for this field. |
 | `get_data()` | Returns all components as `FieldMultiComponentData`. |
+| `get_extremes(component_name)` | Returns the largest and the smallest value of one component, and the node IDs they sit on, as `FieldExtremes`. |
 
 ### `FieldComponents`
 
@@ -2234,6 +2280,7 @@ Single scalar component of a field result.
 | --- | --- |
 | `name` | Component name. |
 | `get_data()` | Returns scalar component data as `FieldData`. |
+| `get_extremes()` | Returns the extremes of this component as `FieldExtremes`. |
 | `get_value(node_id)` | Returns this component value for one node ID. |
 
 ### `FieldData`
@@ -2277,6 +2324,30 @@ data = increment.fields['DISP'].get_data()
 data.component_names
 data.values
 ```
+
+### `FieldExtremes`
+
+The largest and the smallest value of one field component, and the nodes they sit on. The scan
+happens in the application, so the peak a report needs is read without transferring the values it was
+found in - the matrix behind `get_data()` is one row per node by one column per component, which for
+even a small model is tens of thousands of numbers for two of them.
+
+| Member | Description |
+| --- | --- |
+| `component_name` | The component the extremes were read from. |
+| `max_value`, `max_node_id` | The largest value, and the ID of the node carrying it. |
+| `min_value`, `min_node_id` | The smallest value, and the ID of the node carrying it. |
+| `unit` | The component unit. |
+
+Example:
+
+```python
+peak = increment.fields['STRESS'].get_extremes('MISES')
+print(peak.max_value, peak.unit, 'at node', peak.max_node_id)
+```
+
+Nodes without a value are skipped rather than reported as the extreme, and a component with no value
+at any node is refused rather than answered with a NaN.
 
 ## Mesh
 
@@ -2437,6 +2508,13 @@ Single mesh part.
 | `name` | Part name. |
 | `node_ids` | Node IDs belonging to the part. |
 | `element_ids` | Element IDs belonging to the part. |
+| `get_node_coordinates()` | The undeformed coordinates of the part nodes with shape `(node_count, 3)`, in the order `node_ids` reports them. |
+| `volume`, `center_of_mass` | Mesh-computed part measurements, with CAD used only when a mesh value was missing. |
+| `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a solid reports the area of the CAD part it was meshed from, and `0.0` when there is none. The area of the mesh itself is the sum of `get_face_data().areas`. |
+| `get_bounding_box()` | The mesh-computed `[xMin, xMax, yMin, yMax, zMin, zMax]` bounds. |
+| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices, or an empty array when unavailable. They are second moments of volume with a density of 1, in model length units to the fifth power, exactly as on a model part. A mesh computes none, so these are the matrices of the CAD part the mesh came from and an imported mesh has none. |
+| `get_face_data()`, `get_edge_data()`, `get_vertex_data()` | Result-mesh topology using the same `FaceData`, `EdgeData` and `VertexData` objects described for model parts. |
+| `get_geometry_metadata()` | Supplemental CAD metadata transferred through the model mesh into the result. |
 
 ### Read-only result regions
 
@@ -3088,4 +3166,3 @@ itself with `python -m unittest test_runner_offline`, launching no PrePoMax proc
 - `ToString()` implementations provide concise expression output; `print(...)` uses the full display text for arrays and named collections.
 - Keep implementation-only methods unmarked by `[PythonAPI]` if they should be hidden from help and autocomplete.
 - Prefer documenting collection access with `[...]` because this is the intended Python style.
-

@@ -32,6 +32,17 @@ namespace CaeGlobals
         public static Action<string> WriteDataToOutput;
         public static MessageBoxModeEnum Mode = MessageBoxModeEnum.Interactive;
         public static Action<MessageBoxPrompt> PromptRecorder;
+        // A call of the automation server runs on its own connection thread while the window stays
+        // interactive for the user. A dialog opened from there is shown on the window and the call waits
+        // for it, so the agent waits for a human at the keyboard - which is the one thing the server
+        // exists not to need. A handler marks its thread and every prompt on it is answered the way an
+        // unattended run answers it: a report goes to the output and a decision is refused
+        [ThreadStatic] private static bool _isNonInteractiveThread;
+        public static bool IsNonInteractiveThread
+        {
+            get { return _isNonInteractiveThread; }
+            set { _isNonInteractiveThread = value; }
+        }
         // Base
         public static DialogResult Show(string text)
         {
@@ -48,14 +59,27 @@ namespace CaeGlobals
         public static DialogResult Show(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             DialogResult result = DialogResult.None;
-            InvokeIfRequired(() => result = ShowCrossThread(text, caption, buttons, icon));
+            // Read on the calling thread, because the marked thread is the one that asked and the hop below
+            // lands on the user interface thread, which is never marked
+            MessageBoxModeEnum mode = GetEffectiveMode();
+            InvokeIfRequired(() => result = ShowCrossThread(text, caption, buttons, icon, mode));
             return result;
         }
         public static DialogResult ShowCrossThread(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
+            return ShowCrossThread(text, caption, buttons, icon, GetEffectiveMode());
+        }
+        private static MessageBoxModeEnum GetEffectiveMode()
+        {
+            if (Mode == MessageBoxModeEnum.Interactive && _isNonInteractiveThread) return MessageBoxModeEnum.Strict;
+            return Mode;
+        }
+        private static DialogResult ShowCrossThread(string text, string caption, MessageBoxButtons buttons,
+                                                    MessageBoxIcon icon, MessageBoxModeEnum mode)
+        {
             using (new CenterWinDialog(ParentForm))
             {
-                if (Mode == MessageBoxModeEnum.Interactive) return MessageBox.Show(ParentForm, text, caption, buttons, icon);
+                if (mode == MessageBoxModeEnum.Interactive) return MessageBox.Show(ParentForm, text, caption, buttons, icon);
                 //
                 if (WriteDataToOutput != null)
                 {
@@ -64,7 +88,7 @@ namespace CaeGlobals
                 }
                 // A single button box only reports; anything else asks for a decision the caller cannot make unattended
                 bool isDecision = buttons != MessageBoxButtons.OK;
-                if (isDecision && Mode == MessageBoxModeEnum.Strict)
+                if (isDecision && mode == MessageBoxModeEnum.Strict)
                 {
                     RecordPrompt(caption, text, buttons, DialogResult.None, true, true);
                     throw new PromptRefusedException("An interactive prompt was refused in the strict non-interactive mode." +
@@ -146,7 +170,7 @@ namespace CaeGlobals
         public static DialogResult ShowWarningQuestionOKCancel(IWin32Window owner, string text)
         {
             // The owner based overload must not open a blocking dialog when no user is present
-            if (Mode != MessageBoxModeEnum.Interactive)
+            if (GetEffectiveMode() != MessageBoxModeEnum.Interactive)
                 return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             //
             return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);

@@ -3337,6 +3337,7 @@ namespace CaeMesh
                 part.Name = entry.Value.Name;
                 part.PartId = entry.Value.PartId;
                 part.Color = entry.Value.Color;
+                part.FillMissingGeometryDataFrom(entry.Value);
                 // Renumber elements
                 foreach (var elementId in part.Labels) _elements[elementId].PartId = part.PartId;
                 // Add new part

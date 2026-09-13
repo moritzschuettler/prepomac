@@ -147,6 +147,7 @@ namespace APIs.Python.Model
             if (selection != null) ApplySelection(item, selection);
             //
             EnsureCommandsAvailable();
+            if (selection != null) EnsureSelectionCanBeHonoured(item);
             _meshGateway.ReplaceMeshSetupItem(oldName, item);
         }
         public void Duplicate(string[] names)
@@ -193,6 +194,19 @@ namespace APIs.Python.Model
             return names;
         }
         //
+        // A replace that is given a new selection either honours it or says why it cannot. The item would
+        // otherwise keep the new region, be marked invalid by the validity check, and then be skipped at
+        // mesh time without a word - which is how an extrude mesh setup item quietly became a tetrahedral
+        // mesh. The question also derives what the extrude, sweep and revolve items take from their
+        // selection, so asking it is what re-derives those values for the region that is now theirs
+        private void EnsureSelectionCanBeHonoured(MeshSetupItem item)
+        {
+            string error = _meshGateway.IsMeshSetupItemProperlyDefined(item);
+            if (error == null) return;
+            //
+            throw new PythonAPIException("The mesh setup item '" + item.Name + "' cannot be defined on the " +
+                                         "selection it was given, so the selection was not changed. " + error);
+        }
         private void ApplySelection(MeshSetupItem item, SelectionAPI selection)
         {
             // A mesh setup item without creation data is rejected by the controller

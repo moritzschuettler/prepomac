@@ -64,6 +64,9 @@
     <Compile Include="Python\Model\Meshing\MeshSetupItemService.cs" />
     <Compile Include="Python\Model\Meshing\MeshSetupItemsAPI.cs" />
     <Compile Include="Python\Common\PythonColorConverter.cs" />
+    <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataAPI.cs" />
+    <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntitiesAPI.cs" />
+    <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntityAPI.cs" />
     <Compile Include="Python\Model\Geometry\GeometryAPI.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartAPI.cs" />
     <Compile Include="Python\Model\Parts\PartTopologyReader.cs" />
@@ -210,6 +213,7 @@
     <Compile Include="Python\Results\Fields\FieldComponentAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldComponentsAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldDataAPI.cs" />
+    <Compile Include="Python\Results\Fields\FieldExtremesAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldMultiComponentDataAPI.cs" />
     <Compile Include="Python\Results\Fields\FieldsAPI.cs" />
     <Compile Include="Python\Results\Fields\ResultIncrementAPI.cs" />

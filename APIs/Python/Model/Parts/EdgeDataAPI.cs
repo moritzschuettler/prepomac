@@ -31,9 +31,11 @@ namespace APIs.Python.Model
         [PythonAPI("The geometry ID of every edge, as the 'geometry' selection source takes them.",
                    Returns = "numpy.ndarray or IntList")]
         public object geometry_ids { get { return _geometryIds; } }
-        [PythonAPI("The length of every edge, in model units.", Returns = "numpy.ndarray or NumericArray")]
+        [PythonAPI("The canonical length of every edge, in model units. Geometry parts use exact CAD values; " +
+                   "model and result parts keep their mesh-computed values.", Returns = "numpy.ndarray or NumericArray")]
         public object lengths { get { return _lengths; } }
-        [PythonAPI("The centroid of every edge with shape (edge_count, 3), as the mean of its node coordinates.",
+        [PythonAPI("The centroid of every edge with shape (edge_count, 3). Geometry parts use the exact CAD " +
+                   "centroid when available; mesh parts use the mean of their node coordinates.",
                    Returns = "numpy.ndarray or NumericArray")]
         public object centroids { get { return _centroids; } }
         [PythonAPI("The geometric type of every edge: Line, Circle, Ellipse, Hyperbola, Parabola, " +
