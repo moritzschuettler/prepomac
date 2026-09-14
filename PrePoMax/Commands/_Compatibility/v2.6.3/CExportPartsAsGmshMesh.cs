@@ -16,16 +16,16 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportCADGeometryPartsAsStep : PreprocessCommand, IExportFileCommand
+    class CExportPartsAsGmshMesh : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
         private string _fileName;
 
 
@@ -34,10 +34,9 @@ namespace PrePoMax.Commands
         
 
         // Constructor                                                                                                              
-        public CExportCADGeometryPartsAsStep(string[] partNames, string fileName)
-            :base("Export CAD geometry parts to .step files")
+        public CExportPartsAsGmshMesh(string fileName)
+            :base("Export geometry parts to Gmsh .msh file")
         {
-            _partNames = partNames;
             _fileName = Tools.GetLocalPath(fileName);
         }
 
@@ -45,17 +44,22 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportCADGeometryPartsAsStep(_partNames, Tools.GetGlobalPath(_fileName));
+            receiver.ExportPartsAsGmshMesh(Tools.GetGlobalPath(_fileName));
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_cad_parts_as_step", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName))));
+            string fileName = Tools.GetGlobalPath(_fileName);
+            MeshExportFormatEnum inferredFormat;
+            string format = null;
+            if (!ExportFormatTools.TryGetMeshFormat(fileName, out inferredFormat) || inferredFormat != MeshExportFormatEnum.Gmsh)
+                format = "format=" + PythonValueFormatter.Format(MeshExportFormatEnum.Gmsh.ToString().ToLower());
+            writer.Statement(writer.Call("pmx", "export_mesh", writer.Call("pmx.model.parts", "get_names"), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {
-            return base.GetCommandString() + _fileName + ": " + _partNames.ToShortString();
+            return base.GetCommandString() + _fileName;
         }
     }
 }

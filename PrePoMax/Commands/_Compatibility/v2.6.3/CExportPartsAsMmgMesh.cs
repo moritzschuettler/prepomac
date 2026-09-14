@@ -16,17 +16,19 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportCADGeometryPartsAsBrep : PreprocessCommand, IExportFileCommand
+    class CExportPartsAsMmgMesh : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;
         private string _fileName;
+        private bool _combine;
 
 
         // Properties                                                                                                               
@@ -34,24 +36,25 @@ namespace PrePoMax.Commands
         
 
         // Constructor                                                                                                              
-        public CExportCADGeometryPartsAsBrep(string[] partNames, string fileName)
-            :base("Export CAD geometry parts to .brep files")
+        public CExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine = false)
+            :base("Export parts as mmg .mesh file")
         {
             _partNames = partNames;
             _fileName = Tools.GetLocalPath(fileName);
+            _combine = combine;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportCADGeometryPartsAsBrep(_partNames, Tools.GetGlobalPath(_fileName));
+            receiver.ExportPartsAsMmgMesh(_partNames, Tools.GetGlobalPath(_fileName).ToLower(), _combine);
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_cad_parts_as_brep", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName))));
-            writer.CountEmittedCommand();
+            writer.Unsupported(this, "the view the parts were exported from was not recorded; " +
+                                     "write export_geometry, export_mesh or export_results instead");
         }
         public override string GetCommandString()
         {

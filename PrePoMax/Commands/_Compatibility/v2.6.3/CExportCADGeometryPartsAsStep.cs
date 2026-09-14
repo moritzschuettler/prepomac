@@ -16,13 +16,14 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportToStl : PreprocessCommand, IExportFileCommand
+    class CExportCADGeometryPartsAsStep : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;
@@ -34,8 +35,8 @@ namespace PrePoMax.Commands
         
 
         // Constructor                                                                                                              
-        public CExportToStl(string[] partNames, string fileName)
-            :base("Export parts to .stl file")
+        public CExportCADGeometryPartsAsStep(string[] partNames, string fileName)
+            :base("Export CAD geometry parts to .step files")
         {
             _partNames = partNames;
             _fileName = Tools.GetLocalPath(fileName);
@@ -45,12 +46,17 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportToStl(_partNames, Tools.GetGlobalPath(_fileName));
+            receiver.ExportCADGeometryPartsAsStep(_partNames, Tools.GetGlobalPath(_fileName));
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_to_stl", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName))));
+            string fileName = Tools.GetGlobalPath(_fileName);
+            GeometryExportFormatEnum inferredFormat;
+            string format = null;
+            if (!ExportFormatTools.TryGetGeometryFormat(fileName, out inferredFormat) || inferredFormat != GeometryExportFormatEnum.Step)
+                format = "format=" + PythonValueFormatter.Format(GeometryExportFormatEnum.Step.ToString().ToLower());
+            writer.Statement(writer.Call("pmx", "export_geometry", PythonValueFormatter.List(_partNames), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

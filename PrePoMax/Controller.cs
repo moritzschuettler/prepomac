@@ -795,24 +795,9 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //
-        public void ExportCADGeometryPartsAsStepCommand(string[] partNames, string fileName)
-        {
-            CExportCADGeometryPartsAsStep comm = new CExportCADGeometryPartsAsStep(partNames, fileName);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportCADGeometryPartsAsBrepCommand(string[] partNames, string fileName)
-        {
-            CExportCADGeometryPartsAsBrep comm = new CExportCADGeometryPartsAsBrep(partNames, fileName);
-            _commands.AddAndExecute(comm);
-        }
         public void ExportTo3mfCommand(Export3mfFileProperties properties)
         {
             CExportTo3mf comm = new CExportTo3mf(properties);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportToStlCommand(string[] partNames, string fileName)
-        {
-            CExportToStl comm = new CExportToStl(partNames, fileName);
             _commands.AddAndExecute(comm);
         }
         //
@@ -824,22 +809,6 @@ namespace PrePoMax
         public void ExportToAbaqusCommand(string fileName)
         {
             CExportToAbaqus comm = new CExportToAbaqus(fileName);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportPartsAsGmshMeshCommand(string fileName)
-        {
-            CExportPartsAsGmshMesh comm = new CExportPartsAsGmshMesh(fileName);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportPartsAsMmgMeshCommand(string[] partNames, string fileName, bool combine = false)
-        {
-            CExportPartsAsMmgMesh comm = new CExportPartsAsMmgMesh(partNames, fileName, combine);
-            _commands.AddAndExecute(comm);
-        }
-        //
-        public void ExportDeformedPartsToCalculixCommand(string[] partNames, string fileName)
-        {
-            CExportDeformedPartsToCalculix comm = new CExportDeformedPartsToCalculix(partNames, fileName);
             _commands.AddAndExecute(comm);
         }
         //

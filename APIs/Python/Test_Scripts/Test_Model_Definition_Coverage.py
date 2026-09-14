@@ -146,15 +146,15 @@ def test_creation_equations():
 
 def test_export_validation():
     before = pmx.model.properties.model_type
-    check_raises(lambda: pmx.export_to_stl(["__missing_part__"], "missing.stl"),
+    check_raises(lambda: pmx.export_mesh(["__missing_part__"], "missing.stl"),
                  "an export of a missing part was accepted")
     check(pmx.model.properties.model_type == before, "the refused export changed the model")
     # Each export names the parts of its own source, and this model has neither CAD nor a result
     part_name = pmx.model.parts.first().name
-    check_raises(lambda: pmx.export_cad_parts_as_step([part_name], "missing.step"),
-                 "a CAD export of a mesh part was accepted")
-    check_raises(lambda: pmx.export_deformed_parts_to_calculix([part_name], "missing.inp"),
-                 "a deformed export without a result was accepted")
+    check_raises(lambda: pmx.export_geometry([part_name], "missing.step"),
+                 "a geometry export of a mesh part was accepted")
+    check_raises(lambda: pmx.export_results([part_name], "missing.inp"),
+                 "a results export without a result was accepted")
 
 
 def main():

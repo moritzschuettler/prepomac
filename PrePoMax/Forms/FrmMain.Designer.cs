@@ -128,6 +128,9 @@ namespace PrePoMax
             this.tsmiExportMesh = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportModel = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportResults = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiExportDeformedParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiExportFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiExportHistoryOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerExport1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExportTo3mf = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerExport2 = new System.Windows.Forms.ToolStripSeparator();
@@ -1468,10 +1471,34 @@ namespace PrePoMax
             // 
             // tsmiExportResults
             // 
+            this.tsmiExportResults.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiExportDeformedParts,
+            this.tsmiExportFieldOutput,
+            this.tsmiExportHistoryOutput});
             this.tsmiExportResults.Name = "tsmiExportResults";
             this.tsmiExportResults.Size = new System.Drawing.Size(250, 22);
             this.tsmiExportResults.Text = "Results";
-            this.tsmiExportResults.Click += new System.EventHandler(this.tsmiExportResults_Click);
+            // 
+            // tsmiExportDeformedParts
+            // 
+            this.tsmiExportDeformedParts.Name = "tsmiExportDeformedParts";
+            this.tsmiExportDeformedParts.Size = new System.Drawing.Size(180, 22);
+            this.tsmiExportDeformedParts.Text = "Deformed parts";
+            this.tsmiExportDeformedParts.Click += new System.EventHandler(this.tsmiExportDeformedParts_Click);
+            // 
+            // tsmiExportFieldOutput
+            // 
+            this.tsmiExportFieldOutput.Name = "tsmiExportFieldOutput";
+            this.tsmiExportFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiExportFieldOutput.Text = "Field output";
+            this.tsmiExportFieldOutput.Click += new System.EventHandler(this.tsmiExportResultFieldOutput_Click);
+            // 
+            // tsmiExportHistoryOutput
+            // 
+            this.tsmiExportHistoryOutput.Name = "tsmiExportHistoryOutput";
+            this.tsmiExportHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiExportHistoryOutput.Text = "History output";
+            this.tsmiExportHistoryOutput.Click += new System.EventHandler(this.tsmiExportResultHistoryOutput_Click);
             // 
             // tsmiDividerExport1
             // 
@@ -5289,6 +5316,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExportMesh;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportModel;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportResults;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportDeformedParts;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportFieldOutput;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportHistoryOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditModelPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiCreateStep;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditStep;

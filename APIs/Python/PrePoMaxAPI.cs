@@ -146,54 +146,11 @@ namespace APIs.Python
             _documentService.ExportToAbaqus(file_name);
         }
 
-        [PythonAPI("Exports the named parts to an .stl file using command history.",
-                   Arguments = "part_names: list[str] or str, file_name: str", Returns = "None")]
-        public void export_to_stl(object part_names, string file_name)
-        {
-            _documentService.ExportToStl(part_names, file_name);
-        }
-
         [PythonAPI("Exports the model to a .3mf file using command history.",
                    Arguments = "file_name: str, edge_thickness_ratio: float = 1", Returns = "None")]
         public void export_to_3mf(string file_name, object edge_thickness_ratio = null)
         {
             _documentService.ExportTo3mf(file_name, edge_thickness_ratio);
-        }
-
-        [PythonAPI("Exports the meshed parts to a Gmsh .msh file using command history.",
-                   Arguments = "file_name: str", Returns = "None")]
-        public void export_parts_as_gmsh_mesh(string file_name)
-        {
-            _documentService.ExportPartsAsGmshMesh(file_name);
-        }
-
-        [PythonAPI("Exports the named parts to an Mmg .mesh file using command history.",
-                   Arguments = "part_names: list[str] or str, file_name: str, combine: bool = False",
-                   Returns = "None")]
-        public void export_parts_as_mmg_mesh(object part_names, string file_name, bool combine = false)
-        {
-            _documentService.ExportPartsAsMmgMesh(part_names, file_name, combine);
-        }
-
-        [PythonAPI("Exports the named CAD parts to a .step file using command history.",
-                   Arguments = "part_names: list[str] or str, file_name: str", Returns = "None")]
-        public void export_cad_parts_as_step(object part_names, string file_name)
-        {
-            _documentService.ExportCadPartsAsStep(part_names, file_name);
-        }
-
-        [PythonAPI("Exports the named CAD parts to a .brep file using command history.",
-                   Arguments = "part_names: list[str] or str, file_name: str", Returns = "None")]
-        public void export_cad_parts_as_brep(object part_names, string file_name)
-        {
-            _documentService.ExportCadPartsAsBrep(part_names, file_name);
-        }
-
-        [PythonAPI("Exports the named deformed parts to a CalculiX .inp file using command history.",
-                   Arguments = "part_names: list[str] or str, file_name: str", Returns = "None")]
-        public void export_deformed_parts_to_calculix(object part_names, string file_name)
-        {
-            _documentService.ExportDeformedPartsToCalculix(part_names, file_name);
         }
 
         [PythonAPI("Exports the named geometry parts using command history. The file extension picks the format: " +

@@ -19,8 +19,6 @@ namespace APIs.Python
     {
         // The model instance is replaced by New and Open, so it is always read through the gateway
         FeModel GetModel();
-        // The mesh the application currently displays, which is what an export of the displayed parts uses
-        FeMesh GetDisplayedMesh();
         string[] GetAllMeshEntityNames();
         // Replacing the model also replaces the command collection, which a running script is part of
         bool IsInsideRecordedScript();
@@ -33,13 +31,7 @@ namespace APIs.Python
         void SaveToPmx(string fileName);
         void ExportToCalculix(string fileName);
         void ExportToAbaqus(string fileName);
-        void ExportToStl(string[] partNames, string fileName);
         void ExportTo3mf(string fileName, double edgeThicknessRatio);
-        void ExportPartsAsGmshMesh(string fileName);
-        void ExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine);
-        void ExportCadPartsAsStep(string[] partNames, string fileName);
-        void ExportCadPartsAsBrep(string[] partNames, string fileName);
-        void ExportDeformedPartsToCalculix(string[] partNames, string fileName);
         void ExportGeometry(string[] partNames, string fileName, GeometryExportFormatEnum format);
         void ExportMesh(string[] partNames, string fileName, MeshExportFormatEnum format);
         void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format);

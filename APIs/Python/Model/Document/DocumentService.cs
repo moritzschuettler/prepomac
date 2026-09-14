@@ -77,12 +77,6 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.ExportToAbaqus(ResolveOutputFileName(fileName, "file_name"));
         }
-        public void ExportToStl(object partNames, string fileName)
-        {
-            string[] names = ResolveDisplayedPartNames(partNames);
-            EnsureCommandsAvailable();
-            _modelGateway.ExportToStl(names, ResolveOutputFileName(fileName, "file_name"));
-        }
         public void ExportTo3mf(string fileName, object edgeThicknessRatio)
         {
             double ratio = edgeThicknessRatio == null
@@ -93,35 +87,6 @@ namespace APIs.Python.Model
             //
             EnsureCommandsAvailable();
             _modelGateway.ExportTo3mf(ResolveOutputFileName(fileName, "file_name"), ratio);
-        }
-        public void ExportPartsAsGmshMesh(string fileName)
-        {
-            EnsureCommandsAvailable();
-            _modelGateway.ExportPartsAsGmshMesh(ResolveOutputFileName(fileName, "file_name"));
-        }
-        public void ExportPartsAsMmgMesh(object partNames, string fileName, bool combine)
-        {
-            string[] names = ResolveDisplayedPartNames(partNames);
-            EnsureCommandsAvailable();
-            _modelGateway.ExportPartsAsMmgMesh(names, ResolveOutputFileName(fileName, "file_name"), combine);
-        }
-        public void ExportCadPartsAsStep(object partNames, string fileName)
-        {
-            string[] names = ResolveCadPartNames(partNames);
-            EnsureCommandsAvailable();
-            _modelGateway.ExportCadPartsAsStep(names, ResolveOutputFileName(fileName, "file_name"));
-        }
-        public void ExportCadPartsAsBrep(object partNames, string fileName)
-        {
-            string[] names = ResolveCadPartNames(partNames);
-            EnsureCommandsAvailable();
-            _modelGateway.ExportCadPartsAsBrep(names, ResolveOutputFileName(fileName, "file_name"));
-        }
-        public void ExportDeformedPartsToCalculix(object partNames, string fileName)
-        {
-            string[] names = ResolveResultPartNames(partNames);
-            EnsureCommandsAvailable();
-            _modelGateway.ExportDeformedPartsToCalculix(names, ResolveOutputFileName(fileName, "file_name"));
         }
         // The extension of the file names the format, unless the caller gives it; .inp is CalculiX unless said otherwise
         public void ExportGeometry(object partNames, string fileName, string format)
@@ -318,28 +283,6 @@ namespace APIs.Python.Model
                 if (names[i] == null || names[i].Trim().Length == 0)
                     throw new PythonAPIException("The argument 'part_names' contains an empty name.");
             }
-            //
-            return names;
-        }
-        private string[] ResolveDisplayedPartNames(object partNames)
-        {
-            string[] names = ToPartNames(partNames);
-            _modelResolver.GetModel();
-            FeMesh mesh = _modelGateway == null ? null : _modelGateway.GetDisplayedMesh();
-            if (mesh == null)
-                throw new PythonAPIException("The displayed view does not contain a mesh to export.");
-            foreach (string name in names)
-            {
-                if (!mesh.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The part '" + name + "' does not exist in the displayed view.");
-            }
-            //
-            return names;
-        }
-        private string[] ResolveCadPartNames(object partNames)
-        {
-            string[] names = ToPartNames(partNames);
-            EnsureCadPartNames(names);
             //
             return names;
         }

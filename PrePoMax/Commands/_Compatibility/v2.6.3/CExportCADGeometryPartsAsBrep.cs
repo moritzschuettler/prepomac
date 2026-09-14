@@ -16,18 +16,18 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportPartsAsMmgMesh : PreprocessCommand, IExportFileCommand
+    class CExportCADGeometryPartsAsBrep : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;
         private string _fileName;
-        private bool _combine;
 
 
         // Properties                                                                                                               
@@ -35,25 +35,28 @@ namespace PrePoMax.Commands
         
 
         // Constructor                                                                                                              
-        public CExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine = false)
-            :base("Export parts as mmg .mesh file")
+        public CExportCADGeometryPartsAsBrep(string[] partNames, string fileName)
+            :base("Export CAD geometry parts to .brep files")
         {
             _partNames = partNames;
             _fileName = Tools.GetLocalPath(fileName);
-            _combine = combine;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportPartsAsMmgMesh(_partNames, Tools.GetGlobalPath(_fileName).ToLower(), _combine);
+            receiver.ExportCADGeometryPartsAsBrep(_partNames, Tools.GetGlobalPath(_fileName));
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_parts_as_mmg_mesh", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName)),
-                                         "combine=" + PythonValueFormatter.Format(_combine)));
+            string fileName = Tools.GetGlobalPath(_fileName);
+            GeometryExportFormatEnum inferredFormat;
+            string format = null;
+            if (!ExportFormatTools.TryGetGeometryFormat(fileName, out inferredFormat) || inferredFormat != GeometryExportFormatEnum.Brep)
+                format = "format=" + PythonValueFormatter.Format(GeometryExportFormatEnum.Brep.ToString().ToLower());
+            writer.Statement(writer.Call("pmx", "export_geometry", PythonValueFormatter.List(_partNames), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

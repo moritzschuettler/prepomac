@@ -16,15 +16,17 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportPartsAsGmshMesh : PreprocessCommand, IExportFileCommand
+    class CExportToStl : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
+        private string[] _partNames;
         private string _fileName;
 
 
@@ -33,9 +35,10 @@ namespace PrePoMax.Commands
         
 
         // Constructor                                                                                                              
-        public CExportPartsAsGmshMesh(string fileName)
-            :base("Export geometry parts to Gmsh .msh file")
+        public CExportToStl(string[] partNames, string fileName)
+            :base("Export parts to .stl file")
         {
+            _partNames = partNames;
             _fileName = Tools.GetLocalPath(fileName);
         }
 
@@ -43,17 +46,17 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportPartsAsGmshMesh(Tools.GetGlobalPath(_fileName));
+            receiver.ExportToStl(_partNames, Tools.GetGlobalPath(_fileName));
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_parts_as_gmsh_mesh", writer.Path(Tools.GetGlobalPath(_fileName))));
-            writer.CountEmittedCommand();
+            writer.Unsupported(this, "the view the parts were exported from was not recorded; " +
+                                     "write export_geometry, export_mesh or export_results instead");
         }
         public override string GetCommandString()
         {
-            return base.GetCommandString() + _fileName;
+            return base.GetCommandString() + _fileName + ": " + _partNames.ToShortString();
         }
     }
 }

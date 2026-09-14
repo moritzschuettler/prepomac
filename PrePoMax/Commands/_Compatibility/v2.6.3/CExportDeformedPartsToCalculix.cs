@@ -16,6 +16,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using FileInOut.Output;
 using PrePoMax.Python.Journal;
 
 
@@ -50,7 +51,12 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "export_deformed_parts_to_calculix", PythonValueFormatter.List(_partNames), writer.Path(Tools.GetGlobalPath(_fileName))));
+            string fileName = Tools.GetGlobalPath(_fileName);
+            ResultsExportFormatEnum inferredFormat;
+            string format = null;
+            if (!ExportFormatTools.TryGetResultsFormat(fileName, out inferredFormat) || inferredFormat != ResultsExportFormatEnum.Calculix)
+                format = "format=" + PythonValueFormatter.Format(ResultsExportFormatEnum.Calculix.ToString().ToLower());
+            writer.Statement(writer.Call("pmx", "export_results", PythonValueFormatter.List(_partNames), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

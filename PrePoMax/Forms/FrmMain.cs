@@ -1934,7 +1934,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiExportResults_Click(object sender, EventArgs e)
+        private void tsmiExportDeformedParts_Click(object sender, EventArgs e)
         {
             try
             {

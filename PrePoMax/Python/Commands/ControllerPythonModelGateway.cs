@@ -36,10 +36,6 @@ namespace PrePoMax.Python
         {
             return _controller.Model;
         }
-        public FeMesh GetDisplayedMesh()
-        {
-            return _controller.DisplayedMesh;
-        }
         public string[] GetAllMeshEntityNames()
         {
             return _controller.GetAllMeshEntityNames();
@@ -83,10 +79,6 @@ namespace PrePoMax.Python
         {
             _controller.ExportToAbaqusCommand(fileName);
         }
-        public void ExportToStl(string[] partNames, string fileName)
-        {
-            _controller.ExportToStlCommand(partNames, fileName);
-        }
         public void ExportTo3mf(string fileName, double edgeThicknessRatio)
         {
             // Export3mfFileProperties lives in this project, so the API passes its values as primitives
@@ -94,26 +86,6 @@ namespace PrePoMax.Python
             properties.FileName = fileName;
             properties.EdgeThicknessRatio = edgeThicknessRatio;
             _controller.ExportTo3mfCommand(properties);
-        }
-        public void ExportPartsAsGmshMesh(string fileName)
-        {
-            _controller.ExportPartsAsGmshMeshCommand(fileName);
-        }
-        public void ExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine)
-        {
-            _controller.ExportPartsAsMmgMeshCommand(partNames, fileName, combine);
-        }
-        public void ExportCadPartsAsStep(string[] partNames, string fileName)
-        {
-            _controller.ExportCADGeometryPartsAsStepCommand(partNames, fileName);
-        }
-        public void ExportCadPartsAsBrep(string[] partNames, string fileName)
-        {
-            _controller.ExportCADGeometryPartsAsBrepCommand(partNames, fileName);
-        }
-        public void ExportDeformedPartsToCalculix(string[] partNames, string fileName)
-        {
-            _controller.ExportDeformedPartsToCalculixCommand(partNames, fileName);
         }
         public void ExportGeometry(string[] partNames, string fileName, GeometryExportFormatEnum format)
         {
