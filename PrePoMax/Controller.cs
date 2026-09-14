@@ -905,7 +905,11 @@ namespace PrePoMax
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
             // Jobs
-            if (data[1] is OrderedDictionary<string, AnalysisJob> od) _jobs = od;
+            if (data[1] is OrderedDictionary<string, AnalysisJob> od)
+            {
+                _jobs = od;
+                ResetUnfinishedJobStatuses();
+            }
             // Settings
             ApplySettings(); // work folder and executable
             // Determine view
@@ -13303,6 +13307,14 @@ namespace PrePoMax
             foreach (var entry in _jobs)
             {
                 if (entry.Value.JobStatus == JobStatus.Running) KillJob(entry.Key);
+            }
+        }
+        private void ResetUnfinishedJobStatuses()
+        {
+            foreach (var entry in _jobs)
+            {
+                if (entry.Value.JobStatus == JobStatus.Running || entry.Value.JobStatus == JobStatus.InQueue)
+                    entry.Value.ResetJobStatus();
             }
         }
         public void RemoveJobs(string[] jobNames)
