@@ -41,13 +41,13 @@ namespace PrePoMax.Forms
             set
             {
                 if (value is PointSpring ps) _viewConstraint = new ViewPointSpring(ps.DeepClone());
-                else if (value is SurfaceSpring ss) _viewConstraint = new ViewSurfaceSpring(ss.DeepClone());
-                else if (value is CompressionOnly co) _viewConstraint = new ViewCompressionOnly(co.DeepClone());
+                else if (value is SurfaceSpring || value is CompressionOnly)
+                    _viewConstraint = new ViewSurfaceSupport(value.DeepClone());
                 else if (value is RigidBody rb) _viewConstraint = new ViewRigidBody(rb.DeepClone());
-                else if (value is KinematicCoupling kc) _viewConstraint = new ViewKinematicCoupling(kc.DeepClone());
-                else if (value is DistributingCoupling dc) _viewConstraint = new ViewDistributingCoupling(dc.DeepClone());
+                else if (value is Coupling coupling) _viewConstraint = new ViewCoupling(coupling.DeepClone());
                 else if (value is CyclicSymmetry cs) _viewConstraint = new ViewCyclicSymmetry(cs.DeepClone());
                 else if (value is Tie tie) _viewConstraint = new ViewTie(tie.DeepClone());
+                else if (value is Joint joint) _viewConstraint = new ViewJoint(joint.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -146,33 +146,21 @@ namespace PrePoMax.Forms
                     _viewConstraint = vps;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                 }
-                else if (itemTag is ViewSurfaceSpring vss)
+                else if (itemTag is ViewSurfaceSupport vss)
                 {
                     _viewConstraint = vss;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                     // 2D
-                    if ((vss.GetBase() as SurfaceSpring).TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
-                }
-                else if (itemTag is ViewCompressionOnly vco)
-                {
-                    _viewConstraint = vco;
-                    _controller.Selection.EnableShellEdgeFaceSelection = true;
-                    // 2D
-                    if ((vco.GetBase() as CompressionOnly).TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
+                    if (vss.GetBase().TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
                 }
                 else if (itemTag is ViewRigidBody vrd)
                 {
                     _viewConstraint = vrd;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                 }
-                else if (itemTag is ViewKinematicCoupling vkc)
+                else if (itemTag is ViewCoupling vc)
                 {
-                    _viewConstraint = vkc;
-                    _controller.Selection.EnableShellEdgeFaceSelection = true;
-                }
-                else if (itemTag is ViewDistributingCoupling vdc)
-                {
-                    _viewConstraint = vdc;
+                    _viewConstraint = vc;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                 }
                 else if (itemTag is ViewCyclicSymmetry vcs)
@@ -187,6 +175,11 @@ namespace PrePoMax.Forms
                     // 2D
                     if ((vt.GetBase() as Tie).TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
                 }
+                else if (itemTag is ViewJoint vj)
+                {
+                    _viewConstraint = vj;
+                    _controller.Selection.EnableShellEdgeFaceSelection = true;
+                }
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = itemTag;
@@ -196,10 +189,10 @@ namespace PrePoMax.Forms
                 HighlightConstraint();
                 // Context menu
                 if (propertyGrid.SelectedObject is ViewRigidBody ||
-                    propertyGrid.SelectedObject is ViewKinematicCoupling ||
-                    propertyGrid.SelectedObject is ViewDistributingCoupling) propertyGrid.ContextMenuStrip = null;
+                    propertyGrid.SelectedObject is ViewCoupling) propertyGrid.ContextMenuStrip = null;
                 // Swap Master/Slave
-                else if (propertyGrid.SelectedObject is ViewTie) propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                else if (propertyGrid.SelectedObject is ViewTie || propertyGrid.SelectedObject is ViewJoint)
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
             }
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
@@ -238,6 +231,16 @@ namespace PrePoMax.Forms
                     {
                         HighlightConstraint();
                     }
+                }
+                else if (_viewConstraint is ViewJoint)
+                {
+                    if (property == nameof(ViewJoint.JointType) || property == nameof(ViewJoint.CenterDefinition) ||
+                        property == nameof(ViewJoint.AxisDefinition))
+                    {
+                        propertyGrid.Refresh();
+                        ShowHideSelectionForm();
+                    }
+                    HighlightConstraint();
                 }
             }
             //
@@ -302,6 +305,22 @@ namespace PrePoMax.Forms
                     throw new CaeException("The distributing coupling surface selection must contain at least one item.");
                 if (!dc.U1 && !dc.U2 && !dc.U3 && !dc.UR1 && !dc.UR2 && !dc.UR3)
                     throw new CaeException("At least one distributing coupling degree of freedom must be distributed.");
+            }
+            //
+            if (Constraint is Joint joint)
+            {
+                if (joint.MasterRegionType == RegionTypeEnum.Selection &&
+                    (joint.MasterCreationIds == null || joint.MasterCreationIds.Length == 0))
+                    throw new CaeException("The joint master region selection must contain at least one item.");
+                //
+                if (joint.SlaveRegionType == RegionTypeEnum.Selection &&
+                    (joint.SlaveCreationIds == null || joint.SlaveCreationIds.Length == 0))
+                    throw new CaeException("The joint slave region selection must contain at least one item.");
+                // Check for errors with the appropriate constructor
+                var tmp = new Joint(joint.Name, joint.JointType, joint.CenterDefinition, joint.GetCenter(),
+                                    joint.AxisDefinition, joint.GetAxisDirection(), joint.MasterRegionName,
+                                    joint.MasterRegionType, joint.SlaveRegionName, joint.SlaveRegionType,
+                                    _controller.Model.Properties.ModelSpace.IsTwoD());
             }
             //
             if (Constraint is Tie tie)
@@ -449,9 +468,9 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
-                else if (_viewConstraint is ViewSurfaceSpring vss)
+                else if (_viewConstraint is ViewSurfaceSupport vss)
                 {
-                    selectedId = lvTypes.FindItemWithText("Surface Spring").Index;
+                    selectedId = lvTypes.FindItemWithText("Surface Support").Index;
                     // Master
                     if (vss.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vss.MasterRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -459,19 +478,6 @@ namespace PrePoMax.Forms
                     else throw new NotSupportedException();
                     //
                     vss.PopulateDropDownLists(surfaceNames);
-                    // Context menu strip
-                    propertyGrid.ContextMenuStrip = null;
-                }
-                else if (_viewConstraint is ViewCompressionOnly vco)
-                {
-                    selectedId = lvTypes.FindItemWithText("Compression Only").Index;
-                    // Master
-                    if (vco.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (vco.MasterRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
-                        CheckMissingValueRef(ref surfaceNames, vco.SurfaceName, s => { vco.SurfaceName = s; });
-                    else throw new NotSupportedException();
-                    //
-                    vco.PopulateDropDownLists(surfaceNames);
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
@@ -492,34 +498,19 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
-                else if (_viewConstraint is ViewKinematicCoupling vkc)
+                else if (_viewConstraint is ViewCoupling vc)
                 {
-                    selectedId = lvTypes.FindItemWithText("Kinematic Coupling").Index;
+                    selectedId = lvTypes.FindItemWithText("Coupling").Index;
                     // Reference point
-                    CheckMissingValueRef(ref referencePointNames, vkc.ReferencePointName,
-                                         s => { vkc.ReferencePointName = s; });
+                    CheckMissingValueRef(ref referencePointNames, vc.ReferencePointName,
+                                         s => { vc.ReferencePointName = s; });
                     // Slave
-                    if (vkc.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (vkc.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
-                        CheckMissingValueRef(ref surfaceNames, vkc.SurfaceName, s => { vkc.SurfaceName = s; });
-                    else throw new NotSupportedException();
-                    vkc.PopulateDropDownLists(referencePointNames, surfaceNames);
-                    // Context menu strip
-                    propertyGrid.ContextMenuStrip = null;
-                }
-                else if (_viewConstraint is ViewDistributingCoupling vdc)
-                {
-                    selectedId = lvTypes.FindItemWithText("Distributing Coupling").Index;
-                    // Reference point
-                    CheckMissingValueRef(ref referencePointNames, vdc.ReferencePointName,
-                                         s => { vdc.ReferencePointName = s; });
-                    // Slave
-                    if (vdc.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (vdc.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
-                        CheckMissingValueRef(ref surfaceNames, vdc.SurfaceName, s => { vdc.SurfaceName = s; });
+                    if (vc.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vc.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vc.SurfaceName, s => { vc.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vdc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                    vc.PopulateDropDownLists(referencePointNames, surfaceNames);
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
@@ -544,6 +535,20 @@ namespace PrePoMax.Forms
                     else throw new NotSupportedException();
                     //
                     vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                }
+                else if (_viewConstraint is ViewJoint vj)
+                {
+                    selectedId = lvTypes.FindItemWithText("Joint").Index;
+                    // Master
+                    if (vj.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vj.MasterSurfaceName, s => { vj.MasterSurfaceName = s; });
+                    // Slave
+                    if (vj.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vj.SlaveSurfaceName, s => { vj.SlaveSurfaceName = s; });
+                    //
+                    vj.PopulateDropDownLists(surfaceNames);
+                    // Context menu strip
                     propertyGrid.ContextMenuStrip = cmsPropertyGrid;
                 }
                 else if (_viewConstraint is ViewTie vt)
@@ -645,6 +650,31 @@ namespace PrePoMax.Forms
                 }
                 dc.RegionType = RegionTypeEnum.Selection;
             }
+            else if (constraint is Joint joint)
+            {
+                if (joint.MasterCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(joint.MasterRegionName))
+                    {
+                        // Region invalid
+                        joint.MasterCreationData = null;
+                        joint.MasterCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    joint.MasterRegionType = RegionTypeEnum.Selection;
+                }
+                if (joint.SlaveCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(joint.SlaveRegionName))
+                    {
+                        // Region invalid
+                        joint.SlaveCreationData = null;
+                        joint.SlaveCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    joint.SlaveRegionType = RegionTypeEnum.Selection;
+                }
+            }
             else if (constraint is Tie tie)
             {
                 if (tie is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.CreationData != null)
@@ -700,23 +730,14 @@ namespace PrePoMax.Forms
             item.Tag = vps;
             vps.Color = color;
             lvTypes.Items.Add(item);
-            // Surface spring
-            item = new ListViewItem("Surface Spring");
-            SurfaceSpring surfaceSpring = new SurfaceSpring(GetConstraintName("Surface_Spring"),
+            // Surface support
+            item = new ListViewItem("Surface Support");
+            SurfaceSpring surfaceSpring = new SurfaceSpring(GetConstraintName("Surface_Support"),
                                                             "", RegionTypeEnum.Selection, twoD, true);
-            ViewSurfaceSpring vss = new ViewSurfaceSpring(surfaceSpring);
+            ViewSurfaceSupport vss = new ViewSurfaceSupport(surfaceSpring);
             vss.PopulateDropDownLists(surfaceNames);
             item.Tag = vss;
             vss.Color = color;
-            lvTypes.Items.Add(item);
-            // Compression only support
-            item = new ListViewItem("Compression Only");
-            CompressionOnly compressionOnly = new CompressionOnly(GetConstraintName("Compression_Only"),
-                                                                  "", RegionTypeEnum.Selection, twoD);
-            ViewCompressionOnly vco = new ViewCompressionOnly(compressionOnly);
-            vco.PopulateDropDownLists(surfaceNames);
-            item.Tag = vco;
-            vco.Color = color;
             lvTypes.Items.Add(item);
             // Rigid body
             item = new ListViewItem("Rigid Body");
@@ -731,33 +752,19 @@ namespace PrePoMax.Forms
             }
             else item.Tag = new ViewError("There is no reference point defined for the rigid body constraint definition.");
             lvTypes.Items.Add(item);
-            // Kinematic coupling
-            item = new ListViewItem("Kinematic Coupling");
+            // Coupling
+            item = new ListViewItem("Coupling");
             if (referencePointNames.Length > 0)
             {
-                KinematicCoupling kc = new KinematicCoupling(GetConstraintName("Kinematic_Coupling"),
+                KinematicCoupling kc = new KinematicCoupling(GetConstraintName("Coupling"),
                                                              referencePointNames[0], "",
                                                              RegionTypeEnum.Selection, twoD);
-                ViewKinematicCoupling vkc = new ViewKinematicCoupling(kc);
-                vkc.PopulateDropDownLists(referencePointNames, surfaceNames);
-                vkc.Color = color;
-                item.Tag = vkc;
+                ViewCoupling vc = new ViewCoupling(kc);
+                vc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                vc.Color = color;
+                item.Tag = vc;
             }
-            else item.Tag = new ViewError("There is no reference point defined for the kinematic coupling constraint definition.");
-            lvTypes.Items.Add(item);
-            // Distributing coupling
-            item = new ListViewItem("Distributing Coupling");
-            if (referencePointNames.Length > 0)
-            {
-                DistributingCoupling dc = new DistributingCoupling(GetConstraintName("Distributing_Coupling"),
-                                                                   referencePointNames[0], "",
-                                                                   RegionTypeEnum.Selection, twoD);
-                ViewDistributingCoupling vdc = new ViewDistributingCoupling(dc);
-                vdc.PopulateDropDownLists(referencePointNames, surfaceNames);
-                vdc.Color = color;
-                item.Tag = vdc;
-            }
-            else item.Tag = new ViewError("There is no reference point defined for the distributing coupling constraint definition.");
+            else item.Tag = new ViewError("There is no reference point defined for the coupling constraint definition.");
             lvTypes.Items.Add(item);
             // Tie
             item = new ListViewItem("Tie");
@@ -784,6 +791,21 @@ namespace PrePoMax.Forms
                 item.Tag = vcs;
             }
             lvTypes.Items.Add(item);
+            // Joint
+            item = new ListViewItem("Joint");
+            if (twoD)
+                item.Tag = new ViewError("Joints are supported only for 3D models.");
+            else
+            {
+                Joint joint = new Joint(GetConstraintName("Joint"), "", RegionTypeEnum.Selection, "", RegionTypeEnum.Selection,
+                                        false);
+                ViewJoint vj = new ViewJoint(joint);
+                vj.PopulateDropDownLists(surfaceNames);
+                vj.MasterColor = color;
+                vj.SlaveColor = color;
+                item.Tag = vj;
+            }
+            lvTypes.Items.Add(item);
         }
         private string GetConstraintName(string namePrefix)
         {
@@ -799,7 +821,7 @@ namespace PrePoMax.Forms
             //
             if (Constraint != null)
             {
-                if (Constraint is Tie)
+                if (Constraint is Tie || Constraint is Joint)
                 {
                     if (property == nameof(ViewTie.MasterRegionType) || property == nameof(ViewTie.SlaveRegionType))
                         propertyGrid.ContextMenuStrip = cmsPropertyGrid;
@@ -808,21 +830,29 @@ namespace PrePoMax.Forms
         }
         private void tsmiSwapMasterSlave_Click(object sender, EventArgs e)
         {
-            if (propertyGrid.SelectedObject is ViewTie vt)
+            bool swapped = false;
+            if (propertyGrid.SelectedObject is ViewTie vt && Constraint is Tie tie)
             {
-                if (Constraint is Tie tie)
-                {
-                    tie.SwapMasterSlave();
-                    //
-                    vt.UpdateRegionVisibility();
-                    propertyGrid.Refresh();
-                    //
-                    _prevSelectionFormProperty = null;   // calls ItemSetDataEditor.SelectionForm.ResetSelection
-                    ShowHideSelectionForm();
-                    //
-                    OnPropertyGridSelectedGridItemChanged();    // highlight
-                    _propertyItemChanged = true;
-                }
+                tie.SwapMasterSlave();
+                vt.UpdateRegionVisibility();
+                swapped = true;
+            }
+            else if (propertyGrid.SelectedObject is ViewJoint vj && Constraint is Joint joint)
+            {
+                joint.SwapMasterSlave();
+                vj.UpdateRegionVisibility();
+                swapped = true;
+            }
+            //
+            if (swapped)
+            {
+                propertyGrid.Refresh();
+                //
+                _prevSelectionFormProperty = null;   // calls ItemSetDataEditor.SelectionForm.ResetSelection
+                ShowHideSelectionForm();
+                //
+                OnPropertyGridSelectedGridItemChanged();    // highlight
+                _propertyItemChanged = true;
             }
         }
         //
@@ -870,6 +900,32 @@ namespace PrePoMax.Forms
                     _controller.HighlightReferencePoint(dc.ReferencePointName);
                     // Slave
                     HighlightRegion(dc.SlaveRegionType, dc.SlaveRegionName, dc.CreationData, false, true);
+                }
+                else if (Constraint is Joint joint)
+                {
+                    // Property grid item - must be here
+                    if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    //
+                    if (property == nameof(ViewJoint.MasterRegionType))
+                    {
+                        // Master
+                        HighlightRegion(joint.MasterRegionType, joint.MasterRegionName, joint.MasterCreationData, true, false);
+                    }
+                    else if (property == nameof(ViewJoint.SlaveRegionType))
+                    {
+                        // Slave
+                        HighlightRegion(joint.SlaveRegionType, joint.SlaveRegionName, joint.SlaveCreationData, true, true);
+                    }
+                    else
+                    {
+                        // Master
+                        HighlightRegion(joint.MasterRegionType, joint.MasterRegionName, joint.MasterCreationData, true, false);
+                        // Slave
+                        HighlightRegion(joint.SlaveRegionType, joint.SlaveRegionName, joint.SlaveCreationData, false, true);
+                    }
+                    //
+                    _controller.HighlightJointSymbol(joint);
                 }
                 else if (Constraint is Tie tie)
                 {
@@ -960,6 +1016,14 @@ namespace PrePoMax.Forms
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                 else if (Constraint is DistributingCoupling dc && dc.RegionType == RegionTypeEnum.Selection)
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                else if (Constraint is Joint joint)
+                {
+                    if (property == nameof(ViewJoint.MasterRegionType) && joint.MasterRegionType == RegionTypeEnum.Selection)
+                        ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                    else if (property == nameof(ViewJoint.SlaveRegionType) && joint.SlaveRegionType == RegionTypeEnum.Selection)
+                        ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                    else ItemSetDataEditor.SelectionForm.Hide();
+                }
                 else if (Constraint is Tie tie)
                 {
                     if (tie is CyclicSymmetry cyclicSymmetry &&
@@ -1016,6 +1080,14 @@ namespace PrePoMax.Forms
                 if (dc.RegionType == RegionTypeEnum.Selection) _controller.SetSelectItemToSurface();
                 else _controller.SetSelectByToOff();
             }
+            else if (Constraint is Joint joint)
+            {
+                if ((joint.MasterRegionType == RegionTypeEnum.Selection && property == nameof(ViewJoint.MasterRegionType)) ||
+                    (joint.SlaveRegionType == RegionTypeEnum.Selection && property == nameof(ViewJoint.SlaveRegionType)))
+                    _controller.SetSelectItemToSurface();
+                else
+                    _controller.SetSelectByToOff();
+            }
             else if (Constraint is Tie tie)
             {
                 if (tie is CyclicSymmetry cyclicSymmetry &&
@@ -1060,6 +1132,20 @@ namespace PrePoMax.Forms
                         vcs.X = new EquationString(node.X.ToString());
                         vcs.Y = new EquationString(node.Y.ToString());
                         vcs.Z = new EquationString(node.Z.ToString());
+                        changed = true;
+                    }
+                }
+                else if (_viewConstraint is ViewJoint vj &&
+                         propertyGrid.SelectedGridItem != null &&
+                         propertyGrid.SelectedGridItem.PropertyDescriptor != null &&
+                         propertyGrid.SelectedGridItem.PropertyDescriptor.Name == nameof(ViewJoint.CenterItemSet))
+                {
+                    if (ids != null && ids.Length == 1)
+                    {
+                        FeNode node = _controller.Model.Mesh.Nodes[ids[0]];
+                        vj.X = new EquationString(node.X.ToString());
+                        vj.Y = new EquationString(node.Y.ToString());
+                        vj.Z = new EquationString(node.Z.ToString());
                         changed = true;
                     }
                 }
@@ -1114,6 +1200,25 @@ namespace PrePoMax.Forms
                     {
                         dc.CreationIds = ids;
                         dc.CreationData = _controller.Selection.DeepCopy(true, false);
+                        changed = true;
+                    }
+                }
+                else if (Constraint is Joint joint)
+                {
+                    // Property grid item - must be here
+                    if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    //
+                    if (property == nameof(ViewJoint.MasterRegionType) && joint.MasterRegionType == RegionTypeEnum.Selection)
+                    {
+                        joint.MasterCreationIds = ids;
+                        joint.MasterCreationData = _controller.Selection.DeepCopy(true, false);
+                        changed = true;
+                    }
+                    else if (property == nameof(ViewJoint.SlaveRegionType) && joint.SlaveRegionType == RegionTypeEnum.Selection)
+                    {
+                        joint.SlaveCreationIds = ids;
+                        joint.SlaveCreationData = _controller.Selection.DeepCopy(true, false);
                         changed = true;
                     }
                 }
@@ -1204,6 +1309,19 @@ namespace PrePoMax.Forms
                     if (dc.CreationData != null) return dc.CreationData.IsGeometryBased();
                     else return true;
                 }
+                else if (constraint is Joint joint)
+                {
+                    if (property == nameof(ViewJoint.MasterRegionType) && joint.MasterRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (joint.MasterCreationData != null) return joint.MasterCreationData.IsGeometryBased();
+                        else return true;
+                    }
+                    else if (property == nameof(ViewJoint.SlaveRegionType) && joint.SlaveRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (joint.SlaveCreationData != null) return joint.SlaveCreationData.IsGeometryBased();
+                        else return true;
+                    }
+                }
                 else if (constraint is Tie tie)
                 {
                     if (tie is CyclicSymmetry cyclicSymmetry &&
@@ -1271,6 +1389,19 @@ namespace PrePoMax.Forms
                 {
                     if (dc.CreationData != null) return dc.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
+                }
+                else if (constraint is Joint joint)
+                {
+                    if (property == nameof(ViewJoint.MasterRegionType) && joint.MasterRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (joint.MasterCreationData != null) return joint.MasterCreationData.IsGeometryIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                    else if (property == nameof(ViewJoint.SlaveRegionType) && joint.SlaveRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (joint.SlaveCreationData != null) return joint.SlaveCreationData.IsGeometryIdBased(defaultMode);
+                        else return defaultMode;
+                    }
                 }
                 else if (constraint is Tie tie)
                 {

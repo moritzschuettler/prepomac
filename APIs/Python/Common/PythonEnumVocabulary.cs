@@ -94,6 +94,9 @@ namespace APIs.Python
             types.Add("cutoff", typeof(HydrostaticPressureCutoffEnum));
             types.Add("load_type", typeof(PreTensionLoadType));
             types.Add("method", typeof(ContactPairMethod));
+            types.Add("joint_type", typeof(JointTypeEnum));
+            types.Add("center_defined_by", typeof(JointDefinitionEnum));
+            types.Add("axis_defined_by", typeof(JointDefinitionEnum));
             types.Add("pressure_overclosure_type", typeof(PressureOverclosureEnum));
             types.Add("damping.damping_type", typeof(DampingTypeEnum));
             types.Add("modal_damping.damping_type", typeof(ModalDampingTypeEnum));

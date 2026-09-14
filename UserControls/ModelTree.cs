@@ -4587,6 +4587,7 @@ namespace UserControls
         private bool CanSwapMergeMasterSlave(TreeNode node)
         {
             if (node.Tag is Tie) return true;
+            else if (node.Tag is Joint) return true;
             else if (node.Tag is ContactPair) return true;
             else return false;
         }

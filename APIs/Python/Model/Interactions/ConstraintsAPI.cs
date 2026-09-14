@@ -125,6 +125,48 @@ namespace APIs.Python.Model
             return Replace(old_name, name, constraint);
         }
 
+        [PythonAPI("Adds a joint constraint using command history. The selection target is surfaces for both " +
+                   "sides. The two surfaces become rigid bodies whose reference nodes sit at the joint centre and " +
+                   "are coupled by equations: Hinge, Cylindrical, Slider, Ball or Weld. The centre and the axis " +
+                   "direction default to the centroid and the axis of the master surface, which must then be " +
+                   "cylindrical; a given center or axis_direction switches that value to user defined.",
+                   Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
+                               "Region, joint_type: str = None, center_defined_by: str = None, " +
+                               "center: list[float] = None, axis_defined_by: str = None, " +
+                               "axis_direction: list[float] = None",
+                   Returns = "Constraint",
+                   Example = "pmx.model.constraints.add_joint('Hinge-1', bore_a, bore_b, joint_type='Hinge')")]
+        public ConstraintAPI add_joint(string name, object master_region, object slave_region, object joint_type = null,
+                                       object center_defined_by = null, object center = null,
+                                       object axis_defined_by = null, object axis_direction = null)
+        {
+            _service.ValidateName(name, null);
+            Joint constraint = new Joint(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
+                                         _service.GetIsTwoDimensional());
+            _service.ApplyMaster(constraint, master_region, SurfaceTarget);
+            _service.ApplySlave(constraint, slave_region, SurfaceTarget);
+            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction);
+            _service.Add(constraint);
+            //
+            return this[name];
+        }
+
+        [PythonAPI("Replaces an existing joint constraint using command history.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add_joint, all optional",
+                   Returns = "Constraint")]
+        public ConstraintAPI replace_joint(string old_name, string name = null, object master_region = null,
+                                           object slave_region = null, object joint_type = null,
+                                           object center_defined_by = null, object center = null,
+                                           object axis_defined_by = null, object axis_direction = null)
+        {
+            Joint constraint = _service.CloneForReplace<Joint>(old_name, "Joint");
+            if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
+            if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
+            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction);
+            //
+            return Replace(old_name, name, constraint);
+        }
+
         [PythonAPI("Adds a rigid body constraint using command history. The selection target is nodes.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region",
                    Returns = "Constraint")]
@@ -408,6 +450,54 @@ namespace APIs.Python.Model
                 constraint.PositionTolerance.Equation =
                     PythonValueConverter.ToEquationString(positionTolerance, "position_tolerance");
             if (adjust != null) constraint.Adjust = PythonValueConverter.ToBool(adjust, "adjust");
+        }
+        private static void ApplyJointValues(Joint constraint, object jointType, object centerDefinedBy, object center,
+                                             object axisDefinedBy, object axisDirection)
+        {
+            if (jointType != null)
+                constraint.JointType =
+                    PythonValueConverter.ToEnum<JointTypeEnum>(AsString(jointType, "joint_type"), "joint_type");
+            // A given value is the user defined one unless the definition says otherwise
+            if (center != null)
+            {
+                EquationString[] values = PythonValueConverter.ToEquationArray(center, "center", 3);
+                constraint.X.Equation = values[0];
+                constraint.Y.Equation = values[1];
+                constraint.Z.Equation = values[2];
+                constraint.CenterDefinition = JointDefinitionEnum.UserDefined;
+            }
+            if (centerDefinedBy != null)
+                constraint.CenterDefinition =
+                    PythonValueConverter.ToEnum<JointDefinitionEnum>(AsString(centerDefinedBy, "center_defined_by"),
+                                                                     "center_defined_by");
+            if (axisDirection != null)
+            {
+                EquationString[] values = PythonValueConverter.ToEquationArray(axisDirection, "axis_direction", 3);
+                constraint.N1.Equation = values[0];
+                constraint.N2.Equation = values[1];
+                constraint.N3.Equation = values[2];
+                constraint.AxisDefinition = JointDefinitionEnum.UserDefined;
+            }
+            if (axisDefinedBy != null)
+                constraint.AxisDefinition =
+                    PythonValueConverter.ToEnum<JointDefinitionEnum>(AsString(axisDefinedBy, "axis_defined_by"),
+                                                                     "axis_defined_by");
+            //
+            if (constraint.HasUserDefinedAxis)
+            {
+                double[] axis = constraint.GetAxisDirection();
+                double lengthSquared = axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2];
+                if (double.IsNaN(lengthSquared) || double.IsInfinity(lengthSquared) || lengthSquared <= 1E-24)
+                    throw new PythonAPIException("The argument 'axis_direction' must be non-zero.");
+            }
+        }
+        private static string AsString(object value, string argumentName)
+        {
+            string text = value as string;
+            if (text == null)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a string.");
+            //
+            return text;
         }
         private static void ApplyCyclicSymmetryValues(CyclicSymmetry constraint, object axisPoint,
                                                       object axisDirection, object numberOfSectors,

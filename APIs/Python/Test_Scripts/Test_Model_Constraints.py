@@ -1,7 +1,7 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the constraint collection: the 8 constraint types, the master and slave regions, the
+#Checks the constraint collection: the 9 constraint types, the master and slave regions, the
 #reference point based ones and the collection verbs. A meshed model must be open before the run.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Constraints.py -g No -x Yes -w <dir>
@@ -100,6 +100,48 @@ def test_cyclic_symmetry():
     constraints.remove([PREFIX + "CS"])
 
 
+def test_joint():
+    constraints = pmx.model.constraints
+    # A joint defaults to a hinge whose centre and axis are taken from the master surface
+    joint = constraints.add_joint(PREFIX + "J", surface_selection(1), surface_selection(2))
+    check(joint.constraint_type == "Joint", "unexpected type " + joint.constraint_type)
+    check(joint.master_region_type == "SurfaceName", "unexpected master region " + joint.master_region_type)
+    check(joint.slave_region_type == "SurfaceName", "unexpected slave region " + joint.slave_region_type)
+    check(joint.get_value("joint_type") == "Hinge", "a joint defaults to a hinge")
+    check(joint.get_value("center_definition") == "MasterSurface", "the centre defaults to the master surface")
+    check(joint.get_value("axis_definition") == "MasterSurface", "the axis defaults to the master surface")
+    # A given centre or axis direction switches its definition to user defined
+    joint = constraints.replace_joint(PREFIX + "J", joint_type="Slider", center=[0.5, 0.5, 0.5],
+                                      axis_direction=[0, 0, 2])
+    check(joint.get_value("joint_type") == "Slider", "the joint type was not replaced")
+    check(joint.get_value("center_definition") == "UserDefined", "a given centre is user defined")
+    check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre was not set")
+    check(joint.get_value("axis_definition") == "UserDefined", "a given axis is user defined")
+    check(joint.get_value("n3") == 2, "the axis direction was not set")
+    # A value that is not given survives the replace, and a definition can be switched back explicitly
+    joint = constraints.replace_joint(PREFIX + "J", joint_type="Ball", axis_defined_by="MasterSurface")
+    check(joint.get_value("joint_type") == "Ball", "the joint type was not replaced")
+    check(joint.get_value("axis_definition") == "MasterSurface", "the axis definition was not replaced")
+    check(joint.get_value("center_definition") == "UserDefined", "the centre must survive a replace")
+    check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre must survive a replace")
+    #
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               joint_type="Screw"),
+                 "an unknown joint type must be rejected")
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               axis_direction=[0, 0, 0]),
+                 "a zero axis direction must be rejected")
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               center=[0, 0]),
+                 "a two value centre must be rejected")
+    check(not constraints.contains(PREFIX + "Bad"), "a rejected joint must not be added")
+    # Swap works on a joint
+    master_before = constraints[PREFIX + "J"].master_region_name
+    constraints.swap_master_slave([PREFIX + "J"])
+    check(constraints[PREFIX + "J"].slave_region_name == master_before, "the joint sides were not swapped")
+    constraints.remove([PREFIX + "J"])
+
+
 def test_reference_point_constraints():
     constraints = pmx.model.constraints
     # A rigid body ties the nodes to a reference point
@@ -189,6 +231,7 @@ def main():
     setup()
     test_tie()
     test_cyclic_symmetry()
+    test_joint()
     test_reference_point_constraints()
     test_springs_and_compression_only()
     test_collection_verbs()

@@ -705,9 +705,167 @@ namespace CaeModel
                 valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName) && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
                         && (t.SlaveRegionName != t.MasterRegionName);
             }
+            else if (constraint is Joint joint)
+            {
+                valid = IsJointRegionValid(joint) && TryGetJointCenterAndAxis(joint, out _, out _);
+            }
             else throw new NotSupportedException();
             //
             return valid;
+        }
+        public bool IsJointRegionValid(Joint joint)
+        {
+            return !_properties.ModelSpace.IsTwoD()
+                   && _mesh.Surfaces.ContainsValidKey(joint.SlaveRegionName)
+                   && _mesh.Surfaces.ContainsValidKey(joint.MasterRegionName)
+                   && (joint.SlaveRegionName != joint.MasterRegionName);
+        }
+        public bool TryGetJointCenterAndAxis(Joint joint, out double[] center, out double[] axis)
+        {
+            center = null;
+            axis = null;
+            //
+            if (joint.CenterDefinition == JointDefinitionEnum.MasterSurface)
+            {
+                if (!_mesh.Surfaces.ContainsKey(joint.MasterRegionName)) return false;
+                center = _mesh.GetSurfaceCG(joint.MasterRegionName);
+            }
+            else center = joint.GetCenter();
+            //
+            if (!joint.HasAxis) return true;
+            //
+            if (joint.AxisDefinition == JointDefinitionEnum.MasterSurface)
+                return TryGetSurfaceAxisDirection(joint.MasterRegionName, out axis);
+            //
+            axis = joint.GetAxisDirection();
+            double length = Math.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+            if (double.IsNaN(length) || double.IsInfinity(length) || length <= 1E-12) return false;
+            Vec3D.Normalize(ref axis);
+            //
+            return true;
+        }
+        public void GetJointCenterAndAxis(Joint joint, out double[] center, out double[] axis)
+        {
+            if (TryGetJointCenterAndAxis(joint, out center, out axis)) return;
+            //
+            if (joint.HasUserDefinedAxis)
+                throw new CaeException("The axis direction of the joint '" + joint.Name + "' must be non-zero.");
+            else
+                throw new CaeException("The centre or the axis direction of the joint '" + joint.Name +
+                                       "' cannot be determined from the surface '" + joint.MasterRegionName +
+                                       "'. The master surface must exist and be cylindrical; otherwise define the axis " +
+                                       "direction.");
+        }
+        private bool TryGetSurfaceAxisDirection(string surfaceName, out double[] axis)
+        {
+            // The axis of a cylindrical face is reported by the CAD kernel and travels with the mesh, so it is the
+            // same direction whatever the mesh is. It is used whenever the surface carries it, because an axis
+            // fitted from the mesh differs from surface to surface and moves when the mesh is changed
+            if (TryGetSurfaceAxisDirectionFromGeometry(surfaceName, out axis)) return true;
+            //
+            return TryFitSurfaceAxisDirection(surfaceName, out axis);
+        }
+        private bool TryGetSurfaceAxisDirectionFromGeometry(string surfaceName, out double[] axis)
+        {
+            axis = null;
+            FeSurface surface;
+            if (!_mesh.Surfaces.TryGetValue(surfaceName, out surface) || surface.ElementFaces == null) return false;
+            //
+            BasePart part;
+            int faceId;
+            double[] values;
+            double[] faceAxis = new double[3];
+            GeometryMetadataEntity face;
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    if (!_mesh.GetFaceId(elementId, _mesh.Elements[elementId].GetVtkCellFromFaceName(entry.Key),
+                                         out part, out faceId) || faceId < 0) return false;
+                    if (part.GeometryMetadata == null || part.Visualization.FaceTypes == null ||
+                        faceId >= part.Visualization.FaceTypes.Length) return false;
+                    if (part.Visualization.FaceTypes[faceId] != GeomFaceType.Cylinder) return false;
+                    face = part.GeometryMetadata.GetEntity("face", faceId + 1);
+                    if (face == null) return false;
+                    if (!face.TryGetNumbers("axis", out values) || values.Length != 6) return false;
+                    //
+                    faceAxis[0] = values[3];
+                    faceAxis[1] = values[4];
+                    faceAxis[2] = values[5];
+                    if (Math.Sqrt(faceAxis[0] * faceAxis[0] + faceAxis[1] * faceAxis[1] +
+                                  faceAxis[2] * faceAxis[2]) <= 1E-12) return false;
+                    Vec3D.Normalize(ref faceAxis);
+                    if (axis == null) axis = (double[])faceAxis.Clone();
+                    else if (Math.Abs(axis[0] * faceAxis[0] + axis[1] * faceAxis[1] +
+                                      axis[2] * faceAxis[2]) < 1 - 1E-6)
+                    {
+                        axis = null;
+                        return false;
+                    }
+                    break;
+                }
+            }
+            return axis != null;
+        }
+        private bool TryFitSurfaceAxisDirection(string surfaceName, out double[] axis)
+        {
+            // Every face normal of a cylindrical surface is perpendicular to its axis, so the cross products of the
+            // first normal with the others all point along the axis
+            axis = null;
+            FeSurface surface;
+            if (!_mesh.Surfaces.TryGetValue(surfaceName, out surface) || surface.ElementFaces == null) return false;
+            //
+            double area;
+            double totalArea = 0;
+            double[] normal;
+            double[] firstNormal = null;
+            double[] cross = new double[3];
+            axis = new double[3];
+            double[,] covariance = new double[3, 3];
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    _mesh.GetElementFaceNormalAndArea(elementId, entry.Key, out normal, out area);
+                    totalArea += area;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        for (int j = 0; j < 3; j++) covariance[i, j] += normal[i] * normal[j] * area;
+                    }
+                    if (firstNormal == null)
+                    {
+                        firstNormal = normal;
+                        continue;
+                    }
+                    Vec3D.CrossProduct(firstNormal, normal, ref cross);
+                    if (cross[0] * axis[0] + cross[1] * axis[1] + cross[2] * axis[2] < 0) area = -area;
+                    axis[0] += cross[0] * area;
+                    axis[1] += cross[1] * area;
+                    axis[2] += cross[2] * area;
+                }
+            }
+            //
+            double length = Math.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+            if (totalArea <= 0 || length <= 1E-3 * totalArea) return false;
+            Vec3D.Normalize(ref axis);
+            // Least squares refinement: the axis minimizing the squared projections of the normals is the eigenvector
+            // of the smallest eigenvalue of their covariance, the dominant one of its complement
+            double trace = covariance[0, 0] + covariance[1, 1] + covariance[2, 2];
+            double[] next = new double[3];
+            for (int iteration = 0; iteration < 100; iteration++)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    next[i] = trace * axis[i] - (covariance[i, 0] * axis[0] + covariance[i, 1] * axis[1] +
+                                                 covariance[i, 2] * axis[2]);
+                }
+                Vec3D.Normalize(ref next);
+                double change = Math.Abs(next[0] - axis[0]) + Math.Abs(next[1] - axis[1]) + Math.Abs(next[2] - axis[2]);
+                Array.Copy(next, axis, 3);
+                if (change < 1E-14) break;
+            }
+            //
+            return true;
         }
         public void CheckCyclicSymmetryCompatibility(CyclicSymmetry cyclicSymmetry,
                                                      string constraintNameToIgnore)

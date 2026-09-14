@@ -55,8 +55,7 @@ namespace FileInOut.Output.Calculix
                 if (i % 12 == 0) sb.AppendLine();
                 sb.Append(_parameters[i].ToString());
             }
-            //
-            if (_parameters.Length % 12 != 0) sb.AppendLine();
+            sb.AppendLine();
             //
             return sb.ToString();
         }

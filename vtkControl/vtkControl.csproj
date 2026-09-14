@@ -76,6 +76,7 @@
     <Compile Include="Enums\vtkColorSpectrum.cs" />
     <Compile Include="Enums\vtkColorSpectrumMinMaxType.cs" />
     <Compile Include="Enums\vtkFieldAssociations.cs" />
+    <Compile Include="Enums\vtkJointSymbolEnum.cs" />
     <Compile Include="Enums\vtkResultWidgetContextMenuTypeEnum.cs" />
     <Compile Include="Enums\Selection\vtkSelectionContent.cs" />
     <Compile Include="Enums\Selection\vtkSelectionField.cs" />

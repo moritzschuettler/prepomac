@@ -31,6 +31,10 @@ namespace FileInOut.Output
     [Serializable]
     public static class CalculixFileWriter
     {
+        // Variables                                                                                                                
+        private const double SmallestEquationCoefficient = 1E-9;
+
+
         // Methods                                                                                                                  
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                  Dictionary<int, double[]> deformations = null)
@@ -161,6 +165,10 @@ namespace FileInOut.Output
                                                  ref additionalElementSetNames, ref additionalSectionData,
                                                  ref additionalMaterials, ref additionalBoundaryConditions,
                                                  ref equationParameters);
+                // Collect joint constraints
+                Dictionary<string, CalReferencePoint[]> jointReferencePoints;
+                GetJointData(model, ref maxNodeId, ref additionalNodes, ref additionalNodeSets,
+                             ref additionalBoundaryConditions, ref equationParameters, out jointReferencePoints);
                 Dictionary<string, string> cyclicSymmetryElementSetNames =
                     PrepareCyclicSymmetryElementSets(model);
                 //
@@ -221,7 +229,7 @@ namespace FileInOut.Output
                 // Constraints
                 title = new CalTitle("Constraints", "");
                 keywords.Add(title);
-                AppendConstraints(model, referencePoints, equationParameters,
+                AppendConstraints(model, referencePoints, jointReferencePoints, equationParameters,
                                   cyclicSymmetryElementSetNames, title);
                 // Surface interactions
                 title = new CalTitle("Surface interactions", "");
@@ -1641,13 +1649,209 @@ namespace FileInOut.Output
             }
             return elementSetNames;
         }
+        static private void GetJointData(FeModel model, ref int maxNodeId, ref List<FeNode> additionalNodes,
+                                         ref List<FeNodeSet> additionalNodeSets,
+                                         ref List<BoundaryCondition> additionalBoundaryConditions,
+                                         ref List<double[]> equationParameters,
+                                         out Dictionary<string, CalReferencePoint[]> jointReferencePoints)
+        {
+            jointReferencePoints = new Dictionary<string, CalReferencePoint[]>();
+            if (model.Mesh == null) return;
+            //
+            double[] center;
+            double[] axis;
+            int fixedNodeId = 0;
+            CalReferencePoint master;
+            CalReferencePoint slave;
+            foreach (var entry in model.Constraints)
+            {
+                if (entry.Value is Joint joint && joint.Active && joint.Valid &&
+                    model.TryGetJointCenterAndAxis(joint, out center, out axis))
+                {
+                    // A relative motion the joint locks completely is expressed by the two rigid bodies sharing the
+                    // node that carries it, both placed at the joint centre. Calculix crashes on a rigid body whose
+                    // rotation node is tied to another one by an equation, and on one whose rotation node is tied by
+                    // nothing at all, so only the partially locked directions may be written as equations
+                    master = new CalReferencePoint { UsedByRigidBody = true };
+                    master.ReferenceNodeId = ++maxNodeId;
+                    additionalNodes.Add(new FeNode(master.ReferenceNodeId, (double[])center.Clone()));
+                    master.RotationNodeId = ++maxNodeId;
+                    additionalNodes.Add(new FeNode(master.RotationNodeId.Value, (double[])center.Clone()));
+                    //
+                    slave = new CalReferencePoint { UsedByRigidBody = true };
+                    if (AllTranslationsLocked(joint.JointType)) slave.ReferenceNodeId = master.ReferenceNodeId;
+                    else
+                    {
+                        slave.ReferenceNodeId = ++maxNodeId;
+                        additionalNodes.Add(new FeNode(slave.ReferenceNodeId, (double[])center.Clone()));
+                    }
+                    if (AllRotationsLocked(joint.JointType)) slave.RotationNodeId = master.RotationNodeId;
+                    else
+                    {
+                        slave.RotationNodeId = ++maxNodeId;
+                        additionalNodes.Add(new FeNode(slave.RotationNodeId.Value, (double[])center.Clone()));
+                    }
+                    jointReferencePoints.Add(joint.Name, new CalReferencePoint[] { master, slave });
+                    //
+                    if (fixedNodeId == 0 && NeedsFixedEquationNode(joint.JointType, axis))
+                        fixedNodeId = AddFixedEquationNode(joint.TwoD, ref maxNodeId, ref additionalNodes,
+                                                           ref additionalNodeSets, ref additionalBoundaryConditions);
+                    AddJointEquations(joint.JointType, axis, master, slave, fixedNodeId, equationParameters);
+                }
+            }
+        }
+        static private bool AllTranslationsLocked(JointTypeEnum jointType)
+        {
+            return jointType == JointTypeEnum.Hinge || jointType == JointTypeEnum.Ball ||
+                   jointType == JointTypeEnum.Weld;
+        }
+        static private bool AllRotationsLocked(JointTypeEnum jointType)
+        {
+            return jointType == JointTypeEnum.Slider || jointType == JointTypeEnum.Weld;
+        }
+        static private void AddJointEquations(JointTypeEnum jointType, double[] axis, CalReferencePoint master,
+                                              CalReferencePoint slave, int fixedNodeId,
+                                              List<double[]> equationParameters)
+        {
+            bool perpendicularTranslations = jointType == JointTypeEnum.Cylindrical || jointType == JointTypeEnum.Slider;
+            bool perpendicularRotations = jointType == JointTypeEnum.Hinge || jointType == JointTypeEnum.Cylindrical;
+            //
+            if (perpendicularTranslations)
+                AddPerpendicularEquations(axis, slave.ReferenceNodeId, master.ReferenceNodeId, fixedNodeId,
+                                          equationParameters);
+            if (perpendicularRotations)
+                AddPerpendicularEquations(axis, slave.RotationNodeId.Value, master.RotationNodeId.Value, fixedNodeId,
+                                          equationParameters);
+        }
+        static private bool NeedsFixedEquationNode(JointTypeEnum jointType, double[] axis)
+        {
+            if (jointType != JointTypeEnum.Hinge && jointType != JointTypeEnum.Cylindrical &&
+                jointType != JointTypeEnum.Slider) return false;
+            //
+            double[][] normals = GetPerpendicularDirections(axis);
+            return CountUsedComponents(normals[0]) < 2 || CountUsedComponents(normals[1]) < 2;
+        }
+        static private int AddFixedEquationNode(bool twoD, ref int maxNodeId, ref List<FeNode> additionalNodes,
+                                                ref List<FeNodeSet> additionalNodeSets,
+                                                ref List<BoundaryCondition> additionalBoundaryConditions)
+        {
+            // Calculix crashes on an equation that ties two rigid body nodes through a single degree of freedom of
+            // each. A joint axis along a global axis leaves nothing else to write, because the two directions
+            // perpendicular to it lie along global axes as well. The equations therefore carry two degrees of freedom
+            // of a node held at zero, which leaves the constraint untouched and gives them the length Calculix needs
+            int fixedNodeId = ++maxNodeId;
+            additionalNodes.Add(new FeNode(fixedNodeId, new double[3]));
+            string nodeSetName = "Internal_All_Joints_Fixed_NodeSet";
+            additionalNodeSets.Add(new FeNodeSet(nodeSetName, new int[] { fixedNodeId }));
+            DisplacementRotation fixedNode = new DisplacementRotation("Joints_Fixed_BC", nodeSetName,
+                                                                      RegionTypeEnum.NodeSetName, twoD, false, 0);
+            fixedNode.U1.SetEquationFromValue(0);
+            fixedNode.U2.SetEquationFromValue(0);
+            fixedNode.U3.SetEquationFromValue(0);
+            additionalBoundaryConditions.Add(fixedNode);
+            //
+            return fixedNodeId;
+        }
+        static private void AddPerpendicularEquations(double[] axis, int dependentNodeId, int independentNodeId,
+                                                      int fixedNodeId, List<double[]> equationParameters)
+        {
+            // The relative motion has no component perpendicular to the axis. A degree of freedom may be the dependent
+            // one of a single equation, so each equation leads with a different degree of freedom of the slave node
+            double[][] normals = GetPerpendicularDirections(axis);
+            int usedDependentDof = 0;
+            int dependentDof;
+            double max;
+            List<double> parameters;
+            foreach (var normal in normals)
+            {
+                dependentDof = 0;
+                max = 0;
+                for (int i = 0; i < 3; i++)
+                {
+                    if (i + 1 != usedDependentDof && Math.Abs(normal[i]) > max)
+                    {
+                        max = Math.Abs(normal[i]);
+                        dependentDof = i + 1;
+                    }
+                }
+                usedDependentDof = dependentDof;
+                //
+                parameters = new List<double>();
+                parameters.Add(dependentNodeId);
+                parameters.Add(dependentDof);
+                parameters.Add(normal[dependentDof - 1]);
+                for (int i = 0; i < 3; i++)
+                {
+                    if (i + 1 == dependentDof || Math.Abs(normal[i]) < SmallestEquationCoefficient) continue;
+                    parameters.Add(dependentNodeId);
+                    parameters.Add(i + 1);
+                    parameters.Add(normal[i]);
+                }
+                for (int i = 0; i < 3; i++)
+                {
+                    if (Math.Abs(normal[i]) < SmallestEquationCoefficient) continue;
+                    parameters.Add(independentNodeId);
+                    parameters.Add(i + 1);
+                    parameters.Add(-normal[i]);
+                }
+                if (fixedNodeId != 0)
+                {
+                    for (int dof = 1; dof <= 2; dof++)
+                    {
+                        parameters.Add(fixedNodeId);
+                        parameters.Add(dof);
+                        parameters.Add(1);
+                    }
+                }
+                equationParameters.Add(parameters.ToArray());
+            }
+        }
+        static private double[][] GetPerpendicularDirections(double[] axis)
+        {
+            // The global axis least aligned with the joint axis seeds the first perpendicular direction
+            int minIndex = 0;
+            for (int i = 1; i < 3; i++)
+            {
+                if (Math.Abs(axis[i]) < Math.Abs(axis[minIndex])) minIndex = i;
+            }
+            double[] seed = new double[3];
+            seed[minIndex] = 1;
+            double[] n1 = new double[3];
+            double[] n2 = new double[3];
+            Vec3D.CrossProduct(axis, seed, ref n1);
+            Vec3D.Normalize(ref n1);
+            Vec3D.CrossProduct(axis, n1, ref n2);
+            Vec3D.Normalize(ref n2);
+            //
+            return new double[][] { n1, n2 };
+        }
+        static private int CountUsedComponents(double[] direction)
+        {
+            int count = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                if (Math.Abs(direction[i]) >= SmallestEquationCoefficient) count++;
+            }
+            return count;
+        }
+        static private CalRigidBody GetJointRigidBody(FeModel model, string name, string surfaceName,
+                                                      CalReferencePoint referencePoint, bool twoD)
+        {
+            RigidBody rigidBody = new RigidBody(name, name, surfaceName, RegionTypeEnum.SurfaceName, twoD);
+            Dictionary<string, CalReferencePoint> referencePoints = new Dictionary<string, CalReferencePoint>();
+            referencePoints.Add(name, referencePoint);
+            //
+            return new CalRigidBody(rigidBody, referencePoints, model.Mesh.Surfaces[surfaceName].NodeSetName);
+        }
         static private void AppendConstraints(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
+                                              Dictionary<string, CalReferencePoint[]> jointReferencePoints,
                                               List<double[]> equationParameters,
                                               Dictionary<string, string> cyclicSymmetryElementSetNames,
                                               CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
+                CalReferencePoint[] jointRps;
                 foreach (var entry in model.Constraints)
                 {
                     if (entry.Value.Active)
@@ -1655,6 +1859,16 @@ namespace FileInOut.Output
                         if (entry.Value is PointSpring) { } // this constraint is split into elements and a section
                         else if (entry.Value is SurfaceSpring) { } // this constraint is split into point springs
                         else if (entry.Value is CompressionOnly) { } // this constraint is split into GAPUNI elements and GAP section
+                        else if (entry.Value is Joint joint)
+                        {
+                            if (jointReferencePoints.TryGetValue(joint.Name, out jointRps))
+                            {
+                                parent.AddKeyword(GetJointRigidBody(model, joint.Name + "_Master", joint.MasterRegionName,
+                                                                    jointRps[0], joint.TwoD));
+                                parent.AddKeyword(GetJointRigidBody(model, joint.Name + "_Slave", joint.SlaveRegionName,
+                                                                    jointRps[1], joint.TwoD));
+                            }
+                        }
                         else if (entry.Value is RigidBody rb)
                         {
                             string surfaceNodeSetName = null;

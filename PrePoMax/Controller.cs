@@ -9436,6 +9436,16 @@ namespace PrePoMax
                     //
                     update = true;
                 }
+                else if (_model.Constraints[name] is Joint joint)
+                {
+                    joint.SwapMasterSlave();
+                    newName = joint.Name;
+                    //
+                    if (newName != name) _model.Constraints.Replace(name, newName, joint);
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, name, _model.Constraints[newName], null, false);
+                    //
+                    update = true;
+                }
             }
             ClearSelectionBuffer();
             //
@@ -9744,44 +9754,55 @@ namespace PrePoMax
                     namedCyclicSymmetry.CreationData = null;
                     namedCyclicSymmetry.CreationIds = null;
                 }
-                // Master Surface
-                if (tie.MasterRegionType == RegionTypeEnum.Selection)
-                {
-                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.MasterNameSuffix);
-                    FeSurface surface = new FeSurface(name, tie.MasterCreationIds, tie.MasterCreationData.DeepCopy(true, false));
-                    surface.Internal = true;
-                    surface.ParentMasterMultiRegion = tie;
-                    AddSurface(surface, update);
-                    //
-                    tie.MasterRegionName = name;
-                    tie.MasterRegionType = RegionTypeEnum.SurfaceName;
-                }
-                // Clear the creation data if not used
-                else
-                {
-                    tie.MasterCreationData = null;
-                    tie.MasterCreationIds = null;
-                }
-                // Slave Surface
-                if (tie.SlaveRegionType == RegionTypeEnum.Selection)
-                {
-                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
-                    FeSurface surface = new FeSurface(name, tie.SlaveCreationIds, tie.SlaveCreationData.DeepCopy(true, false));
-                    surface.Internal = true;
-                    surface.ParentSlaveMultiRegion = tie;
-                    AddSurface(surface, update);
-                    //
-                    tie.SlaveRegionName = name;
-                    tie.SlaveRegionType = RegionTypeEnum.SurfaceName;
-                }
-                // Clear the creation data if not used
-                else
-                {
-                    tie.SlaveCreationData = null;
-                    tie.SlaveCreationIds = null;
-                }
+                ConvertSelectionBasedMasterSlaveSurfaces(tie, update);
+            }
+            else if (constraint is Joint joint)
+            {
+                ConvertSelectionBasedMasterSlaveSurfaces(joint, update);
             }
             else throw new NotSupportedException();
+        }
+        private void ConvertSelectionBasedMasterSlaveSurfaces(Constraint constraint, bool update)
+        {
+            string name;
+            // Master Surface
+            if (constraint.MasterRegionType == RegionTypeEnum.Selection)
+            {
+                name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.MasterNameSuffix);
+                FeSurface surface = new FeSurface(name, constraint.MasterCreationIds,
+                                                  constraint.MasterCreationData.DeepCopy(true, false));
+                surface.Internal = true;
+                surface.ParentMasterMultiRegion = constraint;
+                AddSurface(surface, update);
+                //
+                constraint.MasterRegionName = name;
+                constraint.MasterRegionType = RegionTypeEnum.SurfaceName;
+            }
+            // Clear the creation data if not used
+            else
+            {
+                constraint.MasterCreationData = null;
+                constraint.MasterCreationIds = null;
+            }
+            // Slave Surface
+            if (constraint.SlaveRegionType == RegionTypeEnum.Selection)
+            {
+                name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
+                FeSurface surface = new FeSurface(name, constraint.SlaveCreationIds,
+                                                  constraint.SlaveCreationData.DeepCopy(true, false));
+                surface.Internal = true;
+                surface.ParentSlaveMultiRegion = constraint;
+                AddSurface(surface, update);
+                //
+                constraint.SlaveRegionName = name;
+                constraint.SlaveRegionType = RegionTypeEnum.SurfaceName;
+            }
+            // Clear the creation data if not used
+            else
+            {
+                constraint.SlaveCreationData = null;
+                constraint.SlaveCreationIds = null;
+            }
         }
         private void DeleteSelectionBasedConstraintSets(string oldConstraintName)
         {
@@ -9822,6 +9843,13 @@ namespace PrePoMax
                     RemoveSurfaces(new string[] { tie.MasterRegionName }, false);
                 if (tie.SlaveCreationData != null && tie.SlaveRegionName != null)
                     RemoveSurfaces(new string[] { tie.SlaveRegionName }, false);
+            }
+            else if (constraint is Joint joint)
+            {
+                if (joint.MasterCreationData != null && joint.MasterRegionName != null)
+                    RemoveSurfaces(new string[] { joint.MasterRegionName }, false);
+                if (joint.SlaveCreationData != null && joint.SlaveRegionName != null)
+                    RemoveSurfaces(new string[] { joint.SlaveRegionName }, false);
             }
         }
 
@@ -12940,6 +12968,22 @@ namespace PrePoMax
                                 return false;
                             }
                         }
+                    }
+                }
+            }
+            // Check that the centre and the axis of every joint can be determined
+            foreach (var entry in _model.Constraints)
+            {
+                if (entry.Value is Joint joint && joint.Active && _model.IsJointRegionValid(joint))
+                {
+                    try
+                    {
+                        _model.GetJointCenterAndAxis(joint, out _, out _);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBoxes.ShowError("Joint '" + joint.Name + "': " + ex.Message);
+                        return false;
                     }
                 }
             }
@@ -17204,19 +17248,19 @@ namespace PrePoMax
                                 itemColors.Add(rb.MasterColor);
                                 itemNames.Add(rb.Name);
                             }
-                            else if (entry.Value is Tie tie)
+                            else if (entry.Value is Tie || entry.Value is Joint)
                             {
-                                if (tie.MasterColor != tie.SlaveColor)
+                                if (entry.Value.MasterColor != entry.Value.SlaveColor)
                                 {
-                                    itemColors.Add(tie.MasterColor);
-                                    itemNames.Add(tie.Name + " Master");
-                                    itemColors.Add(tie.SlaveColor);
-                                    itemNames.Add(tie.Name + " Slave");
+                                    itemColors.Add(entry.Value.MasterColor);
+                                    itemNames.Add(entry.Value.Name + " Master");
+                                    itemColors.Add(entry.Value.SlaveColor);
+                                    itemNames.Add(entry.Value.Name + " Slave");
                                 }
                                 else
                                 {
-                                    itemColors.Add(tie.MasterColor);
-                                    itemNames.Add(tie.Name);
+                                    itemColors.Add(entry.Value.MasterColor);
+                                    itemNames.Add(entry.Value.Name);
                                 }
                             }
                             else throw new NotSupportedException();
@@ -17949,9 +17993,47 @@ namespace PrePoMax
                         DrawCyclicSymmetryAxisSymbol(prefixName + Globals.NameSeparator + "Axis", cyclicSymmetry,
                                                       masterColor, symbolSize, symbolLayer);
                 }
+                else if (constraint is Joint joint)
+                {
+                    // Master
+                    count += DrawSurface(prefixName, joint.MasterRegionName, masterColor, layer, true, false, onlyVisible);
+                    if (layer == vtkRendererLayer.Selection)
+                        DrawSurfaceEdge(prefixName, joint.MasterRegionName, masterColor, layer, true, false, onlyVisible);
+                    // Slave
+                    count += DrawSurface(prefixName, joint.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
+                    if (layer == vtkRendererLayer.Selection)
+                        DrawSurfaceEdge(prefixName, joint.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
+                    //
+                    if (count > 0)
+                        DrawJointSymbol(prefixName + Globals.NameSeparator + "Joint", joint, masterColor, symbolSize,
+                                        symbolLayer);
+                }
                 else throw new NotSupportedException();
             }
             catch { } // do not show the exception to the user
+        }
+        public void DrawJointSymbol(string prefixName, Joint joint, Color color, int symbolSize, vtkRendererLayer layer)
+        {
+            double[] center;
+            double[] axis;
+            if (!_model.TryGetJointCenterAndAxis(joint, out center, out axis)) return;
+            //
+            vtkJointSymbolEnum symbol;
+            if (joint.JointType == JointTypeEnum.Hinge) symbol = vtkJointSymbolEnum.Hinge;
+            else if (joint.JointType == JointTypeEnum.Cylindrical) symbol = vtkJointSymbolEnum.Cylindrical;
+            else if (joint.JointType == JointTypeEnum.Slider) symbol = vtkJointSymbolEnum.Slider;
+            else if (joint.JointType == JointTypeEnum.Ball) symbol = vtkJointSymbolEnum.Ball;
+            else if (joint.JointType == JointTypeEnum.Weld) symbol = vtkJointSymbolEnum.Weld;
+            else throw new NotSupportedException();
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = prefixName;
+            data.Color = color;
+            data.Layer = layer;
+            data.Geometry.Nodes.Coor = new double[][] { center };
+            data.Geometry.Nodes.Normals = new double[][] { axis != null ? axis : new double[] { 0, 0, 1 } };
+            ApplyLighting(data);
+            _form.AddOrientedJointActor(data, symbolSize, symbol);
         }
         public void DrawRigidBodySymbol(RigidBody rigidBody, Color color, vtkRendererLayer layer,
                                         bool onlyVisible)
@@ -21876,11 +21958,17 @@ namespace PrePoMax
             constraint = _model.Constraints[constraintName];
             //
             if (constraint is PointSpring || constraint is SurfaceSpring || constraint is CompressionOnly ||
-                constraint is RigidBody || constraint is Coupling || constraint is Tie)
+                constraint is RigidBody || constraint is Coupling || constraint is Tie || constraint is Joint)
             {
                 DrawConstraint(constraint, Color.Red, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
             }
             else throw new NotSupportedException();
+        }
+        public void HighlightJointSymbol(Joint joint)
+        {
+            int symbolSize = _settings.Pre.SymbolSize;
+            string prefixName = "CONSTRAINT" + Globals.NameSeparator + joint.Name + Globals.NameSeparator + "Joint";
+            DrawJointSymbol(prefixName, joint, Color.Red, symbolSize, vtkRendererLayer.Selection);
         }
         public bool CyclicSymmetryContainsAxisNodes(CyclicSymmetry cyclicSymmetry)
         {

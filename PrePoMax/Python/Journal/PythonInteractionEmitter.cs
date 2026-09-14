@@ -102,6 +102,18 @@ namespace PrePoMax.Python.Journal
                 AddTieValues(arguments, tie);
                 return "tie";
             }
+            if (constraint is Joint joint)
+            {
+                AddMasterSlave(writer, arguments, constraint);
+                arguments.Add("joint_type=" + PythonValueFormatter.Text(joint.JointType.ToString()));
+                arguments.Add("center_defined_by=" + PythonValueFormatter.Text(joint.CenterDefinition.ToString()));
+                if (joint.CenterDefinition == JointDefinitionEnum.UserDefined)
+                    arguments.Add("center=" + Point(joint.X, joint.Y, joint.Z));
+                arguments.Add("axis_defined_by=" + PythonValueFormatter.Text(joint.AxisDefinition.ToString()));
+                if (joint.AxisDefinition == JointDefinitionEnum.UserDefined)
+                    arguments.Add("axis_direction=" + Point(joint.N1, joint.N2, joint.N3));
+                return "joint";
+            }
             if (constraint is DistributingCoupling distributing)
             {
                 AddCouplingArguments(writer, arguments, distributing);

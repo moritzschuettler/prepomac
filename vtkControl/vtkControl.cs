@@ -4446,6 +4446,223 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
+        public void AddOrientedJointActor(vtkMaxActorData data, double symbolSize, vtkJointSymbolEnum symbol)
+        {
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            //
+            double[][] points = data.Geometry.Nodes.Coor;
+            double[][] normals = data.Geometry.Nodes.Normals;
+            // Points
+            vtkPoints pointData = vtkPoints.New();
+            for (int i = 0; i < points.GetLength(0); i++)
+            {
+                pointData.InsertNextPoint(points[i][0], points[i][1], points[i][2]);
+            }
+            // Normals
+            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
+            pointNormalsArray.SetNumberOfComponents(3);
+            for (int i = 0; i < normals.GetLength(0); i++)
+            {
+                pointNormalsArray.InsertNextTuple3(normals[i][0], normals[i][1], normals[i][2]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(pointData);
+            polyData.GetPointData().SetNormals(pointNormalsArray);
+            // Calculate the distance to the camera of each point.
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(polyData);
+            distanceToCamera.SetScreenSize(symbolSize);
+            distanceToCamera.SetRenderer(_renderer);
+            // Symbol: the glyph x axis follows the joint axis, or points up for a joint without an axis
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            if (symbol == vtkJointSymbolEnum.Hinge)
+            {
+                // A pin, a sleeve and two flanges that keep the sleeve from sliding
+                AddCylinderAlongX(append, 0, 2.4, 0.12);
+                AddCylinderAlongX(append, 0, 0.9, 0.35);
+                AddCylinderAlongX(append, -0.49, 0.08, 0.5);
+                AddCylinderAlongX(append, 0.49, 0.08, 0.5);
+            }
+            else if (symbol == vtkJointSymbolEnum.Cylindrical)
+            {
+                // A pin and a sleeve free to turn and slide
+                AddCylinderAlongX(append, 0, 2.4, 0.12);
+                AddCylinderAlongX(append, 0, 0.9, 0.35);
+            }
+            else if (symbol == vtkJointSymbolEnum.Slider)
+            {
+                // A rail and a block on it
+                AddCube(append, 0, 0, -0.075, 2.4, 0.9, 0.15);
+                AddCube(append, 0, 0, 0.175, 0.9, 0.6, 0.35);
+            }
+            else if (symbol == vtkJointSymbolEnum.Ball)
+            {
+                // A ball seated in a socket
+                vtkSphereSource sphere = vtkSphereSource.New();
+                sphere.SetRadius(0.45);
+                sphere.SetPhiResolution(16);
+                sphere.SetThetaResolution(16);
+                append.AddInput(sphere.GetOutput());
+                AddSocketAlongX(append, 0.6, 0.65, 75, 178, 3, 50);
+            }
+            else if (symbol == vtkJointSymbolEnum.Weld)
+            {
+                // A T of two plates with a fillet weld in each corner
+                AddCube(append, -0.075, 0, 0, 0.15, 1.6, 1.0);
+                AddCube(append, 0.5, 0, 0, 1.0, 0.15, 1.0);
+                AddWeldFillet(append, 1);
+                AddWeldFillet(append, -1);
+            }
+            else throw new NotSupportedException();
+            // Consistent outward polygon ordering for flat shading of the extruded fillets
+            vtkPolyDataNormals polyDataNormals = vtkPolyDataNormals.New();
+            polyDataNormals.SetInput(append.GetOutput());
+            polyDataNormals.ConsistencyOn();
+            polyDataNormals.AutoOrientNormalsOn();
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInputConnection(polyDataNormals.GetOutputPort());
+            triangleFilter.Update();
+            // Glyph
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            // Scale
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(0.36);
+            glyph.OrientOn();
+            glyph.Update();
+            // Mapper
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+            // Actor
+            data.Name += Globals.NameSeparator + "joint";
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.GeometryProperty.SetInterpolationToFlat();
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, data.Layer);
+            //
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+        }
+        private static void AddCylinderAlongX(vtkAppendPolyData append, double centerX, double length, double radius)
+        {
+            // The cylinder source is built along the y axis
+            vtkCylinderSource cylinder = vtkCylinderSource.New();
+            cylinder.SetCenter(0, 0, 0);
+            cylinder.SetHeight(length);
+            cylinder.SetRadius(radius);
+            cylinder.SetResolution(16);
+            cylinder.CappingOn();
+            //
+            vtkTransform transform = vtkTransform.New();
+            transform.Identity();
+            transform.Translate(centerX, 0, 0);
+            transform.RotateZ(-90);
+            //
+            vtkTransformPolyDataFilter transformFilter = vtkTransformPolyDataFilter.New();
+            transformFilter.SetInput(cylinder.GetOutput());
+            transformFilter.SetTransform(transform);
+            transformFilter.Update();
+            //
+            append.AddInput(transformFilter.GetOutput());
+        }
+        private static void AddSocketAlongX(vtkAppendPolyData append, double innerRadius, double outerRadius,
+                                            double startAngleDeg, double endAngleDeg, int armCount, double armAngleDeg)
+        {
+            // A spherical cup split into arms: the closed profile between two arcs, measured from the +x axis, is
+            // revolved about the z axis through the arm angle, capped, copied around the axis and turned so that the
+            // axis is the glyph x axis
+            int arcPoints = 12;
+            double angle;
+            vtkPoints points = vtkPoints.New();
+            for (int i = 0; i <= arcPoints; i++)
+            {
+                angle = (startAngleDeg + (endAngleDeg - startAngleDeg) * i / arcPoints) * Math.PI / 180;
+                points.InsertNextPoint(outerRadius * Math.Sin(angle), 0, outerRadius * Math.Cos(angle));
+            }
+            for (int i = arcPoints; i >= 0; i--)
+            {
+                angle = (startAngleDeg + (endAngleDeg - startAngleDeg) * i / arcPoints) * Math.PI / 180;
+                points.InsertNextPoint(innerRadius * Math.Sin(angle), 0, innerRadius * Math.Cos(angle));
+            }
+            //
+            // A polygon, so that the extrusion sweeps its boundary and caps both ends of each arm
+            int count = 2 * (arcPoints + 1);
+            vtkCellArray polygons = vtkCellArray.New();
+            polygons.InsertNextCell(count);
+            for (int i = 0; i < count; i++) polygons.InsertCellPoint(i);
+            //
+            vtkPolyData profile = vtkPolyData.New();
+            profile.SetPoints(points);
+            profile.SetPolys(polygons);
+            //
+            vtkRotationalExtrusionFilter extrusion = vtkRotationalExtrusionFilter.New();
+            extrusion.SetInput(profile);
+            extrusion.SetResolution(6);
+            extrusion.SetAngle(armAngleDeg);
+            extrusion.CappingOn();
+            extrusion.Update();
+            //
+            for (int i = 0; i < armCount; i++)
+            {
+                vtkTransform transform = vtkTransform.New();
+                transform.Identity();
+                transform.RotateY(90);
+                transform.RotateZ(360.0 * i / armCount - armAngleDeg / 2);
+                //
+                vtkTransformPolyDataFilter transformFilter = vtkTransformPolyDataFilter.New();
+                transformFilter.SetInput(extrusion.GetOutput());
+                transformFilter.SetTransform(transform);
+                transformFilter.Update();
+                //
+                append.AddInput(transformFilter.GetOutput());
+            }
+        }
+        private static void AddCube(vtkAppendPolyData append, double centerX, double centerY, double centerZ,
+                                    double lengthX, double lengthY, double lengthZ)
+        {
+            vtkCubeSource cube = vtkCubeSource.New();
+            cube.SetCenter(centerX, centerY, centerZ);
+            cube.SetXLength(lengthX);
+            cube.SetYLength(lengthY);
+            cube.SetZLength(lengthZ);
+            //
+            append.AddInput(cube.GetOutput());
+        }
+        private static void AddWeldFillet(vtkAppendPolyData append, int side)
+        {
+            // A triangle in the corner between the plates, extruded along the plate depth
+            vtkPoints points = vtkPoints.New();
+            points.InsertNextPoint(0, side * 0.075, -0.5);
+            points.InsertNextPoint(0, side * 0.375, -0.5);
+            points.InsertNextPoint(0.3, side * 0.075, -0.5);
+            //
+            vtkCellArray polygons = vtkCellArray.New();
+            polygons.InsertNextCell(3);
+            polygons.InsertCellPoint(0);
+            polygons.InsertCellPoint(1);
+            polygons.InsertCellPoint(2);
+            //
+            vtkPolyData triangle = vtkPolyData.New();
+            triangle.SetPoints(points);
+            triangle.SetPolys(polygons);
+            //
+            vtkLinearExtrusionFilter extrusion = vtkLinearExtrusionFilter.New();
+            extrusion.SetInput(triangle);
+            extrusion.SetExtrusionTypeToVectorExtrusion();
+            extrusion.SetVector(0, 0, 1);
+            extrusion.SetScaleFactor(1.0);
+            extrusion.CappingOn();
+            extrusion.Update();
+            //
+            append.AddInput(extrusion.GetOutput());
+        }
         public void AddOrientedArrowsActor(vtkMaxActorData data, double symbolSize, bool invert, double relativeSize = 1)
         {
             data.Geometry.RemoveZeroLengthNormals();

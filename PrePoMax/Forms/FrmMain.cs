@@ -8945,7 +8945,7 @@ namespace PrePoMax
         }
         public void UpdateAnalysisProgress()
         {
-            _frmMonitor.UpdateProgress();
+            InvokeIfRequired(_frmMonitor.UpdateProgress);
         }
         //
         public AnalysisJob GetDefaultJob()
@@ -11388,6 +11388,10 @@ namespace PrePoMax
         public void AddOrientedRotationalConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedRotationalConstraintActor, actorData, symbolSize);
+        }
+        public void AddOrientedJointActor(vtkMaxActorData actorData, double symbolSize, vtkJointSymbolEnum symbol)
+        {
+            InvokeIfRequired(_vtk.AddOrientedJointActor, actorData, symbolSize, symbol);
         }
         public void AddOrientedArrowsActor(vtkMaxActorData actorData, double symbolSize, bool invert = false, 
                                            double relativeSize = 1)
