@@ -9,6 +9,7 @@
 
 using APIs.Python;
 using CaeGlobals;
+using CaeMesh;
 using CaeResults;
 using System;
 using System.Collections.Generic;
@@ -76,9 +77,144 @@ namespace PrePoMax.Python
             double[] viewUp = new double[] { parameters[6], parameters[7], parameters[8] };
             ResolveForm().SetViewParameters(Animate, position, focalPoint, viewUp, parameters[9]);
         }
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
+        {
+            ResolveForm().Rotate(azimuthAngle, elevationAngle, rollAngle);
+        }
         public string GetResultType()
         {
             return _controller.ViewResultsType.ToString();
+        }
+        public string GetDeformationType()
+        {
+            return ResolveForm().GetDeformationType().ToString();
+        }
+        public void SetDeformationType(string deformationType)
+        {
+            RequireResults();
+            DeformationScaleFactorTypeEnum type =
+                (DeformationScaleFactorTypeEnum)Enum.Parse(typeof(DeformationScaleFactorTypeEnum), deformationType, true);
+            ResolveForm().SetDeformationType(type);
+        }
+        public double GetDeformationFactor()
+        {
+            return ResolveForm().GetDeformationFactor();
+        }
+        public void SetDeformationFactor(double deformationFactor)
+        {
+            RequireResults();
+            ResolveForm().SetDeformationFactor((float)deformationFactor);
+        }
+        public string GetUndeformedModelType()
+        {
+            return _controller.GetUndeformedModelType().ToString();
+        }
+        // The toolbar clears the undeformed model for the Undeformed and the Deformed plots, so a copy
+        // asked for with one of those would be discarded; the script is told instead
+        public void SetUndeformedModelType(string undeformedModelType)
+        {
+            RequireResults();
+            UndeformedModelTypeEnum type =
+                (UndeformedModelTypeEnum)Enum.Parse(typeof(UndeformedModelTypeEnum), undeformedModelType, true);
+            ViewResultsTypeEnum resultType = _controller.ViewResultsType;
+            if (type != UndeformedModelTypeEnum.None && (resultType == ViewResultsTypeEnum.Undeformed ||
+                                                          resultType == ViewResultsTypeEnum.Deformed))
+                throw new PythonAPIException("The undeformed model is drawn only behind a ColorContours, VectorPlot or " +
+                                             "TensorPlot result_type; the current one is " + resultType + ".");
+            //
+            ResolveForm().SetResultsUndeformedModelType(type);
+        }
+        // The settings dialog applies a legend range by assigning the whole settings container, which
+        // stores the range under the plotted field component and redraws; the same assignment is made
+        // here, on the user interface thread the dialog makes it from
+        public void SetLegendRange(double minValue, double maxValue)
+        {
+            RequireResultPlot();
+            ResolveForm().InvokeIfRequired(() =>
+            {
+                SettingsContainer settings = _controller.Settings;
+                settings.Legend.ColorSpectrum.MinMaxType = vtkControl.vtkColorSpectrumMinMaxType.Manual;
+                settings.Legend.ColorSpectrum.SetUserMinMax(minValue, maxValue);
+                _controller.Settings = settings;
+            });
+        }
+        public void ResetLegendRange()
+        {
+            RequireResultPlot();
+            ResolveForm().InvokeIfRequired(() =>
+            {
+                SettingsContainer settings = _controller.Settings;
+                settings.Legend.ColorSpectrum.MinMaxType = vtkControl.vtkColorSpectrumMinMaxType.Automatic;
+                _controller.Settings = settings;
+            });
+        }
+        public string[] GetAnnotationNames()
+        {
+            return _controller.Annotations.GetCurrentAnnotationNames();
+        }
+        public void AddTextAnnotation(string name, string text, double[] anchorPoint)
+        {
+            RequireAnnotationView();
+            if (AnnotationContainer.IsAnnotationNameReserved(name))
+                throw new PythonAPIException("The name '" + name + "' is reserved for an annotation of the application.");
+            if (_controller.Annotations.GetCurrentAnnotation(name) != null)
+                throw new PythonAPIException("An annotation named '" + name + "' already exists in the displayed view.");
+            //
+            try
+            {
+                _controller.Annotations.AddTextAnnotation(name, text, anchorPoint);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException("The argument 'name' is not a valid annotation name: " + ex.Message);
+            }
+        }
+        public string AddNodeAnnotation(int nodeId)
+        {
+            FeMesh mesh = RequireDisplayedMesh();
+            if (!mesh.Nodes.ContainsKey(nodeId))
+                throw new PythonAPIException("The displayed mesh has no node with the ID " + nodeId + ".");
+            //
+            return _controller.Annotations.AddNodeAnnotation(nodeId);
+        }
+        public string AddElementAnnotation(int elementId)
+        {
+            FeMesh mesh = RequireDisplayedMesh();
+            if (!mesh.Elements.ContainsKey(elementId))
+                throw new PythonAPIException("The displayed mesh has no element with the ID " + elementId + ".");
+            //
+            return _controller.Annotations.AddElementAnnotation(elementId);
+        }
+        public void RemoveAnnotations(string[] names)
+        {
+            RequireAnnotationView();
+            foreach (string name in names)
+            {
+                if (AnnotationContainer.IsAnnotationNameReserved(name))
+                    throw new PythonAPIException("The annotation '" + name + "' belongs to the application and cannot " +
+                                                 "be removed.");
+                if (_controller.Annotations.GetCurrentAnnotation(name) == null)
+                    throw new PythonAPIException("The displayed view has no annotation named '" + name + "'. Its " +
+                                                 "annotations are " + JoinNames(GetAnnotationNames()) + ".");
+            }
+            //
+            foreach (string name in names) _controller.Annotations.RemoveCurrentArrowAnnotation(name);
+        }
+        public bool[] GetMinMaxAnnotations()
+        {
+            SettingsContainer settings = _controller.Settings;
+            return new bool[] { settings.Post.ShowMinValueLocation, settings.Post.ShowMaxValueLocation };
+        }
+        public void ShowMinMaxAnnotations(bool showMin, bool showMax)
+        {
+            RequireResults();
+            ResolveForm().InvokeIfRequired(() =>
+            {
+                SettingsContainer settings = _controller.Settings;
+                settings.Post.ShowMinValueLocation = showMin;
+                settings.Post.ShowMaxValueLocation = showMax;
+                _controller.Settings = settings;
+            });
         }
         public void SetResultType(string resultType)
         {
@@ -157,6 +293,35 @@ namespace PrePoMax.Python
             if (_controller.CurrentResult == null)
                 throw new PythonAPIException("There is no open result, so there is nothing to plot. Open one " +
                                              "with pmx.jobs.open_results(name) or pmx.results.set_current(name).");
+        }
+        // A legend range is stored under the plotted field component of the results view, so it is
+        // refused where the settings container would not store it
+        private void RequireResultPlot()
+        {
+            RequireResults();
+            if (_controller.CurrentView != ViewGeometryModelResults.Results || _controller.CurrentFieldData == null)
+                throw new PythonAPIException("The legend range belongs to the plotted field, so the results view must " +
+                                             "be displayed: pmx.view.current = 'results'.");
+        }
+        // The results view keeps its annotations per result, so without one there is nothing to keep them
+        private void RequireAnnotationView()
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Results) RequireResults();
+        }
+        private FeMesh RequireDisplayedMesh()
+        {
+            RequireAnnotationView();
+            FeMesh mesh = _controller.DisplayedMesh;
+            if (mesh == null)
+                throw new PythonAPIException("The displayed view has no mesh to annotate.");
+            //
+            return mesh;
+        }
+        private static string JoinNames(string[] names)
+        {
+            if (names == null || names.Length == 0) return "none";
+            //
+            return string.Join(", ", names);
         }
         private static string FindComponent(string[] components, string componentName)
         {

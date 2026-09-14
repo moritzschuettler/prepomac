@@ -14,25 +14,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
+using CaeResults;
 using System.IO;
 using DynamicTypeDescriptor;
 using System.Drawing;
 
 namespace PrePoMax
 {
-    [Serializable]
-    public enum UndeformedModelTypeEnum
-    {
-        [StandardValue("None", Description = "None")]
-        None,
-        //
-        [StandardValue("WireframeBody", DisplayName = "Wireframe body", Description = "Wireframe body")]
-        WireframeBody,
-        //
-        [StandardValue("SolidBody", DisplayName = "Solid body", Description = "Solid body")]
-        SolidBody
-    }
-
 
     [Serializable]
     public class PostSettings : ISettings

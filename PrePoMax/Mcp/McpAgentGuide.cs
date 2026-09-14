@@ -112,6 +112,14 @@ pmx.view.zoom_to_fit()
 `screenshot` then writes a PNG of the viewport and returns its path. Use it when a question is about
 orientation, a selection or a result plot - no amount of reading the model answers those.
 
+A report picture is set up the same way. `rotate(azimuth, elevation)` turns a standard view a little,
+`look_at(point, parallel_scale)` frames a detail, `deformation_type` and `undeformed_model` control
+the deformed plot, and `set_legend_range(min, max)` gives pictures of different increments or models
+one color scale - reset it afterwards. `pmx.view.annotations` adds the labels: `add_text(name, text,
+anchor_point)`, `add_node(node_id)`, `add_element(element_id)`, and `show_min_max(show_min, show_max)`
+for the extreme value labels, whose setting `get_min_max()` reads so it can be put back. Every one of
+these that needs an open result says so when there is none.
+
 ## When a call is refused
 
 - **Busy.** The user has a dialog open or a mesher is running, and nothing was done. Wait and send

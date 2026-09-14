@@ -1692,10 +1692,18 @@ moved the view should put it back itself rather than expecting replay to.
 | `zoom_to_fit()` | Fits everything visible in the viewport. |
 | `get_parameters()` | The camera as 10 values: position, focal point and view up, three each, then the parallel scale. |
 | `set_parameters(parameters)` | Sets the camera from those 10 values. |
+| `rotate(azimuth, elevation=0, roll=0)` | Turns the camera about the model by angles in degrees: azimuth about the vertical axis of the view, elevation about its horizontal axis, roll about the viewing direction. |
+| `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
 | `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
 | `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports. |
 | `get_result_field()` | What is plotted now, as `[field_name, component_name, step_id, increment_id]`. |
+| `deformation_type` | How much the plotted result is deformed, as the results toolbar sets it: `Undeformed`, `TrueScale`, `Automatic`, its multiples `Automatic025`, `Automatic05`, `Automatic2`, `Automatic5`, or `UserDefined`. Settable; setting it needs an open result. |
+| `deformation_factor` | The scale factor the `UserDefined` deformation type uses. It is kept when another type is set, the way the toolbar keeps it. Settable; setting it needs an open result. |
+| `undeformed_model` | The undeformed model drawn behind a `ColorContours`, `VectorPlot` or `TensorPlot` result: `None`, `WireframeBody` or `SolidBody`. Settable; setting it needs an open result, and is refused for the `Undeformed` and `Deformed` plots, which would discard it. |
+| `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
+| `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
 | `save_image(file_name=None)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. |
+| `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
 
 Part visibility is not here: `hide` and `show` on the part collections are model changes and go
 through the command history like any other.
@@ -1704,10 +1712,42 @@ through the command history like any other.
 camera = pmx.view.get_parameters()
 pmx.view.current = 'results'
 pmx.view.set_result_field('DISP', 'U3')
+pmx.view.deformation_type = 'TrueScale'
+pmx.view.set_legend_range(0, 0.5)
 pmx.view.set_orientation('Isometric')
+pmx.view.rotate(20, 10)
 pmx.view.zoom_to_fit()
 path = pmx.view.save_image()
+pmx.view.reset_legend_range()
 pmx.view.set_parameters(camera)
+```
+
+### `ViewAnnotations`
+
+`pmx.view.annotations` holds the arrow annotations of the displayed view - the labels a report
+picture carries. They are view state, not model changes: each of the three views keeps its own set,
+the results view keeps one set per result, and they are saved in the `.pmx` without going through the
+command history, the same as a label placed by a query in the application. The names
+`Min_Annotation`, `Max_Annotation` and `Measure_Annotation` are reserved.
+
+| Member | Description |
+| --- | --- |
+| `get_names()` | The names of the annotations of the displayed view. |
+| `add_text(name, text, anchor_point)` | Adds a text label with an arrow pointing at a point in model coordinates. The name must be free. |
+| `add_node(node_id)` | Adds the annotation a node query places: ID, coordinates and, in the results view, the plotted value. Returns the generated name. |
+| `add_element(element_id)` | Adds the annotation an element query places. Returns the generated name. |
+| `remove(names)` | Removes the named annotations. A single name or a list of names; a reserved or unknown name is refused. |
+| `show_min_max(show_min, show_max)` | Shows or hides the labels at the minimum and the maximum of the plotted result, the way the post-processing settings do. Needs an open result. |
+| `get_min_max()` | Whether those labels are shown, as `[show_min, show_max]`. Keep them to put the user setting back. |
+
+```python
+shown = list(pmx.view.annotations.get_min_max())
+pmx.view.annotations.show_min_max(False, True)
+pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])
+name = pmx.view.annotations.add_node(15)
+path = pmx.view.save_image()
+pmx.view.annotations.remove(['Load', name])
+pmx.view.annotations.show_min_max(shown[0], shown[1])
 ```
 
 ## Selections

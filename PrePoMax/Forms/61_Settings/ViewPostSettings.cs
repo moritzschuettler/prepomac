@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
+using CaeResults;
 using DynamicTypeDescriptor;
 using System.Drawing.Design;
 

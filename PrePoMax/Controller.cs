@@ -2910,6 +2910,10 @@ namespace PrePoMax
         {
             _form.SetViewParameters(animate, position, focalPoint, viewUp, parallelScale);
         }
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
+        {
+            _form.Rotate(azimuthAngle, elevationAngle, rollAngle);
+        }
         //
         public List<UserViewParameters> GetUserViewParameters()
         {

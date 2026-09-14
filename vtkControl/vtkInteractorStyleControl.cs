@@ -857,7 +857,7 @@ namespace vtkControl
         {
             _rotationCenterWorld = null;
         }
-        private void UpdateRotationCenterDisplay()
+        public void UpdateRotationCenterDisplay()
         {
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;

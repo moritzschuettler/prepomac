@@ -114,13 +114,17 @@ namespace PrePoMax
             //
             DrawAnnotations();
         }
-        public void AddNodeAnnotation(int nodeId)
+        public string AddNodeAnnotation(int nodeId)
         {
-            AddAnnotation(new NodeAnnotation(GetFreeAnnotationName(), nodeId));
+            string name = GetFreeAnnotationName();
+            AddAnnotation(new NodeAnnotation(name, nodeId));
+            return name;
         }
-        public void AddElementAnnotation(int elementId)
+        public string AddElementAnnotation(int elementId)
         {
-            AddAnnotation(new ElementAnnotation(GetFreeAnnotationName(), elementId));
+            string name = GetFreeAnnotationName();
+            AddAnnotation(new ElementAnnotation(name, elementId));
+            return name;
         }
         public void AddEdgeAnnotation(int geometryId)
         {
@@ -136,7 +140,11 @@ namespace PrePoMax
         }
         public void AddMeasureAnnotation(string text, double[] anchor)
         {
-            AddAnnotation(new TextAnnotation(MeasureAnnotationName, text, anchor));
+            AddTextAnnotation(MeasureAnnotationName, text, anchor);
+        }
+        public void AddTextAnnotation(string name, string text, double[] anchor)
+        {
+            AddAnnotation(new TextAnnotation(name, text, anchor));
         }
         public void AddDistanceAnnotation(int nodeId1, int nodeId2)
         {

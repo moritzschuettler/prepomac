@@ -159,6 +159,62 @@ def test_view():
     check_raises(lambda: pmx.view.set_parameters([1, 2, 3]), "a short camera must be rejected")
 
 
+def centre_offset(camera, target):
+    """How far the target is from the centre of the picture, across the viewing direction.
+
+    The application keeps the camera at the depth of the model after every camera change, which moves
+    the focal point along the viewing direction and changes nothing on screen, so a point looked at is
+    checked in the picture rather than against the focal point itself.
+    """
+    direction = [camera[i] - camera[3 + i] for i in range(3)]
+    length = sum(d * d for d in direction) ** 0.5
+    direction = [d / length for d in direction]
+    offset = [camera[3 + i] - target[i] for i in range(3)]
+    along = sum(offset[i] * direction[i] for i in range(3))
+    return sum((offset[i] - along * direction[i]) ** 2 for i in range(3)) ** 0.5
+
+
+def test_view_without_a_result():
+    # Everything about a result plot is refused while there is none; reading the state is not
+    check_raises(lambda: setattr(pmx.view, "deformation_type", "TrueScale"), "the deformation type needs a result")
+    check_raises(lambda: setattr(pmx.view, "deformation_factor", 2.0), "the deformation factor needs a result")
+    check_raises(lambda: setattr(pmx.view, "undeformed_model", "SolidBody"), "the undeformed model needs a result")
+    check_raises(lambda: pmx.view.set_legend_range(0.0, 1.0), "the legend range needs a result")
+    check_raises(lambda: pmx.view.reset_legend_range(), "resetting the legend range needs a result")
+    check_raises(lambda: pmx.view.annotations.show_min_max(True, True), "the min/max labels need a result")
+    check(pmx.view.deformation_type in ["Undeformed", "TrueScale", "Automatic", "Automatic025", "Automatic05",
+                                        "Automatic2", "Automatic5", "UserDefined"],
+          "the deformation type must be readable: " + pmx.view.deformation_type)
+    check(pmx.view.undeformed_model in ["None", "WireframeBody", "SolidBody"],
+          "the undeformed model must be readable: " + pmx.view.undeformed_model)
+    check(len(list(pmx.view.annotations.get_min_max())) == 2, "the min/max setting must be readable")
+    # The camera needs no result
+    camera = list(pmx.view.get_parameters())
+    pmx.view.set_orientation("Top")
+    before = list(pmx.view.get_parameters())
+    pmx.view.rotate(45.0)
+    after = list(pmx.view.get_parameters())
+    check(any(abs(after[i] - before[i]) > 1e-6 for i in range(3)), "a rotation must move the camera: " + str(after))
+    pmx.view.look_at([1.0, 1.0, 1.0], 0.5)
+    framed = list(pmx.view.get_parameters())
+    check(centre_offset(framed, [1.0, 1.0, 1.0]) < 1e-6, "look_at must put the point in the centre: " + str(framed))
+    check(abs(framed[9] - 0.5) < 1e-6, "look_at must set the parallel scale: " + str(framed))
+    pmx.view.set_parameters(camera)
+    # The femodel view keeps annotations of its own, on the mesh it displays
+    annotations = pmx.view.annotations
+    check(len(list(annotations.get_names())) == 0, "the femodel view starts without annotations")
+    annotations.add_text("PyTest_Label", "The cube", [0.5, 0.5, 1.0])
+    node_name = annotations.add_node(1)
+    element_name = annotations.add_element(1)
+    check(sorted(annotations.get_names()) == sorted(["PyTest_Label", node_name, element_name]),
+          "the femodel annotations must be listed: " + str(list(annotations.get_names())))
+    check_raises(lambda: annotations.add_node(99), "an unknown node must be rejected")
+    check_raises(lambda: annotations.add_text("Measure_Annotation", "mine", [0.0, 0.0, 0.0]),
+                 "a reserved name must be rejected")
+    annotations.remove(["PyTest_Label", node_name, element_name])
+    check(len(list(annotations.get_names())) == 0, "the removed annotations must be gone")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -169,6 +225,7 @@ def main():
     test_preview(part, top_face_id)
     test_empty_preview()
     test_view()
+    test_view_without_a_result()
     clean()
     print("TEST PASSED")
 

@@ -3937,6 +3937,7 @@ namespace vtkControl
         //
         public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
         {
+            _style.UpdateRotationCenterDisplay();
             _style.Rotate(azimuthAngle, elevationAngle, rollAngle);
         }
 

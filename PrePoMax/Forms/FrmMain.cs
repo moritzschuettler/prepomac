@@ -10559,7 +10559,23 @@ namespace PrePoMax
         }
         public float GetDeformationFactor()
         {
+            if (InvokeRequired) return (float)Invoke(new Func<float>(GetDeformationFactor));
+            //
             return (float)tstbDeformationFactor.Value;
+        }
+        // The combo box change redraws through its SelectedIndexChanged event, the same as a click
+        public void SetDeformationType(DeformationScaleFactorTypeEnum deformationType)
+        {
+            InvokeIfRequired(() => tscbDeformationType.SelectedItem = deformationType.GetDisplayedName());
+        }
+        public void SetDeformationFactor(float deformationFactor)
+        {
+            InvokeIfRequired(() =>
+            {
+                tstbDeformationFactor.Text = tstbDeformationFactor.UnitConverter.ConvertToString(deformationFactor);
+                if (ScaleFactorChanged()) _controller.ClearSelectionBuffer();
+                _controller.Redraw();
+            });
         }
         private bool ScaleFactorChanged()
         {
@@ -11144,6 +11160,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetZoomToFit, animate);
         }
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
+        {
+            InvokeIfRequired(_vtk.Rotate, azimuthAngle, elevationAngle, rollAngle);
+        }
         public void StartBoxZoom()
         {
             tsbBoxZoom.Checked = true;
@@ -11599,6 +11619,10 @@ namespace PrePoMax
                     ? UndeformedModelTypeEnum.None : _controller.GetUndeformedModelType();
                 SetUndeformedModelType(viewResultsType, undeformedModelType);
             });
+        }
+        public void SetResultsUndeformedModelType(UndeformedModelTypeEnum undeformedModelType)
+        {
+            InvokeIfRequired(() => SetUndeformedModelType(_controller.ViewResultsType, undeformedModelType));
         }
         public void SetFieldData(string name, string component, int stepId, int stepIncrementId)
         {

@@ -24,12 +24,30 @@ namespace APIs.Python
         void ZoomToFit();
         double[] GetViewParameters();
         void SetViewParameters(double[] parameters);
+        void Rotate(double azimuthAngle, double elevationAngle, double rollAngle);
         //
         string GetResultType();
         void SetResultType(string resultType);
         string[] GetResultFieldData();
         void SetResultFieldData(string fieldName, string componentName);
         void SetResultIncrement(int stepId, int incrementId);
+        //
+        string GetDeformationType();
+        void SetDeformationType(string deformationType);
+        double GetDeformationFactor();
+        void SetDeformationFactor(double deformationFactor);
+        string GetUndeformedModelType();
+        void SetUndeformedModelType(string undeformedModelType);
+        void SetLegendRange(double minValue, double maxValue);
+        void ResetLegendRange();
+        //
+        string[] GetAnnotationNames();
+        void AddTextAnnotation(string name, string text, double[] anchorPoint);
+        string AddNodeAnnotation(int nodeId);
+        string AddElementAnnotation(int elementId);
+        void RemoveAnnotations(string[] names);
+        bool[] GetMinMaxAnnotations();
+        void ShowMinMaxAnnotations(bool showMin, bool showMax);
         //
         string SaveImage(string fileName);
     }

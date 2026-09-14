@@ -133,6 +133,9 @@ namespace APIs.Python
             types.Add("interpolator_type", typeof(InterpolatorEnum));
             types.Add("add_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
             types.Add("replace_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
+            // View
+            types.Add("deformation_type", typeof(DeformationScaleFactorTypeEnum));
+            types.Add("undeformed_model", typeof(UndeformedModelTypeEnum));
             //
             _types = types;
             return _types;
