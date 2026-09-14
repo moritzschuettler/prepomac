@@ -12,6 +12,8 @@ using PrePoMax.Rpc;
 using System;
 using System.Globalization;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 namespace PrePoMax.Mcp
@@ -32,13 +34,14 @@ namespace PrePoMax.Mcp
         // Variables                                                                                                                
         public const string EndpointPath = "/mcp";
         private const int AccessDenied = 5;
+        private const int ListenerReleaseTimeout = 1000;
         private readonly RpcServer _server;
         private HttpListener _listener;
         private Thread _listenerThread;
         private string _accessToken;
         private int _port;
         private bool _isRunning;
-        private bool _isStopping;
+        private volatile bool _isStopping;
         private string _lastError;
 
 
@@ -133,11 +136,40 @@ namespace PrePoMax.Mcp
             //
             _isStopping = true;
             _isRunning = false;
-            // Closing the listener is what ends the wait the listener thread sits in
             HttpListener listener = _listener;
+            ReleaseListener(_port);
             _listener = null;
             Close(listener);
             _port = 0;
+        }
+        // The listener thread waits in GetContext, and closing the listener under it ends that wait by
+        // throwing - on every shutdown, and where a debugger stops on it. A request of the server's own
+        // ends the wait the way a client would: the thread returns from it, finds the endpoint stopping
+        // and leaves the loop, so the listener is closed here with nothing left waiting on it. It is
+        // written to a socket rather than sent through HttpWebRequest because no answer is wanted and
+        // none is read - the request is only the thing that makes GetContext return. Waiting for the
+        // thread cannot hold up the user interface: it hands every request to a pool thread and waits
+        // again, so it is never the thread an answer is being written on
+        private void ReleaseListener(int port)
+        {
+            Thread thread = _listenerThread;
+            _listenerThread = null;
+            if (thread == null || port == 0) return;
+            //
+            try
+            {
+                string host = "127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
+                byte[] request = Encoding.ASCII.GetBytes("GET " + EndpointPath + " HTTP/1.1\r\nHost: " + host +
+                                                         "\r\nConnection: close\r\n\r\n");
+                using (TcpClient client = new TcpClient())
+                {
+                    client.Connect(IPAddress.Loopback, port);
+                    client.GetStream().Write(request, 0, request.Length);
+                }
+            }
+            catch { }
+            //
+            thread.Join(ListenerReleaseTimeout);
         }
         // Where a request becomes an answer. This is the one seam between the transport and the
         // protocol, and null means the request was a notification and there is nothing to send back
@@ -168,7 +200,7 @@ namespace PrePoMax.Mcp
                 }
                 catch (HttpListenerException)
                 {
-                    // The listener was closed underneath the wait, which is how Stop ends it
+                    // A stop the request of its own did not reach closes the listener underneath the wait
                     if (_isStopping) return;
                     failures++;
                     ReportError("The MCP endpoint could not accept a request.");

@@ -31,11 +31,13 @@ namespace PrePoMax.Rpc
     {
         // Variables                                                                                                                
         private const int MaximumConnections = 4;
+        private const int ListenerReleaseTimeout = 1000;
         private readonly FrmMain _form;
         private readonly Controller _controller;
         private readonly RpcDispatcher _dispatcher;
         private readonly RpcUiThread _uiThread;
         private readonly object _connectionLock;
+        private readonly object _listenerLock;
         private readonly List<RpcSession> _sessions;
         private readonly Mcp.McpHttpServer _httpServer;
         private string _pipeName;
@@ -43,7 +45,7 @@ namespace PrePoMax.Rpc
         private Thread _listener;
         private NamedPipeServerStream _listening;
         private bool _isRunning;
-        private bool _isStopping;
+        private volatile bool _isStopping;
         private bool _isReadOnlyRequested;
         private int _requestedPort;
         private string _lastError;
@@ -105,6 +107,7 @@ namespace PrePoMax.Rpc
             _uiThread = new RpcUiThread(form);
             _dispatcher = new RpcDispatcher(this);
             _connectionLock = new object();
+            _listenerLock = new object();
             _sessions = new List<RpcSession>();
             _httpServer = new Mcp.McpHttpServer(this);
             _pipeName = null;
@@ -147,14 +150,7 @@ namespace PrePoMax.Rpc
             //
             _isStopping = true;
             _isRunning = false;
-            // Disposing the stream the listener waits on is what ends the wait
-            NamedPipeServerStream listening = _listening;
-            _listening = null;
-            if (listening != null)
-            {
-                try { listening.Dispose(); }
-                catch { }
-            }
+            ReleaseListener();
             //
             List<RpcSession> sessions;
             lock (_connectionLock) sessions = new List<RpcSession>(_sessions);
@@ -177,6 +173,35 @@ namespace PrePoMax.Rpc
             }
             _form.BeginInvoke(new MethodInvoker(Stop));
         }
+        // The listener waits in WaitForConnection, and closing the pipe under it ends that wait by
+        // throwing - on every shutdown, and where a debugger stops on it. Opening the pipe ends the wait
+        // the way a client would: the listener returns from it, finds the server stopping and closes the
+        // instance itself. The handle is closed here only when that connection cannot be made, so that a
+        // listener which cannot be reached is not left holding the pipe
+        private void ReleaseListener()
+        {
+            string pipeName = _pipeName;
+            NamedPipeServerStream listening;
+            lock (_listenerLock)
+            {
+                listening = _listening;
+                _listening = null;
+            }
+            if (listening == null || pipeName == null) return;
+            //
+            try
+            {
+                using (NamedPipeClientStream client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut))
+                {
+                    client.Connect(ListenerReleaseTimeout);
+                    return;
+                }
+            }
+            catch { }
+            //
+            try { listening.Dispose(); }
+            catch { }
+        }
         public RpcUiThread GetUiThread()
         {
             return _uiThread;
@@ -193,10 +218,20 @@ namespace PrePoMax.Rpc
                 NamedPipeServerStream stream = null;
                 try
                 {
-                    stream = CreateStream();
-                    _listening = stream;
+                    // A server that is stopping must not open another instance of the pipe: the wait on
+                    // it would begin after the stop released the instance it knew about, and nothing
+                    // would be left to end it
+                    lock (_listenerLock)
+                    {
+                        if (_isStopping) return;
+                        stream = CreateStream();
+                        _listening = stream;
+                    }
                     stream.WaitForConnection();
-                    _listening = null;
+                    lock (_listenerLock)
+                    {
+                        if (_listening == stream) _listening = null;
+                    }
                     failures = 0;
                     if (_isStopping)
                     {
@@ -208,10 +243,14 @@ namespace PrePoMax.Rpc
                 }
                 catch (Exception exception)
                 {
-                    // A stopped server disposes the stream the wait blocks on, and a client that
-                    // disconnects while connecting is not an error either
+                    // A stop that cannot reach the pipe disposes the stream the wait blocks on, and a
+                    // client that disconnects while connecting is not an error either
                     if (stream != null)
                     {
+                        lock (_listenerLock)
+                        {
+                            if (_listening == stream) _listening = null;
+                        }
                         try { stream.Dispose(); }
                         catch { }
                     }
