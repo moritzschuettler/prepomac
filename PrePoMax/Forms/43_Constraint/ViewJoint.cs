@@ -222,17 +222,22 @@ namespace PrePoMax
         {
             if (DynamicCustomTypeDescriptor == null) return;
             //
+            // The values the master surface defines stay visible, read only
             bool userDefinedCenter = _joint.CenterDefinition == JointDefinitionEnum.UserDefined;
             DynamicCustomTypeDescriptor.GetProperty(nameof(CenterItemSet)).SetIsBrowsable(userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(X)).SetIsBrowsable(userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(Y)).SetIsBrowsable(userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(Z)).SetIsBrowsable(userDefinedCenter);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(X)).SetIsReadOnly(!userDefinedCenter);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Y)).SetIsReadOnly(!userDefinedCenter);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Z)).SetIsReadOnly(!userDefinedCenter);
             //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(AxisDefinition)).SetIsBrowsable(_joint.HasAxis);
+            bool hasAxis = _joint.HasAxis;
             bool userDefinedAxis = _joint.HasUserDefinedAxis;
-            DynamicCustomTypeDescriptor.GetProperty(nameof(N1)).SetIsBrowsable(userDefinedAxis);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(N2)).SetIsBrowsable(userDefinedAxis);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(N3)).SetIsBrowsable(userDefinedAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(AxisDefinition)).SetIsBrowsable(hasAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N1)).SetIsBrowsable(hasAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N2)).SetIsBrowsable(hasAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N3)).SetIsBrowsable(hasAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N1)).SetIsReadOnly(!userDefinedAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N2)).SetIsReadOnly(!userDefinedAxis);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N3)).SetIsReadOnly(!userDefinedAxis);
         }
     }
 }

@@ -712,7 +712,6 @@
     <Compile Include="Forms\61_Settings\ViewNumberFormatSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewAnnotationSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewMeshingSettings.cs" />
-    <Compile Include="Forms\61_Settings\ParallelMeshingThreadsConverter.cs" />
     <Compile Include="Forms\61_Settings\ViewUnitSystemlSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewStatusBlockSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewLegendSettings.cs" />

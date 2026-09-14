@@ -12,65 +12,91 @@ namespace FileInOut.Input
 {
     internal static class GeometryMetadataReader
     {
-        // Variables
-        private const string BeginMarker = "BEGIN_GEOMETRY_METADATA";
-        private const string EndMarker = "END_GEOMETRY_METADATA";
-
-
         // Methods
         public static GeometryMetadata Read(string data)
         {
             if (String.IsNullOrEmpty(data)) return null;
-            int begin = data.IndexOf(BeginMarker, StringComparison.Ordinal);
-            if (begin < 0) return null;
-            int end = data.IndexOf(EndMarker, begin, StringComparison.Ordinal);
-            if (end < 0) return null;
-            //
-            string block = data.Substring(begin, end - begin);
-            string[] lines = block.Split(new string[] { "\r\n", "\n", "\r" },
-                                         StringSplitOptions.RemoveEmptyEntries);
+            string[] lines = data.Split(new string[] { "\r\n", "\n", "\r" },
+                                        StringSplitOptions.None);
             int version = 0;
             string coordinateSystem = null;
             string lengthUnit = null;
             GeometryMetadataEntity current = null;
+            string currentLabel = null;
             List<GeometryMetadataEntity> entities = new List<GeometryMetadataEntity>();
+            bool inGeometry = false;
             for (int i = 0; i < lines.Length; i++)
             {
-                string[] tokens = lines[i].Trim().Split(new char[] { ' ', '\t' },
-                                                        StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length == 0) continue;
-                if (tokens[0] == BeginMarker && tokens.Length > 1)
-                    Int32.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out version);
-                else if (tokens[0] == "COORDINATE_SYSTEM" && tokens.Length > 1)
-                    coordinateSystem = tokens[1];
-                else if (tokens[0] == "LENGTH_UNIT" && tokens.Length > 1)
-                    lengthUnit = tokens[1];
-                else if (tokens[0] == "ENTITY" && tokens.Length > 2)
+                string line = lines[i].Trim();
+                if (line.StartsWith("VIS file format:", StringComparison.Ordinal))
                 {
-                    int id;
-                    if (Int32.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out id))
-                        current = new GeometryMetadataEntity(tokens[1], id);
+                    string value = line.Substring("VIS file format:".Length).Trim();
+                    Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out version);
                 }
-                else if (tokens[0] == "PROPERTY" && tokens.Length > 2 && current != null)
+                else if (line.StartsWith("Coordinate system:", StringComparison.Ordinal))
+                    coordinateSystem = line.Substring("Coordinate system:".Length).Trim();
+                else if (line.StartsWith("Length unit:", StringComparison.Ordinal))
+                    lengthUnit = line.Substring("Length unit:".Length).Trim();
+                else if (line == "Geometry") inGeometry = true;
+                else if (line == "Visualization")
                 {
-                    string[] values = tokens.Skip(2).ToArray();
-                    double[] numbers;
-                    GeometryMetadataProperty property = TryParseNumbers(values, out numbers)
-                                                      ? new GeometryMetadataProperty(numbers)
-                                                      : new GeometryMetadataProperty(values);
-                    current.Properties[tokens[1]] = property;
-                }
-                else if (tokens[0] == "END_ENTITY" && current != null)
-                {
-                    entities.Add(current);
+                    if (current != null) entities.Add(current);
                     current = null;
+                    break;
+                }
+                else if (inGeometry)
+                {
+                    string kind;
+                    string label;
+                    int id;
+                    if (TryReadEntityHeader(line, out kind, out label, out id))
+                    {
+                        if (current != null) entities.Add(current);
+                        current = new GeometryMetadataEntity(kind, id);
+                        currentLabel = label;
+                    }
+                    else if (current != null && line.StartsWith(currentLabel + " ", StringComparison.Ordinal))
+                    {
+                        int colon = line.IndexOf(':');
+                        if (colon < 0) continue;
+                        string propertyName = line.Substring(currentLabel.Length + 1,
+                                                             colon - currentLabel.Length - 1).Trim();
+                        string valueText = line.Substring(colon + 1).Trim();
+                        string[] values = valueText.Split(new char[] { ' ', '\t' },
+                                                          StringSplitOptions.RemoveEmptyEntries);
+                        double[] numbers;
+                        GeometryMetadataProperty property = TryParseNumbers(values, out numbers)
+                                                          ? new GeometryMetadataProperty(numbers)
+                                                          : new GeometryMetadataProperty(values);
+                        current.Properties[propertyName] = property;
+                    }
                 }
             }
-            if (entities.Count == 0) return null;
+            if (version != 2 || entities.Count == 0) return null;
             //
             GeometryMetadata metadata = new GeometryMetadata(version, coordinateSystem, lengthUnit);
             foreach (GeometryMetadataEntity entity in entities) metadata.AddEntity(entity);
             return metadata;
+        }
+        private static bool TryReadEntityHeader(string line, out string kind, out string label, out int id)
+        {
+            string[] labels = new string[] { "Solid", "Shell", "Face", "Edge", "Vertex" };
+            foreach (string oneLabel in labels)
+            {
+                string prefix = oneLabel + " number:";
+                if (!line.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                string value = line.Substring(prefix.Length).Trim();
+                if (Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out id))
+                {
+                    kind = oneLabel.ToLowerInvariant();
+                    label = oneLabel;
+                    return true;
+                }
+            }
+            kind = null;
+            label = null;
+            id = 0;
+            return false;
         }
         public static GeometryMetadata CreatePartMetadata(GeometryMetadata source,
                                                            Dictionary<int, int> localFaceIdSourceFaceId,
@@ -118,7 +144,7 @@ namespace FileInOut.Input
                     double[] values;
                     int index = face.Id - 1;
                     if (index >= 0 && index < visualization.FaceAreas.Length &&
-                        face.TryGetNumbers("area", out values) && values.Length == 1)
+                        face.TryGetCanonicalNumbers("area", out values) && values.Length == 1)
                         visualization.FaceAreas[index] = values[0];
                 }
             }
@@ -129,7 +155,7 @@ namespace FileInOut.Input
                     double[] values;
                     int index = edge.Id - 1;
                     if (index >= 0 && index < visualization.EdgeLengths.Length &&
-                        edge.TryGetNumbers("length", out values) && values.Length == 1)
+                        edge.TryGetCanonicalNumbers("length", out values) && values.Length == 1)
                         visualization.EdgeLengths[index] = values[0];
                 }
             }
@@ -248,14 +274,14 @@ namespace FileInOut.Input
                 double[] oneVolume;
                 double[] center;
                 double[] inertia;
-                if (!solid.TryGetNumbers("volume", out oneVolume) || oneVolume.Length != 1 ||
-                    !solid.TryGetNumbers("center_of_mass", out center) || center.Length != 3) continue;
+                if (!solid.TryGetCanonicalNumbers("volume", out oneVolume) || oneVolume.Length != 1 ||
+                    !solid.TryGetCanonicalNumbers("center_of_mass", out center) || center.Length != 3) continue;
                 double value = oneVolume[0];
                 volume += value;
                 for (int i = 0; i < 3; i++) firstMoment[i] += value * center[i];
                 double[] oneArea;
-                if (solid.TryGetNumbers("surface_area", out oneArea) && oneArea.Length == 1) area += oneArea[0];
-                if (solid.TryGetNumbers("inertia_at_center_of_mass", out inertia) && inertia.Length == 9)
+                if (solid.TryGetCanonicalNumbers("surface_area", out oneArea) && oneArea.Length == 1) area += oneArea[0];
+                if (solid.TryGetCanonicalNumbers("inertia_at_center_of_mass", out inertia) && inertia.Length == 9)
                 {
                     double radiusSquared = center[0] * center[0] + center[1] * center[1] + center[2] * center[2];
                     for (int row = 0; row < 3; row++)
@@ -296,8 +322,8 @@ namespace FileInOut.Input
             {
                 double[] oneArea;
                 double[] centroid;
-                if (!shell.TryGetNumbers("area", out oneArea) || oneArea.Length != 1 ||
-                    !shell.TryGetNumbers("centroid", out centroid) || centroid.Length != 3) continue;
+                if (!shell.TryGetCanonicalNumbers("area", out oneArea) || oneArea.Length != 1 ||
+                    !shell.TryGetCanonicalNumbers("centroid", out centroid) || centroid.Length != 3) continue;
                 area += oneArea[0];
                 for (int i = 0; i < 3; i++) firstMoment[i] += oneArea[0] * centroid[i];
             }

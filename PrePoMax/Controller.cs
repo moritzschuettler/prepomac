@@ -9759,6 +9759,7 @@ namespace PrePoMax
             else if (constraint is Joint joint)
             {
                 ConvertSelectionBasedMasterSlaveSurfaces(joint, update);
+                _model.UpdateJointAutoValues(joint);
             }
             else throw new NotSupportedException();
         }

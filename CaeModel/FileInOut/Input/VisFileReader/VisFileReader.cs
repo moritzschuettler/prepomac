@@ -22,7 +22,6 @@ namespace FileInOut.Input
     static public class VisFileReader
     {
         private static string[] spaceSplitter = new string[] { " " };
-        private static string[] colonSplitter = new string[] { ":" };
         private static string[] lineSplitter = new string[] { "\r", "\n" };
         private static string[] allSplitter = new string[] { " ", "\r", "\n" };
 
@@ -46,9 +45,8 @@ namespace FileInOut.Input
                 int offsetNodeId = 0;
                 int offsetElementId = 0;
                 // Read the vertices first - later the merging of nodes is done
-                string[] vertexSplitData = data.Split(new string[] { "Number of vertices: " },
+                string[] vertexSplitData = data.Split(new string[] { "Number of visualization vertices: " },
                                                       StringSplitOptions.RemoveEmptyEntries);
-                // A compound shell contains multiple shells - vertices are printed for each of them
                 if (vertexSplitData.Length >= 2)
                 {
                     string vertexData = vertexSplitData[1];
@@ -59,40 +57,30 @@ namespace FileInOut.Input
                     vertexNodeIds.UnionWith(nodes.Keys);
                 }
                 //
-                string textToFind = null;
                 ImportOptions importOptions = ImportOptions.DetectEdges;
                 // Import solid geometry
-                if (data.Contains("Solid number: "))
+                if (sourceGeometryMetadata != null && sourceGeometryMetadata.GetEntities("solid").Length > 0)
                 {
-                    textToFind = "Solid number: ";
                     importOptions = ImportOptions.ImportOneCADSolidPart;
                 }
                 // Import shell geometry
-                else if (data.Contains("Shell number: "))
+                else if (sourceGeometryMetadata != null &&
+                         (sourceGeometryMetadata.GetEntities("shell").Length > 0 ||
+                          sourceGeometryMetadata.GetEntities("face").Length > 0))
                 {
-                    textToFind = "Shell number: ";
-                    importOptions = ImportOptions.ImportCADShellParts;
-                }
-                else if (data.Contains("Free face number: "))
-                {
-                    textToFind = "Free face number: ";
                     importOptions = ImportOptions.ImportCADShellParts;
                 }
                 //
-                if (textToFind != null)
+                if (sourceGeometryMetadata != null)
                 {
-                    string[] partData = data.Split(new string[] { textToFind }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] faceData = data.Split(new string[] { "Face mesh number: " },
+                                                   StringSplitOptions.RemoveEmptyEntries);
                     //
-                    for (int k = 1; k < partData.Length; k++)
+                    for (int i = 1; i < faceData.Length; i++)
                     {
-                        string[] faceData = partData[k].Split(new string[] { "Face number: " },
-                                                              StringSplitOptions.RemoveEmptyEntries);
-                        //
-                        for (int i = 1; i < faceData.Length; i++)   // start with 1 to skip first line: ********
-                        {
-                            ReadFace(faceData[i], ref offsetNodeId, nodes, ref offsetElementId, elements,
-                                     surfaceIdNodeIds, faceTypes, edgeIdNodeIds, edgeTypes, ref bBox);
-                        }
+                        ReadFace(faceData[i], sourceGeometryMetadata, ref offsetNodeId, nodes,
+                                 ref offsetElementId, elements, surfaceIdNodeIds, faceTypes,
+                                 edgeIdNodeIds, edgeTypes, ref bBox);
                     }
                     //
                     double max = bBox.GetDiagonal();
@@ -132,25 +120,13 @@ namespace FileInOut.Input
                             GeometryMetadataReader.ApplyCanonicalMeasurements(entry.Value);
                         }
                     }
-                    // Read mass data and overwrite the one computed in new FeMesh
-                    if (sourceGeometryMetadata == null && mesh.Parts.Count == 1)
-                    {
-                        PartMassProperties massProperties;
-                        string[] massData = data.Split(new string[] { "Geometry properties" },
-                                                       StringSplitOptions.RemoveEmptyEntries);
-                        if (massData.Length == 2)
-                        {
-                            massProperties = ReadMass(massData[1]);
-                            mesh.Parts.First().Value.MassProperties = massProperties;
-                        }
-                    }
                     return mesh;
                 }
             }
             //
             return null;
         }
-        private static void ReadFace(string faceData,
+        private static void ReadFace(string faceData, GeometryMetadata geometryMetadata,
                                      ref int offsetNodeId, Dictionary<int, FeNode> nodes,
                                      ref int offsetElementId, Dictionary<int, FeElement> elements,
                                      Dictionary<int, HashSet<int>> surfaceIdNodeIds,
@@ -165,9 +141,16 @@ namespace FileInOut.Input
             //
             string[] tmp = data[0].Split(allSplitter, StringSplitOptions.RemoveEmptyEntries);
             int surfaceId = int.Parse(tmp[0]);
-            int orientation = int.Parse(tmp[3]);
-            GeomFaceType faceType = (GeomFaceType)Enum.Parse(typeof(GeomFaceType), tmp[6]);
-            bool reverse = orientation == 1;
+            GeometryMetadataEntity face = geometryMetadata.GetEntity("face", surfaceId);
+            if (face == null) throw new FormatException("The visualization face " + surfaceId +
+                                                        " has no geometry definition.");
+            string[] values;
+            if (!face.TryGetText("orientation", out values) || values.Length != 1)
+                throw new FormatException("The geometry face " + surfaceId + " has no orientation.");
+            bool reverse = values[0] == "Reversed";
+            if (!face.TryGetCanonicalText("type", out values) || values.Length != 1)
+                throw new FormatException("The geometry face " + surfaceId + " has no type.");
+            GeomFaceType faceType = (GeomFaceType)Enum.Parse(typeof(GeomFaceType), values[0]);
             //
             if (!faceTypes.ContainsKey(surfaceId)) faceTypes.Add(surfaceId, faceType);
             // Some triangles might be missing - use only trinagle nodes for surface definition - fix geometry problems
@@ -189,10 +172,10 @@ namespace FileInOut.Input
                                                   freeEdgeKeys);
                     offsetElementId += numOfElements;
                 }
-                else if (data[i].StartsWith("edges"))
+                else if (data[i].StartsWith("edge polylines"))
                 {
-                    numOfElements = ReadEdges(data[i], offsetNodeId, offsetElementId, elements, edgeIdNodeIds,
-                                              edgeTypes, freeEdgeKeys);
+                    numOfElements = ReadEdges(data[i], geometryMetadata, offsetNodeId, offsetElementId, elements,
+                                              edgeIdNodeIds, edgeTypes, freeEdgeKeys);
                     offsetElementId += numOfElements;
                 }
             }
@@ -289,7 +272,8 @@ namespace FileInOut.Input
             }
             return data.Length - 1; // return number of read elements
         }
-        private static int ReadEdges(string elementData, int offsetNodeId, int offsetElementId,
+        private static int ReadEdges(string elementData, GeometryMetadata geometryMetadata,
+                                     int offsetNodeId, int offsetElementId,
                                      Dictionary<int, FeElement> elements, Dictionary<int, HashSet<int>> edgeIdNodeIds,
                                      Dictionary<int, GeomCurveType> edgeTypes, HashSet<int[]> freeEdgeKeys)
         {
@@ -308,14 +292,23 @@ namespace FileInOut.Input
             HashSet<int> edgeNodeIds = new HashSet<int>();
             HashSet<int> edgeNodeIdsOut;
             //
-            for (int i = 1; i < data.Length; i++)   // skip first row: Number of edges: 4
+            for (int i = 1; i < data.Length; i++)   // skip first row: Number of edge polylines: 4
             {
-                splitData = data[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                edgeType = (GeomCurveType)Enum.Parse(typeof(GeomCurveType), splitData[0]);
-                edgeId = int.Parse(splitData[1]);
+                string line = data[i].Trim();
+                const string prefix = "Edge polyline:";
+                if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                    throw new FormatException("Invalid edge polyline: " + line);
+                splitData = line.Substring(prefix.Length).Split(spaceSplitter,
+                                                                 StringSplitOptions.RemoveEmptyEntries);
+                edgeId = int.Parse(splitData[0]);
+                GeometryMetadataEntity edge = geometryMetadata.GetEntity("edge", edgeId);
+                string[] values;
+                if (edge == null || !edge.TryGetCanonicalText("type", out values) || values.Length != 1)
+                    throw new FormatException("The geometry edge " + edgeId + " has no type.");
+                edgeType = (GeomCurveType)Enum.Parse(typeof(GeomCurveType), values[0]);
                 //
                 edgeNodeIds.Clear();
-                for (int j = 2; j < splitData.Length - 1; j++)
+                for (int j = 1; j < splitData.Length - 1; j++)
                 {
                     nodeIds = new int[2];
                     nodeIds[0] = int.Parse(splitData[j]) + offsetNodeId;
@@ -352,49 +345,6 @@ namespace FileInOut.Input
             }
             //
             return internalId - 1; // return number of read edges
-        }
-        private static PartMassProperties ReadMass(string massData)
-        {
-            PartMassProperties massProperties = new PartMassProperties(true);
-            string[] data = massData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
-            if (data.Length >= 11)
-            {
-                string[] tmp;
-                tmp = data[1].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                if (tmp[0].ToUpper().StartsWith("VOL")) massProperties.Volume = double.Parse(tmp[1]);
-                else if (tmp[0].ToUpper().StartsWith("ARE")) massProperties.Area = double.Parse(tmp[1]);
-                tmp = data[2].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.CenterOfMass[0] = double.Parse(tmp[3]);
-                massProperties.CenterOfMass[1] = double.Parse(tmp[4]);
-                massProperties.CenterOfMass[2] = double.Parse(tmp[5]);
-                // InertiaMatrixCG
-                tmp = data[4].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixCG[0][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixCG[0][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixCG[0][2] = double.Parse(tmp[2]);
-                tmp = data[5].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixCG[1][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixCG[1][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixCG[1][2] = double.Parse(tmp[2]);
-                tmp = data[6].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixCG[2][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixCG[2][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixCG[2][2] = double.Parse(tmp[2]);
-                // InertiaMatrixOrigin
-                tmp = data[8].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixOrigin[0][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixOrigin[0][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixOrigin[0][2] = double.Parse(tmp[2]);
-                tmp = data[9].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixOrigin[1][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixOrigin[1][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixOrigin[1][2] = double.Parse(tmp[2]);
-                tmp = data[10].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
-                massProperties.InertiaMatrixOrigin[2][0] = double.Parse(tmp[0]);
-                massProperties.InertiaMatrixOrigin[2][1] = double.Parse(tmp[1]);
-                massProperties.InertiaMatrixOrigin[2][2] = double.Parse(tmp[2]);
-            }
-            return massProperties;
         }
         private static void MergeNodes(Dictionary<int, FeNode> nodes,
                                        Dictionary<int, FeElement> elements,

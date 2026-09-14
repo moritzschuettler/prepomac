@@ -29,9 +29,8 @@ namespace PrePoMax.Settings
         // Properties                                                                                                               
         [CategoryAttribute("Parallelization")]
         [OrderedDisplayName(0, 10, "Number of threads")]
-        [DescriptionAttribute("Set the number of threads used for Netgen meshing. Select Auto to use the automatic " +
-                              "worker count, 1 for serial meshing, or a larger value for an explicit worker limit.")]
-        [TypeConverter(typeof(ParallelMeshingThreadsConverter))]
+        [DescriptionAttribute("Set the positive number of threads used for Netgen meshing. Use 1 for serial meshing " +
+                              "or a larger value for parallel meshing.")]
         [Id(1, 7)]
         public int ParallelMeshingThreads
         {

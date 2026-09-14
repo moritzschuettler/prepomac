@@ -43,6 +43,18 @@ namespace CaeMesh
         }
         public bool TryGetNumbers(string propertyName, out double[] values)
         {
+            CheckSupplementalProperty(propertyName);
+            return TryGetCanonicalNumbers(propertyName, out values);
+        }
+        public bool TryGetText(string propertyName, out string[] values)
+        {
+            CheckSupplementalProperty(propertyName);
+            return TryGetCanonicalText(propertyName, out values);
+        }
+        // A canonical measurement is dropped when the metadata is copied onto a mesh part, because the part
+        // carries it from then on. Only a reader that knows it holds the geometry side may ask for one here
+        public bool TryGetCanonicalNumbers(string propertyName, out double[] values)
+        {
             GeometryMetadataProperty property;
             if (_properties.TryGetValue(propertyName, out property) && property.IsNumeric)
             {
@@ -52,7 +64,7 @@ namespace CaeMesh
             values = null;
             return false;
         }
-        public bool TryGetText(string propertyName, out string[] values)
+        public bool TryGetCanonicalText(string propertyName, out string[] values)
         {
             GeometryMetadataProperty property;
             if (_properties.TryGetValue(propertyName, out property) && !property.IsNumeric)
@@ -62,6 +74,16 @@ namespace CaeMesh
             }
             values = null;
             return false;
+        }
+        private void CheckSupplementalProperty(string propertyName)
+        {
+            if (!GeometryMetadata.IsCanonicalProperty(_kind, propertyName)) return;
+            //
+            throw new NotSupportedException("The geometry metadata property '" + propertyName + "' of a " + _kind +
+                                            " is a canonical measurement. A mesh part carries it on the part itself " +
+                                            "and its metadata does not repeat it, so read it from the part. Use " +
+                                            "TryGetCanonicalNumbers or TryGetCanonicalText to read the value the CAD " +
+                                            "kernel reported, which only a geometry part still holds.");
         }
         public void FillMissingFrom(GeometryMetadataEntity source, ISet<string> excludedProperties = null)
         {

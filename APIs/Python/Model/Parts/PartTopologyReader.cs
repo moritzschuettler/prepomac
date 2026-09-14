@@ -150,7 +150,7 @@ namespace APIs.Python.Model
         {
             GeometryMetadataEntity entity = part.GeometryMetadata?.GetEntity(kind, id);
             double[] values;
-            if (entity == null || !entity.TryGetNumbers("centroid", out values) || values.Length != 3) return false;
+            if (entity == null || !entity.TryGetCanonicalNumbers("centroid", out values) || values.Length != 3) return false;
             for (int i = 0; i < 3; i++) centroids[row, i] = values[i];
             return true;
         }

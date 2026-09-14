@@ -725,17 +725,20 @@ namespace CaeModel
             center = null;
             axis = null;
             //
-            if (joint.CenterDefinition == JointDefinitionEnum.MasterSurface)
+            Dictionary<FeFaceName, List<int>> faces = null;
+            bool centerFromFaces = joint.CenterDefinition == JointDefinitionEnum.MasterSurface;
+            bool axisFromFaces = joint.HasAxis && joint.AxisDefinition == JointDefinitionEnum.MasterSurface;
+            if ((centerFromFaces || axisFromFaces) && !TryGetJointMasterElementFaces(joint, out faces)) return false;
+            //
+            if (centerFromFaces)
             {
-                if (!_mesh.Surfaces.ContainsKey(joint.MasterRegionName)) return false;
-                center = _mesh.GetSurfaceCG(joint.MasterRegionName);
+                if (!TryGetFacesCenter(faces, out center)) return false;
             }
             else center = joint.GetCenter();
             //
             if (!joint.HasAxis) return true;
             //
-            if (joint.AxisDefinition == JointDefinitionEnum.MasterSurface)
-                return TryGetSurfaceAxisDirection(joint.MasterRegionName, out axis);
+            if (axisFromFaces) return TryGetFacesAxisDirection(faces, out axis);
             //
             axis = joint.GetAxisDirection();
             double length = Math.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
@@ -756,31 +759,114 @@ namespace CaeModel
                                        "'. The master surface must exist and be cylindrical; otherwise define the axis " +
                                        "direction.");
         }
-        private bool TryGetSurfaceAxisDirection(string surfaceName, out double[] axis)
+        public void UpdateJointAutoValues(Joint joint)
+        {
+            // The values the master surface defines are kept in the joint, so that they can be shown and so that
+            // they are the starting point when the definition is switched to user defined
+            Dictionary<FeFaceName, List<int>> faces;
+            double[] values;
+            if (!TryGetJointMasterElementFaces(joint, out faces)) return;
+            //
+            if (joint.CenterDefinition == JointDefinitionEnum.MasterSurface && TryGetFacesCenter(faces, out values))
+            {
+                joint.X.SetEquationFromValue(values[0]);
+                joint.Y.SetEquationFromValue(values[1]);
+                joint.Z.SetEquationFromValue(values[2]);
+            }
+            if (joint.HasAxis && joint.AxisDefinition == JointDefinitionEnum.MasterSurface &&
+                TryGetFacesAxisDirection(faces, out values))
+            {
+                joint.N1.SetEquationFromValue(Math.Round(values[0], 6));
+                joint.N2.SetEquationFromValue(Math.Round(values[1], 6));
+                joint.N3.SetEquationFromValue(Math.Round(values[2], 6));
+            }
+        }
+        private bool TryGetJointMasterElementFaces(Joint joint, out Dictionary<FeFaceName, List<int>> faces)
+        {
+            // The element faces of the master region, from the surface once it exists and from the selected face
+            // ids while the joint is still being defined
+            faces = null;
+            //
+            if (joint.MasterRegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface;
+                FeElementSet elementSet;
+                if (joint.MasterRegionName == null || !_mesh.Surfaces.TryGetValue(joint.MasterRegionName, out surface) ||
+                    surface.ElementFaces == null) return false;
+                //
+                faces = new Dictionary<FeFaceName, List<int>>();
+                foreach (var entry in surface.ElementFaces)
+                {
+                    if (!_mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) return false;
+                    faces.Add(entry.Key, new List<int>(elementSet.Labels));
+                }
+                return true;
+            }
+            else if (joint.MasterRegionType == RegionTypeEnum.Selection && joint.MasterCreationIds != null &&
+                     joint.MasterCreationIds.Length > 0)
+            {
+                // A face id names an element that must exist for the face decoding not to fail
+                foreach (var faceId in joint.MasterCreationIds)
+                {
+                    if (!_mesh.Elements.ContainsKey(faceId / 10)) return false;
+                }
+                _mesh.GetNodeIdsElementSetsFromFaceIds(joint.MasterCreationIds, out _, out faces, out _, out _);
+                return true;
+            }
+            //
+            return false;
+        }
+        private bool TryGetFacesCenter(Dictionary<FeFaceName, List<int>> faces, out double[] center)
+        {
+            center = new double[3];
+            double area = 0;
+            double faceArea;
+            double[] faceCenter;
+            FeElement element;
+            foreach (var entry in faces)
+            {
+                foreach (var elementId in entry.Value)
+                {
+                    if (!_mesh.Elements.TryGetValue(elementId, out element)) return false;
+                    faceCenter = element.GetFaceCG(entry.Key, _mesh.Nodes, out faceArea);
+                    center[0] += faceCenter[0] * faceArea;
+                    center[1] += faceCenter[1] * faceArea;
+                    center[2] += faceCenter[2] * faceArea;
+                    area += faceArea;
+                }
+            }
+            if (area <= 0) return false;
+            //
+            center[0] /= area;
+            center[1] /= area;
+            center[2] /= area;
+            return true;
+        }
+        private bool TryGetFacesAxisDirection(Dictionary<FeFaceName, List<int>> faces, out double[] axis)
         {
             // The axis of a cylindrical face is reported by the CAD kernel and travels with the mesh, so it is the
             // same direction whatever the mesh is. It is used whenever the surface carries it, because an axis
             // fitted from the mesh differs from surface to surface and moves when the mesh is changed
-            if (TryGetSurfaceAxisDirectionFromGeometry(surfaceName, out axis)) return true;
+            if (TryGetFacesAxisDirectionFromGeometry(faces, out axis)) return true;
             //
-            return TryFitSurfaceAxisDirection(surfaceName, out axis);
+            return TryFitFacesAxisDirection(faces, out axis);
         }
-        private bool TryGetSurfaceAxisDirectionFromGeometry(string surfaceName, out double[] axis)
+        private bool TryGetFacesAxisDirectionFromGeometry(Dictionary<FeFaceName, List<int>> faces, out double[] axis)
         {
             axis = null;
-            FeSurface surface;
-            if (!_mesh.Surfaces.TryGetValue(surfaceName, out surface) || surface.ElementFaces == null) return false;
             //
             BasePart part;
             int faceId;
             double[] values;
             double[] faceAxis = new double[3];
             GeometryMetadataEntity face;
-            foreach (var entry in surface.ElementFaces)
+            FeElement element;
+            foreach (var entry in faces)
             {
-                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                foreach (var elementId in entry.Value)
                 {
-                    if (!_mesh.GetFaceId(elementId, _mesh.Elements[elementId].GetVtkCellFromFaceName(entry.Key),
+                    if (!_mesh.Elements.TryGetValue(elementId, out element)) return false;
+                    if (!_mesh.GetFaceId(elementId, element.GetVtkCellFromFaceName(entry.Key),
                                          out part, out faceId) || faceId < 0) return false;
                     if (part.GeometryMetadata == null || part.Visualization.FaceTypes == null ||
                         faceId >= part.Visualization.FaceTypes.Length) return false;
@@ -807,14 +893,10 @@ namespace CaeModel
             }
             return axis != null;
         }
-        private bool TryFitSurfaceAxisDirection(string surfaceName, out double[] axis)
+        private bool TryFitFacesAxisDirection(Dictionary<FeFaceName, List<int>> faces, out double[] axis)
         {
             // Every face normal of a cylindrical surface is perpendicular to its axis, so the cross products of the
             // first normal with the others all point along the axis
-            axis = null;
-            FeSurface surface;
-            if (!_mesh.Surfaces.TryGetValue(surfaceName, out surface) || surface.ElementFaces == null) return false;
-            //
             double area;
             double totalArea = 0;
             double[] normal;
@@ -822,10 +904,11 @@ namespace CaeModel
             double[] cross = new double[3];
             axis = new double[3];
             double[,] covariance = new double[3, 3];
-            foreach (var entry in surface.ElementFaces)
+            foreach (var entry in faces)
             {
-                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                foreach (var elementId in entry.Value)
                 {
+                    if (!_mesh.Elements.ContainsKey(elementId)) return false;
                     _mesh.GetElementFaceNormalAndArea(elementId, entry.Key, out normal, out area);
                     totalArea += area;
                     for (int i = 0; i < 3; i++)

@@ -232,14 +232,13 @@ namespace PrePoMax.Forms
                         HighlightConstraint();
                     }
                 }
-                else if (_viewConstraint is ViewJoint)
+                else if (_viewConstraint is ViewJoint vj)
                 {
+                    _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
+                    propertyGrid.Refresh();
                     if (property == nameof(ViewJoint.JointType) || property == nameof(ViewJoint.CenterDefinition) ||
                         property == nameof(ViewJoint.AxisDefinition))
-                    {
-                        propertyGrid.Refresh();
                         ShowHideSelectionForm();
-                    }
                     HighlightConstraint();
                 }
             }
@@ -548,6 +547,7 @@ namespace PrePoMax.Forms
                     else CheckMissingValueRef(ref surfaceNames, vj.SlaveSurfaceName, s => { vj.SlaveSurfaceName = s; });
                     //
                     vj.PopulateDropDownLists(surfaceNames);
+                    _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = cmsPropertyGrid;
                 }
@@ -1221,6 +1221,8 @@ namespace PrePoMax.Forms
                         joint.SlaveCreationData = _controller.Selection.DeepCopy(true, false);
                         changed = true;
                     }
+                    //
+                    if (changed) _controller.Model.UpdateJointAutoValues(joint);
                 }
                 else if (Constraint is Tie tie)
                 {
