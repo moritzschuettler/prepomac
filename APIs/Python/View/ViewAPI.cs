@@ -22,6 +22,9 @@ namespace APIs.Python
     public class ViewAPI : BaseAPI
     {
         // Variables
+        // The renderer draws a magnified picture in tiles, so this is kept small enough that the
+        // application stays the one deciding what a picture of a viewport may cost
+        private const int MaxMagnification = 4;
         private static readonly string[] Views = { "geometry", "femodel", "results" };
         private static readonly string[] Orientations = { "Front", "Back", "Top", "Bottom", "Left", "Right",
                                                           "Isometric", "IsometricNegative", "Normal", "Vertical" };
@@ -227,15 +230,29 @@ namespace APIs.Python
             Resolve().ResetLegendRange();
         }
         [PythonAPI("Writes a PNG of the viewport as it looks right now and returns the path. A file name that " +
-                   "is not given means a file in the temporary folder.",
-                   Arguments = "file_name: str = None", Returns = "str",
-                   Example = "path = pmx.view.save_image('C:/temp/model.png')")]
-        public string save_image(string file_name = null)
+                   "is not given means a file in the temporary folder. A transparent background leaves out the " +
+                   "background the viewport shows, so the picture can be put on a page of any color; the model, " +
+                   "the legend and the labels keep their own colors. The magnification renders the picture that " +
+                   "many times larger than the viewport, from 1 to 4, for a picture that is going to be printed. " +
+                   "Only the model is drawn larger: the legend, the scale bar and the triad keep the size they " +
+                   "have on screen, so they come out smaller in a magnified picture.",
+                   Arguments = "file_name: str = None, transparent_background: bool = False, magnification: int = 1",
+                   Returns = "str",
+                   Example = "path = pmx.view.save_image('C:/temp/model.png', True, 2)")]
+        public string save_image(string file_name = null, object transparent_background = null,
+                                 object magnification = null)
         {
             if (file_name != null && file_name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'file_name' must not be empty.");
             //
-            return Resolve().SaveImage(file_name == null ? null : file_name.Trim());
+            bool transparent = transparent_background != null &&
+                               PythonValueConverter.ToBool(transparent_background, "transparent_background");
+            int scale = magnification == null ? 1 : PythonValueConverter.ToInt(magnification, "magnification");
+            if (scale < 1 || scale > MaxMagnification)
+                throw new PythonAPIException("The argument 'magnification' must be from 1 to " +
+                                             MaxMagnification + ".");
+            //
+            return Resolve().SaveImage(file_name == null ? null : file_name.Trim(), transparent, scale);
         }
         [PythonAPI("Returns the standard orientation names set_orientation accepts.", Returns = "StringList")]
         public StringListAPI get_orientation_names()

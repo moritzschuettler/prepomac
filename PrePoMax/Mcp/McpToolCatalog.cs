@@ -142,6 +142,14 @@ namespace PrePoMax.Mcp
                 "of it changes the model.",
                 SessionSchema("\"file_name\": {\"type\": \"string\", \"description\": " +
                               "\"Where to write the .png. Defaults to a file in the temporary folder.\"}, " +
+                              "\"transparent_background\": {\"type\": \"boolean\", \"description\": " +
+                              "\"Leave the viewport background out of the picture, so it can be put on a page " +
+                              "of any color. Defaults to false, which pictures the background the user sees.\"}, " +
+                              "\"magnification\": {\"type\": \"integer\", \"description\": " +
+                              "\"Render the picture this many times larger than the viewport, 1 to 4. Defaults " +
+                              "to 1. It is for a picture that is going to be printed, not for reading a label: " +
+                              "the model is drawn at the larger size, but the legend, the scale bar and the " +
+                              "triad keep the size they have on screen, so they come out smaller.\"}, " +
                               "\"view\": {\"type\": \"string\", \"enum\": [\"geometry\", \"femodel\", " +
                               "\"results\"], \"description\": \"The tree to display first.\"}, " +
                               "\"orientation\": {\"type\": \"string\", \"enum\": [\"Front\", \"Back\", " +
@@ -269,6 +277,8 @@ namespace PrePoMax.Mcp
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 string fileName = JsonReader.GetString(arguments, "file_name", null);
                 if (fileName != null) parameters.Add("file_name", fileName);
+                parameters.Add("transparent_background", JsonReader.GetBool(arguments, "transparent_background", false));
+                parameters.Add("magnification", JsonReader.GetInt(arguments, "magnification", 1));
                 return Call(dispatcher, "screenshot", parameters);
             }
             throw new McpException("There is no tool named " + name + ".");

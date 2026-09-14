@@ -110,7 +110,11 @@ pmx.view.zoom_to_fit()
 ```
 
 `screenshot` then writes a PNG of the viewport and returns its path. Use it when a question is about
-orientation, a selection or a result plot - no amount of reading the model answers those.
+orientation, a selection or a result plot - no amount of reading the model answers those. Its
+`transparent_background` leaves the viewport background out, for a picture that goes onto a page of
+its own, and `magnification` renders it up to four times larger than the viewport, for one that is
+going to be printed - it draws the model larger, not the legend, so it is not the way to read a
+label that is too small.
 
 A report picture is set up the same way. `rotate(azimuth, elevation)` turns a standard view a little,
 `look_at(point, parallel_scale)` frames a detail, `deformation_type` and `undeformed_model` control

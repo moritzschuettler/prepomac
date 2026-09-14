@@ -149,6 +149,7 @@ namespace PrePoMax
         private FrmSettings _frmSettings;
         private FrmQuery _frmQuery;
         private FrmFind _frmFind;
+        private FrmCaptureViewport _frmCaptureViewport;
         private FrmAnalysis _frmAnalysis;
         private FrmMonitor _frmMonitor;
         private FrmAnimation _frmAnimation;
@@ -627,6 +628,11 @@ namespace PrePoMax
                 _frmFind = new FrmFind();
                 _frmFind.Form_RemoveAnnotations = tsbRemoveAnnotations_Click;
                 AddFormToAllForms(_frmFind);
+                //
+                _frmCaptureViewport = new FrmCaptureViewport();
+                _frmCaptureViewport.Form_GetNextFileName = GetNextViewportImageFileName;
+                _frmCaptureViewport.Form_Capture = CaptureViewport;
+                AddFormToAllForms(_frmCaptureViewport);
                 //
                 _frmAnimation = new FrmAnimation();
                 _frmAnimation.Form_ControlsEnable = SetMenuAndToolStripVisibilityByAnimation;
@@ -1608,6 +1614,8 @@ namespace PrePoMax
                 tsmiArrangeAnnotations.Enabled = false;
                 tsmiRemoveAnnotations.Enabled = false;
                 tsmiFind.Enabled = false;
+                tsmiCaptureViewport.Enabled = false;
+                tsmiCaptureViewportAs.Enabled = false;
                 // Results menu
                 foreach (ToolStripItem item in tsmiResults.DropDownItems) item.Enabled = false;
                 tsmiConvertOdbToFrd.Enabled = true;
@@ -1639,6 +1647,8 @@ namespace PrePoMax
                     tsmiParameters.Enabled = true;
                     tsmiQuery.Enabled = true;
                     tsmiFind.Enabled = true;
+                    tsmiCaptureViewport.Enabled = true;
+                    tsmiCaptureViewportAs.Enabled = true;
                     // Toolbar File
                     tsbImport.Enabled = _controller.ModelInitialized;
                     tsbSave.Enabled = true;
@@ -1773,6 +1783,7 @@ namespace PrePoMax
             tsbFollowerView.Enabled = menusActive;
             tsbQuery.Enabled = menusActive;
             tsbRemoveAnnotations.Enabled = menusActive;
+            tsbCapture.Enabled = menusActive;
             tsbShowAllParts.Enabled = menusActive;
             tsbHideAllParts.Enabled = menusActive;
             tsbInvertVisibleParts.Enabled = menusActive;
@@ -7665,6 +7676,30 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        // The fast capture asks nothing: a transparent picture of the viewport as it is, written under
+        // the next free name in the work directory, which is where the rest of the model's files are
+        private void tsmiCaptureViewport_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CaptureViewport(GetNextViewportImageFileName(null), true, 1);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiCaptureViewportAs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ShowForm(_frmCaptureViewport, "Capture Viewport", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiBidirectionalMeshConverter_Click(object sender, EventArgs e)
         {
             try
@@ -7840,10 +7875,61 @@ namespace PrePoMax
             UpdateAutomationServerIndicators();
         }
         // Only the renderer can read its own buffer, so a picture of the viewport is taken here
-        public void SaveAutomationScreenshot(string fileName)
+        public void SaveAutomationScreenshot(string fileName, bool transparentBackground, int magnification)
         {
             if (_vtk == null) throw new CaeException("The 3D view is not available.");
-            InvokeIfRequired(_vtk.RenderToPNG, fileName);
+            InvokeIfRequired(() => _vtk.RenderToPNG(fileName, transparentBackground, magnification));
+        }
+        // The same picture, taken because the user asked for it. The file is named in the output, so
+        // that a capture can be found without opening the folder it was written into
+        private void CaptureViewport(string fileName, bool transparentBackground, int magnification)
+        {
+            SaveAutomationScreenshot(fileName, transparentBackground, magnification);
+            WriteDataToOutput("Viewport captured into: " + fileName);
+        }
+        // The next free numbered name, so that a run of captures collects in one folder and none of
+        // them replaces the one before it. Without a previous picture the name comes from the model
+        // file and lands in the work directory, where the rest of the model's files are; with one it
+        // keeps that picture's folder and base name, so a name the user typed is numbered on from
+        private string GetNextViewportImageFileName(string previousFileName)
+        {
+            string directory;
+            string baseName;
+            if (string.IsNullOrEmpty(previousFileName))
+            {
+                directory = _controller.GetWorkDirectory();
+                if (directory == null || directory.Length == 0 || !Directory.Exists(directory))
+                    throw new CaeException("The work directory does not exist. Set it in Tools - Settings - Solver.");
+                //
+                string openedFileName = _controller.OpenedFileName;
+                baseName = string.IsNullOrEmpty(openedFileName) ? Globals.ViewportImageBaseName
+                                                                : Path.GetFileNameWithoutExtension(openedFileName);
+            }
+            else
+            {
+                directory = Path.GetDirectoryName(previousFileName);
+                baseName = StripImageNumber(Path.GetFileNameWithoutExtension(previousFileName));
+            }
+            //
+            for (int i = 1; i <= 9999; i++)
+            {
+                string fileName = Path.Combine(directory, baseName + "_" + i.ToString("000") + ".png");
+                if (!File.Exists(fileName)) return fileName;
+            }
+            throw new CaeException("The folder " + directory + " already holds a picture under every name based on '" +
+                                   baseName + "'.");
+        }
+        private static string StripImageNumber(string baseName)
+        {
+            int separator = baseName.LastIndexOf('_');
+            if (separator <= 0 || separator != baseName.Length - 4) return baseName;
+            //
+            int number;
+            if (!int.TryParse(baseName.Substring(separator + 1), NumberStyles.None, CultureInfo.InvariantCulture,
+                              out number))
+                return baseName;
+            //
+            return baseName.Substring(0, separator);
         }
         // A session started with -g No has no window anyone is looking at
         public bool IsWindowHidden { get { return _hideWindow; } }
@@ -10211,6 +10297,16 @@ namespace PrePoMax
         private void tsbRemoveAnnotations_Click(object sender, EventArgs e)
         {
             tsmiRemoveAnnotations_Click(sender, e);
+        }
+        private void tsbCapture_Click(object sender, EventArgs e)
+        {
+            tsmiCaptureViewport_Click(sender, e);
+        }
+        // The left button takes the picture the button decides on; the right one opens the dialog that
+        // lets the picture be decided on. A right click raises no Click of its own
+        private void tsbCapture_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right) tsmiCaptureViewportAs_Click(sender, e);
         }
         //
         #endregion  ################################################################################################################

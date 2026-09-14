@@ -731,6 +731,11 @@
     <Compile Include="Forms\63_Find\FrmFind.Designer.cs">
       <DependentUpon>FrmFind.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\64_CaptureViewport\CaptureViewportProperties.cs" />
+    <Compile Include="Forms\64_CaptureViewport\FrmCaptureViewport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\64_CaptureViewport\ViewCaptureViewportProperties.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\LimitPartDataPoint.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\LimitElementSetDataPoint.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\FrmResultFieldOutput.cs">
@@ -1138,6 +1143,9 @@
     <EmbeddedResource Include="Forms\63_Find\FrmFind.resx">
       <DependentUpon>FrmFind.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\64_CaptureViewport\FrmCaptureViewport.resx">
+      <DependentUpon>FrmCaptureViewport.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\71_Analysis\FrmAnalysis.resx">
       <DependentUpon>FrmAnalysis.cs</DependentUpon>
     </EmbeddedResource>
@@ -1279,6 +1287,7 @@
     <None Include="Icons\Step\Defined_field.ico" />
     <None Include="Icons\Material\Remove.ico" />
     <None Include="Icons\Mesh\Part.png" />
+    <None Include="Icons\Tools\Capture.ico" />
     <None Include="Icons\Tools\Query.ico" />
     <None Include="Icons\Tools\Clear_query.ico" />
     <None Include="Icons\Tools\Remove_annotations.ico" />

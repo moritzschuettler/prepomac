@@ -76,6 +76,17 @@ def test_the_plot_type():
     check_raises(lambda: setattr(pmx.view, "result_type", "Rainbow"), "an unknown plot type must be rejected")
 
 
+# The PNG header says everything this has to check: the size after the signature and the IHDR
+# length and tag, then the colour type, which is 2 for RGB and 6 for RGB with an alpha channel
+def read_png_header(path):
+    with open(path, "rb") as stream:
+        header = stream.read(26)
+    check(header[:8] == b"\x89PNG\r\n\x1a\n", "the file must be a PNG: " + path)
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    return width, height, header[25]
+
+
 def test_the_picture():
     camera = list(pmx.view.get_parameters())
     pmx.view.set_orientation("Isometric")
@@ -83,6 +94,8 @@ def test_the_picture():
     path = pmx.view.save_image()
     check(os.path.exists(path), "the image must exist: " + path)
     check(os.path.getsize(path) > 0, "the image must not be empty: " + path)
+    width, height, color_type = read_png_header(path)
+    check(color_type == 2, "the default picture must carry the background it shows: " + str(color_type))
     os.remove(path)
     # A name of its own, and a name that is not a PNG
     named = os.path.join(os.environ["TEMP"], "PyTest_View.png")
@@ -90,6 +103,42 @@ def test_the_picture():
     check(os.path.exists(named), "the named image must exist: " + named)
     os.remove(named)
     check_raises(lambda: pmx.view.save_image("picture.jpg"), "only a .png may be written")
+    pmx.view.set_parameters(camera)
+
+
+def test_the_picture_options():
+    camera = list(pmx.view.get_parameters())
+    pmx.view.set_orientation("Isometric")
+    pmx.view.zoom_to_fit()
+    plain = pmx.view.save_image()
+    width, height, color_type = read_png_header(plain)
+    os.remove(plain)
+    # A transparent background is written with an alpha channel, at the size of the viewport
+    transparent = pmx.view.save_image(None, True)
+    check(read_png_header(transparent) == (width, height, 6),
+          "a transparent picture must be the same size with an alpha channel: " + str(read_png_header(transparent)))
+    os.remove(transparent)
+    # A magnified picture is that many times larger in both directions
+    magnified = pmx.view.save_image(None, False, 2)
+    check(read_png_header(magnified) == (2 * width, 2 * height, 2),
+          "a magnified picture must be twice the size: " + str(read_png_header(magnified)))
+    os.remove(magnified)
+    both = pmx.view.save_image(None, True, 2)
+    check(read_png_header(both) == (2 * width, 2 * height, 6),
+          "the two options must combine: " + str(read_png_header(both)))
+    os.remove(both)
+    # The background the user is looking at must be the one they had before the transparent picture
+    after = pmx.view.save_image()
+    check(read_png_header(after) == (width, height, 2),
+          "the viewport background must be put back: " + str(read_png_header(after)))
+    os.remove(after)
+    # A magnification the renderer will not draw is refused, and nothing is written for it
+    refused = os.path.join(os.environ["TEMP"], "PyTest_View_Refused.png")
+    check_raises(lambda: pmx.view.save_image(refused, False, 0), "a magnification below 1 must be rejected")
+    check_raises(lambda: pmx.view.save_image(refused, False, 5), "a magnification above 4 must be rejected")
+    check_raises(lambda: pmx.view.save_image(refused, False, "big"), "a magnification must be a number")
+    check_raises(lambda: pmx.view.save_image(refused, "maybe"), "a transparent background must be a boolean")
+    check(not os.path.exists(refused), "a refused picture must write nothing: " + refused)
     pmx.view.set_parameters(camera)
 
 
@@ -223,6 +272,7 @@ def main():
     test_the_camera()
     test_the_annotations()
     test_the_picture()
+    test_the_picture_options()
     print("TEST PASSED")
 
 

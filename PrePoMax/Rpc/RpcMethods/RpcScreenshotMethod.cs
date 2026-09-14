@@ -19,16 +19,27 @@ namespace PrePoMax.Rpc
     // read its own buffer. The image is written to a file and the path is returned, because an image
     // does not belong in a JSON answer. A folder the file name points into is created when it is
     // missing, the way the temporary folder is, because a caller collecting pictures for a report
-    // names the folder before anything has been written to it.
+    // names the folder before anything has been written to it. The two options are the ones the
+    // capture dialog offers the user, served by the same renderer call.
     public static class RpcScreenshotMethod
     {
-        // Static methods
+        // Variables                                                                                                                
+        private const int MaxMagnification = 4;
+
+
+        // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {
             string fileName = request.GetString("file_name", null);
             if (fileName == null) fileName = GetTemporaryFileName();
             else if (Path.GetExtension(fileName).ToLower() != ".png")
                 throw new RpcException(RpcErrorCode.InvalidParams, "A screenshot is written as a .png file.");
+            //
+            bool transparentBackground = request.GetBool("transparent_background", false);
+            int magnification = request.GetInt("magnification", 1);
+            if (magnification < 1 || magnification > MaxMagnification)
+                throw new RpcException(RpcErrorCode.InvalidParams, "The magnification must be from 1 to " +
+                                                                    MaxMagnification + ".");
             //
             string directory = Path.GetDirectoryName(fileName);
             if (directory != null && directory.Length > 0 && !Directory.Exists(directory))
@@ -45,7 +56,7 @@ namespace PrePoMax.Rpc
                 }
             }
             //
-            server.Form.SaveAutomationScreenshot(fileName);
+            server.Form.SaveAutomationScreenshot(fileName, transparentBackground, magnification);
             //
             long length = File.Exists(fileName) ? new FileInfo(fileName).Length : 0;
             JsonWriter writer = new JsonWriter();

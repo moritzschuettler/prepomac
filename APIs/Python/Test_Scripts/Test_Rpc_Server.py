@@ -288,6 +288,14 @@ def check_screenshot(client):
     # Only a png is accepted
     error = client.error("screenshot", {"file_name": "viewport.jpg"})
     check(error["code"] == INVALID_PARAMS, "another extension must be refused: " + str(error))
+    # The two options of the capture dialog are served here as well
+    result = client.result("screenshot", {"transparent_background": True, "magnification": 2})
+    check(os.path.exists(result["fileName"]), "the transparent file must exist: " + result["fileName"])
+    check(not result["isEmpty"], "the transparent file must not be empty: " + result["fileName"])
+    print("screenshot: transparent and magnified, " + result["length"] + " bytes")
+    os.remove(result["fileName"])
+    error = client.error("screenshot", {"magnification": 9})
+    check(error["code"] == INVALID_PARAMS, "a magnification of 9 must be refused: " + str(error))
 
 
 def check_second_connection():

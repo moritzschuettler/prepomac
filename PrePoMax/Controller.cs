@@ -428,6 +428,12 @@ namespace PrePoMax
                 }
             }
         }
+        // The folder the solver and the meshers work in, which is also where a file the user did not
+        // name a folder for belongs
+        public string GetWorkDirectory()
+        {
+            return _settings.GetWorkDirectory();
+        }
         public FeMesh DisplayedMesh
         {
             get

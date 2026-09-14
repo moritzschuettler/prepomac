@@ -316,6 +316,14 @@ def journal_the_session(endpoint):
     check(os.path.exists(result["fileName"]), "the screenshot is missing: " + result["fileName"])
     os.remove(result["fileName"])
     print("screenshot: " + result["length"] + " bytes of the solved model")
+    # The picture an agent takes for a report: no background, and rendered larger than the viewport
+    result = endpoint.json_tool("screenshot", {"view": "results", "orientation": "Isometric",
+                                               "zoom_to_fit": True, "transparent_background": True,
+                                               "magnification": 2})
+    check(os.path.exists(result["fileName"]), "the report screenshot is missing: " + result["fileName"])
+    check(not result["isEmpty"], "the report screenshot must not be empty: " + result["fileName"])
+    os.remove(result["fileName"])
+    print("screenshot: " + result["length"] + " bytes, transparent and magnified")
 
 
 def check_a_fast_call_does_not_mark_the_session_busy(endpoint):

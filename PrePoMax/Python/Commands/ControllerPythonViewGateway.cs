@@ -267,7 +267,7 @@ namespace PrePoMax.Python
             //
             ResolveForm().SetStepAndIncrementIds(stepId, incrementId);
         }
-        public string SaveImage(string fileName)
+        public string SaveImage(string fileName, bool transparentBackground, int magnification)
         {
             string path = fileName == null ? GetTemporaryFileName() : fileName;
             if (System.IO.Path.GetExtension(path).ToLower() != ".png")
@@ -277,7 +277,7 @@ namespace PrePoMax.Python
             if (directory != null && directory.Length > 0 && !System.IO.Directory.Exists(directory))
                 throw new PythonAPIException("The directory " + directory + " does not exist.");
             //
-            ResolveForm().SaveAutomationScreenshot(path);
+            ResolveForm().SaveAutomationScreenshot(path, transparentBackground, magnification);
             return path;
         }
         //

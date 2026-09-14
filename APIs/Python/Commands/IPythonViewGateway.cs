@@ -49,6 +49,6 @@ namespace APIs.Python
         bool[] GetMinMaxAnnotations();
         void ShowMinMaxAnnotations(bool showMin, bool showMax);
         //
-        string SaveImage(string fileName);
+        string SaveImage(string fileName, bool transparentBackground, int magnification);
     }
 }

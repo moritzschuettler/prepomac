@@ -68,6 +68,8 @@ namespace PrePoMax
         public static string SettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";
         public static string HistoryFileName = "history.pmh";
+        // The captured viewport is named after the model; this stands in before one is saved
+        public static string ViewportImageBaseName = "Viewport";
         // Settings
         public static string GeneralSettingsName = "General";
         public static string NumberFormatSettingsName = "Number formatting";

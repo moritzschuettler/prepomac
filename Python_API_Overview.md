@@ -1713,7 +1713,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `undeformed_model` | The undeformed model drawn behind a `ColorContours`, `VectorPlot` or `TensorPlot` result: `None`, `WireframeBody` or `SolidBody`. Settable; setting it needs an open result, and is refused for the `Undeformed` and `Deformed` plots, which would discard it. |
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
-| `save_image(file_name=None)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. |
+| `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
 | `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
 
 Part visibility is not here: `hide` and `show` on the part collections are model changes and go
@@ -1728,7 +1728,7 @@ pmx.view.set_legend_range(0, 0.5)
 pmx.view.set_orientation('Isometric')
 pmx.view.rotate(20, 10)
 pmx.view.zoom_to_fit()
-path = pmx.view.save_image()
+path = pmx.view.save_image(None, True, 2)
 pmx.view.reset_legend_range()
 pmx.view.set_parameters(camera)
 ```

@@ -57,6 +57,7 @@ namespace vtkControl
     {
         int countError;
         // Variables                                                                                                                        
+        public const int MaxImageMagnification = 4;
         private bool _renderingOn;
         private bool _userPick;     // used to determine if the selection distance should be limited
         private vtkRenderer _renderer;
@@ -8740,15 +8741,160 @@ namespace vtkControl
         }
         public void RenderToPNG(string fileName)
         {
+            RenderToPNG(fileName, false, 1);
+        }
+        // Nothing a capture renders is meant for the screen. A magnified picture is drawn one tile at
+        // a time and a transparent one is drawn twice over two different backgrounds, and presenting
+        // any of that is the flicker. With the buffer swap switched off the renders stay in the back
+        // buffer, which is also where the picture is read from, so the window goes on showing the
+        // frame it already had until the scene is put back and drawn once at the end
+        public void RenderToPNG(string fileName, bool transparentBackground, int magnification)
+        {
+            if (magnification < 1) magnification = 1;
+            else if (magnification > MaxImageMagnification) magnification = MaxImageMagnification;
+            //
+            int swapBuffers = _renderWindow.GetSwapBuffers();
+            try
+            {
+                if (transparentBackground) WriteTransparentPng(fileName, magnification);
+                else WritePng(fileName, magnification);
+            }
+            finally
+            {
+                _renderWindow.SetSwapBuffers(swapBuffers);
+                _renderWindow.Render();
+            }
+        }
+        private void WritePng(string fileName, int magnification)
+        {
+            vtkPNGWriter pngWriter = vtkPNGWriter.New();
+            pngWriter.SetInputConnection(GetWindowToImageFilter(magnification).GetOutputPort());
+            pngWriter.SetFileName(fileName);
+            pngWriter.Write();
+        }
+        // A transparent picture is composited from two renders of the same scene, one over black and
+        // one over white. The renderer wrote alpha * color + (1 - alpha) * background, so the
+        // difference between the two passes is (1 - alpha) and the black pass alone is the
+        // premultiplied color; that recovers the alpha of an anti-aliased edge exactly. Asking the
+        // render window for an alpha channel instead would need alpha bit planes requested before
+        // the OpenGL context exists and multisampling switched off, and neither is something this
+        // control gives up to take a picture
+        private void WriteTransparentPng(string fileName, int magnification)
+        {
+            // The displayed background is replaced by the two passes and put back before the file is
+            // written, so a failed write still leaves the user looking at their own background
+            double[] background = _renderer.GetBackground();
+            double[] background2 = _renderer.GetBackground2();
+            bool gradientBackground = _renderer.GetGradientBackground();
+            int width;
+            int height;
+            byte[] overBlack;
+            byte[] overWhite;
+            try
+            {
+                _renderer.SetGradientBackground(false);
+                _renderer.SetBackground(0, 0, 0);
+                overBlack = GetRgbPixels(magnification, out width, out height);
+                //
+                _renderer.SetBackground(1, 1, 1);
+                int whiteWidth;
+                int whiteHeight;
+                overWhite = GetRgbPixels(magnification, out whiteWidth, out whiteHeight);
+                if (whiteWidth != width || whiteHeight != height)
+                    throw new CaeException("The viewport changed size while the picture was being taken.");
+            }
+            finally
+            {
+                _renderer.SetGradientBackground(gradientBackground);
+                _renderer.SetBackground(background[0], background[1], background[2]);
+                _renderer.SetBackground2(background2[0], background2[1], background2[2]);
+            }
+            ComposePng(fileName, overBlack, overWhite, width, height);
+        }
+        // The swap is switched off here, next to every render the capture makes, rather than once
+        // around the whole capture, so that it is still off for the second pass even if the filter
+        // restores it after reading the back buffer
+        private vtkWindowToImageFilter GetWindowToImageFilter(int magnification)
+        {
             vtkWindowToImageFilter windowToImage = vtkWindowToImageFilter.New();
             windowToImage.SetInput(_renderWindow);
             windowToImage.SetInputBufferTypeToRGB();
+            windowToImage.SetMagnification(magnification);
+            windowToImage.ReadFrontBufferOff();
+            _renderWindow.SetSwapBuffers(0);
+            return windowToImage;
+        }
+        private byte[] GetRgbPixels(int magnification, out int width, out int height)
+        {
+            vtkWindowToImageFilter windowToImage = GetWindowToImageFilter(magnification);
+            windowToImage.Update();     // renders the scene again, which is what picks up the background
             //
-            vtkPNGWriter pngWriter = vtkPNGWriter.New();
-            pngWriter.SetInputConnection(windowToImage.GetOutputPort());
+            vtkImageData image = windowToImage.GetOutput();
+            int[] dimensions = image.GetDimensions();
+            width = dimensions[0];
+            height = dimensions[1];
+            int numOfComponents = image.GetNumberOfScalarComponents();
+            if (width <= 0 || height <= 0 || numOfComponents != 3)
+                throw new CaeException("The viewport could not be read as an image.");
             //
-            pngWriter.SetFileName(fileName);
-            pngWriter.Write();
+            byte[] pixels = new byte[width * height * numOfComponents];
+            Marshal.Copy(image.GetScalarPointer(), pixels, 0, pixels.Length);
+            return pixels;
+        }
+        private static void ComposePng(string fileName, byte[] overBlack, byte[] overWhite, int width, int height)
+        {
+            using (Bitmap bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            {
+                System.Drawing.Imaging.BitmapData data =
+                    bitmap.LockBits(new Rectangle(0, 0, width, height), System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                                    System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                try
+                {
+                    byte[] row = new byte[width * 4];
+                    for (int y = 0; y < height; y++)
+                    {
+                        // The renderer reads its buffer from the bottom row up, the bitmap from the top down
+                        int readRow = (height - 1 - y) * width * 3;
+                        for (int x = 0; x < width; x++)
+                        {
+                            int read = readRow + 3 * x;
+                            int write = 4 * x;
+                            int alpha = GetAlpha(overBlack, overWhite, read);
+                            // Format32bppArgb is stored blue, green, red, alpha, and is not premultiplied
+                            row[write + 0] = Unpremultiply(overBlack[read + 2], alpha);
+                            row[write + 1] = Unpremultiply(overBlack[read + 1], alpha);
+                            row[write + 2] = Unpremultiply(overBlack[read + 0], alpha);
+                            row[write + 3] = (byte)alpha;
+                        }
+                        Marshal.Copy(row, 0, data.Scan0 + y * data.Stride, row.Length);
+                    }
+                }
+                finally
+                {
+                    bitmap.UnlockBits(data);
+                }
+                bitmap.Save(fileName, System.Drawing.Imaging.ImageFormat.Png);
+            }
+        }
+        // The three channels give the same opacity in exact arithmetic, so averaging them keeps a
+        // channel that rounded the wrong way from tilting the edge
+        private static int GetAlpha(byte[] overBlack, byte[] overWhite, int index)
+        {
+            int opacity = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                int transparency = overWhite[index + i] - overBlack[index + i];
+                if (transparency < 0) transparency = 0;
+                opacity += 255 - transparency;
+            }
+            return (opacity + 1) / 3;
+        }
+        private static byte Unpremultiply(byte premultiplied, int alpha)
+        {
+            if (alpha <= 0) return 0;
+            //
+            int value = (premultiplied * 255 + alpha / 2) / alpha;
+            return value > 255 ? (byte)255 : (byte)value;
         }
 
         #endregion #################################################################################################################
