@@ -1172,7 +1172,7 @@ arguments of its `add_*`, all optional.
 | --- | --- | --- |
 | `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. |
 | `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None)` | surfaces, surfaces, elements | A cyclic symmetry. |
-| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld. |
+| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. |
 | `add_rigid_body(name, reference_point_name, region)` | nodes | A rigid body. |
 | `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None)` | surfaces | A kinematic coupling. |
 | `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None)` | surfaces | A distributing coupling. |
@@ -1206,15 +1206,28 @@ region**, used only when `number_of_graph_sectors` is larger than 1. Giving it w
 sector is rejected, because the application would discard it. `sector_angle_deg` is derived as
 `360 / number_of_sectors` and is read through `get_value`.
 
-A **joint** connects two surfaces of a 3D model. Each surface becomes a rigid body whose reference and
-rotation nodes are written at the joint centre, and the reference and rotation nodes of the two sides
-are coupled by `*EQUATION` cards according to `joint_type`: `Hinge`, `Cylindrical`, `Slider`, `Ball`
-or `Weld`. Written this way the joint is exact for a ball and a weld, and for a hinge, cylindrical or
-slider joint whose axis direction stays fixed in space. `center_defined_by` and `axis_defined_by` are
-`MasterSurface` or `UserDefined`; the master surface gives its centroid and, when it is cylindrical,
-its axis. A given `center` or `axis_direction` switches the matching definition to `UserDefined`. The
-values read back through `get_value` are `joint_type`, `center_definition`, `x`, `y`, `z`,
-`axis_definition`, `n1`, `n2` and `n3`.
+A **joint** connects two surfaces of a 3D model and locks their relative motion about the joint centre
+according to `joint_type`: `Hinge`, `Cylindrical`, `Slider`, `Ball` or `Weld`. `center_defined_by` is
+`MasterSurface` or `Coordinates` and `axis_defined_by` is `MasterSurface` or `UserDefined`; the master
+surface gives its centroid and, when it is cylindrical, its axis. A given `center` switches the centre
+to `Coordinates` and a given `axis_direction` switches the axis to `UserDefined`. The dialog offers
+three further centre modes - `OnPoint`, `BetweenTwoPoints` and `CircleCenter` - which pick one, two or
+three nodes in the viewport and resolve to the centre coordinates; a script cannot pick, so they are
+refused here and `center` is given instead. A session journal emits a picked centre as `Coordinates`
+and the coordinates it resolved to.
+
+`formulation` decides how the joint is written. `RigidBody`, the default, makes each surface a rigid
+body whose reference and rotation nodes sit at the joint centre and couples the two sides by
+`*EQUATION` cards; it is exact for a ball and a weld, and for a hinge, cylindrical or slider joint
+whose axis direction stays fixed in space, but a rigid body on shell elements does not converge in a
+geometrically nonlinear step. `Springs` connects every surface node by axial `SPRINGA` elements to a
+frame of nodes on the joint axis and ties the master and slave frames by linear equations; it needs
+no rigid body, solves on shell elements, and is as stiff as its springs. `stiffness_defined_by` is
+`FromModel`, where each spring gets 100 times the Young's modulus of the surfaces times the square
+root of the surface area divided by the number of surface nodes, or `UserDefined`; a given `stiffness`
+switches it to `UserDefined` and must be positive. The values read back through `get_value` are
+`joint_type`, `center_definition`, `x`, `y`, `z`, `axis_definition`, `n1`, `n2`, `n3`, `formulation`,
+`stiffness_definition` and `stiffness`.
 
 ### `SurfaceInteractions`
 

@@ -234,7 +234,14 @@ namespace PrePoMax.Forms
                 }
                 else if (_viewConstraint is ViewJoint vj)
                 {
-                    _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
+                    Joint propertyJoint = (Joint)vj.GetBase();
+                    // A centre that is no longer picked keeps its coordinates but not the nodes they came from
+                    if (!propertyJoint.IsCenterFromSelection)
+                    {
+                        propertyJoint.CenterCreationIds = null;
+                        propertyJoint.CenterCreationData = null;
+                    }
+                    _controller.Model.UpdateJointAutoValues(propertyJoint);
                     propertyGrid.Refresh();
                     if (property == nameof(ViewJoint.JointType) || property == nameof(ViewJoint.CenterDefinition) ||
                         property == nameof(ViewJoint.AxisDefinition))
@@ -317,7 +324,8 @@ namespace PrePoMax.Forms
                     throw new CaeException("The joint slave region selection must contain at least one item.");
                 // Check for errors with the appropriate constructor
                 var tmp = new Joint(joint.Name, joint.JointType, joint.CenterDefinition, joint.GetCenter(),
-                                    joint.AxisDefinition, joint.GetAxisDirection(), joint.MasterRegionName,
+                                    joint.AxisDefinition, joint.GetAxisDirection(), joint.Formulation,
+                                    joint.StiffnessDefinition, joint.Stiffness.Value, joint.MasterRegionName,
                                     joint.MasterRegionType, joint.SlaveRegionName, joint.SlaveRegionType,
                                     _controller.Model.Properties.ModelSpace.IsTwoD());
             }
@@ -1044,6 +1052,13 @@ namespace PrePoMax.Forms
             //
             SetSelectItem();
         }
+        private bool IsJointCenterSelectedForSelection()
+        {
+            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return false;
+            //
+            return Constraint is Joint joint && joint.IsCenterFromSelection &&
+                   propertyGrid.SelectedGridItem.PropertyDescriptor.Name == nameof(ViewJoint.CenterDefinition);
+        }
         private void SetSelectItem()
         {
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
@@ -1084,9 +1099,21 @@ namespace PrePoMax.Forms
             {
                 if ((joint.MasterRegionType == RegionTypeEnum.Selection && property == nameof(ViewJoint.MasterRegionType)) ||
                     (joint.SlaveRegionType == RegionTypeEnum.Selection && property == nameof(ViewJoint.SlaveRegionType)))
+                {
                     _controller.SetSelectItemToSurface();
+                    _controller.Selection.MaxNumberOfItemIds = -1;
+                }
+                else if (IsJointCenterSelectedForSelection())
+                {
+                    _controller.SetSelectItemToNode();
+                    // Limit the number of selected nodes to the number the joint centre mode takes
+                    _controller.Selection.MaxNumberOfItemIds = joint.NumberOfCenterNodes;
+                }
                 else
+                {
                     _controller.SetSelectByToOff();
+                    _controller.Selection.MaxNumberOfItemIds = -1;
+                }
             }
             else if (Constraint is Tie tie)
             {
@@ -1135,19 +1162,14 @@ namespace PrePoMax.Forms
                         changed = true;
                     }
                 }
-                else if (_viewConstraint is ViewJoint vj &&
-                         propertyGrid.SelectedGridItem != null &&
-                         propertyGrid.SelectedGridItem.PropertyDescriptor != null &&
-                         propertyGrid.SelectedGridItem.PropertyDescriptor.Name == nameof(ViewJoint.CenterItemSet))
+                else if (_viewConstraint is ViewJoint vj && IsJointCenterSelectedForSelection())
                 {
-                    if (ids != null && ids.Length == 1)
-                    {
-                        FeNode node = _controller.Model.Mesh.Nodes[ids[0]];
-                        vj.X = new EquationString(node.X.ToString());
-                        vj.Y = new EquationString(node.Y.ToString());
-                        vj.Z = new EquationString(node.Z.ToString());
-                        changed = true;
-                    }
+                    Joint centerJoint = (Joint)vj.GetBase();
+                    centerJoint.CenterCreationIds = ids;
+                    centerJoint.CenterCreationData = _controller.Selection.DeepCopy(true, false);
+                    // The picked nodes give the centre coordinates
+                    _controller.Model.UpdateJointAutoValues(centerJoint);
+                    changed = true;
                 }
                 else if (Constraint is PointSpring ps)
                 {

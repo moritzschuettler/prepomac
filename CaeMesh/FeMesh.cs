@@ -8108,31 +8108,45 @@ namespace CaeMesh
         }
         private double[] GetCSCoordinatesFromSelectionIds(CsPointCreatedFromEnum createdFrom, int[] creationIds)
         {
-            double[] coor = new double[3];
+            int numberOfNodes;
+            if (createdFrom == CsPointCreatedFromEnum.OnPoint) numberOfNodes = 1;
+            else if (createdFrom == CsPointCreatedFromEnum.BetweenTwoPoints) numberOfNodes = 2;
+            else if (createdFrom == CsPointCreatedFromEnum.CircleCenter) numberOfNodes = 3;
+            else return null;
             //
-            if (createdFrom == CsPointCreatedFromEnum.OnPoint && creationIds != null && creationIds.Length == 1)
+            if (creationIds == null || creationIds.Length != numberOfNodes) return null;
+            //
+            return GetPointFromNodeIds(creationIds);
+        }
+        public double[] GetPointFromNodeIds(int[] nodeIds)
+        {
+            // One node is the point itself, two nodes the point midway between them and three nodes the centre
+            // of the circle they lie on
+            if (nodeIds == null) return null;
+            //
+            if (nodeIds.Length == 1)
             {
-                Vec3D center = new Vec3D(_nodes[creationIds[0]].Coor);
-                coor = center.Coor;
+                if (!_nodes.ContainsKey(nodeIds[0])) return null;
+                return new Vec3D(_nodes[nodeIds[0]].Coor).Coor;
             }
-            else if (createdFrom == CsPointCreatedFromEnum.BetweenTwoPoints && creationIds != null && creationIds.Length == 2)
+            else if (nodeIds.Length == 2)
             {
-                Vec3D v1 = new Vec3D(_nodes[creationIds[0]].Coor);
-                Vec3D v2 = new Vec3D(_nodes[creationIds[1]].Coor);
-                Vec3D center = (v1 + v2) * 0.5;
-                coor = center.Coor;
+                if (!_nodes.ContainsKey(nodeIds[0]) || !_nodes.ContainsKey(nodeIds[1])) return null;
+                Vec3D v1 = new Vec3D(_nodes[nodeIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[nodeIds[1]].Coor);
+                return ((v1 + v2) * 0.5).Coor;
             }
-            else if (createdFrom == CsPointCreatedFromEnum.CircleCenter && creationIds != null && creationIds.Length == 3)
+            else if (nodeIds.Length == 3)
             {
-                Vec3D v1 = new Vec3D(_nodes[creationIds[0]].Coor);
-                Vec3D v2 = new Vec3D(_nodes[creationIds[1]].Coor);
-                Vec3D v3 = new Vec3D(_nodes[creationIds[2]].Coor);
+                if (!_nodes.ContainsKey(nodeIds[0]) || !_nodes.ContainsKey(nodeIds[1]) ||
+                    !_nodes.ContainsKey(nodeIds[2])) return null;
+                Vec3D v1 = new Vec3D(_nodes[nodeIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[nodeIds[1]].Coor);
+                Vec3D v3 = new Vec3D(_nodes[nodeIds[2]].Coor);
                 Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
-                coor = center.Coor;
+                return center.Coor;
             }
-            else coor = null;
-            //
-            return coor;
+            else return null;
         }
         #endregion #################################################################################################################
 

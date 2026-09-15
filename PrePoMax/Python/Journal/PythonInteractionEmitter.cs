@@ -106,12 +106,24 @@ namespace PrePoMax.Python.Journal
             {
                 AddMasterSlave(writer, arguments, constraint);
                 arguments.Add("joint_type=" + PythonValueFormatter.Text(joint.JointType.ToString()));
-                arguments.Add("center_defined_by=" + PythonValueFormatter.Text(joint.CenterDefinition.ToString()));
-                if (joint.CenterDefinition == JointDefinitionEnum.UserDefined)
-                    arguments.Add("center=" + Point(joint.X, joint.Y, joint.Z));
+                // A centre picked in the viewport is emitted as the coordinates it resolved to, which is what
+                // the picking produced and what a script can reproduce
+                bool centerFromMasterSurface = joint.CenterDefinition == JointCenterDefinitionEnum.MasterSurface;
+                arguments.Add("center_defined_by=" +
+                              PythonValueFormatter.Text(centerFromMasterSurface ?
+                                                        JointCenterDefinitionEnum.MasterSurface.ToString() :
+                                                        JointCenterDefinitionEnum.Coordinates.ToString()));
+                if (!centerFromMasterSurface) arguments.Add("center=" + Point(joint.X, joint.Y, joint.Z));
                 arguments.Add("axis_defined_by=" + PythonValueFormatter.Text(joint.AxisDefinition.ToString()));
                 if (joint.AxisDefinition == JointDefinitionEnum.UserDefined)
                     arguments.Add("axis_direction=" + Point(joint.N1, joint.N2, joint.N3));
+                arguments.Add("formulation=" + PythonValueFormatter.Text(joint.Formulation.ToString()));
+                if (joint.HasSprings)
+                {
+                    arguments.Add("stiffness_defined_by=" + PythonValueFormatter.Text(joint.StiffnessDefinition.ToString()));
+                    if (joint.HasUserDefinedStiffness)
+                        arguments.Add("stiffness=" + PythonValueFormatter.Equation(joint.Stiffness));
+                }
                 return "joint";
             }
             if (constraint is DistributingCoupling distributing)

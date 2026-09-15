@@ -167,7 +167,8 @@ namespace FileInOut.Output
                                                  ref equationParameters);
                 // Collect joint constraints
                 Dictionary<string, CalReferencePoint[]> jointReferencePoints;
-                GetJointData(model, ref maxNodeId, ref additionalNodes, ref additionalNodeSets,
+                GetJointData(model, ref maxNodeId, ref maxElementId, ref additionalNodes, ref additionalNodeSets,
+                             ref additionalElementKeywords, ref additionalElementSetNames, ref additionalSectionData,
                              ref additionalBoundaryConditions, ref equationParameters, out jointReferencePoints);
                 Dictionary<string, string> cyclicSymmetryElementSetNames =
                     PrepareCyclicSymmetryElementSets(model);
@@ -1649,8 +1650,10 @@ namespace FileInOut.Output
             }
             return elementSetNames;
         }
-        static private void GetJointData(FeModel model, ref int maxNodeId, ref List<FeNode> additionalNodes,
-                                         ref List<FeNodeSet> additionalNodeSets,
+        static private void GetJointData(FeModel model, ref int maxNodeId, ref int maxElementId, ref List<FeNode> additionalNodes,
+                                         ref List<FeNodeSet> additionalNodeSets, ref List<CalElement> additionalElementKeywords,
+                                         ref HashSet<string> additionalElementSetNames,
+                                         ref List<SectionData> additionalSectionData,
                                          ref List<BoundaryCondition> additionalBoundaryConditions,
                                          ref List<double[]> equationParameters,
                                          out Dictionary<string, CalReferencePoint[]> jointReferencePoints)
@@ -1663,11 +1666,19 @@ namespace FileInOut.Output
             int fixedNodeId = 0;
             CalReferencePoint master;
             CalReferencePoint slave;
+            HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
             foreach (var entry in model.Constraints)
             {
                 if (entry.Value is Joint joint && joint.Active && joint.Valid &&
                     model.TryGetJointCenterAndAxis(joint, out center, out axis))
                 {
+                    if (joint.Formulation == JointFormulationEnum.Springs)
+                    {
+                        AddJointSprings(model, joint, center, axis, ref maxNodeId, ref maxElementId, ref additionalNodes,
+                                        ref additionalElementKeywords, ref additionalElementSetNames, ref additionalSectionData,
+                                        equationParameters, reservedElementSetNames);
+                        continue;
+                    }
                     // A relative motion the joint locks completely is expressed by the two rigid bodies sharing the
                     // node that carries it, both placed at the joint centre. Calculix crashes on a rigid body whose
                     // rotation node is tied to another one by an equation, and on one whose rotation node is tied by
@@ -1698,6 +1709,160 @@ namespace FileInOut.Output
                                                            ref additionalNodeSets, ref additionalBoundaryConditions);
                     AddJointEquations(joint.JointType, axis, master, slave, fixedNodeId, equationParameters);
                 }
+            }
+        }
+        static private void AddJointSprings(FeModel model, Joint joint, double[] center, double[] axis, ref int maxNodeId,
+                                            ref int maxElementId, ref List<FeNode> additionalNodes,
+                                            ref List<CalElement> additionalElementKeywords,
+                                            ref HashSet<string> additionalElementSetNames,
+                                            ref List<SectionData> additionalSectionData, List<double[]> equationParameters,
+                                            HashSet<string> reservedElementSetNames)
+        {
+            // Every region node is connected by axial springs to a frame of nodes on the joint axis, so that a frame node
+            // follows the rigid motion of its own position, and the master and slave frames are tied by linear equations
+            // between plain nodes. A node has no rotational degrees of freedom, so a frame has two axis nodes to carry the
+            // tilt and, when the rotation about the axis is locked, a third node off the axis
+            if (axis == null) axis = new double[] { 0, 0, 1 };
+            int[] masterNodeIds = model.Mesh.NodeSets[model.Mesh.Surfaces[joint.MasterRegionName].NodeSetName].Labels;
+            int[] slaveNodeIds = model.Mesh.NodeSets[model.Mesh.Surfaces[joint.SlaveRegionName].NodeSetName].Labels;
+            double[][] offsets = GetJointFrameOffsets(model, joint.JointType, center, axis, masterNodeIds, slaveNodeIds);
+            double stiffness = model.GetJointSpringStiffness(joint);
+            //
+            int[] masterFrame = AddJointFrame(center, offsets, ref maxNodeId, ref additionalNodes);
+            int[] slaveFrame = AddJointFrame(center, offsets, ref maxNodeId, ref additionalNodes);
+            //
+            List<FeElement> springs = new List<FeElement>();
+            AddJointSpringSet(model, joint.Name + "_Master_Springs", masterNodeIds, masterFrame, stiffness, ref maxElementId,
+                              ref additionalElementSetNames, ref additionalSectionData, reservedElementSetNames, springs);
+            AddJointSpringSet(model, joint.Name + "_Slave_Springs", slaveNodeIds, slaveFrame, stiffness, ref maxElementId,
+                              ref additionalElementSetNames, ref additionalSectionData, reservedElementSetNames, springs);
+            string name = joint.Name + "_Springs";
+            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+            reservedElementSetNames.Add(name);
+            additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRINGA.ToString(), name, springs));
+            //
+            AddJointFrameEquations(joint.JointType, axis, masterFrame, slaveFrame, equationParameters);
+        }
+        static private double[][] GetJointFrameOffsets(FeModel model, JointTypeEnum jointType, double[] center, double[] axis,
+                                                       int[] masterNodeIds, int[] slaveNodeIds)
+        {
+            // The frame nodes stand as far from the centre as the farthest region node, which gives the tilt and the
+            // rotation about the axis a lever arm at least as long as the regions themselves
+            double distance = 0;
+            double[] coor;
+            foreach (int[] nodeIds in new int[][] { masterNodeIds, slaveNodeIds })
+            {
+                foreach (int nodeId in nodeIds)
+                {
+                    coor = model.Mesh.Nodes[nodeId].Coor;
+                    distance = Math.Max(distance, Math.Sqrt(Math.Pow(coor[0] - center[0], 2) + Math.Pow(coor[1] - center[1], 2) +
+                                                            Math.Pow(coor[2] - center[2], 2)));
+                }
+            }
+            if (distance <= 0) distance = 1;
+            //
+            if (jointType == JointTypeEnum.Ball) return new double[][] { new double[3] };
+            //
+            double[] along = new double[] { distance * axis[0], distance * axis[1], distance * axis[2] };
+            double[] back = new double[] { -along[0], -along[1], -along[2] };
+            if (jointType == JointTypeEnum.Hinge || jointType == JointTypeEnum.Cylindrical) return new double[][] { back, along };
+            //
+            double[] normal = GetPerpendicularDirections(axis)[0];
+            double[] aside = new double[] { distance * normal[0], distance * normal[1], distance * normal[2] };
+            return new double[][] { back, along, aside };
+        }
+        static private int[] AddJointFrame(double[] center, double[][] offsets, ref int maxNodeId, ref List<FeNode> additionalNodes)
+        {
+            int[] frame = new int[offsets.Length];
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                frame[i] = ++maxNodeId;
+                additionalNodes.Add(new FeNode(frame[i], new double[] { center[0] + offsets[i][0], center[1] + offsets[i][1],
+                                                                        center[2] + offsets[i][2] }));
+            }
+            return frame;
+        }
+        static private void AddJointSpringSet(FeModel model, string name, int[] nodeIds, int[] frame, double stiffness,
+                                              ref int maxElementId, ref HashSet<string> additionalElementSetNames,
+                                              ref List<SectionData> additionalSectionData,
+                                              HashSet<string> reservedElementSetNames, List<FeElement> springs)
+        {
+            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+            reservedElementSetNames.Add(name);
+            //
+            List<int> elementIds = new List<int>();
+            foreach (int nodeId in nodeIds)
+            {
+                foreach (int frameNodeId in frame)
+                {
+                    springs.Add(new LinearSpringElement(++maxElementId, new int[] { nodeId, frameNodeId }));
+                    elementIds.Add(maxElementId);
+                }
+            }
+            FeElementSet elementSet = new FeElementSet(name, elementIds.ToArray());
+            model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
+            additionalElementSetNames.Add(elementSet.Name);
+            // A spring section without a direction is an axial spring
+            additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, 0, stiffness));
+        }
+        static private void AddJointFrameEquations(JointTypeEnum jointType, double[] axis, int[] masterFrame, int[] slaveFrame,
+                                                   List<double[]> equationParameters)
+        {
+            // The frames carry exactly the motions a hinge, a ball and a weld free, so every component of every node pair
+            // is tied. A cylindrical joint and a slider free the axial translation, so only the components perpendicular to
+            // the axis are tied, and the slider locks the rotation about the axis by giving all node pairs the same axial
+            // motion
+            bool axialFree = jointType == JointTypeEnum.Cylindrical || jointType == JointTypeEnum.Slider;
+            int[] dependentDofs;
+            for (int i = 0; i < masterFrame.Length; i++)
+            {
+                if (!axialFree)
+                {
+                    for (int dof = 1; dof <= 3; dof++)
+                        equationParameters.Add(new double[] { slaveFrame[i], dof, 1, masterFrame[i], dof, -1 });
+                    continue;
+                }
+                dependentDofs = AddPerpendicularEquations(axis, slaveFrame[i], masterFrame[i], 0, equationParameters);
+                if (i > 0 && jointType == JointTypeEnum.Slider)
+                    AddCommonAxialEquation(axis, slaveFrame[i], masterFrame[i], slaveFrame[0], masterFrame[0], dependentDofs,
+                                           equationParameters);
+            }
+        }
+        static private void AddCommonAxialEquation(double[] axis, int dependentNodeId, int independentNodeId,
+                                                   int firstDependentNodeId, int firstIndependentNodeId, int[] usedDependentDofs,
+                                                   List<double[]> equationParameters)
+        {
+            // a.(u_s - u_m) - a.(u_s1 - u_m1) = 0, led by the degree of freedom of the slave node no other equation leads with
+            int dependentDof = 0;
+            double max = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                if (Array.IndexOf(usedDependentDofs, i + 1) < 0 && Math.Abs(axis[i]) > max)
+                {
+                    max = Math.Abs(axis[i]);
+                    dependentDof = i + 1;
+                }
+            }
+            if (dependentDof == 0) return;
+            //
+            List<double> parameters = new List<double>();
+            parameters.Add(dependentNodeId);
+            parameters.Add(dependentDof);
+            parameters.Add(axis[dependentDof - 1]);
+            AddEquationTerms(parameters, dependentNodeId, axis, 1, dependentDof);
+            AddEquationTerms(parameters, independentNodeId, axis, -1, 0);
+            AddEquationTerms(parameters, firstDependentNodeId, axis, -1, 0);
+            AddEquationTerms(parameters, firstIndependentNodeId, axis, 1, 0);
+            equationParameters.Add(parameters.ToArray());
+        }
+        static private void AddEquationTerms(List<double> parameters, int nodeId, double[] direction, double sign, int skipDof)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                if (i + 1 == skipDof || Math.Abs(direction[i]) < SmallestEquationCoefficient) continue;
+                parameters.Add(nodeId);
+                parameters.Add(i + 1);
+                parameters.Add(sign * direction[i]);
             }
         }
         static private bool AllTranslationsLocked(JointTypeEnum jointType)
@@ -1752,13 +1917,14 @@ namespace FileInOut.Output
             //
             return fixedNodeId;
         }
-        static private void AddPerpendicularEquations(double[] axis, int dependentNodeId, int independentNodeId,
-                                                      int fixedNodeId, List<double[]> equationParameters)
+        static private int[] AddPerpendicularEquations(double[] axis, int dependentNodeId, int independentNodeId,
+                                                       int fixedNodeId, List<double[]> equationParameters)
         {
             // The relative motion has no component perpendicular to the axis. A degree of freedom may be the dependent
-            // one of a single equation, so each equation leads with a different degree of freedom of the slave node
+            // one of a single equation, so each equation leads with a different degree of freedom of the slave node,
+            // and the degrees of freedom used are returned for the equations that follow
             double[][] normals = GetPerpendicularDirections(axis);
-            int usedDependentDof = 0;
+            List<int> usedDependentDofs = new List<int>();
             int dependentDof;
             double max;
             List<double> parameters;
@@ -1768,13 +1934,13 @@ namespace FileInOut.Output
                 max = 0;
                 for (int i = 0; i < 3; i++)
                 {
-                    if (i + 1 != usedDependentDof && Math.Abs(normal[i]) > max)
+                    if (!usedDependentDofs.Contains(i + 1) && Math.Abs(normal[i]) > max)
                     {
                         max = Math.Abs(normal[i]);
                         dependentDof = i + 1;
                     }
                 }
-                usedDependentDof = dependentDof;
+                usedDependentDofs.Add(dependentDof);
                 //
                 parameters = new List<double>();
                 parameters.Add(dependentNodeId);
@@ -1805,6 +1971,7 @@ namespace FileInOut.Output
                 }
                 equationParameters.Add(parameters.ToArray());
             }
+            return usedDependentDofs.ToArray();
         }
         static private double[][] GetPerpendicularDirections(double[] axis)
         {

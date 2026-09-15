@@ -726,7 +726,7 @@ namespace CaeModel
             axis = null;
             //
             Dictionary<FeFaceName, List<int>> faces = null;
-            bool centerFromFaces = joint.CenterDefinition == JointDefinitionEnum.MasterSurface;
+            bool centerFromFaces = joint.CenterDefinition == JointCenterDefinitionEnum.MasterSurface;
             bool axisFromFaces = joint.HasAxis && joint.AxisDefinition == JointDefinitionEnum.MasterSurface;
             if ((centerFromFaces || axisFromFaces) && !TryGetJointMasterElementFaces(joint, out faces)) return false;
             //
@@ -763,11 +763,26 @@ namespace CaeModel
         {
             // The values the master surface defines are kept in the joint, so that they can be shown and so that
             // they are the starting point when the definition is switched to user defined
+            double stiffness;
+            if (joint.HasSprings && joint.StiffnessDefinition == JointStiffnessDefinitionEnum.FromModel &&
+                TryGetJointSpringStiffnessFromModel(joint, out stiffness))
+                joint.Stiffness.SetEquationFromValue(stiffness);
+            // A selected centre is resolved to coordinates as soon as the nodes the mode asks for are picked
+            double[] point;
+            if (joint.IsCenterFromSelection && joint.CenterCreationIds != null &&
+                joint.CenterCreationIds.Length == joint.NumberOfCenterNodes &&
+                (point = _mesh.GetPointFromNodeIds(joint.CenterCreationIds)) != null)
+            {
+                joint.X.SetEquationFromValue(point[0]);
+                joint.Y.SetEquationFromValue(point[1]);
+                joint.Z.SetEquationFromValue(point[2]);
+            }
+            //
             Dictionary<FeFaceName, List<int>> faces;
             double[] values;
             if (!TryGetJointMasterElementFaces(joint, out faces)) return;
             //
-            if (joint.CenterDefinition == JointDefinitionEnum.MasterSurface && TryGetFacesCenter(faces, out values))
+            if (joint.CenterDefinition == JointCenterDefinitionEnum.MasterSurface && TryGetFacesCenter(faces, out values))
             {
                 joint.X.SetEquationFromValue(values[0]);
                 joint.Y.SetEquationFromValue(values[1]);
@@ -780,6 +795,88 @@ namespace CaeModel
                 joint.N2.SetEquationFromValue(Math.Round(values[1], 6));
                 joint.N3.SetEquationFromValue(Math.Round(values[2], 6));
             }
+        }
+        public double GetJointSpringStiffness(Joint joint)
+        {
+            double stiffness;
+            if (joint.StiffnessDefinition == JointStiffnessDefinitionEnum.UserDefined) return joint.Stiffness.Value;
+            if (TryGetJointSpringStiffnessFromModel(joint, out stiffness)) return stiffness;
+            //
+            throw new CaeException("The spring stiffness of the joint '" + joint.Name + "' cannot be determined from the " +
+                                   "model. Both regions must exist and their elements must carry a section with an elastic " +
+                                   "material; otherwise define the stiffness.");
+        }
+        public bool TryGetJointSpringStiffnessFromModel(Joint joint, out double stiffness)
+        {
+            // The springs of a region together carry 100 E sqrt(A), which keeps the joint far stiffer than the regions it
+            // connects whatever the mesh. E is the largest Young's modulus of the region elements; while they have no
+            // section yet, which the model check reports, the largest one in the model stands in
+            stiffness = 0;
+            FeSurface surface;
+            double area = 0;
+            int nodeCount = 0;
+            double youngsModulus = 0;
+            foreach (string surfaceName in new string[] { joint.MasterRegionName, joint.SlaveRegionName })
+            {
+                if (surfaceName == null || !_mesh.Surfaces.TryGetValue(surfaceName, out surface) ||
+                    surface.ElementFaces == null) return false;
+                area += surface.Area;
+                nodeCount += GetSurfaceNodeCount(surface);
+                youngsModulus = Math.Max(youngsModulus, GetSurfaceYoungsModulus(surface));
+            }
+            if (area <= 0 || nodeCount == 0) return false;
+            if (youngsModulus <= 0)
+            {
+                foreach (var entry in _materials) youngsModulus = Math.Max(youngsModulus, GetYoungsModulus(entry.Value));
+            }
+            if (youngsModulus <= 0) youngsModulus = 1;
+            //
+            stiffness = 100 * youngsModulus * Math.Sqrt(area / 2) / (nodeCount / 2.0);
+            return true;
+        }
+        private int GetSurfaceNodeCount(FeSurface surface)
+        {
+            // Counted from the element faces, which a surface carries before its node set is created
+            HashSet<int> nodeIds = new HashSet<int>();
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    nodeIds.UnionWith(_mesh.Elements[elementId].GetNodeIdsFromFaceName(entry.Key));
+                }
+            }
+            return nodeIds.Count;
+        }
+        private double GetSurfaceYoungsModulus(FeSurface surface)
+        {
+            Dictionary<int, int> elementIdSectionId;
+            List<Section> sections;
+            GetSectionAssignments(out elementIdSectionId, out sections);
+            //
+            int sectionId;
+            Material material;
+            double youngsModulus = 0;
+            if (surface.ElementFaces == null) return youngsModulus;
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    if (!elementIdSectionId.TryGetValue(elementId, out sectionId) || sectionId < 0) continue;
+                    if (sections[sectionId].MaterialName == null ||
+                        !_materials.TryGetValue(sections[sectionId].MaterialName, out material)) continue;
+                    youngsModulus = Math.Max(youngsModulus, GetYoungsModulus(material));
+                }
+            }
+            return youngsModulus;
+        }
+        private static double GetYoungsModulus(Material material)
+        {
+            foreach (var property in material.Properties)
+            {
+                if (property is Elastic elastic && elastic.YoungsPoissonsTemp.Length > 0 &&
+                    elastic.YoungsPoissonsTemp[0].Length > 0) return elastic.YoungsPoissonsTemp[0][0].Value;
+            }
+            return 0;
         }
         private bool TryGetJointMasterElementFaces(Joint joint, out Dictionary<FeFaceName, List<int>> faces)
         {

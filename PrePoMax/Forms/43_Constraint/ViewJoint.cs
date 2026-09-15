@@ -26,7 +26,6 @@ namespace PrePoMax
     {
         // Variables
         private Joint _joint;
-        private ItemSetData _centerItemSetData;
 
 
         // Properties
@@ -46,12 +45,30 @@ namespace PrePoMax
                 UpdateJointVisibility();
             }
         }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(2, 10, "Formulation")]
+        [DescriptionAttribute("Select how the joint is written for the solver: as two rigid bodies, which is exact, or as " +
+                              "axial springs from the region nodes to nodes on the joint axis, which needs no rigid body " +
+                              "and solves on shell elements.")]
+        [Id(3, 1)]
+        public JointFormulationEnum Formulation
+        {
+            get { return _joint.Formulation; }
+            set
+            {
+                _joint.Formulation = value;
+                UpdateJointVisibility();
+            }
+        }
         // CENTRE ------------------------------------------------------------------------------------------------------------------
         [CategoryAttribute("Joint centre")]
         [OrderedDisplayName(0, 10, "Defined by")]
-        [DescriptionAttribute("Select how the joint centre, at which the two regions are connected, is defined.")]
-        [Id(1, 2)]
-        public JointDefinitionEnum CenterDefinition
+        [DescriptionAttribute("Select how the joint centre, at which the two regions are connected, is defined. The point " +
+                              "selection modes take the nodes selected in the viewport: one node, two nodes whose midpoint " +
+                              "is the centre, or three nodes on a circle whose centre is the joint centre.")]
+        [Id(1, 4)]
+        public JointCenterDefinitionEnum CenterDefinition
         {
             get { return _joint.CenterDefinition; }
             set
@@ -62,44 +79,30 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Joint centre")]
-        [OrderedDisplayName(1, 10, "By selection")]
-        [DescriptionAttribute("Select a node at the joint centre.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(2, 2)]
-        public ItemSetData CenterItemSet
-        {
-            get { return _centerItemSetData; }
-            set
-            {
-                if (value != _centerItemSetData) _centerItemSetData = value;
-            }
-        }
-        //
-        [CategoryAttribute("Joint centre")]
-        [OrderedDisplayName(2, 10, "X")]
+        [OrderedDisplayName(1, 10, "X")]
         [DescriptionAttribute("X coordinate of the joint centre.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(3, 2)]
+        [Id(2, 4)]
         public EquationString X { get { return _joint.X.Equation; } set { _joint.X.Equation = value; } }
         //
         [CategoryAttribute("Joint centre")]
-        [OrderedDisplayName(3, 10, "Y")]
+        [OrderedDisplayName(2, 10, "Y")]
         [DescriptionAttribute("Y coordinate of the joint centre.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(4, 2)]
+        [Id(3, 4)]
         public EquationString Y { get { return _joint.Y.Equation; } set { _joint.Y.Equation = value; } }
         //
         [CategoryAttribute("Joint centre")]
-        [OrderedDisplayName(4, 10, "Z")]
+        [OrderedDisplayName(3, 10, "Z")]
         [DescriptionAttribute("Z coordinate of the joint centre.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(5, 2)]
+        [Id(4, 4)]
         public EquationString Z { get { return _joint.Z.Equation; } set { _joint.Z.Equation = value; } }
         // AXIS --------------------------------------------------------------------------------------------------------------------
         [CategoryAttribute("Joint axis")]
         [OrderedDisplayName(0, 10, "Defined by ")]
         [DescriptionAttribute("Select how the joint axis direction is defined.")]
-        [Id(1, 3)]
+        [Id(1, 5)]
         public JointDefinitionEnum AxisDefinition
         {
             get { return _joint.AxisDefinition; }
@@ -114,46 +117,71 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "N1")]
         [DescriptionAttribute("First component of the joint axis direction.")]
         [TypeConverter(typeof(EquationDoubleConverter))]
-        [Id(2, 3)]
+        [Id(2, 5)]
         public EquationString N1 { get { return _joint.N1.Equation; } set { _joint.N1.Equation = value; } }
         //
         [CategoryAttribute("Joint axis")]
         [OrderedDisplayName(2, 10, "N2")]
         [DescriptionAttribute("Second component of the joint axis direction.")]
         [TypeConverter(typeof(EquationDoubleConverter))]
-        [Id(3, 3)]
+        [Id(3, 5)]
         public EquationString N2 { get { return _joint.N2.Equation; } set { _joint.N2.Equation = value; } }
         //
         [CategoryAttribute("Joint axis")]
         [OrderedDisplayName(3, 10, "N3")]
         [DescriptionAttribute("Third component of the joint axis direction.")]
         [TypeConverter(typeof(EquationDoubleConverter))]
-        [Id(4, 3)]
+        [Id(4, 5)]
         public EquationString N3 { get { return _joint.N3.Equation; } set { _joint.N3.Equation = value; } }
+        // SPRINGS -----------------------------------------------------------------------------------------------------------------
+        [CategoryAttribute("Spring stiffness")]
+        [OrderedDisplayName(0, 10, "Defined by  ")]
+        [DescriptionAttribute("Select how the stiffness of a single spring is defined. From model computes it as " +
+                              "100 * E * sqrt(A) / n, where E is the largest Young's modulus of the elements carrying the " +
+                              "two regions, A is the average area of the two regions and n is the average number of their " +
+                              "nodes; the springs of one region therefore carry 100 * E * sqrt(A) together, whatever the " +
+                              "mesh density, which keeps the joint much stiffer than the regions it joins.")]
+        [Id(1, 6)]
+        public JointStiffnessDefinitionEnum StiffnessDefinition
+        {
+            get { return _joint.StiffnessDefinition; }
+            set
+            {
+                _joint.StiffnessDefinition = value;
+                UpdateJointVisibility();
+            }
+        }
+        //
+        [CategoryAttribute("Spring stiffness")]
+        [OrderedDisplayName(1, 10, "Stiffness")]
+        [DescriptionAttribute("Stiffness of each axial spring between a region node and a node on the joint axis.")]
+        [TypeConverter(typeof(EquationForcePerLengthConverter))]
+        [Id(2, 6)]
+        public EquationString Stiffness { get { return _joint.Stiffness.Equation; } set { _joint.Stiffness.Equation = value; } }
         // MASTER ------------------------------------------------------------------------------------------------------------------
         [CategoryAttribute("Master Region")]
         [OrderedDisplayName(0, 10, "Master region type")]
         [DescriptionAttribute("Select the master region type for the creation of the joint definition. The master surface " +
                               "defines the joint centre and axis when they are not entered.")]
-        [Id(1, 4)]
+        [Id(1, 2)]
         public override string MasterRegionType { get { return base.MasterRegionType; } set { base.MasterRegionType = value; } }
         //
         [CategoryAttribute("Master Region")]
         [OrderedDisplayName(1, 10, "Master surface")]
         [DescriptionAttribute("Select the master surface for the creation of the joint definition.")]
-        [Id(2, 4)]
+        [Id(2, 2)]
         public string MasterSurfaceName { get { return _joint.MasterRegionName; } set { _joint.MasterRegionName = value; } }
         // SLAVE -------------------------------------------------------------------------------------------------------------------
         [CategoryAttribute("Slave Region")]
         [OrderedDisplayName(0, 10, "Slave region type")]
         [DescriptionAttribute("Select the slave region type for the creation of the joint definition.")]
-        [Id(1, 5)]
+        [Id(1, 3)]
         public override string SlaveRegionType { get { return base.SlaveRegionType; } set { base.SlaveRegionType = value; } }
         //
         [CategoryAttribute("Slave Region")]
         [OrderedDisplayName(1, 10, "Slave surface")]
         [DescriptionAttribute("Select the slave surface for the creation of the joint definition.")]
-        [Id(2, 5)]
+        [Id(2, 3)]
         public string SlaveSurfaceName { get { return _joint.SlaveRegionName; } set { _joint.SlaveRegionName = value; } }
         // -------------------------------------------------------------------------------------------------------------------------
         [Category("Appearance")]
@@ -185,9 +213,6 @@ namespace PrePoMax
             slaveRegionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SlaveSurfaceName));
             //
             SetBase(joint, masterRegionTypePropertyNamePairs, slaveRegionTypePropertyNamePairs);
-            //
-            _centerItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _centerItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
             //
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
             //
@@ -222,12 +247,11 @@ namespace PrePoMax
         {
             if (DynamicCustomTypeDescriptor == null) return;
             //
-            // The values the master surface defines stay visible, read only
-            bool userDefinedCenter = _joint.CenterDefinition == JointDefinitionEnum.UserDefined;
-            DynamicCustomTypeDescriptor.GetProperty(nameof(CenterItemSet)).SetIsBrowsable(userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(X)).SetIsReadOnly(!userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(Y)).SetIsReadOnly(!userDefinedCenter);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(Z)).SetIsReadOnly(!userDefinedCenter);
+            // The values the master surface defines and those the selected points give stay visible, read only
+            bool typedCenter = _joint.CenterDefinition == JointCenterDefinitionEnum.Coordinates;
+            DynamicCustomTypeDescriptor.GetProperty(nameof(X)).SetIsReadOnly(!typedCenter);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Y)).SetIsReadOnly(!typedCenter);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Z)).SetIsReadOnly(!typedCenter);
             //
             bool hasAxis = _joint.HasAxis;
             bool userDefinedAxis = _joint.HasUserDefinedAxis;
@@ -238,6 +262,11 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.GetProperty(nameof(N1)).SetIsReadOnly(!userDefinedAxis);
             DynamicCustomTypeDescriptor.GetProperty(nameof(N2)).SetIsReadOnly(!userDefinedAxis);
             DynamicCustomTypeDescriptor.GetProperty(nameof(N3)).SetIsReadOnly(!userDefinedAxis);
+            //
+            bool springs = _joint.HasSprings;
+            DynamicCustomTypeDescriptor.GetProperty(nameof(StiffnessDefinition)).SetIsBrowsable(springs);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Stiffness)).SetIsBrowsable(springs);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Stiffness)).SetIsReadOnly(!_joint.HasUserDefinedStiffness);
         }
     }
 }

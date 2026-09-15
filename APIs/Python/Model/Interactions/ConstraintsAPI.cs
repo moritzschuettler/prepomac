@@ -126,26 +126,33 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a joint constraint using command history. The selection target is surfaces for both " +
-                   "sides. The two surfaces become rigid bodies whose reference nodes sit at the joint centre and " +
-                   "are coupled by equations: Hinge, Cylindrical, Slider, Ball or Weld. The centre and the axis " +
-                   "direction default to the centroid and the axis of the master surface, which must then be " +
-                   "cylindrical; a given center or axis_direction switches that value to user defined.",
+                   "sides. The joint locks the relative motion of the two surfaces about the joint centre as a " +
+                   "Hinge, Cylindrical, Slider, Ball or Weld. The centre and the axis direction default to the " +
+                   "centroid and the axis of the master surface, which must then be cylindrical; a given center or " +
+                   "axis_direction switches that value to user defined. The formulation is RigidBody, two rigid " +
+                   "bodies coupled by equations, or Springs, axial springs from every surface node to nodes on the " +
+                   "joint axis tied by equations, which needs no rigid body and solves on shell elements; its " +
+                   "stiffness comes from the model unless a stiffness is given.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, joint_type: str = None, center_defined_by: str = None, " +
                                "center: list[float] = None, axis_defined_by: str = None, " +
-                               "axis_direction: list[float] = None",
+                               "axis_direction: list[float] = None, formulation: str = None, " +
+                               "stiffness_defined_by: str = None, stiffness: float or str = None",
                    Returns = "Constraint",
                    Example = "pmx.model.constraints.add_joint('Hinge-1', bore_a, bore_b, joint_type='Hinge')")]
         public ConstraintAPI add_joint(string name, object master_region, object slave_region, object joint_type = null,
                                        object center_defined_by = null, object center = null,
-                                       object axis_defined_by = null, object axis_direction = null)
+                                       object axis_defined_by = null, object axis_direction = null,
+                                       object formulation = null, object stiffness_defined_by = null,
+                                       object stiffness = null)
         {
             _service.ValidateName(name, null);
             Joint constraint = new Joint(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                          _service.GetIsTwoDimensional());
             _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             _service.ApplySlave(constraint, slave_region, SurfaceTarget);
-            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction);
+            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction,
+                             formulation, stiffness_defined_by, stiffness);
             _service.Add(constraint);
             //
             return this[name];
@@ -157,12 +164,15 @@ namespace APIs.Python.Model
         public ConstraintAPI replace_joint(string old_name, string name = null, object master_region = null,
                                            object slave_region = null, object joint_type = null,
                                            object center_defined_by = null, object center = null,
-                                           object axis_defined_by = null, object axis_direction = null)
+                                           object axis_defined_by = null, object axis_direction = null,
+                                           object formulation = null, object stiffness_defined_by = null,
+                                           object stiffness = null)
         {
             Joint constraint = _service.CloneForReplace<Joint>(old_name, "Joint");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
-            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction);
+            ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction,
+                             formulation, stiffness_defined_by, stiffness);
             //
             return Replace(old_name, name, constraint);
         }
@@ -452,8 +462,29 @@ namespace APIs.Python.Model
             if (adjust != null) constraint.Adjust = PythonValueConverter.ToBool(adjust, "adjust");
         }
         private static void ApplyJointValues(Joint constraint, object jointType, object centerDefinedBy, object center,
-                                             object axisDefinedBy, object axisDirection)
+                                             object axisDefinedBy, object axisDirection, object formulation,
+                                             object stiffnessDefinedBy, object stiffness)
         {
+            if (formulation != null)
+                constraint.Formulation =
+                    PythonValueConverter.ToEnum<JointFormulationEnum>(AsString(formulation, "formulation"), "formulation");
+            // A given stiffness is the user defined one unless the definition says otherwise
+            if (stiffness != null)
+            {
+                constraint.Stiffness.Equation = PythonValueConverter.ToEquationString(stiffness, "stiffness");
+                constraint.StiffnessDefinition = JointStiffnessDefinitionEnum.UserDefined;
+            }
+            if (stiffnessDefinedBy != null)
+                constraint.StiffnessDefinition =
+                    PythonValueConverter.ToEnum<JointStiffnessDefinitionEnum>(AsString(stiffnessDefinedBy, "stiffness_defined_by"),
+                                                                              "stiffness_defined_by");
+            if (constraint.HasUserDefinedStiffness)
+            {
+                double value = constraint.Stiffness.Value;
+                if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+                    throw new PythonAPIException("The argument 'stiffness' must be positive.");
+            }
+            //
             if (jointType != null)
                 constraint.JointType =
                     PythonValueConverter.ToEnum<JointTypeEnum>(AsString(jointType, "joint_type"), "joint_type");
@@ -464,12 +495,21 @@ namespace APIs.Python.Model
                 constraint.X.Equation = values[0];
                 constraint.Y.Equation = values[1];
                 constraint.Z.Equation = values[2];
-                constraint.CenterDefinition = JointDefinitionEnum.UserDefined;
+                constraint.CenterDefinition = JointCenterDefinitionEnum.Coordinates;
             }
             if (centerDefinedBy != null)
+            {
                 constraint.CenterDefinition =
-                    PythonValueConverter.ToEnum<JointDefinitionEnum>(AsString(centerDefinedBy, "center_defined_by"),
-                                                                     "center_defined_by");
+                    PythonValueConverter.ToEnum<JointCenterDefinitionEnum>(AsString(centerDefinedBy, "center_defined_by"),
+                                                                           "center_defined_by");
+                // The point selection modes pick nodes in the viewport, which a script cannot do; they resolve
+                // to the coordinates a script gives directly
+                if (constraint.IsCenterFromSelection)
+                    throw new PythonAPIException("The argument 'center_defined_by' accepts 'MasterSurface' or " +
+                                                 "'Coordinates'. The value '" + constraint.CenterDefinition +
+                                                 "' selects the joint centre by picking nodes in the dialog; from a " +
+                                                 "script give the argument 'center' instead.");
+            }
             if (axisDirection != null)
             {
                 EquationString[] values = PythonValueConverter.ToEquationArray(axisDirection, "axis_direction", 3);

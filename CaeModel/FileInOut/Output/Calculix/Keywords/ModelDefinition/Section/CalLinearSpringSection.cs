@@ -45,7 +45,10 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}{1}", _linearSpringSectionData.Direction, Environment.NewLine);
+            // An axial spring has no direction line
+            if (_linearSpringSectionData.Direction > 0)
+                sb.AppendFormat("{0}{1}", _linearSpringSectionData.Direction, Environment.NewLine);
+            else sb.AppendLine();
             sb.AppendFormat("{0}{1}", _linearSpringSectionData.Stiffness.ToCalculiX16String(true), Environment.NewLine);
             return sb.ToString();
         }

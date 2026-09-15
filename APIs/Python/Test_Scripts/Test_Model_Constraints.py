@@ -114,7 +114,7 @@ def test_joint():
     joint = constraints.replace_joint(PREFIX + "J", joint_type="Slider", center=[0.5, 0.5, 0.5],
                                       axis_direction=[0, 0, 2])
     check(joint.get_value("joint_type") == "Slider", "the joint type was not replaced")
-    check(joint.get_value("center_definition") == "UserDefined", "a given centre is user defined")
+    check(joint.get_value("center_definition") == "Coordinates", "a given centre is given as coordinates")
     check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre was not set")
     check(joint.get_value("axis_definition") == "UserDefined", "a given axis is user defined")
     check(joint.get_value("n3") == 2, "the axis direction was not set")
@@ -122,8 +122,28 @@ def test_joint():
     joint = constraints.replace_joint(PREFIX + "J", joint_type="Ball", axis_defined_by="MasterSurface")
     check(joint.get_value("joint_type") == "Ball", "the joint type was not replaced")
     check(joint.get_value("axis_definition") == "MasterSurface", "the axis definition was not replaced")
-    check(joint.get_value("center_definition") == "UserDefined", "the centre must survive a replace")
+    check(joint.get_value("center_definition") == "Coordinates", "the centre must survive a replace")
     check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre must survive a replace")
+    # The formulation defaults to rigid bodies; a given stiffness switches the spring stiffness to user defined
+    check(joint.get_value("formulation") == "RigidBody", "a joint defaults to the rigid body formulation")
+    check(joint.get_value("stiffness_definition") == "FromModel", "the spring stiffness defaults to the model")
+    joint = constraints.replace_joint(PREFIX + "J", formulation="Springs", stiffness=5e6)
+    check(joint.get_value("formulation") == "Springs", "the formulation was not replaced")
+    check(joint.get_value("stiffness_definition") == "UserDefined", "a given stiffness is user defined")
+    check(abs(joint.get_value("stiffness") - 5e6) < 1e-6, "the stiffness was not set")
+    joint = constraints.replace_joint(PREFIX + "J", stiffness_defined_by="FromModel")
+    check(joint.get_value("stiffness_definition") == "FromModel", "the stiffness definition was not replaced")
+    check(joint.get_value("formulation") == "Springs", "the formulation must survive a replace")
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               formulation="Beams"),
+                 "an unknown formulation must be rejected")
+    # The joint centre point selection modes pick nodes in the dialog and are refused from a script
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               center_defined_by="CircleCenter"),
+                 "a point selection centre mode must be rejected")
+    check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                               formulation="Springs", stiffness=0),
+                 "a zero spring stiffness must be rejected")
     #
     check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
                                                joint_type="Screw"),
