@@ -301,6 +301,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="AnalysisProgressView.resx">
+      <DependentUpon>AnalysisProgressView.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="AutocompleteMenu\AutocompleteMenu.resx">
       <DependentUpon>AutocompleteMenu.cs</DependentUpon>
     </EmbeddedResource>

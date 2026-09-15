@@ -51,10 +51,6 @@ namespace UserControls
         private CalculixEnergyData _energyData;
         private string _timeUnit;
         private string _energyUnit;
-        private TabControl _detailTabControl;
-        private TabPage _convergenceTabPage;
-        private TabPage _energyTabPage;
-        private ZedGraphControl _energyGraph;
         // Cached reflection handle to ZedGraph's private "_isPanning" flag, used to bound the
         // convergence log axis mid-pan (ZedGraph updates the pan continuously but only raises
         // ZoomEvent on mouse-up). Null if the field is ever absent, in which case the mid-pan guard
@@ -68,7 +64,6 @@ namespace UserControls
             _timeUnit = "";
             _energyUnit = "";
             InitializeComponent();
-            InitializeDetailTabs();
             ConfigureStatusGraph();
             ConfigureConvergenceGraph();
             ConfigureEnergyGraph();
@@ -77,42 +72,10 @@ namespace UserControls
 
 
         // Methods                                                                                                                  
-        private void InitializeDetailTabs()
-        {
-            _tableLayoutPanel.Controls.Remove(_convergenceGraph);
-            //
-            _detailTabControl = new TabControl();
-            _detailTabControl.Dock = DockStyle.Fill;
-            _detailTabControl.Margin = new Padding(3, 2, 3, 3);
-            _detailTabControl.Name = "tabControlProgressDetails";
-            //
-            _convergenceTabPage = new TabPage("Convergence");
-            _convergenceTabPage.Padding = new Padding(3);
-            _convergenceTabPage.UseVisualStyleBackColor = true;
-            _convergenceGraph.Dock = DockStyle.Fill;
-            _convergenceGraph.Margin = new Padding(0);
-            _convergenceTabPage.Controls.Add(_convergenceGraph);
-            //
-            _energyGraph = new ZedGraphControl();
-            _energyGraph.Dock = DockStyle.Fill;
-            _energyGraph.IsShowPointValues = true;
-            _energyGraph.Margin = new Padding(0);
-            _energyGraph.Name = "zedGraphEnergy";
-            _energyGraph.UseExtendedPrintDialog = true;
-            _energyTabPage = new TabPage("Energy");
-            _energyTabPage.Padding = new Padding(3);
-            _energyTabPage.UseVisualStyleBackColor = true;
-            _energyTabPage.Controls.Add(_energyGraph);
-            //
-            _detailTabControl.TabPages.Add(_convergenceTabPage);
-            _tableLayoutPanel.Controls.Add(_detailTabControl, 0, 1);
-        }
-
         private void ConfigureStatusGraph()
         {
             GraphPane pane = _statusGraph.GraphPane;
             ConfigureGraphPane(pane);
-            pane.Title.Text = "Status";
             UpdateTimeUnitLabels();
             pane.Y2Axis.Title.Text = "Iterations";
             pane.Y2Axis.IsVisible = true;
@@ -132,7 +95,6 @@ namespace UserControls
         {
             GraphPane pane = _convergenceGraph.GraphPane;
             ConfigureGraphPane(pane);
-            pane.Title.Text = "Convergence";
             pane.XAxis.Title.Text = "Comulative iteration";
             pane.YAxis.Title.Text = "Percent (log)";
             pane.YAxis.Type = AxisType.Log;
@@ -157,7 +119,6 @@ namespace UserControls
         {
             GraphPane pane = _energyGraph.GraphPane;
             ConfigureGraphPane(pane);
-            pane.Title.Text = "Energy";
             UpdateEnergyUnitLabels();
             pane.Y2Axis.Title.Text = "Energy balance [%]";
             pane.Y2Axis.IsVisible = false;
@@ -175,7 +136,7 @@ namespace UserControls
             pane.IsPenWidthScaled = false;
             pane.Fill = new Fill(SystemColors.Control);
             pane.Chart.Fill = new Fill(Color.White);
-            pane.Title.FontSpec.Size = 12;
+            pane.Title.IsVisible = false;
             pane.Legend.Position = LegendPos.TopCenter;
             pane.Legend.IsVisible = true;
             pane.Legend.FontSpec.Size = 12;
@@ -201,21 +162,18 @@ namespace UserControls
             //
             GraphPane statusPane = _statusGraph.GraphPane;
             statusPane.CurveList.Clear();
-            statusPane.Title.Text = "Status - waiting for data";
             ResetStatusScale();
             _statusGraph.Invalidate();
             //
             GraphPane convergencePane = _convergenceGraph.GraphPane;
             convergencePane.CurveList.Clear();
             convergencePane.Y2Axis.IsVisible = false;
-            convergencePane.Title.Text = "Convergence - waiting for data";
             ResetConvergenceScale();
             _convergenceGraph.Invalidate();
             //
             GraphPane energyPane = _energyGraph.GraphPane;
             energyPane.CurveList.Clear();
             energyPane.Y2Axis.IsVisible = false;
-            energyPane.Title.Text = "Energy - waiting for data";
             ResetEnergyScale();
             _energyGraph.Invalidate();
             UpdateDetailTabs();
@@ -260,13 +218,8 @@ namespace UserControls
             bool iterationMaximumAuto = pane.Y2Axis.Scale.MaxAuto;
             bool iterationStepAuto = pane.Y2Axis.Scale.MajorStepAuto;
 
-            if (data == null || data.Count == 0)
+            if (data != null && data.Count > 0)
             {
-                pane.Title.Text = "Status - waiting for data";
-            }
-            else
-            {
-                pane.Title.Text = "Status";
                 LineItem incrementCurve = pane.AddCurve(IncrementSizeName, data.TotalTimes, data.IncrementTimes,
                                                         Color.DodgerBlue, SymbolType.Circle);
                 LineItem iterationCurve = pane.AddCurve(IterationCountName, data.TotalTimes, data.IterationCounts,
@@ -308,13 +261,8 @@ namespace UserControls
             bool contactStepAuto = pane.Y2Axis.Scale.MajorStepAuto;
             bool percentMinimumAuto = pane.YAxis.Scale.MinAuto;
 
-            if (data == null || data.Count == 0)
+            if (data != null && data.Count > 0)
             {
-                pane.Title.Text = "Convergence - waiting for data";
-            }
-            else
-            {
-                pane.Title.Text = "Convergence";
                 AddLogCurve(pane, ResidualForceName, data.RecordNumbers, data.ResidualForces, Color.Red);
                 AddLogCurve(pane, DisplacementCorrectionName, data.RecordNumbers, data.DisplacementCorrections,
                             Color.DodgerBlue);
@@ -356,13 +304,8 @@ namespace UserControls
             pane.CurveList.Clear();
             pane.Y2Axis.IsVisible = false;
             //
-            if (data == null || data.Count == 0)
+            if (data != null && data.Count > 0)
             {
-                pane.Title.Text = "Energy - waiting for data";
-            }
-            else
-            {
-                pane.Title.Text = "Energy";
                 AddLinearCurve(pane, TotalEnergyName, data.TotalTimes, data.TotalEnergies, Color.Black, false);
                 AddLinearCurve(pane, InternalEnergyName, data.TotalTimes, data.InternalEnergies,
                                Color.DodgerBlue, false);
