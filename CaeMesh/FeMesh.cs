@@ -850,50 +850,59 @@ namespace CaeMesh
         }
 
         // Compare 
-        public double IsEqual(FeMesh mesh)
+        public Dictionary<string, PartMappingEnum> GetPartMappings(FeMesh mesh)
         {
-            double similarity = 1;
+            Dictionary<string, PartMappingEnum> partMappings = new Dictionary<string, PartMappingEnum>();
+            foreach (var entry in mesh.Parts) partMappings.Add(entry.Key, GetPartMapping(mesh, entry.Value));
+            return partMappings;
+        }
+        private PartMappingEnum GetPartMapping(FeMesh mesh, BasePart part)
+        {
+            FeElement element;
+            FeElement partElement;
+            PartMappingEnum partMapping = PartMappingEnum.Copy;
             //
-            if (_elements.Count != mesh.Elements.Count) return 0;
-            //
-            if (_nodes.Count == mesh.Nodes.Count)
+            foreach (var elementId in part.Labels)
             {
-                int numToCheck = 10000;
-                int n = Math.Min(numToCheck, _nodes.Count);
-                n = Math.Max(_nodes.Count / numToCheck, n);
+                if (!_elements.TryGetValue(elementId, out element)) return PartMappingEnum.None;
                 //
-                int nodeId;
-                int[] keys = _nodes.Keys.ToArray();
-                //
-                int count = 0;
-                Random rand = new Random();
-                FeNode node1;
-                FeNode node2;
-                //
-                double epsilon = mesh.BoundingBox.GetDiagonal() / 1E4;
-                if (epsilon < 1E-4) epsilon = 1E-4;
-                //
-                for (int i = 0; i < n; i++)
+                if (partMapping == PartMappingEnum.Copy)
                 {
-                    nodeId = (int)(rand.NextDouble() * (keys.Length - 1));
-                    if (_nodes.TryGetValue(keys[nodeId], out node1) && mesh.Nodes.TryGetValue(keys[nodeId], out node2))
-                    {
-                        if (node1.IsEqual(node2, epsilon))
-                            count++;
-                        //else
-                        //    count = count;
-                    }
-                    else return 0;
+                    partElement = mesh.Elements[elementId];
+                    if (!AreElementNodeIdsEqual(partElement, element)) partMapping = PartMappingEnum.Rebuild;
                 }
-                //
-                if (count != n) similarity *= (double)count / n;
             }
-            else
+            return partMapping;
+        }
+        private bool AreElementNodeIdsEqual(FeElement element1, FeElement element2)
+        {
+            int[] nodeIds1 = element1.NodeIds;
+            int[] nodeIds2 = element2.NodeIds;
+            //
+            if (nodeIds1.Length == nodeIds2.Length)
             {
-                if (_maxElementId == mesh.MaxElementId) return 2;
-                else return 0;
+                int i;
+                for (i = 0; i < nodeIds1.Length; i++) if (nodeIds1[i] != nodeIds2[i]) break;
+                if (i == nodeIds1.Length) return true;
             }
-            return similarity;
+            // A pyramid collapsed to a wedge or a hexahedron repeats a node id but keeps the same set of node ids
+            return new HashSet<int>(nodeIds1).SetEquals(nodeIds2);
+        }
+        public bool AreNodeCoordinatesEqual(FeMesh mesh, IEnumerable<int> nodeIds)
+        {
+            BoundingBox boundingBox = _boundingBox != null ? _boundingBox : mesh.BoundingBox;
+            double epsilon = boundingBox != null ? boundingBox.GetDiagonal() / 1E4 : 1E-4;
+            if (epsilon < 1E-4) epsilon = 1E-4;
+            //
+            FeNode node1;
+            FeNode node2;
+            foreach (var nodeId in nodeIds)
+            {
+                if (!_nodes.TryGetValue(nodeId, out node1)) return false;
+                if (!mesh.Nodes.TryGetValue(nodeId, out node2)) return false;
+                if (!node1.IsEqual(node2, epsilon)) return false;
+            }
+            return true;
         }
         public override int GetHashCode()
         {
@@ -3326,32 +3335,104 @@ namespace CaeMesh
             // Update bounding boxes
             ComputeBoundingBox();
         }
-        public void MergePartsBasedOnMesh(FeMesh mesh, Type resultingPartType)
+        public string[] MapPartsFromMesh(FeMesh mesh, Type resultingPartType, out string[] rebuiltPartNames)
         {
+            Dictionary<string, PartMappingEnum> partMappings = GetPartMappings(mesh);
+            // Collect the mapped parts and the elements they claim
+            HashSet<int> mappedElementIds = new HashSet<int>();
+            List<string> copiedPartNames = new List<string>();
+            List<string> rebuiltNames = new List<string>();
+            foreach (var entry in mesh.Parts)
+            {
+                if (partMappings[entry.Key] == PartMappingEnum.Copy) copiedPartNames.Add(entry.Key);
+                else if (partMappings[entry.Key] == PartMappingEnum.Rebuild) rebuiltNames.Add(entry.Key);
+                else continue;
+                //
+                mappedElementIds.UnionWith(entry.Value.Labels);
+            }
+            rebuiltPartNames = rebuiltNames.ToArray();
+            if (copiedPartNames.Count == 0 && rebuiltNames.Count == 0) return new string[0];
+            // The parts of the elements that were not mapped must be collected before the parts are cleared
+            List<BasePart> unmappedParts = GetPartsOfUnmappedElements(mappedElementIds, resultingPartType);
+            //
             _parts.Clear();
             //
+            int maxPartId = 0;
             BasePart part;
             foreach (var entry in mesh.Parts)
             {
-                // Create a base part
-                part = CreateBasePartFromElementIds(entry.Value.Labels);
+                if (partMappings[entry.Key] == PartMappingEnum.Copy) part = entry.Value;
+                else if (partMappings[entry.Key] == PartMappingEnum.Rebuild)
+                {
+                    part = CreateBasePartFromElementIds(entry.Value.Labels, entry.Value.Name);
+                    part.Color = entry.Value.Color;
+                    part.FillMissingGeometryDataFrom(entry.Value);
+                }
+                else continue;
                 // Convert a base part
-                if (resultingPartType == typeof(GeometryPart)) part = new GeometryPart(part);
-                else if (resultingPartType == typeof(MeshPart)) part = new MeshPart(part);
-                else if (resultingPartType == typeof(ResultPart)) part = new ResultPart(part);
-                else throw new NotSupportedException();
-                //
-                part.Name = entry.Value.Name;
+                part = ConvertPartType(part, resultingPartType);
                 part.PartId = entry.Value.PartId;
-                part.Color = entry.Value.Color;
-                part.FillMissingGeometryDataFrom(entry.Value);
-                // Renumber elements
-                foreach (var elementId in part.Labels) _elements[elementId].PartId = part.PartId;
+                if (part.PartId > maxPartId) maxPartId = part.PartId;
                 // Add new part
                 _parts.Add(part.Name, part);
             }
+            // Add the parts of the elements that were not mapped
+            foreach (var unmappedPart in unmappedParts)
+            {
+                unmappedPart.Name = GetNextFreePartName(unmappedPart.Name);
+                unmappedPart.PartId = ++maxPartId;
+                //
+                _parts.Add(unmappedPart.Name, unmappedPart);
+            }
+            // Renumber elements
+            foreach (var entry in _parts)
+            {
+                foreach (var elementId in entry.Value.Labels) _elements[elementId].PartId = entry.Value.PartId;
+            }
+            _visibilityCache = null;
             // Update bounding boxes
             ComputeBoundingBox();
+            //
+            return copiedPartNames.ToArray();
+        }
+        private List<BasePart> GetPartsOfUnmappedElements(HashSet<int> mappedElementIds, Type resultingPartType)
+        {
+            int[] unmappedElementIds;
+            BasePart unmappedPart;
+            List<BasePart> unmappedParts = new List<BasePart>();
+            foreach (var entry in _parts)
+            {
+                unmappedElementIds = entry.Value.Labels.Except(mappedElementIds).ToArray();
+                //
+                if (unmappedElementIds.Length == 0) continue;
+                else if (unmappedElementIds.Length == entry.Value.Labels.Length) unmappedPart = entry.Value;
+                else
+                {
+                    unmappedPart = CreateBasePartFromElementIds(unmappedElementIds, entry.Value.Name);
+                    unmappedPart.Color = entry.Value.Color;
+                    unmappedPart = ConvertPartType(unmappedPart, resultingPartType);
+                }
+                unmappedParts.Add(unmappedPart);
+            }
+            return unmappedParts;
+        }
+        private BasePart ConvertPartType(BasePart part, Type resultingPartType)
+        {
+            if (resultingPartType == typeof(GeometryPart)) return new GeometryPart(part);
+            else if (resultingPartType == typeof(MeshPart)) return new MeshPart(part);
+            else if (resultingPartType == typeof(ResultPart)) return new ResultPart(part);
+            else throw new NotSupportedException();
+        }
+        private string GetNextFreePartName(string name)
+        {
+            if (!_parts.ContainsKey(name)) return name;
+            //
+            int number;
+            string baseName = name;
+            int index = name.LastIndexOf('-');
+            if (index > 0 && int.TryParse(name.Substring(index + 1), out number)) baseName = name.Substring(0, index);
+            //
+            return _parts.GetNextNumberedKey(baseName);
         }
         public void SplitSolidCompoundMesh()
         {

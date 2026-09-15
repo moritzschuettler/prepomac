@@ -1283,38 +1283,22 @@ namespace PrePoMax
             {
                 SuppressExplodedView();
                 //
-                double similarity = _model.Mesh.IsEqual(_allResults.CurrentResult.Mesh);
+                bool nodeCoordinatesChanged;
+                ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
+                string[] mappedPartNames = _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh, convertPyramidsTo,
+                                                                                       out nodeCoordinatesChanged);
+                if (mappedPartNames.Length == _model.Mesh.Parts.Count)
+                    _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo);
                 //
-                if (similarity > 0)
-                {
-                    if (similarity < 1)
-                    {
-                        if (MessageBoxes.ShowWarningQuestionYesNo(
-                            "Some node coordinates in the result .frd file are different from " +
-                            "the coordinates in the model mesh." + Environment.NewLine + Environment.NewLine +
-                            "Apply model mesh properties (part names, geometry...) to the result mesh?") == DialogResult.Yes)
-                            similarity = 1;
-                    }
-                    //
-                    if (similarity == 1)
-                    {
-                        ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
-                        _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh, convertPyramidsTo);
-                        _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo);
-                    }
-                    // The number of elements is the same and the max element id is the same
-                    else if (similarity == 2)
-                    {
-                        _allResults.CurrentResult.Mesh.MergePartsBasedOnMesh(_model.Mesh, typeof(ResultPart));
-                    }
-                }
+                WriteResultPartMappingToOutput(mappedPartNames, nodeCoordinatesChanged);
+                //
                 bool fromFileOpenMenu = parameters != null && parameters.Contains(Globals.FromFileOpenMenu);
                 if (!fromFileOpenMenu)
                 {
                     _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
                 }
                 //
-                ResumeExplodedViews(false); // must be here after the MergePartsBasedOnMesh
+                ResumeExplodedViews(false); // must be here after the parts were mapped
             }
             // Model changed
             _modelChanged = true;
@@ -1352,6 +1336,27 @@ namespace PrePoMax
             // Regenerate tree
             _form.RegenerateTree();
         }
+        private void WriteResultPartMappingToOutput(string[] mappedPartNames, bool nodeCoordinatesChanged)
+        {
+            HashSet<string> mappedNames = new HashSet<string>(mappedPartNames);
+            //
+            if (mappedNames.Count < _model.Mesh.Parts.Count)
+            {
+                _form.WriteDataToOutput("Result parts: the model mesh properties were applied to " + mappedNames.Count +
+                                        " of " + _model.Mesh.Parts.Count + " model parts.");
+                foreach (var entry in _model.Mesh.Parts)
+                {
+                    if (!mappedNames.Contains(entry.Key))
+                        _form.WriteDataToOutput("Result parts: the model part " + entry.Key +
+                                                " was not found in the result mesh.");
+                }
+            }
+            //
+            if (nodeCoordinatesChanged)
+                _form.WriteDataToOutput("Result parts: the node coordinates in the result file are different from the " +
+                                        "model mesh coordinates; the part volumes and areas were recomputed from the " +
+                                        "result mesh.");
+        }
         public void AppendResult(string fileName, string parameters = null)
         {
             if (_allResults != null && _allResults.Count == 0) Open(fileName);
@@ -1367,28 +1372,17 @@ namespace PrePoMax
                 {
                     SuppressExplodedView();
                     //
-                    double similarity = _allResults.CurrentResult.Mesh.IsEqual(results.Mesh);
+                    bool nodeCoordinatesChanged;
+                    ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
+                    string[] mappedPartNames = results.CopyPartsFromMesh(_allResults.CurrentResult.Mesh, convertPyramidsTo,
+                                                                        out nodeCoordinatesChanged);
                     //
-                    if (similarity > 0)
-                    {
-                        if (similarity < 1) similarity = 1;
-                        //
-                        if (similarity == 1)
-                        {
-                            ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
-                            results.CopyPartsFromMesh(_allResults.CurrentResult.Mesh, convertPyramidsTo);
-                            //_allResults.CurrentResult.CopyMeshItemsFromMesh(_allResults.CurrentResult.Mesh);
-                        }
-                        else if (similarity == 2)
-                        {
-                            results.Mesh.MergePartsBasedOnMesh(_allResults.CurrentResult.Mesh, typeof(ResultPart));
-                        }
-                        _allResults.CurrentResult.AddResults(results);
-                    }
+                    bool allPartsMapped = mappedPartNames.Length == _allResults.CurrentResult.Mesh.Parts.Count;
+                    if (allPartsMapped) _allResults.CurrentResult.AddResults(results);
                     // First resume exploded view
-                    ResumeExplodedViews(false); // must be here after the MergePartsBasedOnMesh
+                    ResumeExplodedViews(false); // must be here after the parts were mapped
                     //
-                    if (similarity == 0)
+                    if (!allPartsMapped)
                     {
                         // Do not show error!
                         throw new CaeException("The selected result file does not have the same mesh as the current result.");

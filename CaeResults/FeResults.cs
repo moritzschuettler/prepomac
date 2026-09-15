@@ -2153,22 +2153,32 @@ namespace CaeResults
             }
         }
         //                                          
-        public void CopyPartsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
+        public string[] CopyPartsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo,
+                                          out bool nodeCoordinatesChanged)
         {
-            _mesh.Parts.Clear();
+            string[] rebuiltPartNames;
+            string[] copiedPartNames = _mesh.MapPartsFromMesh(mesh, typeof(ResultPart), out rebuiltPartNames);
             //
-            ResultPart part;
-            foreach (var entry in mesh.Parts)
-            {
-                part = new ResultPart(entry.Value);
-                _mesh.Parts.Add(entry.Key, part);
-                //
-                foreach (var elementId in part.Labels) _mesh.Elements[elementId].PartId = part.PartId;
-            }
+            nodeCoordinatesChanged = false;
+            if (copiedPartNames.Length == 0 && rebuiltPartNames.Length == 0) return new string[0];
+            //
+            BasePart part;
+            BasePart modelPart;
             HashSet<Type> elementTypes;
-            foreach (var entry in _mesh.Parts)
+            // Determine if there are any pyramids in the copied parts
+            List<BasePart> pyramidContainingParts = new List<BasePart>();
+            foreach (var partName in copiedPartNames)
             {
-                elementTypes = new HashSet<Type>(entry.Value.ElementTypes);
+                part = _mesh.Parts[partName];
+                modelPart = mesh.Parts[partName];
+                //
+                if (modelPart.ElementTypes.Contains(typeof(LinearPyramidElement)) ||
+                    modelPart.ElementTypes.Contains(typeof(ParabolicPyramidElement)))
+                {
+                    pyramidContainingParts.Add(modelPart);
+                }
+                //
+                elementTypes = new HashSet<Type>(part.ElementTypes);
                 if (elementTypes.Contains(typeof(LinearPyramidElement)))
                 {
                     elementTypes.Remove(typeof(LinearPyramidElement));
@@ -2187,17 +2197,7 @@ namespace CaeResults
                         elementTypes.Add(typeof(ParabolicHexaElement));
                     else throw new NotSupportedException();
                 }
-                entry.Value.SetElementTypes(elementTypes.ToArray());
-            }
-            // Determine if there are any pyramids in the mesh
-            List<BasePart> pyramidContainingParts = new List<BasePart>();
-            foreach (var entry in mesh.Parts)
-            {
-                if (entry.Value.ElementTypes.Contains(typeof(LinearPyramidElement)) ||
-                    entry.Value.ElementTypes.Contains(typeof(ParabolicPyramidElement)))
-                {
-                    pyramidContainingParts.Add(entry.Value);
-                }
+                part.SetElementTypes(elementTypes.ToArray());
             }
             // Fix pyramid visualization
             if (pyramidContainingParts.Count > 0)
@@ -2249,6 +2249,18 @@ namespace CaeResults
                     }
                 }
             }
+            // The copied measurements were computed from the model mesh node coordinates
+            foreach (var partName in copiedPartNames)
+            {
+                part = _mesh.Parts[partName];
+                if (!_mesh.AreNodeCoordinatesEqual(mesh, part.NodeLabels))
+                {
+                    nodeCoordinatesChanged = true;
+                    _mesh.ComputeVolumeArea(part);
+                }
+            }
+            //
+            return copiedPartNames.Concat(rebuiltPartNames).ToArray();
         }
         public void CopyMeshItemsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
         {
