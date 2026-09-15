@@ -2698,17 +2698,30 @@ namespace CaeModel
             sweepMesh.BlockSideSurfaceIds = null;
             sweepMesh.BlockTargetSurfaceIds = null;
             sweepMesh.LayerGroupEdgeIds = null;
+            sweepMesh.BlockArrowStarts = null;
+            sweepMesh.BlockArrowDirections = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
-            // The selected surfaces, grouped by the part they lie on
+            // The selection: the source surfaces, grouped by the part they lie on, or the parts whose source
+            // surfaces are found automatically
             int partId;
+            bool partsSelected = false;
+            bool surfacesSelected = false;
             HashSet<int> surfaceIds;
+            HashSet<int> selectedPartIds = new HashSet<int>();
             Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds = new Dictionary<int, HashSet<int>>();
             for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
             {
                 partId = FeMesh.GetPartIdFromGeometryId(sweepMesh.CreationIds[i]);
+                selectedPartIds.Add(partId);
+                if (FeMesh.IsPartGeometryId(sweepMesh.CreationIds[i]))
+                {
+                    partsSelected = true;
+                    continue;
+                }
+                surfacesSelected = true;
                 if (!partIdSelectedSurfaceIds.TryGetValue(partId, out surfaceIds))
                 {
                     surfaceIds = new HashSet<int>();
@@ -2718,8 +2731,20 @@ namespace CaeModel
             }
             // One solid CAD part, or the sub-parts of one compound part, each of them swept as a block of its own
             GeometryPart[] sweptParts;
-            error = GetSweptParts(partIdSelectedSurfaceIds.Keys, out sweptParts);
-            if (error == null) error = CreateSweepBlocks(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
+            if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
+            {
+                if (surfacesSelected)
+                    return "The source surfaces are found automatically, so select the part to sweep rather than its surfaces.";
+                error = GetSweptParts(selectedPartIds, out sweptParts);
+                if (error == null) error = DetectSweepSources(sweepMesh, sweptParts);
+            }
+            else
+            {
+                if (partsSelected) return "Select the source surfaces of the sweep, or let them be found automatically.";
+                error = GetSweptParts(selectedPartIds, out sweptParts);
+                if (error == null)
+                    error = CreateSweepBlocks(sweepMesh, sweptParts, partIdSelectedSurfaceIds, null, null, out _, out _);
+            }
             //
             return error == null ? null : error + " The swept mesh cannot be created.";
         }
@@ -2727,26 +2752,29 @@ namespace CaeModel
         {
             sweptParts = null;
             GeometryPart part;
+            CompoundGeometryPart compoundPart = null;
+            CompoundGeometryPart partCompoundPart;
             List<GeometryPart> selectedParts = new List<GeometryPart>();
+            bool first = true;
             foreach (var partId in selectedPartIds)
             {
                 part = _geometry.GetPartFromId(partId) as GeometryPart;
-                if (part == null) return "The selected surfaces do not lie on a geometry part.";
+                if (part == null) return "The selection does not lie on a geometry part.";
+                // A compound part stands for its sub-parts, which are swept together, so the selection may
+                // name the compound, or span several of its sub-parts
+                partCompoundPart = part as CompoundGeometryPart;
+                if (partCompoundPart == null) partCompoundPart = GetCompoundPartOfSubPart(part.Name);
+                if (first) compoundPart = partCompoundPart;
+                else if (partCompoundPart != compoundPart) return "The surfaces of more than one part are selected.";
+                first = false;
+                //
+                if (part is CompoundGeometryPart) continue;
                 if (!part.IsCADPart) return "The sweep mesh setup item cannot be defined on a stl based part.";
                 if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
                     return "The sweep mesh setup item cannot be defined on a shell part.";
                 selectedParts.Add(part);
             }
-            if (selectedParts.Count == 0) return "No source surface is selected.";
-            // The sub-parts of a compound part are swept together, so the selection may span several of them
-            CompoundGeometryPart compoundPart = null;
-            CompoundGeometryPart partCompoundPart;
-            for (int i = 0; i < selectedParts.Count; i++)
-            {
-                partCompoundPart = GetCompoundPartOfSubPart(selectedParts[i].Name);
-                if (i == 0) compoundPart = partCompoundPart;
-                else if (partCompoundPart != compoundPart) return "The surfaces of more than one part are selected.";
-            }
+            if (first) return "No source surface is selected.";
             //
             if (compoundPart == null)
             {
@@ -2757,9 +2785,163 @@ namespace CaeModel
             {
                 sweptParts = new GeometryPart[compoundPart.SubPartNames.Length];
                 for (int i = 0; i < sweptParts.Length; i++)
+                {
                     sweptParts[i] = (GeometryPart)_geometry.Parts[compoundPart.SubPartNames[i]];
+                    if (!sweptParts[i].IsCADPart || (sweptParts[i].PartType != PartType.Solid &&
+                                                     sweptParts[i].PartType != PartType.SolidAsShell))
+                        return "The sweep mesh setup item can only be defined on a compound part of CAD solids.";
+                }
             }
             return null;
+        }
+        /// <summary>
+        /// Finds the source surfaces of a sweep by trial. Every surface of every swept part is a candidate
+        /// seed; it is extended over its plane and propagated through the compound exactly as a selected
+        /// surface would be, so what is tried is what the user could have selected. A seed that sweeps every
+        /// part is scored and the best score wins. When no single seed reaches every part, the seed reaching
+        /// the most parts is kept and another seed is tried on the parts it did not reach, until every part is
+        /// swept or no seed adds a part.
+        /// </summary>
+        private string DetectSweepSources(SweepMesh sweepMesh, GeometryPart[] sweptParts)
+        {
+            string error;
+            bool onlyUnreached;
+            double score;
+            double bestScore;
+            int bestReachedCount;
+            HashSet<int> sweptPartIds;
+            HashSet<int> bestPartialReachedPartIds = null;
+            HashSet<int> reachedPartIds = new HashSet<int>();
+            HashSet<int> triedSeedIds;
+            Dictionary<int, HashSet<int>> trial;
+            Dictionary<int, HashSet<int>> bestSelection = null;
+            Dictionary<int, HashSet<int>> bestPartialSelection;
+            Dictionary<int, HashSet<int>> selection = new Dictionary<int, HashSet<int>>();
+            Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
+            // The surfaces and the edges the sub-parts share are the same for every trial
+            Dictionary<int, int> twinSurfaceIds = new Dictionary<int, int>();
+            Dictionary<int, int> twinEdgeIds = new Dictionary<int, int>();
+            if (sweptParts.Length > 1)
+            {
+                twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
+                twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
+            }
+            //
+            while (bestSelection == null)
+            {
+                bestScore = double.NegativeInfinity;
+                bestReachedCount = reachedPartIds.Count;
+                bestPartialSelection = null;
+                // A seed gives the same trial as another only together with the same kept selection
+                triedSeedIds = new HashSet<int>();
+                foreach (var part in sweptParts)
+                {
+                    if (reachedPartIds.Contains(part.PartId)) continue;
+                    //
+                    for (int surfaceId = 0; surfaceId < part.Visualization.FaceEdgeIds.Length; surfaceId++)
+                    {
+                        if (!triedSeedIds.Add(FeMesh.GmshTopologyId(surfaceId, part.PartId))) continue;
+                        //
+                        trial = CopySelection(selection);
+                        trial[part.PartId] = new HashSet<int>() { surfaceId };
+                        error = CreateSweepBlocks(sweepMesh, sweptParts, trial, twinSurfaceIds, twinEdgeIds,
+                                                  out sweptPartIds, out onlyUnreached);
+                        // Every surface of the seed's extended source would give the same trial
+                        MarkTriedSeeds(sweepMesh, part.PartId, triedSeedIds);
+                        //
+                        if (error == null)
+                        {
+                            score = ScoreSweepBlocks(sweepMesh, faceTypes);
+                            if (score > bestScore)
+                            {
+                                bestScore = score;
+                                bestSelection = trial;
+                            }
+                        }
+                        else if (onlyUnreached && sweptPartIds.Count > bestReachedCount)
+                        {
+                            bestReachedCount = sweptPartIds.Count;
+                            bestPartialSelection = trial;
+                            bestPartialReachedPartIds = sweptPartIds;
+                        }
+                    }
+                }
+                if (bestSelection != null) break;
+                //
+                if (bestPartialSelection == null)
+                {
+                    foreach (var part in sweptParts)
+                    {
+                        if (!reachedPartIds.Contains(part.PartId))
+                            return "No sweep source surface could be found automatically for the part " + part.Name +
+                                   ". Select the source surfaces by hand.";
+                    }
+                }
+                selection = bestPartialSelection;
+                reachedPartIds = bestPartialReachedPartIds;
+            }
+            // The blocks of the best selection are the ones the item keeps
+            return CreateSweepBlocks(sweepMesh, sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, out _, out _);
+        }
+        private static Dictionary<int, HashSet<int>> CopySelection(Dictionary<int, HashSet<int>> selection)
+        {
+            Dictionary<int, HashSet<int>> copy = new Dictionary<int, HashSet<int>>();
+            foreach (var entry in selection) copy.Add(entry.Key, new HashSet<int>(entry.Value));
+            return copy;
+        }
+        private static void MarkTriedSeeds(SweepMesh sweepMesh, int seedPartId, HashSet<int> triedSeedIds)
+        {
+            if (sweepMesh.BlockSourceSurfaceIds == null) return;
+            //
+            foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
+            {
+                if (blockSourceSurfaceIds.Length == 0) continue;
+                if (FeMesh.GetPartIdFromGmshTopologyId(blockSourceSurfaceIds[0]) != seedPartId) continue;
+                //
+                triedSeedIds.UnionWith(blockSourceSurfaceIds);
+                break;
+            }
+        }
+        /// <summary>
+        /// Ranks a complete set of sweep blocks. A source with many edges carries the features of the cross
+        /// section, so sweeping it meshes them once in 2D and extrudes them; a wall that is neither planar
+        /// nor cylindrical strains the projection of the target layer.
+        /// </summary>
+        private double ScoreSweepBlocks(SweepMesh sweepMesh, Dictionary<int, GeomFaceType> faceTypes)
+        {
+            int partId;
+            double score = 0;
+            GeomFaceType faceType;
+            VisualizationData vis;
+            HashSet<int> sourceEdgeIds;
+            for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
+            {
+                partId = FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]);
+                vis = _geometry.GetPartFromId(partId).Visualization;
+                //
+                sourceEdgeIds = new HashSet<int>();
+                foreach (var surfaceId in sweepMesh.BlockSourceSurfaceIds[i])
+                    sourceEdgeIds.UnionWith(vis.FaceEdgeIds[FeMesh.GetItemIdFromGmshTopologyId(surfaceId)]);
+                score += sourceEdgeIds.Count;
+                //
+                foreach (var surfaceId in sweepMesh.BlockSideSurfaceIds[i])
+                {
+                    faceType = GetSweepFaceType(vis, surfaceId, faceTypes);
+                    if (faceType != GeomFaceType.Plane && faceType != GeomFaceType.Cylinder) score -= 4;
+                }
+            }
+            return score;
+        }
+        private GeomFaceType GetSweepFaceType(VisualizationData vis, int gmshTopologyId, Dictionary<int, GeomFaceType> faceTypes)
+        {
+            GeomFaceType faceType;
+            if (faceTypes.TryGetValue(gmshTopologyId, out faceType)) return faceType;
+            //
+            int surfaceId = FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId);
+            if (vis.FaceTypes != null && surfaceId < vis.FaceTypes.Length) faceType = vis.FaceTypes[surfaceId];
+            else faceType = FaceTypeRecognition.GetFaceData(vis, _geometry.Nodes, surfaceId).Type;
+            faceTypes.Add(gmshTopologyId, faceType);
+            return faceType;
         }
         /// <summary>
         /// Splits the swept parts into one-to-one sweep blocks and stores them on the item in gmsh numbering.
@@ -2770,8 +2952,19 @@ namespace CaeModel
         /// source across the shared wall.
         /// </summary>
         private string CreateSweepBlocks(SweepMesh sweepMesh, GeometryPart[] sweptParts,
-                                         Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
+                                         Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                         Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
+                                         out HashSet<int> sweptPartIds, out bool onlyUnreached)
         {
+            sweptPartIds = new HashSet<int>();
+            onlyUnreached = false;
+            sweepMesh.BlockSourceSurfaceIds = null;
+            sweepMesh.BlockSideSurfaceIds = null;
+            sweepMesh.BlockTargetSurfaceIds = null;
+            sweepMesh.LayerGroupEdgeIds = null;
+            sweepMesh.BlockArrowStarts = null;
+            sweepMesh.BlockArrowDirections = null;
+            //
             int twinId;
             int partId;
             int neighbourPartId;
@@ -2780,16 +2973,20 @@ namespace CaeModel
             Dictionary<int, GeometryPart> partIdPart = new Dictionary<int, GeometryPart>();
             foreach (var sweptPart in sweptParts) partIdPart.Add(sweptPart.PartId, sweptPart);
             // The surfaces and the edges two sub-parts have in common, keyed and valued by the gmsh topology id
-            Dictionary<int, int> twinSurfaceIds = new Dictionary<int, int>();
-            Dictionary<int, int> twinEdgeIds = new Dictionary<int, int>();
-            if (sweptParts.Length > 1)
+            if (twinSurfaceIds == null)
             {
-                twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
-                twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
+                twinSurfaceIds = new Dictionary<int, int>();
+                twinEdgeIds = new Dictionary<int, int>();
+                if (sweptParts.Length > 1)
+                {
+                    twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
+                    twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
+                }
             }
             // The source surfaces of each part, the parts waiting to be swept, and for a part that reads the
             // caps of other blocks the blocks it has to wait for
             List<int> pendingPartIds = new List<int>();
+            HashSet<int> sideDerivedPartIds = new HashSet<int>();
             Dictionary<int, HashSet<int>> partIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
             Dictionary<int, HashSet<int>> partIdFeederPartIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in partIdSelectedSurfaceIds)
@@ -2807,11 +3004,12 @@ namespace CaeModel
             HashSet<int> wallEdgeIds;
             HashSet<int> feederPartIds;
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds;
-            HashSet<int> sweptPartIds = new HashSet<int>();
             List<int[]> blockSourceSurfaceIds = new List<int[]>();
             List<int[]> blockSideSurfaceIds = new List<int[]>();
             List<int[]> blockTargetSurfaceIds = new List<int[]>();
             List<int[][]> layerGroupEdgeIds = new List<int[][]>();
+            List<double[]> blockArrowStarts = new List<double[]>();
+            List<double[]> blockArrowDirections = new List<double[]>();
             //
             while (pendingPartIds.Count > 0)
             {
@@ -2848,7 +3046,17 @@ namespace CaeModel
                 //
                 error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, out sideSurfaceIds,
                                            out targetSurfaceIds, out layerSideSurfaceIds);
-                if (error != null) return sweptParts.Length > 1 ? "Part " + part.Name + ": " + error : error;
+                if (error != null)
+                {
+                    // A neighbour that cannot be swept alongside the block across their shared wall is left
+                    // unreached, to be given a source of its own, rather than failing the whole sweep
+                    if (sideDerivedPartIds.Contains(partId))
+                    {
+                        partIdSourceSurfaceIds.Remove(partId);
+                        continue;
+                    }
+                    return sweptParts.Length > 1 ? "Part " + part.Name + ": " + error : error;
+                }
                 // A neighbour across a side surface is swept alongside this block, from the surfaces that
                 // continue the source across the shared wall. It goes first, so that a block both of them
                 // feed learns of both before it is swept. The shared wall ties the layer counts together.
@@ -2862,6 +3070,7 @@ namespace CaeModel
                                                    FeMesh.GetItemIdFromGmshTopologyId(twinId), twinEdgeIds,
                                                    partIdSourceSurfaceIds, pendingPartIds);
                     if (error != null) return error;
+                    sideDerivedPartIds.Add(neighbourPartId);
                 }
                 // A neighbour across a target surface is swept next, from the mesh this block leaves there.
                 // That mesh follows the imprint of the shared surface only where the imprint is a wall edge
@@ -2895,12 +3104,19 @@ namespace CaeModel
                 // The arrow of the item follows the first block, which is the one the user selected
                 if (blockSourceSurfaceIds.Count == 0) SetSweepDirection(sweepMesh, part, sourceSurfaceIds);
                 // Gmsh numbering
+                blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
+                                                           sideSurfaceIds, layerSideSurfaceIds);
+                // Every block gets an arrow of its own, from a source vertex along one of its layer edges
+                double[] arrowStart;
+                double[] arrowDirection;
+                GetBlockArrow(part, sourceSurfaceIds, blockLayerGroupEdgeIds, out arrowStart, out arrowDirection);
+                blockArrowStarts.Add(arrowStart);
+                blockArrowDirections.Add(arrowDirection);
+                //
                 blockSourceSurfaceIds.Add(ToGmshTopologyIds(sourceSurfaceIds, partId));
                 blockSideSurfaceIds.Add(ToGmshTopologyIds(sideSurfaceIds, partId));
                 blockTargetSurfaceIds.Add(ToGmshTopologyIds(targetSurfaceIds, partId));
                 //
-                blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
-                                                           sideSurfaceIds, layerSideSurfaceIds);
                 for (int i = 0; i < blockLayerGroupEdgeIds.Length; i++)
                 {
                     for (int j = 0; j < blockLayerGroupEdgeIds[i].Length; j++)
@@ -2913,17 +3129,83 @@ namespace CaeModel
             // A compound part is meshed as a whole, so every sub-part must be swept
             foreach (var sweptPart in sweptParts)
             {
-                if (!sweptPartIds.Contains(sweptPart.PartId))
-                    return "The part " + sweptPart.Name + " is not reached by the sweep. Select a source surface on it " +
-                           "as well.";
+                if (sweptPartIds.Contains(sweptPart.PartId)) continue;
+                //
+                onlyUnreached = true;
+                return "The part " + sweptPart.Name + " is not reached by the sweep. Select a source surface on it " +
+                       "as well.";
             }
             //
             sweepMesh.BlockSourceSurfaceIds = blockSourceSurfaceIds.ToArray();
             sweepMesh.BlockSideSurfaceIds = blockSideSurfaceIds.ToArray();
             sweepMesh.BlockTargetSurfaceIds = blockTargetSurfaceIds.ToArray();
             sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds.ToArray();
+            sweepMesh.BlockArrowStarts = blockArrowStarts.ToArray();
+            sweepMesh.BlockArrowDirections = blockArrowDirections.ToArray();
             //
             return null;
+        }
+        /// <summary>
+        /// The arrow of one block: it starts at a source vertex and follows the first layer edge of the block
+        /// towards the target. The user selected block keeps the item's own arrow as well.
+        /// </summary>
+        private void GetBlockArrow(GeometryPart part, HashSet<int> sourceSurfaceIds, int[][][] layerGroupEdgeIds,
+                                   out double[] arrowStart, out double[] arrowDirection)
+        {
+            arrowStart = null;
+            arrowDirection = null;
+            VisualizationData vis = part.Visualization;
+            HashSet<int> sourceVertexIds = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            foreach (var layerGroups in layerGroupEdgeIds)
+            {
+                foreach (var edgeIds in layerGroups)
+                {
+                    foreach (var edgeId in edgeIds)
+                    {
+                        int startNodeId;
+                        Vec3D direction = GetEdgeDirectionFromSource(vis, edgeId, sourceVertexIds, out startNodeId);
+                        if (direction == null) continue;
+                        //
+                        arrowStart = _geometry.Nodes[startNodeId].Coor.ToArray();
+                        arrowDirection = direction.Coor;
+                        return;
+                    }
+                }
+            }
+        }
+        /// <summary>
+        /// The direction of a layer edge away from the source, and the source vertex it starts at, or null
+        /// when the edge does not start on the source.
+        /// </summary>
+        private Vec3D GetEdgeDirectionFromSource(VisualizationData vis, int edgeId, HashSet<int> sourceVertexIds,
+                                                 out int startNodeId)
+        {
+            startNodeId = -1;
+            int[] edgeNodes = vis.GetNodeIdsForEdgeId(edgeId).Intersect(vis.VertexNodeIds).ToArray();
+            if (edgeNodes.Length != 2) return null;
+            // First node must be on the source
+            if (!sourceVertexIds.Contains(edgeNodes[0])) (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
+            if (!sourceVertexIds.Contains(edgeNodes[0])) return null;
+            startNodeId = edgeNodes[0];
+            // Find the first edge cell for the direction
+            int edgeCellId;
+            int[] edgeCell;
+            for (int i = 0; i < vis.EdgeCellIdsByEdge[edgeId].Length; i++)
+            {
+                edgeCellId = vis.EdgeCellIdsByEdge[edgeId][i];
+                edgeCell = vis.EdgeCells[edgeCellId];
+                if (edgeNodes[0] == edgeCell[0])
+                {
+                    edgeNodes[1] = edgeCell[1];
+                    break;
+                }
+                else if (edgeNodes[0] == edgeCell[1])
+                {
+                    edgeNodes[1] = edgeCell[0];
+                    break;
+                }
+            }
+            return _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
         }
         private static void AddSourceSurface(int partId, int surfaceId, Dictionary<int, HashSet<int>> partIdSourceSurfaceIds,
                                              List<int> pendingPartIds, bool sweepFirst)
@@ -3011,8 +3293,14 @@ namespace CaeModel
             // sweep direction, so its four corners can be nominated to the transfinite algorithm.
             HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
             HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = vis.GetVertexIdEdgeIds();
             foreach (var surfaceId in sideSurfaceIds)
             {
+                // A wall with a hole - the opening of a bore that runs across the sweep - has no structured
+                // grid; gmsh refuses such a transfinite surface, so it is refused here first
+                if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
+                    return "A sweep side surface has a hole. A bore running across the sweep direction has to be " +
+                           "swept along its own axis, or the part has to be split.";
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
                 int numDirectionEdges = 0;
@@ -3031,6 +3319,36 @@ namespace CaeModel
             }
             //
             return null;
+        }
+        /// <summary>
+        /// The number of closed edge loops the given edges form, edges being joined at their vertices.
+        /// </summary>
+        private static int CountEdgeLoops(int[] edgeIds, Dictionary<int, HashSet<int>> vertexIdEdgeIds)
+        {
+            HashSet<int> edgeIdSet = new HashSet<int>(edgeIds);
+            HashSet<int> visited = new HashSet<int>();
+            Queue<int> pending = new Queue<int>();
+            int numLoops = 0;
+            foreach (var edgeId in edgeIds)
+            {
+                if (!visited.Add(edgeId)) continue;
+                //
+                numLoops++;
+                pending.Enqueue(edgeId);
+                while (pending.Count > 0)
+                {
+                    int currentEdgeId = pending.Dequeue();
+                    foreach (var entry in vertexIdEdgeIds)
+                    {
+                        if (!entry.Value.Contains(currentEdgeId)) continue;
+                        foreach (var otherEdgeId in entry.Value)
+                        {
+                            if (edgeIdSet.Contains(otherEdgeId) && visited.Add(otherEdgeId)) pending.Enqueue(otherEdgeId);
+                        }
+                    }
+                }
+            }
+            return numLoops;
         }
         /// <summary>
         /// Adds to a source the neighbouring surfaces that lie in the same plane. A sub-part wider than the

@@ -27,6 +27,17 @@ namespace PrePoMax.Forms
 
 
         // Properties                                                                                                               
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Source surfaces")]
+        [DescriptionAttribute("Select the source surfaces of the sweep, or select the part and let the source " +
+                              "surfaces be found automatically.")]
+        [Id(2, 1)]
+        public SweepSourceTypeEnum SourceType
+        {
+            get { return _sweepMesh.SourceType; }
+            set { _sweepMesh.SourceType = value; }
+        }
+        //
         [CategoryAttribute("Mesh smoothing")]
         [OrderedDisplayName(0, 10, "Global smooth steps")]
         [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing. " +

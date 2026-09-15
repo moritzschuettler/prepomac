@@ -6268,12 +6268,23 @@ namespace PrePoMax
             return meshSetupItemsToCheck.ToArray();
         }
         // A sweep mesh is defined by source surfaces lying on a single sub-part of a compound part and derives
-        // the other sub-volumes from them, so it covers a part as soon as its selection lies on that part.
-        // Every other item has to be selected on the whole part.
-        private static bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
-                                                       int[] meshablePartIds)
+        // the other sub-volumes from them, so it covers a part as soon as its selection lies on that part - or
+        // names the compound part itself, when the source surfaces are found automatically. Every other item
+        // has to be selected on the whole part.
+        private bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
+                                                int[] meshablePartIds)
         {
-            if (meshSetupItem is SweepMesh) return selectedPartIds.Count > 0 && selectedPartIds.IsSubsetOf(meshablePartIds);
+            if (meshSetupItem is SweepMesh)
+            {
+                HashSet<int> sweptPartIds = new HashSet<int>();
+                foreach (var partId in selectedPartIds)
+                {
+                    if (_model.Geometry.GetPartFromId(partId) is CompoundGeometryPart compoundPart)
+                        sweptPartIds.UnionWith(_model.Geometry.GetPartIdsFomPartNames(compoundPart.SubPartNames));
+                    else sweptPartIds.Add(partId);
+                }
+                return sweptPartIds.Count > 0 && sweptPartIds.IsSubsetOf(meshablePartIds);
+            }
             else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
         }
         // Returns the names of the geometry items related to the given focused items: for a part, the mesh
@@ -21763,15 +21774,72 @@ namespace PrePoMax
         }
         public void HighlightSweepMesh(SweepMesh sweepMesh, bool useSecondaryHighlightColor = false)
         {
-            HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
-            //
             string prefixName = sweepMesh.Name + Globals.NameSeparator + "Arrows";
-            if (sweepMesh.SweepCenter != null && sweepMesh.Direction != null)
+            // The source surfaces found automatically are the ones worth seeing, not the part they were found
+            // on, together with the layer edges of every block and an arrow per block along one of them
+            if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic && sweepMesh.BlockSourceSurfaceIds != null)
             {
-                int symbolSize = 2 * _settings.Pre.SymbolSize;
-                DrawArrowSymbols(prefixName, new double[][] { sweepMesh.SweepCenter },
-                                 new double[][] { sweepMesh.Direction }, Color.Empty, symbolSize,
-                                 vtkRendererLayer.Selection, !useSecondaryHighlightColor);
+                List<int> geometryIds = new List<int>();
+                foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
+                {
+                    foreach (var gmshTopologyId in blockSourceSurfaceIds)
+                    {
+                        geometryIds.Add(FeMesh.GetGeometryId(FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId),
+                                                             (int)GeometryType.SolidSurface,
+                                                             FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId)));
+                    }
+                }
+                if (sweepMesh.LayerGroupEdgeIds != null)
+                {
+                    foreach (var layerGroups in sweepMesh.LayerGroupEdgeIds)
+                    {
+                        foreach (var edgeIds in layerGroups)
+                        {
+                            foreach (var gmshTopologyId in edgeIds)
+                            {
+                                geometryIds.Add(FeMesh.GetGeometryId(FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId),
+                                                                     (int)GeometryType.Edge,
+                                                                     FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId)));
+                            }
+                        }
+                    }
+                }
+                HighlightItemsByGeometryIds(geometryIds.ToArray(), true, useSecondaryHighlightColor);
+                //
+                if (sweepMesh.BlockArrowStarts != null && sweepMesh.BlockArrowDirections != null)
+                {
+                    List<double[]> starts = new List<double[]>();
+                    List<double[]> directions = new List<double[]>();
+                    for (int i = 0; i < sweepMesh.BlockArrowStarts.Length; i++)
+                    {
+                        if (sweepMesh.BlockArrowStarts[i] == null || sweepMesh.BlockArrowDirections[i] == null) continue;
+                        // The exploded view moves every sub-part by its own offset
+                        BasePart part = _model.Geometry.GetPartFromId(
+                            FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]));
+                        double[] offset = part != null ? part.Offset : new double[3];
+                        starts.Add(new double[] { sweepMesh.BlockArrowStarts[i][0] + offset[0],
+                                                  sweepMesh.BlockArrowStarts[i][1] + offset[1],
+                                                  sweepMesh.BlockArrowStarts[i][2] + offset[2] });
+                        directions.Add(sweepMesh.BlockArrowDirections[i]);
+                    }
+                    if (starts.Count > 0)
+                    {
+                        DrawArrowSymbols(prefixName, starts.ToArray(), directions.ToArray(), Color.Empty,
+                                         _settings.Pre.SymbolSize, vtkRendererLayer.Selection, !useSecondaryHighlightColor);
+                    }
+                }
+            }
+            else
+            {
+                HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
+                //
+                if (sweepMesh.SweepCenter != null && sweepMesh.Direction != null)
+                {
+                    int symbolSize = 2 * _settings.Pre.SymbolSize;
+                    DrawArrowSymbols(prefixName, new double[][] { sweepMesh.SweepCenter },
+                                     new double[][] { sweepMesh.Direction }, Color.Empty, symbolSize,
+                                     vtkRendererLayer.Selection, !useSecondaryHighlightColor);
+                }
             }
         }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)

@@ -17,6 +17,15 @@
 #  - sweep_base_two.brep: two boxes side by side on a base. From the top of one block the other is found
 #    across the shared wall, and the base is fed by both caps before it is swept. From the base the line
 #    between the two blocks is an imprint inside the base's target, so the hand-off is refused.
+#  - sweep_perpendicular.brep: two boxes sharing a wall, swept in perpendicular directions from two
+#    selected faces. The shared wall is one transfinite grid that each block walks along its own family
+#    of lines, and each block's layer count is the other's cross-edge count on that wall.
+#
+#A sweep item given a part selection finds its source surfaces itself. The last tests sweep each of the
+#compounds above and a single imprinted box that way, including the two whose hand-off is refused from
+#one end: the detection has to pick the other end. Two boxes with a bore each, the bores perpendicular,
+#are the case a wall with a hole must be refused on: side by side each box is swept along its own bore
+#across their shared wall; stacked, the upper box has no sweepable direction at all.
 #
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Compound.py -g No -x Yes -w <dir>
 #
@@ -162,6 +171,83 @@ def test_two_blocks_on_a_base():
     check(not items.contains(SWEEP_NAME), "a refused sweep mesh item was recorded")
 
 
+def find_face(part, axis, value):
+    """The face of a part whose centroid has the given coordinate on the given axis."""
+    faces = part.get_face_data()
+    ids = list(faces.ids)
+    centroids = list(faces.centroids)
+    for i in range(faces.count):
+        if abs(list(centroids[i])[axis] - value) < 1e-6:
+            return ids[i]
+    raise Exception("TEST FAILED: no face of " + part.name + " has coordinate %g on axis %d" % (value, axis))
+
+
+def test_perpendicular_directions():
+    solids, compound = import_geometry("sweep_perpendicular.brep")
+    check(compound is not None and len(solids) == 2, "the two boxes must import as a compound of 2")
+    lower = [part for part in solids if list(part.center_of_mass)[1] < 0][0]
+    upper = [part for part in solids if list(part.center_of_mass)[1] > 0][0]
+    # The lower box is swept along z from its bottom face, the upper one along x from its x = 0 face; the
+    # wall at y = 0 is shared and carries both families of sweep lines
+    selection = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
+                                            {lower.id: [find_face(lower, 2, 0.0)], upper.id: [find_face(upper, 0, 0.0)]})
+    items = pmx.model.mesh.setup_items
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    check(items[SWEEP_NAME].valid, "a sweep with perpendicular directions across a shared wall must be valid")
+    nodes_before = pmx.model.nodes.count
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "", "meshing the perpendicular sweep reported: " + report[compound.name])
+    meshed = [part for part in pmx.model.parts if part.name in (lower.name, upper.name)]
+    check(len(meshed) == 2 and all(part.element_count > 0 for part in meshed), "both boxes must be meshed")
+    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+          "blocks swept in perpendicular directions do not share the nodes of their common wall")
+    for part in meshed:
+        print("meshed:", part.name, part.node_count, "nodes", part.element_count, "elements")
+    items.remove([SWEEP_NAME])
+
+
+def test_automatic_sources():
+    items = pmx.model.mesh.setup_items
+    for file_name in ("sweep_stack3.brep", "sweep_stack_small.brep", "sweep_grid4.brep", "sweep_base_two.brep",
+                      "sweep_perpendicular.brep", "sweep_split_target.brep"):
+        solids, compound = import_geometry(file_name)
+        part_to_mesh = compound if compound is not None else solids[0]
+        selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part_to_mesh.id])
+        items.add_sweep_mesh(SWEEP_NAME, selection)
+        check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
+        report = pmx.model.mesh.create(part_to_mesh.name)
+        check(report[part_to_mesh.name] == "", "the automatic sweep of " + file_name + " reported: " + report[part_to_mesh.name])
+        names = set(solid.name for solid in solids)
+        meshed = [part for part in pmx.model.parts if part.name in names]
+        check(len(meshed) == len(solids) and all(part.element_count > 0 for part in meshed),
+              "the automatic sweep of " + file_name + " did not mesh every solid")
+        print("automatic:", file_name, [(part.name, part.element_count) for part in meshed])
+        items.remove([SWEEP_NAME])
+
+
+def test_perpendicular_bores():
+    items = pmx.model.mesh.setup_items
+    # Side by side: each box is swept along its own bore, perpendicular to the other, across the shared wall
+    solids, compound = import_geometry("sweep_holes_side.brep")
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the boxes with perpendicular bores is not valid")
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "", "the boxes with perpendicular bores reported: " + report[compound.name])
+    names = set(solid.name for solid in solids)
+    meshed = [part for part in pmx.model.parts if part.name in names]
+    check(len(meshed) == 2 and all(part.element_count > 0 for part in meshed), "both bored boxes must be meshed")
+    print("automatic:", "sweep_holes_side.brep", [(part.name, part.element_count) for part in meshed])
+    items.remove([SWEEP_NAME])
+    # Stacked: the upper box is bored across every direction the lower box hands on, so no wall of it is
+    # free of a hole, and the item is refused rather than recorded and failed by gmsh
+    solids, compound = import_geometry("sweep_holes_stacked.brep")
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
+                 "a sweep whose only walls carry a bore must be refused")
+    check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_chain_of_three()
@@ -170,6 +256,9 @@ def main():
     test_side_by_side("sweep_side2.brep", 2)
     test_side_by_side("sweep_grid4.brep", 4)
     test_two_blocks_on_a_base()
+    test_perpendicular_directions()
+    test_automatic_sources()
+    test_perpendicular_bores()
     print("TEST PASSED")
 
 

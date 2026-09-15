@@ -277,6 +277,16 @@ namespace PrePoMax.Forms
             {
                 SetSelectItem();
             }
+            else if (_viewMeshSetupItem is ViewSweepMesh vsm && property == nameof(vsm.SourceType))
+            {
+                // A surface selection means nothing to an automatic sweep and a part selection nothing to a
+                // manual one. The picker mode also lives in the selection that the highlight below restores,
+                // so the selection is dropped before the picker is switched, or it would switch right back
+                MeshSetupItem.CreationIds = new int[0];
+                MeshSetupItem.CreationData = null;
+                _controller.ClearSelectionHistory();
+                ShowHideSelectionForm();
+            }
             //
             HighlightMeshSetupItem();
             //
@@ -548,7 +558,11 @@ namespace PrePoMax.Forms
                 else if (MeshSetupItem is TetrahedralGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TransfiniteMesh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ExtrudeMesh) _controller.SetSelectItemToGeometrySurface();
-                else if (MeshSetupItem is SweepMesh) _controller.SetSelectItemToGeometrySurface();
+                else if (MeshSetupItem is SweepMesh sm)
+                {
+                    if (sm.SourceType == SweepSourceTypeEnum.Automatic) _controller.SetSelectItemToPart();
+                    else _controller.SetSelectItemToGeometrySurface();
+                }
                 else if (MeshSetupItem is RevolveMesh) _controller.SetSelectItemToGeometrySurface();
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }

@@ -150,6 +150,7 @@
     <Compile Include="Meshing\Gmsh\SetupItems\GmshSetupItem.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\ExtrudeMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\SweepSourceTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeGrid.cs" />

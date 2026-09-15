@@ -229,6 +229,13 @@ namespace APIs.Python.Model
                                                                                 GetSelectionTargets(item));
             item.CreationData = compilation.Selection;
             item.CreationIds = compilation.Ids;
+            // A sweep given a part rather than its source surfaces finds the source surfaces itself, the way
+            // the dialog does when its source surfaces are set to automatic
+            if (item is SweepMesh sweepMesh && compilation.Ids.Length > 0)
+            {
+                bool parts = FeMesh.IsPartGeometryId(compilation.Ids[0]);
+                sweepMesh.SourceType = parts ? SweepSourceTypeEnum.Automatic : SweepSourceTypeEnum.SelectedSurfaces;
+            }
         }
         // The dialog points the picker at what the item type is defined on, so a whole part mesher records
         // a part selection and a local mesh size records a geometry entity or an edge. A script may say
@@ -243,8 +250,8 @@ namespace APIs.Python.Model
                 //
                 return new string[] { "geometry" };
             }
-            if (item is ExtrudeMesh || item is RevolveMesh || item is SweepMesh)
-                return new string[] { "geometry_surfaces", "geometry" };
+            if (item is SweepMesh) return new string[] { "geometry_surfaces", "parts", "geometry" };
+            if (item is ExtrudeMesh || item is RevolveMesh) return new string[] { "geometry_surfaces", "geometry" };
             //
             return new string[] { "parts", "geometry" };
         }

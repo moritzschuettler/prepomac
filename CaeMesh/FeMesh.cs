@@ -7717,6 +7717,15 @@ namespace CaeMesh
             int itemId = geometryId / _typeDigits;
             return new int[] { itemId, typeId, partId };
         }
+        /// <summary>
+        /// Whether a geometry id names a whole part. A part selection records the bare part id, with no
+        /// item and type digits, and a part converted from another selection carries the part type digit.
+        /// </summary>
+        public static bool IsPartGeometryId(int geometryId)
+        {
+            int typeId = GetTypeIdFromGeometryId(geometryId);
+            return typeId == 0 || typeId == (int)GeometryType.Part;
+        }
         public static int GetTypeIdFromGeometryId(int geometryId)
         {
             // geometryId = itemId * 100000 + typeId * 10000 + partId;

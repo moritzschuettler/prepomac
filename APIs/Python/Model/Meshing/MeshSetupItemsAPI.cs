@@ -429,7 +429,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a Gmsh sweep mesh item for the selected source surfaces. The sweep direction, " +
-                   "the side surfaces and the layer edges are derived by the model from the selection.",
+                   "the side surfaces and the layer edges are derived by the model from the selection. A part " +
+                   "selection - a solid or a compound of solids - lets the model find the source surfaces itself.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
