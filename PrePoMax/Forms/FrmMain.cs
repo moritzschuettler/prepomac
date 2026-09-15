@@ -630,7 +630,7 @@ namespace PrePoMax
                 AddFormToAllForms(_frmFind);
                 //
                 _frmCaptureViewport = new FrmCaptureViewport();
-                _frmCaptureViewport.Form_GetNextFileName = GetNextViewportImageFileName;
+                _frmCaptureViewport.Form_GetDefaultProperties = GetDefaultCaptureViewportProperties;
                 _frmCaptureViewport.Form_Capture = CaptureViewport;
                 AddFormToAllForms(_frmCaptureViewport);
                 //
@@ -7682,7 +7682,8 @@ namespace PrePoMax
         {
             try
             {
-                CaptureViewport(GetNextViewportImageFileName(null), true, 1);
+                CaptureViewportProperties properties = GetDefaultCaptureViewportProperties();
+                CaptureViewport(properties.GetFileName(), properties.TransparentBackground, properties.Magnification);
             }
             catch (Exception ex)
             {
@@ -7887,49 +7888,19 @@ namespace PrePoMax
             SaveAutomationScreenshot(fileName, transparentBackground, magnification);
             WriteDataToOutput("Viewport captured into: " + fileName);
         }
-        // The next free numbered name, so that a run of captures collects in one folder and none of
-        // them replaces the one before it. Without a previous picture the name comes from the model
-        // file and lands in the work directory, where the rest of the model's files are; with one it
-        // keeps that picture's folder and base name, so a name the user typed is numbered on from
-        private string GetNextViewportImageFileName(string previousFileName)
+        // A numbered picture of the model, in the work directory where the rest of the model's files
+        // are, with the background left out. That is what the toolbar button writes without asking,
+        // and what the dialog starts from
+        private CaptureViewportProperties GetDefaultCaptureViewportProperties()
         {
-            string directory;
-            string baseName;
-            if (string.IsNullOrEmpty(previousFileName))
-            {
-                directory = _controller.GetWorkDirectory();
-                if (directory == null || directory.Length == 0 || !Directory.Exists(directory))
-                    throw new CaeException("The work directory does not exist. Set it in Tools - Settings - Solver.");
-                //
-                string openedFileName = _controller.OpenedFileName;
-                baseName = string.IsNullOrEmpty(openedFileName) ? Globals.ViewportImageBaseName
-                                                                : Path.GetFileNameWithoutExtension(openedFileName);
-            }
-            else
-            {
-                directory = Path.GetDirectoryName(previousFileName);
-                baseName = StripImageNumber(Path.GetFileNameWithoutExtension(previousFileName));
-            }
+            string workDirectory = _controller.GetWorkDirectory();
+            if (workDirectory == null || workDirectory.Length == 0 || !Directory.Exists(workDirectory))
+                throw new CaeException("The work directory does not exist. Set it in Tools - Settings - Solver.");
             //
-            for (int i = 1; i <= 9999; i++)
-            {
-                string fileName = Path.Combine(directory, baseName + "_" + i.ToString("000") + ".png");
-                if (!File.Exists(fileName)) return fileName;
-            }
-            throw new CaeException("The folder " + directory + " already holds a picture under every name based on '" +
-                                   baseName + "'.");
-        }
-        private static string StripImageNumber(string baseName)
-        {
-            int separator = baseName.LastIndexOf('_');
-            if (separator <= 0 || separator != baseName.Length - 4) return baseName;
-            //
-            int number;
-            if (!int.TryParse(baseName.Substring(separator + 1), NumberStyles.None, CultureInfo.InvariantCulture,
-                              out number))
-                return baseName;
-            //
-            return baseName.Substring(0, separator);
+            string openedFileName = _controller.OpenedFileName;
+            string name = string.IsNullOrEmpty(openedFileName) ? Globals.ViewportImageBaseName
+                                                               : Path.GetFileNameWithoutExtension(openedFileName);
+            return new CaptureViewportProperties(workDirectory, name);
         }
         // A session started with -g No has no window anyone is looking at
         public bool IsWindowHidden { get { return _hideWindow; } }

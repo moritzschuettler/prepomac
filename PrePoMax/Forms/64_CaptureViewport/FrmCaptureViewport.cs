@@ -9,13 +9,14 @@
 
 using System;
 using System.IO;
+using System.Windows.Forms;
 using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
     // The settings the toolbar button decides on its own. The form is not modal, so the model can
     // still be turned, zoomed and replotted between opening it and taking the picture, and OK leaves
-    // it open with the next free file name filled in, so a run of pictures needs no typing.
+    // it open, so a run of pictures of one model needs no typing at all.
     class FrmCaptureViewport : UserControls.FrmProperties, IFormBase
     {
         // Variables                                                                                                                
@@ -23,7 +24,7 @@ namespace PrePoMax.Forms
 
 
         // Callbacks                                                                                                                
-        public Func<string, string> Form_GetNextFileName;
+        public Func<CaptureViewportProperties> Form_GetDefaultProperties;
         public Action<string, bool, int> Form_Capture;
 
 
@@ -39,13 +40,12 @@ namespace PrePoMax.Forms
         {
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             this.ClientSize = new System.Drawing.Size(334, 411);
             this.Name = "FrmCaptureViewport";
             this.Text = "Capture Viewport";
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
-
         }
 
 
@@ -54,20 +54,11 @@ namespace PrePoMax.Forms
         {
             _propertyItemChanged = false;
             propertyGrid.SelectedObject = null;
-            // OK leaves the form open and prepares it again, and there the picture that was just taken
-            // is what the next name is numbered from, so a folder the user chose is kept. A form that
-            // is not visible yet is being opened, and that starts from the current model again
-            string previousFileName = Visible && _viewCaptureViewportProperties != null
-                                      ? _viewCaptureViewportProperties.FileName : null;
-            string fileName = Form_GetNextFileName(previousFileName);
-            //
-            if (_viewCaptureViewportProperties == null)
-                _viewCaptureViewportProperties =
-                    new ViewCaptureViewportProperties(new CaptureViewportProperties(fileName));
-            else _viewCaptureViewportProperties.FileName = fileName;
-            //
-            CreateFileNameEditor.FileName = fileName;
-            CreateFileNameEditor.Filter = "Png files|*.png";
+            // OK leaves the form open and prepares it again, and the folder and the name the user set
+            // there are theirs to keep. A form that is not visible yet is being opened, and that
+            // starts from the folder and the name of the model again
+            if (!Visible || _viewCaptureViewportProperties == null)
+                _viewCaptureViewportProperties = new ViewCaptureViewportProperties(Form_GetDefaultProperties());
             //
             propertyGrid.SelectedObject = _viewCaptureViewportProperties;
             propertyGrid.Select();
@@ -78,26 +69,16 @@ namespace PrePoMax.Forms
         {
             _viewCaptureViewportProperties = (ViewCaptureViewportProperties)propertyGrid.SelectedObject;
             CaptureViewportProperties properties = _viewCaptureViewportProperties.GetBase();
-            CheckFileName(properties.FileName);
+            string fileName = properties.GetFileName();
+            // A numbered name is free by the time it is returned, so this only ever asks about a name
+            // the user chose to keep as it is
+            if (File.Exists(fileName) &&
+                MessageBoxes.ShowWarningQuestionYesNo("The file '" + fileName + "' already exists. Replace it?") !=
+                DialogResult.Yes)
+                throw new CaeException("BreakOnApply");
             //
             if (Form_Capture != null)
-                Form_Capture(properties.FileName, properties.TransparentBackground, properties.Magnification);
-        }
-
-
-        // Methods                                                                                                                  
-        private static void CheckFileName(string fileName)
-        {
-            if (fileName == null || fileName.Trim().Length == 0)
-                throw new CaeException("The name of the picture file is missing.");
-            if (Path.GetExtension(fileName).ToLower() != ".png")
-                throw new CaeException("The viewport is captured into a .png file.");
-            //
-            string directory = Path.GetDirectoryName(fileName);
-            if (directory == null || directory.Length == 0)
-                throw new CaeException("The name of the picture file is missing its folder.");
-            if (!Directory.Exists(directory))
-                throw new CaeException("The folder '" + directory + "' does not exist.");
+                Form_Capture(fileName, properties.TransparentBackground, properties.Magnification);
         }
     }
 }

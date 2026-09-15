@@ -76,6 +76,8 @@ namespace PrePoMax
             this.tsbShowAllParts = new System.Windows.Forms.ToolStripButton();
             this.tsbHideAllParts = new System.Windows.Forms.ToolStripButton();
             this.tsbInvertVisibleParts = new System.Windows.Forms.ToolStripButton();
+            this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsbCapture = new System.Windows.Forms.ToolStripButton();
             this.tsSymbols = new UserControls.ToolStripFocus();
             this.tslSymbols = new System.Windows.Forms.ToolStripLabel();
             this.tscbSymbols = new System.Windows.Forms.ToolStripComboBox();
@@ -596,8 +598,6 @@ namespace PrePoMax
             this.tsmiClearOutputTextbox = new System.Windows.Forms.ToolStripMenuItem();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsbCapture = new System.Windows.Forms.ToolStripButton();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -717,7 +717,7 @@ namespace PrePoMax
             this.tsbCapture});
             this.tsViews.Location = new System.Drawing.Point(107, 50);
             this.tsViews.Name = "tsViews";
-            this.tsViews.Size = new System.Drawing.Size(623, 25);
+            this.tsViews.Size = new System.Drawing.Size(654, 25);
             this.tsViews.TabIndex = 6;
             this.tsViews.Text = "Views";
             // 
@@ -894,6 +894,7 @@ namespace PrePoMax
             this.tsbSectionView.Name = "tsbSectionView";
             this.tsbSectionView.Size = new System.Drawing.Size(23, 22);
             this.tsbSectionView.Text = "Section view";
+            this.tsbSectionView.ToolTipText = "Section view\r\nRight click for settings";
             this.tsbSectionView.MouseUp += new System.Windows.Forms.MouseEventHandler(this.tsbSectionView_MouseUp);
             // 
             // tsbExplodedView
@@ -904,6 +905,7 @@ namespace PrePoMax
             this.tsbExplodedView.Name = "tsbExplodedView";
             this.tsbExplodedView.Size = new System.Drawing.Size(23, 22);
             this.tsbExplodedView.Text = "Exploded view";
+            this.tsbExplodedView.ToolTipText = "Exploded view\r\nRight click for settings";
             this.tsbExplodedView.MouseUp += new System.Windows.Forms.MouseEventHandler(this.tsbExplodedView_MouseUp);
             // 
             // tsbFollowerView
@@ -985,6 +987,23 @@ namespace PrePoMax
             this.tsbInvertVisibleParts.Size = new System.Drawing.Size(23, 22);
             this.tsbInvertVisibleParts.Text = "Invert visible parts";
             this.tsbInvertVisibleParts.Click += new System.EventHandler(this.tsbInvertVisibleParts_Click);
+            // 
+            // toolStripSeparator4
+            // 
+            this.toolStripSeparator4.Name = "toolStripSeparator4";
+            this.toolStripSeparator4.Size = new System.Drawing.Size(6, 25);
+            // 
+            // tsbCapture
+            // 
+            this.tsbCapture.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsbCapture.Image = global::PrePoMax.Properties.Resources.Capture;
+            this.tsbCapture.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsbCapture.Name = "tsbCapture";
+            this.tsbCapture.Size = new System.Drawing.Size(23, 22);
+            this.tsbCapture.Text = "Capture viewport";
+            this.tsbCapture.ToolTipText = "Capture viewport\r\nRight click for settings";
+            this.tsbCapture.Click += new System.EventHandler(this.tsbCapture_Click);
+            this.tsbCapture.MouseUp += new System.Windows.Forms.MouseEventHandler(this.tsbCapture_MouseUp);
             // 
             // tsSymbols
             // 
@@ -5222,23 +5241,6 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
-            // toolStripSeparator4
-            // 
-            this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(6, 25);
-            // 
-            // tsbCapture
-            // 
-            this.tsbCapture.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsbCapture.Image = global::PrePoMax.Properties.Resources.Capture;
-            this.tsbCapture.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.tsbCapture.Name = "tsbCapture";
-            this.tsbCapture.Size = new System.Drawing.Size(23, 22);
-            this.tsbCapture.Text = "Capture viewport";
-            this.tsbCapture.ToolTipText = "Capture viewport\r\nRight click to capture viewport as...";
-            this.tsbCapture.Click += new System.EventHandler(this.tsbCapture_Click);
-            this.tsbCapture.MouseUp += new System.Windows.Forms.MouseEventHandler(this.tsbCapture_MouseUp);
             // 
             // FrmMain
             // 
