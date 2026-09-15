@@ -6232,7 +6232,7 @@ namespace PrePoMax
                     {
                         selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(entry.Value.CreationIds));
                         //
-                        if (selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length)
+                        if (DoesMeshSetupItemCoverPart(entry.Value, selectedPartIds, meshablePartIds))
                             meshSetupItemsToCheck.Add(entry.Value);
                     }
                 }
@@ -6259,13 +6259,22 @@ namespace PrePoMax
                     {
                         selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(msi.CreationIds));
                         //
-                        if (selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length)
+                        if (DoesMeshSetupItemCoverPart(msi, selectedPartIds, meshablePartIds))
                             meshSetupItemsToCheck.Add(msi);
                     }
                 }
             }
             //
             return meshSetupItemsToCheck.ToArray();
+        }
+        // A sweep mesh is defined by source surfaces lying on a single sub-part of a compound part and derives
+        // the other sub-volumes from them, so it covers a part as soon as its selection lies on that part.
+        // Every other item has to be selected on the whole part.
+        private static bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
+                                                       int[] meshablePartIds)
+        {
+            if (meshSetupItem is SweepMesh) return selectedPartIds.Count > 0 && selectedPartIds.IsSubsetOf(meshablePartIds);
+            else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
         }
         // Returns the names of the geometry items related to the given focused items: for a part, the mesh
         // setup items that reference it; for a mesh setup item, the parts it references. Used by the model

@@ -508,48 +508,30 @@ namespace CaeMesh
         {
             if (sweepMesh == null) throw new NotSupportedException();
             //
-            int surfaceId;
-            HashSet<int> sourceSurfaceIds = new HashSet<int>();
             bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            // Get source surfaces
-            for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
-            {
-                surfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
-                sourceSurfaceIds.Add(surfaceId);
-                //Gmsh.Model.Mesh.SetSmoothing(2, surfaceId, 100); // smoothing
-            }
             // Get surface item ids
             Dictionary<int, int[]> surfaceIdEdgeIds;
             Dictionary<int, int[]> surfaceIdVertexIds;
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
-            // Get side surfaces
-            HashSet<int> sideSurfaceIds = new HashSet<int>(sweepMesh.SideSurfaceIds);
-            HashSet<int> targetSurfaceIds = new HashSet<int>();
-            // Get target surfaces
-            targetSurfaceIds.UnionWith(surfaceIdVertexIds.Keys);
-            targetSurfaceIds.ExceptWith(sourceSurfaceIds);
-            targetSurfaceIds.ExceptWith(sideSurfaceIds);
-            // The mesh is built by projecting onto every target surface and keeping the nearest hit,
-            // so a target that is split into several faces is allowed
-            if (targetSurfaceIds.Count < 1)
-                throw new CaeException("No sweep target surface could be determined.");
-            // The volume the solid elements are classified on
-            Tuple<int, int>[] volumeDimTags;
-            Gmsh.Model.GetEntities(out volumeDimTags, 3);
-            if (volumeDimTags.Length != 1)
-                throw new CaeException("The sweep mesh setup item requires a part with a single volume.");
-            int volumeId = volumeDimTags[0].Item2;
-            // Set source surfaces
-            if (recombine)
-            {
-                foreach (var sourceSurfaceId in sourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
-            }
-            // Set side surfaces. A wall whose side is built from several edges - which is what a
-            // split source face produces - needs its four corners nominated by hand, and needs the
-            // element counts on its opposite sides reconciled first.
-            List<SweepWall> walls = SweepWallTopology.Classify(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                                               surfaceIdEdgeIds);
+            // One block per swept volume, in the order in which the blocks feed each other
+            List<SweepBlock> blocks = GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
             //
+            List<SweepWall> walls = new List<SweepWall>();
+            HashSet<int> targetSurfaceIds = new HashSet<int>();
+            foreach (var block in blocks)
+            {
+                // Set source surfaces
+                if (recombine)
+                {
+                    foreach (var sourceSurfaceId in block.SourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                }
+                // Set side surfaces. A wall whose side is built from several edges - which is what a
+                // split source face produces - needs its four corners nominated by hand, and needs the
+                // element counts on its opposite sides reconciled first.
+                walls.AddRange(SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
+                                                          block.TargetSurfaceIds, surfaceIdEdgeIds));
+                targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
+            }
             // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
             PrepareWallEdges(walls);
             //
@@ -563,8 +545,10 @@ namespace CaeMesh
             }
             //
             GenerateMesh(2);
-            // Remove the volume and the target surface mesh
-            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, volumeId) };
+            // Remove the volumes and the target surface meshes. A target shared with the next block is
+            // rebuilt by the sweep of this block and read back as the source of the next one.
+            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>();
+            foreach (var block in blocks) toRemoveDimTags.Add(new Tuple<int, int>(3, block.VolumeId));
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
@@ -583,16 +567,75 @@ namespace CaeMesh
             {
                 // Remove the side surface mesh
                 toRemoveDimTags = new List<Tuple<int, int>>();
-                foreach (var sideSurfaceId in sideSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, sideSurfaceId));
+                foreach (var block in blocks)
+                {
+                    foreach (var sideSurfaceId in block.WallSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, sideSurfaceId));
+                }
                 //
                 Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
             }
             else
             {
-                SweepMethods.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                             sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, volumeId,
-                                             _writeOutput);
+                SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
             }
+        }
+        /// <summary>
+        /// The sweep blocks of the item, in gmsh numbering. An item saved before the blocks were recorded
+        /// carries only its side surfaces and describes a single volume, so that block is rebuilt the way
+        /// it used to be: the source from the selection and the target as whatever surfaces are left.
+        /// </summary>
+        private List<SweepBlock> GetSweepBlocks(SweepMesh sweepMesh, IEnumerable<int> allSurfaceIds)
+        {
+            List<SweepBlock> blocks = new List<SweepBlock>();
+            if (sweepMesh.BlockSourceSurfaceIds != null)
+            {
+                for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
+                {
+                    blocks.Add(new SweepBlock(sweepMesh.BlockSourceSurfaceIds[i], sweepMesh.BlockSideSurfaceIds[i],
+                                              sweepMesh.BlockTargetSurfaceIds[i]));
+                }
+            }
+            else
+            {
+                HashSet<int> sourceSurfaceIds = new HashSet<int>();
+                for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
+                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1);
+                HashSet<int> sideSurfaceIds = new HashSet<int>();
+                if (sweepMesh.BlockSideSurfaceIds != null && sweepMesh.BlockSideSurfaceIds.Length > 0)
+                    sideSurfaceIds.UnionWith(sweepMesh.BlockSideSurfaceIds[0]);
+                HashSet<int> targetSurfaceIds = new HashSet<int>(allSurfaceIds);
+                targetSurfaceIds.ExceptWith(sourceSurfaceIds);
+                targetSurfaceIds.ExceptWith(sideSurfaceIds);
+                blocks.Add(new SweepBlock(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds));
+            }
+            //
+            foreach (var block in blocks)
+            {
+                if (block.TargetSurfaceIds.Count < 1) throw new CaeException("No sweep target surface could be determined.");
+                block.VolumeId = GetSweepBlockVolumeId(block);
+            }
+            //
+            return blocks;
+        }
+        /// <summary>
+        /// The volume bounded by the surfaces of a block. A surface shared with a neighbouring block touches
+        /// two volumes, so the volume of the block is the one that every one of its surfaces touches.
+        /// </summary>
+        private static int GetSweepBlockVolumeId(SweepBlock block)
+        {
+            int[] volumeIds;
+            HashSet<int> candidateIds = null;
+            IEnumerable<int> surfaceIds = block.SourceSurfaceIds.Concat(block.WallSurfaceIds).Concat(block.TargetSurfaceIds);
+            foreach (var surfaceId in surfaceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
+                if (candidateIds == null) candidateIds = new HashSet<int>(volumeIds);
+                else candidateIds.IntersectWith(volumeIds);
+            }
+            if (candidateIds == null || candidateIds.Count != 1)
+                throw new CaeException("The volume of a sweep block could not be determined from its surfaces.");
+            //
+            return candidateIds.First();
         }
         //
         public bool CheckMeshVolume(Tuple<int, int>[] outDimTags)
@@ -717,6 +760,7 @@ namespace CaeMesh
                 ringLayerElements[ringEdgeIds] = ResolveRingLayerElements(ringEdgeIds);
             // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there
             int sourceElements;
+            int numOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
             foreach (var wall in walls)
             {
@@ -724,7 +768,13 @@ namespace CaeMesh
                 //
                 sourceElements = 0;
                 foreach (var edgeId in wall.SourceEdgeIds)
-                    sourceElements += SweepWallTopology.GetElementCount(edgeId);
+                {
+                    // The target side of an earlier wall keeps the count that wall was given, and the walls
+                    // of the block fed from it must start from that count rather than from the measured one
+                    if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
+                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                    sourceElements += numOfElements;
+                }
                 //
                 double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
                 int[] targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
@@ -1504,15 +1554,11 @@ namespace CaeMesh
             {
                 foreach (var setupItem in _gmshData.GmshSetupItems)
                 {
-                    int faceId;
                     if (setupItem is SweepMesh sw)
                     {
-                        for (int i = 0; i < sw.SideSurfaceIds.Length; i++)
-                        {
-                            if (netgenFaceIdGmshFaceId.TryGetValue(sw.SideSurfaceIds[i], out faceId))
-                                sw.SideSurfaceIds[i] = faceId;
-                            else if (Debugger.IsAttached) Debugger.Break();
-                        }
+                        RenumberSurfaceIds(sw.BlockSourceSurfaceIds, netgenFaceIdGmshFaceId);
+                        RenumberSurfaceIds(sw.BlockSideSurfaceIds, netgenFaceIdGmshFaceId);
+                        RenumberSurfaceIds(sw.BlockTargetSurfaceIds, netgenFaceIdGmshFaceId);
                         //
                         int edgeId;
                         for (int i = 0; i < sw.LayerGroupEdgeIds.Length; i++)
@@ -1528,6 +1574,20 @@ namespace CaeMesh
                             }
                         }
                     }
+                }
+            }
+        }
+        private static void RenumberSurfaceIds(int[][] surfaceIds, Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            if (surfaceIds == null) return;
+            //
+            int faceId;
+            for (int i = 0; i < surfaceIds.Length; i++)
+            {
+                for (int j = 0; j < surfaceIds[i].Length; j++)
+                {
+                    if (netgenFaceIdGmshFaceId.TryGetValue(surfaceIds[i][j], out faceId)) surfaceIds[i][j] = faceId;
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
             }
         }

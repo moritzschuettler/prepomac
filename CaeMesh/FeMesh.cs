@@ -4324,10 +4324,142 @@ namespace CaeMesh
                 }
             }
         }
+        /// <summary>
+        /// Finds the surfaces that two of the given parts have in common - the interfaces between the
+        /// sub-parts of a compound part. Every part carries its own copy of the nodes, so the surfaces are
+        /// matched by geometry: the same vertex positions, the same area and the same centroid. The result
+        /// maps the gmsh topology id of each shared surface to the id of its twin on the other part.
+        /// </summary>
+        public Dictionary<int, int> GetSharedSurfaceIds(BasePart[] parts)
+        {
+            VisualizationData vis;
+            BoundingBox boundingBox = new BoundingBox();
+            foreach (var part in parts) boundingBox.IncludeBox(part.BoundingBox);
+            double diagonal = boundingBox.GetDiagonal();
+            double vertexTolerance = 1E-5 * diagonal;
+            double centroidTolerance = 1E-3 * diagonal;
+            //
+            List<int> surfaceIds = new List<int>();
+            List<int> partIds = new List<int>();
+            List<double> areas = new List<double>();
+            List<double[]> centroids = new List<double[]>();
+            List<double[][]> vertexCoors = new List<double[][]>();
+            foreach (var part in parts)
+            {
+                vis = part.Visualization;
+                if (vis == null || vis.CellIdsByFace == null) continue;
+                //
+                for (int i = 0; i < vis.CellIdsByFace.Length; i++)
+                {
+                    surfaceIds.Add(GmshTopologyId(i, part.PartId));
+                    partIds.Add(part.PartId);
+                    areas.Add(vis.FaceAreas != null ? vis.FaceAreas[i] : ComputeFaceArea(vis, i, _nodes));
+                    centroids.Add(ComputeFaceCentroid(vis, i));
+                    vertexCoors.Add(GetFaceVertexCoordinates(vis, i));
+                }
+            }
+            //
+            Dictionary<int, int> sharedSurfaceIds = new Dictionary<int, int>();
+            for (int i = 0; i < surfaceIds.Count; i++)
+            {
+                if (sharedSurfaceIds.ContainsKey(surfaceIds[i])) continue;
+                //
+                for (int j = i + 1; j < surfaceIds.Count; j++)
+                {
+                    if (partIds[i] == partIds[j] || sharedSurfaceIds.ContainsKey(surfaceIds[j])) continue;
+                    if (vertexCoors[i].Length != vertexCoors[j].Length) continue;
+                    if (Math.Abs(areas[i] - areas[j]) > 1E-3 * Math.Max(areas[i], areas[j])) continue;
+                    if (GetCoorDistance(centroids[i], centroids[j]) > centroidTolerance) continue;
+                    if (!AreVertexCoordinatesEqual(vertexCoors[i], vertexCoors[j], vertexTolerance)) continue;
+                    //
+                    sharedSurfaceIds.Add(surfaceIds[i], surfaceIds[j]);
+                    sharedSurfaceIds.Add(surfaceIds[j], surfaceIds[i]);
+                    break;
+                }
+            }
+            //
+            return sharedSurfaceIds;
+        }
+        public double[] ComputeFaceCentroid(VisualizationData visualization, int faceId)
+        {
+            int[] cell;
+            int numOfCorners;
+            double area;
+            double totalArea = 0;
+            double[] centroid = new double[3];
+            FeNode n1;
+            FeNode n2;
+            FeNode n3;
+            // A cell with more than three corner nodes is split into a fan of triangles
+            foreach (var cellId in visualization.CellIdsByFace[faceId])
+            {
+                cell = visualization.Cells[cellId];
+                numOfCorners = cell.Length == 6 ? 3 : cell.Length == 8 ? 4 : cell.Length;
+                n1 = _nodes[cell[0]];
+                for (int i = 1; i < numOfCorners - 1; i++)
+                {
+                    n2 = _nodes[cell[i]];
+                    n3 = _nodes[cell[i + 1]];
+                    area = GeometryTools.TriangleArea(n1, n2, n3);
+                    centroid[0] += area * (n1.X + n2.X + n3.X) / 3;
+                    centroid[1] += area * (n1.Y + n2.Y + n3.Y) / 3;
+                    centroid[2] += area * (n1.Z + n2.Z + n3.Z) / 3;
+                    totalArea += area;
+                }
+            }
+            if (totalArea > 0)
+            {
+                centroid[0] /= totalArea;
+                centroid[1] /= totalArea;
+                centroid[2] /= totalArea;
+            }
+            return centroid;
+        }
+        private double[][] GetFaceVertexCoordinates(VisualizationData visualization, int faceId)
+        {
+            int[] vertexNodeIds = visualization.GetVertexNodeIdsForSurfaceId(faceId);
+            double[][] coordinates = new double[vertexNodeIds.Length][];
+            for (int i = 0; i < vertexNodeIds.Length; i++) coordinates[i] = _nodes[vertexNodeIds[i]].Coor;
+            return coordinates;
+        }
+        private static bool AreVertexCoordinatesEqual(double[][] coordinates1, double[][] coordinates2, double tolerance)
+        {
+            bool found;
+            bool[] matched = new bool[coordinates2.Length];
+            for (int i = 0; i < coordinates1.Length; i++)
+            {
+                found = false;
+                for (int j = 0; j < coordinates2.Length; j++)
+                {
+                    if (matched[j]) continue;
+                    if (GetCoorDistance(coordinates1[i], coordinates2[j]) <= tolerance)
+                    {
+                        matched[j] = true;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+        private static double GetCoorDistance(double[] coor1, double[] coor2)
+        {
+            return Math.Sqrt(Math.Pow(coor1[0] - coor2[0], 2) + Math.Pow(coor1[1] - coor2[1], 2) +
+                             Math.Pow(coor1[2] - coor2[2], 2));
+        }
         public static int GmshTopologyId(int itemId, int partId)
         {
             // Add 1 to prevent 0 * 10000 + 5 = 5
             return (itemId + 1) * 10000 + partId;
+        }
+        public static int GetPartIdFromGmshTopologyId(int gmshTopologyId)
+        {
+            return gmshTopologyId % 10000;
+        }
+        public static int GetItemIdFromGmshTopologyId(int gmshTopologyId)
+        {
+            return gmshTopologyId / 10000 - 1;
         }
         // 3D - 2D
         public void UpdatePartsElementTypes(Dictionary<Type, HashSet<Enum>> elementTypeEnums)
@@ -11784,6 +11916,10 @@ namespace CaeMesh
             if (massProperties.Volume != 0) partMassProperties.Volume = massProperties.Volume;
             if (massProperties.Area != 0) partMassProperties.Area = massProperties.Area;
             if (massProperties.CenterOfMass != null) partMassProperties.CenterOfMass = massProperties.CenterOfMass;
+            // The inertia matrices are only ever read from the CAD metadata and are never computed from a mesh,
+            // so they no longer describe a part whose measurements were taken from the nodes again
+            partMassProperties.InertiaMatrixCG = null;
+            partMassProperties.InertiaMatrixOrigin = null;
             //
             part.MassProperties = partMassProperties;
         }

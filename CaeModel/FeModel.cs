@@ -2691,193 +2691,418 @@ namespace CaeModel
         }
         private string IsSweepMeshProperlyDefined(SweepMesh sweepMesh)
         {
-            string error = null;
+            string error;
             sweepMesh.Direction = null;
             sweepMesh.SweepCenter = null;
+            sweepMesh.BlockSourceSurfaceIds = null;
+            sweepMesh.BlockSideSurfaceIds = null;
+            sweepMesh.BlockTargetSurfaceIds = null;
+            sweepMesh.LayerGroupEdgeIds = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
-            //
-            int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(sweepMesh.CreationIds);
-            //
-            if (selectedPartIds.Length == 1)
+            // The selected surfaces, grouped by the part they lie on
+            int partId;
+            HashSet<int> surfaceIds;
+            Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds = new Dictionary<int, HashSet<int>>();
+            for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
             {
-                // Get part
-                int partId = selectedPartIds[0];
-                GeometryPart part = (GeometryPart)_geometry.GetPartFromId(partId);
-                //
-                if (IsPartCompoundSubPart(part.Name))
-                    return "The sweep mesh setup item cannot be defined on a compound part.";
-                if (!part.IsCADPart)
-                    return "The sweep mesh setup item cannot be defined on a stl based part.";
-                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
-                    return "The sweep mesh setup item cannot be defined on a shell part.";
-                //
-                VisualizationData vis = part.Visualization;
-                // Get surface ids
-                HashSet<int> sourceSurfaceIds = new HashSet<int>();
-                for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
-                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]));
-                // Do selected surfaces form a connected surface
-                Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = vis.GetSurfaceIdSurfaceNeighbourIds();
-                if (vis.AreSurfacesConnected(sourceSurfaceIds.ToArray(), surfaceIdSurfaceNeighbourIds))
+                partId = FeMesh.GetPartIdFromGeometryId(sweepMesh.CreationIds[i]);
+                if (!partIdSelectedSurfaceIds.TryGetValue(partId, out surfaceIds))
                 {
-                    // Are there any free edge loops with a single edge - cylinder with a single seam line
-                    int singleEdgeLoops = 0;
-                    HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIds.ToArray());
-                    for (int i = 0; i < freeEdgeLoops.Length; i++)
-                    {
-                        if (freeEdgeLoops[i].Count == 1) singleEdgeLoops++;
-                    }
-                    if (singleEdgeLoops == 0)
-                    {
-                        // Is it possible to determine the side and target surfaces
-                        int[] sideSurfaceIds;
-                        int[] targetSurfaceIds;
-                        List<int[]> layerSideSurfaceIds;
-                        if (vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds))
-                        {
-                            if (targetSurfaceIds.Length == 1)
-                            {
-                                if (sideSurfaceIds.Length > 0)
-                                {
-                                    // Can all side surfaces be reduced to 4 sides? A side surface may
-                                    // carry more than 4 edges when the source or the target face has
-                                    // been split, since the split puts an extra vertex partway along
-                                    // one of its sides. What matters is that it still has exactly two
-                                    // edges following the sweep direction, so its four corners can be
-                                    // nominated to the transfinite algorithm.
-                                    bool fourSided = true;
-                                    HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                                    HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
-                                    foreach (var surfaceId in sideSurfaceIds)
-                                    {
-                                        if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
-                                        //
-                                        int numDirectionEdges = 0;
-                                        int numCrossEdges = 0;
-                                        foreach (var edgeId in vis.FaceEdgeIds[surfaceId])
-                                        {
-                                            if (sourceEdgeIds.Contains(edgeId) || targetEdgeIds.Contains(edgeId))
-                                                numCrossEdges++;
-                                            else numDirectionEdges++;
-                                        }
-                                        if (numDirectionEdges != 2 || numCrossEdges < 2)
-                                        {
-                                            fourSided = false;
-                                            break;
-                                        }
-                                    }
-                                    //
-                                    if (fourSided)
-                                    {
-                                        Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
-                                        HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                                        HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                                        //
-                                        HashSet<int> directionEdgeIds = new HashSet<int>();
-                                        foreach (var vertexId in surfaceVertices)
-                                            directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
-                                        //
-                                        int[] edgeNodes;
-                                        HashSet<int> nodeIds;
-                                        Vec3D normalizedDirection;
-                                        Vec3D averageDirection = new Vec3D();
-                                        BoundingBox bb;
-                                        int edgeCellId;
-                                        int[] edgeCell;
-                                        foreach (var directionEdgeId in directionEdgeIds)
-                                        {
-                                            // Get all edge node ids
-                                            nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
-                                            // Reduce edge node ids to vertices
-                                            edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
-                                            if (edgeNodes.Length != 2) throw new NotSupportedException();
-                                            // First node must be on the selected surface
-                                            if (!surfaceVertices.Contains(edgeNodes[0]))
-                                                (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
-                                            // Find the first edge cell for direction
-                                            for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
-                                            {
-                                                edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
-                                                edgeCell = vis.EdgeCells[edgeCellId];
-                                                if (edgeNodes[0] == edgeCell[0])
-                                                {
-                                                    edgeNodes[1] = edgeCell[1];
-                                                    break;
-                                                }
-                                                else if (edgeNodes[0] == edgeCell[1])
-                                                {
-                                                    edgeNodes[1] = edgeCell[0];
-                                                    break;
-                                                }
-                                            }
-                                            // Compute the sweep direction
-                                            normalizedDirection =
-                                                _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
-                                            averageDirection += normalizedDirection;
-                                        }
-                                        //
-                                        averageDirection.Normalize();
-                                        sweepMesh.Direction = averageDirection.Coor;
-                                        //
-                                        bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
-                                        sweepMesh.SweepCenter = bb.GetCenter();
-                                        // Round
-                                        double d = part.BoundingBox.GetDiagonal();
-                                        int digits = (int)Math.Log10(d) - 6;
-                                        if (digits > 0) digits = 0;
-                                        else if (digits < 0) digits *= -1;
-                                        //
-                                        sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
-                                        sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
-                                        sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
-                                        //
-                                        sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
-                                        sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
-                                        sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
-                                        //
-                                        int[][][] layerGroupEdgeIds = GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds,
-                                                                                        sideSurfaceIds,
-                                                                                        layerSideSurfaceIds);
-                                        // Gmsh numbering
-                                        for (int i = 0; i < sideSurfaceIds.Length; i++)
-                                        {
-                                            sideSurfaceIds[i] = FeMesh.GmshTopologyId(sideSurfaceIds[i], partId);
-                                        }
-                                        sweepMesh.SideSurfaceIds = sideSurfaceIds;
-                                        //
-                                        for (int i = 0; i < layerGroupEdgeIds.Length; i++)
-                                        {
-                                            for (int j = 0; j < layerGroupEdgeIds[i].Length; j++)
-                                            {
-                                                for (int z = 0; z < layerGroupEdgeIds[i][j].Length; z++)
-                                                {
-                                                    layerGroupEdgeIds[i][j][z] =
-                                                        FeMesh.GmshTopologyId(layerGroupEdgeIds[i][j][z], partId);
-                                                }
-                                            }
-                                        }
-                                        sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds;
-                                    }
-                                    else error = "A sweep side surface could not be reduced to 4 sides. Each side " +
-                                                 "surface must have exactly 2 edges following the sweep direction; " +
-                                                 "the source and target sides may be split into any number of edges.";
-                                }
-                                else error = "The sweep side surfaces do not form a closed loop.";
-                            }
-                            else error = "There are more than 1 target surfaces.";
-                        }
-                        else error = "It is not possible to determine the side and target surfaces.";
-                    }
-                    else error = "The selected surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
+                    surfaceIds = new HashSet<int>();
+                    partIdSelectedSurfaceIds.Add(partId, surfaceIds);
                 }
-                else error = "The selected surfaces are not connected.";
+                surfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]));
             }
-            else error = "The surfaces of more than one part are selected.";
+            // One solid CAD part, or the sub-parts of one compound part, each of them swept as a block of its own
+            GeometryPart[] sweptParts;
+            error = GetSweptParts(partIdSelectedSurfaceIds.Keys, out sweptParts);
+            if (error == null) error = CreateSweepBlocks(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
             //
             return error == null ? null : error + " The swept mesh cannot be created.";
+        }
+        private string GetSweptParts(IEnumerable<int> selectedPartIds, out GeometryPart[] sweptParts)
+        {
+            sweptParts = null;
+            GeometryPart part;
+            List<GeometryPart> selectedParts = new List<GeometryPart>();
+            foreach (var partId in selectedPartIds)
+            {
+                part = _geometry.GetPartFromId(partId) as GeometryPart;
+                if (part == null) return "The selected surfaces do not lie on a geometry part.";
+                if (!part.IsCADPart) return "The sweep mesh setup item cannot be defined on a stl based part.";
+                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
+                    return "The sweep mesh setup item cannot be defined on a shell part.";
+                selectedParts.Add(part);
+            }
+            if (selectedParts.Count == 0) return "No source surface is selected.";
+            // The sub-parts of a compound part are swept together, so the selection may span several of them
+            CompoundGeometryPart compoundPart = null;
+            CompoundGeometryPart partCompoundPart;
+            for (int i = 0; i < selectedParts.Count; i++)
+            {
+                partCompoundPart = GetCompoundPartOfSubPart(selectedParts[i].Name);
+                if (i == 0) compoundPart = partCompoundPart;
+                else if (partCompoundPart != compoundPart) return "The surfaces of more than one part are selected.";
+            }
+            //
+            if (compoundPart == null)
+            {
+                if (selectedParts.Count > 1) return "The surfaces of more than one part are selected.";
+                sweptParts = selectedParts.ToArray();
+            }
+            else
+            {
+                sweptParts = new GeometryPart[compoundPart.SubPartNames.Length];
+                for (int i = 0; i < sweptParts.Length; i++)
+                    sweptParts[i] = (GeometryPart)_geometry.Parts[compoundPart.SubPartNames[i]];
+            }
+            return null;
+        }
+        /// <summary>
+        /// Splits the swept parts into one-to-one sweep blocks and stores them on the item in gmsh numbering.
+        /// A single part is one block. The sub-parts of a compound part form a tree of blocks: a sub-part
+        /// sharing a selected surface is swept away from that same meshed surface, and a sub-part sharing a
+        /// target surface is swept next, from the mesh the block before it leaves on the shared surface.
+        /// </summary>
+        private string CreateSweepBlocks(SweepMesh sweepMesh, GeometryPart[] sweptParts,
+                                         Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
+        {
+            int twinId;
+            int partId;
+            GeometryPart part;
+            HashSet<int> sourceSurfaceIds;
+            Dictionary<int, GeometryPart> partIdPart = new Dictionary<int, GeometryPart>();
+            foreach (var sweptPart in sweptParts) partIdPart.Add(sweptPart.PartId, sweptPart);
+            // The surfaces two sub-parts have in common, keyed and valued by the gmsh topology id
+            Dictionary<int, int> twinSurfaceIds;
+            if (sweptParts.Length > 1) twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
+            else twinSurfaceIds = new Dictionary<int, int>();
+            // The source surfaces of each part: the selected ones, and on a neighbouring sub-part the twin
+            // of a selected one, since both sub-parts are swept away from the same meshed surface
+            Queue<int> pendingPartIds = new Queue<int>();
+            HashSet<int> derivedPartIds = new HashSet<int>();
+            Dictionary<int, HashSet<int>> partIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
+            foreach (var entry in partIdSelectedSurfaceIds)
+            {
+                partIdSourceSurfaceIds.Add(entry.Key, new HashSet<int>(entry.Value));
+                pendingPartIds.Enqueue(entry.Key);
+            }
+            foreach (var entry in partIdSelectedSurfaceIds)
+            {
+                foreach (var surfaceId in entry.Value)
+                {
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, entry.Key), out twinId)) continue;
+                    //
+                    partId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    if (!partIdSourceSurfaceIds.TryGetValue(partId, out sourceSurfaceIds))
+                    {
+                        sourceSurfaceIds = new HashSet<int>();
+                        partIdSourceSurfaceIds.Add(partId, sourceSurfaceIds);
+                        derivedPartIds.Add(partId);
+                        pendingPartIds.Enqueue(partId);
+                    }
+                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGmshTopologyId(twinId));
+                }
+            }
+            //
+            string error;
+            int nextPartId;
+            int[] sideSurfaceIds;
+            int[] targetSurfaceIds;
+            int[][][] blockLayerGroupEdgeIds;
+            List<int[]> layerSideSurfaceIds;
+            HashSet<int> nextSourceSurfaceIds;
+            Dictionary<int, HashSet<int>> nextPartIdSourceSurfaceIds;
+            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds;
+            HashSet<int> sweptPartIds = new HashSet<int>();
+            List<int[]> blockSourceSurfaceIds = new List<int[]>();
+            List<int[]> blockSideSurfaceIds = new List<int[]>();
+            List<int[]> blockTargetSurfaceIds = new List<int[]>();
+            List<int[][]> layerGroupEdgeIds = new List<int[][]>();
+            //
+            while (pendingPartIds.Count > 0)
+            {
+                partId = pendingPartIds.Dequeue();
+                part = partIdPart[partId];
+                sourceSurfaceIds = partIdSourceSurfaceIds[partId];
+                surfaceIdSurfaceNeighbourIds = part.Visualization.GetSurfaceIdSurfaceNeighbourIds();
+                // A derived source covers only the shared surface; the exposed surfaces lying in the same
+                // plane around it are swept from as well
+                if (derivedPartIds.Contains(partId))
+                    ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, twinSurfaceIds);
+                //
+                error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, out sideSurfaceIds,
+                                           out targetSurfaceIds, out layerSideSurfaceIds);
+                if (error != null) return sweptParts.Length > 1 ? "Part " + part.Name + ": " + error : error;
+                // A neighbour across a side surface would have to be swept side by side with this block
+                foreach (var sideSurfaceId in sideSurfaceIds)
+                {
+                    if (twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(sideSurfaceId, partId), out twinId))
+                    {
+                        return "The part " + part.Name + " shares a side surface with the part " +
+                               partIdPart[FeMesh.GetPartIdFromGmshTopologyId(twinId)].Name + ". Sub-parts lying " +
+                               "side by side along the sweep direction are not supported.";
+                    }
+                }
+                // A neighbour across a target surface is swept next, from the mesh this block leaves there.
+                // That mesh follows the imprint of the shared surface only where the imprint is a wall edge
+                // of this block; a shared surface that ends inside the target has its boundary nodes
+                // meshed by gmsh, and the cap this block leaves cannot match them
+                HashSet<int> wallEdgeIds = part.Visualization.GetEdgeIdsForSurfaceIds(sideSurfaceIds);
+                nextPartIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
+                foreach (var targetSurfaceId in targetSurfaceIds)
+                {
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(targetSurfaceId, partId), out twinId)) continue;
+                    //
+                    nextPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    if (partIdSourceSurfaceIds.ContainsKey(nextPartId))
+                        return "The part " + partIdPart[nextPartId].Name + " is reached by the sweep from two sides.";
+                    foreach (var edgeId in part.Visualization.FaceEdgeIds[targetSurfaceId])
+                    {
+                        if (wallEdgeIds.Contains(edgeId)) continue;
+                        return "The surface shared by the parts " + part.Name + " and " + partIdPart[nextPartId].Name +
+                               " ends inside the target of the part " + part.Name + ", so the mesh swept through it " +
+                               "cannot continue into the part " + partIdPart[nextPartId].Name + ". Select the shared " +
+                               "surface as the source instead, so that both parts are swept away from it.";
+                    }
+                    if (!nextPartIdSourceSurfaceIds.TryGetValue(nextPartId, out nextSourceSurfaceIds))
+                    {
+                        nextSourceSurfaceIds = new HashSet<int>();
+                        nextPartIdSourceSurfaceIds.Add(nextPartId, nextSourceSurfaceIds);
+                    }
+                    nextSourceSurfaceIds.Add(FeMesh.GetItemIdFromGmshTopologyId(twinId));
+                }
+                foreach (var entry in nextPartIdSourceSurfaceIds)
+                {
+                    partIdSourceSurfaceIds.Add(entry.Key, entry.Value);
+                    derivedPartIds.Add(entry.Key);
+                    pendingPartIds.Enqueue(entry.Key);
+                }
+                // The arrow of the item follows the first block, which is the one the user selected
+                if (blockSourceSurfaceIds.Count == 0) SetSweepDirection(sweepMesh, part, sourceSurfaceIds);
+                // Gmsh numbering
+                blockSourceSurfaceIds.Add(ToGmshTopologyIds(sourceSurfaceIds, partId));
+                blockSideSurfaceIds.Add(ToGmshTopologyIds(sideSurfaceIds, partId));
+                blockTargetSurfaceIds.Add(ToGmshTopologyIds(targetSurfaceIds, partId));
+                //
+                blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
+                                                           sideSurfaceIds, layerSideSurfaceIds);
+                for (int i = 0; i < blockLayerGroupEdgeIds.Length; i++)
+                {
+                    for (int j = 0; j < blockLayerGroupEdgeIds[i].Length; j++)
+                        blockLayerGroupEdgeIds[i][j] = ToGmshTopologyIds(blockLayerGroupEdgeIds[i][j], partId);
+                }
+                layerGroupEdgeIds.AddRange(blockLayerGroupEdgeIds);
+                //
+                sweptPartIds.Add(partId);
+            }
+            // A compound part is meshed as a whole, so every sub-part must be swept
+            foreach (var sweptPart in sweptParts)
+            {
+                if (!sweptPartIds.Contains(sweptPart.PartId))
+                    return "The part " + sweptPart.Name + " is not reached by the sweep. Select a source surface on it " +
+                           "as well.";
+            }
+            //
+            sweepMesh.BlockSourceSurfaceIds = blockSourceSurfaceIds.ToArray();
+            sweepMesh.BlockSideSurfaceIds = blockSideSurfaceIds.ToArray();
+            sweepMesh.BlockTargetSurfaceIds = blockTargetSurfaceIds.ToArray();
+            sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds.ToArray();
+            //
+            return null;
+        }
+        private string ValidateSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                          Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                          out int[] sideSurfaceIds, out int[] targetSurfaceIds,
+                                          out List<int[]> layerSideSurfaceIds)
+        {
+            sideSurfaceIds = null;
+            targetSurfaceIds = null;
+            layerSideSurfaceIds = null;
+            //
+            VisualizationData vis = part.Visualization;
+            int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
+            // Do the source surfaces form a connected surface
+            if (!vis.AreSurfacesConnected(sourceSurfaceIdsArray, surfaceIdSurfaceNeighbourIds))
+                return "The source surfaces are not connected.";
+            // Are there any free edge loops with a single edge - cylinder with a single seam line
+            HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray);
+            for (int i = 0; i < freeEdgeLoops.Length; i++)
+            {
+                if (freeEdgeLoops[i].Count == 1)
+                    return "The source surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
+            }
+            // Is it possible to determine the side and target surfaces
+            if (!vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds))
+                return "It is not possible to determine the side and target surfaces.";
+            if (sideSurfaceIds.Length == 0) return "The sweep side surfaces do not form a closed loop.";
+            // The mesh is built by projecting onto every target surface and keeping the nearest hit, so a
+            // target that is split into several surfaces is allowed
+            if (targetSurfaceIds.Length == 0) return "No sweep target surface could be determined.";
+            // Can all side surfaces be reduced to 4 sides? A side surface may carry more than 4 edges when
+            // the source or the target face has been split, since the split puts an extra vertex partway
+            // along one of its sides. What matters is that it still has exactly two edges following the
+            // sweep direction, so its four corners can be nominated to the transfinite algorithm.
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
+            HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
+            foreach (var surfaceId in sideSurfaceIds)
+            {
+                if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
+                //
+                int numDirectionEdges = 0;
+                int numCrossEdges = 0;
+                foreach (var edgeId in vis.FaceEdgeIds[surfaceId])
+                {
+                    if (sourceEdgeIds.Contains(edgeId) || targetEdgeIds.Contains(edgeId)) numCrossEdges++;
+                    else numDirectionEdges++;
+                }
+                if (numDirectionEdges != 2 || numCrossEdges < 2)
+                {
+                    return "A sweep side surface could not be reduced to 4 sides. Each side surface must have " +
+                           "exactly 2 edges following the sweep direction; the source and target sides may be " +
+                           "split into any number of edges.";
+                }
+            }
+            //
+            return null;
+        }
+        /// <summary>
+        /// Adds to a derived source the neighbouring surfaces that lie in the same plane and are not shared
+        /// with another sub-part. A sub-part wider than the one it is swept from has its exposed rim there,
+        /// and the rim is meshed together with the shared surface so that both conform along the imprint.
+        /// </summary>
+        private void ExtendSourceOverCoplanarSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                      Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                                      Dictionary<int, int> twinSurfaceIds)
+        {
+            int surfaceId;
+            GeomFaceData faceData;
+            GeomFaceData neighbourFaceData;
+            VisualizationData vis = part.Visualization;
+            double tolerance = 1E-4 * part.BoundingBox.GetDiagonal();
+            Dictionary<int, GeomFaceData> surfaceIdFaceData = new Dictionary<int, GeomFaceData>();
+            Queue<int> pendingSurfaceIds = new Queue<int>(sourceSurfaceIds);
+            //
+            while (pendingSurfaceIds.Count > 0)
+            {
+                surfaceId = pendingSurfaceIds.Dequeue();
+                faceData = GetSurfaceFaceData(vis, surfaceId, surfaceIdFaceData);
+                if (faceData.Type != GeomFaceType.Plane) continue;
+                //
+                foreach (var neighbourId in surfaceIdSurfaceNeighbourIds[surfaceId])
+                {
+                    if (sourceSurfaceIds.Contains(neighbourId)) continue;
+                    if (twinSurfaceIds.ContainsKey(FeMesh.GmshTopologyId(neighbourId, part.PartId))) continue;
+                    //
+                    neighbourFaceData = GetSurfaceFaceData(vis, neighbourId, surfaceIdFaceData);
+                    if (!AreCoplanar(faceData, neighbourFaceData, tolerance)) continue;
+                    //
+                    sourceSurfaceIds.Add(neighbourId);
+                    pendingSurfaceIds.Enqueue(neighbourId);
+                }
+            }
+        }
+        private GeomFaceData GetSurfaceFaceData(VisualizationData vis, int surfaceId,
+                                                Dictionary<int, GeomFaceData> surfaceIdFaceData)
+        {
+            GeomFaceData faceData;
+            if (!surfaceIdFaceData.TryGetValue(surfaceId, out faceData))
+            {
+                faceData = FaceTypeRecognition.GetFaceData(vis, _geometry.Nodes, surfaceId);
+                surfaceIdFaceData.Add(surfaceId, faceData);
+            }
+            return faceData;
+        }
+        private static bool AreCoplanar(GeomFaceData face1, GeomFaceData face2, double tolerance)
+        {
+            if (face1.Type != GeomFaceType.Plane || face2.Type != GeomFaceType.Plane) return false;
+            if (face1.Axis == null || face2.Axis == null || face1.Point == null || face2.Point == null) return false;
+            // The normals are oriented outwards, so the surfaces of one plane on the same solid point alike
+            Vec3D normal1 = new Vec3D(face1.Axis);
+            Vec3D normal2 = new Vec3D(face2.Axis);
+            normal1.Normalize();
+            normal2.Normalize();
+            if (Vec3D.DotProduct(normal1, normal2) < 0.9999) return false;
+            //
+            Vec3D offset = new Vec3D(face2.Point) - new Vec3D(face1.Point);
+            return Math.Abs(Vec3D.DotProduct(offset, normal1)) <= tolerance;
+        }
+        private void SetSweepDirection(SweepMesh sweepMesh, GeometryPart part, HashSet<int> sourceSurfaceIds)
+        {
+            VisualizationData vis = part.Visualization;
+            Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
+            HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            //
+            HashSet<int> directionEdgeIds = new HashSet<int>();
+            foreach (var vertexId in surfaceVertices)
+                directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
+            //
+            int[] edgeNodes;
+            HashSet<int> nodeIds;
+            Vec3D normalizedDirection;
+            Vec3D averageDirection = new Vec3D();
+            BoundingBox bb;
+            int edgeCellId;
+            int[] edgeCell;
+            foreach (var directionEdgeId in directionEdgeIds)
+            {
+                // Get all edge node ids
+                nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
+                // Reduce edge node ids to vertices
+                edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
+                if (edgeNodes.Length != 2) throw new NotSupportedException();
+                // First node must be on the selected surface
+                if (!surfaceVertices.Contains(edgeNodes[0]))
+                    (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
+                // Find the first edge cell for direction
+                for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
+                {
+                    edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
+                    edgeCell = vis.EdgeCells[edgeCellId];
+                    if (edgeNodes[0] == edgeCell[0])
+                    {
+                        edgeNodes[1] = edgeCell[1];
+                        break;
+                    }
+                    else if (edgeNodes[0] == edgeCell[1])
+                    {
+                        edgeNodes[1] = edgeCell[0];
+                        break;
+                    }
+                }
+                // Compute the sweep direction
+                normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
+                averageDirection += normalizedDirection;
+            }
+            //
+            averageDirection.Normalize();
+            sweepMesh.Direction = averageDirection.Coor;
+            //
+            bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
+            sweepMesh.SweepCenter = bb.GetCenter();
+            // Round
+            double d = part.BoundingBox.GetDiagonal();
+            int digits = (int)Math.Log10(d) - 6;
+            if (digits > 0) digits = 0;
+            else if (digits < 0) digits *= -1;
+            //
+            sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
+            sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
+            sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
+            //
+            sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
+            sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
+            sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
+        }
+        private static int[] ToGmshTopologyIds(IEnumerable<int> itemIds, int partId)
+        {
+            List<int> gmshTopologyIds = new List<int>();
+            foreach (var itemId in itemIds) gmshTopologyIds.Add(FeMesh.GmshTopologyId(itemId, partId));
+            return gmshTopologyIds.ToArray();
         }
         private string IsRevolveMeshProperlyDefined(RevolveMesh revolveMesh)
         {
@@ -3213,16 +3438,17 @@ namespace CaeModel
         }
         public bool IsPartCompoundSubPart(string partName)
         {
-            if (_geometry == null) return false;
+            return GetCompoundPartOfSubPart(partName) != null;
+        }
+        public CompoundGeometryPart GetCompoundPartOfSubPart(string partName)
+        {
+            if (_geometry == null) return null;
             //
             foreach (var entry in _geometry.Parts)
             {
-                if (entry.Value is CompoundGeometryPart cgp)
-                {
-                    if (cgp.SubPartNames.Contains(partName)) return true;
-                }
+                if (entry.Value is CompoundGeometryPart cgp && cgp.SubPartNames.Contains(partName)) return cgp;
             }
-            return false;
+            return null;
         }
         private int[][][] GetDirectionEdges(VisualizationData vis, Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
                                             int[] surfaceIds, List<int[]> layerSurfaceIds)

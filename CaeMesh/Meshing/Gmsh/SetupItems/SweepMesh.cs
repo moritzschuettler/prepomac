@@ -26,7 +26,9 @@ namespace CaeMesh
         private int _numberOfGlobalSmoothSteps;                         // ISerializable
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
-        private int[] _sideSurfaceIds;                                  // ISerializable
+        private int[][] _blockSourceSurfaceIds;                         // ISerializable
+        private int[][] _blockSideSurfaceIds;                           // ISerializable
+        private int[][] _blockTargetSurfaceIds;                         // ISerializable
         private int[][][] _layerGroupEdgeIds;                           // ISerializable
 
 
@@ -42,7 +44,9 @@ namespace CaeMesh
         }
         public double[] Direction { get { return _direction; } set { _direction = value; } }
         public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
-        public int[] SideSurfaceIds { get { return _sideSurfaceIds; } set { _sideSurfaceIds = value; } }
+        public int[][] BlockSourceSurfaceIds { get { return _blockSourceSurfaceIds; } set { _blockSourceSurfaceIds = value; } }
+        public int[][] BlockSideSurfaceIds { get { return _blockSideSurfaceIds; } set { _blockSideSurfaceIds = value; } }
+        public int[][] BlockTargetSurfaceIds { get { return _blockTargetSurfaceIds; } set { _blockTargetSurfaceIds = value; } }
         public int[][][] LayerGroupEdgeIds { get { return _layerGroupEdgeIds; } set { _layerGroupEdgeIds = value; } }
 
 
@@ -73,7 +77,18 @@ namespace CaeMesh
                     case "_sweepCenter":
                         _sweepCenter = (double[])entry.Value; break;
                     case "_sideSurfaceIds":
-                        _sideSurfaceIds = (int[])entry.Value; break;
+                        {
+                            // Written before the blocks were recorded: a single block, whose walls these are
+                            int[] sideSurfaceIds = (int[])entry.Value;
+                            if (sideSurfaceIds != null) _blockSideSurfaceIds = new int[][] { sideSurfaceIds };
+                            break;
+                        }
+                    case "_blockSourceSurfaceIds":
+                        _blockSourceSurfaceIds = (int[][])entry.Value; break;
+                    case "_blockSideSurfaceIds":
+                        _blockSideSurfaceIds = (int[][])entry.Value; break;
+                    case "_blockTargetSurfaceIds":
+                        _blockTargetSurfaceIds = (int[][])entry.Value; break;
                     case "_layerGroupEdgeIds":
                         _layerGroupEdgeIds = (int[][][])entry.Value; break;
                     default:
@@ -93,7 +108,9 @@ namespace CaeMesh
             _numberOfGlobalSmoothSteps = 0;
             _direction = null;
             _sweepCenter = null;
-            _sideSurfaceIds = null;
+            _blockSourceSurfaceIds = null;
+            _blockSideSurfaceIds = null;
+            _blockTargetSurfaceIds = null;
             _layerGroupEdgeIds = null;
         }
         public void CopyFrom(SweepMesh sweepMesh)
@@ -105,7 +122,9 @@ namespace CaeMesh
             // filled in, and a null field there is the case that must not be dereferenced
             _direction = sweepMesh._direction?.ToArray();
             _sweepCenter = sweepMesh._sweepCenter?.ToArray();
-            _sideSurfaceIds = sweepMesh._sideSurfaceIds?.ToArray();
+            _blockSourceSurfaceIds = CopyBlockIds(sweepMesh._blockSourceSurfaceIds);
+            _blockSideSurfaceIds = CopyBlockIds(sweepMesh._blockSideSurfaceIds);
+            _blockTargetSurfaceIds = CopyBlockIds(sweepMesh._blockTargetSurfaceIds);
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -120,6 +139,14 @@ namespace CaeMesh
                 }
             }
         }
+        private static int[][] CopyBlockIds(int[][] blockIds)
+        {
+            if (blockIds == null) return null;
+            //
+            int[][] copy = new int[blockIds.Length][];
+            for (int i = 0; i < blockIds.Length; i++) copy[i] = blockIds[i].ToArray();
+            return copy;
+        }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
@@ -128,7 +155,9 @@ namespace CaeMesh
             info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
-            info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(int[]));
+            info.AddValue("_blockSourceSurfaceIds", _blockSourceSurfaceIds, typeof(int[][]));
+            info.AddValue("_blockSideSurfaceIds", _blockSideSurfaceIds, typeof(int[][]));
+            info.AddValue("_blockTargetSurfaceIds", _blockTargetSurfaceIds, typeof(int[][]));
             info.AddValue("_layerGroupEdgeIds", _layerGroupEdgeIds, typeof(int[][][]));
         }
     }

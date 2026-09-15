@@ -254,33 +254,15 @@ namespace CaeMesh.Sweep
                 }
                 //
                 double[] bestDistance = new double[undecided.Count];
-                for (int i = 0; i < bestDistance.Length; i++) bestDistance[i] = double.MaxValue;
+                int[] bestSurfaceId = new int[undecided.Count];
+                SweepProjector.ProjectOntoNearestSurface(input, block.TargetSurfaceIds, null, null, bestDistance,
+                                                         bestSurfaceId);
                 //
-                foreach (var surfaceId in block.TargetSurfaceIds)
+                for (int i = 0; i < undecided.Count; i++)
                 {
-                    double[] closestCoord;
-                    double[] parametricCoord;
-                    Gmsh.Model.GetClosestPoint(2, surfaceId, input, out closestCoord, out parametricCoord);
-                    if (closestCoord.Length != input.Length) continue;
-                    //
-                    for (int i = 0; i < undecided.Count; i++)
-                    {
-                        double dx = closestCoord[3 * i] - input[3 * i];
-                        double dy = closestCoord[3 * i + 1] - input[3 * i + 1];
-                        double dz = closestCoord[3 * i + 2] - input[3 * i + 2];
-                        double distance = dx * dx + dy * dy + dz * dz;
-                        if (distance < bestDistance[i])
-                        {
-                            bestDistance[i] = distance;
-                            result[undecided[i]] = surfaceId;
-                        }
-                    }
-                }
-                //
-                foreach (var e in undecided)
-                {
-                    if (result[e] < 0)
+                    if (bestSurfaceId[i] < 0)
                         throw new CaeException("A sweep target element could not be assigned to a target surface.");
+                    result[undecided[i]] = bestSurfaceId[i];
                 }
             }
             //
