@@ -5663,6 +5663,7 @@ namespace vtkControl
                     if (_sectionViewData.ElementWise) AddSectionViewSkinActorsToSurfaceActors();
                     //
                     UpdateScalarFormatting();
+                    _style.AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }
@@ -5692,6 +5693,7 @@ namespace vtkControl
                     if (_sectionViewData.ElementWise) AddSectionViewSkinActorsToSurfaceActors();
                     //
                     UpdateScalarFormatting();
+                    _style.AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }
@@ -5715,6 +5717,7 @@ namespace vtkControl
                     _sectionViewData.Reset();
                     //
                     UpdateScalarFormatting();
+                    _style.AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }

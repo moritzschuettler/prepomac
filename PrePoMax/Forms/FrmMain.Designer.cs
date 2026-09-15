@@ -717,7 +717,7 @@ namespace PrePoMax
             this.tsbCapture});
             this.tsViews.Location = new System.Drawing.Point(107, 50);
             this.tsViews.Name = "tsViews";
-            this.tsViews.Size = new System.Drawing.Size(654, 25);
+            this.tsViews.Size = new System.Drawing.Size(623, 25);
             this.tsViews.TabIndex = 6;
             this.tsViews.Text = "Views";
             // 

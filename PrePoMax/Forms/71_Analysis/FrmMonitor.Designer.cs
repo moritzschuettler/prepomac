@@ -66,7 +66,7 @@ namespace PrePoMax.Forms
             this.btnClose.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnClose.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             this.btnClose.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.btnClose.Location = new System.Drawing.Point(635, 372);
+            this.btnClose.Location = new System.Drawing.Point(635, 522);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(87, 27);
             this.btnClose.TabIndex = 1;
@@ -84,14 +84,14 @@ namespace PrePoMax.Forms
             this.tbOutput.Multiline = true;
             this.tbOutput.Name = "tbOutput";
             this.tbOutput.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.tbOutput.Size = new System.Drawing.Size(690, 314);
+            this.tbOutput.Size = new System.Drawing.Size(690, 464);
             this.tbOutput.TabIndex = 0;
             // 
             // btnKill
             // 
             this.btnKill.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.btnKill.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.btnKill.Location = new System.Drawing.Point(12, 372);
+            this.btnKill.Location = new System.Drawing.Point(12, 522);
             this.btnKill.Name = "btnKill";
             this.btnKill.Size = new System.Drawing.Size(87, 27);
             this.btnKill.TabIndex = 4;
@@ -103,7 +103,7 @@ namespace PrePoMax.Forms
             // 
             this.btnResults.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnResults.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.btnResults.Location = new System.Drawing.Point(542, 372);
+            this.btnResults.Location = new System.Drawing.Point(542, 522);
             this.btnResults.Name = "btnResults";
             this.btnResults.Size = new System.Drawing.Size(87, 27);
             this.btnResults.TabIndex = 5;
@@ -124,7 +124,7 @@ namespace PrePoMax.Forms
             this.tabControl1.Location = new System.Drawing.Point(12, 12);
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(710, 354);
+            this.tabControl1.Size = new System.Drawing.Size(710, 504);
             this.tabControl1.TabIndex = 1;
             this.tabControl1.SelectedIndexChanged += new System.EventHandler(this.tabControl1_SelectedIndexChanged);
             // 
@@ -134,28 +134,28 @@ namespace PrePoMax.Forms
             this.tpOutput.Location = new System.Drawing.Point(4, 24);
             this.tpOutput.Name = "tpOutput";
             this.tpOutput.Padding = new System.Windows.Forms.Padding(3);
-            this.tpOutput.Size = new System.Drawing.Size(702, 326);
+            this.tpOutput.Size = new System.Drawing.Size(702, 476);
             this.tpOutput.TabIndex = 0;
             this.tpOutput.Text = "Output";
             this.tpOutput.UseVisualStyleBackColor = true;
-            //
+            // 
             // tpProgress
-            //
+            // 
             this.tpProgress.Controls.Add(this.analysisProgressView);
             this.tpProgress.Location = new System.Drawing.Point(4, 24);
             this.tpProgress.Name = "tpProgress";
             this.tpProgress.Padding = new System.Windows.Forms.Padding(3);
-            this.tpProgress.Size = new System.Drawing.Size(702, 326);
+            this.tpProgress.Size = new System.Drawing.Size(702, 476);
             this.tpProgress.TabIndex = 1;
             this.tpProgress.Text = "Progress";
             this.tpProgress.UseVisualStyleBackColor = true;
-            //
+            // 
             // analysisProgressView
-            //
+            // 
             this.analysisProgressView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.analysisProgressView.Location = new System.Drawing.Point(3, 3);
             this.analysisProgressView.Name = "analysisProgressView";
-            this.analysisProgressView.Size = new System.Drawing.Size(696, 320);
+            this.analysisProgressView.Size = new System.Drawing.Size(696, 470);
             this.analysisProgressView.TabIndex = 0;
             // 
             // tpStatus
@@ -164,7 +164,7 @@ namespace PrePoMax.Forms
             this.tpStatus.Location = new System.Drawing.Point(4, 24);
             this.tpStatus.Name = "tpStatus";
             this.tpStatus.Padding = new System.Windows.Forms.Padding(3);
-            this.tpStatus.Size = new System.Drawing.Size(702, 326);
+            this.tpStatus.Size = new System.Drawing.Size(702, 476);
             this.tpStatus.TabIndex = 2;
             this.tpStatus.Text = "Status";
             this.tpStatus.UseVisualStyleBackColor = true;
@@ -179,7 +179,7 @@ namespace PrePoMax.Forms
             this.tbStatus.Multiline = true;
             this.tbStatus.Name = "tbStatus";
             this.tbStatus.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.tbStatus.Size = new System.Drawing.Size(690, 314);
+            this.tbStatus.Size = new System.Drawing.Size(690, 464);
             this.tbStatus.TabIndex = 1;
             // 
             // tpCovergence
@@ -234,7 +234,7 @@ namespace PrePoMax.Forms
             // 
             this.pbAnalysisStatus.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbAnalysisStatus.Location = new System.Drawing.Point(105, 373);
+            this.pbAnalysisStatus.Location = new System.Drawing.Point(105, 523);
             this.pbAnalysisStatus.MarqueeAnimationSpeed = 40;
             this.pbAnalysisStatus.Name = "pbAnalysisStatus";
             this.pbAnalysisStatus.Size = new System.Drawing.Size(296, 25);
@@ -247,7 +247,7 @@ namespace PrePoMax.Forms
             this.labAnalysisStatus.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.labAnalysisStatus.Image = global::PrePoMax.Properties.Resources.Running;
             this.labAnalysisStatus.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.labAnalysisStatus.Location = new System.Drawing.Point(407, 373);
+            this.labAnalysisStatus.Location = new System.Drawing.Point(407, 523);
             this.labAnalysisStatus.Name = "labAnalysisStatus";
             this.labAnalysisStatus.Size = new System.Drawing.Size(129, 25);
             this.labAnalysisStatus.TabIndex = 7;
@@ -260,7 +260,7 @@ namespace PrePoMax.Forms
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnClose;
-            this.ClientSize = new System.Drawing.Size(734, 411);
+            this.ClientSize = new System.Drawing.Size(734, 561);
             this.Controls.Add(this.labAnalysisStatus);
             this.Controls.Add(this.pbAnalysisStatus);
             this.Controls.Add(this.tabControl1);
@@ -272,7 +272,6 @@ namespace PrePoMax.Forms
             this.MinimizeBox = false;
             this.MinimumSize = new System.Drawing.Size(750, 450);
             this.Name = "FrmMonitor";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Monitor";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmMonitor_FormClosing);
             this.Shown += new System.EventHandler(this.FrmMonitor_Shown);

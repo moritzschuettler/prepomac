@@ -521,6 +521,35 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
+                else if (_viewConstraint is ViewTie vt)
+                {
+                    selectedId = lvTypes.FindItemWithText("Tie").Index;
+                    // Master
+                    if (vt.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vt.MasterSurfaceName, s => { vt.MasterSurfaceName = s; });
+                    // Slave
+                    if (vt.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vt.SlaveSurfaceName, s => { vt.SlaveSurfaceName = s; });
+                    //
+                    vt.PopulateDropDownLists(surfaceNames);
+                    // Context menu strip
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                }
+                else if (_viewConstraint is ViewJoint vj)
+                {
+                    selectedId = lvTypes.FindItemWithText("Joint").Index;
+                    // Master
+                    if (vj.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vj.MasterSurfaceName, s => { vj.MasterSurfaceName = s; });
+                    // Slave
+                    if (vj.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref surfaceNames, vj.SlaveSurfaceName, s => { vj.SlaveSurfaceName = s; });
+                    //
+                    vj.PopulateDropDownLists(surfaceNames);
+                    _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
+                    // Context menu strip
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                }
                 else if (_viewConstraint is ViewCyclicSymmetry vcs)
                 {
                     selectedId = lvTypes.FindItemWithText("Cyclic Symmetry").Index;
@@ -542,35 +571,6 @@ namespace PrePoMax.Forms
                     else throw new NotSupportedException();
                     //
                     vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
-                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
-                }
-                else if (_viewConstraint is ViewJoint vj)
-                {
-                    selectedId = lvTypes.FindItemWithText("Joint").Index;
-                    // Master
-                    if (vj.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref surfaceNames, vj.MasterSurfaceName, s => { vj.MasterSurfaceName = s; });
-                    // Slave
-                    if (vj.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref surfaceNames, vj.SlaveSurfaceName, s => { vj.SlaveSurfaceName = s; });
-                    //
-                    vj.PopulateDropDownLists(surfaceNames);
-                    _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
-                    // Context menu strip
-                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
-                }
-                else if (_viewConstraint is ViewTie vt)
-                {
-                    selectedId = lvTypes.FindItemWithText("Tie").Index;
-                    // Master
-                    if (vt.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref surfaceNames, vt.MasterSurfaceName, s => { vt.MasterSurfaceName = s; });
-                    // Slave
-                    if (vt.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref surfaceNames, vt.SlaveSurfaceName, s => { vt.SlaveSurfaceName = s; });
-                    //
-                    vt.PopulateDropDownLists(surfaceNames);
-                    // Context menu strip
                     propertyGrid.ContextMenuStrip = cmsPropertyGrid;
                 }
                 else throw new NotSupportedException();
@@ -783,6 +783,21 @@ namespace PrePoMax.Forms
             vt.MasterColor = color;
             vt.SlaveColor = color;
             lvTypes.Items.Add(item);
+            // Joint
+            item = new ListViewItem("Joint");
+            if (twoD)
+                item.Tag = new ViewError("Joints are supported only for 3D models.");
+            else
+            {
+                Joint joint = new Joint(GetConstraintName("Joint"), "", RegionTypeEnum.Selection, "", RegionTypeEnum.Selection,
+                                        false);
+                ViewJoint vj = new ViewJoint(joint);
+                vj.PopulateDropDownLists(surfaceNames);
+                vj.MasterColor = color;
+                vj.SlaveColor = color;
+                item.Tag = vj;
+            }
+            lvTypes.Items.Add(item);
             // Cyclic symmetry
             item = new ListViewItem("Cyclic Symmetry");
             if (twoD)
@@ -797,21 +812,6 @@ namespace PrePoMax.Forms
                 vcs.MasterColor = color;
                 vcs.SlaveColor = color;
                 item.Tag = vcs;
-            }
-            lvTypes.Items.Add(item);
-            // Joint
-            item = new ListViewItem("Joint");
-            if (twoD)
-                item.Tag = new ViewError("Joints are supported only for 3D models.");
-            else
-            {
-                Joint joint = new Joint(GetConstraintName("Joint"), "", RegionTypeEnum.Selection, "", RegionTypeEnum.Selection,
-                                        false);
-                ViewJoint vj = new ViewJoint(joint);
-                vj.PopulateDropDownLists(surfaceNames);
-                vj.MasterColor = color;
-                vj.SlaveColor = color;
-                item.Tag = vj;
             }
             lvTypes.Items.Add(item);
         }
@@ -1029,6 +1029,8 @@ namespace PrePoMax.Forms
                     if (property == nameof(ViewJoint.MasterRegionType) && joint.MasterRegionType == RegionTypeEnum.Selection)
                         ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                     else if (property == nameof(ViewJoint.SlaveRegionType) && joint.SlaveRegionType == RegionTypeEnum.Selection)
+                        ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                    else if (IsJointCenterSelectedForSelection())
                         ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                     else ItemSetDataEditor.SelectionForm.Hide();
                 }
