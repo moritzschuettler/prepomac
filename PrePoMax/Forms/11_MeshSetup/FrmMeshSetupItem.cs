@@ -545,12 +545,9 @@ namespace PrePoMax.Forms
             if (MeshSetupItem != null)
             {
                 if (MeshSetupItem is MeshingParameters) _controller.SetSelectItemToPart();
-                else if (MeshSetupItem is LocalMeshSize lms)
-                {
-                    if (lms.Type == LocalMeshSizeTypeEnum.ElementSize) _controller.SetSelectItemToGeometry();
-                    else if (lms.Type == LocalMeshSizeTypeEnum.NumberOfElements) _controller.SetSelectItemToGeometryEdge();
-                    else throw new NotSupportedException();
-                }
+                // A number of elements is applied to every edge of a picked surface or part, so the picker
+                // takes any geometry for both kinds of local size
+                else if (MeshSetupItem is LocalMeshSize) _controller.SetSelectItemToGeometry();
                 else if (MeshSetupItem is ShellMmg) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ShellGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ShellQuadWild) _controller.SetSelectItemToPart();
