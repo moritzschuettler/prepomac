@@ -8,15 +8,15 @@
 // Contributors:
 
 using System;
-using System.IO;
-using System.Windows.Forms;
 using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
-    // The settings the toolbar button decides on its own. The form is not modal, so the model can
-    // still be turned, zoomed and replotted between opening it and taking the picture, and OK leaves
-    // it open, so a run of pictures of one model needs no typing at all.
+    // The settings every capture is taken with, the toolbar button's included: the button takes the
+    // picture this form describes and the form is where that picture is described. They are kept for
+    // the session, because the form outlives the dialog the way every other form of the application
+    // does. The form is not modal either, so the model can still be turned, zoomed and replotted
+    // between opening it and taking the picture, and OK leaves it open.
     class FrmCaptureViewport : UserControls.FrmProperties, IFormBase
     {
         // Variables                                                                                                                
@@ -25,7 +25,7 @@ namespace PrePoMax.Forms
 
         // Callbacks                                                                                                                
         public Func<CaptureViewportProperties> Form_GetDefaultProperties;
-        public Action<string, bool, int> Form_Capture;
+        public Func<CaptureViewportProperties, bool> Form_Capture;
 
 
         // Constructors                                                                                                             
@@ -54,12 +54,7 @@ namespace PrePoMax.Forms
         {
             _propertyItemChanged = false;
             propertyGrid.SelectedObject = null;
-            // OK leaves the form open and prepares it again, and the folder and the name the user set
-            // there are theirs to keep. A form that is not visible yet is being opened, and that
-            // starts from the folder and the name of the model again
-            if (!Visible || _viewCaptureViewportProperties == null)
-                _viewCaptureViewportProperties = new ViewCaptureViewportProperties(Form_GetDefaultProperties());
-            //
+            GetProperties();
             propertyGrid.SelectedObject = _viewCaptureViewportProperties;
             propertyGrid.Select();
             //
@@ -68,17 +63,22 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             _viewCaptureViewportProperties = (ViewCaptureViewportProperties)propertyGrid.SelectedObject;
-            CaptureViewportProperties properties = _viewCaptureViewportProperties.GetBase();
-            string fileName = properties.GetFileName();
-            // A numbered name is free by the time it is returned, so this only ever asks about a name
-            // the user chose to keep as it is
-            if (File.Exists(fileName) &&
-                MessageBoxes.ShowWarningQuestionYesNo("The file '" + fileName + "' already exists. Replace it?") !=
-                DialogResult.Yes)
-                throw new CaeException("BreakOnApply");
+            // The capture is refused when the user does not want the file replaced after all, and the
+            // form stays open on the settings that asked for it
+            if (!Form_Capture(_viewCaptureViewportProperties.GetBase())) throw new CaeException("BreakOnApply");
+        }
+
+
+        // Methods                                                                                                                  
+        // The settings every capture is taken with. The toolbar button asks for them without ever
+        // opening the form, so the model's own folder and name are made here rather than on showing:
+        // they are the first proposal, and everything the user sets afterwards is theirs to keep
+        public CaptureViewportProperties GetProperties()
+        {
+            if (_viewCaptureViewportProperties == null)
+                _viewCaptureViewportProperties = new ViewCaptureViewportProperties(Form_GetDefaultProperties());
             //
-            if (Form_Capture != null)
-                Form_Capture(fileName, properties.TransparentBackground, properties.Magnification);
+            return _viewCaptureViewportProperties.GetBase();
         }
     }
 }

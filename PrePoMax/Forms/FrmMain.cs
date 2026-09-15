@@ -7676,14 +7676,14 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        // The fast capture asks nothing: a transparent picture of the viewport as it is, written under
-        // the next free name in the work directory, which is where the rest of the model's files are
+        // Takes the picture without asking anything, using the settings the capture form holds. Until
+        // the user changes them there, those are a numbered picture of the model with the background
+        // left out, in the work directory where the rest of the model's files are
         private void tsmiCaptureViewport_Click(object sender, EventArgs e)
         {
             try
             {
-                CaptureViewportProperties properties = GetDefaultCaptureViewportProperties();
-                CaptureViewport(properties.GetFileName(), properties.TransparentBackground, properties.Magnification);
+                CaptureViewport(_frmCaptureViewport.GetProperties());
             }
             catch (Exception ex)
             {
@@ -7881,12 +7881,23 @@ namespace PrePoMax
             if (_vtk == null) throw new CaeException("The 3D view is not available.");
             InvokeIfRequired(() => _vtk.RenderToPNG(fileName, transparentBackground, magnification));
         }
-        // The same picture, taken because the user asked for it. The file is named in the output, so
-        // that a capture can be found without opening the folder it was written into
-        private void CaptureViewport(string fileName, bool transparentBackground, int magnification)
+        // The picture the capture settings describe, taken because the user asked for it - from the
+        // toolbar button as well as from the form, so that the two are one setting. The file is named
+        // in the output, so that a capture can be found without opening the folder it went into.
+        // False means the user did not want the file replaced after all, and nothing was written
+        private bool CaptureViewport(CaptureViewportProperties properties)
         {
-            SaveAutomationScreenshot(fileName, transparentBackground, magnification);
+            string fileName = properties.GetFileName();
+            // A numbered name is free by the time it is returned, so this only ever asks about a name
+            // the user chose to keep as it is
+            if (File.Exists(fileName) &&
+                MessageBoxes.ShowWarningQuestionYesNo("The file '" + fileName + "' already exists. Replace it?") !=
+                DialogResult.Yes)
+                return false;
+            //
+            SaveAutomationScreenshot(fileName, properties.TransparentBackground, properties.Magnification);
             WriteDataToOutput("Viewport captured into: " + fileName);
+            return true;
         }
         // A numbered picture of the model, in the work directory where the rest of the model's files
         // are, with the background left out. That is what the toolbar button writes without asking,
