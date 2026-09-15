@@ -517,6 +517,7 @@ namespace CaeMesh
             List<SweepBlock> blocks = GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
             //
             List<SweepWall> walls = new List<SweepWall>();
+            HashSet<int> wallSurfaceIds = new HashSet<int>();
             HashSet<int> targetSurfaceIds = new HashSet<int>();
             foreach (var block in blocks)
             {
@@ -527,9 +528,13 @@ namespace CaeMesh
                 }
                 // Set side surfaces. A wall whose side is built from several edges - which is what a
                 // split source face produces - needs its four corners nominated by hand, and needs the
-                // element counts on its opposite sides reconciled first.
-                walls.AddRange(SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
-                                                          block.TargetSurfaceIds, surfaceIdEdgeIds));
+                // element counts on its opposite sides reconciled first. A wall two blocks share is one
+                // wall, with the same edges in the same roles seen from either side.
+                foreach (var wall in SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
+                                                                block.TargetSurfaceIds, surfaceIdEdgeIds))
+                {
+                    if (wallSurfaceIds.Add(wall.SurfaceId)) walls.Add(wall);
+                }
                 targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
             // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
@@ -1597,13 +1602,35 @@ namespace CaeMesh
             _gmshData.EdgeIdsBySweepLayer = null;
             if (gmshSetupItem is SweepMesh sm)
             {
-                _gmshData.EdgeIdsBySweepLayer = new HashSet<int>[sm.LayerGroupEdgeIds.Length];
+                List<HashSet<int>> rings = new List<HashSet<int>>();
                 for (int i = 0; i < sm.LayerGroupEdgeIds.Length; i++)
                 {
-                    _gmshData.EdgeIdsBySweepLayer[i] = new HashSet<int>();
-                    for (int j = 0; j < sm.LayerGroupEdgeIds[i].Length; j++)
+                    HashSet<int> ring = new HashSet<int>();
+                    for (int j = 0; j < sm.LayerGroupEdgeIds[i].Length; j++) ring.UnionWith(sm.LayerGroupEdgeIds[i][j]);
+                    rings.Add(ring);
+                }
+                // Rings of two blocks that share a direction edge - the wall the blocks have in common -
+                // are the same sweep lines, so they are one ring and get one layer count
+                MergeOverlappingRings(rings);
+                _gmshData.EdgeIdsBySweepLayer = rings.ToArray();
+            }
+        }
+        private static void MergeOverlappingRings(List<HashSet<int>> rings)
+        {
+            bool merged = true;
+            while (merged)
+            {
+                merged = false;
+                for (int i = 0; i < rings.Count && !merged; i++)
+                {
+                    for (int j = i + 1; j < rings.Count; j++)
                     {
-                        _gmshData.EdgeIdsBySweepLayer[i].UnionWith(sm.LayerGroupEdgeIds[i][j]);
+                        if (!rings[i].Overlaps(rings[j])) continue;
+                        //
+                        rings[i].UnionWith(rings[j]);
+                        rings.RemoveAt(j);
+                        merged = true;
+                        break;
                     }
                 }
             }
@@ -1874,8 +1901,13 @@ namespace CaeMesh
                             // Sort differences
                             Array.Sort(locationDiff, locationIdDiff);
                             Array.Sort(sizeDiff, sizeIdDiff);
-                            // If different surfaces are found select by the smallest normalized criteria
-                            if (locationIdDiff[0] != sizeIdDiff[0])
+                            // If different surfaces are found select by the smallest normalized criteria. Faces of
+                            // the same size - the two halves of a cylinder split by its seam - leave the size
+                            // criterion nothing to decide on, and normalizing by its zero spread would compare
+                            // against NaN and let it win regardless; the location decides alone then
+                            if (sizeDiff[sizeDiff.Length - 1] <= 1E-6 * Math.Max(Math.Abs(faceDataEntry.Size), 1E-30))
+                                gmshFaceId = locationIdDiff[0];
+                            else if (locationIdDiff[0] != sizeIdDiff[0])
                             {
                                 // Normalize differences
                                 for (int i = 0; i < locationDiff.Length; i++)

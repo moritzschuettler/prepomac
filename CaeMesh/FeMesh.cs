@@ -4333,12 +4333,6 @@ namespace CaeMesh
         public Dictionary<int, int> GetSharedSurfaceIds(BasePart[] parts)
         {
             VisualizationData vis;
-            BoundingBox boundingBox = new BoundingBox();
-            foreach (var part in parts) boundingBox.IncludeBox(part.BoundingBox);
-            double diagonal = boundingBox.GetDiagonal();
-            double vertexTolerance = 1E-5 * diagonal;
-            double centroidTolerance = 1E-3 * diagonal;
-            //
             List<int> surfaceIds = new List<int>();
             List<int> partIds = new List<int>();
             List<double> areas = new List<double>();
@@ -4355,30 +4349,69 @@ namespace CaeMesh
                     partIds.Add(part.PartId);
                     areas.Add(vis.FaceAreas != null ? vis.FaceAreas[i] : ComputeFaceArea(vis, i, _nodes));
                     centroids.Add(ComputeFaceCentroid(vis, i));
-                    vertexCoors.Add(GetFaceVertexCoordinates(vis, i));
+                    vertexCoors.Add(GetVertexCoordinates(vis.GetVertexNodeIdsForSurfaceId(i)));
                 }
             }
-            //
-            Dictionary<int, int> sharedSurfaceIds = new Dictionary<int, int>();
-            for (int i = 0; i < surfaceIds.Count; i++)
+            return MatchSharedItems(parts, surfaceIds, partIds, areas, centroids, vertexCoors);
+        }
+        /// <summary>
+        /// Finds the edges that two of the given parts have in common, the way GetSharedSurfaceIds finds
+        /// the surfaces: by the vertex positions, the length and the centroid.
+        /// </summary>
+        public Dictionary<int, int> GetSharedEdgeIds(BasePart[] parts)
+        {
+            VisualizationData vis;
+            List<int> edgeIds = new List<int>();
+            List<int> partIds = new List<int>();
+            List<double> lengths = new List<double>();
+            List<double[]> centroids = new List<double[]>();
+            List<double[][]> vertexCoors = new List<double[][]>();
+            foreach (var part in parts)
             {
-                if (sharedSurfaceIds.ContainsKey(surfaceIds[i])) continue;
+                vis = part.Visualization;
+                if (vis == null || vis.EdgeCellIdsByEdge == null) continue;
                 //
-                for (int j = i + 1; j < surfaceIds.Count; j++)
+                for (int i = 0; i < vis.EdgeCount; i++)
                 {
-                    if (partIds[i] == partIds[j] || sharedSurfaceIds.ContainsKey(surfaceIds[j])) continue;
+                    edgeIds.Add(GmshTopologyId(i, part.PartId));
+                    partIds.Add(part.PartId);
+                    lengths.Add(vis.EdgeLengths[i]);
+                    centroids.Add(ComputeEdgeCentroid(vis, i));
+                    vertexCoors.Add(GetVertexCoordinates(vis.GetVertexNodeIdsForEdgeId(i)));
+                }
+            }
+            return MatchSharedItems(parts, edgeIds, partIds, lengths, centroids, vertexCoors);
+        }
+        private Dictionary<int, int> MatchSharedItems(BasePart[] parts, List<int> itemIds, List<int> partIds,
+                                                      List<double> sizes, List<double[]> centroids,
+                                                      List<double[][]> vertexCoors)
+        {
+            BoundingBox boundingBox = new BoundingBox();
+            foreach (var part in parts) boundingBox.IncludeBox(part.BoundingBox);
+            double diagonal = boundingBox.GetDiagonal();
+            double vertexTolerance = 1E-5 * diagonal;
+            double centroidTolerance = 1E-3 * diagonal;
+            //
+            Dictionary<int, int> sharedItemIds = new Dictionary<int, int>();
+            for (int i = 0; i < itemIds.Count; i++)
+            {
+                if (sharedItemIds.ContainsKey(itemIds[i])) continue;
+                //
+                for (int j = i + 1; j < itemIds.Count; j++)
+                {
+                    if (partIds[i] == partIds[j] || sharedItemIds.ContainsKey(itemIds[j])) continue;
                     if (vertexCoors[i].Length != vertexCoors[j].Length) continue;
-                    if (Math.Abs(areas[i] - areas[j]) > 1E-3 * Math.Max(areas[i], areas[j])) continue;
+                    if (Math.Abs(sizes[i] - sizes[j]) > 1E-3 * Math.Max(sizes[i], sizes[j])) continue;
                     if (GetCoorDistance(centroids[i], centroids[j]) > centroidTolerance) continue;
                     if (!AreVertexCoordinatesEqual(vertexCoors[i], vertexCoors[j], vertexTolerance)) continue;
                     //
-                    sharedSurfaceIds.Add(surfaceIds[i], surfaceIds[j]);
-                    sharedSurfaceIds.Add(surfaceIds[j], surfaceIds[i]);
+                    sharedItemIds.Add(itemIds[i], itemIds[j]);
+                    sharedItemIds.Add(itemIds[j], itemIds[i]);
                     break;
                 }
             }
             //
-            return sharedSurfaceIds;
+            return sharedItemIds;
         }
         public double[] ComputeFaceCentroid(VisualizationData visualization, int faceId)
         {
@@ -4415,9 +4448,36 @@ namespace CaeMesh
             }
             return centroid;
         }
-        private double[][] GetFaceVertexCoordinates(VisualizationData visualization, int faceId)
+        public double[] ComputeEdgeCentroid(VisualizationData visualization, int edgeId)
         {
-            int[] vertexNodeIds = visualization.GetVertexNodeIdsForSurfaceId(faceId);
+            int[] cell;
+            double length;
+            double totalLength = 0;
+            double[] centroid = new double[3];
+            FeNode n1;
+            FeNode n2;
+            // Only the end nodes of a cell count, so a curved second order cell is taken as its chord
+            foreach (var cellId in visualization.EdgeCellIdsByEdge[edgeId])
+            {
+                cell = visualization.EdgeCells[cellId];
+                n1 = _nodes[cell[0]];
+                n2 = _nodes[cell[1]];
+                length = Math.Sqrt(Math.Pow(n2.X - n1.X, 2) + Math.Pow(n2.Y - n1.Y, 2) + Math.Pow(n2.Z - n1.Z, 2));
+                centroid[0] += length * (n1.X + n2.X) / 2;
+                centroid[1] += length * (n1.Y + n2.Y) / 2;
+                centroid[2] += length * (n1.Z + n2.Z) / 2;
+                totalLength += length;
+            }
+            if (totalLength > 0)
+            {
+                centroid[0] /= totalLength;
+                centroid[1] /= totalLength;
+                centroid[2] /= totalLength;
+            }
+            return centroid;
+        }
+        private double[][] GetVertexCoordinates(int[] vertexNodeIds)
+        {
             double[][] coordinates = new double[vertexNodeIds.Length][];
             for (int i = 0; i < vertexNodeIds.Length; i++) coordinates[i] = _nodes[vertexNodeIds[i]].Coor;
             return coordinates;

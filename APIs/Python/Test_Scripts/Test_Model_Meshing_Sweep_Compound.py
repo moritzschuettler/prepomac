@@ -12,6 +12,11 @@
 #    the target of the large box, and the hand-off is refused rather than recorded.
 #  - sweep_split_target.brep: a single box whose top is split by an imprint into an inner face and a rim.
 #    The target may be split, and the cap has to land on both faces.
+#  - sweep_side2.brep and sweep_grid4.brep: boxes standing side by side, sharing walls. One selected face
+#    sweeps them all, and the shared walls carry one layer count.
+#  - sweep_base_two.brep: two boxes side by side on a base. From the top of one block the other is found
+#    across the shared wall, and the base is fed by both caps before it is swept. From the base the line
+#    between the two blocks is an imprint inside the base's target, so the hand-off is refused.
 #
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Compound.py -g No -x Yes -w <dir>
 #
@@ -92,9 +97,10 @@ def test_chain_of_three():
     check(compound is not None and len(solids) == 3, "the three fragmented boxes must import as a compound part")
     # From the bottom: the first block leaves a cap for the second, the second for the third
     part, face_id = find_end_face(solids, top=False)
+    nodes_before = pmx.model.nodes.count
     meshed = mesh_with_sweep(compound, solids, part, face_id)
-    # The blocks share their interface nodes, so the model holds fewer nodes than the parts add up to
-    check(pmx.model.nodes.count < sum(part.node_count for part in meshed),
+    # The blocks share their interface nodes, so the mesh grew by fewer nodes than the parts add up to
+    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
           "the sub-parts of the chain do not share their interface nodes")
     # From the top the chain runs the other way and must work just the same
     part, face_id = find_end_face(solids, top=True)
@@ -125,11 +131,45 @@ def test_split_target():
     mesh_with_sweep(part, solids, part, face_id)
 
 
+def test_side_by_side(file_name, count):
+    solids, compound = import_geometry(file_name)
+    check(compound is not None and len(solids) == count, "%s must import as a compound of %d" % (file_name, count))
+    # One face on one block sweeps every block alongside it, and every block shares the layer count
+    part, face_id = find_end_face(solids, top=False)
+    nodes_before = pmx.model.nodes.count
+    meshed = mesh_with_sweep(compound, solids, part, face_id)
+    check(len(set(part.element_count for part in meshed)) == 1,
+          "equal blocks swept side by side must carry the same number of elements")
+    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+          "blocks swept side by side do not share the nodes of their common wall")
+
+
+def test_two_blocks_on_a_base():
+    solids, compound = import_geometry("sweep_base_two.brep")
+    check(compound is not None and len(solids) == 3, "the base with two blocks must import as a compound of 3")
+    # From the top of one block the other is swept alongside it, and the base collects both their caps,
+    # which meet on the grid of the wall the two blocks share
+    part, face_id = find_end_face(solids, top=True)
+    meshed = mesh_with_sweep(compound, solids, part, face_id)
+    upper = [part for part in meshed if part.element_count == min(p.element_count for p in meshed)]
+    check(len(upper) == 2, "the two blocks on the base must carry the same number of elements")
+    # From the base the line between the two blocks lies inside the base's target; the cap the base
+    # leaves cannot match the nodes the shared upper wall starts from, so the item is refused
+    part, face_id = find_end_face(solids, top=False)
+    items = pmx.model.mesh.setup_items
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id)),
+                 "a hand-off through shared faces meeting inside the target must be refused")
+    check(not items.contains(SWEEP_NAME), "a refused sweep mesh item was recorded")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_chain_of_three()
     test_small_block_on_large()
     test_split_target()
+    test_side_by_side("sweep_side2.brep", 2)
+    test_side_by_side("sweep_grid4.brep", 4)
+    test_two_blocks_on_a_base()
     print("TEST PASSED")
 
 

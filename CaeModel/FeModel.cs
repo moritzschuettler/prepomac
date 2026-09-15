@@ -2764,58 +2764,48 @@ namespace CaeModel
         /// <summary>
         /// Splits the swept parts into one-to-one sweep blocks and stores them on the item in gmsh numbering.
         /// A single part is one block. The sub-parts of a compound part form a tree of blocks: a sub-part
-        /// sharing a selected surface is swept away from that same meshed surface, and a sub-part sharing a
-        /// target surface is swept next, from the mesh the block before it leaves on the shared surface.
+        /// sharing a source surface is swept away from that same meshed surface, a sub-part sharing a
+        /// target surface is swept next, from the mesh the blocks before it leave on the shared surfaces,
+        /// and a sub-part sharing a side surface is swept alongside, from the surfaces that continue the
+        /// source across the shared wall.
         /// </summary>
         private string CreateSweepBlocks(SweepMesh sweepMesh, GeometryPart[] sweptParts,
                                          Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
         {
             int twinId;
             int partId;
+            int neighbourPartId;
             GeometryPart part;
             HashSet<int> sourceSurfaceIds;
             Dictionary<int, GeometryPart> partIdPart = new Dictionary<int, GeometryPart>();
             foreach (var sweptPart in sweptParts) partIdPart.Add(sweptPart.PartId, sweptPart);
-            // The surfaces two sub-parts have in common, keyed and valued by the gmsh topology id
-            Dictionary<int, int> twinSurfaceIds;
-            if (sweptParts.Length > 1) twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
-            else twinSurfaceIds = new Dictionary<int, int>();
-            // The source surfaces of each part: the selected ones, and on a neighbouring sub-part the twin
-            // of a selected one, since both sub-parts are swept away from the same meshed surface
-            Queue<int> pendingPartIds = new Queue<int>();
-            HashSet<int> derivedPartIds = new HashSet<int>();
+            // The surfaces and the edges two sub-parts have in common, keyed and valued by the gmsh topology id
+            Dictionary<int, int> twinSurfaceIds = new Dictionary<int, int>();
+            Dictionary<int, int> twinEdgeIds = new Dictionary<int, int>();
+            if (sweptParts.Length > 1)
+            {
+                twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
+                twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
+            }
+            // The source surfaces of each part, the parts waiting to be swept, and for a part that reads the
+            // caps of other blocks the blocks it has to wait for
+            List<int> pendingPartIds = new List<int>();
             Dictionary<int, HashSet<int>> partIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
+            Dictionary<int, HashSet<int>> partIdFeederPartIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in partIdSelectedSurfaceIds)
             {
                 partIdSourceSurfaceIds.Add(entry.Key, new HashSet<int>(entry.Value));
-                pendingPartIds.Enqueue(entry.Key);
-            }
-            foreach (var entry in partIdSelectedSurfaceIds)
-            {
-                foreach (var surfaceId in entry.Value)
-                {
-                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, entry.Key), out twinId)) continue;
-                    //
-                    partId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
-                    if (!partIdSourceSurfaceIds.TryGetValue(partId, out sourceSurfaceIds))
-                    {
-                        sourceSurfaceIds = new HashSet<int>();
-                        partIdSourceSurfaceIds.Add(partId, sourceSurfaceIds);
-                        derivedPartIds.Add(partId);
-                        pendingPartIds.Enqueue(partId);
-                    }
-                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGmshTopologyId(twinId));
-                }
+                pendingPartIds.Add(entry.Key);
             }
             //
             string error;
-            int nextPartId;
+            int deferrals = 0;
             int[] sideSurfaceIds;
             int[] targetSurfaceIds;
             int[][][] blockLayerGroupEdgeIds;
             List<int[]> layerSideSurfaceIds;
-            HashSet<int> nextSourceSurfaceIds;
-            Dictionary<int, HashSet<int>> nextPartIdSourceSurfaceIds;
+            HashSet<int> wallEdgeIds;
+            HashSet<int> feederPartIds;
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds;
             HashSet<int> sweptPartIds = new HashSet<int>();
             List<int[]> blockSourceSurfaceIds = new List<int[]>();
@@ -2825,61 +2815,82 @@ namespace CaeModel
             //
             while (pendingPartIds.Count > 0)
             {
-                partId = pendingPartIds.Dequeue();
+                partId = pendingPartIds[0];
+                pendingPartIds.RemoveAt(0);
+                // A block reads the caps of the blocks feeding it, so it is swept after all of them
+                partIdFeederPartIds.TryGetValue(partId, out feederPartIds);
+                if (feederPartIds != null && !feederPartIds.IsSubsetOf(sweptPartIds))
+                {
+                    if (++deferrals > pendingPartIds.Count + 1)
+                        return "The order in which the parts are swept could not be determined.";
+                    pendingPartIds.Add(partId);
+                    continue;
+                }
+                deferrals = 0;
+                //
                 part = partIdPart[partId];
                 sourceSurfaceIds = partIdSourceSurfaceIds[partId];
                 surfaceIdSurfaceNeighbourIds = part.Visualization.GetSurfaceIdSurfaceNeighbourIds();
-                // A derived source covers only the shared surface; the exposed surfaces lying in the same
-                // plane around it are swept from as well
-                if (derivedPartIds.Contains(partId))
-                    ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, twinSurfaceIds);
+                // The surfaces lying in the plane of the source are swept from as well
+                ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds);
+                // A neighbour sharing a source surface is swept away from the same meshed surface - unless it
+                // is one of the blocks feeding this one, whose target the shared surface is
+                foreach (var surfaceId in sourceSurfaceIds.ToArray())
+                {
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, partId), out twinId)) continue;
+                    //
+                    neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    if (sweptPartIds.Contains(neighbourPartId)) continue;
+                    if (feederPartIds != null && feederPartIds.Contains(neighbourPartId)) continue;
+                    AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
+                                     pendingPartIds, false);
+                }
                 //
                 error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, out sideSurfaceIds,
                                            out targetSurfaceIds, out layerSideSurfaceIds);
                 if (error != null) return sweptParts.Length > 1 ? "Part " + part.Name + ": " + error : error;
-                // A neighbour across a side surface would have to be swept side by side with this block
+                // A neighbour across a side surface is swept alongside this block, from the surfaces that
+                // continue the source across the shared wall. It goes first, so that a block both of them
+                // feed learns of both before it is swept. The shared wall ties the layer counts together.
                 foreach (var sideSurfaceId in sideSurfaceIds)
                 {
-                    if (twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(sideSurfaceId, partId), out twinId))
-                    {
-                        return "The part " + part.Name + " shares a side surface with the part " +
-                               partIdPart[FeMesh.GetPartIdFromGmshTopologyId(twinId)].Name + ". Sub-parts lying " +
-                               "side by side along the sweep direction are not supported.";
-                    }
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(sideSurfaceId, partId), out twinId)) continue;
+                    //
+                    neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    if (partIdSourceSurfaceIds.ContainsKey(neighbourPartId)) continue;
+                    error = AddSideNeighbourSource(part, sourceSurfaceIds, sideSurfaceId, partIdPart[neighbourPartId],
+                                                   FeMesh.GetItemIdFromGmshTopologyId(twinId), twinEdgeIds,
+                                                   partIdSourceSurfaceIds, pendingPartIds);
+                    if (error != null) return error;
                 }
                 // A neighbour across a target surface is swept next, from the mesh this block leaves there.
                 // That mesh follows the imprint of the shared surface only where the imprint is a wall edge
                 // of this block; a shared surface that ends inside the target has its boundary nodes
                 // meshed by gmsh, and the cap this block leaves cannot match them
-                HashSet<int> wallEdgeIds = part.Visualization.GetEdgeIdsForSurfaceIds(sideSurfaceIds);
-                nextPartIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
+                wallEdgeIds = part.Visualization.GetEdgeIdsForSurfaceIds(sideSurfaceIds);
                 foreach (var targetSurfaceId in targetSurfaceIds)
                 {
                     if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(targetSurfaceId, partId), out twinId)) continue;
                     //
-                    nextPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
-                    if (partIdSourceSurfaceIds.ContainsKey(nextPartId))
-                        return "The part " + partIdPart[nextPartId].Name + " is reached by the sweep from two sides.";
+                    neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    if (sweptPartIds.Contains(neighbourPartId) || partIdSelectedSurfaceIds.ContainsKey(neighbourPartId))
+                        return "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two sides.";
                     foreach (var edgeId in part.Visualization.FaceEdgeIds[targetSurfaceId])
                     {
                         if (wallEdgeIds.Contains(edgeId)) continue;
-                        return "The surface shared by the parts " + part.Name + " and " + partIdPart[nextPartId].Name +
+                        return "The surface shared by the parts " + part.Name + " and " + partIdPart[neighbourPartId].Name +
                                " ends inside the target of the part " + part.Name + ", so the mesh swept through it " +
-                               "cannot continue into the part " + partIdPart[nextPartId].Name + ". Select the shared " +
+                               "cannot continue into the part " + partIdPart[neighbourPartId].Name + ". Select the shared " +
                                "surface as the source instead, so that both parts are swept away from it.";
                     }
-                    if (!nextPartIdSourceSurfaceIds.TryGetValue(nextPartId, out nextSourceSurfaceIds))
+                    AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
+                                     pendingPartIds, false);
+                    if (!partIdFeederPartIds.TryGetValue(neighbourPartId, out feederPartIds))
                     {
-                        nextSourceSurfaceIds = new HashSet<int>();
-                        nextPartIdSourceSurfaceIds.Add(nextPartId, nextSourceSurfaceIds);
+                        feederPartIds = new HashSet<int>();
+                        partIdFeederPartIds.Add(neighbourPartId, feederPartIds);
                     }
-                    nextSourceSurfaceIds.Add(FeMesh.GetItemIdFromGmshTopologyId(twinId));
-                }
-                foreach (var entry in nextPartIdSourceSurfaceIds)
-                {
-                    partIdSourceSurfaceIds.Add(entry.Key, entry.Value);
-                    derivedPartIds.Add(entry.Key);
-                    pendingPartIds.Enqueue(entry.Key);
+                    feederPartIds.Add(partId);
                 }
                 // The arrow of the item follows the first block, which is the one the user selected
                 if (blockSourceSurfaceIds.Count == 0) SetSweepDirection(sweepMesh, part, sourceSurfaceIds);
@@ -2911,6 +2922,58 @@ namespace CaeModel
             sweepMesh.BlockSideSurfaceIds = blockSideSurfaceIds.ToArray();
             sweepMesh.BlockTargetSurfaceIds = blockTargetSurfaceIds.ToArray();
             sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds.ToArray();
+            //
+            return null;
+        }
+        private static void AddSourceSurface(int partId, int surfaceId, Dictionary<int, HashSet<int>> partIdSourceSurfaceIds,
+                                             List<int> pendingPartIds, bool sweepFirst)
+        {
+            HashSet<int> sourceSurfaceIds;
+            if (!partIdSourceSurfaceIds.TryGetValue(partId, out sourceSurfaceIds))
+            {
+                sourceSurfaceIds = new HashSet<int>();
+                partIdSourceSurfaceIds.Add(partId, sourceSurfaceIds);
+                if (sweepFirst) pendingPartIds.Insert(0, partId);
+                else pendingPartIds.Add(partId);
+            }
+            sourceSurfaceIds.Add(surfaceId);
+        }
+        /// <summary>
+        /// Gives a neighbour across a shared wall the source that continues this block's source over the
+        /// wall: the neighbour's surfaces on the twins of the wall edges that this block's source touches.
+        /// </summary>
+        private string AddSideNeighbourSource(GeometryPart part, HashSet<int> sourceSurfaceIds, int sideSurfaceId,
+                                              GeometryPart neighbour, int neighbourSideSurfaceId,
+                                              Dictionary<int, int> twinEdgeIds,
+                                              Dictionary<int, HashSet<int>> partIdSourceSurfaceIds, List<int> pendingPartIds)
+        {
+            int twinId;
+            int neighbourEdgeId;
+            VisualizationData vis = part.Visualization;
+            VisualizationData neighbourVis = neighbour.Visualization;
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            sourceEdgeIds.IntersectWith(vis.FaceEdgeIds[sideSurfaceId]);
+            //
+            List<int> neighbourSourceIds = new List<int>();
+            foreach (var edgeId in sourceEdgeIds)
+            {
+                if (!twinEdgeIds.TryGetValue(FeMesh.GmshTopologyId(edgeId, part.PartId), out twinId)) continue;
+                //
+                neighbourEdgeId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                for (int i = 0; i < neighbourVis.FaceEdgeIds.Length; i++)
+                {
+                    if (i == neighbourSideSurfaceId || !neighbourVis.FaceEdgeIds[i].Contains(neighbourEdgeId)) continue;
+                    neighbourSourceIds.Add(i);
+                }
+            }
+            if (neighbourSourceIds.Count == 0)
+            {
+                return "The part " + neighbour.Name + " shares a side surface with the part " + part.Name + ", but no " +
+                       "surface continuing the source of the part " + part.Name + " across it was found.";
+            }
+            //
+            foreach (var surfaceId in neighbourSourceIds)
+                AddSourceSurface(neighbour.PartId, surfaceId, partIdSourceSurfaceIds, pendingPartIds, true);
             //
             return null;
         }
@@ -2970,13 +3033,13 @@ namespace CaeModel
             return null;
         }
         /// <summary>
-        /// Adds to a derived source the neighbouring surfaces that lie in the same plane and are not shared
-        /// with another sub-part. A sub-part wider than the one it is swept from has its exposed rim there,
-        /// and the rim is meshed together with the shared surface so that both conform along the imprint.
+        /// Adds to a source the neighbouring surfaces that lie in the same plane. A sub-part wider than the
+        /// one it is swept from has its exposed rim there, and the rim is meshed together with the shared
+        /// surface so that both conform along the imprint; a shared surface in the same plane joins as
+        /// well, and the neighbour behind it is then swept away from it.
         /// </summary>
         private void ExtendSourceOverCoplanarSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds,
-                                                      Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
-                                                      Dictionary<int, int> twinSurfaceIds)
+                                                      Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds)
         {
             int surfaceId;
             GeomFaceData faceData;
@@ -2995,7 +3058,6 @@ namespace CaeModel
                 foreach (var neighbourId in surfaceIdSurfaceNeighbourIds[surfaceId])
                 {
                     if (sourceSurfaceIds.Contains(neighbourId)) continue;
-                    if (twinSurfaceIds.ContainsKey(FeMesh.GmshTopologyId(neighbourId, part.PartId))) continue;
                     //
                     neighbourFaceData = GetSurfaceFaceData(vis, neighbourId, surfaceIdFaceData);
                     if (!AreCoplanar(faceData, neighbourFaceData, tolerance)) continue;
