@@ -458,7 +458,8 @@ namespace CaeMesh.Sweep
         /// </summary>
         public static Dictionary<int, int> ResolveDirectionEdgeElements(List<SweepChain> chains, List<SweepWall> walls,
                                                                         List<int[]> crossSectionVertexIds,
-                                                                        Dictionary<int, int> pinnedEdgeIdNumOfElements)
+                                                                        Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                                                        List<int> chainBlockIndices)
         {
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
             if (chains.Count == 0) return edgeIdNumOfElements;
@@ -502,16 +503,62 @@ namespace CaeMesh.Sweep
                 }
             }
             //
-            foreach (var family in Enumerable.Range(0, chains.Count).GroupBy(i => Find(parent, i)))
+            List<List<int>> families = Enumerable.Range(0, chains.Count).GroupBy(i => Find(parent, i))
+                                                 .Select(group => group.ToList()).ToList();
+            int[] familyTotals = new int[families.Count];
+            bool[] familySpansAllLevels = new bool[families.Count];
+            for (int f = 0; f < families.Count; f++)
             {
-                ResolveFamilyElements(family.Select(i => chains[i]).ToList(), levelVertexIds, pinnedEdgeIdNumOfElements,
-                                      edgeIdNumOfElements);
+                ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
+                                      pinnedEdgeIdNumOfElements, edgeIdNumOfElements, 0, out familyTotals[f],
+                                      out familySpansAllLevels[f]);
+            }
+            // Every family of one block counts the same layers, the sweep walking one grid over all the walls
+            // of a block, so the families of a block are made to add up to the same total. Left to itself a
+            // family reads the 1D mesh of its own edges - the seam of a bore measures differently from the
+            // outline of the plate the bore goes through - and one column of the grid then ends before the
+            // next, which the sweep can only refuse. Only the families whose chains all run the whole way are
+            // reconciled: one mixing chains of different extents - the collar plate swept through its
+            // thickness beside the post that carries it - has a span and not a layer count, and two blocks
+            // swept in different directions across a wall they share keep their own totals in any case, their
+            // chains sharing no edge and no wall side
+            int[] familyParent = Enumerable.Range(0, families.Count).ToArray();
+            if (chainBlockIndices != null)
+            {
+                List<int> familyIndices;
+                Dictionary<int, List<int>> blockIndexFamilyIndices = new Dictionary<int, List<int>>();
+                for (int f = 0; f < families.Count; f++)
+                {
+                    if (!familySpansAllLevels[f]) continue;
+                    foreach (var i in families[f])
+                    {
+                        if (i >= chainBlockIndices.Count) continue;
+                        if (!blockIndexFamilyIndices.TryGetValue(chainBlockIndices[i], out familyIndices))
+                            blockIndexFamilyIndices.Add(chainBlockIndices[i], familyIndices = new List<int>());
+                        if (!familyIndices.Contains(f)) familyIndices.Add(f);
+                    }
+                }
+                foreach (var indices in blockIndexFamilyIndices.Values) Unite(familyParent, indices);
+            }
+            foreach (var group in Enumerable.Range(0, families.Count).GroupBy(f => Find(familyParent, f)))
+            {
+                List<int> familyGroup = group.Where(f => familySpansAllLevels[f]).ToList();
+                if (familyGroup.Count < 2) continue;
+                //
+                int forcedTotal = familyGroup.Max(f => familyTotals[f]);
+                foreach (var f in familyGroup)
+                {
+                    if (familyTotals[f] == forcedTotal || forcedTotal < 1) continue;
+                    ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
+                                          pinnedEdgeIdNumOfElements, edgeIdNumOfElements, forcedTotal, out _, out _);
+                }
             }
             return edgeIdNumOfElements;
         }
         private static void ResolveFamilyElements(List<SweepChain> chains, List<int[]> levelVertexIds,
                                                   Dictionary<int, int> pinnedEdgeIdNumOfElements,
-                                                  Dictionary<int, int> edgeIdNumOfElements)
+                                                  Dictionary<int, int> edgeIdNumOfElements, int forcedTotal,
+                                                  out int total, out bool spansAllLevels)
         {
             // Every chain vertex, with the fraction of its chain's length it lies at
             double length;
@@ -649,6 +696,24 @@ namespace CaeMesh.Sweep
             {
                 if (intervalCounts[k] < 1) intervalCounts[k] = 1;
             }
+            // Whether every chain of the family runs the whole way, which is what makes its total the number
+            // of layers of the block rather than the span of a family that mixes chains of different extents
+            spansAllLevels = numIntervals > 0;
+            for (int c = 0; c < chains.Count && spansAllLevels; c++)
+            {
+                spansAllLevels = chainLevelIndices[c][0] == 0 &&
+                                 chainLevelIndices[c][chains[c].VertexIds.Length - 1] == levels.Count - 1;
+            }
+            // Made to add up to the total the other families of the block resolved, keeping the proportions
+            // this family found on its own
+            if (forcedTotal > 0 && numIntervals > 0)
+            {
+                double[] weights = new double[numIntervals];
+                for (int k = 0; k < numIntervals; k++) weights[k] = intervalCounts[k];
+                intervalCounts = DistributeElements(forcedTotal, weights);
+            }
+            total = 0;
+            for (int k = 0; k < numIntervals; k++) total += intervalCounts[k];
             // An edge whose ends do not follow the levels in order - a body the levels cannot describe - keeps
             // its own count
             for (int c = 0; c < chains.Count; c++)

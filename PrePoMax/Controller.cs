@@ -17660,12 +17660,12 @@ namespace PrePoMax
         }
         private void DrawPartId(BasePart part, List<double[]> positions, List<string> labels)
         {
-            double[] coor = GetPartCenterOfGravity(part.PartId);
+            double[] coor = GetPartAnchorPoint(part.PartId);
             if (coor != null) AddItemIdLabel("P" + part.PartId, coor, positions, labels);
         }
         private void DrawPartName(BasePart part, List<double[]> positions, List<string> labels)
         {
-            double[] coor = GetPartCenterOfGravity(part.PartId);
+            double[] coor = GetPartAnchorPoint(part.PartId);
             if (coor != null)
             {
                 positions.Add(coor);
@@ -17674,6 +17674,12 @@ namespace PrePoMax
         }
         public double[] GetPartCenterOfGravity(int partId)
         {
+            return GetPartCenterOfGravity(partId, out _);
+        }
+        private double[] GetPartCenterOfGravity(int partId, out Dictionary<int, FeNode> displayedNodes)
+        {
+            displayedNodes = null;
+            //
             FeMesh mesh = DisplayedMesh;
             BasePart part = mesh?.GetPartFromId(partId);
             if (part == null) return null;
@@ -17686,6 +17692,7 @@ namespace PrePoMax
                 Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
                 for (int i = 0; i < scaledNodes.Length; i++) nodes.Add(scaledNodes[i].Id, scaledNodes[i]);
                 coor = mesh.ComputeVolumeArea(part, nodes).CenterOfMass;
+                displayedNodes = nodes;
             }
             else if (part.MassProperties.CenterOfMass != null)
             {
@@ -17700,6 +17707,81 @@ namespace PrePoMax
             //
             if (coor == null && part.BoundingBox != null) coor = part.BoundingBox.GetCenter();
             return coor;
+        }
+        public double[] GetPartAnchorPoint(int partId)
+        {
+            FeMesh mesh = DisplayedMesh;
+            BasePart part = mesh?.GetPartFromId(partId);
+            if (part == null) return null;
+            //
+            Dictionary<int, FeNode> displayedNodes;
+            double[] center = GetPartCenterOfGravity(partId, out displayedNodes);
+            if (center == null) return null;
+            //
+            int[][] cells = part.Visualization?.Cells;
+            if (cells == null || cells.Length == 0) return center;
+            // The mesh node coordinates do not contain the exploded view offset, the center of gravity does
+            double[] offset = null;
+            if (displayedNodes == null && part.Offset != null &&
+                (part.Offset[0] != 0 || part.Offset[1] != 0 || part.Offset[2] != 0)) offset = part.Offset;
+            //
+            double[][] triangle = new double[3][];
+            double[] triangleClosestPoint = new double[3];
+            double[] closestPoint = null;
+            double minDistance = double.MaxValue;
+            //
+            foreach (int[] cell in cells)
+            {
+                int cornerCount;
+                if (cell.Length == 3 || cell.Length == 6) cornerCount = 3;
+                else if (cell.Length == 4 || cell.Length == 8) cornerCount = 4;
+                else continue;
+                //
+                double[][] cornerCoor = new double[cornerCount][];
+                bool allCornersFound = true;
+                for (int i = 0; i < cornerCount; i++)
+                {
+                    cornerCoor[i] = GetPartAnchorNodeCoor(mesh, displayedNodes, offset, cell[i]);
+                    if (cornerCoor[i] == null) { allCornersFound = false; break; }
+                }
+                if (!allCornersFound) continue;
+                //
+                for (int i = 0; i < cornerCount - 2; i++)
+                {
+                    triangle[0] = cornerCoor[0];
+                    triangle[1] = cornerCoor[i + 1];
+                    triangle[2] = cornerCoor[i + 2];
+                    //
+                    Geometry.PointToTriangleClosestPoint(center, triangle, ref triangleClosestPoint);
+                    double distance = Geometry.VdistV2(center, triangleClosestPoint);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestPoint = triangleClosestPoint.ToArray();
+                    }
+                }
+            }
+            //
+            if (closestPoint == null) return center;
+            return closestPoint;
+        }
+        private double[] GetPartAnchorNodeCoor(FeMesh mesh, Dictionary<int, FeNode> displayedNodes,
+                                               double[] offset, int nodeId)
+        {
+            double[] coor;
+            if (displayedNodes != null)
+            {
+                if (!displayedNodes.TryGetValue(nodeId, out FeNode node)) return null;
+                coor = node.Coor;
+            }
+            else
+            {
+                if (!mesh.Nodes.TryGetValue(nodeId, out FeNode node)) return null;
+                coor = node.Coor;
+            }
+            //
+            if (offset == null) return coor;
+            return new double[] { coor[0] + offset[0], coor[1] + offset[1], coor[2] + offset[2] };
         }
         private void DrawNodeIds(FeMesh mesh, List<double[]> positions, List<string> labels)
         {

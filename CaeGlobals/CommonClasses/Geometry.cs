@@ -102,131 +102,66 @@ namespace CaeGlobals
         }
         public static double PointToTriangleDistance(double[] point, double[][] triangle)
         {
-            // ChatGPT using UnityEngine;
-            double[] tp1 = triangle[0];
-            double[] tp2 = triangle[1];
-            double[] tp3 = triangle[2];
-            //
-            double[] edge1 = new double[3];
-            double[] edge2 = new double[3];
-            double[] edge3 = new double[3];
-            double[] edge3inv = new double[3];
-            VmV(ref edge1, tp2, tp1);
-            VmV(ref edge2, tp3, tp2);
-            VmV(ref edge3, tp1, tp3);
-            VmV(ref edge3inv, tp3, tp1);
-            //
-            double[] normal = new double[3];
-            VcrossV(ref normal, edge1, edge3inv);
-            Vnorm(ref normal, normal);
-            //
-            double[] tmp = new double[3];
-            VmV(ref tmp, tp1, point);
-            double distance = VdotV(normal, tmp);
-            //
-            double[] projection = new double[3];
-            VpVxS(ref projection, point, normal, distance);
-            //
-            double a = VdotV(edge1, edge1);
-            double b = VdotV(edge1, edge2);
-            double c = VdotV(edge2, edge2);
-            VmV(ref tmp, projection, tp1);
-            double d = VdotV(edge1, tmp);
-            VmV(ref tmp, projection, tp2);
-            double e = VdotV(edge2, tmp);
-            VmV(ref tmp, projection, tp3);
-            //double f = VdotV(tmp, tmp);
-            //
-            double det = a * c - b * b;
-            double s = b * e - c * d;
-            double t = b * d - a * e;
-            //
-            if (s + t < det)
-            {
-                if (s < 0)
-                {
-                    if (t < 0)
-                    {
-                        if (d < 0)
-                        {
-                            s = Clamp(s, 0, det);
-                            t = 0;
-                        }
-                        else
-                        {
-                            s = 0;
-                            t = Clamp(t, 0, det);
-                        }
-                    }
-                    else
-                    {
-                        s = 0;
-                        t = Clamp(t, 0, det);
-                    }
-                }
-                else if (t < 0)
-                {
-                    s = Clamp(s, 0, det);
-                    t = 0;
-                }
-                else
-                {
-                    double invDet = 1 / det;
-                    s *= invDet;
-                    t *= invDet;
-                }
-            }
-            else
-            {
-                if (s < 0)
-                {
-                    double tmp0 = b + d;
-                    double tmp1 = c + e;
-                    if (tmp1 > tmp0)
-                    {
-                        double numer = tmp1 - tmp0;
-                        double denom = a - 2 * b + c;
-                        s = Clamp(numer / denom, 0, 1);
-                        t = 1 - s;
-                    }
-                    else
-                    {
-                        s = 0;
-                        t = Clamp(-e / c, 0, 1);
-                    }
-                }
-                else if (t < 0)
-                {
-                    if (a + d > b + e)
-                    {
-                        double numer = c + e - b - d;
-                        double denom = a - 2 * b + c;
-                        s = Clamp(numer / denom, 0, 1);
-                        t = 1 - s;
-                    }
-                    else
-
-                    {
-                        s = Clamp(-e / c, 0, 1);
-                        t = 0;
-                    }
-                }
-                else
-                {
-                    double numer = c + e - b - d;
-                    double denom = a - 2 * b + c;
-                    s = Clamp(numer / denom, 0, 1);
-                    t = 1 - s;
-                }
-            }
-            //
             double[] closestPoint = new double[3];
-            VxS(ref tmp, edge1, s);
-            VpV(ref closestPoint, tp1, tmp);
-            VxS(ref tmp, edge2, t);
-            VpV(ref closestPoint, closestPoint, tmp);
-            //
+            PointToTriangleClosestPoint(point, triangle, ref closestPoint);
             return Math.Sqrt(VdistV2(point, closestPoint));
+        }
+        public static void PointToTriangleClosestPoint(double[] point, double[][] triangle, ref double[] closestPoint)
+        {
+            double[] a = triangle[0];
+            double[] b = triangle[1];
+            double[] c = triangle[2];
+            double[] ab = new double[3];
+            double[] ac = new double[3];
+            double[] ap = new double[3];
+            VmV(ref ab, b, a);
+            VmV(ref ac, c, a);
+            VmV(ref ap, point, a);
+            //
+            double d1 = VdotV(ab, ap);
+            double d2 = VdotV(ac, ap);
+            if (d1 <= 0 && d2 <= 0) { VcV(closestPoint, a); return; }
+            //
+            double[] bp = new double[3];
+            VmV(ref bp, point, b);
+            double d3 = VdotV(ab, bp);
+            double d4 = VdotV(ac, bp);
+            if (d3 >= 0 && d4 <= d3) { VcV(closestPoint, b); return; }
+            //
+            double vc = d1 * d4 - d3 * d2;
+            if (vc <= 0 && d1 >= 0 && d3 <= 0)
+            {
+                VpVxS(ref closestPoint, a, ab, d1 / (d1 - d3));
+                return;
+            }
+            //
+            double[] cp = new double[3];
+            VmV(ref cp, point, c);
+            double d5 = VdotV(ab, cp);
+            double d6 = VdotV(ac, cp);
+            if (d6 >= 0 && d5 <= d6) { VcV(closestPoint, c); return; }
+            //
+            double vb = d5 * d2 - d1 * d6;
+            if (vb <= 0 && d2 >= 0 && d6 <= 0)
+            {
+                VpVxS(ref closestPoint, a, ac, d2 / (d2 - d6));
+                return;
+            }
+            //
+            double va = d3 * d6 - d5 * d4;
+            if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0)
+            {
+                double[] bc = new double[3];
+                VmV(ref bc, c, b);
+                VpVxS(ref closestPoint, b, bc, (d4 - d3) / ((d4 - d3) + (d5 - d6)));
+                return;
+            }
+            //
+            double sum = va + vb + vc;
+            if (sum <= 0) { VcV(closestPoint, a); return; }
+            //
+            VpVxS(ref closestPoint, a, ab, vb / sum);
+            VpVxS(ref closestPoint, closestPoint, ac, vc / sum);
         }
         public static double[][] ShrinkTriangle(double[][] triangle, double shrinkDistance)
         {

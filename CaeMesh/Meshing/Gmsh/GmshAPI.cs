@@ -250,6 +250,27 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
+        /// <summary>
+        /// How much coarser than asked for the mesh is made, the quasi-structured quad algorithm subdividing
+        /// what it meshes.
+        /// </summary>
+        private static double GetMeshSizeFactor(GmshAlgorithmMesh2DEnum algorithm2D)
+        {
+            return algorithm2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad ? 2 : 1;
+        }
+        /// <summary>
+        /// The global sizes, twice as coarse for the quasi-structured quad algorithm, which subdivides what
+        /// it meshes. Set again whenever the algorithm changes, or the mesh stays as coarse as the algorithm
+        /// that is no longer running asked for.
+        /// </summary>
+        private void SetGlobalMeshSizes(GmshAlgorithmMesh2DEnum algorithm2D)
+        {
+            double sf = GetMeshSizeFactor(algorithm2D);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * sf);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature",
+                                  2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf);
+        }
         private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
             GmshAlgorithmMesh2DEnum algorithm2D = gmshSetupItem.AlgorithmMesh2D;
@@ -258,13 +279,8 @@ namespace CaeMesh
             //Gmsh.GetEntities(out surfaceDimTags, 2);
             //foreach (var surfaceDimTag in surfaceDimTags) Gmsh.Mesh.SetSizeFromBoundary(2, surfaceDimTag.Item2, 0);
             //
-            double sf = 1;
-            if (algorithm2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) sf = 2;
-            //
-            Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * sf);
-            Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
-            double cs = 2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf;
-            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature", cs);
+            double sf = GetMeshSizeFactor(algorithm2D);
+            SetGlobalMeshSizes(algorithm2D);
             // Local vertex mesh size
             Tuple<int, int>[] dimTags = new Tuple<int, int>[1];
             foreach (var entry in _gmshData.VertexNodeIdMeshSize)
@@ -524,6 +540,7 @@ namespace CaeMesh
             //
             List<SweepWall> walls = new List<SweepWall>();
             List<SweepChain> chains = new List<SweepChain>();
+            List<int> chainBlockIndices = new List<int>();
             HashSet<int> wallSurfaceIds = new HashSet<int>();
             HashSet<int> targetSurfaceIds = new HashSet<int>();
             foreach (var block in blocks)
@@ -540,6 +557,7 @@ namespace CaeMesh
                 List<SweepChain> blockChains;
                 HashSet<int> directionEdgeIds = GetBlockDirectionEdgeIds(block, surfaceIdEdgeIds, out blockChains);
                 chains.AddRange(blockChains);
+                for (int i = 0; i < blockChains.Count; i++) chainBlockIndices.Add(blocks.IndexOf(block));
                 foreach (var wall in SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
                                                                 block.TargetSurfaceIds, surfaceIdEdgeIds, directionEdgeIds))
                 {
@@ -547,78 +565,43 @@ namespace CaeMesh
                 }
                 targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
-            // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
-            PrepareWallEdges(walls, chains);
-            foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
-            // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
-            // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
-            // side check with node counts that are not the ones the constraints above set
-            GenerateMesh(1);
-            SetTransfiniteWalls(walls);
-            // gmsh reports a wall it could not mesh with a structured grid, meshes it free and carries on, so
-            // its log is read for the report
-            int logLength = Gmsh.Logger.Get().Length;
-            GenerateMesh(2);
-            if (WereWallsRefused(logLength))
+            // Whether the walls came out of the 2D pass as the structured grid the sweep needs shows only
+            // when that grid is walked, so the whole pass is one attempt that either builds the sweep or
+            // fails. The counts the item itself carries are kept, since a second attempt has to resolve its
+            // own and not read back what the first one wrote
+            Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
+            try
+            {
+                MeshSweepBlocks(sweepMesh, blocks, walls, chains, targetSurfaceIds, surfaceIdEdgeIds,
+                                chainBlockIndices, preview, true);
+            }
+            catch (CaeException)
             {
                 // The quasi-structured quad algorithm meshes the curves of the surfaces it meshes again, with
-                // sizes of its own and regardless of the counts pinned on them, so a wall's source side may
-                // no longer match its target side. Measured: neither meshing the sources first nor rebuilding
-                // the walls to its counts survives its final pass over every quad surface, so the source is
-                // meshed with the Frontal-Delaunay algorithm and recombined instead
-                if (sweepMesh.AlgorithmMesh2D != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-                    throw new CaeException("A sweep side surface could not be meshed with a structured grid. See the gmsh " +
-                                           "messages above.");
-                _writeOutput?.Invoke("Sweep: the quasi-structured quad algorithm changed the number of nodes on the edges of " +
-                                     "the source surfaces, and the side surfaces could not be meshed to match. The source " +
-                                     "surfaces are meshed with the Frontal-Delaunay algorithm and recombined instead.");
+                // sizes of its own and regardless of the counts pinned on them, so a wall's source side may no
+                // longer match its target side, and one column of the wall grid may come out with fewer layers
+                // than the next. Measured: neither meshing the sources first nor rebuilding the walls to its
+                // counts survives its final pass over every quad surface, so the source is meshed with the
+                // Frontal-Delaunay algorithm and recombined instead
+                if (sweepMesh.AlgorithmMesh2D != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) throw;
+                _writeOutput?.Invoke("Sweep: the side surfaces could not be meshed with the structured grid the sweep needs " +
+                                     "under the quasi-structured quad algorithm. The source surfaces are meshed with the " +
+                                     "Frontal-Delaunay algorithm and recombined instead.");
                 Gmsh.Option.SetNumber("Mesh.Algorithm", (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
+                SetGlobalMeshSizes(GmshAlgorithmMesh2DEnum.FrontalDelaunay);
                 foreach (var block in blocks)
                 {
                     foreach (var sourceSurfaceId in block.SourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
                 }
-                // The transfinite constraints of the walls survive the clearing of the mesh; set again, gmsh would
-                // add the corners to the ones it holds
-                PrepareWallEdges(walls, chains);
-                GenerateMesh(1);
-                logLength = Gmsh.Logger.Get().Length;
-                GenerateMesh(2);
-                if (WereWallsRefused(logLength))
-                    throw new CaeException("A sweep side surface could not be meshed with a structured grid. See the gmsh " +
-                                           "messages above.");
-            }
-            // Remove the volumes and the target surface meshes. A target shared with the next block is
-            // rebuilt by the sweep of this block and read back as the source of the next one.
-            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>();
-            foreach (var block in blocks) toRemoveDimTags.Add(new Tuple<int, int>(3, block.VolumeId));
-            foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
-            //
-            Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
-            // Optimize first order. This reaches the walls as well as the source surfaces, because
-            // gmsh ignores the entity list for the 2D relocation methods; Laplace 2D is the only one
-            // of the three that leaves a transfinite wall alone.
-            if (sweepMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
-            {
-                Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
-                Gmsh.Model.Mesh.Optimize(sweepMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
-            }
-            // Debug
-            if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
-            //
-            if (preview)
-            {
-                // Remove the side surface mesh
-                toRemoveDimTags = new List<Tuple<int, int>>();
-                foreach (var block in blocks)
-                {
-                    foreach (var sideSurfaceId in block.WallSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, sideSurfaceId));
-                }
-                //
-                Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
-            }
-            else
-            {
-                SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
+                // The second attempt measures the edges as the other algorithm meshes them. The counts of the
+                // first attempt would reach it twice - through the table it wrote and through the transfinite
+                // constraints it set, which a fresh 1D mesh would simply reproduce - so both are taken back and
+                // the sweep is prepared the way it would have been had this algorithm been chosen from the start
+                _gmshData.EdgeIdNumElements.Clear();
+                foreach (var entry in pinnedEdgeIdNumElements) _gmshData.EdgeIdNumElements.Add(entry.Key, entry.Value);
+                RemoveWallEdgeConstraints(walls);
+                MeshSweepBlocks(sweepMesh, blocks, walls, chains, targetSurfaceIds, surfaceIdEdgeIds,
+                                chainBlockIndices, preview, false);
             }
             // The edges made by carrying the splits across are scaffolding: their nodes stay, being nodes of
             // the surface meshes, but their line elements would become model edges splitting the faces once
@@ -1375,6 +1358,68 @@ namespace CaeMesh
             return true;
         }
         /// <summary>
+        /// One attempt at the sweep: the element counts, the 2D mesh, and the sweep built on the grid the
+        /// walls came out with. Everything that can tell the attempt apart from a good one raises, so the
+        /// caller can take the whole thing back and try another 2D algorithm - the mesh is cleared at the
+        /// start of every attempt, so a half built sweep leaves nothing behind.
+        /// </summary>
+        private void MeshSweepBlocks(SweepMesh sweepMesh, List<SweepBlock> blocks, List<SweepWall> walls,
+                                     List<SweepChain> chains, HashSet<int> targetSurfaceIds,
+                                     Dictionary<int, int[]> surfaceIdEdgeIds, List<int> chainBlockIndices,
+                                     bool preview, bool setTransfiniteWalls)
+        {
+            // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
+            PrepareWallEdges(walls, chains, chainBlockIndices);
+            foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
+            // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
+            // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
+            // side check with node counts that are not the ones the constraints above set
+            GenerateMesh(1);
+            // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
+            // later attempt keeps the constraints of the first
+            if (setTransfiniteWalls) SetTransfiniteWalls(walls);
+            // gmsh reports a wall it could not mesh with a structured grid, meshes it free and carries on, so
+            // its log is read for the report
+            int logLength = Gmsh.Logger.Get().Length;
+            GenerateMesh(2);
+            if (WereWallsRefused(logLength))
+                throw new CaeException("A sweep side surface could not be meshed with a structured grid. See the gmsh " +
+                                       "messages above.");
+            // Remove the volumes and the target surface meshes. A target shared with the next block is
+            // rebuilt by the sweep of this block and read back as the source of the next one.
+            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>();
+            foreach (var block in blocks) toRemoveDimTags.Add(new Tuple<int, int>(3, block.VolumeId));
+            foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
+            //
+            Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
+            // Optimize first order. This reaches the walls as well as the source surfaces, because
+            // gmsh ignores the entity list for the 2D relocation methods; Laplace 2D is the only one
+            // of the three that leaves a transfinite wall alone.
+            if (sweepMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
+            {
+                Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
+                Gmsh.Model.Mesh.Optimize(sweepMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
+            }
+            // Debug
+            if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
+            //
+            if (preview)
+            {
+                // Remove the side surface mesh
+                toRemoveDimTags = new List<Tuple<int, int>>();
+                foreach (var block in blocks)
+                {
+                    foreach (var sideSurfaceId in block.WallSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, sideSurfaceId));
+                }
+                //
+                Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
+            }
+            else
+            {
+                SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
+            }
+        }
+        /// <summary>
         /// The sweep blocks of the item, in gmsh numbering. An item saved before the blocks were recorded
         /// carries only its side surfaces and describes a single volume, so that block is rebuilt the way
         /// it used to be: the source from the selection and the target as whatever surfaces are left.
@@ -1551,6 +1596,24 @@ namespace CaeMesh
             }
             return groups;
         }
+        /// <summary>
+        /// Takes back the transfinite constraints the first attempt set on the edges of the walls, so that the
+        /// 1D mesh the second attempt measures follows the sizes and not those counts. The surfaces keep their
+        /// constraints: a transfinite surface set a second time would add its corners to the ones gmsh holds.
+        /// </summary>
+        private static void RemoveWallEdgeConstraints(List<SweepWall> walls)
+        {
+            HashSet<int> edgeIds = new HashSet<int>();
+            foreach (var wall in walls)
+            {
+                edgeIds.UnionWith(wall.SourceEdgeIds);
+                edgeIds.UnionWith(wall.TargetEdgeIds);
+                edgeIds.UnionWith(wall.DirectionEdgeIds);
+            }
+            List<Tuple<int, int>> dimTags = new List<Tuple<int, int>>();
+            foreach (var edgeId in edgeIds) dimTags.Add(new Tuple<int, int>(1, edgeId));
+            Gmsh.Model.Mesh.RemoveConstraints(dimTags.ToArray());
+        }
         private static bool WereWallsRefused(int logLength)
         {
             return Gmsh.Logger.Get().Skip(logLength).Any(line => line.Contains("cannot be meshed using the transfinite"));
@@ -1564,7 +1627,7 @@ namespace CaeMesh
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft");
             }
         }
-        private void PrepareWallEdges(List<SweepWall> walls, List<SweepChain> chains)
+        private void PrepareWallEdges(List<SweepWall> walls, List<SweepChain> chains, List<int> chainBlockIndices)
         {
             GenerateMesh(1);
             // How many elements each edge following the sweep direction gets, from the levels along the sweep
@@ -1574,7 +1637,7 @@ namespace CaeMesh
             int numOfElements;
             Dictionary<int, int> directionEdgeIdNumOfElements =
                 SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, GetCrossSectionVertexIds(),
-                                                               _gmshData.EdgeIdNumElements);
+                                                               _gmshData.EdgeIdNumElements, chainBlockIndices);
             foreach (var wall in walls)
             {
                 foreach (var edgeId in wall.DirectionEdgeIds)

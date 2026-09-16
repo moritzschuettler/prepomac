@@ -42,7 +42,7 @@ namespace PrePoMax
             // Coor
             if (Controller.UpdatingAnimationAnnotations && !Controller.InitializingAnimationAnnotationAnchors)
                 coor = null; // The VTK material attachment updates the anchor.
-            else coor = Controller.GetPartCenterOfGravity(part.PartId);
+            else coor = Controller.GetPartAnchorPoint(part.PartId);
             //
             bool showPartName = Controller.Settings.Annotations.ShowPartName;
             bool showPartId = Controller.Settings.Annotations.ShowPartId;

@@ -3503,9 +3503,12 @@ namespace CaeModel
             return null;
         }
         /// <summary>
-        /// Whether a block is a prism: planar source and target, and straight, parallel edges between them. Only
-        /// such a block can carry a split of its target onto its source by a translation, which is what lets
-        /// the sweep follow a shared surface that ends inside the target.
+        /// Whether a block is a prism: planar source and target, and straight edges between them that are all
+        /// one and the same vector, so that the target is the source moved by a single translation. Only such
+        /// a block can carry a split of its target onto its source, which is what lets the sweep follow a
+        /// shared surface that ends inside the target. The mesher measures the same thing before it carries
+        /// the split, so a block accepted here and refused there would be meshed non-conformally: edges that
+        /// are parallel but of different lengths, as they are on an obliquely cut end, are not enough.
         /// </summary>
         private bool IsPrismaticSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] sideSurfaceIds,
                                            int[] targetSurfaceIds)
@@ -3517,11 +3520,17 @@ namespace CaeModel
                 if (GetSweepFaceType(vis, FeMesh.GmshTopologyId(surfaceId, part.PartId), faceTypes) != GeomFaceType.Plane)
                     return false;
             }
-            // The edges between the source and the target: straight, and all parallel
+            // The vertices on the source side, to orient every edge between the source and the target alike
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            HashSet<int> sourceVertexIds = new HashSet<int>();
+            foreach (var edgeId in sourceEdgeIds) sourceVertexIds.UnionWith(vis.GetVertexNodeIdsForEdgeId(edgeId));
+            // The edges between the source and the target: straight, and all of one vector
             int[] vertexIds;
+            int sourceVertexId;
+            int targetVertexId;
             Vec3D vector;
             Vec3D reference = null;
-            HashSet<int> crossEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            HashSet<int> crossEdgeIds = new HashSet<int>(sourceEdgeIds);
             crossEdgeIds.UnionWith(vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds));
             foreach (var sideSurfaceId in sideSurfaceIds)
             {
@@ -3531,10 +3540,15 @@ namespace CaeModel
                     //
                     vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
                     if (vertexIds.Length != 2 || vertexIds[0] == vertexIds[1]) return false;
-                    vector = new Vec3D(_geometry.Nodes[vertexIds[1]].Coor) - new Vec3D(_geometry.Nodes[vertexIds[0]].Coor);
-                    if (!IsStraightEdge(vis, edgeId, vertexIds[0], vector)) return false;
+                    sourceVertexId = sourceVertexIds.Contains(vertexIds[0]) ? vertexIds[0] : vertexIds[1];
+                    targetVertexId = sourceVertexId == vertexIds[0] ? vertexIds[1] : vertexIds[0];
+                    if (!sourceVertexIds.Contains(sourceVertexId)) return false;
+                    //
+                    vector = new Vec3D(_geometry.Nodes[sourceVertexId].Coor) -
+                             new Vec3D(_geometry.Nodes[targetVertexId].Coor);
+                    if (!IsStraightEdge(vis, edgeId, targetVertexId, vector)) return false;
                     if (reference == null) reference = vector;
-                    else if (Vec3D.CrossProduct(reference, vector).Len > 1E-6 * reference.Len * vector.Len) return false;
+                    else if ((vector - reference).Len > 1E-6 * reference.Len) return false;
                 }
             }
             return reference != null;
