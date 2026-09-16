@@ -3113,7 +3113,7 @@ namespace CaeModel
                 }
                 //
                 error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, out sideSurfaceIds,
-                                           out targetSurfaceIds, out layerSideSurfaceIds);
+                                           out targetSurfaceIds, out layerSideSurfaceIds, out int[] directionEdgeIds);
                 if (error != null)
                 {
                     // A neighbour that cannot be swept alongside the block across their shared wall is left
@@ -3174,9 +3174,11 @@ namespace CaeModel
                 }
                 // The arrow of the item follows the first block, which is the one the user selected
                 if (blockSourceSurfaceIds.Count == 0) SetSweepDirection(sweepMesh, part, sourceSurfaceIds);
-                // Gmsh numbering
-                blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
-                                                           sideSurfaceIds, layerSideSurfaceIds);
+                // Gmsh numbering. Walls found by following the edges from the source have no rings, and the
+                // edges following the sweep direction are the chains themselves, in one group
+                if (directionEdgeIds != null) blockLayerGroupEdgeIds = new int[][][] { new int[][] { directionEdgeIds } };
+                else blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
+                                                                sideSurfaceIds, layerSideSurfaceIds);
                 // Every block gets an arrow of its own, from a source vertex along one of its layer edges
                 double[] arrowStart;
                 double[] arrowDirection;
@@ -3378,27 +3380,63 @@ namespace CaeModel
             }
             return true;
         }
+        /// <summary>
+        /// Sorts the surfaces of a part into the side and the target surfaces of a sweep from the given source, or
+        /// says why that cannot be done. The walls are found by walking the faces outwards from the source ring by
+        /// ring; where the rings break down - a wall split along the sweep direction without a loop running around
+        /// the body, so that its neighbours run the whole length - the edges are followed from the source instead,
+        /// and the edges following the sweep direction come back explicitly, in one group.
+        /// </summary>
         private string ValidateSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                           Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
-                                          out List<int[]> layerSideSurfaceIds)
+                                          out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds)
         {
-            sideSurfaceIds = null;
-            targetSurfaceIds = null;
-            layerSideSurfaceIds = null;
+            directionEdgeIds = null;
             //
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
             // Do the source surfaces form a connected surface
             if (!vis.AreSurfacesConnected(sourceSurfaceIdsArray, surfaceIdSurfaceNeighbourIds))
+            {
+                sideSurfaceIds = null;
+                targetSurfaceIds = null;
+                layerSideSurfaceIds = null;
                 return "The source surfaces are not connected.";
+            }
             // Are there any free edge loops with a single edge - cylinder with a single seam line
             HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray);
             for (int i = 0; i < freeEdgeLoops.Length; i++)
             {
                 if (freeEdgeLoops[i].Count == 1)
+                {
+                    sideSurfaceIds = null;
+                    targetSurfaceIds = null;
+                    layerSideSurfaceIds = null;
                     return "The source surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
+                }
             }
+            //
+            string error = ValidateSweepRings(vis, sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds,
+                                              out layerSideSurfaceIds);
+            if (error == null) return null;
+            //
+            int[] chainSideSurfaceIds;
+            int[] chainTargetSurfaceIds;
+            int[] chainEdgeIds;
+            if (ValidateSweepChains(vis, sourceSurfaceIds, out chainSideSurfaceIds, out chainTargetSurfaceIds,
+                                    out chainEdgeIds) != null) return error;
+            sideSurfaceIds = chainSideSurfaceIds;
+            targetSurfaceIds = chainTargetSurfaceIds;
+            layerSideSurfaceIds = new List<int[]>() { chainSideSurfaceIds };
+            directionEdgeIds = chainEdgeIds;
+            return null;
+        }
+        private string ValidateSweepRings(VisualizationData vis, HashSet<int> sourceSurfaceIds,
+                                          out int[] sideSurfaceIds, out int[] targetSurfaceIds,
+                                          out List<int[]> layerSideSurfaceIds)
+        {
+            int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
             // Is it possible to determine the side and target surfaces
             if (!vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds))
                 return "It is not possible to determine the side and target surfaces.";
@@ -3445,8 +3483,155 @@ namespace CaeModel
                            "split into any number of edges.";
                 }
             }
+            // A wall split along the sweep direction without a loop around the body makes the walk take the far
+            // piece for a target, and the near piece's edge then runs straight on into an edge of that target.
+            // The rings describe such a body only as a sweep onto its own side, so it is left to the chains
+            HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
+            foreach (var surfaceId in sideSurfaceIds)
+            {
+                foreach (var edgeId in vis.FaceEdgeIds[surfaceId])
+                {
+                    if (crossEdgeIds.Contains(edgeId)) continue;
+                    foreach (var vertexId in vis.GetVertexNodeIdsForEdgeId(edgeId))
+                    {
+                        Vec3D incoming = -1 * GetSweepEdgeTangent(vis, edgeId, vertexId);
+                        if (incoming.Len == 0) continue;
+                        foreach (var targetEdgeId in vertexIdEdgeIds[vertexId])
+                        {
+                            if (!targetEdgeIds.Contains(targetEdgeId)) continue;
+                            Vec3D outgoing = GetSweepEdgeTangent(vis, targetEdgeId, vertexId);
+                            if (outgoing.Len == 0) continue;
+                            if (Vec3D.DotProduct(incoming, outgoing) > 0.95 * incoming.Len * outgoing.Len)
+                                return "A sweep side surface runs straight on into a target surface.";
+                        }
+                    }
+                }
+            }
             //
             return null;
+        }
+        /// <summary>
+        /// Sorts the surfaces by following the edges from the source: from every vertex of the source, along
+        /// every edge leaving it, and on through the edge that continues most smoothly at every vertex, until
+        /// nothing continues within 25 degrees. The edges so reached follow the sweep direction; a surface
+        /// carrying one of them is a wall, every other surface is a target. A wall must have exactly two such
+        /// chains on it, whatever number of edges each is made of.
+        /// </summary>
+        private string ValidateSweepChains(VisualizationData vis, HashSet<int> sourceSurfaceIds, out int[] sideSurfaceIds,
+                                           out int[] targetSurfaceIds, out int[] chainEdgeIds)
+        {
+            sideSurfaceIds = null;
+            targetSurfaceIds = null;
+            chainEdgeIds = null;
+            //
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = vis.GetVertexIdEdgeIds();
+            HashSet<int> chainEdgeIdSet = new HashSet<int>();
+            foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
+            {
+                foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
+                {
+                    if (sourceEdgeIds.Contains(edgeId) || chainEdgeIdSet.Contains(edgeId)) continue;
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet);
+                }
+            }
+            if (chainEdgeIdSet.Count == 0) return "No edges follow the sweep direction from the source surfaces.";
+            //
+            List<int> wallSurfaceIds = new List<int>();
+            List<int> otherSurfaceIds = new List<int>();
+            for (int surfaceId = 0; surfaceId < vis.FaceEdgeIds.Length; surfaceId++)
+            {
+                if (sourceSurfaceIds.Contains(surfaceId)) continue;
+                if (vis.FaceEdgeIds[surfaceId].Any(id => chainEdgeIdSet.Contains(id))) wallSurfaceIds.Add(surfaceId);
+                else otherSurfaceIds.Add(surfaceId);
+            }
+            if (otherSurfaceIds.Count == 0) return "No sweep target surface could be determined.";
+            //
+            foreach (var surfaceId in wallSurfaceIds)
+            {
+                if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
+                    return "A sweep side surface has a hole. A bore running across the sweep direction has to be " +
+                           "swept along its own axis, or the part has to be split.";
+                if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
+                //
+                int[] directionEdgeIds = vis.FaceEdgeIds[surfaceId].Where(id => chainEdgeIdSet.Contains(id)).ToArray();
+                int numCrossEdges = vis.FaceEdgeIds[surfaceId].Length - directionEdgeIds.Length;
+                if (CountChainEnds(vis, directionEdgeIds) != 4 || numCrossEdges < 2)
+                    return "A sweep side surface could not be reduced to 4 sides. Each side surface must have " +
+                           "exactly 2 edges following the sweep direction; the source and target sides may be " +
+                           "split into any number of edges.";
+            }
+            //
+            sideSurfaceIds = wallSurfaceIds.ToArray();
+            targetSurfaceIds = otherSurfaceIds.ToArray();
+            chainEdgeIds = chainEdgeIdSet.OrderBy(id => id).ToArray();
+            return null;
+        }
+        private void FollowSweepChain(VisualizationData vis, int edgeId, int vertexId, HashSet<int> sourceEdgeIds,
+                                      Dictionary<int, HashSet<int>> vertexIdEdgeIds, HashSet<int> chainEdgeIds)
+        {
+            while (true)
+            {
+                chainEdgeIds.Add(edgeId);
+                int[] endVertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                int nextVertexId = endVertexIds[0] == vertexId ? endVertexIds[1] : endVertexIds[0];
+                if (nextVertexId == vertexId) return;
+                // The direction of travel into the vertex, against the direction the edge leaves the vertex in
+                Vec3D incoming = -1 * GetSweepEdgeTangent(vis, edgeId, nextVertexId);
+                if (incoming.Len == 0) return;
+                int bestEdgeId = -1;
+                double bestCosine = 0.9;
+                foreach (var candidateId in vertexIdEdgeIds[nextVertexId].OrderBy(id => id))
+                {
+                    if (candidateId == edgeId || sourceEdgeIds.Contains(candidateId) || chainEdgeIds.Contains(candidateId))
+                        continue;
+                    Vec3D outgoing = GetSweepEdgeTangent(vis, candidateId, nextVertexId);
+                    if (outgoing.Len == 0) continue;
+                    double cosine = Vec3D.DotProduct(incoming, outgoing) / (incoming.Len * outgoing.Len);
+                    if (cosine > bestCosine)
+                    {
+                        bestCosine = cosine;
+                        bestEdgeId = candidateId;
+                    }
+                }
+                if (bestEdgeId < 0) return;
+                edgeId = bestEdgeId;
+                vertexId = nextVertexId;
+            }
+        }
+        /// <summary>
+        /// The direction an edge leaves one of its vertices in, read off the edge cell at that vertex.
+        /// </summary>
+        private Vec3D GetSweepEdgeTangent(VisualizationData vis, int edgeId, int vertexNodeId)
+        {
+            Vec3D vertex = new Vec3D(_geometry.Nodes[vertexNodeId].Coor);
+            foreach (var cellId in vis.EdgeCellIdsByEdge[edgeId])
+            {
+                int[] cell = vis.EdgeCells[cellId];
+                if (cell[0] == vertexNodeId) return new Vec3D(_geometry.Nodes[cell[cell.Length - 1]].Coor) - vertex;
+                if (cell[cell.Length - 1] == vertexNodeId) return new Vec3D(_geometry.Nodes[cell[0]].Coor) - vertex;
+            }
+            return new Vec3D();
+        }
+        /// <summary>
+        /// The number of vertices at which an odd number of the given edges end: two for every chain the
+        /// edges form, none for a closed loop.
+        /// </summary>
+        private static int CountChainEnds(VisualizationData vis, IEnumerable<int> edgeIds)
+        {
+            int[] endVertexIds;
+            Dictionary<int, int> vertexIdDegree = new Dictionary<int, int>();
+            foreach (var edgeId in edgeIds)
+            {
+                endVertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                if (endVertexIds[0] == endVertexIds[1]) continue;
+                foreach (var vertexId in endVertexIds)
+                {
+                    if (vertexIdDegree.ContainsKey(vertexId)) vertexIdDegree[vertexId]++;
+                    else vertexIdDegree[vertexId] = 1;
+                }
+            }
+            return vertexIdDegree.Count(entry => entry.Value % 2 == 1);
         }
         /// <summary>
         /// The number of closed edge loops the given edges form, edges being joined at their vertices.

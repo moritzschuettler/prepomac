@@ -521,6 +521,7 @@ namespace CaeMesh
             List<SweepBlock> blocks = _sweepBlocks ?? GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
             //
             List<SweepWall> walls = new List<SweepWall>();
+            List<SweepChain> chains = new List<SweepChain>();
             HashSet<int> wallSurfaceIds = new HashSet<int>();
             HashSet<int> targetSurfaceIds = new HashSet<int>();
             foreach (var block in blocks)
@@ -534,16 +535,18 @@ namespace CaeMesh
                 // split source face produces - needs its four corners nominated by hand, and needs the
                 // element counts on its opposite sides reconciled first. A wall two blocks share is one
                 // wall, with the same edges in the same roles seen from either side.
+                List<SweepChain> blockChains;
+                HashSet<int> directionEdgeIds = GetBlockDirectionEdgeIds(block, surfaceIdEdgeIds, out blockChains);
+                chains.AddRange(blockChains);
                 foreach (var wall in SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
-                                                                block.TargetSurfaceIds, surfaceIdEdgeIds,
-                                                                GetRingDirectionEdgeIds()))
+                                                                block.TargetSurfaceIds, surfaceIdEdgeIds, directionEdgeIds))
                 {
                     if (wallSurfaceIds.Add(wall.SurfaceId)) walls.Add(wall);
                 }
                 targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
             // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
-            PrepareWallEdges(walls);
+            PrepareWallEdges(walls, chains);
             // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
             // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
             // side check with node counts that are not the ones the constraints above set
@@ -553,7 +556,7 @@ namespace CaeMesh
             {
                 Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 //
-                int[] corners = wall.HasCompositeSide ? SweepWallTopology.GetCorners(wall) : null;
+                int[] corners = SweepWallTopology.GetCorners(wall);
                 if (corners != null) Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft", corners);
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft");
             }
@@ -675,20 +678,43 @@ namespace CaeMesh
                 if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceEdgeIds.UnionWith(edgeIds);
             }
             double[] translation;
+            List<SweepChain> chains;
             List<SweepWall> walls = SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
                                                                block.TargetSurfaceIds, surfaceIdEdgeIds,
-                                                               GetRingDirectionEdgeIds());
+                                                               GetBlockDirectionEdgeIds(block, surfaceIdEdgeIds, out chains));
             return IsPrismaticBlock(block, walls, sourceEdgeIds, out translation) ? translation : null;
         }
         /// <summary>
-        /// The edges following the sweep direction, as the model recorded them ring by ring, or null for
-        /// an item without them.
+        /// The edges of a block that follow the sweep direction, as the chains of edges running from its source
+        /// along its walls, among the edges the model recorded as following the sweep direction. A block whose
+        /// source no chain leaves - an item without recorded edges, say - gets null, and its walls are sorted
+        /// by their source and target edges alone.
         /// </summary>
-        private HashSet<int> GetRingDirectionEdgeIds()
+        private HashSet<int> GetBlockDirectionEdgeIds(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                                      out List<SweepChain> chains)
         {
-            if (_gmshData.EdgeIdsBySweepLayer == null) return null;
+            int[] edgeIds;
+            HashSet<int> sourceEdgeIds = new HashSet<int>();
+            HashSet<int> wallEdgeIds = new HashSet<int>();
+            foreach (var id in block.SourceSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.WallSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) wallEdgeIds.UnionWith(edgeIds);
+            }
+            HashSet<int> allowedEdgeIds = null;
+            if (_gmshData.EdgeIdsBySweepLayer != null)
+            {
+                allowedEdgeIds = new HashSet<int>();
+                foreach (var ring in _gmshData.EdgeIdsBySweepLayer) allowedEdgeIds.UnionWith(ring);
+            }
+            chains = SweepWallTopology.FollowChains(sourceEdgeIds, wallEdgeIds, allowedEdgeIds);
+            if (chains.Count == 0) return null;
+            //
             HashSet<int> directionEdgeIds = new HashSet<int>();
-            foreach (var ring in _gmshData.EdgeIdsBySweepLayer) directionEdgeIds.UnionWith(ring);
+            foreach (var chain in chains) directionEdgeIds.UnionWith(chain.EdgeIds);
             return directionEdgeIds;
         }
         /// <summary>
@@ -1334,12 +1360,13 @@ namespace CaeMesh
         ///
         /// Two constraints are imposed:
         ///
-        ///   - Every direction edge within the same sweep-direction ring (`_gmshData.EdgeIdsBySweepLayer`)
-        ///     gets the same number of elements, since they are the same sweep lines viewed one ring
-        ///     apart. Different rings are free to disagree - there is no physical constraint between
-        ///     them - so a body whose walls are already split along the sweep direction gets a
-        ///     non-monotonic layer stack for free, one count per ring, with no piecewise transfinite
-        ///     law needed.
+        ///   - The edges following the sweep direction get their counts from the levels along the
+        ///     sweep (SweepWallTopology.ResolveDirectionEdgeElements): the chains of edges running from
+        ///     the source are cut into levels wherever a chain has a vertex, every interval between two
+        ///     levels carries one count, and an edge carries the sum over the intervals it spans. The
+        ///     two sides of every wall therefore add up to the same total however each of them is
+        ///     split, whether by loops running around the body, which give rings with one count each,
+        ///     or by a split on one wall alone, which the walls beside it run past unsplit.
         ///   - The two cross-sweep sides of each wall are made to agree. gmsh raises an error rather
         ///     than falling back when a transfinite surface has different node counts on opposite
         ///     sides, and the sweep needs the agreement in any case: the source and target boundary
@@ -1350,38 +1377,28 @@ namespace CaeMesh
         /// Counts the user did not pin down are read back from a one dimensional mesh rather than
         /// predicted, which is the approach SetTransfiniteSurfaces already takes.
         /// </summary>
-        private void PrepareWallEdges(List<SweepWall> walls)
+        private void PrepareWallEdges(List<SweepWall> walls, List<SweepChain> chains)
         {
-            HashSet<int> directionEdgeIds = new HashSet<int>();
-            foreach (var wall in walls) directionEdgeIds.UnionWith(wall.DirectionEdgeIds);
-            //
             GenerateMesh(1);
-            // Group the direction edges by sweep ring. A direction edge not covered by any ring -
-            // older data, or none computed - falls back into one group of its own, so it is still
-            // handled, just without the per-ring guarantee.
-            List<HashSet<int>> ringGroups = new List<HashSet<int>>();
-            HashSet<int> unassigned = new HashSet<int>(directionEdgeIds);
-            if (_gmshData.EdgeIdsBySweepLayer != null)
+            // How many elements each edge following the sweep direction gets, from the levels along the sweep
+            // the chains define - so that the two sides of every wall add up to the same total, however each
+            // of them is split. A direction edge on no chain keeps the count the user pinned on it, else the
+            // measured one. Measured while the 1D mesh from GenerateMesh(1) above is still there.
+            int numOfElements;
+            Dictionary<int, int> directionEdgeIdNumOfElements =
+                SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, _gmshData.EdgeIdNumElements);
+            foreach (var wall in walls)
             {
-                foreach (var ring in _gmshData.EdgeIdsBySweepLayer)
+                foreach (var edgeId in wall.DirectionEdgeIds)
                 {
-                    HashSet<int> ringDirectionEdgeIds = new HashSet<int>(ring);
-                    ringDirectionEdgeIds.IntersectWith(directionEdgeIds);
-                    if (ringDirectionEdgeIds.Count == 0) continue;
-                    ringGroups.Add(ringDirectionEdgeIds);
-                    unassigned.ExceptWith(ringDirectionEdgeIds);
+                    if (directionEdgeIdNumOfElements.ContainsKey(edgeId)) continue;
+                    if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                    directionEdgeIdNumOfElements[edgeId] = Math.Max(1, numOfElements);
                 }
             }
-            if (unassigned.Count > 0) ringGroups.Add(unassigned);
-            // How many element layers each ring has. A count the user pinned down on any of the
-            // ring's direction edges wins; otherwise the meshed counts decide. Measured while the 1D
-            // mesh from GenerateMesh(1) above is still there.
-            Dictionary<HashSet<int>, int> ringLayerElements = new Dictionary<HashSet<int>, int>();
-            foreach (var ringEdgeIds in ringGroups)
-                ringLayerElements[ringEdgeIds] = ResolveRingLayerElements(ringEdgeIds);
             // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there
             int sourceElements;
-            int numOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
             foreach (var wall in walls)
             {
@@ -1429,14 +1446,10 @@ namespace CaeMesh
             //
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             //
-            foreach (var ringEdgeIds in ringGroups)
+            foreach (var entry in directionEdgeIdNumOfElements)
             {
-                int layerElements = ringLayerElements[ringEdgeIds];
-                foreach (var edgeId in ringEdgeIds)
-                {
-                    _gmshData.EdgeIdNumElements[edgeId] = layerElements;
-                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, layerElements + 1);
-                }
+                _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
             foreach (var entry in targetEdgeIdNumOfElements)
             {
@@ -1501,29 +1514,6 @@ namespace CaeMesh
             }
             // Only a split that lines up with the source nodes is worth following
             return total == sourceElements ? targetElements : null;
-        }
-        private int ResolveRingLayerElements(HashSet<int> ringEdgeIds)
-        {
-            int numOfElements;
-            int layerElements = 0;
-            int measuredSum = 0;
-            int measuredCount = 0;
-            foreach (var edgeId in ringEdgeIds)
-            {
-                if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
-                {
-                    if (numOfElements > layerElements) layerElements = numOfElements;
-                }
-                else
-                {
-                    measuredSum += SweepWallTopology.GetElementCount(edgeId);
-                    measuredCount++;
-                }
-            }
-            if (layerElements <= 0 && measuredCount > 0)
-                layerElements = (int)Math.Round((double)measuredSum / measuredCount, 0, MidpointRounding.AwayFromZero);
-            if (layerElements < 1) layerElements = 1;
-            return layerElements;
         }
         /// <summary>
         /// Reports the quality of the finished mesh, whatever produced it.

@@ -15,6 +15,8 @@
 #    The target may be split, and the cap has to land on both faces.
 #  - sweep_rings.brep: a single box whose walls are split by two loops around it, so that the walls stand
 #    in three rings along the sweep and the middle ring touches neither the source nor the target.
+#  - sweep_half_loop.brep: a single box with one wall split by a line partway up and no loop around the
+#    body, so that the walls beside the split have direction sides of two edges with no ring to match.
 #  - sweep_side2.brep and sweep_grid4.brep: boxes standing side by side, sharing walls. One selected face
 #    sweeps them all, and the shared walls carry one layer count.
 #  - sweep_base_two.brep: two boxes side by side on a base. From the top of one block the other is found
@@ -180,6 +182,20 @@ def test_wall_rings():
     report = pmx.model.mesh.create(part.name)
     check(report[part.name] == "", "the automatic sweep of the ring-walled box reported: " + report[part.name])
     items.remove([SWEEP_NAME])
+
+
+def test_half_loop():
+    # A single box with one wall split by a line partway up, and no loop around the body: the walls beside
+    # the split run the whole height, so their direction sides are two edges each with no ring to match.
+    # The walk from the source cannot describe it; the edges are followed from the source instead
+    solids, compound = import_geometry("sweep_half_loop.brep")
+    check(compound is None and len(solids) == 1 and solids[0].get_face_data().count == 7,
+          "the half-loop box must import as a single part with 7 faces")
+    part, face_id = find_end_face(solids, top=False)
+    meshed = mesh_with_sweep(part, solids, part, face_id)
+    check(meshed[0].get_face_data().count == 7, "the mesh of the half-loop box must keep its 7 faces")
+    part, face_id = find_end_face(solids, top=True)
+    mesh_with_sweep(part, solids, part, face_id)
 
 
 def test_side_by_side(file_name, count):
@@ -351,6 +367,7 @@ def main():
     test_small_block_on_large()
     test_split_target()
     test_wall_rings()
+    test_half_loop()
     test_side_by_side("sweep_side2.brep", 2)
     test_side_by_side("sweep_grid4.brep", 4)
     test_two_blocks_on_a_base()
