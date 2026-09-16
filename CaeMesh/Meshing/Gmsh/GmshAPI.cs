@@ -40,6 +40,8 @@ namespace CaeMesh
         private int _parameterizationVLineCount;
         private const int _parameterizationLinePointCount = 11;
         private const int _parameterizationLineSubdivisionCount = 2;
+        private const int _numStraightEdgeSamples = 9;
+        private const int _numSurfaceParameterSamples = 16;
 
 
         // Properties                                                                                                               
@@ -990,8 +992,10 @@ namespace CaeMesh
             Gmsh.Model.OCC.Synchronize();
         }
         /// <summary>
-        /// A point strictly inside a surface: its centre of mass when that lies on it, else a point just off
-        /// the middle of one of its edges towards the centre of mass.
+        /// A point strictly inside a surface and lying on it: its centre of mass where that serves, else a
+        /// point of its parameter box the inside test accepts. The inside test alone does not say that a point
+        /// lies on the surface, since it projects the point onto it first, and the centre of mass of a bore
+        /// lies on the axis of the bore rather than on the bore.
         /// </summary>
         private static double[] GetPointInsideSurface(int surfaceId)
         {
@@ -1000,26 +1004,35 @@ namespace CaeMesh
             double z;
             Gmsh.Model.OCC.GetCenterOfMass(2, surfaceId, out x, out y, out z);
             double[] center = new double[] { x, y, z };
-            if (Gmsh.Model.IsInside(2, surfaceId, center, false) > 0) return center;
+            if (IsPointOnSurface(surfaceId, center) && Gmsh.Model.IsInside(2, surfaceId, center, false) > 0) return center;
             //
-            int[] edgeIds;
-            double[] min;
-            double[] max;
-            double[] middle;
-            Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
-            foreach (var edgeId in edgeIds)
+            double[] coor;
+            double[] minimum;
+            double[] maximum;
+            Gmsh.Model.GetParametrizationBounds(2, surfaceId, out minimum, out maximum);
+            if (minimum.Length >= 2 && maximum.Length >= 2)
             {
-                Gmsh.Model.GetParametrizationBounds(1, edgeId, out min, out max);
-                Gmsh.Model.GetValue(1, edgeId, new double[] { 0.5 * (min[0] + max[0]) }, out middle);
-                foreach (var ratio in new double[] { 1E-3, -1E-3 })
+                double[] parametricCoor = new double[2];
+                for (int i = 1; i < _numSurfaceParameterSamples; i++)
                 {
-                    double[] candidate = new double[] { middle[0] + ratio * (center[0] - middle[0]),
-                                                        middle[1] + ratio * (center[1] - middle[1]),
-                                                        middle[2] + ratio * (center[2] - middle[2]) };
-                    if (Gmsh.Model.IsInside(2, surfaceId, candidate, false) > 0) return candidate;
+                    for (int j = 1; j < _numSurfaceParameterSamples; j++)
+                    {
+                        parametricCoor[0] = minimum[0] + (maximum[0] - minimum[0]) * i / (double)_numSurfaceParameterSamples;
+                        parametricCoor[1] = minimum[1] + (maximum[1] - minimum[1]) * j / (double)_numSurfaceParameterSamples;
+                        if (Gmsh.Model.IsInside(2, surfaceId, parametricCoor, true) <= 0) continue;
+                        //
+                        Gmsh.Model.GetValue(2, surfaceId, parametricCoor, out coor);
+                        if (coor.Length >= 3) return coor;
+                    }
                 }
             }
             throw new CaeException("No point inside a surface of the sweep could be found.");
+        }
+        private static bool IsPointOnSurface(int surfaceId, double[] coor)
+        {
+            double[] closestCoor;
+            Gmsh.Model.GetClosestPoint(2, surfaceId, coor, out closestCoor, out _);
+            return closestCoor.Length >= 3 && GetDistance(coor, closestCoor) <= 1E-6 * GetModelDiagonal();
         }
         /// <summary>
         /// Reads the faces of a block back after a fragmentation: every current face that came from one of the
@@ -1227,14 +1240,15 @@ namespace CaeMesh
             {
                 foreach (var edgeId in wall.DirectionEdgeIds)
                 {
-                    if (Gmsh.Model.GetType(1, edgeId) != "Line") return false;
                     Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
-                    if (vertexIds.Length != 2) return false;
+                    if (vertexIds.Length != 2 || vertexIds[0] == vertexIds[1]) return false;
                     int sourceVertexId = sourceVertexIds.Contains(vertexIds[0]) ? vertexIds[0] : vertexIds[1];
                     int targetVertexId = sourceVertexId == vertexIds[0] ? vertexIds[1] : vertexIds[0];
                     if (!sourceVertexIds.Contains(sourceVertexId)) return false;
                     //
-                    Vec3D vector = new Vec3D(GetVertexCoor(sourceVertexId)) - new Vec3D(GetVertexCoor(targetVertexId));
+                    double[] targetCoor = GetVertexCoor(targetVertexId);
+                    Vec3D vector = new Vec3D(GetVertexCoor(sourceVertexId)) - new Vec3D(targetCoor);
+                    if (!IsStraightEdge(edgeId, targetCoor, vector)) return false;
                     if (reference == null)
                     {
                         reference = vector;
@@ -1251,6 +1265,33 @@ namespace CaeMesh
             double[] coor;
             Gmsh.Model.GetValue(0, vertexId, new double[3], out coor);
             return coor;
+        }
+        /// <summary>
+        /// Whether an edge runs straight between its end vertices, judged by its shape and not by the type the
+        /// geometry kernel reports: an edge that is geometrically a segment arrives from an imported file as a
+        /// spline often enough, and the model side, which decides whether a block may be swept at all, measures
+        /// the same thing on the visualization nodes of the edge.
+        /// </summary>
+        private static bool IsStraightEdge(int edgeId, double[] start, Vec3D chord)
+        {
+            double[] minimum;
+            double[] maximum;
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out minimum, out maximum);
+            if (minimum.Length < 1 || maximum.Length < 1) return false;
+            //
+            double[] parametricCoor = new double[_numStraightEdgeSamples];
+            for (int i = 0; i < _numStraightEdgeSamples; i++)
+                parametricCoor[i] = minimum[0] + (maximum[0] - minimum[0]) * (i + 1.0) / (_numStraightEdgeSamples + 1.0);
+            //
+            double[] coor;
+            Gmsh.Model.GetValue(1, edgeId, parametricCoor, out coor);
+            double tolerance = 1E-6 * chord.Len * chord.Len;
+            for (int i = 0; i < _numStraightEdgeSamples; i++)
+            {
+                Vec3D offset = new Vec3D(coor[3 * i] - start[0], coor[3 * i + 1] - start[1], coor[3 * i + 2] - start[2]);
+                if (Vec3D.CrossProduct(chord, offset).Len > tolerance) return false;
+            }
+            return true;
         }
         /// <summary>
         /// The sweep blocks of the item, in gmsh numbering. An item saved before the blocks were recorded

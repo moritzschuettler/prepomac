@@ -46,6 +46,13 @@
 #its other end, where they cross, and every block is swept along pinned lines. sweep_plate_overhang.brep
 #has the upper block reaching past an edge of the plate. Both are swept from either end and automatically.
 #
+#sweep_spline_edges.brep is a lofted plate on a round post, which is how the same arrangement arrives from
+#an imported CAD file: the plate's vertical edges run straight but the kernel holds them as splines rather
+#than as lines, and the post's wall is one closed cylinder whose centre of mass lies on its axis and not on
+#the wall. Swept from the plate's top the post's footprint ends inside the plate's target, so the split has
+#to be carried to the source whatever type the edges carry, and every surface piece the carrying leaves has
+#to be traced back to the face it came from, the closed cylinder included.
+#
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Compound.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
@@ -254,6 +261,27 @@ def test_plate_imprinted_on_both_sides():
         items.remove([SWEEP_NAME])
 
 
+def test_spline_edges_and_round_post():
+    solids, compound = import_geometry("sweep_spline_edges.brep")
+    check(compound is not None and len(solids) == 2, "the plate and the post must import as a compound of 2")
+    # From the top the plate is swept first and its cap has to follow the post's footprint; from the bottom
+    # the post goes first and the plate takes the shared disc together with the rim around it as one source
+    for top in (True, False):
+        part, face_id = find_end_face(solids, top=top)
+        nodes_before = pmx.model.nodes.count
+        meshed = mesh_with_sweep(compound, solids, part, face_id)
+        check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+              "the plate and the post swept from the %s do not share the interface nodes" %
+              ("top" if top else "bottom"))
+    items = pmx.model.mesh.setup_items
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of sweep_spline_edges.brep is not valid")
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "",
+          "the automatic sweep of sweep_spline_edges.brep reported: " + report[compound.name])
+    items.remove([SWEEP_NAME])
+
+
 def find_face(part, axis, value):
     """The face of a part whose centroid has the given coordinate on the given axis."""
     faces = part.get_face_data()
@@ -437,6 +465,7 @@ def main():
     test_perpendicular_bores()
     test_two_parts_apart()
     test_plate_imprinted_on_both_sides()
+    test_spline_edges_and_round_post()
     print("TEST PASSED")
 
 
