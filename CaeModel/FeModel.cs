@@ -2909,6 +2909,9 @@ namespace CaeModel
                 twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
                 twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
             }
+            // The selections tried on every part, which do not change from one round to the next
+            Dictionary<int, List<HashSet<int>>> partIdSeedSurfaceIds = new Dictionary<int, List<HashSet<int>>>();
+            foreach (var part in sweptParts) partIdSeedSurfaceIds.Add(part.PartId, GetSeedSurfaceIds(part));
             //
             while (bestSelection == null)
             {
@@ -2921,16 +2924,18 @@ namespace CaeModel
                 {
                     if (reachedPartIds.Contains(part.PartId)) continue;
                     //
-                    for (int surfaceId = 0; surfaceId < part.Visualization.FaceEdgeIds.Length; surfaceId++)
+                    foreach (var seedSurfaceIds in partIdSeedSurfaceIds[part.PartId])
                     {
-                        if (!triedSeedIds.Add(FeMesh.GmshTopologyId(surfaceId, part.PartId))) continue;
+                        bool singleSurfaceSeed = seedSurfaceIds.Count == 1;
+                        if (singleSurfaceSeed &&
+                            !triedSeedIds.Add(FeMesh.GmshTopologyId(seedSurfaceIds.First(), part.PartId))) continue;
                         //
                         trial = CopySelection(selection);
-                        trial[part.PartId] = new HashSet<int>() { surfaceId };
+                        trial[part.PartId] = new HashSet<int>(seedSurfaceIds);
                         error = CreateSweepBlocks(sweepMesh, sweptParts, trial, twinSurfaceIds, twinEdgeIds, namePart,
                                                   out sweptPartIds, out onlyUnreached);
                         // Every surface of the seed's extended source would give the same trial
-                        MarkTriedSeeds(sweepMesh, part.PartId, triedSeedIds);
+                        if (singleSurfaceSeed) MarkTriedSeeds(sweepMesh, part.PartId, triedSeedIds);
                         //
                         if (error == null)
                         {
@@ -2966,6 +2971,24 @@ namespace CaeModel
             // The blocks of the best selection are the ones the item keeps
             return CreateSweepBlocks(sweepMesh, sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, namePart,
                                      out _, out _);
+        }
+        /// <summary>
+        /// The source selections tried on a part: every surface on its own, and every group of surfaces that
+        /// continue one another smoothly, which is what one click of the angle picker selects. A bent plate is
+        /// swept from a front face made of a plane, the cylinder of the bend and a plane again, and the
+        /// extension over coplanar surfaces does not reach across the bend.
+        /// </summary>
+        private List<HashSet<int>> GetSeedSurfaceIds(GeometryPart part)
+        {
+            List<HashSet<int>> seedSurfaceIds = new List<HashSet<int>>();
+            for (int surfaceId = 0; surfaceId < part.Visualization.FaceEdgeIds.Length; surfaceId++)
+                seedSurfaceIds.Add(new HashSet<int>() { surfaceId });
+            //
+            foreach (var group in _geometry.GetSmoothSurfaceIdGroups(part, Globals.EdgeAngle))
+            {
+                if (group.Count > 1) seedSurfaceIds.Add(group);
+            }
+            return seedSurfaceIds;
         }
         private static Dictionary<int, HashSet<int>> CopySelection(Dictionary<int, HashSet<int>> selection)
         {

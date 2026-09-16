@@ -6986,6 +6986,92 @@ namespace CaeMesh
             }
             return geometryIds;
         }
+        /// <summary>
+        /// The faces of a part gathered into the groups that continue one another smoothly: two faces belong
+        /// to one group when the visualization cells on the two sides of the boundary between them meet
+        /// anywhere at an angle below the one that makes an edge. This is the group of faces that one click of
+        /// the angle picker selects - the front face of a bent plate is a plane, the cylinder of the bend and
+        /// a plane again. A face that continues no other is in no group.
+        /// </summary>
+        public List<HashSet<int>> GetSmoothSurfaceIdGroups(BasePart part, double angleDeg)
+        {
+            List<HashSet<int>> groups = new List<HashSet<int>>();
+            VisualizationData vis = part.Visualization;
+            if (vis == null || vis.Cells == null || vis.CellIdsByFace == null ||
+                vis.CellNeighboursOverCellEdge == null) return groups;
+            //
+            int[][] cells = vis.Cells;
+            int[] faceIdOfCell = new int[cells.Length];
+            for (int faceId = 0; faceId < vis.CellIdsByFace.Length; faceId++)
+            {
+                foreach (var cellId in vis.CellIdsByFace[faceId]) faceIdOfCell[cellId] = faceId;
+            }
+            // The smallest angle at which two faces meet anywhere along the boundary between them
+            int face1Id;
+            int face2Id;
+            int cell2Id;
+            double alpha;
+            double[] minAngle;
+            int[] facePair;
+            Dictionary<int[], double[]> facePairAngles = new Dictionary<int[], double[]>(new CompareIntArray());
+            for (int cell1Id = 0; cell1Id < cells.Length; cell1Id++)
+            {
+                face1Id = faceIdOfCell[cell1Id];
+                for (int i = 0; i < vis.CellNeighboursOverCellEdge[cell1Id].Length; i++)
+                {
+                    cell2Id = vis.CellNeighboursOverCellEdge[cell1Id][i];
+                    if (cell2Id == -1) continue;
+                    face2Id = faceIdOfCell[cell2Id];
+                    if (face1Id == face2Id) continue;
+                    //
+                    alpha = ComputeAngleInRadFromCellIndices(cells[cell1Id], cells[cell2Id]) * 180 / Math.PI;
+                    facePair = new int[] { Math.Min(face1Id, face2Id), Math.Max(face1Id, face2Id) };
+                    if (facePairAngles.TryGetValue(facePair, out minAngle))
+                    {
+                        if (alpha < minAngle[0]) minAngle[0] = alpha;
+                    }
+                    else facePairAngles.Add(facePair, new double[] { alpha });
+                }
+            }
+            // The faces that continue one another
+            Dictionary<int, HashSet<int>> smoothNeighbourIds = new Dictionary<int, HashSet<int>>();
+            foreach (var entry in facePairAngles)
+            {
+                if (entry.Value[0] > angleDeg) continue;
+                AddSmoothNeighbourId(smoothNeighbourIds, entry.Key[0], entry.Key[1]);
+                AddSmoothNeighbourId(smoothNeighbourIds, entry.Key[1], entry.Key[0]);
+            }
+            // The connected groups of such faces
+            HashSet<int> group;
+            HashSet<int> groupedFaceIds = new HashSet<int>();
+            Stack<int> pendingFaceIds = new Stack<int>();
+            foreach (var entry in smoothNeighbourIds)
+            {
+                if (!groupedFaceIds.Add(entry.Key)) continue;
+                //
+                group = new HashSet<int>() { entry.Key };
+                pendingFaceIds.Push(entry.Key);
+                while (pendingFaceIds.Count > 0)
+                {
+                    foreach (var neighbourId in smoothNeighbourIds[pendingFaceIds.Pop()])
+                    {
+                        if (!groupedFaceIds.Add(neighbourId)) continue;
+                        //
+                        group.Add(neighbourId);
+                        pendingFaceIds.Push(neighbourId);
+                    }
+                }
+                groups.Add(group);
+            }
+            return groups;
+        }
+        private static void AddSmoothNeighbourId(Dictionary<int, HashSet<int>> smoothNeighbourIds, int faceId,
+                                                 int neighbourId)
+        {
+            HashSet<int> neighbourIds;
+            if (smoothNeighbourIds.TryGetValue(faceId, out neighbourIds)) neighbourIds.Add(neighbourId);
+            else smoothNeighbourIds.Add(faceId, new HashSet<int>() { neighbourId });
+        }
         public int[] GetGeometrySurfaceIdsByAngle(int elementId, int[] cellFaceNodeIds, bool shellFrontFace, double angle)
         {
             BasePart part;

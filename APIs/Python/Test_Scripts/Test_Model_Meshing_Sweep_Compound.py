@@ -46,6 +46,12 @@
 #its other end, where they cross, and every block is swept along pinned lines. sweep_plate_overhang.brep
 #has the upper block reaching past an edge of the plate. Both are swept from either end and automatically.
 #
+#sweep_bent_plate.brep is a plate bent along a cylinder, with a bore through each of its two wings. Its
+#front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
+#wall with a hole, so no single face of it is a sweep source. The detection has to try the faces that
+#continue one another smoothly - the group one click of the angle picker selects - because the extension
+#over coplanar surfaces does not reach across a bend.
+#
 #sweep_spline_edges.brep is a lofted plate on a round post, which is how the same arrangement arrives from
 #an imported CAD file: the plate's vertical edges run straight but the kernel holds them as splines rather
 #than as lines, and the post's wall is one closed cylinder whose centre of mass lies on its axis and not on
@@ -261,6 +267,26 @@ def test_plate_imprinted_on_both_sides():
         items.remove([SWEEP_NAME])
 
 
+def test_bent_plate():
+    solids, compound = import_geometry("sweep_bent_plate.brep")
+    check(compound is None and len(solids) == 1, "the bent plate must import as a single part")
+    part = solids[0]
+    items = pmx.model.mesh.setup_items
+    # No single face sweeps the plate, so a source found by extending one face over its plane cannot exist
+    for face_id in list(part.get_face_data().ids):
+        check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, int(face_id))),
+                     "the face " + str(face_id) + " of the bent plate must not be a sweep source on its own")
+    # The front face of the plate is a plane, the cylinder of the bend and a plane again
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the bent plate is not valid")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the automatic sweep of the bent plate reported: " + report[part.name])
+    meshed = [meshPart for meshPart in pmx.model.parts if meshPart.name == part.name]
+    check(len(meshed) == 1 and meshed[0].element_count > 0, "the bent plate was not meshed")
+    print("meshed:", meshed[0].name, meshed[0].node_count, "nodes", meshed[0].element_count, "elements")
+    items.remove([SWEEP_NAME])
+
+
 def test_spline_edges_and_round_post():
     solids, compound = import_geometry("sweep_spline_edges.brep")
     check(compound is not None and len(solids) == 2, "the plate and the post must import as a compound of 2")
@@ -466,6 +492,7 @@ def main():
     test_two_parts_apart()
     test_plate_imprinted_on_both_sides()
     test_spline_edges_and_round_post()
+    test_bent_plate()
     print("TEST PASSED")
 
 
