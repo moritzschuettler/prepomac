@@ -1352,11 +1352,15 @@ namespace vtkControl
             //
             vtkCellLocator cellLocator;
             vtkCell cell;
-            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, GetMaxActor(pickedActor), out cell,
+            // A section view draws the cut copy of a part, and the copy stands for the part it was cut from
+            vtkMaxActor sectionViewParentActor = GetSectionViewParentActor(pickedActor);
+            vtkMaxActor pickedMaxActor = sectionViewParentActor != null ? sectionViewParentActor
+                                                                       : GetMaxActor(pickedActor);
+            int globalCellId = GetGlobalCellIdClosestTo3DPoint(ref pickedPoint, pickedMaxActor, out cell,
                                                                out cellLocator);
             //
-            string actorName = GetActorName(pickedActor);
-            vtkMaxActor actor = GetHighlightActorFromActorName(actorName);
+            string actorName = pickedMaxActor != null ? pickedMaxActor.Name : null;
+            vtkMaxActor actor = actorName != null ? GetHighlightActorFromActorName(actorName) : null;
             //
             if (actor != null)
             {
@@ -1541,13 +1545,13 @@ namespace vtkControl
             //
             while (pickedActor != null)
             {
-                string pickedActorName = GetActorName(pickedActor);
+                string pickedActorName = GetSelectableActorName(pickedActor);
                 vtkMaxActor maxActor;
                 //
                 if (pickedActorName == null || !_actors.TryGetValue(pickedActorName, out maxActor) ||
-                    !maxActor.VolumeGridAvailable)
+                    !maxActor.VolumeGridAvailable || selectedActorNames.Contains(pickedActorName))
                 {
-                    // Actor has no volume grid
+                    // Actor has no volume grid, or its part was already reached through another of its actors
                 }
                 else if (new CaeMesh.BoundingBox(maxActor.Geometry.GetBounds())
                          .TestBoundsAgainstFrustum(planeParameters) == FrustumBoxResultEnum.Inside &&
@@ -1845,6 +1849,11 @@ namespace vtkControl
         {
             vtkMaxActor parentActor = GetSectionViewParentActor(actor.Geometry);
             return parentActor != null ? parentActor.Name : actor.Name;
+        }
+        private string GetSelectableActorName(vtkActor actor)
+        {
+            vtkMaxActor parentActor = GetSectionViewParentActor(actor);
+            return parentActor != null ? parentActor.Name : GetActorName(actor);
         }
         private bool ResolveSectionViewPick(ref vtkActor pickedActor, ref double[] point, bool rotationPoint)
         {
@@ -3431,8 +3440,14 @@ namespace vtkControl
         }
         private double[] ComputeVisiblePropBounds()
         {
+            // A renderer without any visible prop returns the inverted bounds vtkMath::UninitializeBounds sets
             double[] b1 = _renderer.ComputeVisiblePropBounds();
             double[] b2 = _overlayRenderer.ComputeVisiblePropBounds();
+            bool b1Initialized = b1[0] <= b1[1] && b1[2] <= b1[3] && b1[4] <= b1[5];
+            bool b2Initialized = b2[0] <= b2[1] && b2[2] <= b2[3] && b2[4] <= b2[5];
+            //
+            if (!b2Initialized) return b1;
+            if (!b1Initialized) return b2;
             //
             return new double[] { Math.Min(b1[0], b2[0]), Math.Max(b1[1], b2[1]),
                                   Math.Min(b1[2], b2[2]), Math.Max(b1[3], b2[3]),

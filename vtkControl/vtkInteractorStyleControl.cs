@@ -452,25 +452,9 @@ namespace vtkControl
                     {
                         // The click was not a hit
                         // Use the center of the bounding box
-                        double[] bounds1 = renderer.ComputeVisiblePropBounds();
-                        int numActors = _overlayRenderer.GetNumberOfPropsRendered();
-                        if (numActors > 0)
-                        {
-                            double[] bounds2 = _overlayRenderer.ComputeVisiblePropBounds();
-                            double[] max = new double[] { Math.Min(bounds1[0], bounds2[0]), Math.Max(bounds1[1], bounds2[1]),
-                                                          Math.Min(bounds1[2], bounds2[2]), Math.Max(bounds1[3], bounds2[3]),
-                                                          Math.Min(bounds1[4], bounds2[4]), Math.Max(bounds1[5], bounds2[5])};
-                            _rotationCenterWorld[0] = (max[1] + max[0]) / 2;
-                            _rotationCenterWorld[1] = (max[3] + max[2]) / 2;
-                            _rotationCenterWorld[2] = (max[5] + max[4]) / 2;
-                        }
-                        else
-                        {
-                            _rotationCenterWorld[0] = (bounds1[1] + bounds1[0]) / 2;
-                            _rotationCenterWorld[1] = (bounds1[3] + bounds1[2]) / 2;
-                            _rotationCenterWorld[2] = (bounds1[5] + bounds1[4]) / 2;
-                        }
-                        //-   
+                        double[] bounds = ComputeVisiblePropBounds(renderer, _overlayRenderer);
+                        if (bounds != null) _rotationCenterWorld = GetBoundsCenter(bounds);
+                        //-
                     }
                     else
                     {
@@ -481,7 +465,7 @@ namespace vtkControl
                         AdjustCameraDistance(renderer, camera);
                     }
                     //
-                    RotationPointChanged?.Invoke(_rotationCenterWorld);
+                    if (_rotationCenterWorld != null) RotationPointChanged?.Invoke(_rotationCenterWorld);
                 }
             }
             // Adjust the clipping range and lights
@@ -857,6 +841,39 @@ namespace vtkControl
         {
             _rotationCenterWorld = null;
         }
+        private static bool AreBoundsInitialized(double[] bounds)
+        {
+            // A renderer without any visible prop returns the inverted bounds vtkMath::UninitializeBounds sets
+            return bounds != null && bounds[0] <= bounds[1] && bounds[2] <= bounds[3] && bounds[4] <= bounds[5];
+        }
+        private static double[] ComputeVisiblePropBounds(params vtkRenderer[] renderers)
+        {
+            double[] bounds = null;
+            //
+            foreach (vtkRenderer renderer in renderers)
+            {
+                if (renderer == null) continue;
+                //
+                double[] rendererBounds = renderer.ComputeVisiblePropBounds();
+                if (!AreBoundsInitialized(rendererBounds)) continue;
+                //
+                if (bounds == null) bounds = (double[])rendererBounds.Clone();
+                else
+                {
+                    for (int i = 0; i < 6; i += 2)
+                    {
+                        bounds[i] = Math.Min(bounds[i], rendererBounds[i]);
+                        bounds[i + 1] = Math.Max(bounds[i + 1], rendererBounds[i + 1]);
+                    }
+                }
+            }
+            //
+            return bounds;
+        }
+        private static double[] GetBoundsCenter(double[] bounds)
+        {
+            return new double[] { (bounds[1] + bounds[0]) / 2, (bounds[3] + bounds[2]) / 2, (bounds[5] + bounds[4]) / 2 };
+        }
         public void UpdateRotationCenterDisplay()
         {
             vtkRenderer renderer = this.GetCurrentRenderer();
@@ -865,11 +882,9 @@ namespace vtkControl
             if (_rotationCenterWorld == null)
             {
                 // For the first time use the center of the bounding box
-                double[] bounds = renderer.ComputeVisiblePropBounds();
-                _rotationCenterWorld = new double[3];
-                _rotationCenterWorld[0] = (bounds[1] + bounds[0]) / 2;
-                _rotationCenterWorld[1] = (bounds[3] + bounds[2]) / 2;
-                _rotationCenterWorld[2] = (bounds[5] + bounds[4]) / 2;
+                double[] bounds = ComputeVisiblePropBounds(renderer);
+                if (bounds == null) return;
+                _rotationCenterWorld = GetBoundsCenter(bounds);
             }
             // Must update since zoom can also change
             _rotationCenterDisplay = WorldToDisplay(renderer, _rotationCenterWorld);
@@ -1308,6 +1323,7 @@ namespace vtkControl
         private void AddAnnotationForCenter3D(vtkRenderWindowInteractor interactor, vtkRenderer renderer)
         {
             if (_centerAnnotationActor != null) RemoveAnnotationForCenter(renderer);
+            if (_rotationCenterWorld == null) return;
             //
             int[] size = renderer.GetSize();
             double minSize = Math.Min(size[0], size[1]);
@@ -1381,19 +1397,13 @@ namespace vtkControl
         private void AdjustCameraDistance(vtkRenderer renderer, vtkCamera camera)
         {
             // Camera should not be to close or to far
-            double[] b1 = renderer.ComputeVisiblePropBounds();
-            double[] b2 = _selectionRenderer.ComputeVisiblePropBounds();
-            double[] b3 = _overlayRenderer.ComputeVisiblePropBounds();
-            //
-            double[] b = new double[] { Math.Min(b1[0], Math.Min(b2[0], b3[0])), Math.Max(b1[1], Math.Max(b2[1], b3[1])),
-                                        Math.Min(b1[2], Math.Min(b2[2], b3[2])), Math.Max(b1[3], Math.Max(b2[3], b3[3])),
-                                        Math.Min(b1[4], Math.Min(b2[4], b3[4])), Math.Max(b1[5], Math.Max(b2[5], b3[5]))};
             // A section plane can leave the scene without any visible geometry.
-            if (b[0] > b[1] || b[2] > b[3] || b[4] > b[5]) return;
+            double[] b = ComputeVisiblePropBounds(renderer, _selectionRenderer, _overlayRenderer);
+            if (b == null) return;
             //
             double r = 0.5 * Math.Sqrt(Math.Pow(b[0] - b[1], 2) + Math.Pow(b[2] - b[3], 2) + Math.Pow(b[4] - b[5], 2)); // radius
             r *= 1.05;
-            double[] center = new double[] { (b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2 };
+            double[] center = GetBoundsCenter(b);
             //
             double[] pos = camera.GetPosition();
             //
