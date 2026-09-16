@@ -21884,7 +21884,11 @@ namespace PrePoMax
             // direction it is swept in. Until the blocks are known only the selection itself can be shown
             if (sweepMesh.BlockSourceSurfaceIds == null || sweepMesh.BlockSourceSurfaceIds.Length == 0)
             {
-                HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
+                // A sweep that finds its own sources is selected by part, and the ids of a part selection are
+                // part ids carrying no geometry type at all, so they are shown the way every part selection is
+                if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
+                    HighlightMeshSetupItemParts(sweepMesh, useSecondaryHighlightColor);
+                else HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
                 return;
             }
             //
