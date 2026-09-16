@@ -2302,10 +2302,13 @@ namespace PrePoMax
             {
                 string fileName;
                 int filterIndex;
-                string filter = "STEP files (*.stp)|*.stp|BREP files (*.brep)|*.brep|" +
+                string filter = "STEP parts (*.stp)|*.stp|STEP assembly (*.stp)|*.stp|" +
+                                "BREP parts (*.brep)|*.brep|BREP assembly (*.brep)|*.brep|" +
                                 "Stereolithography files (*.stl)|*.stl|Mmg files (*.mesh)|*.mesh";
                 GeometryExportFormatEnum[] formats = new GeometryExportFormatEnum[] { GeometryExportFormatEnum.Step,
+                                                                                      GeometryExportFormatEnum.StepAssembly,
                                                                                       GeometryExportFormatEnum.Brep,
+                                                                                      GeometryExportFormatEnum.BrepAssembly,
                                                                                       GeometryExportFormatEnum.Stl,
                                                                                       GeometryExportFormatEnum.Mmg };
                 if (GetExportFileName(filter, out fileName, out filterIndex))

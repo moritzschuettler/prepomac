@@ -2450,6 +2450,54 @@ namespace PrePoMax
                 _form.WriteDataToOutput("Part " + partName + " exported to file: " + brepFileName);
             }
         }
+        public void ExportCADGeometryPartsAsStepAssembly(string[] partNames, string fileName)
+        {
+            ExportCADGeometryPartsAsAssembly(partNames, fileName, "STEP_ASSEMBLY");
+        }
+        public void ExportCADGeometryPartsAsBrepAssembly(string[] partNames, string fileName)
+        {
+            ExportCADGeometryPartsAsAssembly(partNames, fileName, "BREP_ASSEMBLY");
+        }
+        private void ExportCADGeometryPartsAsAssembly(string[] partNames, string fileName, string command)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inFileName = Tools.GetNonExistentRandomFileName(workDirectory);
+            string[] inFileNames = new string[partNames.Length];
+            for (int i = 0; i < partNames.Length; i++)
+                inFileNames[i] = inFileName + "_" + (i + 1).ToString().PadLeft(4, '0') + ".brep";
+            //
+            if (File.Exists(fileName)) File.Delete(fileName);
+            // Write CAD
+            for (int i = 0; i < partNames.Length; i++)
+                File.WriteAllText(inFileNames[i], ((GeometryPart)_model.Geometry.Parts[partNames[i]]).CADFileData);
+            //
+            string argument = command;
+            for (int i = 0; i < inFileNames.Length; i++) argument += " \"" + inFileNames[i].ToUTF8() + "\"";
+            argument += " \"" + fileName.ToUTF8() + "\"";
+            //
+            JobStatus jobStatus = _jobRunner.Run("Assembly", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            //
+            for (int i = 0; i < inFileNames.Length; i++)
+            {
+                if (File.Exists(inFileNames[i])) File.Delete(inFileNames[i]);
+            }
+            // Job completed
+            if (jobStatus != JobStatus.OK) return;
+            //
+            foreach (var partName in partNames)
+            {
+                _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
+            }
+        }
         public void ExportCADGeometryPartAsStep(GeometryPart part, string fileName)
         {
             string workDirectory = _settings.GetWorkDirectory();
@@ -2629,7 +2677,9 @@ namespace PrePoMax
             if (_model.Geometry == null || _model.Geometry.Parts == null)
                 throw new CaeException("There is no geometry to export.");
             //
-            bool cadPartsOnly = format == GeometryExportFormatEnum.Step || format == GeometryExportFormatEnum.Brep;
+            bool cadPartsOnly = format == GeometryExportFormatEnum.Step || format == GeometryExportFormatEnum.Brep ||
+                                format == GeometryExportFormatEnum.StepAssembly ||
+                                format == GeometryExportFormatEnum.BrepAssembly;
             BasePart part;
             GeometryPart geometryPart;
             foreach (var partName in partNames)
@@ -2647,8 +2697,14 @@ namespace PrePoMax
                 case GeometryExportFormatEnum.Step:
                     ExportCADGeometryPartsAsStep(partNames, fileName);
                     break;
+                case GeometryExportFormatEnum.StepAssembly:
+                    ExportCADGeometryPartsAsStepAssembly(partNames, fileName);
+                    break;
                 case GeometryExportFormatEnum.Brep:
                     ExportCADGeometryPartsAsBrep(partNames, fileName);
+                    break;
+                case GeometryExportFormatEnum.BrepAssembly:
+                    ExportCADGeometryPartsAsBrepAssembly(partNames, fileName);
                     break;
                 case GeometryExportFormatEnum.Stl:
                     ExportPartsToStl(_model.Geometry, partNames, fileName, ViewGeometryModelResults.Geometry);

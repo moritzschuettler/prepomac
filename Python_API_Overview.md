@@ -503,10 +503,19 @@ elements, which is how a part of a meshed model is handed to another program wit
 loads and boundary conditions; `export_results` takes the parts of the **current result**. The
 `format` argument is needed only when the extension does not name the format - an Abaqus .inp - or
 when the file should carry another extension; its values are the format names in lower case
-(`"calculix"`, `"abaqus"`, `"gmsh"`, `"mmg"`, `"stl"`, `"step"`, `"brep"`). A journal of a history
+(`"calculix"`, `"abaqus"`, `"gmsh"`, `"mmg"`, `"stl"`, `"step"`, `"brep"`,
+`"stepassembly"`, `"brepassembly"`). A journal of a history
 recorded before these four existed emits the old per format exports through them, except an .stl or
 Mmg export of the displayed view, whose source was never recorded and which the journal reports as
 unsupported.
+
+`"step"` and `"brep"` write one file per part, named `<file_name>_<part_name>`, and are what the
+extension alone selects. `"stepassembly"` and `"brepassembly"` carry the same extensions but write
+a single file holding every named part as one compound, which is how an assembly leaves PrePoMax
+with its parts side by side. The parts are gathered unchanged - they are not imprinted on one
+another as the **Create compound part** command does - so the file is the assembly PrePoMax holds,
+not a partitioned version of it. In the **File - Export - Geometry** dialog the two pairs are the
+filters STEP parts, STEP assembly, BREP parts and BREP assembly.
 
 `new_model` and `open` replace the command history, which a recorded script is itself part of, so both
 raise inside a recorded script. Open the file with the `-f` command line switch instead, or call them

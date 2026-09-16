@@ -20,7 +20,9 @@ namespace FileInOut.Output
             switch (format)
             {
                 case GeometryExportFormatEnum.Step: return ".stp";
+                case GeometryExportFormatEnum.StepAssembly: return ".stp";
                 case GeometryExportFormatEnum.Brep: return ".brep";
+                case GeometryExportFormatEnum.BrepAssembly: return ".brep";
                 case GeometryExportFormatEnum.Stl: return ".stl";
                 case GeometryExportFormatEnum.Mmg: return ".mesh";
                 default: throw new NotSupportedException();

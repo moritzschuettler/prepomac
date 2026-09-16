@@ -98,7 +98,9 @@ namespace APIs.Python.Model
             else if (!ExportFormatTools.TryGetGeometryFormat(fullFileName, out formatValue))
                 throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no geometry export " +
                                              "format. Use .stp, .brep, .stl or .mesh, or give the argument 'format'.");
-            if (formatValue == GeometryExportFormatEnum.Step || formatValue == GeometryExportFormatEnum.Brep)
+            if (formatValue == GeometryExportFormatEnum.Step || formatValue == GeometryExportFormatEnum.Brep ||
+                formatValue == GeometryExportFormatEnum.StepAssembly ||
+                formatValue == GeometryExportFormatEnum.BrepAssembly)
                 EnsureCadPartNames(names);
             //
             EnsureCommandsAvailable();

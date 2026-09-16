@@ -15,7 +15,9 @@ namespace FileInOut.Output
     public enum GeometryExportFormatEnum
     {
         Step,
+        StepAssembly,
         Brep,
+        BrepAssembly,
         Stl,
         Mmg
     }

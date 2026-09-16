@@ -53,6 +53,12 @@ def test_export_geometry(part_name):
                  "a .step export of a part without CAD data was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.brep")),
                  "a .brep export of a part without CAD data was accepted")
+    check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.stp"),
+                                             format="stepassembly"),
+                 "a STEP assembly export of a part without CAD data was accepted")
+    check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.brep"),
+                                             format="brepassembly"),
+                 "a BREP assembly export of a part without CAD data was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.txt")),
                  "an extension that names no geometry format was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.stl"),
