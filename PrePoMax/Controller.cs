@@ -5456,6 +5456,7 @@ namespace PrePoMax
             List<GeneratedMeshData> generatedMeshes = new List<GeneratedMeshData>();
             List<string> errors = new List<string>();
             HashSet<string> generatedMeshPartNames = new HashSet<string>();
+            bool retainBatchDirectory = false;
             _lastMeshedPartNames = new string[0];
             _lastMeshedModelPartNames = new string[0];
             _lastMeshingErrors = new string[0];
@@ -5488,11 +5489,15 @@ namespace PrePoMax
                 for (int i = 0; i < uniquePartNames.Length; i++)
                 {
                     string partName = uniquePartNames[i];
+                    bool keepQuadWildFilesOnFailure = false;
                     try
                     {
                         if (!_model.Geometry.Parts.TryGetValue(partName, out BasePart basePart) ||
                             !(basePart is GeometryPart part))
                             throw new CaeException("The geometry part does not exist.");
+                        ShellQuadWild shellQuadWild = GetActiveValidMesherSetupItems(part.Name)
+                                                       .OfType<ShellQuadWild>().FirstOrDefault();
+                        keepQuadWildFilesOnFailure = shellQuadWild != null && shellQuadWild.KeepFilesOnFailure;
                         //
                         string partDirectory = Path.Combine(batchDirectory, i.ToString("D4"));
                         Directory.CreateDirectory(partDirectory);
@@ -5511,6 +5516,7 @@ namespace PrePoMax
                         //
                         if (generatedMesh == null)
                         {
+                            if (keepQuadWildFilesOnFailure) retainBatchDirectory = true;
                             if (_jobRunner.WasKilled)
                             {
                                 errors.Add("Mesh generation canceled.");
@@ -5519,6 +5525,7 @@ namespace PrePoMax
                             errors.Add(partName + ": Mesh generation failed.");
                             continue;
                         }
+                        if (generatedMesh.RetainWorkDirectory) retainBatchDirectory = true;
                         //
                         phaseWatch.Restart();
                         try
@@ -5543,6 +5550,7 @@ namespace PrePoMax
                     }
                     catch (Exception ex)
                     {
+                        if (keepQuadWildFilesOnFailure) retainBatchDirectory = true;
                         errors.Add(partName + ": " + ex.Message);
                         if (_jobRunner.WasKilled)
                         {
@@ -5558,7 +5566,13 @@ namespace PrePoMax
             {
                 try
                 {
-                    if (Directory.Exists(batchDirectory)) Directory.Delete(batchDirectory, true);
+                    if (Directory.Exists(batchDirectory))
+                    {
+                        if (retainBatchDirectory)
+                            _form.WriteDataToOutput("QuadWild meshing files retained for debugging: " +
+                                                    batchDirectory);
+                        else Directory.Delete(batchDirectory, true);
+                    }
                 }
                 catch { }
             }

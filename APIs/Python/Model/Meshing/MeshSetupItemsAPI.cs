@@ -490,15 +490,16 @@ namespace APIs.Python.Model
                    "given keeps the application default.",
                    Arguments = "name: str, selection: Selection, preview: bool = None, remesh: bool = None, " +
                                "smooth: bool = None, alpha: float = None, triangulation_mesher: str = None, " +
-                               "scale_factor: float = None, flow_profile: str = None", Returns = "MeshSetupItem")]
+                               "scale_factor: float = None, flow_profile: str = None, " +
+                               "keep_files_on_failure: bool = None", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
                                                     object remesh = null, object smooth = null, object alpha = null,
                                                     string triangulation_mesher = null, object scale_factor = null,
-                                                    string flow_profile = null)
+                                                    string flow_profile = null, object keep_files_on_failure = null)
         {
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
-                               flow_profile);
+                               flow_profile, keep_files_on_failure);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -510,11 +511,12 @@ namespace APIs.Python.Model
                                                         SelectionAPI selection = null, object preview = null,
                                                         object remesh = null, object smooth = null,
                                                         object alpha = null, string triangulation_mesher = null,
-                                                        object scale_factor = null, string flow_profile = null)
+                                                        object scale_factor = null, string flow_profile = null,
+                                                        object keep_files_on_failure = null)
         {
             ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
             ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
-                               flow_profile);
+                               flow_profile, keep_files_on_failure);
             return Replace(old_name, name, item, selection);
         }
         //
@@ -752,7 +754,7 @@ namespace APIs.Python.Model
         }
         private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object remesh, object smooth,
                                                object alpha, string triangulationMesher, object scaleFactor,
-                                               string flowProfile)
+                                               string flowProfile, object keepFilesOnFailure)
         {
             if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
             if (remesh != null) item.Remesh = PythonValueConverter.ToBool(remesh, "remesh");
@@ -766,6 +768,9 @@ namespace APIs.Python.Model
             if (flowProfile != null)
                 item.FlowProfile = PythonValueConverter.ToEnum<QuadWildFlowProfileEnum>(flowProfile,
                                                                                          "flow_profile");
+            if (keepFilesOnFailure != null)
+                item.KeepFilesOnFailure = PythonValueConverter.ToBool(keepFilesOnFailure,
+                                                                       "keep_files_on_failure");
         }
         private static void ApplyAlgorithms(GmshSetupItem item, string algorithm2D, string algorithm3D)
         {

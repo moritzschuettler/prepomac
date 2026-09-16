@@ -161,8 +161,8 @@ namespace PrePoMax
             string[] preparationOutputFileNames = shellQuadWild.Preview
                                                   ? new string[] { tracedObjFileName }
                                                   : tracedFileNames;
-            RunStage(part.Name, "preparation and patch tracing", executable, argument, workDirectory,
-                     preparationOutputFileNames);
+            bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
+                                              workDirectory, preparationOutputFileNames);
             if (shellQuadWild.Preview)
             {
                 QuadWildOutputInfo previewInfo = ValidateTriangularOutput(tracedObjFileName);
@@ -176,7 +176,8 @@ namespace PrePoMax
                     MeshFileName = tracedObjFileName,
                     ConvertToSecondOrder = false,
                     SmoothShaded = true,
-                    QuadWildInputFileInfo = inputInfo
+                    QuadWildInputFileInfo = inputInfo,
+                    RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure && preparationFailed
                 };
             }
             //
@@ -209,8 +210,8 @@ namespace PrePoMax
             argument = Quote(tracedObjFileName) + " 1 " + Quote(flowConfigFileName);
             // Both files are required even when only one is imported, so that a stage that died part way
             // through is still recognized by the freshly-written-output check.
-            RunStage(part.Name, "quad generation", patchExecutable, argument, workDirectory,
-                     unsmoothedObjFileName, smoothObjFileName);
+            bool quadGenerationFailed = RunStage(part.Name, "quad generation", patchExecutable, argument,
+                                                 workDirectory, unsmoothedObjFileName, smoothObjFileName);
             QuadWildOutputInfo outputInfo = ValidateOutput(finalObjFileName);
             _controller.Form.WriteDataToOutput("QuadWild output: " + outputInfo.NodeCount + " nodes, " +
                                                outputInfo.QuadCount + " quadrilaterals, " +
@@ -222,7 +223,9 @@ namespace PrePoMax
                 GeometryPart = part,
                 MeshFileName = finalObjFileName,
                 SmoothShaded = true,
-                QuadWildInputFileInfo = inputInfo
+                QuadWildInputFileInfo = inputInfo,
+                RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure &&
+                                      (preparationFailed || quadGenerationFailed)
             };
         }
         private bool PreviewEdgeNodes(GeometryPart part, MeshSetupItem[] mesherSetupItems,
@@ -353,7 +356,7 @@ namespace PrePoMax
             if (mesherType == MesherTypeEnum.Mmg) return "MMG";
             else return mesherType.ToString();
         }
-        private void RunStage(string jobName, string stageName, string executable, string argument,
+        private bool RunStage(string jobName, string stageName, string executable, string argument,
                               string workDirectory, params string[] expectedFileNames)
         {
             JobStatus jobStatus = _controller.JobRunner.Run(jobName, executable, argument, workDirectory,
@@ -370,6 +373,7 @@ namespace PrePoMax
                     throw new CaeException("QuadWild " + stageName + " failed (" + jobStatus + ").");
             }
             EnsureFilesWritten(stageName, expectedFileNames);
+            return jobStatus != JobStatus.OK;
         }
         private static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory,
                                             bool requirePatchExecutable)

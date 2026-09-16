@@ -17,5 +17,6 @@ namespace PrePoMax
         public FeMesh Mesh;
         public string[] RelatedPartNames;
         public QuadWildInputFileInfo QuadWildInputFileInfo;
+        public bool RetainWorkDirectory;
     }
 }

@@ -108,6 +108,18 @@ namespace PrePoMax.Forms
                               "unsmoothed quadrangulation, which has the same topology.")]
         [Id(4, 5)]
         public bool Smooth { get { return _shellQuadWild.Smooth; } set { _shellQuadWild.Smooth = value; } }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(0, 10, "Keep files on failure")]
+        [DescriptionAttribute("Keep the QuadWild MeshBatch folder when meshing fails so that its input, " +
+                              "configuration, output, and log files can be inspected. The retained folder path " +
+                              "is written to the output window.")]
+        [Id(1, 6)]
+        public bool KeepFilesOnFailure
+        {
+            get { return _shellQuadWild.KeepFilesOnFailure; }
+            set { _shellQuadWild.KeepFilesOnFailure = value; }
+        }
 
 
         // Constructors
@@ -122,6 +134,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(Preview));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Remesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Smooth));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(KeepFilesOnFailure));
             //
             UpdateVisibility();
         }

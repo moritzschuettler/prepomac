@@ -163,13 +163,14 @@ def test_layer_validation(items, selection):
 
 def test_quad_wild(items, selection):
     items.add_shell_quad_wild(PREFIX + "QuadWild", selection, triangulation_mesher="Netgen",
-                              scale_factor=1.5, flow_profile="NoAlignment")
+                              scale_factor=1.5, flow_profile="NoAlignment", keep_files_on_failure=True)
     items.replace_shell_quad_wild(PREFIX + "QuadWild", smooth=False, flow_profile="Aligned")
     values = settings(items, PREFIX + "QuadWild")
     check(values["smooth"] is False, "the smoothing flag was not replaced")
     check(values["flow_profile"] == "Aligned", "the flow profile was not replaced")
     check(values["scale_factor"] == 1.5, "the omitted scale factor was not kept")
     check(values["triangulation_mesher"] == "Netgen", "the omitted triangulation mesher was not kept")
+    check(values["keep_files_on_failure"] is True, "the file retention flag was not kept")
 
 
 def test_rejection_leaves_no_trace(items):
