@@ -2991,21 +2991,36 @@ namespace CaeModel
         /// section, so sweeping it meshes them once in 2D and extrudes them; a wall that is neither planar
         /// nor cylindrical strains the projection of the target layer.
         /// </summary>
+        /// <summary>
+        /// How good a sweep the blocks make, higher being better. A source with more edges gives the sweep
+        /// more of the geometry to follow; a side surface that is neither a plane nor a cylinder costs, since
+        /// its structured grid is the least reliable; a sweep line that meets the target at a grazing angle
+        /// costs as much, because the elements at its end are flattened - a sweep along a body onto a face
+        /// that runs along the sweep is such a case; and a target that is an offset of the source - parallel
+        /// planes, coaxial cylinders, a body of constant thickness - earns a bonus, since every sweep line
+        /// then has the same length and the layers are the same shape as the source. Among the rest a larger
+        /// source is preferred a little, so that a body is swept through its thin direction, where the layers
+        /// are few and the source carries most of the mesh.
+        /// </summary>
         private double ScoreSweepBlocks(SweepMesh sweepMesh, Dictionary<int, GeomFaceType> faceTypes)
         {
             int partId;
             double score = 0;
             GeomFaceType faceType;
+            GeometryPart part;
             VisualizationData vis;
             HashSet<int> sourceEdgeIds;
             for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
             {
                 partId = FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]);
-                vis = _geometry.GetPartFromId(partId).Visualization;
+                part = (GeometryPart)_geometry.GetPartFromId(partId);
+                vis = part.Visualization;
+                int[] sourceSurfaceIds = sweepMesh.BlockSourceSurfaceIds[i].Select(id => FeMesh.GetItemIdFromGmshTopologyId(id))
+                                                                             .ToArray();
+                int[] targetSurfaceIds = sweepMesh.BlockTargetSurfaceIds[i].Select(id => FeMesh.GetItemIdFromGmshTopologyId(id))
+                                                                             .ToArray();
                 //
-                sourceEdgeIds = new HashSet<int>();
-                foreach (var surfaceId in sweepMesh.BlockSourceSurfaceIds[i])
-                    sourceEdgeIds.UnionWith(vis.FaceEdgeIds[FeMesh.GetItemIdFromGmshTopologyId(surfaceId)]);
+                sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds);
                 score += sourceEdgeIds.Count;
                 //
                 foreach (var surfaceId in sweepMesh.BlockSideSurfaceIds[i])
@@ -3013,8 +3028,125 @@ namespace CaeModel
                     faceType = GetSweepFaceType(vis, surfaceId, faceTypes);
                     if (faceType != GeomFaceType.Plane && faceType != GeomFaceType.Cylinder) score -= 4;
                 }
+                //
+                score -= 4 * CountGrazingSweepLines(vis, sourceEdgeIds, targetSurfaceIds);
+                if (IsTargetAnOffsetOfSource(part, sourceSurfaceIds, targetSurfaceIds, faceTypes)) score += 6;
+                if (vis.FaceAreas != null && vis.FaceAreas.Sum() > 0)
+                    score += 2 * sourceSurfaceIds.Sum(id => vis.FaceAreas[id]) / vis.FaceAreas.Sum();
             }
             return score;
+        }
+        /// <summary>
+        /// The number of edge chains running from the source that end without meeting a target surface head
+        /// on: at a vertex that lies on no target surface, or at one where every target surface there makes
+        /// an angle of more than 60 degrees with the chain.
+        /// </summary>
+        private int CountGrazingSweepLines(VisualizationData vis, HashSet<int> sourceEdgeIds, int[] targetSurfaceIds)
+        {
+            int count = 0;
+            int lastEdgeId;
+            int lastVertexId;
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = vis.GetVertexIdEdgeIds();
+            HashSet<int> chainEdgeIds = new HashSet<int>();
+            foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
+            {
+                foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
+                {
+                    if (sourceEdgeIds.Contains(edgeId) || chainEdgeIds.Contains(edgeId)) continue;
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIds,
+                                     out lastEdgeId, out lastVertexId);
+                    Vec3D direction = -1 * GetSweepEdgeTangent(vis, lastEdgeId, lastVertexId);
+                    if (direction.Len == 0) continue;
+                    //
+                    double bestCosine = 0;
+                    foreach (var surfaceId in targetSurfaceIds)
+                    {
+                        Vec3D normal = GetFaceNormalAtVertex(vis, surfaceId, lastVertexId);
+                        if (normal == null) continue;
+                        double cosine = Math.Abs(Vec3D.DotProduct(direction, normal)) / (direction.Len * normal.Len);
+                        bestCosine = Math.Max(bestCosine, cosine);
+                    }
+                    if (bestCosine < 0.5) count++;
+                }
+            }
+            return count;
+        }
+        /// <summary>
+        /// The normal of a surface at one of its vertices, from a cell of the surface at that vertex, or null
+        /// when the vertex is not on the surface.
+        /// </summary>
+        private Vec3D GetFaceNormalAtVertex(VisualizationData vis, int surfaceId, int vertexNodeId)
+        {
+            foreach (var cellId in vis.CellIdsByFace[surfaceId])
+            {
+                int[] cell = vis.Cells[cellId];
+                if (cell.Length < 3 || !cell.Contains(vertexNodeId)) continue;
+                Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+                Vec3D b = new Vec3D(_geometry.Nodes[cell[1]].Coor);
+                Vec3D c = new Vec3D(_geometry.Nodes[cell[2]].Coor);
+                Vec3D normal = Vec3D.CrossProduct(b - a, c - a);
+                if (normal.Len > 0) return normal;
+            }
+            return null;
+        }
+        /// <summary>
+        /// Whether every target surface is an offset of the source: all of one type, planes parallel to the
+        /// source planes or cylinders on the axis of the source cylinders, the axes read from the CAD data.
+        /// </summary>
+        private bool IsTargetAnOffsetOfSource(GeometryPart part, int[] sourceSurfaceIds, int[] targetSurfaceIds,
+                                              Dictionary<int, GeomFaceType> faceTypes)
+        {
+            VisualizationData vis = part.Visualization;
+            GeomFaceType type = GetSweepFaceType(vis, FeMesh.GmshTopologyId(sourceSurfaceIds[0], part.PartId), faceTypes);
+            if (type != GeomFaceType.Plane && type != GeomFaceType.Cylinder) return false;
+            foreach (var surfaceId in sourceSurfaceIds.Concat(targetSurfaceIds))
+            {
+                if (GetSweepFaceType(vis, FeMesh.GmshTopologyId(surfaceId, part.PartId), faceTypes) != type) return false;
+            }
+            //
+            if (type == GeomFaceType.Plane)
+            {
+                Vec3D reference = null;
+                foreach (var surfaceId in sourceSurfaceIds.Concat(targetSurfaceIds))
+                {
+                    if (vis.CellIdsByFace[surfaceId].Length == 0) return false;
+                    int[] cell = vis.Cells[vis.CellIdsByFace[surfaceId][0]];
+                    Vec3D origin = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+                    Vec3D normal = Vec3D.CrossProduct(new Vec3D(_geometry.Nodes[cell[1]].Coor) - origin,
+                                                      new Vec3D(_geometry.Nodes[cell[2]].Coor) - origin);
+                    if (normal.Len == 0) return false;
+                    if (reference == null) reference = normal;
+                    else if (Math.Abs(Vec3D.DotProduct(reference, normal)) < 0.999 * reference.Len * normal.Len) return false;
+                }
+                return true;
+            }
+            // Cylinders: one axis line for all of them
+            if (part.GeometryMetadata == null) return false;
+            double[] values;
+            Vec3D axisPoint = null;
+            Vec3D axisDirection = null;
+            foreach (var surfaceId in sourceSurfaceIds.Concat(targetSurfaceIds))
+            {
+                GeometryMetadataEntity face = part.GeometryMetadata.GetEntity("face", surfaceId + 1);
+                if (face == null || !face.TryGetNumbers("axis", out values) || values.Length != 6) return false;
+                Vec3D point = new Vec3D(values[0], values[1], values[2]);
+                Vec3D direction = new Vec3D(values[3], values[4], values[5]);
+                if (direction.Len == 0) return false;
+                if (axisDirection == null)
+                {
+                    axisPoint = point;
+                    axisDirection = direction;
+                    continue;
+                }
+                if (Math.Abs(Vec3D.DotProduct(axisDirection, direction)) < (1 - 1E-6) * axisDirection.Len * direction.Len)
+                    return false;
+                // The point of this axis must lie on the first one
+                Vec3D offset = point - axisPoint;
+                double along = Vec3D.DotProduct(offset, axisDirection) / axisDirection.Len;
+                double across = Math.Sqrt(Math.Max(0, offset.Len * offset.Len - along * along));
+                if (across > 1E-6 * Math.Max(1, offset.Len)) return false;
+            }
+            return true;
         }
         private GeomFaceType GetSweepFaceType(VisualizationData vis, int gmshTopologyId, Dictionary<int, GeomFaceType> faceTypes)
         {
@@ -3154,7 +3286,7 @@ namespace CaeModel
                                                    FeMesh.GetItemIdFromGmshTopologyId(twinId), twinEdgeIds,
                                                    partIdSourceSurfaceIds, pendingPartIds);
                     if (error != null) return error;
-                    sideDerivedPartIds.Add(neighbourPartId);
+                    if (partIdSourceSurfaceIds.ContainsKey(neighbourPartId)) sideDerivedPartIds.Add(neighbourPartId);
                 }
                 // A neighbour across a target surface is swept next, from the mesh this block leaves there.
                 // That mesh follows the imprint of the shared surface where the imprint is a wall edge of this
@@ -3338,11 +3470,9 @@ namespace CaeModel
                     neighbourSourceIds.Add(i);
                 }
             }
-            if (neighbourSourceIds.Count == 0)
-            {
-                return "The part " + neighbour.Name + " shares a side surface with the part " + part.Name + ", but no " +
-                       "surface continuing the source of the part " + part.Name + " across it was found.";
-            }
+            // A neighbour with no surface continuing the source - a collar around the middle of a post - is not
+            // swept alongside; it stays unreached and needs a source of its own, which the detection gives it
+            if (neighbourSourceIds.Count == 0) return null;
             //
             foreach (var surfaceId in neighbourSourceIds)
                 AddSourceSurface(neighbour.PartId, surfaceId, partIdSourceSurfaceIds, pendingPartIds, true);
@@ -3549,7 +3679,7 @@ namespace CaeModel
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
                 {
                     if (sourceEdgeIds.Contains(edgeId) || chainEdgeIdSet.Contains(edgeId)) continue;
-                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet);
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet, out _, out _);
                 }
             }
             if (chainEdgeIdSet.Count == 0) return "No edges follow the sweep direction from the source surfaces.";
@@ -3585,13 +3715,16 @@ namespace CaeModel
             return null;
         }
         private void FollowSweepChain(VisualizationData vis, int edgeId, int vertexId, HashSet<int> sourceEdgeIds,
-                                      Dictionary<int, HashSet<int>> vertexIdEdgeIds, HashSet<int> chainEdgeIds)
+                                      Dictionary<int, HashSet<int>> vertexIdEdgeIds, HashSet<int> chainEdgeIds,
+                                      out int lastEdgeId, out int lastVertexId)
         {
             while (true)
             {
                 chainEdgeIds.Add(edgeId);
                 int[] endVertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
                 int nextVertexId = endVertexIds[0] == vertexId ? endVertexIds[1] : endVertexIds[0];
+                lastEdgeId = edgeId;
+                lastVertexId = nextVertexId;
                 if (nextVertexId == vertexId) return;
                 // The direction of travel into the vertex, against the direction the edge leaves the vertex in
                 Vec3D incoming = -1 * GetSweepEdgeTangent(vis, edgeId, nextVertexId);

@@ -337,15 +337,17 @@ namespace CaeMesh.Sweep
         /// <summary>
         /// The number of elements on every edge following the sweep direction, from the levels along the
         /// sweep. The chains of a family - chains sharing an edge, or running along the two sides of one
-        /// wall - are cut into levels: two chain vertices joined by a cross edge of a wall lie on one level,
-        /// and so do vertices of different chains at nearly the same fraction of their chain's length. Every
-        /// interval between two consecutive levels carries one count, an edge carries the sum over the
-        /// intervals it spans, and so the two sides of every wall add up to the same total whatever way each
-        /// of them is split. A count pinned on an edge spanning one interval is that interval's count; a
-        /// count pinned on a longer edge is shared out over its intervals; otherwise the counts measured from
-        /// the 1D mesh decide.
+        /// wall - are cut into levels: two chain vertices joined by a cross edge of a wall, or lying on one
+        /// cross section face - a source or a target of a block - are on one level, and so are vertices of
+        /// different chains at nearly the same fraction of their chain's length when nothing orders them.
+        /// The levels are ordered along the chains, every interval between two consecutive levels carries
+        /// one count, an edge carries the sum over the intervals it spans, and so the two sides of every wall
+        /// add up to the same total whatever way each of them is split. A count pinned on an edge spanning
+        /// one interval is that interval's count; a count pinned on a longer edge is shared out over its
+        /// intervals; otherwise the counts measured from the 1D mesh decide.
         /// </summary>
         public static Dictionary<int, int> ResolveDirectionEdgeElements(List<SweepChain> chains, List<SweepWall> walls,
+                                                                        List<int[]> crossSectionVertexIds,
                                                                         Dictionary<int, int> pinnedEdgeIdNumOfElements)
         {
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
@@ -377,26 +379,27 @@ namespace CaeMesh.Sweep
                 }
                 Unite(parent, indices);
             }
-            // The cross edges of the walls, as the pairs of vertices they join
+            // The vertices that lie on one level: the two of every cross edge of a wall, and those of every
+            // cross section face
             int[] vertexIds;
-            List<int[]> crossEdgeVertexIds = new List<int[]>();
+            List<int[]> levelVertexIds = new List<int[]>(crossSectionVertexIds);
             foreach (var wall in walls)
             {
                 foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds))
                 {
                     Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
-                    if (vertexIds.Distinct().Count() == 2) crossEdgeVertexIds.Add(vertexIds.Distinct().ToArray());
+                    if (vertexIds.Distinct().Count() == 2) levelVertexIds.Add(vertexIds.Distinct().ToArray());
                 }
             }
             //
             foreach (var family in Enumerable.Range(0, chains.Count).GroupBy(i => Find(parent, i)))
             {
-                ResolveFamilyElements(family.Select(i => chains[i]).ToList(), crossEdgeVertexIds, pinnedEdgeIdNumOfElements,
+                ResolveFamilyElements(family.Select(i => chains[i]).ToList(), levelVertexIds, pinnedEdgeIdNumOfElements,
                                       edgeIdNumOfElements);
             }
             return edgeIdNumOfElements;
         }
-        private static void ResolveFamilyElements(List<SweepChain> chains, List<int[]> crossEdgeVertexIds,
+        private static void ResolveFamilyElements(List<SweepChain> chains, List<int[]> levelVertexIds,
                                                   Dictionary<int, int> pinnedEdgeIdNumOfElements,
                                                   Dictionary<int, int> edgeIdNumOfElements)
         {
@@ -430,33 +433,46 @@ namespace CaeMesh.Sweep
                     fractionOfVertex.Add(fractions[edgeIds.Length] > 0 ? fractions[i] / fractions[edgeIds.Length] : 0);
                 }
             }
-            // The levels: one vertex reached by several chains is one level, two vertices joined by a cross
-            // edge are one level
+            // The levels: one vertex reached by several chains is one level, and so are the vertices joined by
+            // a cross edge or lying on one cross section face
             int[] levelOfPosition = Enumerable.Range(0, chainOfVertex.Count).ToArray();
             foreach (var positions in vertexIdPositions.Values) Unite(levelOfPosition, positions);
-            foreach (var pair in crossEdgeVertexIds)
+            foreach (var group in levelVertexIds)
             {
-                List<int> positions0;
-                List<int> positions1;
-                if (!vertexIdPositions.TryGetValue(pair[0], out positions0)) continue;
-                if (!vertexIdPositions.TryGetValue(pair[1], out positions1)) continue;
-                Unite(levelOfPosition, new List<int>() { positions0[0], positions1[0] });
+                List<int> positions;
+                List<int> groupPositions = new List<int>();
+                foreach (var vertexId in group)
+                {
+                    if (vertexIdPositions.TryGetValue(vertexId, out positions)) groupPositions.Add(positions[0]);
+                }
+                // A face holding two vertices of one chain crosses this family's sweep rather than cutting it -
+                // the end of a block swept the other way across a shared wall - and says nothing about levels
+                if (groupPositions.Select(position => chainOfVertex[position]).Distinct().Count() < groupPositions.Count) continue;
+                Unite(levelOfPosition, groupPositions);
             }
-            // Vertices of different chains at nearly the same fraction are one level as well, so that a split
-            // partway along one chain does not put a sliver of a layer next to a split of another
-            const double tolerance = 0.02;
             List<List<int>> levels = Enumerable.Range(0, chainOfVertex.Count).GroupBy(p => Find(levelOfPosition, p))
                                                .Select(group => group.ToList()).ToList();
-            levels.Sort((a, b) => a.Average(p => fractionOfVertex[p]).CompareTo(b.Average(p => fractionOfVertex[p])));
-            for (int k = 0; k + 1 < levels.Count; k++)
+            // The levels in the order the chains run through them; by the fractions alone where the chains do
+            // not agree. Two levels no chain orders, at nearly the same fraction, are one level, so that a
+            // split partway along one chain does not put a sliver of a layer next to a split of another
+            const double tolerance = 0.02;
+            while (true)
             {
-                double gap = levels[k + 1].Average(p => fractionOfVertex[p]) - levels[k].Average(p => fractionOfVertex[p]);
-                bool sharedChain = levels[k].Select(p => chainOfVertex[p])
-                                            .Intersect(levels[k + 1].Select(p => chainOfVertex[p])).Any();
-                if (gap > tolerance || sharedChain) continue;
-                levels[k].AddRange(levels[k + 1]);
-                levels.RemoveAt(k + 1);
-                k--;
+                bool[,] before = GetLevelOrder(chains, levels, chainOfVertex, indexOfVertex, fractionOfVertex);
+                int merged = -1;
+                for (int k = 0; k + 1 < levels.Count && merged < 0; k++)
+                {
+                    if (before[k, k + 1] || before[k + 1, k]) continue;
+                    double gap = Math.Abs(levels[k + 1].Average(p => fractionOfVertex[p]) -
+                                          levels[k].Average(p => fractionOfVertex[p]));
+                    if (gap > tolerance) continue;
+                    if (levels[k].Select(p => chainOfVertex[p]).Intersect(levels[k + 1].Select(p => chainOfVertex[p])).Any())
+                        continue;
+                    merged = k;
+                }
+                if (merged < 0) break;
+                levels[merged].AddRange(levels[merged + 1]);
+                levels.RemoveAt(merged + 1);
             }
             double[] levelFractions = levels.Select(level => level.Average(p => fractionOfVertex[p])).ToArray();
             int[][] chainLevelIndices = chains.Select(chain => new int[chain.VertexIds.Length]).ToArray();
@@ -541,6 +557,72 @@ namespace CaeMesh.Sweep
                     edgeIdNumOfElements[chains[c].EdgeIds[i]] = Math.Max(1, count);
                 }
             }
+        }
+        /// <summary>
+        /// Sorts the levels the way the chains run through them - a topological order of the successions
+        /// along every chain, ties broken by the mean fraction - and returns which level comes before which.
+        /// Levels the chains order inconsistently are sorted by their mean fraction alone.
+        /// </summary>
+        private static bool[,] GetLevelOrder(List<SweepChain> chains, List<List<int>> levels, List<int> chainOfVertex,
+                                             List<int> indexOfVertex, List<double> fractionOfVertex)
+        {
+            int count = levels.Count;
+            int[] levelOfPosition = new int[chainOfVertex.Count];
+            for (int k = 0; k < count; k++)
+            {
+                foreach (var p in levels[k]) levelOfPosition[p] = k;
+            }
+            bool[,] before = new bool[count, count];
+            for (int p = 0; p < chainOfVertex.Count; p++)
+            {
+                if (indexOfVertex[p] + 1 >= chains[chainOfVertex[p]].VertexIds.Length) continue;
+                // The position of the next vertex of the same chain
+                int next = p + 1;
+                if (levelOfPosition[p] != levelOfPosition[next]) before[levelOfPosition[p], levelOfPosition[next]] = true;
+            }
+            for (int m = 0; m < count; m++)
+            {
+                for (int a = 0; a < count; a++)
+                {
+                    if (!before[a, m]) continue;
+                    for (int b = 0; b < count; b++)
+                    {
+                        if (before[m, b]) before[a, b] = true;
+                    }
+                }
+            }
+            double[] fractions = levels.Select(level => level.Average(p => fractionOfVertex[p])).ToArray();
+            List<int> order = new List<int>();
+            bool[] placed = new bool[count];
+            bool consistent = true;
+            for (int step = 0; step < count && consistent; step++)
+            {
+                int best = -1;
+                for (int k = 0; k < count; k++)
+                {
+                    if (placed[k]) continue;
+                    bool free = true;
+                    for (int a = 0; a < count && free; a++) free = placed[a] || a == k || !before[a, k];
+                    if (free && (best < 0 || fractions[k] < fractions[best])) best = k;
+                }
+                if (best < 0) consistent = false;
+                else
+                {
+                    placed[best] = true;
+                    order.Add(best);
+                }
+            }
+            if (!consistent) order = Enumerable.Range(0, count).OrderBy(k => fractions[k]).ToList();
+            //
+            List<List<int>> sorted = order.Select(k => levels[k]).ToList();
+            levels.Clear();
+            levels.AddRange(sorted);
+            bool[,] sortedBefore = new bool[count, count];
+            for (int a = 0; a < count; a++)
+            {
+                for (int b = 0; b < count; b++) sortedBefore[a, b] = before[order[a], order[b]];
+            }
+            return sortedBefore;
         }
         private static int Find(int[] parent, int i)
         {

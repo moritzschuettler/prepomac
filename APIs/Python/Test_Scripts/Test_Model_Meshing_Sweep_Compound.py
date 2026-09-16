@@ -17,6 +17,10 @@
 #    in three rings along the sweep and the middle ring touches neither the source nor the target.
 #  - sweep_half_loop.brep: a single box with one wall split by a line partway up and no loop around the
 #    body, so that the walls beside the split have direction sides of two edges with no ring to match.
+#  - sweep_pipe_wall.brep: a quarter of a pipe wall, which the detection has to sweep through its thickness,
+#    from one of the cylinders, rather than along its length from an end.
+#  - sweep_collar.brep: a post through a collar plate around its middle. The collar is swept through its
+#    thickness alongside the middle ring of the post's walls, its short chains in one family with the long ones.
 #  - sweep_side2.brep and sweep_grid4.brep: boxes standing side by side, sharing walls. One selected face
 #    sweeps them all, and the shared walls carry one layer count.
 #  - sweep_base_two.brep: two boxes side by side on a base. From the top of one block the other is found
@@ -304,6 +308,61 @@ def test_automatic_sources():
         items.remove([SWEEP_NAME])
 
 
+def test_post_through_collar():
+    # A post through a collar plate around its middle. The collar shares the post's walls between its two
+    # faces, so the post's walls stand in three rings and the collar is swept through its thickness alongside
+    # the middle ring: its short chains and the post's long ones are one family, and the collar's faces mark
+    # two levels of it. Swept from the post's end and the collar's top, and automatically
+    solids, compound = import_geometry("sweep_collar.brep")
+    check(compound is not None and len(solids) == 2, "the post and the collar must import as a compound of 2")
+    post = max(solids, key=lambda solid: solid.get_face_data().count)
+    collar = [solid for solid in solids if solid is not post][0]
+    post_bottom = find_end_face([post], top=False)[1]
+    collar_top = find_end_face([collar], top=True)[1]
+    items = pmx.model.mesh.setup_items
+    selection = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
+                                            {post.id: [post_bottom], collar.id: [collar_top]})
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    check(items[SWEEP_NAME].valid, "the sweep of the post and the collar from two sources is not valid")
+    nodes_before = pmx.model.nodes.count
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "", "the sweep of the post and the collar reported: " + report[compound.name])
+    names = set(solid.name for solid in solids)
+    meshed = [part for part in pmx.model.parts if part.name in names]
+    check(len(meshed) == 2 and pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+          "the post and the collar do not share their interface nodes")
+    items.remove([SWEEP_NAME])
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the post and the collar is not valid")
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "", "the automatic sweep of the post and the collar reported: " + report[compound.name])
+    items.remove([SWEEP_NAME])
+
+
+def test_constant_thickness_source():
+    # A quarter of a pipe wall, 5 thick, 100 long: every face is a valid source, the two end planes give a
+    # long sweep of many layers and the two cylinders a sweep through the thickness. The detection has to
+    # prefer a cylinder, whose target is an offset of it
+    solids, compound = import_geometry("sweep_pipe_wall.brep")
+    check(compound is None and len(solids) == 1, "the pipe wall must import as a single part")
+    part = solids[0]
+    faces = part.get_face_data()
+    cylinder_ids = [int(list(faces.ids)[i]) for i in range(faces.count) if list(faces.types)[i] == "Cylinder"]
+    check(len(cylinder_ids) == 2, "the pipe wall must have two cylindrical faces")
+    counts = []
+    for face_id in cylinder_ids:
+        meshed = mesh_with_sweep(part, solids, part, face_id)
+        counts.append(meshed[0].element_count)
+    items = pmx.model.mesh.setup_items
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the pipe wall is not valid")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the automatic sweep of the pipe wall reported: " + report[part.name])
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name]
+    check(meshed[0].element_count in counts, "the automatic sweep of the pipe wall did not start from a cylinder")
+    items.remove([SWEEP_NAME])
+
+
 def test_perpendicular_bores():
     items = pmx.model.mesh.setup_items
     # Side by side: each box is swept along its own bore, perpendicular to the other, across the shared wall
@@ -373,6 +432,8 @@ def main():
     test_two_blocks_on_a_base()
     test_perpendicular_directions()
     test_automatic_sources()
+    test_constant_thickness_source()
+    test_post_through_collar()
     test_perpendicular_bores()
     test_two_parts_apart()
     test_plate_imprinted_on_both_sides()
