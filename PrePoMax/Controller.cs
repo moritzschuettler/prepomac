@@ -15916,25 +15916,30 @@ namespace PrePoMax
                                                              string[] selectionPartNames, vtkSelectBy selectBy)
         {
             // The selection is geometry based!
-            int[] nodeIds;
-            int[] elementIds;
+            int[] ids;
             FeMesh mesh = DisplayedMesh;
-            _form.GetPointAndCellIdsInsideFrustum(planeParameters, selectionPartNames, out nodeIds, out elementIds);
-            //
-            int[] ids = null;
-            if ((elementIds == null || elementIds.Length == 0) && (nodeIds == null || nodeIds.Length == 0)) return ids;
-            // Get geometry ids
-            if (selectionPartNames.Length == 1)
-                ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside, selectionPartNames[0]);
-            else
-                ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
-            // Apply select by filter to geometry ids
+            // A part is picked whole, and the picker has already named the parts the frustum reaches. Reading
+            // them back from the nodes and the cells inside the frustum loses a part the box only touches
+            // along a silhouette edge, where no node and no cell of the part lies inside the frustum at all
             if (selectBy == vtkSelectBy.GeometryPart)
             {
-                // Change all geometry ids to geometry part ids
-                HashSet<int> geometryPartIds = new HashSet<int>();
-                for (int i = 0; i < ids.Length; i++) geometryPartIds.Add(FeMesh.GetGeometryPartIdFromGeometryId(ids[i]));
-                ids = geometryPartIds.ToArray();
+                int[] partIds = GetPartIdsFromPartNames(mesh, selectionPartNames);
+                ids = new int[partIds.Length];
+                for (int i = 0; i < partIds.Length; i++)
+                    ids[i] = FeMesh.GetGeometryId(0, (int)GeometryType.Part, partIds[i]);
+            }
+            else
+            {
+                int[] nodeIds;
+                int[] elementIds;
+                _form.GetPointAndCellIdsInsideFrustum(planeParameters, selectionPartNames, out nodeIds, out elementIds);
+                //
+                if ((elementIds == null || elementIds.Length == 0) && (nodeIds == null || nodeIds.Length == 0)) return null;
+                // Get geometry ids
+                if (selectionPartNames.Length == 1)
+                    ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside, selectionPartNames[0]);
+                else
+                    ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
             }
             // Select all other subparts of a selected compound part
             if (_selection.CurrentView == (int)ViewGeometryModelResults.Geometry && _selection.SelectItem == vtkSelectItem.Part)
@@ -16049,10 +16054,14 @@ namespace PrePoMax
         }
         public int[] GetPartIdsFromFrustum(double[][] planeParameters, string[] selectionPartNames, vtkSelectBy selectBy)
         {
+            FeMesh mesh = DisplayedMesh;
+            // A part is picked whole, and the picker has already named the parts the frustum reaches. Reading
+            // them back from the nodes and the cells inside the frustum loses a part the box only touches
+            // along a silhouette edge, where no node and no cell of the part lies inside the frustum at all
+            if (selectBy == vtkSelectBy.Part) return GetPartIdsFromPartNames(mesh, selectionPartNames);
+            //
             int[] nodeIds;
             int[] elementIds;
-            FeMesh mesh = DisplayedMesh;
-            //
             _form.GetPointAndCellIdsInsideFrustum(planeParameters, selectionPartNames, out nodeIds, out elementIds);
             //
             if (selectBy == vtkSelectBy.Node)
@@ -16063,14 +16072,25 @@ namespace PrePoMax
             {
                 if (elementIds.Length > 0) return mesh.GetPartIdsFromElementIds(elementIds);
             }
-            else if (selectBy == vtkSelectBy.Part)
-            {
-                if (nodeIds.Length > 0) return mesh.GetPartIdsFromNodeIds(nodeIds);
-                else if (elementIds.Length > 0) return mesh.GetPartIdsFromElementIds(elementIds);
-            }
             else throw new NotSupportedException();
             //
             return new int[0];
+        }
+        /// <summary>
+        /// The ids of the named parts, skipping a name the mesh does not hold. The picker names the parts it
+        /// reached, and a part it named may have been removed from the mesh since the selection was recorded.
+        /// </summary>
+        private static int[] GetPartIdsFromPartNames(FeMesh mesh, string[] partNames)
+        {
+            List<int> partIds = new List<int>();
+            if (partNames != null)
+            {
+                foreach (var partName in partNames)
+                {
+                    if (mesh.Parts.TryGetValue(partName, out BasePart part)) partIds.Add(part.PartId);
+                }
+            }
+            return partIds.ToArray();
         }
         public double[][] GetRelativePartOffsets(SelectionNodeMouse selectionNodeMouse, out bool allZero)
         {
@@ -21775,72 +21795,51 @@ namespace PrePoMax
         }
         public void HighlightSweepMesh(SweepMesh sweepMesh, bool useSecondaryHighlightColor = false)
         {
-            string prefixName = sweepMesh.Name + Globals.NameSeparator + "Arrows";
-            // The source surfaces found automatically are the ones worth seeing, not the part they were found
-            // on, together with the layer edges of every block and an arrow per block along one of them
-            if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic && sweepMesh.BlockSourceSurfaceIds != null)
-            {
-                List<int> geometryIds = new List<int>();
-                foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
-                {
-                    foreach (var gmshTopologyId in blockSourceSurfaceIds)
-                    {
-                        geometryIds.Add(FeMesh.GetGeometryId(FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId),
-                                                             (int)GeometryType.SolidSurface,
-                                                             FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId)));
-                    }
-                }
-                if (sweepMesh.LayerGroupEdgeIds != null)
-                {
-                    foreach (var layerGroups in sweepMesh.LayerGroupEdgeIds)
-                    {
-                        foreach (var edgeIds in layerGroups)
-                        {
-                            foreach (var gmshTopologyId in edgeIds)
-                            {
-                                geometryIds.Add(FeMesh.GetGeometryId(FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId),
-                                                                     (int)GeometryType.Edge,
-                                                                     FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId)));
-                            }
-                        }
-                    }
-                }
-                HighlightItemsByGeometryIds(geometryIds.ToArray(), true, useSecondaryHighlightColor);
-                //
-                if (sweepMesh.BlockArrowStarts != null && sweepMesh.BlockArrowDirections != null)
-                {
-                    List<double[]> starts = new List<double[]>();
-                    List<double[]> directions = new List<double[]>();
-                    for (int i = 0; i < sweepMesh.BlockArrowStarts.Length; i++)
-                    {
-                        if (sweepMesh.BlockArrowStarts[i] == null || sweepMesh.BlockArrowDirections[i] == null) continue;
-                        // The exploded view moves every sub-part by its own offset
-                        BasePart part = _model.Geometry.GetPartFromId(
-                            FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]));
-                        double[] offset = part != null ? part.Offset : new double[3];
-                        starts.Add(new double[] { sweepMesh.BlockArrowStarts[i][0] + offset[0],
-                                                  sweepMesh.BlockArrowStarts[i][1] + offset[1],
-                                                  sweepMesh.BlockArrowStarts[i][2] + offset[2] });
-                        directions.Add(sweepMesh.BlockArrowDirections[i]);
-                    }
-                    if (starts.Count > 0)
-                    {
-                        DrawArrowSymbols(prefixName, starts.ToArray(), directions.ToArray(), Color.Empty,
-                                         _settings.Pre.SymbolSize, vtkRendererLayer.Selection, !useSecondaryHighlightColor);
-                    }
-                }
-            }
-            else
+            // Every surface the sweep starts from is worth seeing, the ones found automatically as well as the
+            // ones the selection of a single surface reaches, together with an arrow per block for the
+            // direction it is swept in. Until the blocks are known only the selection itself can be shown
+            if (sweepMesh.BlockSourceSurfaceIds == null || sweepMesh.BlockSourceSurfaceIds.Length == 0)
             {
                 HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
-                //
-                if (sweepMesh.SweepCenter != null && sweepMesh.Direction != null)
+                return;
+            }
+            //
+            List<int> geometryIds = new List<int>();
+            foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
+            {
+                foreach (var gmshTopologyId in blockSourceSurfaceIds)
                 {
-                    int symbolSize = 2 * _settings.Pre.SymbolSize;
-                    DrawArrowSymbols(prefixName, new double[][] { sweepMesh.SweepCenter },
-                                     new double[][] { sweepMesh.Direction }, Color.Empty, symbolSize,
-                                     vtkRendererLayer.Selection, !useSecondaryHighlightColor);
+                    geometryIds.Add(FeMesh.GetGeometryId(FeMesh.GetItemIdFromGmshTopologyId(gmshTopologyId),
+                                                         (int)GeometryType.SolidSurface,
+                                                         FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId)));
                 }
+            }
+            // The source surfaces filled. The visualization of a CAD part is a shell of two dimensional cells
+            // and a solid surface resolves to their back side, whose winding points into the solid, so the
+            // faces are drawn without backface culling or nothing of them is drawn at all
+            HighlightItemsByGeometryIds(geometryIds.ToArray(), false, useSecondaryHighlightColor);
+            //
+            if (sweepMesh.BlockArrowStarts == null || sweepMesh.BlockArrowDirections == null) return;
+            //
+            List<double[]> starts = new List<double[]>();
+            List<double[]> directions = new List<double[]>();
+            for (int i = 0; i < sweepMesh.BlockArrowStarts.Length; i++)
+            {
+                if (sweepMesh.BlockArrowStarts[i] == null || sweepMesh.BlockArrowDirections[i] == null) continue;
+                // The exploded view moves every sub-part by its own offset
+                BasePart part = _model.Geometry.GetPartFromId(
+                    FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]));
+                double[] offset = part != null ? part.Offset : new double[3];
+                starts.Add(new double[] { sweepMesh.BlockArrowStarts[i][0] + offset[0],
+                                          sweepMesh.BlockArrowStarts[i][1] + offset[1],
+                                          sweepMesh.BlockArrowStarts[i][2] + offset[2] });
+                directions.Add(sweepMesh.BlockArrowDirections[i]);
+            }
+            if (starts.Count > 0)
+            {
+                string prefixName = sweepMesh.Name + Globals.NameSeparator + "Arrows";
+                DrawArrowSymbols(prefixName, starts.ToArray(), directions.ToArray(), Color.Empty,
+                                 _settings.Pre.SymbolSize, vtkRendererLayer.Selection, !useSecondaryHighlightColor);
             }
         }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)

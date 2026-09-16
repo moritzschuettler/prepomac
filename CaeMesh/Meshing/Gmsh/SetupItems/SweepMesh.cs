@@ -26,8 +26,6 @@ namespace CaeMesh
         private SweepSourceTypeEnum _sourceType;                        // ISerializable
         private int _numberOfGlobalSmoothSteps;                         // ISerializable
         private bool _keepImprintEdges;                                 // ISerializable
-        private double[] _direction;                                    // ISerializable
-        private double[] _sweepCenter;                                  // ISerializable
         private int[][] _blockSourceSurfaceIds;                         // ISerializable
         private int[][] _blockSideSurfaceIds;                           // ISerializable
         private int[][] _blockTargetSurfaceIds;                         // ISerializable
@@ -48,8 +46,6 @@ namespace CaeMesh
             }
         }
         public bool KeepImprintEdges { get { return _keepImprintEdges; } set { _keepImprintEdges = value; } }
-        public double[] Direction { get { return _direction; } set { _direction = value; } }
-        public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
         public int[][] BlockSourceSurfaceIds { get { return _blockSourceSurfaceIds; } set { _blockSourceSurfaceIds = value; } }
         public int[][] BlockSideSurfaceIds { get { return _blockSideSurfaceIds; } set { _blockSideSurfaceIds = value; } }
         public int[][] BlockTargetSurfaceIds { get { return _blockTargetSurfaceIds; } set { _blockTargetSurfaceIds = value; } }
@@ -85,9 +81,9 @@ namespace CaeMesh
                     case "_keepImprintEdges":
                         _keepImprintEdges = (bool)entry.Value; break;
                     case "_direction":
-                        _direction = (double[])entry.Value; break;
+                        break;  // Removed - every block carries an arrow of its own
                     case "_sweepCenter":
-                        _sweepCenter = (double[])entry.Value; break;
+                        break;  // Removed - every block carries an arrow of its own
                     case "_sideSurfaceIds":
                         {
                             // Written before the blocks were recorded: a single block, whose walls these are
@@ -128,8 +124,6 @@ namespace CaeMesh
             // A new item finds its own source surfaces; an item written before the field existed carries a
             // surface selection and is left at the enum value zero, which is SelectedSurfaces
             _sourceType = SweepSourceTypeEnum.Automatic;
-            _direction = null;
-            _sweepCenter = null;
             _blockSourceSurfaceIds = null;
             _blockSideSurfaceIds = null;
             _blockTargetSurfaceIds = null;
@@ -144,10 +138,6 @@ namespace CaeMesh
             _sourceType = sweepMesh._sourceType;
             _numberOfGlobalSmoothSteps = sweepMesh._numberOfGlobalSmoothSteps;
             _keepImprintEdges = sweepMesh._keepImprintEdges;
-            // The guards belong on the source: a null field here is exactly the case that has to be
-            // filled in, and a null field there is the case that must not be dereferenced
-            _direction = sweepMesh._direction?.ToArray();
-            _sweepCenter = sweepMesh._sweepCenter?.ToArray();
             _blockSourceSurfaceIds = CopyBlockIds(sweepMesh._blockSourceSurfaceIds);
             _blockSideSurfaceIds = CopyBlockIds(sweepMesh._blockSideSurfaceIds);
             _blockTargetSurfaceIds = CopyBlockIds(sweepMesh._blockTargetSurfaceIds);
@@ -251,8 +241,6 @@ namespace CaeMesh
             info.AddValue("_sourceType", _sourceType, typeof(SweepSourceTypeEnum));
             info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
             info.AddValue("_keepImprintEdges", _keepImprintEdges, typeof(bool));
-            info.AddValue("_direction", _direction, typeof(double[]));
-            info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
             info.AddValue("_blockSourceSurfaceIds", _blockSourceSurfaceIds, typeof(int[][]));
             info.AddValue("_blockSideSurfaceIds", _blockSideSurfaceIds, typeof(int[][]));
             info.AddValue("_blockTargetSurfaceIds", _blockTargetSurfaceIds, typeof(int[][]));

@@ -2692,8 +2692,6 @@ namespace CaeModel
         private string IsSweepMeshProperlyDefined(SweepMesh sweepMesh)
         {
             string error;
-            sweepMesh.Direction = null;
-            sweepMesh.SweepCenter = null;
             sweepMesh.BlockSourceSurfaceIds = null;
             sweepMesh.BlockSideSurfaceIds = null;
             sweepMesh.BlockTargetSurfaceIds = null;
@@ -2801,16 +2799,12 @@ namespace CaeModel
         /// <summary>
         /// Sweeps every group of parts on its own and keeps the blocks of all the groups on the item. Every
         /// id of a block carries the part it lies on, so the arrays of the groups are simply concatenated.
-        /// The arrow of the item follows the first block of the first group.
         /// </summary>
         private string CreateSweepBlocksForGroups(SweepMesh sweepMesh, GeometryPart[][] sweptPartGroups,
                                                   Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
         {
             string error;
             bool namePart;
-            bool first = true;
-            double[] direction = null;
-            double[] sweepCenter = null;
             HashSet<int> surfaceIds;
             Dictionary<int, HashSet<int>> groupSelectedSurfaceIds;
             List<int[]> blockSourceSurfaceIds = new List<int[]>();
@@ -2836,12 +2830,6 @@ namespace CaeModel
                 }
                 if (error != null) return error;
                 //
-                if (first)
-                {
-                    direction = sweepMesh.Direction;
-                    sweepCenter = sweepMesh.SweepCenter;
-                    first = false;
-                }
                 blockSourceSurfaceIds.AddRange(sweepMesh.BlockSourceSurfaceIds);
                 blockSideSurfaceIds.AddRange(sweepMesh.BlockSideSurfaceIds);
                 blockTargetSurfaceIds.AddRange(sweepMesh.BlockTargetSurfaceIds);
@@ -2850,8 +2838,6 @@ namespace CaeModel
                 blockArrowDirections.AddRange(sweepMesh.BlockArrowDirections);
             }
             //
-            sweepMesh.Direction = direction;
-            sweepMesh.SweepCenter = sweepCenter;
             sweepMesh.BlockSourceSurfaceIds = blockSourceSurfaceIds.ToArray();
             sweepMesh.BlockSideSurfaceIds = blockSideSurfaceIds.ToArray();
             sweepMesh.BlockTargetSurfaceIds = blockTargetSurfaceIds.ToArray();
@@ -3172,8 +3158,6 @@ namespace CaeModel
                     }
                     feederPartIds.Add(partId);
                 }
-                // The arrow of the item follows the first block, which is the one the user selected
-                if (blockSourceSurfaceIds.Count == 0) SetSweepDirection(sweepMesh, part, sourceSurfaceIds);
                 // Gmsh numbering. Walls found by following the edges from the source have no rings, and the
                 // edges following the sweep direction are the chains themselves, in one group
                 if (directionEdgeIds != null) blockLayerGroupEdgeIds = new int[][][] { new int[][] { directionEdgeIds } };
@@ -3220,7 +3204,7 @@ namespace CaeModel
         }
         /// <summary>
         /// The arrow of one block: it starts at a source vertex and follows the first layer edge of the block
-        /// towards the target. The user selected block keeps the item's own arrow as well.
+        /// towards the target.
         /// </summary>
         private void GetBlockArrow(GeometryPart part, HashSet<int> sourceSurfaceIds, int[][][] layerGroupEdgeIds,
                                    out double[] arrowStart, out double[] arrowDirection)
@@ -3238,8 +3222,11 @@ namespace CaeModel
                         int startNodeId;
                         Vec3D direction = GetEdgeDirectionFromSource(vis, edgeId, sourceVertexIds, out startNodeId);
                         if (direction == null) continue;
-                        //
-                        arrowStart = _geometry.Nodes[startNodeId].Coor.ToArray();
+                        // The exploded view moves the nodes of the part, and the arrow is drawn on the
+                        // offset the part carries, so the start is kept without it
+                        double[] offset = part.Offset != null ? part.Offset : new double[3];
+                        double[] coor = _geometry.Nodes[startNodeId].Coor;
+                        arrowStart = new double[] { coor[0] - offset[0], coor[1] - offset[1], coor[2] - offset[2] };
                         arrowDirection = direction.Coor;
                         return;
                     }
@@ -3722,74 +3709,6 @@ namespace CaeModel
             //
             Vec3D offset = new Vec3D(face2.Point) - new Vec3D(face1.Point);
             return Math.Abs(Vec3D.DotProduct(offset, normal1)) <= tolerance;
-        }
-        private void SetSweepDirection(SweepMesh sweepMesh, GeometryPart part, HashSet<int> sourceSurfaceIds)
-        {
-            VisualizationData vis = part.Visualization;
-            Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
-            HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-            HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-            //
-            HashSet<int> directionEdgeIds = new HashSet<int>();
-            foreach (var vertexId in surfaceVertices)
-                directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
-            //
-            int[] edgeNodes;
-            HashSet<int> nodeIds;
-            Vec3D normalizedDirection;
-            Vec3D averageDirection = new Vec3D();
-            BoundingBox bb;
-            int edgeCellId;
-            int[] edgeCell;
-            foreach (var directionEdgeId in directionEdgeIds)
-            {
-                // Get all edge node ids
-                nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
-                // Reduce edge node ids to vertices
-                edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
-                if (edgeNodes.Length != 2) throw new NotSupportedException();
-                // First node must be on the selected surface
-                if (!surfaceVertices.Contains(edgeNodes[0]))
-                    (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
-                // Find the first edge cell for direction
-                for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
-                {
-                    edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
-                    edgeCell = vis.EdgeCells[edgeCellId];
-                    if (edgeNodes[0] == edgeCell[0])
-                    {
-                        edgeNodes[1] = edgeCell[1];
-                        break;
-                    }
-                    else if (edgeNodes[0] == edgeCell[1])
-                    {
-                        edgeNodes[1] = edgeCell[0];
-                        break;
-                    }
-                }
-                // Compute the sweep direction
-                normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
-                averageDirection += normalizedDirection;
-            }
-            //
-            averageDirection.Normalize();
-            sweepMesh.Direction = averageDirection.Coor;
-            //
-            bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
-            sweepMesh.SweepCenter = bb.GetCenter();
-            // Round
-            double d = part.BoundingBox.GetDiagonal();
-            int digits = (int)Math.Log10(d) - 6;
-            if (digits > 0) digits = 0;
-            else if (digits < 0) digits *= -1;
-            //
-            sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
-            sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
-            sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
-            //
-            sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
-            sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
-            sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
         }
         private static int[] ToGmshTopologyIds(IEnumerable<int> itemIds, int partId)
         {
