@@ -40,8 +40,10 @@ namespace CaeMesh.Sweep
             int numLayers = data.NumLayers;
             int[] interior = data.InteriorNodes;
             double[] coords = data.Coords;
-            // Interior layers belong to the volume
-            int count = interior.Length * Math.Max(0, numLayers - 2);
+            // Interior layers belong to the volume. A pinned line has its intermediate nodes made here too;
+            // its source and target nodes exist already, on the carried copy and on the imprint.
+            int[] volumeNodes = interior.Concat(data.PinnedNodes).ToArray();
+            int count = volumeNodes.Length * Math.Max(0, numLayers - 2);
             if (count > 0)
             {
                 IntPtr[] tags = new IntPtr[count];
@@ -49,9 +51,9 @@ namespace CaeMesh.Sweep
                 int index = 0;
                 for (int layer = 1; layer <= numLayers - 2; layer++)
                 {
-                    for (int k = 0; k < interior.Length; k++)
+                    for (int k = 0; k < volumeNodes.Length; k++)
                     {
-                        int i = data.Index(layer, interior[k]);
+                        int i = data.Index(layer, volumeNodes[k]);
                         tags[index] = data.NodeTags[i];
                         positions[3 * index] = coords[3 * i];
                         positions[3 * index + 1] = coords[3 * i + 1];

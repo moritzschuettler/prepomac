@@ -29,6 +29,9 @@ namespace CaeMesh
         // Variables                                                                                                                
         private GmshData _gmshData;
         private Action<string> _writeOutput;
+        private List<SweepBlock> _sweepBlocks;
+        private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
+        private HashSet<int> _scaffoldEdgeIds;
         private bool _isOCC;
         private string _error;
         private Thread _thread;
@@ -165,6 +168,7 @@ namespace CaeMesh
                     RenumberGmshDataByCoor();
                     // PrepareData
                     PrepareData(gsi);
+                    if (gsi is SweepMesh sweepSetupItem) PrepareSweepBlocks(sweepSetupItem);
                     // Mesh size
                     SetMeshSizes(gsi);
                     // 2D meshing algorithm
@@ -514,7 +518,7 @@ namespace CaeMesh
             Dictionary<int, int[]> surfaceIdVertexIds;
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
             // One block per swept volume, in the order in which the blocks feed each other
-            List<SweepBlock> blocks = GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
+            List<SweepBlock> blocks = _sweepBlocks ?? GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
             //
             List<SweepWall> walls = new List<SweepWall>();
             HashSet<int> wallSurfaceIds = new HashSet<int>();
@@ -531,7 +535,8 @@ namespace CaeMesh
                 // element counts on its opposite sides reconciled first. A wall two blocks share is one
                 // wall, with the same edges in the same roles seen from either side.
                 foreach (var wall in SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
-                                                                block.TargetSurfaceIds, surfaceIdEdgeIds))
+                                                                block.TargetSurfaceIds, surfaceIdEdgeIds,
+                                                                GetRingDirectionEdgeIds()))
                 {
                     if (wallSurfaceIds.Add(wall.SurfaceId)) walls.Add(wall);
                 }
@@ -539,6 +544,10 @@ namespace CaeMesh
             }
             // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
             PrepareWallEdges(walls);
+            // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
+            // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
+            // side check with node counts that are not the ones the constraints above set
+            GenerateMesh(1);
             //
             foreach (var wall in walls)
             {
@@ -583,6 +592,613 @@ namespace CaeMesh
             {
                 SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
             }
+            // The edges made by carrying the splits across are scaffolding: their nodes stay, being nodes of
+            // the surface meshes, but their line elements would become model edges splitting the faces once
+            // the mesh is read - which is what the item asks for when it keeps them
+            if (_scaffoldEdgeIds != null && !sweepMesh.KeepImprintEdges)
+            {
+                foreach (var edgeId in _scaffoldEdgeIds) Gmsh.Model.Mesh.RemoveElements(1, edgeId);
+            }
+        }
+        /// <summary>
+        /// Builds the blocks of a sweep item before the mesh sizes are set, and carries the imprints that split
+        /// an end of a prismatic block inside its boundary across to its other end, since that changes the
+        /// geometry and the sizes and the transfinite constraints have to see the result.
+        ///
+        /// A target split inside its boundary - by the footprint of a neighbour standing on it - has edges
+        /// that belong to no wall of the block. The cap the sweep leaves would not follow them, and the
+        /// neighbour's walls start from their nodes, so the mesh would not be conformal there. For a prism the
+        /// split is carried across: every edge splitting the target inside is copied and moved onto the
+        /// source, every edge splitting the source inside is copied and moved onto the target, and all the
+        /// volumes are fragmented with the copies, so that they become real edges, cross where two footprints
+        /// overlap and end on vertices where they meet a boundary. A carried edge landing on a face that a
+        /// neighbouring prism shares splits that prism's end too, so the rounds repeat until no block has an
+        /// edge without its counterpart on the other end. Source and target then carry the same split, piece
+        /// for piece, and the sweep lines between a piece and the piece above it are pinned. The fragmentation
+        /// renumbers what it touches, so every id held anywhere is matched to its new tag afterwards: the
+        /// volumes, the vertices and the unsplit edges by their centre of mass and size, the faces by lying
+        /// inside a copy of the face they came from, kept aside for that purpose. The edges the carrying made
+        /// exist for the sweep only; their line elements are dropped once the mesh is built. A block that is
+        /// not prismatic is left alone; the model side refuses it before it reaches here.
+        /// </summary>
+        private void PrepareSweepBlocks(SweepMesh sweepMesh)
+        {
+            Dictionary<int, int[]> surfaceIdEdgeIds;
+            Dictionary<int, int[]> surfaceIdVertexIds;
+            GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
+            _sweepBlocks = GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
+            // The translation of every prism, and the faces every block started with
+            Dictionary<SweepBlock, int[][]> blockOriginalSurfaceIds = new Dictionary<SweepBlock, int[][]>();
+            foreach (var block in _sweepBlocks)
+            {
+                block.ImprintTranslation = GetPrismTranslation(block, surfaceIdEdgeIds);
+                blockOriginalSurfaceIds.Add(block, new int[][] { block.SourceSurfaceIds.ToArray(),
+                                                                block.WallSurfaceIds.ToArray(),
+                                                                block.TargetSurfaceIds.ToArray() });
+            }
+            // Every face and every edge stands for itself until a fragmentation changes it
+            Tuple<int, int>[] dimTags;
+            Dictionary<int, int> surfaceIdOriginalId = new Dictionary<int, int>();
+            Dictionary<int, int> edgeIdOriginalId = new Dictionary<int, int>();
+            Gmsh.Model.GetEntities(out dimTags, 2);
+            foreach (var dimTag in dimTags) surfaceIdOriginalId.Add(dimTag.Item2, dimTag.Item2);
+            Gmsh.Model.GetEntities(out dimTags, 1);
+            foreach (var dimTag in dimTags) edgeIdOriginalId.Add(dimTag.Item2, dimTag.Item2);
+            //
+            int round = 0;
+            List<Tuple<int, int>> copyDimTags = new List<Tuple<int, int>>();
+            while (true)
+            {
+                copyDimTags.Clear();
+                foreach (var block in _sweepBlocks) CarryUnmatchedImprints(block, surfaceIdEdgeIds, copyDimTags);
+                if (copyDimTags.Count == 0) break;
+                if (++round > _sweepBlocks.Count + 1)
+                    throw new CaeException("The splits of the sweep sources and targets could not be carried across the " +
+                                           "volumes.");
+                //
+                FragmentVolumesWithCurves(copyDimTags, ref surfaceIdOriginalId, ref edgeIdOriginalId);
+                GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
+                foreach (var block in _sweepBlocks)
+                    RefreshBlockSurfaces(block, blockOriginalSurfaceIds[block], surfaceIdOriginalId);
+            }
+            if (round == 0) return;
+            //
+            foreach (var block in _sweepBlocks) PairImprintEdges(block, surfaceIdEdgeIds);
+            _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
+        }
+        private double[] GetPrismTranslation(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
+        {
+            int[] edgeIds;
+            HashSet<int> sourceEdgeIds = new HashSet<int>();
+            foreach (var id in block.SourceSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceEdgeIds.UnionWith(edgeIds);
+            }
+            double[] translation;
+            List<SweepWall> walls = SweepWallTopology.Classify(block.SourceSurfaceIds, block.WallSurfaceIds,
+                                                               block.TargetSurfaceIds, surfaceIdEdgeIds,
+                                                               GetRingDirectionEdgeIds());
+            return IsPrismaticBlock(block, walls, sourceEdgeIds, out translation) ? translation : null;
+        }
+        /// <summary>
+        /// The edges following the sweep direction, as the model recorded them ring by ring, or null for
+        /// an item without them.
+        /// </summary>
+        private HashSet<int> GetRingDirectionEdgeIds()
+        {
+            if (_gmshData.EdgeIdsBySweepLayer == null) return null;
+            HashSet<int> directionEdgeIds = new HashSet<int>();
+            foreach (var ring in _gmshData.EdgeIdsBySweepLayer) directionEdgeIds.UnionWith(ring);
+            return directionEdgeIds;
+        }
+        /// <summary>
+        /// The edges splitting the source and the target of a block inside their boundaries: the edges of the
+        /// end faces that belong to no wall of the block.
+        /// </summary>
+        private static void GetInteriorEdgeIds(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                               out HashSet<int> sourceEdgeIds, out HashSet<int> targetEdgeIds)
+        {
+            int[] edgeIds;
+            HashSet<int> wallEdgeIds = new HashSet<int>();
+            sourceEdgeIds = new HashSet<int>();
+            targetEdgeIds = new HashSet<int>();
+            foreach (var id in block.WallSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) wallEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.SourceSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.TargetSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) targetEdgeIds.UnionWith(edgeIds);
+            }
+            sourceEdgeIds.ExceptWith(wallEdgeIds);
+            targetEdgeIds.ExceptWith(wallEdgeIds);
+        }
+        private static Dictionary<int, double[]> GetEdgeSignatures(IEnumerable<int> edgeIds)
+        {
+            double x;
+            double y;
+            double z;
+            double length;
+            Dictionary<int, double[]> signatures = new Dictionary<int, double[]>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.OCC.GetCenterOfMass(1, edgeId, out x, out y, out z);
+                Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                signatures.Add(edgeId, new double[] { x, y, z, length });
+            }
+            return signatures;
+        }
+        /// <summary>
+        /// The edge among the candidates that the given edge lands on when moved by the translation, or -1.
+        /// </summary>
+        private static int FindTranslatedEdge(double[] signature, double[] translation,
+                                              Dictionary<int, double[]> candidateSignatures, double tolerance)
+        {
+            double[] carried = new double[] { signature[0] + translation[0], signature[1] + translation[1],
+                                              signature[2] + translation[2] };
+            foreach (var entry in candidateSignatures)
+            {
+                if (GetDistance(carried, entry.Value) > tolerance) continue;
+                if (Math.Abs(signature[3] - entry.Value[3]) > 1E-6 * Math.Max(signature[3], 1E-30)) continue;
+                return entry.Key;
+            }
+            return -1;
+        }
+        /// <summary>
+        /// Copies every edge splitting an end of a prismatic block inside that has no counterpart on the other
+        /// end, and moves the copy onto that other end.
+        /// </summary>
+        private void CarryUnmatchedImprints(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                            List<Tuple<int, int>> copyDimTags)
+        {
+            if (block.ImprintTranslation == null) return;
+            //
+            HashSet<int> sourceEdgeIds;
+            HashSet<int> targetEdgeIds;
+            GetInteriorEdgeIds(block, surfaceIdEdgeIds, out sourceEdgeIds, out targetEdgeIds);
+            if (sourceEdgeIds.Count == 0 && targetEdgeIds.Count == 0) return;
+            //
+            double[] translation = block.ImprintTranslation;
+            double[] back = new double[] { -translation[0], -translation[1], -translation[2] };
+            double tolerance = 1E-6 * GetModelDiagonal();
+            Dictionary<int, double[]> sourceSignatures = GetEdgeSignatures(sourceEdgeIds);
+            Dictionary<int, double[]> targetSignatures = GetEdgeSignatures(targetEdgeIds);
+            List<Tuple<int, int>> toSourceDimTags = new List<Tuple<int, int>>();
+            List<Tuple<int, int>> toTargetDimTags = new List<Tuple<int, int>>();
+            foreach (var entry in targetSignatures)
+            {
+                if (FindTranslatedEdge(entry.Value, translation, sourceSignatures, tolerance) < 0)
+                    toSourceDimTags.Add(new Tuple<int, int>(1, entry.Key));
+            }
+            foreach (var entry in sourceSignatures)
+            {
+                if (FindTranslatedEdge(entry.Value, back, targetSignatures, tolerance) < 0)
+                    toTargetDimTags.Add(new Tuple<int, int>(1, entry.Key));
+            }
+            if (toSourceDimTags.Count == 0 && toTargetDimTags.Count == 0) return;
+            //
+            Tuple<int, int>[] outDimTags;
+            if (toSourceDimTags.Count > 0)
+            {
+                Gmsh.Model.OCC.Copy(toSourceDimTags.ToArray(), out outDimTags);
+                Gmsh.Model.OCC.Translate(outDimTags, translation[0], translation[1], translation[2]);
+                copyDimTags.AddRange(outDimTags);
+            }
+            if (toTargetDimTags.Count > 0)
+            {
+                Gmsh.Model.OCC.Copy(toTargetDimTags.ToArray(), out outDimTags);
+                Gmsh.Model.OCC.Translate(outDimTags, back[0], back[1], back[2]);
+                copyDimTags.AddRange(outDimTags);
+            }
+            _writeOutput?.Invoke("Sweep volume " + block.VolumeId + ": " + toSourceDimTags.Count + " edge/s splitting the " +
+                                 "target carried to the source, " + toTargetDimTags.Count + " edge/s splitting the source " +
+                                 "carried to the target.");
+        }
+        /// <summary>
+        /// Fragments every volume with the carried curves, so that they become real edges of the faces they lie
+        /// on. Every volume goes in, so that a face shared by two blocks stays one face. The operation renumbers
+        /// the entities it touches, and OpenCASCADE reports the new tags only for the inputs: the faces are
+        /// matched by lying inside a copy of the face they came from, kept aside during the operation, and the
+        /// volumes, the vertices and the unsplit edges by their centre of mass and size. The two maps are
+        /// rewritten to lead from the new tags to the original ones; an edge the fragmentation made has no
+        /// entry.
+        /// </summary>
+        private void FragmentVolumesWithCurves(List<Tuple<int, int>> curveDimTags, ref Dictionary<int, int> surfaceIdOriginalId,
+                                               ref Dictionary<int, int> edgeIdOriginalId)
+        {
+            double diagonal = GetModelDiagonal();
+            Dictionary<int, double[]> oldPointSignatures = GetEntitySignatures(0);
+            Dictionary<int, double[]> oldEdgeSignatures = GetEntitySignatures(1);
+            Dictionary<int, double[]> oldVolumeSignatures = GetEntitySignatures(3);
+            // A copy of every face, kept out of the operation, tells afterwards which face a piece came from
+            int[] entityCounts = GetEntityCounts();
+            Tuple<int, int>[] surfaceDimTags;
+            Tuple<int, int>[] surfaceCopyDimTags;
+            Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+            Gmsh.Model.OCC.Copy(surfaceDimTags, out surfaceCopyDimTags);
+            //
+            Tuple<int, int>[] volumeDimTags;
+            Tuple<int, int>[] outDimTags;
+            Tuple<int, int>[][] outDimTagsMap;
+            Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            Gmsh.Model.OCC.Fragment(volumeDimTags, curveDimTags.ToArray(), out outDimTags, out outDimTagsMap, true, true);
+            Gmsh.Model.OCC.Synchronize();
+            RemoveFreeCurves();
+            //
+            double[] closestCoord;
+            double[] parametricCoord;
+            double tolerance = 1E-6 * diagonal;
+            HashSet<int> surfaceCopyIds = new HashSet<int>(surfaceCopyDimTags.Select(dimTag => dimTag.Item2));
+            Dictionary<int, int> newSurfaceIdOriginalId = new Dictionary<int, int>();
+            Gmsh.Model.GetEntities(out outDimTags, 2);
+            foreach (var dimTag in outDimTags)
+            {
+                if (surfaceCopyIds.Contains(dimTag.Item2)) continue;
+                //
+                // The inside test projects the point onto the surface first, so the distance to it is checked too
+                double[] inside = GetPointInsideSurface(dimTag.Item2);
+                int oldSurfaceId = -1;
+                for (int i = 0; i < surfaceCopyDimTags.Length; i++)
+                {
+                    Gmsh.Model.GetClosestPoint(2, surfaceCopyDimTags[i].Item2, inside, out closestCoord, out parametricCoord);
+                    if (closestCoord.Length < 3 || GetDistance(inside, closestCoord) > tolerance) continue;
+                    if (Gmsh.Model.IsInside(2, surfaceCopyDimTags[i].Item2, inside, false) > 0)
+                    {
+                        oldSurfaceId = surfaceDimTags[i].Item2;
+                        break;
+                    }
+                }
+                if (oldSurfaceId < 0)
+                    throw new CaeException("A surface made by carrying the splits of the sweep ends across lies in no surface " +
+                                           "that was there before.");
+                newSurfaceIdOriginalId.Add(dimTag.Item2, surfaceIdOriginalId[oldSurfaceId]);
+            }
+            RemoveSurfaceCopies(surfaceCopyDimTags, entityCounts);
+            surfaceIdOriginalId = newSurfaceIdOriginalId;
+            //
+            Dictionary<int, int> pointIdMap = MatchEntitiesByGeometry(0, oldPointSignatures, diagonal);
+            Dictionary<int, int> edgeIdMap = MatchEntitiesByGeometry(1, oldEdgeSignatures, diagonal);
+            Dictionary<int, int> volumeIdMap = MatchEntitiesByGeometry(3, oldVolumeSignatures, diagonal);
+            //
+            int originalId;
+            Dictionary<int, int> newEdgeIdOriginalId = new Dictionary<int, int>();
+            foreach (var entry in edgeIdMap)
+            {
+                if (edgeIdOriginalId.TryGetValue(entry.Key, out originalId)) newEdgeIdOriginalId[entry.Value] = originalId;
+            }
+            edgeIdOriginalId = newEdgeIdOriginalId;
+            //
+            int newVolumeId;
+            foreach (var block in _sweepBlocks)
+            {
+                if (!volumeIdMap.TryGetValue(block.VolumeId, out newVolumeId))
+                    throw new CaeException("A sweep volume was lost while the splits of the sweep ends were carried across.");
+                block.VolumeId = newVolumeId;
+            }
+            RemapGmshData(edgeIdMap, pointIdMap);
+        }
+        /// <summary>
+        /// Removes the surfaces kept aside, with their edges and vertices. OpenCASCADE warns about an unknown
+        /// vertex for every one of them although they are all gone afterwards, so the warnings are kept out of
+        /// the log, and the model is checked to hold as many entities as before the copies were made, the
+        /// pieces of the split faces and edges apart.
+        /// </summary>
+        private static void RemoveSurfaceCopies(Tuple<int, int>[] surfaceDimTags, int[] entityCountsBeforeCopies)
+        {
+            double verbosity = Gmsh.Option.GetNumber("General.Verbosity");
+            Gmsh.Option.SetNumber("General.Verbosity", 1);
+            try
+            {
+                Gmsh.Model.OCC.Remove(surfaceDimTags, true);
+                Gmsh.Model.OCC.Synchronize();
+            }
+            finally
+            {
+                Gmsh.Option.SetNumber("General.Verbosity", verbosity);
+            }
+            // A surface copy has no volume; its edges and vertices are counted with those the split made
+            int[] entityCounts = GetEntityCounts();
+            if (entityCounts[3] != entityCountsBeforeCopies[3] || entityCounts[2] < entityCountsBeforeCopies[2] ||
+                entityCounts[2] >= entityCountsBeforeCopies[2] + surfaceDimTags.Length)
+                throw new CaeException("The surfaces kept aside while the splits of the sweep ends were carried across " +
+                                       "could not be removed again.");
+        }
+        private static int[] GetEntityCounts()
+        {
+            Tuple<int, int>[] dimTags;
+            int[] counts = new int[4];
+            for (int dim = 0; dim < 4; dim++)
+            {
+                Gmsh.Model.GetEntities(out dimTags, dim);
+                counts[dim] = dimTags.Length;
+            }
+            return counts;
+        }
+        /// <summary>
+        /// A piece of a carried curve that fell outside every face is of no use and would be meshed as a
+        /// dangling edge.
+        /// </summary>
+        private static void RemoveFreeCurves()
+        {
+            int[] surfaceIds;
+            Tuple<int, int>[] edgeDimTags;
+            List<Tuple<int, int>> freeDimTags = new List<Tuple<int, int>>();
+            Gmsh.Model.GetEntities(out edgeDimTags, 1);
+            foreach (var dimTag in edgeDimTags)
+            {
+                Gmsh.Model.GetAdjacencies(1, dimTag.Item2, out surfaceIds, out _);
+                if (surfaceIds.Length == 0) freeDimTags.Add(dimTag);
+            }
+            if (freeDimTags.Count == 0) return;
+            Gmsh.Model.OCC.Remove(freeDimTags.ToArray(), true);
+            Gmsh.Model.OCC.Synchronize();
+        }
+        /// <summary>
+        /// A point strictly inside a surface: its centre of mass when that lies on it, else a point just off
+        /// the middle of one of its edges towards the centre of mass.
+        /// </summary>
+        private static double[] GetPointInsideSurface(int surfaceId)
+        {
+            double x;
+            double y;
+            double z;
+            Gmsh.Model.OCC.GetCenterOfMass(2, surfaceId, out x, out y, out z);
+            double[] center = new double[] { x, y, z };
+            if (Gmsh.Model.IsInside(2, surfaceId, center, false) > 0) return center;
+            //
+            int[] edgeIds;
+            double[] min;
+            double[] max;
+            double[] middle;
+            Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetParametrizationBounds(1, edgeId, out min, out max);
+                Gmsh.Model.GetValue(1, edgeId, new double[] { 0.5 * (min[0] + max[0]) }, out middle);
+                foreach (var ratio in new double[] { 1E-3, -1E-3 })
+                {
+                    double[] candidate = new double[] { middle[0] + ratio * (center[0] - middle[0]),
+                                                        middle[1] + ratio * (center[1] - middle[1]),
+                                                        middle[2] + ratio * (center[2] - middle[2]) };
+                    if (Gmsh.Model.IsInside(2, surfaceId, candidate, false) > 0) return candidate;
+                }
+            }
+            throw new CaeException("No point inside a surface of the sweep could be found.");
+        }
+        /// <summary>
+        /// Reads the faces of a block back after a fragmentation: every current face that came from one of the
+        /// faces the block started with.
+        /// </summary>
+        private static void RefreshBlockSurfaces(SweepBlock block, int[][] originalSurfaceIds,
+                                                 Dictionary<int, int> surfaceIdOriginalId)
+        {
+            HashSet<int> originalSourceIds = new HashSet<int>(originalSurfaceIds[0]);
+            HashSet<int> originalWallIds = new HashSet<int>(originalSurfaceIds[1]);
+            HashSet<int> originalTargetIds = new HashSet<int>(originalSurfaceIds[2]);
+            List<int> sourceSurfaceIds = new List<int>();
+            List<int> wallSurfaceIds = new List<int>();
+            List<int> targetSurfaceIds = new List<int>();
+            foreach (var entry in surfaceIdOriginalId)
+            {
+                if (originalSourceIds.Contains(entry.Value)) sourceSurfaceIds.Add(entry.Key);
+                else if (originalWallIds.Contains(entry.Value)) wallSurfaceIds.Add(entry.Key);
+                else if (originalTargetIds.Contains(entry.Value)) targetSurfaceIds.Add(entry.Key);
+            }
+            block.SetSurfaces(sourceSurfaceIds, wallSurfaceIds, targetSurfaceIds);
+        }
+        /// <summary>
+        /// Pairs every edge splitting the target of a prism inside with the edge of the source below it, which
+        /// is what the sweep lines are pinned between. After the carrying every such edge has its counterpart;
+        /// one that does not is an error. The source of a block that carries imprints is meshed free, since
+        /// its pieces have their counts dictated.
+        /// </summary>
+        private void PairImprintEdges(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
+        {
+            if (block.ImprintTranslation == null) return;
+            //
+            HashSet<int> sourceEdgeIds;
+            HashSet<int> targetEdgeIds;
+            GetInteriorEdgeIds(block, surfaceIdEdgeIds, out sourceEdgeIds, out targetEdgeIds);
+            if (targetEdgeIds.Count == 0) return;
+            //
+            double tolerance = 1E-6 * GetModelDiagonal();
+            Dictionary<int, double[]> sourceSignatures = GetEdgeSignatures(sourceEdgeIds);
+            Dictionary<int, double[]> targetSignatures = GetEdgeSignatures(targetEdgeIds);
+            Dictionary<int, int> imprintEdgeCopyIds = new Dictionary<int, int>();
+            foreach (var entry in targetSignatures)
+            {
+                int sourceEdgeId = FindTranslatedEdge(entry.Value, block.ImprintTranslation, sourceSignatures, tolerance);
+                if (sourceEdgeId < 0)
+                    throw new CaeException("Sweep volume " + block.VolumeId + ": an edge splitting the target has no " +
+                                           "counterpart on the source after the splits were carried across.");
+                imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
+            }
+            block.ImprintEdgeCopyIds = imprintEdgeCopyIds;
+            block.CarriesImprints = true;
+            _freeMeshedSurfaceIds.UnionWith(block.SourceSurfaceIds);
+        }
+        /// <summary>
+        /// The edges the carrying made: an edge that was not there before and has only pieces of one face on
+        /// its sides. A piece of an edge that was there before separates pieces of two different faces.
+        /// </summary>
+        private static HashSet<int> GetScaffoldEdgeIds(Dictionary<int, int> surfaceIdOriginalId,
+                                                       Dictionary<int, int> edgeIdOriginalId)
+        {
+            int[] surfaceIds;
+            Tuple<int, int>[] edgeDimTags;
+            HashSet<int> originalIds = new HashSet<int>();
+            HashSet<int> scaffoldEdgeIds = new HashSet<int>();
+            Gmsh.Model.GetEntities(out edgeDimTags, 1);
+            foreach (var dimTag in edgeDimTags)
+            {
+                if (edgeIdOriginalId.ContainsKey(dimTag.Item2)) continue;
+                Gmsh.Model.GetAdjacencies(1, dimTag.Item2, out surfaceIds, out _);
+                originalIds.Clear();
+                foreach (var surfaceId in surfaceIds) originalIds.Add(surfaceIdOriginalId[surfaceId]);
+                if (surfaceIds.Length > 0 && originalIds.Count == 1) scaffoldEdgeIds.Add(dimTag.Item2);
+            }
+            return scaffoldEdgeIds;
+        }
+        private void RemapGmshData(Dictionary<int, int> edgeIdMap, Dictionary<int, int> pointIdMap)
+        {
+            int newId;
+            // An edge that was split has no successor; its pinned count is lost with it
+            if (_gmshData.EdgeIdNumElements != null)
+            {
+                Dictionary<int, int> edgeIdNumElements = new Dictionary<int, int>();
+                foreach (var entry in _gmshData.EdgeIdNumElements)
+                {
+                    if (edgeIdMap.TryGetValue(entry.Key, out newId)) edgeIdNumElements[newId] = entry.Value;
+                }
+                _gmshData.EdgeIdNumElements = edgeIdNumElements;
+            }
+            // A layer edge follows the sweep and is never split by a curve carried onto an end
+            if (_gmshData.EdgeIdsBySweepLayer != null)
+            {
+                foreach (var ring in _gmshData.EdgeIdsBySweepLayer)
+                {
+                    List<int> remapped = new List<int>();
+                    foreach (var edgeId in ring)
+                    {
+                        if (!edgeIdMap.TryGetValue(edgeId, out newId))
+                            throw new CaeException("A layer edge of the sweep was lost while the splits of the sweep ends " +
+                                                   "were carried across.");
+                        remapped.Add(newId);
+                    }
+                    ring.Clear();
+                    ring.UnionWith(remapped);
+                }
+            }
+            if (_gmshData.VertexNodeIdMeshSize != null)
+            {
+                Dictionary<int, double> vertexNodeIdMeshSize = new Dictionary<int, double>();
+                foreach (var entry in _gmshData.VertexNodeIdMeshSize)
+                {
+                    if (pointIdMap.TryGetValue(entry.Key, out newId)) vertexNodeIdMeshSize[newId] = entry.Value;
+                }
+                _gmshData.VertexNodeIdMeshSize = vertexNodeIdMeshSize;
+            }
+        }
+        /// <summary>
+        /// The centre of mass and the size of every entity of a dimension - the coordinates of a point.
+        /// </summary>
+        private static Dictionary<int, double[]> GetEntitySignatures(int dim)
+        {
+            double x;
+            double y;
+            double z;
+            double mass;
+            double[] coor;
+            Tuple<int, int>[] dimTags;
+            Dictionary<int, double[]> signatures = new Dictionary<int, double[]>();
+            Gmsh.Model.GetEntities(out dimTags, dim);
+            foreach (var dimTag in dimTags)
+            {
+                if (dim == 0)
+                {
+                    coor = GetVertexCoor(dimTag.Item2);
+                    signatures.Add(dimTag.Item2, new double[] { coor[0], coor[1], coor[2], 0 });
+                }
+                else
+                {
+                    Gmsh.Model.OCC.GetCenterOfMass(dim, dimTag.Item2, out x, out y, out z);
+                    Gmsh.Model.OCC.GetMass(dim, dimTag.Item2, out mass);
+                    signatures.Add(dimTag.Item2, new double[] { x, y, z, mass });
+                }
+            }
+            return signatures;
+        }
+        private static Dictionary<int, int> MatchEntitiesByGeometry(int dim, Dictionary<int, double[]> oldSignatures,
+                                                                    double diagonal)
+        {
+            double tolerance = 1E-6 * diagonal;
+            Dictionary<int, double[]> newSignatures = GetEntitySignatures(dim);
+            Dictionary<int, int> map = new Dictionary<int, int>();
+            foreach (var oldEntry in oldSignatures)
+            {
+                foreach (var newEntry in newSignatures)
+                {
+                    if (GetDistance(oldEntry.Value, newEntry.Value) > tolerance) continue;
+                    if (Math.Abs(oldEntry.Value[3] - newEntry.Value[3]) >
+                        1E-6 * Math.Max(Math.Abs(oldEntry.Value[3]), 1E-30)) continue;
+                    //
+                    map[oldEntry.Key] = newEntry.Key;
+                    break;
+                }
+            }
+            return map;
+        }
+        private static double GetModelDiagonal()
+        {
+            BoundingBox bb = new BoundingBox();
+            Gmsh.Model.GetBoundingBox(-1, -1, out bb.MinX, out bb.MinY, out bb.MinZ, out bb.MaxX, out bb.MaxY, out bb.MaxZ);
+            return bb.GetDiagonal();
+        }
+        private static double GetDistance(double[] coor1, double[] coor2)
+        {
+            return Math.Sqrt(Math.Pow(coor1[0] - coor2[0], 2) + Math.Pow(coor1[1] - coor2[1], 2) +
+                             Math.Pow(coor1[2] - coor2[2], 2));
+        }
+        private static double GetBoundingBoxDiagonal(int dim, int tag)
+        {
+            BoundingBox bb = new BoundingBox();
+            Gmsh.Model.GetBoundingBox(dim, tag, out bb.MinX, out bb.MinY, out bb.MinZ, out bb.MaxX, out bb.MaxY, out bb.MaxZ);
+            return bb.GetDiagonal();
+        }
+        /// <summary>
+        /// Whether the block is a prism: planar source and target, straight and parallel direction edges. The
+        /// translation returned carries a point of the target onto the source.
+        /// </summary>
+        private static bool IsPrismaticBlock(SweepBlock block, List<SweepWall> walls, HashSet<int> sourceEdgeIds,
+                                             out double[] translation)
+        {
+            translation = null;
+            foreach (var id in block.SourceSurfaceIds.Concat(block.TargetSurfaceIds))
+            {
+                if (Gmsh.Model.GetType(2, id) != "Plane") return false;
+            }
+            // The vertices on the source side, to orient every direction edge from the target to the source
+            int[] vertexIds;
+            HashSet<int> sourceVertexIds = new HashSet<int>();
+            foreach (var edgeId in sourceEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                sourceVertexIds.UnionWith(vertexIds);
+            }
+            //
+            Vec3D reference = null;
+            foreach (var wall in walls)
+            {
+                foreach (var edgeId in wall.DirectionEdgeIds)
+                {
+                    if (Gmsh.Model.GetType(1, edgeId) != "Line") return false;
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    if (vertexIds.Length != 2) return false;
+                    int sourceVertexId = sourceVertexIds.Contains(vertexIds[0]) ? vertexIds[0] : vertexIds[1];
+                    int targetVertexId = sourceVertexId == vertexIds[0] ? vertexIds[1] : vertexIds[0];
+                    if (!sourceVertexIds.Contains(sourceVertexId)) return false;
+                    //
+                    Vec3D vector = new Vec3D(GetVertexCoor(sourceVertexId)) - new Vec3D(GetVertexCoor(targetVertexId));
+                    if (reference == null)
+                    {
+                        reference = vector;
+                        translation = vector.Coor;
+                        continue;
+                    }
+                    if ((vector - reference).Len > 1E-6 * reference.Len) return false;
+                }
+            }
+            return reference != null;
+        }
+        private static double[] GetVertexCoor(int vertexId)
+        {
+            double[] coor;
+            Gmsh.Model.GetValue(0, vertexId, new double[3], out coor);
+            return coor;
         }
         /// <summary>
         /// The sweep blocks of the item, in gmsh numbering. An item saved before the blocks were recorded
@@ -780,11 +1396,35 @@ namespace CaeMesh
                         numOfElements = SweepWallTopology.GetElementCount(edgeId);
                     sourceElements += numOfElements;
                 }
-                //
-                double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
-                int[] targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
+                // Where a split was carried across, both sides of the wall are split at the same places. The
+                // counts of the target edges follow the source nodes above them, so that the grid column
+                // through the split stays straight
+                int[] targetElements = DistributeTargetElementsByProjection(wall, sourceElements);
+                if (targetElements == null)
+                {
+                    double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
+                    targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
+                }
                 for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
                     targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
+            }
+            // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
+            // they carry the same count: the one the user pinned on either, else the measured one
+            Dictionary<int, int> imprintEdgeIdNumOfElements = new Dictionary<int, int>();
+            if (_sweepBlocks != null)
+            {
+                foreach (var block in _sweepBlocks)
+                {
+                    if (block.ImprintEdgeCopyIds == null) continue;
+                    foreach (var entry in block.ImprintEdgeCopyIds)
+                    {
+                        if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
+                            !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements))
+                            numOfElements = SweepWallTopology.GetElementCount(entry.Key);
+                        imprintEdgeIdNumOfElements[entry.Key] = numOfElements;
+                        imprintEdgeIdNumOfElements[entry.Value] = numOfElements;
+                    }
+                }
             }
             //
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
@@ -803,6 +1443,64 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
                 Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
+            foreach (var entry in imprintEdgeIdNumOfElements)
+            {
+                _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            }
+        }
+        private int[] DistributeTargetElementsByProjection(SweepWall wall, int sourceElements)
+        {
+            if (_sweepBlocks == null || wall.TargetEdgeIds.Length < 2) return null;
+            //
+            SweepBlock block = null;
+            foreach (var candidate in _sweepBlocks)
+            {
+                if (candidate.CarriesImprints && candidate.WallSurfaceIds.Contains(wall.SurfaceId))
+                {
+                    block = candidate;
+                    break;
+                }
+            }
+            if (block == null) return null;
+            // The source side nodes, carried onto the target plane
+            IntPtr[] tags;
+            double[] coor;
+            List<double> projected = new List<double>();
+            HashSet<IntPtr> seen = new HashSet<IntPtr>();
+            foreach (var edgeId in wall.SourceEdgeIds)
+            {
+                Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, edgeId, true, false);
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    if (!seen.Add(tags[i])) continue;
+                    projected.Add(coor[3 * i] - block.ImprintTranslation[0]);
+                    projected.Add(coor[3 * i + 1] - block.ImprintTranslation[1]);
+                    projected.Add(coor[3 * i + 2] - block.ImprintTranslation[2]);
+                }
+            }
+            // Each target edge gets the nodes that land on it, an end node of two edges counting for both
+            double[] closestCoord;
+            double[] parametricCoord;
+            double tolerance = 1E-6 * GetBoundingBoxDiagonal(3, block.VolumeId);
+            int[] targetElements = new int[wall.TargetEdgeIds.Length];
+            int total = 0;
+            for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
+            {
+                Gmsh.Model.GetClosestPoint(1, wall.TargetEdgeIds[i], projected.ToArray(), out closestCoord, out parametricCoord);
+                if (closestCoord.Length != projected.Count) return null;
+                int count = 0;
+                for (int k = 0; k < projected.Count / 3; k++)
+                {
+                    if (Math.Sqrt(Math.Pow(closestCoord[3 * k] - projected[3 * k], 2) +
+                                  Math.Pow(closestCoord[3 * k + 1] - projected[3 * k + 1], 2) +
+                                  Math.Pow(closestCoord[3 * k + 2] - projected[3 * k + 2], 2)) <= tolerance) count++;
+                }
+                targetElements[i] = Math.Max(1, count - 1);
+                total += targetElements[i];
+            }
+            // Only a split that lines up with the source nodes is worth following
+            return total == sourceElements ? targetElements : null;
         }
         private int ResolveRingLayerElements(HashSet<int> ringEdgeIds)
         {
@@ -1197,6 +1895,8 @@ namespace CaeMesh
             foreach (var entry in surfaceIdSurface)
             {
                 surface = entry.Value;
+                // The source of a block that carries imprints is meshed free, whatever its shape
+                if (_freeMeshedSurfaceIds.Contains(surface.Id)) continue;
                 //
                 if (surface.Transfinite)
                 {

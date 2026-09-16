@@ -38,6 +38,18 @@ namespace PrePoMax.Forms
             set { _sweepMesh.SourceType = value; }
         }
         //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(2, 10, "Keep imprint edges")]
+        [DescriptionAttribute("An imprint that splits one end of a swept prism inside its boundary is carried to " +
+                              "the other end, and the mesh follows it there. Keep the carried edges as edges of the " +
+                              "mesh, so that the faces they cross stay split along them.")]
+        [Id(3, 1)]
+        public bool KeepImprintEdges
+        {
+            get { return _sweepMesh.KeepImprintEdges; }
+            set { _sweepMesh.KeepImprintEdges = value; }
+        }
+        //
         [CategoryAttribute("Mesh smoothing")]
         [OrderedDisplayName(0, 10, "Global smooth steps")]
         [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing. " +

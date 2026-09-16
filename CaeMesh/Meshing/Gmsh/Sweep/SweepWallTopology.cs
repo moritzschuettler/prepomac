@@ -76,10 +76,20 @@ namespace CaeMesh.Sweep
         /// <summary>
         /// Sorts the edges of every wall into the source side, the target side and the edges that
         /// follow the sweep direction.
+        ///
+        /// A body split along the sweep direction has its walls in rings, and a wall in the middle
+        /// touches neither the source nor the target. When the edges following the sweep direction
+        /// are known - the model records them ring by ring - a wall's other edges are its two sides,
+        /// and which side is which follows from the source outwards: the side a wall shares with the
+        /// source, or with the far side of a wall already sorted, is its source side. The walls come
+        /// back in that order, so that the far side of one ring can hand its element counts to the
+        /// next. Without the direction edges, or for a wall they do not cover, an edge on neither the
+        /// source nor the target is taken to follow the sweep direction, as for a body in one ring.
         /// </summary>
         public static List<SweepWall> Classify(IEnumerable<int> sourceSurfaceIds, IEnumerable<int> wallSurfaceIds,
                                                IEnumerable<int> targetSurfaceIds,
-                                               Dictionary<int, int[]> surfaceIdEdgeIds)
+                                               Dictionary<int, int[]> surfaceIdEdgeIds,
+                                               HashSet<int> directionEdgeIds = null)
         {
             int[] edgeIds;
             HashSet<int> sourceEdgeIds = new HashSet<int>();
@@ -92,22 +102,66 @@ namespace CaeMesh.Sweep
             {
                 if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) targetEdgeIds.UnionWith(edgeIds);
             }
-            //
+            // The walls whose direction edges are known, with their cross edges still to be sided
             List<SweepWall> walls = new List<SweepWall>();
+            List<int> ringWallIds = new List<int>();
+            Dictionary<int, int[]> ringWallDirectionEdgeIds = new Dictionary<int, int[]>();
+            Dictionary<int, HashSet<int>> ringWallCrossEdgeIds = new Dictionary<int, HashSet<int>>();
             foreach (var wallSurfaceId in wallSurfaceIds)
             {
                 if (!surfaceIdEdgeIds.TryGetValue(wallSurfaceId, out edgeIds)) continue;
                 //
+                int[] wallEdgeIds = edgeIds.Distinct().ToArray();
+                if (directionEdgeIds != null && wallEdgeIds.Any(id => directionEdgeIds.Contains(id)))
+                {
+                    ringWallIds.Add(wallSurfaceId);
+                    ringWallDirectionEdgeIds.Add(wallSurfaceId, wallEdgeIds.Where(id => directionEdgeIds.Contains(id)).ToArray());
+                    ringWallCrossEdgeIds.Add(wallSurfaceId, wallEdgeIds.Where(id => !directionEdgeIds.Contains(id)).ToHashSet());
+                    continue;
+                }
+                //
                 List<int> onSource = new List<int>();
                 List<int> onTarget = new List<int>();
                 List<int> onDirection = new List<int>();
-                foreach (var edgeId in edgeIds.Distinct())
+                foreach (var edgeId in wallEdgeIds)
                 {
                     if (sourceEdgeIds.Contains(edgeId)) onSource.Add(edgeId);
                     else if (targetEdgeIds.Contains(edgeId)) onTarget.Add(edgeId);
                     else onDirection.Add(edgeId);
                 }
                 walls.Add(new SweepWall(wallSurfaceId, onSource.ToArray(), onTarget.ToArray(), onDirection.ToArray()));
+            }
+            // From the source outwards: a wall touching the frontier has its source side there, and its
+            // other cross edges become the frontier for the walls of the next ring
+            HashSet<int> frontierEdgeIds = new HashSet<int>(sourceEdgeIds);
+            while (ringWallIds.Count > 0)
+            {
+                HashSet<int> nextFrontierEdgeIds = new HashSet<int>();
+                List<int> sorted = new List<int>();
+                foreach (var wallSurfaceId in ringWallIds)
+                {
+                    HashSet<int> crossEdgeIds = ringWallCrossEdgeIds[wallSurfaceId];
+                    int[] onSource = crossEdgeIds.Where(id => frontierEdgeIds.Contains(id)).ToArray();
+                    if (onSource.Length == 0) continue;
+                    int[] onTarget = crossEdgeIds.Where(id => !frontierEdgeIds.Contains(id)).ToArray();
+                    walls.Add(new SweepWall(wallSurfaceId, onSource, onTarget, ringWallDirectionEdgeIds[wallSurfaceId]));
+                    nextFrontierEdgeIds.UnionWith(onTarget);
+                    sorted.Add(wallSurfaceId);
+                }
+                // A wall that no frontier reaches is sided by the source and the target alone
+                if (sorted.Count == 0)
+                {
+                    foreach (var wallSurfaceId in ringWallIds)
+                    {
+                        HashSet<int> crossEdgeIds = ringWallCrossEdgeIds[wallSurfaceId];
+                        walls.Add(new SweepWall(wallSurfaceId, crossEdgeIds.Where(id => sourceEdgeIds.Contains(id)).ToArray(),
+                                                crossEdgeIds.Where(id => !sourceEdgeIds.Contains(id)).ToArray(),
+                                                ringWallDirectionEdgeIds[wallSurfaceId]));
+                    }
+                    break;
+                }
+                foreach (var wallSurfaceId in sorted) ringWallIds.Remove(wallSurfaceId);
+                frontierEdgeIds = nextFrontierEdgeIds;
             }
             //
             return walls;

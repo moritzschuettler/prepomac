@@ -1841,7 +1841,7 @@ namespace PrePoMax
                 {
                     try
                     {
-                        if (partFileName.ToLower().Contains("compound"))
+                        if (Path.GetFileName(partFileName).ToLower().Contains("compound"))
                         {
                             ImportBrepCompoundPart(partFileName, null, null,
                                                    out string compoundPartName, out addedPartNames);
@@ -6269,8 +6269,9 @@ namespace PrePoMax
         }
         // A sweep mesh is defined by source surfaces lying on a single sub-part of a compound part and derives
         // the other sub-volumes from them, so it covers a part as soon as its selection lies on that part - or
-        // names the compound part itself, when the source surfaces are found automatically. Every other item
-        // has to be selected on the whole part.
+        // names the compound part itself, when the source surfaces are found automatically. One item may also
+        // span parts that stand apart from each other, and then it covers each of them in turn. Every other
+        // item has to be selected on the whole part.
         private bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
                                                 int[] meshablePartIds)
         {
@@ -6283,7 +6284,7 @@ namespace PrePoMax
                         sweptPartIds.UnionWith(_model.Geometry.GetPartIdsFomPartNames(compoundPart.SubPartNames));
                     else sweptPartIds.Add(partId);
                 }
-                return sweptPartIds.Count > 0 && sweptPartIds.IsSubsetOf(meshablePartIds);
+                return sweptPartIds.Overlaps(meshablePartIds);
             }
             else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
         }

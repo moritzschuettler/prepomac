@@ -38,6 +38,31 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
+        /// <summary>
+        /// The setup items as the mesher is to see them for one part. A sweep mesh item may span parts that
+        /// are meshed one at a time, so it is replaced by a clone carrying only the blocks that lie on the
+        /// part being meshed.
+        /// </summary>
+        private MeshSetupItem[] GetSetupItemsForPart(GeometryPart part, MeshSetupItem[] meshSetupItems)
+        {
+            if (meshSetupItems == null) return null;
+            //
+            int[] partIds = null;
+            MeshSetupItem[] partMeshSetupItems = null;
+            for (int i = 0; i < meshSetupItems.Length; i++)
+            {
+                if (!(meshSetupItems[i] is SweepMesh sweepMesh)) continue;
+                //
+                if (partIds == null)
+                {
+                    string[] meshablePartNames = _controller.GetMeshablePartNames(new string[] { part.Name });
+                    partIds = _controller.Model.Geometry.GetPartIdsFomPartNames(meshablePartNames);
+                }
+                if (partMeshSetupItems == null) partMeshSetupItems = meshSetupItems.ToArray();
+                partMeshSetupItems[i] = sweepMesh.GetBlocksOnParts(partIds);
+            }
+            return partMeshSetupItems == null ? meshSetupItems : partMeshSetupItems;
+        }
         public bool CanCreateMeshFromBrep(GeometryPart part)
         {
             return true;
@@ -135,7 +160,7 @@ namespace PrePoMax
             gmshData.GeometryFileName = brepFileName;
             gmshData.InpFileName = inpFileName;
             gmshData.PartMeshingParameters = partMeshingParameters;
-            gmshData.GmshSetupItems = gmshSetupItems;
+            gmshData.GmshSetupItems = GetSetupItemsForPart(part, gmshSetupItems);
             gmshData.Preview = true;
             _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
             _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
@@ -476,7 +501,7 @@ namespace PrePoMax
                 gmshData.GeometryFileName = brepFileName;
                 gmshData.InpFileName = inpFileName;
                 gmshData.PartMeshingParameters = partMeshingParameters;
-                gmshData.GmshSetupItems = meshSetupItems;
+                gmshData.GmshSetupItems = GetSetupItemsForPart(part, meshSetupItems);
                 gmshData.Preview = false;
                 _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
                 _controller.GetMeshItemSizes(part.Name, ref gmshData);

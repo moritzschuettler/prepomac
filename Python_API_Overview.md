@@ -680,7 +680,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
 | `add_extrude_mesh(name, selection, ...)` | A Gmsh extrude mesh item. |
 | `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
-| `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. |
+| `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. |
 | `add_shell_quad_wild(name, selection, preview=None, remesh=None, smooth=None, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None)` | A QuadWild shell mesh item. Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
@@ -718,7 +718,7 @@ item:
 | `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle` |
 | `extrude_mesh`, `revolve_mesh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `element_size_type`, `element_scale_factor`, `number_of_elements`, `layer_sizes`, `elements_per_layer`; `revolve_mesh` also takes `create_full_360_model` |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer` |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default) |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,

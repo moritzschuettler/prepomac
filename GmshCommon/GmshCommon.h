@@ -721,9 +721,32 @@ namespace GmshCommon {
                 {
                     gmsh::model::mesh::removeDuplicateNodes();
                 }
+                // Embed the entities of dimension `dim' and tags `tags' in the entity of dimension `inDim' and tag `inTag',
+                // so that the mesh of the latter carries the mesh of the former.
+                static void Embed(int dim, array<int>^ tags, int inDim, int inTag)
+                {
+                    std::vector<int> tags_native(tags->Length);
+                    if (tags->Length > 0) Marshal::Copy(tags, 0, IntPtr(tags_native.data()), tags->Length);
+                    //
+                    gmsh::model::mesh::embed(dim, tags_native, inDim, inTag);
+                }
+                // Remove the mesh constraints - transfinite, recombination, embedded - of the given entities.
+                static void RemoveConstraints(array<System::Tuple<int, int>^>^ dimTags)
+                {
+                    gmsh::vectorpair dimTags_native;
+                    for (int i = 0; i < dimTags->Length; ++i)
+                        dimTags_native.push_back(std::pair<int, int>(dimTags[i]->Item1, dimTags[i]->Item2));
+                    //
+                    gmsh::model::mesh::removeConstraints(dimTags_native);
+                }
                 static void RemoveDuplicateElements()
                 {
                     gmsh::model::mesh::removeDuplicateElements();
+                }
+                // Remove all elements of an entity; its nodes stay, so elements of other entities may still use them.
+                static void RemoveElements(int dim, int tag)
+                {
+                    gmsh::model::mesh::removeElements(dim, tag);
                 }
                 static void CreateFaces()
                 {
@@ -996,6 +1019,33 @@ namespace GmshCommon {
                 static void RemoveAllDuplicates()
                 {
                     gmsh::model::occ::removeAllDuplicates();
+                }
+                static void Copy(array<System::Tuple<int, int>^>^ dimTags,
+                    [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags)
+                {
+                    gmsh::vectorpair dimTags_native;
+                    for (int i = 0; i < dimTags->Length; ++i)
+                        dimTags_native.push_back(std::pair<int, int>(dimTags[i]->Item1, dimTags[i]->Item2));
+                    //
+                    gmsh::vectorpair outDimTags_native;
+                    gmsh::model::occ::copy(dimTags_native, outDimTags_native);
+                    //
+                    outDimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags_native.size());
+                    for (int i = 0; i < (int)outDimTags_native.size(); ++i)
+                        outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
+                }
+                static void Translate(array<System::Tuple<int, int>^>^ dimTags, double dx, double dy, double dz)
+                {
+                    gmsh::vectorpair dimTags_native;
+                    for (int i = 0; i < dimTags->Length; ++i)
+                        dimTags_native.push_back(std::pair<int, int>(dimTags[i]->Item1, dimTags[i]->Item2));
+                    //
+                    gmsh::model::occ::translate(dimTags_native, dx, dy, dz);
+                }
+                // An arc through three points when `center' is false; otherwise `middleTag' is the center of the circle.
+                static int AddCircleArc(int startTag, int middleTag, int endTag, System::Boolean center)
+                {
+                    return gmsh::model::occ::addCircleArc(startTag, middleTag, endTag, -1, center);
                 }
                 static void Defeature(array<int>^ volumeTags, array<int>^ surfaceTags,
                     [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags,

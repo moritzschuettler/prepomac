@@ -36,6 +36,23 @@ namespace CaeMesh.Sweep
         /// The gmsh volume the generated solid elements are classified on.
         /// </summary>
         public int VolumeId { get; set; }
+        /// <summary>
+        /// The edges that split the target inside its boundary - the imprints of the neighbours standing on
+        /// it, and the imprints of the source carried up onto it - mapped to the edges of the source they
+        /// stand above, so that the sweep lines starting on the source edge end on the target edge. Null when
+        /// neither end is split inside.
+        /// </summary>
+        public Dictionary<int, int> ImprintEdgeCopyIds { get; set; }
+        /// <summary>
+        /// The vector that carries a point of the target onto the source. Null for a block that is not a
+        /// prism.
+        /// </summary>
+        public double[] ImprintTranslation { get; set; }
+        /// <summary>
+        /// Whether an end of the block is split inside its boundary and the split was carried to the other
+        /// end, which is what makes the block one whose sweep lines are pinned.
+        /// </summary>
+        public bool CarriesImprints { get; set; }
 
 
         // Constructors                                                                                                             
@@ -46,6 +63,22 @@ namespace CaeMesh.Sweep
             _wallSurfaceIds = new HashSet<int>(wallSurfaceIds);
             _targetSurfaceIds = new HashSet<int>(targetSurfaceIds);
             VolumeId = 1;
+        }
+
+
+        // Methods                                                                                                                  
+        /// <summary>
+        /// Replaces the surfaces of the block after a geometry operation changed them.
+        /// </summary>
+        public void SetSurfaces(IEnumerable<int> sourceSurfaceIds, IEnumerable<int> wallSurfaceIds,
+                                IEnumerable<int> targetSurfaceIds)
+        {
+            _sourceSurfaceIds.Clear();
+            _sourceSurfaceIds.UnionWith(sourceSurfaceIds);
+            _wallSurfaceIds.Clear();
+            _wallSurfaceIds.UnionWith(wallSurfaceIds);
+            _targetSurfaceIds.Clear();
+            _targetSurfaceIds.UnionWith(targetSurfaceIds);
         }
     }
 }

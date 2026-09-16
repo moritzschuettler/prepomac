@@ -430,12 +430,15 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a Gmsh sweep mesh item for the selected source surfaces. The sweep direction, " +
                    "the side surfaces and the layer edges are derived by the model from the selection. A part " +
-                   "selection - a solid or a compound of solids - lets the model find the source surfaces itself.",
+                   "selection - a solid or a compound of solids - lets the model find the source surfaces " +
+                   "itself. Either selection may span several parts that stand apart from each other, and " +
+                   "each of them is then swept on its own.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
                                ", transfinite_angle: float = None, optimize_first_order_shell: str = None, " +
-                               "elements_per_layer: list[int] = None", Returns = "MeshSetupItem")]
+                               "elements_per_layer: list[int] = None, keep_imprint_edges: bool = False",
+                   Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_sweep_mesh(string name, SelectionAPI selection,
                                                int number_of_global_smooth_steps = 0, string algorithm_2d = null,
                                                string algorithm_3d = null, object recombine_min_quality = null,
@@ -444,10 +447,11 @@ namespace APIs.Python.Model
                                                object transfinite_four_sided = null,
                                                object transfinite_angle = null,
                                                string optimize_first_order_shell = null,
-                                               object elements_per_layer = null)
+                                               object elements_per_layer = null, bool keep_imprint_edges = false)
         {
             SweepMesh item = new SweepMesh(name);
             item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
+            item.KeepImprintEdges = keep_imprint_edges;
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
                            optimize_first_order_shell, elements_per_layer);
@@ -468,12 +472,14 @@ namespace APIs.Python.Model
                                                    object transfinite_four_sided = null,
                                                    object transfinite_angle = null,
                                                    string optimize_first_order_shell = null,
-                                                   object elements_per_layer = null)
+                                                   object elements_per_layer = null, object keep_imprint_edges = null)
         {
             SweepMesh item = (SweepMesh)_service.CloneItem(old_name);
             if (number_of_global_smooth_steps != null)
                 item.NumberOfGlobalSmoothSteps =
                     PythonValueConverter.ToInt(number_of_global_smooth_steps, "number_of_global_smooth_steps");
+            if (keep_imprint_edges != null)
+                item.KeepImprintEdges = PythonValueConverter.ToBool(keep_imprint_edges, "keep_imprint_edges");
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
                            optimize_first_order_shell, elements_per_layer);

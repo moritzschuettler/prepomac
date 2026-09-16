@@ -34,8 +34,9 @@ namespace CaeMesh.Sweep
         private int _numLayers;                         // number of node rows, including source and target
         private IntPtr[] _nodeTags;                     // [layer * numNodes + node]
         private double[] _coords;                       // 3 * [layer * numNodes + node]
-        private bool[] _isBoundaryNode;                 // source node lies on the source/wall boundary
+        private bool[] _isBoundaryNode;                 // source node lies on the source/wall boundary, or is pinned
         private int[] _interiorNodes;                   // source node indices that are not boundary nodes
+        private int[] _pinnedNodes;                     // source nodes on a carried imprint, whose lines are prescribed
         private int[][] _sourceElements;                // source element -> source node indices (3 or 4)
         private int[] _sourceElementTypes;              // gmsh element type of each source element
         private int[] _sourceElementSurfaceIds;         // gmsh surface the source element came from
@@ -54,6 +55,12 @@ namespace CaeMesh.Sweep
         public double[] Coords { get { return _coords; } }
         public bool[] IsBoundaryNode { get { return _isBoundaryNode; } }
         public int[] InteriorNodes { get { return _interiorNodes; } }
+        /// <summary>
+        /// Source nodes whose sweep lines are prescribed from a carried imprint. They count as boundary for
+        /// the morph and the smoother, but unlike wall nodes their intermediate layers do not exist yet and
+        /// have to be added with the interior ones; their target node is an existing node of the imprint.
+        /// </summary>
+        public int[] PinnedNodes { get { return _pinnedNodes ?? new int[0]; } }
         public int[][] SourceElements { get { return _sourceElements; } }
         public int[] SourceElementTypes { get { return _sourceElementTypes; } }
         public int[] SourceElementSurfaceIds { get { return _sourceElementSurfaceIds; } }
@@ -128,8 +135,139 @@ namespace CaeMesh.Sweep
             // Sweep lines read off the structured wall grid
             Dictionary<IntPtr, List<IntPtr>> boundaryLines = TraceWallSweepLines(block, surfaceIdEdgeIds);
             data.LayOutSweepLines(boundaryLines, tagCoor);
+            // Sweep lines prescribed between an edge splitting the source and the edge of the target above it
+            data.PinImprintLines(block);
             //
             return data;
+        }
+        /// <summary>
+        /// Pins the sweep lines between the edges splitting the source inside and the edges of the target above
+        /// them: every node of such a source edge is paired with the node of the target edge it stands below,
+        /// the layers between them are interpolated, and the target node of the line is the target edge's node
+        /// itself, so that a neighbour standing on the target, whose walls start from those nodes, shares them.
+        /// The morph then treats the pinned lines as boundary and fills around them.
+        /// </summary>
+        private void PinImprintLines(SweepBlock block)
+        {
+            if (block.ImprintEdgeCopyIds == null || block.ImprintEdgeCopyIds.Count == 0) return;
+            //
+            int node;
+            int index;
+            IntPtr[] sourceTags;
+            IntPtr[] targetTags;
+            double[] sourceCoor;
+            double[] targetCoor;
+            double[] translation = block.ImprintTranslation;
+            List<int> pinned = new List<int>();
+            foreach (var entry in block.ImprintEdgeCopyIds)
+            {
+                // The nodes of both edges in the order along the edge, the target edge read the way the source
+                // edge runs. Pairing by order rather than by position survives a 2D algorithm that moves the
+                // curve nodes once the curves are meshed, as the quasi-structured quad algorithm does
+                GetOrderedCurveNodes(entry.Value, out sourceTags, out sourceCoor);
+                GetOrderedCurveNodes(entry.Key, out targetTags, out targetCoor);
+                if (sourceTags.Length != targetTags.Length)
+                    throw new CaeException("An edge splitting the sweep target and the edge of the source below it carry " +
+                                           "a different number of nodes.");
+                AlignCurveNodes(sourceCoor, translation, ref targetTags, ref targetCoor);
+                //
+                for (int i = 0; i < sourceTags.Length; i++)
+                {
+                    if (!_sourceTagIndex.TryGetValue(sourceTags[i], out node))
+                        throw new CaeException("A node of an edge splitting the sweep source was not found in the " +
+                                               "source mesh.");
+                    // A node on the wall boundary is a wall line already, and is left to the wall grid
+                    if (_isBoundaryNode[node]) continue;
+                    // A straight line from the source node to the target node, the block being prismatic
+                    _isBoundaryNode[node] = true;
+                    pinned.Add(node);
+                    for (int layer = 1; layer < _numLayers; layer++)
+                    {
+                        double ratio = (double)layer / (_numLayers - 1);
+                        index = Index(layer, node);
+                        for (int k = 0; k < 3; k++)
+                            _coords[3 * index + k] = sourceCoor[3 * i + k] + ratio * (targetCoor[3 * i + k] - sourceCoor[3 * i + k]);
+                    }
+                    _nodeTags[Index(_numLayers - 1, node)] = targetTags[i];
+                }
+            }
+            if (pinned.Count == 0) return;
+            //
+            _pinnedNodes = pinned.ToArray();
+            List<int> interior = new List<int>();
+            for (int i = 0; i < _numNodes; i++) if (!_isBoundaryNode[i]) interior.Add(i);
+            _interiorNodes = interior.ToArray();
+        }
+        /// <summary>
+        /// The nodes of a meshed curve, its end vertices included, in the order along the curve: from the node
+        /// at the curve's first vertex, each next node is the nearest one not yet taken.
+        /// </summary>
+        private static void GetOrderedCurveNodes(int edgeId, out IntPtr[] tags, out double[] coor)
+        {
+            IntPtr[] allTags;
+            double[] allCoor;
+            Gmsh.Model.Mesh.GetNodes(out allTags, out allCoor, 1, edgeId, true, false);
+            int[] vertexIds;
+            double[] current;
+            Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+            Gmsh.Model.GetValue(0, vertexIds[0], new double[3], out current);
+            //
+            int count = allTags.Length;
+            bool[] taken = new bool[count];
+            tags = new IntPtr[count];
+            coor = new double[3 * count];
+            for (int k = 0; k < count; k++)
+            {
+                int nearest = -1;
+                double nearestDistance = double.MaxValue;
+                for (int i = 0; i < count; i++)
+                {
+                    if (taken[i]) continue;
+                    double distance = Math.Pow(allCoor[3 * i] - current[0], 2) + Math.Pow(allCoor[3 * i + 1] - current[1], 2) +
+                                      Math.Pow(allCoor[3 * i + 2] - current[2], 2);
+                    if (distance < nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        nearest = i;
+                    }
+                }
+                taken[nearest] = true;
+                tags[k] = allTags[nearest];
+                Array.Copy(allCoor, 3 * nearest, coor, 3 * k, 3);
+                current = new double[] { allCoor[3 * nearest], allCoor[3 * nearest + 1], allCoor[3 * nearest + 2] };
+            }
+        }
+        /// <summary>
+        /// Reverses the target nodes when they run against the source nodes, judged by the summed distance
+        /// between the source nodes carried onto the target and the target nodes in either order.
+        /// </summary>
+        private static void AlignCurveNodes(double[] sourceCoor, double[] translation, ref IntPtr[] targetTags,
+                                            ref double[] targetCoor)
+        {
+            int count = targetTags.Length;
+            double forward = 0;
+            double backward = 0;
+            for (int i = 0; i < count; i++)
+            {
+                int j = count - 1 - i;
+                for (int k = 0; k < 3; k++)
+                {
+                    double carried = sourceCoor[3 * i + k] - translation[k];
+                    forward += Math.Abs(carried - targetCoor[3 * i + k]);
+                    backward += Math.Abs(carried - targetCoor[3 * j + k]);
+                }
+            }
+            if (backward >= forward) return;
+            //
+            IntPtr[] reversedTags = new IntPtr[count];
+            double[] reversedCoor = new double[3 * count];
+            for (int i = 0; i < count; i++)
+            {
+                reversedTags[i] = targetTags[count - 1 - i];
+                Array.Copy(targetCoor, 3 * (count - 1 - i), reversedCoor, 3 * i, 3);
+            }
+            targetTags = reversedTags;
+            targetCoor = reversedCoor;
         }
         /// <summary>
         /// Builds the data for a block whose source mesh and boundary sweep lines are already
@@ -182,8 +320,6 @@ namespace CaeMesh.Sweep
             List<int> interior = new List<int>();
             for (int i = 0; i < data._numNodes; i++) if (!isBoundaryNode[i]) interior.Add(i);
             data._interiorNodes = interior.ToArray();
-            if (data._interiorNodes.Length == 0)
-                throw new CaeException("The sweep source mesh has no interior nodes.");
             //
             data.BuildAdjacency();
             //
@@ -434,8 +570,8 @@ namespace CaeMesh.Sweep
             List<int> interior = new List<int>();
             for (int i = 0; i < _numNodes; i++) if (!_isBoundaryNode[i]) interior.Add(i);
             _interiorNodes = interior.ToArray();
-            if (_interiorNodes.Length == 0)
-                throw new CaeException("The sweep source mesh has no interior nodes.");
+            // A source meshed one element across has no interior node at all; every sweep line is then a wall
+            // line and the morph has nothing to fill
             // New tags for the interior sweep lines
             IntPtr maxTag;
             Gmsh.Model.Mesh.GetMaxNodeTag(out maxTag);

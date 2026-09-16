@@ -25,6 +25,7 @@ namespace CaeMesh
         // Variables                                                                                                                
         private SweepSourceTypeEnum _sourceType;                        // ISerializable
         private int _numberOfGlobalSmoothSteps;                         // ISerializable
+        private bool _keepImprintEdges;                                 // ISerializable
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
         private int[][] _blockSourceSurfaceIds;                         // ISerializable
@@ -46,6 +47,7 @@ namespace CaeMesh
                 if (_numberOfGlobalSmoothSteps < 0) _numberOfGlobalSmoothSteps = 0;
             }
         }
+        public bool KeepImprintEdges { get { return _keepImprintEdges; } set { _keepImprintEdges = value; } }
         public double[] Direction { get { return _direction; } set { _direction = value; } }
         public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
         public int[][] BlockSourceSurfaceIds { get { return _blockSourceSurfaceIds; } set { _blockSourceSurfaceIds = value; } }
@@ -80,6 +82,8 @@ namespace CaeMesh
                         _sourceType = (SweepSourceTypeEnum)entry.Value; break;
                     case "_numberOfGlobalSmoothSteps":
                         _numberOfGlobalSmoothSteps = (int)entry.Value; break;
+                    case "_keepImprintEdges":
+                        _keepImprintEdges = (bool)entry.Value; break;
                     case "_direction":
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":
@@ -118,7 +122,12 @@ namespace CaeMesh
             // The layer interior comes out of the morph already smooth; extra relaxation only
             // erodes the grading the source mesh carries, so it is off unless it is asked for
             _numberOfGlobalSmoothSteps = 0;
-            _sourceType = SweepSourceTypeEnum.SelectedSurfaces;
+            // The edges carried across a prism to follow an imprint are scaffolding, dropped from the mesh
+            // unless they are asked for
+            _keepImprintEdges = false;
+            // A new item finds its own source surfaces; an item written before the field existed carries a
+            // surface selection and is left at the enum value zero, which is SelectedSurfaces
+            _sourceType = SweepSourceTypeEnum.Automatic;
             _direction = null;
             _sweepCenter = null;
             _blockSourceSurfaceIds = null;
@@ -134,6 +143,7 @@ namespace CaeMesh
             //
             _sourceType = sweepMesh._sourceType;
             _numberOfGlobalSmoothSteps = sweepMesh._numberOfGlobalSmoothSteps;
+            _keepImprintEdges = sweepMesh._keepImprintEdges;
             // The guards belong on the source: a null field here is exactly the case that has to be
             // filled in, and a null field there is the case that must not be dereferenced
             _direction = sweepMesh._direction?.ToArray();
@@ -156,6 +166,66 @@ namespace CaeMesh
                     }
                 }
             }
+        }
+        /// <summary>
+        /// A deep clone of the item keeping only the blocks and the layer edge groups that lie on the given
+        /// parts. A sweep may span parts that are meshed one at a time, and the mesher must be given the
+        /// blocks of the part it is meshing alone. The clone also protects the item from the mesher:
+        /// GmshAPI.RenumberGmshDataByCoor replaces the ids of these arrays with gmsh tags in place, which
+        /// would corrupt the live item when the mesher runs in the application's own process.
+        /// </summary>
+        public SweepMesh GetBlocksOnParts(int[] partIds)
+        {
+            SweepMesh sweepMesh = this.DeepClone();
+            if (_blockSourceSurfaceIds == null) return sweepMesh;
+            //
+            HashSet<int> keptPartIds = new HashSet<int>(partIds);
+            List<int[]> blockSourceSurfaceIds = new List<int[]>();
+            List<int[]> blockSideSurfaceIds = new List<int[]>();
+            List<int[]> blockTargetSurfaceIds = new List<int[]>();
+            List<int[][]> layerGroupEdgeIds = new List<int[][]>();
+            List<double[]> blockArrowStarts = new List<double[]>();
+            List<double[]> blockArrowDirections = new List<double[]>();
+            for (int i = 0; i < sweepMesh._blockSourceSurfaceIds.Length; i++)
+            {
+                if (!IsOnParts(sweepMesh._blockSourceSurfaceIds[i], keptPartIds)) continue;
+                //
+                blockSourceSurfaceIds.Add(sweepMesh._blockSourceSurfaceIds[i]);
+                blockSideSurfaceIds.Add(sweepMesh._blockSideSurfaceIds[i]);
+                blockTargetSurfaceIds.Add(sweepMesh._blockTargetSurfaceIds[i]);
+                if (sweepMesh._blockArrowStarts != null) blockArrowStarts.Add(sweepMesh._blockArrowStarts[i]);
+                if (sweepMesh._blockArrowDirections != null) blockArrowDirections.Add(sweepMesh._blockArrowDirections[i]);
+            }
+            if (sweepMesh._layerGroupEdgeIds != null)
+            {
+                foreach (var layerGroups in sweepMesh._layerGroupEdgeIds)
+                {
+                    foreach (var edgeIds in layerGroups)
+                    {
+                        if (!IsOnParts(edgeIds, keptPartIds)) continue;
+                        //
+                        layerGroupEdgeIds.Add(layerGroups);
+                        break;
+                    }
+                }
+            }
+            //
+            sweepMesh._blockSourceSurfaceIds = blockSourceSurfaceIds.ToArray();
+            sweepMesh._blockSideSurfaceIds = blockSideSurfaceIds.ToArray();
+            sweepMesh._blockTargetSurfaceIds = blockTargetSurfaceIds.ToArray();
+            sweepMesh._layerGroupEdgeIds = layerGroupEdgeIds.ToArray();
+            if (sweepMesh._blockArrowStarts != null) sweepMesh._blockArrowStarts = blockArrowStarts.ToArray();
+            if (sweepMesh._blockArrowDirections != null) sweepMesh._blockArrowDirections = blockArrowDirections.ToArray();
+            //
+            return sweepMesh;
+        }
+        private static bool IsOnParts(int[] gmshTopologyIds, HashSet<int> partIds)
+        {
+            for (int i = 0; i < gmshTopologyIds.Length; i++)
+            {
+                if (partIds.Contains(FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyIds[i]))) return true;
+            }
+            return false;
         }
         private static int[][] CopyBlockIds(int[][] blockIds)
         {
@@ -180,6 +250,7 @@ namespace CaeMesh
             // Using typeof() works also for null fields
             info.AddValue("_sourceType", _sourceType, typeof(SweepSourceTypeEnum));
             info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
+            info.AddValue("_keepImprintEdges", _keepImprintEdges, typeof(bool));
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
             info.AddValue("_blockSourceSurfaceIds", _blockSourceSurfaceIds, typeof(int[][]));
