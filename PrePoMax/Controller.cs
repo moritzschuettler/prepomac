@@ -6275,8 +6275,22 @@ namespace PrePoMax
         private bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
                                                 int[] meshablePartIds)
         {
-            if (meshSetupItem is SweepMesh)
+            if (meshSetupItem is SweepMesh sweepMesh)
             {
+                // The item sweeps the parts its blocks lie on, which are the parts of the selection that
+                // could be swept. A part the selection reached but the sweep left out is meshed by an item
+                // of its own and must not be claimed here
+                if (sweepMesh.BlockSourceSurfaceIds != null && sweepMesh.BlockSourceSurfaceIds.Length > 0)
+                {
+                    HashSet<int> blockPartIds = new HashSet<int>();
+                    foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
+                    {
+                        foreach (var gmshTopologyId in blockSourceSurfaceIds)
+                            blockPartIds.Add(FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId));
+                    }
+                    return blockPartIds.Overlaps(meshablePartIds);
+                }
+                //
                 HashSet<int> sweptPartIds = new HashSet<int>();
                 foreach (var partId in selectedPartIds)
                 {

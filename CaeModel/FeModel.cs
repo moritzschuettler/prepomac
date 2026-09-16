@@ -2754,15 +2754,24 @@ namespace CaeModel
         private string GetSweptPartGroups(IEnumerable<int> selectedPartIds, out GeometryPart[][] sweptPartGroups)
         {
             sweptPartGroups = null;
+            bool sweepable;
+            string error = null;
             GeometryPart part;
             GeometryPart[] subParts;
             CompoundGeometryPart compoundPart;
             HashSet<string> groupNames = new HashSet<string>();
             List<GeometryPart[]> groups = new List<GeometryPart[]>();
+            // A selection made by dragging a box reaches whatever stands in it, so a part that cannot be
+            // swept is left out and meshed by an item of its own, rather than refusing the parts that can be
+            // swept beside it. Only a selection in which nothing can be swept is refused, with the reason
             foreach (var partId in selectedPartIds)
             {
                 part = _geometry.GetPartFromId(partId) as GeometryPart;
-                if (part == null) return "The selection does not lie on a geometry part.";
+                if (part == null)
+                {
+                    error = "The selection does not lie on a geometry part.";
+                    continue;
+                }
                 // A compound part stands for its sub-parts, which are swept together, so the selection may
                 // name the compound, or span several of its sub-parts
                 compoundPart = part as CompoundGeometryPart;
@@ -2772,26 +2781,38 @@ namespace CaeModel
                 {
                     if (!groupNames.Add(compoundPart.Name)) continue;
                     //
+                    sweepable = true;
                     subParts = new GeometryPart[compoundPart.SubPartNames.Length];
                     for (int i = 0; i < subParts.Length; i++)
                     {
                         subParts[i] = (GeometryPart)_geometry.Parts[compoundPart.SubPartNames[i]];
                         if (!subParts[i].IsCADPart || (subParts[i].PartType != PartType.Solid &&
                                                        subParts[i].PartType != PartType.SolidAsShell))
-                            return "The sweep mesh setup item can only be defined on a compound part of CAD solids.";
+                        {
+                            error = "The sweep mesh setup item can only be defined on a compound part of CAD solids.";
+                            sweepable = false;
+                            break;
+                        }
                     }
-                    groups.Add(subParts);
+                    if (sweepable) groups.Add(subParts);
                 }
                 else
                 {
-                    if (!part.IsCADPart) return "The sweep mesh setup item cannot be defined on a stl based part.";
+                    if (!part.IsCADPart)
+                    {
+                        error = "The sweep mesh setup item cannot be defined on a stl based part.";
+                        continue;
+                    }
                     if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
-                        return "The sweep mesh setup item cannot be defined on a shell part.";
+                    {
+                        error = "The sweep mesh setup item cannot be defined on a shell part.";
+                        continue;
+                    }
                     if (!groupNames.Add(part.Name)) continue;
                     groups.Add(new GeometryPart[] { part });
                 }
             }
-            if (groups.Count == 0) return "No source surface is selected.";
+            if (groups.Count == 0) return error != null ? error : "No source surface is selected.";
             //
             sweptPartGroups = groups.ToArray();
             return null;
@@ -2804,7 +2825,9 @@ namespace CaeModel
                                                   Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
         {
             string error;
+            string lastError = null;
             bool namePart;
+            int sweptGroupCount = 0;
             HashSet<int> surfaceIds;
             Dictionary<int, HashSet<int>> groupSelectedSurfaceIds;
             List<int[]> blockSourceSurfaceIds = new List<int[]>();
@@ -2828,8 +2851,14 @@ namespace CaeModel
                     error = CreateSweepBlocks(sweepMesh, sweptParts, groupSelectedSurfaceIds, null, null, namePart,
                                               out _, out _);
                 }
-                if (error != null) return error;
-                //
+                // A group that cannot be swept is left out the way a part that cannot be swept is, so that
+                // the groups that can be swept still are. Only an item that sweeps nothing at all is refused
+                if (error != null)
+                {
+                    lastError = error;
+                    continue;
+                }
+                sweptGroupCount++;
                 blockSourceSurfaceIds.AddRange(sweepMesh.BlockSourceSurfaceIds);
                 blockSideSurfaceIds.AddRange(sweepMesh.BlockSideSurfaceIds);
                 blockTargetSurfaceIds.AddRange(sweepMesh.BlockTargetSurfaceIds);
@@ -2837,6 +2866,7 @@ namespace CaeModel
                 blockArrowStarts.AddRange(sweepMesh.BlockArrowStarts);
                 blockArrowDirections.AddRange(sweepMesh.BlockArrowDirections);
             }
+            if (sweptGroupCount == 0) return lastError;
             //
             sweepMesh.BlockSourceSurfaceIds = blockSourceSurfaceIds.ToArray();
             sweepMesh.BlockSideSurfaceIds = blockSideSurfaceIds.ToArray();
