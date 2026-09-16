@@ -144,8 +144,13 @@ namespace CaeMesh.Sweep
         /// Pins the sweep lines between the edges splitting the source inside and the edges of the target above
         /// them: every node of such a source edge is paired with the node of the target edge it stands below,
         /// the layers between them are interpolated, and the target node of the line is the target edge's node
-        /// itself, so that a neighbour standing on the target, whose walls start from those nodes, shares them.
-        /// The morph then treats the pinned lines as boundary and fills around them.
+        /// itself, so that a neighbour standing on the target, whose walls start from those nodes, shares them,
+        /// and so that the target edge keeps a line mesh the cap elements agree with. The morph then treats the
+        /// pinned lines as boundary and fills around them.
+        ///
+        /// The pairing is made between two edges that are a translation of each other, which a block that is
+        /// not a prism can have as well - the two tangency lines of a bent plate are one such pair - so the
+        /// straight line between two paired nodes is a sweep line whether or not the whole block is prismatic.
         /// </summary>
         private void PinImprintLines(SweepBlock block)
         {
@@ -157,7 +162,6 @@ namespace CaeMesh.Sweep
             IntPtr[] targetTags;
             double[] sourceCoor;
             double[] targetCoor;
-            double[] translation = block.ImprintTranslation;
             List<int> pinned = new List<int>();
             foreach (var entry in block.ImprintEdgeCopyIds)
             {
@@ -169,7 +173,7 @@ namespace CaeMesh.Sweep
                 if (sourceTags.Length != targetTags.Length)
                     throw new CaeException("An edge splitting the sweep target and the edge of the source below it carry " +
                                            "a different number of nodes.");
-                AlignCurveNodes(sourceCoor, translation, ref targetTags, ref targetCoor);
+                AlignCurveNodes(sourceCoor, ref targetTags, ref targetCoor);
                 //
                 for (int i = 0; i < sourceTags.Length; i++)
                 {
@@ -178,7 +182,8 @@ namespace CaeMesh.Sweep
                                                "source mesh.");
                     // A node on the wall boundary is a wall line already, and is left to the wall grid
                     if (_isBoundaryNode[node]) continue;
-                    // A straight line from the source node to the target node, the block being prismatic
+                    // A straight line from the source node to the target node, the two edges being a translation
+                    // of each other
                     _isBoundaryNode[node] = true;
                     pinned.Add(node);
                     for (int layer = 1; layer < _numLayers; layer++)
@@ -241,10 +246,15 @@ namespace CaeMesh.Sweep
         /// Reverses the target nodes when they run against the source nodes, judged by the summed distance
         /// between the source nodes carried onto the target and the target nodes in either order.
         /// </summary>
-        private static void AlignCurveNodes(double[] sourceCoor, double[] translation, ref IntPtr[] targetTags,
-                                            ref double[] targetCoor)
+        private static void AlignCurveNodes(double[] sourceCoor, ref IntPtr[] targetTags, ref double[] targetCoor)
         {
             int count = targetTags.Length;
+            // The vector between the two edges, which is what the source has to be carried by before the two
+            // runs can be compared. Taken from the nodes themselves, so that no translation has to be passed in
+            double[] carry = new double[3];
+            for (int i = 0; i < count; i++)
+                for (int k = 0; k < 3; k++) carry[k] += (targetCoor[3 * i + k] - sourceCoor[3 * i + k]) / count;
+            //
             double forward = 0;
             double backward = 0;
             for (int i = 0; i < count; i++)
@@ -252,7 +262,7 @@ namespace CaeMesh.Sweep
                 int j = count - 1 - i;
                 for (int k = 0; k < 3; k++)
                 {
-                    double carried = sourceCoor[3 * i + k] - translation[k];
+                    double carried = sourceCoor[3 * i + k] + carry[k];
                     forward += Math.Abs(carried - targetCoor[3 * i + k]);
                     backward += Math.Abs(carried - targetCoor[3 * j + k]);
                 }

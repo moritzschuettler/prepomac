@@ -215,6 +215,116 @@ namespace CaeMesh.Sweep
             return corners.Length == 4 ? corners : null;
         }
         /// <summary>
+        /// The edges of the two cross-sweep sides of a wall in the order they run, the target side read the
+        /// way the source side runs: the two chains start at the ends that the same run of direction edges
+        /// joins. False when either side is not a chain with two ends, when the sides hold a different number
+        /// of edges, or when the ends cannot be matched through the direction edges.
+        ///
+        /// A wall whose two sides are split at corresponding places needs it: the rim of a bent plate is
+        /// split where the bend begins on the source and again where it begins on the target, and unless the
+        /// two segments opposite each other carry the same number of elements, the grid column that starts at
+        /// the split of one side ends somewhere in the middle of the other.
+        /// </summary>
+        public static bool OrderWallSides(SweepWall wall, out int[] sourceEdgeIds, out int[] targetEdgeIds)
+        {
+            sourceEdgeIds = null;
+            targetEdgeIds = null;
+            if (wall.SourceEdgeIds.Length != wall.TargetEdgeIds.Length) return false;
+            //
+            int[] sourceEndVertexIds;
+            int[] targetEndVertexIds;
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            if (!OrderSideEdges(wall.SourceEdgeIds, edgeIdVertexIds, out sourceEdgeIds, out sourceEndVertexIds) ||
+                !OrderSideEdges(wall.TargetEdgeIds, edgeIdVertexIds, out targetEdgeIds, out targetEndVertexIds))
+                return false;
+            // The vertices the direction edges reach from the first vertex of the source side: the end of the
+            // target side among them is the end the source side runs from
+            int[] vertexIds;
+            bool added = true;
+            HashSet<int> reachedVertexIds = new HashSet<int>() { sourceEndVertexIds[0] };
+            while (added)
+            {
+                added = false;
+                foreach (var edgeId in wall.DirectionEdgeIds)
+                {
+                    vertexIds = GetEdgeVertexIds(edgeId, edgeIdVertexIds);
+                    if (vertexIds == null) continue;
+                    if (reachedVertexIds.Contains(vertexIds[0]) && reachedVertexIds.Add(vertexIds[1])) added = true;
+                    if (reachedVertexIds.Contains(vertexIds[1]) && reachedVertexIds.Add(vertexIds[0])) added = true;
+                }
+            }
+            if (reachedVertexIds.Contains(targetEndVertexIds[0])) return true;
+            if (!reachedVertexIds.Contains(targetEndVertexIds[1])) return false;
+            //
+            targetEdgeIds = targetEdgeIds.Reverse().ToArray();
+            return true;
+        }
+        /// <summary>
+        /// The edges of one side of a wall in the order they run, from one end of the chain to the other,
+        /// together with the two end vertices. False when the edges do not form a single open chain.
+        /// </summary>
+        private static bool OrderSideEdges(int[] edgeIds, Dictionary<int, int[]> edgeIdVertexIds,
+                                           out int[] orderedEdgeIds, out int[] endVertexIds)
+        {
+            orderedEdgeIds = null;
+            endVertexIds = null;
+            //
+            int[] vertexIds;
+            List<int> edgeIdsAtVertex;
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in edgeIds)
+            {
+                vertexIds = GetEdgeVertexIds(edgeId, edgeIdVertexIds);
+                if (vertexIds == null) return false;
+                foreach (var vertexId in vertexIds)
+                {
+                    if (!vertexIdEdgeIds.TryGetValue(vertexId, out edgeIdsAtVertex))
+                        vertexIdEdgeIds.Add(vertexId, edgeIdsAtVertex = new List<int>());
+                    edgeIdsAtVertex.Add(edgeId);
+                }
+            }
+            int[] ends = vertexIdEdgeIds.Where(entry => entry.Value.Count == 1).Select(entry => entry.Key).ToArray();
+            if (ends.Length != 2) return false;
+            //
+            int currentVertexId = ends[0];
+            List<int> ordered = new List<int>();
+            HashSet<int> usedEdgeIds = new HashSet<int>();
+            while (ordered.Count < edgeIds.Length)
+            {
+                int nextEdgeId = -1;
+                foreach (var edgeId in vertexIdEdgeIds[currentVertexId])
+                {
+                    if (usedEdgeIds.Contains(edgeId)) continue;
+                    nextEdgeId = edgeId;
+                    break;
+                }
+                if (nextEdgeId < 0) return false;
+                usedEdgeIds.Add(nextEdgeId);
+                ordered.Add(nextEdgeId);
+                vertexIds = edgeIdVertexIds[nextEdgeId];
+                currentVertexId = vertexIds[0] == currentVertexId ? vertexIds[1] : vertexIds[0];
+            }
+            if (currentVertexId != ends[1]) return false;
+            //
+            orderedEdgeIds = ordered.ToArray();
+            endVertexIds = ends;
+            return true;
+        }
+        /// <summary>
+        /// The two end vertices of an edge, or null for an edge that has not exactly two.
+        /// </summary>
+        private static int[] GetEdgeVertexIds(int edgeId, Dictionary<int, int[]> edgeIdVertexIds)
+        {
+            int[] vertexIds;
+            if (edgeIdVertexIds.TryGetValue(edgeId, out vertexIds)) return vertexIds;
+            //
+            Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+            vertexIds = vertexIds.Distinct().ToArray();
+            if (vertexIds.Length != 2) vertexIds = null;
+            edgeIdVertexIds.Add(edgeId, vertexIds);
+            return vertexIds;
+        }
+        /// <summary>
         /// Follows the edges running from the source of a block towards its target: from every vertex of
         /// the source, along every wall edge leaving it, and on through the edge that continues most
         /// smoothly at every vertex, until nothing continues within 25 degrees. The edges the model marked

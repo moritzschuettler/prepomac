@@ -38,9 +38,10 @@ namespace CaeMesh.Sweep
         public int VolumeId { get; set; }
         /// <summary>
         /// The edges that split the target inside its boundary - the imprints of the neighbours standing on
-        /// it, and the imprints of the source carried up onto it - mapped to the edges of the source they
-        /// stand above, so that the sweep lines starting on the source edge end on the target edge. Null when
-        /// neither end is split inside.
+        /// it, the imprints of the source carried up onto it, and the edges a bent source puts there of its
+        /// own - mapped to the edges of the source they stand above, so that the sweep lines starting on the
+        /// source edge end on the target edge. Null when neither end is split inside, and when the two ends
+        /// are split in ways that cannot be matched.
         /// </summary>
         public Dictionary<int, int> ImprintEdgeCopyIds { get; set; }
         /// <summary>
@@ -48,11 +49,6 @@ namespace CaeMesh.Sweep
         /// prism.
         /// </summary>
         public double[] ImprintTranslation { get; set; }
-        /// <summary>
-        /// Whether an end of the block is split inside its boundary and the split was carried to the other
-        /// end, which is what makes the block one whose sweep lines are pinned.
-        /// </summary>
-        public bool CarriesImprints { get; set; }
 
 
         // Constructors                                                                                                             

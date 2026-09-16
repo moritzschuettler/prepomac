@@ -50,7 +50,10 @@
 #front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
 #wall with a hole, so no single face of it is a sweep source. The detection has to try the faces that
 #continue one another smoothly - the group one click of the angle picker selects - because the extension
-#over coplanar surfaces does not reach across a bend.
+#over coplanar surfaces does not reach across a bend. Both of its ends are split by the tangency lines of
+#the bend, which lie inside the target and not on a wall, so the mesh keeps every face of the part only
+#when the lines between the two splits are pinned: the face count is what tells a lost tangency line,
+#since the two faces it separates meet smoothly and nothing else would part them.
 #
 #sweep_spline_edges.brep is a lofted plate on a round post, which is how the same arrangement arrives from
 #an imported CAD file: the plate's vertical edges run straight but the kernel holds them as splines rather
@@ -271,6 +274,8 @@ def test_bent_plate():
     solids, compound = import_geometry("sweep_bent_plate.brep")
     check(compound is None and len(solids) == 1, "the bent plate must import as a single part")
     part = solids[0]
+    face_count = part.get_face_data().count
+    edge_count = part.get_edge_data().count
     items = pmx.model.mesh.setup_items
     # No single face sweeps the plate, so a source found by extending one face over its plane cannot exist
     for face_id in list(part.get_face_data().ids):
@@ -284,6 +289,14 @@ def test_bent_plate():
     meshed = [meshPart for meshPart in pmx.model.parts if meshPart.name == part.name]
     check(len(meshed) == 1 and meshed[0].element_count > 0, "the bent plate was not meshed")
     print("meshed:", meshed[0].name, meshed[0].node_count, "nodes", meshed[0].element_count, "elements")
+    # The tangency lines of the bend split both ends inside, so the swept mesh keeps them only when the
+    # lines between them are pinned; without that the three faces of the target come back as one
+    check(meshed[0].get_face_data().count == face_count,
+          "the swept bent plate has %d faces instead of the %d of the geometry" %
+          (meshed[0].get_face_data().count, face_count))
+    check(meshed[0].get_edge_data().count == edge_count,
+          "the swept bent plate has %d edges instead of the %d of the geometry" %
+          (meshed[0].get_edge_data().count, edge_count))
     items.remove([SWEEP_NAME])
 
 

@@ -692,10 +692,10 @@ namespace CaeMesh
                 foreach (var block in _sweepBlocks)
                     RefreshBlockSurfaces(block, blockOriginalSurfaceIds[block], surfaceIdOriginalId);
             }
-            if (round == 0) return;
-            //
+            // Also for a block that had nothing to carry: its two ends may already be split at matching
+            // places, and the lines between them are pinned just the same
             foreach (var block in _sweepBlocks) PairImprintEdges(block, surfaceIdEdgeIds);
-            _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
+            if (round > 0) _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
         }
         private double[] GetPrismTranslation(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
         {
@@ -1063,28 +1063,109 @@ namespace CaeMesh
         /// </summary>
         private void PairImprintEdges(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
         {
-            if (block.ImprintTranslation == null) return;
-            //
             HashSet<int> sourceEdgeIds;
             HashSet<int> targetEdgeIds;
             GetInteriorEdgeIds(block, surfaceIdEdgeIds, out sourceEdgeIds, out targetEdgeIds);
             if (targetEdgeIds.Count == 0) return;
             //
+            int sourceEdgeId;
             double tolerance = 1E-6 * GetModelDiagonal();
             Dictionary<int, double[]> sourceSignatures = GetEdgeSignatures(sourceEdgeIds);
             Dictionary<int, double[]> targetSignatures = GetEdgeSignatures(targetEdgeIds);
             Dictionary<int, int> imprintEdgeCopyIds = new Dictionary<int, int>();
-            foreach (var entry in targetSignatures)
+            if (block.ImprintTranslation != null)
             {
-                int sourceEdgeId = FindTranslatedEdge(entry.Value, block.ImprintTranslation, sourceSignatures, tolerance);
-                if (sourceEdgeId < 0)
-                    throw new CaeException("Sweep volume " + block.VolumeId + ": an edge splitting the target has no " +
-                                           "counterpart on the source after the splits were carried across.");
-                imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
+                foreach (var entry in targetSignatures)
+                {
+                    sourceEdgeId = FindTranslatedEdge(entry.Value, block.ImprintTranslation, sourceSignatures, tolerance);
+                    if (sourceEdgeId < 0)
+                        throw new CaeException("Sweep volume " + block.VolumeId + ": an edge splitting the target has no " +
+                                               "counterpart on the source after the splits were carried across.");
+                    imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
+                }
+            }
+            else
+            {
+                // A block that is not a prism has had nothing carried across, so it is pinned only where both
+                // of its ends are already split at matching places - as the two tangency lines of a bent plate
+                // split its front face and its back face alike. Every edge splitting the target then stands
+                // above an edge splitting the source, one for one; where that does not hold the block sweeps
+                // unpinned, as it did before, rather than failing
+                if (sourceEdgeIds.Count != targetEdgeIds.Count) return;
+                foreach (var entry in targetSignatures)
+                {
+                    sourceEdgeId = FindEdgeUnderTarget(entry.Key, entry.Value, sourceSignatures, tolerance);
+                    if (sourceEdgeId < 0 || imprintEdgeCopyIds.ContainsValue(sourceEdgeId)) return;
+                    imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
+                }
             }
             block.ImprintEdgeCopyIds = imprintEdgeCopyIds;
-            block.CarriesImprints = true;
             _freeMeshedSurfaceIds.UnionWith(block.SourceSurfaceIds);
+        }
+        /// <summary>
+        /// The edge splitting the source that the given edge splitting the target stands above, for a block
+        /// that is not a prism and so carries no translation of its own: the nearest candidate the target edge
+        /// lands on when it is moved by the vector between the two centres of mass, measured on samples of the
+        /// curve and not on its centre and its length alone. A pair found this way is a translation of the
+        /// other even where the block is not, which is all that pinning the lines between them needs.
+        /// </summary>
+        private static int FindEdgeUnderTarget(int targetEdgeId, double[] targetSignature,
+                                               Dictionary<int, double[]> sourceSignatures, double tolerance)
+        {
+            double[] samples = GetCurveSamples(targetEdgeId);
+            if (samples == null) return -1;
+            //
+            bool onEdge;
+            double distance;
+            double[] closestCoor;
+            double[] parametricCoor;
+            double[] carried = new double[samples.Length];
+            int bestEdgeId = -1;
+            double bestDistance = double.MaxValue;
+            foreach (var entry in sourceSignatures)
+            {
+                if (Math.Abs(targetSignature[3] - entry.Value[3]) > 1E-6 * Math.Max(targetSignature[3], 1E-30)) continue;
+                distance = GetDistance(targetSignature, entry.Value);
+                if (distance >= bestDistance) continue;
+                //
+                for (int i = 0; i < samples.Length; i += 3)
+                {
+                    for (int k = 0; k < 3; k++) carried[i + k] = samples[i + k] + entry.Value[k] - targetSignature[k];
+                }
+                Gmsh.Model.GetClosestPoint(1, entry.Key, carried, out closestCoor, out parametricCoor);
+                if (closestCoor.Length != carried.Length) continue;
+                //
+                onEdge = true;
+                for (int i = 0; i < carried.Length && onEdge; i += 3)
+                {
+                    onEdge = Math.Sqrt(Math.Pow(closestCoor[i] - carried[i], 2) +
+                                       Math.Pow(closestCoor[i + 1] - carried[i + 1], 2) +
+                                       Math.Pow(closestCoor[i + 2] - carried[i + 2], 2)) <= tolerance;
+                }
+                if (!onEdge) continue;
+                //
+                bestEdgeId = entry.Key;
+                bestDistance = distance;
+            }
+            return bestEdgeId;
+        }
+        /// <summary>
+        /// Points along a curve, at equally spaced parameters strictly inside its bounds.
+        /// </summary>
+        private static double[] GetCurveSamples(int edgeId)
+        {
+            double[] minimum;
+            double[] maximum;
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out minimum, out maximum);
+            if (minimum.Length < 1 || maximum.Length < 1) return null;
+            //
+            double[] parametricCoor = new double[_numStraightEdgeSamples];
+            for (int i = 0; i < _numStraightEdgeSamples; i++)
+                parametricCoor[i] = minimum[0] + (maximum[0] - minimum[0]) * (i + 1.0) / (_numStraightEdgeSamples + 1.0);
+            //
+            double[] coor;
+            Gmsh.Model.GetValue(1, edgeId, parametricCoor, out coor);
+            return coor;
         }
         /// <summary>
         /// The edges the carrying made: an edge that was not there before and has only pieces of one face on
@@ -1527,6 +1608,10 @@ namespace CaeMesh
                 // counts of the target edges follow the source nodes above them, so that the grid column
                 // through the split stays straight
                 int[] targetElements = DistributeTargetElementsByProjection(wall, sourceElements);
+                // Where the two sides are split at corresponding places, every target segment takes the count of
+                // the source segment opposite it, so that the grid column through the split runs straight
+                if (targetElements == null)
+                    targetElements = DistributeTargetElementsBySide(wall, sourceEdgeIdNumOfElements);
                 if (targetElements == null)
                 {
                     double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
@@ -1564,6 +1649,30 @@ namespace CaeMesh
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
         }
+        /// <summary>
+        /// The counts of a wall's target side taken one for one from its source side, in the order the two
+        /// sides run. Null when the two sides cannot be matched - a different number of edges, or a side that
+        /// is no open chain - and the distribution by length decides then.
+        /// </summary>
+        private static int[] DistributeTargetElementsBySide(SweepWall wall,
+                                                            Dictionary<int, int> sourceEdgeIdNumOfElements)
+        {
+            int[] orderedSourceEdgeIds;
+            int[] orderedTargetEdgeIds;
+            if (!SweepWallTopology.OrderWallSides(wall, out orderedSourceEdgeIds, out orderedTargetEdgeIds)) return null;
+            //
+            int numOfElements;
+            Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
+            for (int i = 0; i < orderedTargetEdgeIds.Length; i++)
+            {
+                if (!sourceEdgeIdNumOfElements.TryGetValue(orderedSourceEdgeIds[i], out numOfElements)) return null;
+                targetEdgeIdNumOfElements[orderedTargetEdgeIds[i]] = numOfElements;
+            }
+            int[] targetElements = new int[wall.TargetEdgeIds.Length];
+            for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
+                targetElements[i] = targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]];
+            return targetElements;
+        }
         private int[] DistributeTargetElementsByProjection(SweepWall wall, int sourceElements)
         {
             if (_sweepBlocks == null || wall.TargetEdgeIds.Length < 2) return null;
@@ -1571,7 +1680,8 @@ namespace CaeMesh
             SweepBlock block = null;
             foreach (var candidate in _sweepBlocks)
             {
-                if (candidate.CarriesImprints && candidate.WallSurfaceIds.Contains(wall.SurfaceId))
+                if (candidate.ImprintTranslation != null && candidate.ImprintEdgeCopyIds != null &&
+                    candidate.WallSurfaceIds.Contains(wall.SurfaceId))
                 {
                     block = candidate;
                     break;
