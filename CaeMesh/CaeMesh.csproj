@@ -132,6 +132,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepDetectionData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepSourceMesh.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepLaplacian.cs" />
