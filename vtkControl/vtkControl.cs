@@ -6117,6 +6117,10 @@ namespace vtkControl
         }
         private vtkPolyData GetSectionCap(vtkPolyData surface)
         {
+            // Triangulate the loops of the cut; vtkClipClosedSurface drops a hole it fails to join to the loop
+            // around it and fills the section face instead - a thin section comes out completely filled
+            vtkPolyData cap = SectionViewCap.GetCap(surface, _sectionViewData.Plane);
+            if (cap != null) return cap;
             // Clip the closed surface and keep only the faces created on the section plane
             vtkPlaneCollection planes = vtkPlaneCollection.New();
             planes.AddItem(_sectionViewData.Plane);
@@ -6137,7 +6141,7 @@ namespace vtkControl
                 if (labels.GetTuple1(i) == 1) capCells.InsertNextCell(clipped.GetCell(i).GetPointIds());
             }
             //
-            vtkPolyData cap = vtkPolyData.New();
+            cap = vtkPolyData.New();
             cap.SetPoints(clipped.GetPoints());
             cap.SetPolys(capCells);
             return cap;
