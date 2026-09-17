@@ -277,6 +277,9 @@ namespace PrePoMax
             get { return _annotateWithColor; }
             set
             {
+                // Why a part is meshed by tetrahedra is worth reading once, when the colors are asked for
+                bool reportMeshTypes = value == AnnotateWithColorEnum.MeshTypes && _annotateWithColor != value;
+                //
                 _annotateWithColor = value;
                 //
                 if (_annotateWithColor == AnnotateWithColorEnum.None) _form.HideColorBar();
@@ -284,6 +287,8 @@ namespace PrePoMax
                 _form.InitializeColorBarWidgetPosition();
                 //
                 Redraw();
+                //
+                if (reportMeshTypes) WriteMeshTypesToOutput();
             }
         }
         // Show item ids
@@ -6512,6 +6517,61 @@ namespace PrePoMax
                 return ex.Message;
             }
         }
+        /// <summary>
+        /// Recognizes the mesh type of every geometry part. The recognition is kept on the parts and redone
+        /// only for the parts whose geometry changed, so it is asked for after every change of the parts and
+        /// before every drawing of the geometry, and costs nothing once it has been made.
+        /// </summary>
+        private void DetectMeshTypes()
+        {
+            if (_model == null) return;
+            //
+            try
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+                _model.DetectMeshTypes();
+                watch.Stop();
+                //
+                if (watch.ElapsedMilliseconds > 1000)
+                {
+                    _form.WriteDataToOutput("Recognizing the mesh type of the geometry parts took " +
+                                            Math.Round(watch.Elapsed.TotalSeconds, 1) + " s.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // The recognition only colors the parts and speeds up the sweep setup item, so a part it
+                // cannot recognize must not stop the geometry from being drawn
+                Debug.WriteLine(ex);
+            }
+        }
+        /// <summary>
+        /// Writes why each solid part is meshed by tetrahedra rather than swept. The reason names the surface,
+        /// the wall or the sub-part that stands in the way, which is what has to be split or selected by hand.
+        /// </summary>
+        private void WriteMeshTypesToOutput()
+        {
+            if (_model == null || _model.Geometry == null ||
+                _currentView != ViewGeometryModelResults.Geometry) return;
+            //
+            string reason;
+            GeometryPart part;
+            List<string> reasons = new List<string>();
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                part = entry.Value as GeometryPart;
+                if (part == null || part is CompoundGeometryPart) continue;
+                if (part.MeshType != MeshTypeEnum.Tetrahedral) continue;
+                //
+                reason = _model.GetMeshTypeReason(part);
+                if (reason == null) continue;
+                //
+                reasons.Add("The part " + part.Name + " is meshed by tetrahedra: " + reason);
+            }
+            if (reasons.Count == 0) return;
+            //
+            foreach (var reasonLine in reasons) _form.WriteDataToOutput(reasonLine);
+        }
 
         #endregion #################################################################################################################
 
@@ -8006,6 +8066,8 @@ namespace PrePoMax
         internal void UpdateAfterPartsChanged()
         {
             ClearSelectionBuffer();
+            //
+            DetectMeshTypes();
             //
             UpdateNCalcParameters(false);
         }
@@ -16953,6 +17015,8 @@ namespace PrePoMax
                         {
                             ApplyModelUnitSystem();
                             //
+                            DetectMeshTypes();
+                            //
                             DrawGeomParts();
                             AnnotateWithColorLegend();
                             _annotations.DrawAnnotations();
@@ -17223,6 +17287,32 @@ namespace PrePoMax
                     color = Color.White;
                 }
             }
+            // The mesh setup items are defined on the geometry, so the mesh type is shown on the geometry
+            else if (_annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
+                     _currentView == ViewGeometryModelResults.Geometry && part is GeometryPart geometryPart)
+            {
+                color = GetMeshTypeColor(geometryPart.MeshType);
+            }
+        }
+        private static Color GetMeshTypeColor(MeshTypeEnum meshType)
+        {
+            switch (meshType)
+            {
+                case MeshTypeEnum.Transfinite: return Color.FromArgb(0, 114, 178);
+                case MeshTypeEnum.Sweep: return Color.FromArgb(0, 158, 115);
+                case MeshTypeEnum.Tetrahedral: return Color.FromArgb(230, 159, 0);
+                default: return Color.FromArgb(150, 150, 150);
+            }
+        }
+        private static string GetMeshTypeName(MeshTypeEnum meshType)
+        {
+            switch (meshType)
+            {
+                case MeshTypeEnum.Transfinite: return "Transfinite - structured";
+                case MeshTypeEnum.Sweep: return "Sweep";
+                case MeshTypeEnum.Tetrahedral: return "Tetrahedral";
+                default: return "Other";
+            }
         }
         private void AnnotateWithColorLegend()
         {
@@ -17241,6 +17331,29 @@ namespace PrePoMax
             {
                 _form.SetColorBarColorsAndLabels(new Color[] { colorSettings.FrontFaceColor, colorSettings.BackFaceColor },
                                                                new string[] { "Front face", "Back face" });
+            }
+            if (_annotateWithColor == AnnotateWithColorEnum.MeshTypes)
+            {
+                if (_currentView == ViewGeometryModelResults.Geometry)
+                {
+                    MeshTypeEnum[] meshTypes = new MeshTypeEnum[] { MeshTypeEnum.Transfinite, MeshTypeEnum.Sweep,
+                                                                    MeshTypeEnum.Tetrahedral, MeshTypeEnum.Other };
+                    List<Color> meshTypeColors = new List<Color>();
+                    List<string> meshTypeNames = new List<string>();
+                    foreach (var meshType in meshTypes)
+                    {
+                        foreach (var entry in _model.Geometry.Parts)
+                        {
+                            if (entry.Value is CompoundGeometryPart || !(entry.Value is GeometryPart geometryPart)) continue;
+                            if (!geometryPart.Visible || geometryPart.MeshType != meshType) continue;
+                            //
+                            meshTypeColors.Add(GetMeshTypeColor(meshType));
+                            meshTypeNames.Add(GetMeshTypeName(meshType));
+                            break;
+                        }
+                    }
+                    _form.SetColorBarColorsAndLabels(meshTypeColors.ToArray(), meshTypeNames.ToArray());
+                }
             }
             if (_annotateWithColor == AnnotateWithColorEnum.Parts)
             {

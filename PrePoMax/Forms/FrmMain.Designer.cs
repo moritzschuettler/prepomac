@@ -194,6 +194,7 @@ namespace PrePoMax
             this.tsmiDividerView6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiColorAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateFaceOrientations = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAnnotateMeshTypes = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerColorAnnotations1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAnnotateParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateMaterials = new System.Windows.Forms.ToolStripMenuItem();
@@ -1999,6 +2000,7 @@ namespace PrePoMax
             // 
             this.tsmiColorAnnotations.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiAnnotateFaceOrientations,
+            this.tsmiAnnotateMeshTypes,
             this.tsmiDividerColorAnnotations1,
             this.tsmiAnnotateParts,
             this.tsmiAnnotateMaterials,
@@ -2023,9 +2025,16 @@ namespace PrePoMax
             this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateFaceOrientations.Text = "Face Orientations";
             this.tsmiAnnotateFaceOrientations.Click += new System.EventHandler(this.tsmiAnnotateFaceOrientations_Click);
-            // 
+            //
+            // tsmiAnnotateMeshTypes
+            //
+            this.tsmiAnnotateMeshTypes.Name = "tsmiAnnotateMeshTypes";
+            this.tsmiAnnotateMeshTypes.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateMeshTypes.Text = "Mesh Types";
+            this.tsmiAnnotateMeshTypes.Click += new System.EventHandler(this.tsmiAnnotateMeshTypes_Click);
+            //
             // tsmiDividerColorAnnotations1
-            // 
+            //
             this.tsmiDividerColorAnnotations1.Name = "tsmiDividerColorAnnotations1";
             this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(176, 6);
             // 
@@ -5605,6 +5614,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateBCs;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateContactPairs;
         private System.Windows.Forms.ToolStripMenuItem tsmiColorAnnotations;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateMeshTypes;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations2;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateSections;

@@ -648,18 +648,18 @@ namespace CaeMesh
         public Dictionary<int, HashSet<int>> GetVertexIdEdgeIds()
         {
             HashSet<int> edgeIds;
+            HashSet<int> vertexNodeIds = new HashSet<int>(_vertexNodeIds);
             Dictionary<int, HashSet<int>> edgeIdNodeIds = GetEdgeIdNodeIds();
             Dictionary<int, HashSet<int>> vertexIdEdgeIds = new Dictionary<int, HashSet<int>>();
             //
-            foreach (int vertexId in _vertexNodeIds)
+            foreach (var entry in edgeIdNodeIds)
             {
-                foreach (var entry in edgeIdNodeIds)
+                foreach (var nodeId in entry.Value)
                 {
-                    if (entry.Value.Contains(vertexId))
-                    {
-                        if (vertexIdEdgeIds.TryGetValue(vertexId, out edgeIds)) edgeIds.Add(entry.Key);
-                        else vertexIdEdgeIds.Add(vertexId, new HashSet<int> { entry.Key });
-                    }
+                    if (!vertexNodeIds.Contains(nodeId)) continue;
+                    //
+                    if (vertexIdEdgeIds.TryGetValue(nodeId, out edgeIds)) edgeIds.Add(entry.Key);
+                    else vertexIdEdgeIds.Add(nodeId, new HashSet<int> { entry.Key });
                 }
             }
             //
@@ -759,16 +759,29 @@ namespace CaeMesh
         {
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = new Dictionary<int, HashSet<int>>();
             HashSet<int> surfaceNeighbourIds;
+            // The faces meeting at each edge, so that the neighbours of a face follow from its own edges
+            // instead of from comparing it with every other face
+            List<int> edgeFaceIds;
+            Dictionary<int, List<int>> edgeIdFaceIds = new Dictionary<int, List<int>>();
             for (int i = 0; i < _faceEdgeIds.Length; i++)
             {
-                for (int j = 0; j < _faceEdgeIds.Length; j++)
+                for (int j = 0; j < _faceEdgeIds[i].Length; j++)
                 {
-                    if (i == j) continue;
-                    //
-                    if (_faceEdgeIds[i].Intersect(_faceEdgeIds[j]).Count() > 0)
+                    if (edgeIdFaceIds.TryGetValue(_faceEdgeIds[i][j], out edgeFaceIds)) edgeFaceIds.Add(i);
+                    else edgeIdFaceIds.Add(_faceEdgeIds[i][j], new List<int>() { i });
+                }
+            }
+            foreach (var entry in edgeIdFaceIds)
+            {
+                foreach (var surfaceId in entry.Value)
+                {
+                    foreach (var neighbourId in entry.Value)
                     {
-                        if (surfaceIdSurfaceNeighbourIds.TryGetValue(i, out surfaceNeighbourIds)) surfaceNeighbourIds.Add(j);
-                        else surfaceIdSurfaceNeighbourIds.Add(i, new HashSet<int>() { j });
+                        if (surfaceId == neighbourId) continue;
+                        //
+                        if (surfaceIdSurfaceNeighbourIds.TryGetValue(surfaceId, out surfaceNeighbourIds))
+                            surfaceNeighbourIds.Add(neighbourId);
+                        else surfaceIdSurfaceNeighbourIds.Add(surfaceId, new HashSet<int>() { neighbourId });
                     }
                 }
             }

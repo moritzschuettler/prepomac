@@ -27,9 +27,15 @@ namespace CaeMesh
         private int[] _freeNodeIds;
         private int[] _errorNodeIds;
         private string _cadFileData;
+        //
+        // Derived from the geometry and recomputed from it, so they are not saved
+        [NonSerialized]
+        private MeshTypeEnum _meshType;
+        [NonSerialized]
+        private SweepDetectionData _sweepDetection;
 
 
-        // Properties                                                                                                               
+        // Properties
         public MeshingParameters MeshingParameters
         {
             get { return _meshingParameters; }
@@ -77,9 +83,18 @@ namespace CaeMesh
             }
         }
         public bool IsCADPart { get { return _cadFileData != null; } }
+        /// <summary>
+        /// The most structured mesh the part supports, recognized from its geometry.
+        /// </summary>
+        public MeshTypeEnum MeshType { get { return _meshType; } set { _meshType = value; } }
+        /// <summary>
+        /// What the automatic sweep detection found for the group this part leads - a single solid part, or a
+        /// compound part standing for its sub-parts. A part inside a compound carries none of its own.
+        /// </summary>
+        public SweepDetectionData SweepDetection { get { return _sweepDetection; } set { _sweepDetection = value; } }
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public GeometryPart(string name, int partId,  int[] nodeLabels, int[] elementLabels, Type[] elementTypes)
             : base(name, partId, nodeLabels, elementLabels, elementTypes)
         {
@@ -90,6 +105,8 @@ namespace CaeMesh
             _freeNodeIds = null;
             _errorNodeIds = null;
             _cadFileData = null;
+            _meshType = MeshTypeEnum.Unknown;
+            _sweepDetection = null;
         }
         public GeometryPart(BasePart part)
             : base(part)
@@ -101,6 +118,8 @@ namespace CaeMesh
             _freeNodeIds = null;
             _errorNodeIds = null;
             _cadFileData = null;
+            _meshType = MeshTypeEnum.Unknown;
+            _sweepDetection = null;
         }
         public GeometryPart(GeometryPart part)
             : base((BasePart)part)
@@ -112,6 +131,8 @@ namespace CaeMesh
             _freeNodeIds = part.FreeNodeIds != null ? part.FreeNodeIds.ToArray() : null;
             _errorNodeIds = part.ErrorNodeIds != null ? part.ErrorNodeIds.ToArray() : null;
             _cadFileData = part._cadFileData != null ? part._cadFileData : null;
+            _meshType = part._meshType;
+            _sweepDetection = part._sweepDetection;
         }
 
 

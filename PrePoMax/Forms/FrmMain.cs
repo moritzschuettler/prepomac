@@ -3337,6 +3337,10 @@ namespace PrePoMax
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
         }
+        private void tsmiAnnotateMeshTypes_Click(object sender, EventArgs e)
+        {
+            _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
+        }
         private void tsmiAnnotateParts_Click(object sender, EventArgs e)
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
@@ -3422,8 +3426,9 @@ namespace PrePoMax
                 else
                 {
                     // Only one possibility - Face orientations or parts
-                    if (tsmi == tsmiAnnotateFaceOrientations || tsmi == tsmiAnnotateParts ||
-                        tsmi == tsmiAnnotateMaterials || tsmi == tsmiAnnotateSections ||  
+                    if (tsmi == tsmiAnnotateFaceOrientations || tsmi == tsmiAnnotateMeshTypes ||
+                        tsmi == tsmiAnnotateParts ||
+                        tsmi == tsmiAnnotateMaterials || tsmi == tsmiAnnotateSections ||
                         tsmi == tsmiAnnotateSectionThicknesses)
                     {
                         ClearAnnotationStatus();
@@ -3433,6 +3438,7 @@ namespace PrePoMax
                     else
                     {
                         tsmiAnnotateFaceOrientations.Checked = false;
+                        tsmiAnnotateMeshTypes.Checked = false;
                         tsmiAnnotateParts.Checked = false;
                         tsmiAnnotateMaterials.Checked = false;
                         tsmiAnnotateSections.Checked = false;
@@ -3443,6 +3449,7 @@ namespace PrePoMax
                 }
                 //
                 if (tsmiAnnotateFaceOrientations.Checked) return AnnotateWithColorEnum.FaceOrientation;
+                else if (tsmiAnnotateMeshTypes.Checked) return AnnotateWithColorEnum.MeshTypes;
                 else if (tsmiAnnotateParts.Checked) return AnnotateWithColorEnum.Parts;
                 else if (tsmiAnnotateMaterials.Checked) return AnnotateWithColorEnum.Materials;
                 else if (tsmiAnnotateSections.Checked) return AnnotateWithColorEnum.Sections;
@@ -11161,6 +11168,7 @@ namespace PrePoMax
         private void ClearAnnotationStatus()
         {
             tsmiAnnotateFaceOrientations.Checked = false;
+            tsmiAnnotateMeshTypes.Checked = false;
             tsmiAnnotateParts.Checked = false;
             tsmiAnnotateMaterials.Checked = false;
             tsmiAnnotateSections.Checked = false;
