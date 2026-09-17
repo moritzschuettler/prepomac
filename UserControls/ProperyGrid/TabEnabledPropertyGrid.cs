@@ -366,9 +366,19 @@ namespace UserControls
             //
             if (_focusOnSelectedObjectChanged) this.Focus();
         }
+        // The grid keeps the selected item when the selected object changes and restores it by its label, so
+        // the selection can be a category as well as a property and the root is found by walking up to it.
+        // Taking the parent of the parent finds nothing for a selected category, and the first item is then
+        // never selected, leaving the grid scrolled to wherever the restored selection is
+        private GridItem GetRootGridItem()
+        {
+            GridItem item = SelectedGridItem;
+            while (item != null && item.GridItemType != GridItemType.Root) item = item.Parent;
+            return item;
+        }
         public void SelectFirstVisibleProperty()
         {
-            GridItem root = SelectedGridItem?.Parent?.Parent;
+            GridItem root = GetRootGridItem();
             if (root == null) return;
             //
             foreach (GridItem category in root.GridItems)
@@ -384,7 +394,7 @@ namespace UserControls
         }
         public void SelectFirstVisibleCategory()
         {
-            GridItem root = SelectedGridItem?.Parent?.Parent;
+            GridItem root = GetRootGridItem();
             if (root == null) return;
             //
             foreach (GridItem category in root.GridItems)
