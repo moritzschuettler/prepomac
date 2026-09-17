@@ -1644,6 +1644,10 @@ namespace CaeMesh
         {
             HashSet<int> surfaceIds = new HashSet<int>();
             foreach (var block in blocks) surfaceIds.UnionWith(block.SourceSurfaceIds);
+            // A source that another block sweeps onto is left alone: that block's cap rebuilds it and hands it
+            // on, so a mesh laid on it here would pin its edges against the block that feeds it
+            foreach (var block in blocks) surfaceIds.ExceptWith(block.TargetSurfaceIds);
+            if (surfaceIds.Count == 0) return null;
             HashSet<int> edgeIds = new HashSet<int>();
             HashSet<int> vertexIds = new HashSet<int>();
             foreach (var surfaceId in surfaceIds)
@@ -1926,6 +1930,21 @@ namespace CaeMesh
             foreach (var entry in targetEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
             foreach (var entry in imprintEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
             foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+            //
+            // The nodes of the source surface mesh cannot be respaced. Two blocks meeting on a source face can
+            // leave the reconciliation asking for a different count on an edge that mesh owns, and the sweep
+            // cannot then be built on it at all; the caller meshes the source surfaces in place instead
+            if (_sweepSourceMesh != null)
+            {
+                int ownedNumOfElements;
+                foreach (var entry in edgeIdNumOfElements)
+                {
+                    if (_sweepSourceMesh.EdgeIdNumOfElements.TryGetValue(entry.Key, out ownedNumOfElements) &&
+                        ownedNumOfElements != entry.Value)
+                        throw new CaeException("A sweep side surface needs a number of elements on an edge of a " +
+                                               "source surface that the mesh already there does not have.");
+                }
+            }
             //
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             // The edges the source surface mesh brings with it are left without a constraint: their counts are
