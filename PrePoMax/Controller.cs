@@ -6377,6 +6377,56 @@ namespace PrePoMax
             }
             else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
         }
+        // Returns the name of the compound part carrying each sub-part
+        private Dictionary<string, string> GetCompoundPartNamesBySubPartName()
+        {
+            Dictionary<string, string> compoundPartNames = new Dictionary<string, string>();
+            FeMesh geometry = _model?.Geometry;
+            if (geometry == null) return compoundPartNames;
+            //
+            foreach (var entry in geometry.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart cgp)
+                {
+                    foreach (var subPartName in cgp.SubPartNames) compoundPartNames.Add(subPartName, cgp.Name);
+                }
+            }
+            return compoundPartNames;
+        }
+        // Returns the names of the parts the given mesh setup items are defined on, as they are meshed: a
+        // selection lying on a sub-part of a compound part is reported through the compound part, since that
+        // is the part the meshing is performed on.
+        public string[] GetPartNamesToMeshFromMeshSetupItems(string[] meshSetupItemNames)
+        {
+            if (meshSetupItemNames == null || meshSetupItemNames.Length == 0) return null;
+            FeMesh geometry = _model?.Geometry;
+            if (geometry == null) return null;
+            //
+            Dictionary<string, string> subPartNameCompoundPartName = GetCompoundPartNamesBySubPartName();
+            //
+            List<string> partNamesToMesh = new List<string>();
+            HashSet<string> addedPartNames = new HashSet<string>();
+            //
+            foreach (string meshSetupItemName in meshSetupItemNames)
+            {
+                if (!geometry.MeshSetupItems.TryGetValue(meshSetupItemName, out MeshSetupItem meshSetupItem)) continue;
+                if (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0) continue;
+                //
+                int[] partIds = FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds);
+                string[] partNames = geometry.GetPartNamesFromPartIds(partIds);
+                if (partNames == null) continue;
+                //
+                foreach (string partName in partNames)
+                {
+                    if (!subPartNameCompoundPartName.TryGetValue(partName, out string partNameToMesh))
+                        partNameToMesh = partName;
+                    //
+                    if (addedPartNames.Add(partNameToMesh)) partNamesToMesh.Add(partNameToMesh);
+                }
+            }
+            //
+            return partNamesToMesh.ToArray();
+        }
         // Returns the names of the geometry items related to the given focused items: for a part, the mesh
         // setup items that reference it; for a mesh setup item, the parts it references. Used by the model
         // tree to show these connections with the related (light green) highlight.
@@ -6393,24 +6443,39 @@ namespace PrePoMax
             {
                 if (item is MeshSetupItem msi)
                 {
-                    // Mesh setup item -> the parts it references
+                    // Mesh setup item -> the parts it references. A selection lying on a sub-part references
+                    // the compound part that carries it as well
                     if (msi.CreationIds != null && msi.CreationIds.Length > 0)
                     {
                         int[] partIds = FeMesh.GetPartIdsFromGeometryIds(msi.CreationIds);
                         string[] partNames = geometry.GetPartNamesFromPartIds(partIds);
                         if (partNames != null)
-                            foreach (string partName in partNames) relatedNames.Add(partName);
+                        {
+                            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+                            foreach (string partName in partNames)
+                            {
+                                relatedNames.Add(partName);
+                                if (compoundPartNames.TryGetValue(partName, out string compoundPartName))
+                                    relatedNames.Add(compoundPartName);
+                            }
+                        }
                     }
                 }
-                else if (geometry.Parts.ContainsKey(item.Name))
+                else if (geometry.Parts.TryGetValue(item.Name, out BasePart part))
                 {
-                    // Part -> the mesh setup items that reference it
-                    int partId = geometry.Parts[item.Name].PartId;
+                    // Part -> the mesh setup items that reference it. A mesh setup item created on a
+                    // compound part carries the ids of its sub-parts, so the compound part is referenced
+                    // through them
+                    HashSet<int> partIds = new HashSet<int>();
+                    partIds.Add(part.PartId);
+                    if (part is CompoundGeometryPart compoundPart)
+                        partIds.UnionWith(geometry.GetPartIdsFomPartNames(compoundPart.SubPartNames));
+                    //
                     foreach (var entry in meshSetupItems)
                     {
                         MeshSetupItem meshSetupItem = entry.Value;
                         if (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0) continue;
-                        if (FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds).Contains(partId))
+                        if (partIds.Overlaps(FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds)))
                             relatedNames.Add(meshSetupItem.Name);
                     }
                 }

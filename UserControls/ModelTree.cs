@@ -368,6 +368,8 @@ namespace UserControls
         // Returns the names of the geometry items related to the given focused items
         // (a part -> the mesh setup items that reference it, and a mesh setup item -> the parts it references).
         public Func<NamedClass[], string[]> GetRelatedGeometryItemNames;
+        // Returns the names of the parts the given mesh setup items are defined on, as they are meshed
+        public Func<string[], string[]> GetPartNamesToMeshFromMeshSetupItems;
 
 
         // Constructors                                                                                                             
@@ -1611,13 +1613,14 @@ namespace UserControls
             oneAboveVisible |= visible;
             // Mesh                                                 
             visible = hasActionNodes && menuFields.MeshingParameters == n;
-            tsmiSpaceMesh.Visible = visible && oneAboveVisible;
+            bool createMeshVisible = hasActionNodes && menuFields.CreateMesh == n;
+            tsmiSpaceMesh.Visible = (visible || createMeshVisible) && oneAboveVisible;
             tsmiPreviewEdgeMesh.Visible = visible;
-            tsmiCreateMesh.Visible = visible;
+            tsmiCreateMesh.Visible = createMeshVisible;
             // Copy part                                            
             tsmiSpaceCopyPart.Visible = visible;
             tsmiCopyGeometryToResults.Visible = visible;
-            oneAboveVisible |= visible;
+            oneAboveVisible |= visible || createMeshVisible;
             // Edit Calculix Keywords                               
             visible = menuFields.EditCalculixKeywords == n && n > 0;
             tsmiSpaceEditCalculiXKeywords.Visible = visible && oneAboveVisible;
@@ -1807,6 +1810,8 @@ namespace UserControls
                 }
                 menuFields.CopyPartToGeometry++;
             }
+            // Mesh setup item - Mesh the parts it is defined on
+            if (item != null && item is MeshSetupItem && GetActiveTree() == cltvGeometry) menuFields.CreateMesh++;
             // Merge mesh parts
             if (item != null && item is MeshPart && GetActiveTree() == cltvModel) menuFields.MergePart++;
             if (item != null && item is ResultPart && GetActiveTree() == cltvResults) menuFields.MergePart++;
@@ -2595,13 +2600,55 @@ namespace UserControls
         {
             try
             {
-                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                string[] names = GetPartNamesToMesh();
                 if (names.Length > 0) CreateMeshEvent?.Invoke(names);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        // The selected parts are meshed as they are; a selected mesh setup item is meshed through the parts
+        // it is defined on
+        private string[] GetPartNamesToMesh()
+        {
+            List<string> partNames = new List<string>();
+            List<string> meshSetupItemNames = new List<string>();
+            //
+            foreach (TreeNode node in GetSelectedNodesIncludingGroupItems(cltvGeometry))
+            {
+                if (node.Tag is MeshSetupItem meshSetupItem) meshSetupItemNames.Add(meshSetupItem.Name);
+                else if (node.Tag is NamedClass item) partNames.Add(item.Name);
+            }
+            //
+            if (meshSetupItemNames.Count > 0 && GetPartNamesToMeshFromMeshSetupItems != null)
+            {
+                string[] meshSetupItemPartNames = GetPartNamesToMeshFromMeshSetupItems(meshSetupItemNames.ToArray());
+                if (meshSetupItemPartNames != null)
+                {
+                    foreach (string partName in meshSetupItemPartNames)
+                        if (!partNames.Contains(partName)) partNames.Add(partName);
+                }
+            }
+            //
+            return partNames.ToArray();
+        }
+        // Returns the names of the selected mesh setup items, but only when every selected item is one
+        public string[] GetSelectedMeshSetupItemNames()
+        {
+            if (GetActiveTree() != cltvGeometry) return null;
+            //
+            TreeNode[] nodes = GetSelectedNodesIncludingGroupItems(cltvGeometry);
+            if (nodes.Length == 0) return null;
+            //
+            List<string> meshSetupItemNames = new List<string>();
+            foreach (TreeNode node in nodes)
+            {
+                if (node.Tag is MeshSetupItem meshSetupItem) meshSetupItemNames.Add(meshSetupItem.Name);
+                else return null;
+            }
+            //
+            return meshSetupItemNames.ToArray();
         }
         // Geometry - copy
         private void tsmiCopyGeometryPartToResults_Click(object sender, EventArgs e)

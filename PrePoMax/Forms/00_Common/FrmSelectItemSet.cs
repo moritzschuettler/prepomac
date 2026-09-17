@@ -467,17 +467,6 @@ namespace PrePoMax
                 rbNode.Checked = true;
             }
         }
-        /// <summary>
-        /// Picks whole parts, or gives up the whole part picking for the surfaces, edges and vertices the
-        /// form offers by default. A form whose selection is a part wants the mouse to show the part it is
-        /// over rather than the surface the cursor happens to lie on. Any other select by mode the user chose
-        /// is left alone.
-        /// </summary>
-        public void SetGeometryPartSelection(bool selectGeometryParts)
-        {
-            if (selectGeometryParts) { if (!rbGeometryPart.Checked) rbGeometryPart.Checked = true; }
-            else if (rbGeometryPart.Checked) rbGeometry.Checked = true;
-        }
         public void SetOnlyGeometrySelection(bool onlyGeometrySelection, bool forceInitialize = true)
         {
             if (onlyGeometrySelection)

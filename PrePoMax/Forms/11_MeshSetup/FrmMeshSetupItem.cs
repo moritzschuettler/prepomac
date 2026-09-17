@@ -542,13 +542,6 @@ namespace PrePoMax.Forms
         }
         private void SetSelectItem()
         {
-            // The source surfaces of an automatic sweep are found on the whole part, so the part is what the
-            // mouse picks and what it shows while it moves over the model
-            bool selectGeometryParts = MeshSetupItem is SweepMesh sweepMesh &&
-                                       sweepMesh.SourceType == SweepSourceTypeEnum.Automatic;
-            if (ItemSetDataEditor.SelectionForm.Visible)
-                ItemSetDataEditor.SelectionForm.SetGeometryPartSelection(selectGeometryParts);
-            //
             if (MeshSetupItem != null)
             {
                 if (MeshSetupItem is MeshingParameters) _controller.SetSelectItemToPart();
