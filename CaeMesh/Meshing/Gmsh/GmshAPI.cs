@@ -33,6 +33,7 @@ namespace CaeMesh
         private SweepSourceMesh _sweepSourceMesh;
         private Tuple<int, int>[] _sweepSourceDimTags;
         private HashSet<int> _sweepSourceSurfaceIds;
+        private HashSet<int> _transfiniteSurfaceIds;
         private HashSet<int> _conflictingSweepSourceEdgeIds;
         private Dictionary<int, SweepEntityMesh> _sweepSourceVertexMeshes;
         private Dictionary<int, SweepEntityMesh> _sweepSourceEdgeMeshes;
@@ -1423,7 +1424,11 @@ namespace CaeMesh
             // The last word on the source boundary before the surfaces are meshed: the wall grids are built
             // on these nodes and the source surface mesh is added on them afterwards
             _sweepSourceMesh?.AddBoundary();
-            if (_sweepSourceMesh != null) CheckWallsAgainstSourceMesh(walls);
+            if (_sweepSourceMesh != null)
+            {
+                CheckWallsAgainstSourceMesh(walls);
+                FreeRefusedTransfiniteSurfaces(walls);
+            }
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a later
             // attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
@@ -2015,6 +2020,43 @@ namespace CaeMesh
             }
         }
         /// <summary>
+        /// Takes the structured grid off a four sided surface outside the sweep whose opposite sides do not
+        /// carry the same number of elements, and meshes it free instead.
+        ///
+        /// The quasi-structured quad algorithm gives every chord of a model one count of its own, which quietly
+        /// held such a surface together while it meshed the whole model. It no longer meshes anything but the
+        /// source surfaces, so a surface the user asked for a structured grid on can now be refused - and gmsh
+        /// does not merely refuse it, it throws out of its own meshing and answers every later call with "I'm
+        /// busy", so there is no recovering from it afterwards.
+        /// </summary>
+        private void FreeRefusedTransfiniteSurfaces(List<SweepWall> walls)
+        {
+            if (_transfiniteSurfaceIds == null || _transfiniteSurfaceIds.Count == 0) return;
+            //
+            Tuple<int, int>[] dimTags;
+            HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+            List<Tuple<int, int>> toFreeDimTags = new List<Tuple<int, int>>();
+            foreach (var surfaceId in _transfiniteSurfaceIds)
+            {
+                if (wallSurfaceIds.Contains(surfaceId)) continue;
+                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) }, out dimTags,
+                                       false, false, false);
+                if (dimTags.Length != 4) continue;
+                //
+                int[] numOfElements = new int[4];
+                for (int i = 0; i < 4; i++)
+                    numOfElements[i] = SweepWallTopology.GetElementCount(Math.Abs(dimTags[i].Item2));
+                if (numOfElements[0] == numOfElements[2] && numOfElements[1] == numOfElements[3]) continue;
+                //
+                toFreeDimTags.Add(new Tuple<int, int>(2, surfaceId));
+            }
+            if (toFreeDimTags.Count == 0) return;
+            //
+            Gmsh.Model.Mesh.RemoveConstraints(toFreeDimTags.ToArray());
+            _writeOutput?.Invoke("Sweep: " + toFreeDimTags.Count + " surface/s outside the sweep cannot carry the " +
+                                 "structured grid asked of them beside the source surface mesh and are meshed free.");
+        }
+        /// <summary>
         /// Refuses a wall whose two sides do not carry the same number of elements, measured off the 1D mesh
         /// before the surfaces are meshed.
         ///
@@ -2231,6 +2273,7 @@ namespace CaeMesh
         private void SetTransfiniteSurfaces(bool transfiniteThreeSided, bool transfiniteFourSided, bool transfiniteVolume,
                                             bool recombine, GmshAlgorithmRecombineEnum recombineAlgorithm)
         {
+            _transfiniteSurfaceIds = new HashSet<int>();
             int[] volumeIds;
             int[] edgeIds;
             int[][] edgeVertexIds;
@@ -2519,9 +2562,15 @@ namespace CaeMesh
                 {
                     // "Left", "Right", "AlternateLeft" and "AlternateRight"
                     if (surface.ThreeSided && transfiniteThreeSided)
+                    {
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft", surface.VertexIds);
+                        _transfiniteSurfaceIds.Add(surface.Id);
+                    }
                     else if (surface.FourSided && transfiniteFourSided)
+                    {
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft");
+                        _transfiniteSurfaceIds.Add(surface.Id);
+                    }
                     //
                     if (recombine && surface.Recombine) Gmsh.Model.Mesh.SetRecombine(2, surface.Id);
                     //
