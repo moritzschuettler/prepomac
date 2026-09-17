@@ -79,6 +79,10 @@ namespace PrePoMax
         private Color[] _colorTable;
         private Color _frontFaceColor;
         private Color _backFaceColor;
+        private Color _transfiniteMeshColor;
+        private Color _sweepMeshColor;
+        private Color _tetrahedralMeshColor;
+        private Color _otherMeshColor;
 
         // Properties                                                                                                               
         public ColorPaletteEnum ColorPalette
@@ -106,6 +110,26 @@ namespace PrePoMax
             get { return _backFaceColor; }
             set { _backFaceColor = value; }
         }
+        public Color TransfiniteMeshColor
+        {
+            get { return _transfiniteMeshColor; }
+            set { _transfiniteMeshColor = value; }
+        }
+        public Color SweepMeshColor
+        {
+            get { return _sweepMeshColor; }
+            set { _sweepMeshColor = value; }
+        }
+        public Color TetrahedralMeshColor
+        {
+            get { return _tetrahedralMeshColor; }
+            set { _tetrahedralMeshColor = value; }
+        }
+        public Color OtherMeshColor
+        {
+            get { return _otherMeshColor; }
+            set { _otherMeshColor = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -128,11 +152,27 @@ namespace PrePoMax
             //
             _frontFaceColor = Color.Coral;
             _backFaceColor = Color.PowderBlue;
+            ResetMeshTypeColors();
+        }
+        /// <summary>
+        /// The mesh types are told apart by color alone, so the four are taken from a palette that stays
+        /// distinguishable for the most common forms of color blindness.
+        /// </summary>
+        private void ResetMeshTypeColors()
+        {
+            _transfiniteMeshColor = Color.FromArgb(0, 114, 178);
+            _sweepMeshColor = Color.FromArgb(0, 158, 115);
+            _tetrahedralMeshColor = Color.FromArgb(230, 159, 0);
+            _otherMeshColor = Color.FromArgb(150, 150, 150);
         }
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
         {
             if (_saturation < MinSaturation) _saturation = DefaultSaturation;
+            // A settings file written before the mesh type colors existed carries none, and an empty color
+            // draws the parts away rather than coloring them
+            if (_transfiniteMeshColor.IsEmpty || _sweepMeshColor.IsEmpty ||
+                _tetrahedralMeshColor.IsEmpty || _otherMeshColor.IsEmpty) ResetMeshTypeColors();
         }
         public void ApplyColorPalette()
         {

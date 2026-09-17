@@ -165,6 +165,43 @@ namespace PrePoMax.Settings
             get { return _colorSettings.BackFaceColor; }
             set { _colorSettings.BackFaceColor = value; }
         }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(0, 10, "Transfinite color")]
+        [DescriptionAttribute("Select the color of the parts that can be meshed by the transfinite algorithm.")]
+        public Color TransfiniteMeshColor
+        {
+            get { return _colorSettings.TransfiniteMeshColor; }
+            set { _colorSettings.TransfiniteMeshColor = value; }
+        }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(1, 10, "Sweep color")]
+        [DescriptionAttribute("Select the color of the parts that can be swept.")]
+        public Color SweepMeshColor
+        {
+            get { return _colorSettings.SweepMeshColor; }
+            set { _colorSettings.SweepMeshColor = value; }
+        }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(2, 10, "Tetrahedral color")]
+        [DescriptionAttribute("Select the color of the solid parts that can only be meshed by tetrahedra.")]
+        public Color TetrahedralMeshColor
+        {
+            get { return _colorSettings.TetrahedralMeshColor; }
+            set { _colorSettings.TetrahedralMeshColor = value; }
+        }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(3, 10, "Other color")]
+        [DescriptionAttribute("Select the color of the parts that are not solid CAD parts and are meshed by the " +
+                              "shell meshers.")]
+        public Color OtherMeshColor
+        {
+            get { return _colorSettings.OtherMeshColor; }
+            set { _colorSettings.OtherMeshColor = value; }
+        }
 
 
         // Constructors                                                                                                             

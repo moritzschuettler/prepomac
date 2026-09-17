@@ -17294,14 +17294,15 @@ namespace PrePoMax
                 color = GetMeshTypeColor(geometryPart.MeshType);
             }
         }
-        private static Color GetMeshTypeColor(MeshTypeEnum meshType)
+        private Color GetMeshTypeColor(MeshTypeEnum meshType)
         {
+            ColorSettings colorSettings = _settings.Color;
             switch (meshType)
             {
-                case MeshTypeEnum.Transfinite: return Color.FromArgb(0, 114, 178);
-                case MeshTypeEnum.Sweep: return Color.FromArgb(0, 158, 115);
-                case MeshTypeEnum.Tetrahedral: return Color.FromArgb(230, 159, 0);
-                default: return Color.FromArgb(150, 150, 150);
+                case MeshTypeEnum.Transfinite: return colorSettings.TransfiniteMeshColor;
+                case MeshTypeEnum.Sweep: return colorSettings.SweepMeshColor;
+                case MeshTypeEnum.Tetrahedral: return colorSettings.TetrahedralMeshColor;
+                default: return colorSettings.OtherMeshColor;
             }
         }
         private static string GetMeshTypeName(MeshTypeEnum meshType)
