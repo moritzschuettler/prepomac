@@ -12060,13 +12060,17 @@ namespace PrePoMax
                         parts = _controller.GetResultParts(partNames);
                     else throw new NotSupportedException();
                     // A selected mesh setup item highlights the parts it is defined on, so a right click on
-                    // one of them is meant for the mesh setup item; the selection is kept and its context
-                    // menu is shown instead of the context menu of the part under the mouse
-                    if (e.Button == MouseButtons.Right && parts.Length > 0 &&
-                        IsPartSelectionCoveredBySelectedMeshSetupItems(parts))
+                    // one of them acts on all of those parts at once; the mesh setup item stays selected in
+                    // the tree and the parts are not selected there
+                    if (e.Button == MouseButtons.Right && parts.Length > 0)
                     {
-                        _modelTree.ShowContextMenu(_vtk, e.X, _vtk.Height - e.Y);
-                        return;
+                        string[] meshSetupItemPartNames = GetSelectedMeshSetupItemPartNames(parts);
+                        if (meshSetupItemPartNames != null)
+                        {
+                            _modelTree.ShowContextMenuForGeometryParts(_vtk, e.X, _vtk.Height - e.Y,
+                                                                       meshSetupItemPartNames);
+                            return;
+                        }
                     }
                     //
                     foreach (var part in parts)
@@ -12085,20 +12089,22 @@ namespace PrePoMax
                 }
             }
         }
-        private bool IsPartSelectionCoveredBySelectedMeshSetupItems(BasePart[] parts)
+        // Returns the names of the parts the selected mesh setup items are defined on, but only when the
+        // given parts are among them
+        private string[] GetSelectedMeshSetupItemPartNames(BasePart[] parts)
         {
             string[] meshSetupItemNames = _modelTree.GetSelectedMeshSetupItemNames();
-            if (meshSetupItemNames == null || meshSetupItemNames.Length == 0) return false;
+            if (meshSetupItemNames == null || meshSetupItemNames.Length == 0) return null;
             //
             string[] meshSetupItemPartNames = _controller.GetPartNamesToMeshFromMeshSetupItems(meshSetupItemNames);
-            if (meshSetupItemPartNames == null || meshSetupItemPartNames.Length == 0) return false;
+            if (meshSetupItemPartNames == null || meshSetupItemPartNames.Length == 0) return null;
             //
             HashSet<string> partNames = new HashSet<string>(meshSetupItemPartNames);
             foreach (BasePart part in parts)
             {
-                if (!partNames.Contains(part.Name)) return false;
+                if (!partNames.Contains(part.Name)) return null;
             }
-            return true;
+            return meshSetupItemPartNames;
         }
         public void SelectFirstComponentOfFirstFieldOutput()
         {

@@ -235,6 +235,7 @@ namespace UserControls
             this.tsmiMergeByMasterSlave});
             this.cmsTree.Name = "cmsTree";
             this.cmsTree.Size = new System.Drawing.Size(212, 476);
+            this.cmsTree.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsTree_Closed);
             // 
             // tsmiCreate
             // 

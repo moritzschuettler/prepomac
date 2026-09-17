@@ -138,6 +138,7 @@ namespace UserControls
         private Dictionary<CodersLabTreeView, bool[]> _prevStates;
         private Dictionary<TreeNode, OrderedDictionaryTreeContext> _orderedDictionaryContexts;
         private Dictionary<TreeNode, OrderedDictionaryGroupInfo> _orderedDictionaryGroups;
+        private TreeNode[] _contextMenuNodes;
         // Geometry
         private TreeNode _geomParts;                // 1
         private TreeNode _meshSetupItems;           // 1
@@ -605,6 +606,9 @@ namespace UserControls
         }
         private TreeNode[] GetSelectedNodesIncludingGroupItems(CodersLabTreeView tree)
         {
+            // The context menu can be shown for nodes that are not the selected ones
+            if (_contextMenuNodes != null && tree == cltvGeometry) return _contextMenuNodes;
+            //
             List<TreeNode> nodes = new List<TreeNode>();
             HashSet<TreeNode> addedNodes = new HashSet<TreeNode>();
             //
@@ -1689,7 +1693,7 @@ namespace UserControls
             tsmiDeactivate.Visible = visible;
             oneAboveVisible |= visible;
             // Ordered dictionary organization
-            bool createGroupVisible = CanCreateOrderedDictionaryGroup(tree);
+            bool createGroupVisible = _contextMenuNodes == null && CanCreateOrderedDictionaryGroup(tree);
             tsmiSpaceOrganize.Visible = createGroupVisible && oneAboveVisible;
             tsmiCreateGroup.Visible = createGroupVisible;
             oneAboveVisible |= createGroupVisible;
@@ -1863,6 +1867,12 @@ namespace UserControls
             }
         }
         //
+        // The click of a menu item is raised after the menu has closed, so the nodes the menu acts on are
+        // released only after the message that carries the click has been processed
+        private void cmsTree_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+        {
+            if (_contextMenuNodes != null) BeginInvoke((MethodInvoker)(() => { _contextMenuNodes = null; }));
+        }
         private void cltv_MouseDown(object sender, MouseEventArgs e)
         {
             try
@@ -1894,6 +1904,7 @@ namespace UserControls
                     if (hit.Location == TreeViewHitTestLocations.Label)
                     {
                         //if (tree.SelectedNodes.Count == 0 && hit.Node != null) tree.SelectedNodes.Add(hit.Node);
+                        _contextMenuNodes = null;
                         PrepareToolStripItem(tree);
                         cmsTree.Show(tree, e.Location);
                     }
@@ -4699,7 +4710,7 @@ namespace UserControls
             }
         }
 
-        //                                                                                                                          
+        //
         public void ShowContextMenu(Control control, int x, int y)
         {
             CodersLabTreeView tree = GetActiveTree();
@@ -4713,6 +4724,25 @@ namespace UserControls
                 //
                 cmsTree.Show(control, x, y);
             }
+        }
+        // Shows the context menu of the given geometry parts without selecting them in the tree. The 3D view
+        // uses it for a right click on a part that a selected mesh setup item highlights: the menu is the one
+        // of the parts the item is defined on, while the item itself stays selected
+        public void ShowContextMenuForGeometryParts(Control control, int x, int y, string[] partNames)
+        {
+            if (partNames == null || partNames.Length == 0) return;
+            //
+            List<TreeNode> partNodes = new List<TreeNode>();
+            foreach (string partName in partNames)
+            {
+                TreeNode[] foundNodes = cltvGeometry.Nodes.Find(partName, true);
+                foreach (TreeNode foundNode in foundNodes)
+                    if (foundNode.Tag is BasePart) partNodes.Add(foundNode);
+            }
+            if (partNodes.Count == 0) return;
+            //
+            _contextMenuNodes = partNodes.ToArray();
+            ShowContextMenu(control, x, y);
         }
 
 
