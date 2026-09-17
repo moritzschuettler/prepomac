@@ -32,6 +32,11 @@ namespace CaeMesh
         private List<SweepBlock> _sweepBlocks;
         private SweepSourceMesh _sweepSourceMesh;
         private Tuple<int, int>[] _sweepSourceDimTags;
+        private HashSet<int> _sweepSourceSurfaceIds;
+        private HashSet<int> _conflictingSweepSourceEdgeIds;
+        private Dictionary<int, SweepEntityMesh> _sweepSourceVertexMeshes;
+        private Dictionary<int, SweepEntityMesh> _sweepSourceEdgeMeshes;
+        private Dictionary<int, SweepEntityMesh> _sweepSourceSurfaceMeshes;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
         private HashSet<int> _scaffoldEdgeIds;
         private bool _isOCC;
@@ -550,7 +555,7 @@ namespace CaeMesh
             // The quasi-structured quad algorithm meshes the source surfaces in a model of its own, and the
             // walls are then reconciled against the mesh it left rather than against counts it would not keep
             if (sweepMesh.AlgorithmMesh2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-                _sweepSourceMesh = CreateSweepSourceMesh(sweepMesh, blocks, surfaceIdEdgeIds, surfaceIdVertexIds);
+                CreateSweepSourceMesh(sweepMesh, blocks, surfaceIdEdgeIds, surfaceIdVertexIds);
             //
             List<SweepWall> walls = new List<SweepWall>();
             List<SweepChain> chains = new List<SweepChain>();
@@ -583,32 +588,65 @@ namespace CaeMesh
             // walls are built for, and a curved sweep may not survive it. The counts the item itself carries are
             // kept, since a second attempt has to resolve its own and not read back what the first one wrote
             Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
-            try
+            bool setTransfiniteWalls = true;
+            while (true)
             {
-                MeshSweepBlocks(sweepMesh, blocks, walls, chains, targetSurfaceIds, surfaceIdEdgeIds,
-                                chainBlockIndices, preview, true);
-            }
-            catch (CaeException)
-            {
-                if (_sweepSourceMesh == null) throw;
-                _writeOutput?.Invoke("Sweep: the mesh the quasi-structured quad algorithm left on the source surfaces " +
-                                     "could not be swept. The source surfaces are meshed with the Frontal-Delaunay " +
-                                     "algorithm and recombined instead.");
-                _sweepSourceMesh = null;
-                Gmsh.Model.SetVisibility(_sweepSourceDimTags, 1, true);
-                Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 0);
-                foreach (var block in blocks)
+                try
                 {
-                    foreach (var sourceSurfaceId in block.SourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                    MeshSweepBlocks(sweepMesh, blocks, walls, chains, targetSurfaceIds, surfaceIdEdgeIds,
+                                    chainBlockIndices, preview, setTransfiniteWalls);
+                    break;
                 }
-                // The counts of the first attempt would reach the second twice - through the table it wrote and
-                // through the transfinite constraints it set, which a fresh 1D mesh would simply reproduce - so
-                // both are taken back and the sweep is prepared the way it would have been from the start
-                _gmshData.EdgeIdNumElements.Clear();
-                foreach (var entry in pinnedEdgeIdNumElements) _gmshData.EdgeIdNumElements.Add(entry.Key, entry.Value);
-                RemoveWallEdgeConstraints(walls);
-                MeshSweepBlocks(sweepMesh, blocks, walls, chains, targetSurfaceIds, surfaceIdEdgeIds,
-                                chainBlockIndices, preview, false);
+                catch (CaeException)
+                {
+                    if (_sweepSourceMesh == null) throw;
+                    // Only the source surfaces the walls could not be reconciled against are given up, the rest
+                    // keeping the mesh the algorithm left them. A failure that names no edge - the sweep itself
+                    // refusing the mesh it was built on - gives up all of them at once
+                    int numOfSourceSurfaces = _sweepSourceSurfaceIds.Count;
+                    HashSet<int> keptSurfaceIds = new HashSet<int>(_sweepSourceSurfaceIds);
+                    if (_conflictingSweepSourceEdgeIds != null)
+                    {
+                        foreach (var surfaceId in _sweepSourceSurfaceIds)
+                        {
+                            foreach (var edgeId in surfaceIdEdgeIds[surfaceId])
+                            {
+                                if (!_conflictingSweepSourceEdgeIds.Contains(edgeId)) continue;
+                                keptSurfaceIds.Remove(surfaceId);
+                                break;
+                            }
+                        }
+                    }
+                    if (keptSurfaceIds.Count == numOfSourceSurfaces) keptSurfaceIds.Clear();
+                    _conflictingSweepSourceEdgeIds = null;
+                    //
+                    if (keptSurfaceIds.Count > 0)
+                        _writeOutput?.Invoke("Sweep: " + (numOfSourceSurfaces - keptSurfaceIds.Count) + " of the " +
+                                             numOfSourceSurfaces + " source surfaces carry a mesh the side surfaces " +
+                                             "cannot be reconciled against. Those are meshed with the Frontal-Delaunay " +
+                                             "algorithm and recombined, the rest keep the quasi-structured quad mesh, " +
+                                             "and the sweep is built again.");
+                    else
+                        _writeOutput?.Invoke("Sweep: the mesh the quasi-structured quad algorithm left on the source " +
+                                             "surfaces could not be swept. All " + numOfSourceSurfaces + " of them are " +
+                                             "meshed with the Frontal-Delaunay algorithm and recombined instead, and " +
+                                             "the sweep is built again.");
+                    UseSweepSourceSurfaces(keptSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+                    foreach (var block in blocks)
+                    {
+                        foreach (var sourceSurfaceId in block.SourceSurfaceIds)
+                        {
+                            if (!keptSurfaceIds.Contains(sourceSurfaceId)) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                        }
+                    }
+                    // The counts of the attempt that failed would reach the next one twice - through the table it
+                    // wrote and through the transfinite constraints it set, which a fresh 1D mesh would simply
+                    // reproduce - so both are taken back and the sweep is prepared as it would have been from the start
+                    _gmshData.EdgeIdNumElements.Clear();
+                    foreach (var entry in pinnedEdgeIdNumElements) _gmshData.EdgeIdNumElements.Add(entry.Key, entry.Value);
+                    RemoveWallEdgeConstraints(walls);
+                    setTransfiniteWalls = false;
+                }
             }
             // The edges made by carrying the splits across are scaffolding: their nodes stay, being nodes of
             // the surface meshes, but their line elements would become model edges splitting the faces once
@@ -1385,6 +1423,7 @@ namespace CaeMesh
             // The last word on the source boundary before the surfaces are meshed: the wall grids are built
             // on these nodes and the source surface mesh is added on them afterwards
             _sweepSourceMesh?.AddBoundary();
+            if (_sweepSourceMesh != null) CheckWallsAgainstSourceMesh(walls);
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a later
             // attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
@@ -1638,16 +1677,17 @@ namespace CaeMesh
         /// that the two models describe the same shape. Their tags are matched by position rather than assumed
         /// to be the same.
         /// </summary>
-        private SweepSourceMesh CreateSweepSourceMesh(SweepMesh sweepMesh, List<SweepBlock> blocks,
-                                                      Dictionary<int, int[]> surfaceIdEdgeIds,
-                                                      Dictionary<int, int[]> surfaceIdVertexIds)
+        private void CreateSweepSourceMesh(SweepMesh sweepMesh, List<SweepBlock> blocks,
+                                           Dictionary<int, int[]> surfaceIdEdgeIds,
+                                           Dictionary<int, int[]> surfaceIdVertexIds)
         {
             HashSet<int> surfaceIds = new HashSet<int>();
             foreach (var block in blocks) surfaceIds.UnionWith(block.SourceSurfaceIds);
             // A source that another block sweeps onto is left alone: that block's cap rebuilds it and hands it
             // on, so a mesh laid on it here would pin its edges against the block that feeds it
             foreach (var block in blocks) surfaceIds.ExceptWith(block.TargetSurfaceIds);
-            if (surfaceIds.Count == 0) return null;
+            _sweepSourceSurfaceIds = surfaceIds;
+            if (surfaceIds.Count == 0) return;
             HashSet<int> edgeIds = new HashSet<int>();
             HashSet<int> vertexIds = new HashSet<int>();
             foreach (var surfaceId in surfaceIds)
@@ -1665,7 +1705,6 @@ namespace CaeMesh
             string geometryFileName = Path.Combine(Path.GetDirectoryName(_gmshData.InpFileName), _sweepSourceGeometryFileName);
             Gmsh.Write(geometryFileName);
             //
-            SweepSourceMesh sweepSourceMesh;
             try
             {
                 Tuple<int, int>[] outDimTags;
@@ -1719,22 +1758,17 @@ namespace CaeMesh
                 }
                 //
                 GenerateMesh(2);
-                // Read back under the tags of the model the mesh is meant for. The vertices come before the
-                // curves and the curves before the surfaces, so that an entity always finds its boundary nodes
-                List<SweepEntityMesh> boundaryMeshes = new List<SweepEntityMesh>();
-                List<SweepEntityMesh> surfaceMeshes = new List<SweepEntityMesh>();
-                Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
-                foreach (var entry in vertexIdMap) boundaryMeshes.Add(SweepEntityMesh.Read(0, entry.Value, entry.Key));
+                // Read back under the tags of the model the mesh is meant for, entity by entity, so that the
+                // sweep can be built again on any part of it once a surface has to be given up
+                _sweepSourceVertexMeshes = new Dictionary<int, SweepEntityMesh>();
+                _sweepSourceEdgeMeshes = new Dictionary<int, SweepEntityMesh>();
+                _sweepSourceSurfaceMeshes = new Dictionary<int, SweepEntityMesh>();
+                foreach (var entry in vertexIdMap)
+                    _sweepSourceVertexMeshes.Add(entry.Key, SweepEntityMesh.Read(0, entry.Value, entry.Key));
                 foreach (var entry in edgeIdMap)
-                {
-                    SweepEntityMesh entityMesh = SweepEntityMesh.Read(1, entry.Value, entry.Key);
-                    boundaryMeshes.Add(entityMesh);
-                    edgeIdNumOfElements.Add(entry.Key, Math.Max(1, entityMesh.NumOfElements));
-                }
-                foreach (var entry in surfaceIdMap) surfaceMeshes.Add(SweepEntityMesh.Read(2, entry.Value, entry.Key));
-                //
-                sweepSourceMesh = new SweepSourceMesh(boundaryMeshes.ToArray(), surfaceMeshes.ToArray(),
-                                                      edgeIdNumOfElements);
+                    _sweepSourceEdgeMeshes.Add(entry.Key, SweepEntityMesh.Read(1, entry.Value, entry.Key));
+                foreach (var entry in surfaceIdMap)
+                    _sweepSourceSurfaceMeshes.Add(entry.Key, SweepEntityMesh.Read(2, entry.Value, entry.Key));
             }
             finally
             {
@@ -1743,15 +1777,52 @@ namespace CaeMesh
                 SetGlobalMeshSizes(GmshAlgorithmMesh2DEnum.FrontalDelaunay);
                 if (File.Exists(geometryFileName)) File.Delete(geometryFileName);
             }
-            // The source entities are kept out of the way while the walls are meshed, so that the mesh they
-            // carry is the mesh the wall grids are built on
-            _sweepSourceDimTags = new Tuple<int, int>[surfaceIds.Count];
-            int i = 0;
-            foreach (var surfaceId in surfaceIds) _sweepSourceDimTags[i++] = new Tuple<int, int>(2, surfaceId);
+            UseSweepSourceSurfaces(surfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+        }
+        /// <summary>
+        /// Builds the source surface mesh out of the entities read from the model that meshed them, for the
+        /// surfaces given, and keeps those surfaces out of the way while the walls are meshed, so that the mesh
+        /// they carry is the mesh the wall grids are built on. A surface left out is meshed in place like any
+        /// other, and an empty set gives the algorithm up altogether.
+        /// </summary>
+        private void UseSweepSourceSurfaces(HashSet<int> surfaceIds, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                            Dictionary<int, int[]> surfaceIdVertexIds)
+        {
+            if (_sweepSourceDimTags != null) Gmsh.Model.SetVisibility(_sweepSourceDimTags, 1, true);
+            _sweepSourceSurfaceIds = surfaceIds;
+            _sweepSourceMesh = null;
+            _sweepSourceDimTags = null;
+            if (surfaceIds.Count == 0)
+            {
+                Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 0);
+                return;
+            }
+            //
+            HashSet<int> edgeIds = new HashSet<int>();
+            HashSet<int> vertexIds = new HashSet<int>();
+            foreach (var surfaceId in surfaceIds)
+            {
+                edgeIds.UnionWith(surfaceIdEdgeIds[surfaceId]);
+                vertexIds.UnionWith(surfaceIdVertexIds[surfaceId]);
+            }
+            // The vertices come before the curves and the curves before the surfaces, so that an entity always
+            // finds the nodes of its boundary
+            List<SweepEntityMesh> boundaryMeshes = new List<SweepEntityMesh>();
+            List<SweepEntityMesh> surfaceMeshes = new List<SweepEntityMesh>();
+            Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
+            foreach (var vertexId in vertexIds.OrderBy(id => id)) boundaryMeshes.Add(_sweepSourceVertexMeshes[vertexId]);
+            foreach (var edgeId in edgeIds.OrderBy(id => id))
+            {
+                boundaryMeshes.Add(_sweepSourceEdgeMeshes[edgeId]);
+                edgeIdNumOfElements.Add(edgeId, Math.Max(1, _sweepSourceEdgeMeshes[edgeId].NumOfElements));
+            }
+            foreach (var surfaceId in surfaceIds.OrderBy(id => id)) surfaceMeshes.Add(_sweepSourceSurfaceMeshes[surfaceId]);
+            //
+            _sweepSourceMesh = new SweepSourceMesh(boundaryMeshes.ToArray(), surfaceMeshes.ToArray(),
+                                                   edgeIdNumOfElements);
+            _sweepSourceDimTags = surfaceIds.OrderBy(id => id).Select(id => new Tuple<int, int>(2, id)).ToArray();
             Gmsh.Model.SetVisibility(_sweepSourceDimTags, 0, true);
             Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 1);
-            //
-            return sweepSourceMesh;
         }
         private static int[] GetEntityTags(int dim)
         {
@@ -1934,18 +2005,6 @@ namespace CaeMesh
             // The nodes of the source surface mesh cannot be respaced. Two blocks meeting on a source face can
             // leave the reconciliation asking for a different count on an edge that mesh owns, and the sweep
             // cannot then be built on it at all; the caller meshes the source surfaces in place instead
-            if (_sweepSourceMesh != null)
-            {
-                int ownedNumOfElements;
-                foreach (var entry in edgeIdNumOfElements)
-                {
-                    if (_sweepSourceMesh.EdgeIdNumOfElements.TryGetValue(entry.Key, out ownedNumOfElements) &&
-                        ownedNumOfElements != entry.Value)
-                        throw new CaeException("A sweep side surface needs a number of elements on an edge of a " +
-                                               "source surface that the mesh already there does not have.");
-                }
-            }
-            //
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             // The edges the source surface mesh brings with it are left without a constraint: their counts are
             // the ones that mesh carries, and a constraint would space their nodes anew
@@ -1954,6 +2013,44 @@ namespace CaeMesh
                 if (_sweepSourceMesh != null && _sweepSourceMesh.EdgeIdNumOfElements.ContainsKey(entry.Key)) continue;
                 Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
+        }
+        /// <summary>
+        /// Refuses a wall whose two sides do not carry the same number of elements, measured off the 1D mesh
+        /// before the surfaces are meshed.
+        ///
+        /// gmsh refuses such a side surface and then throws from its own transfinite meshing, which is not an
+        /// exception the sweep can retry on, so the disagreement has to be found here. The nodes of the source
+        /// surface mesh cannot be respaced, so when a wall reaches an edge that mesh owns the two can want
+        /// different things; the edges the wall and that mesh disagree over are recorded, and the surfaces that
+        /// own them are what the caller gives up.
+        /// </summary>
+        private void CheckWallsAgainstSourceMesh(List<SweepWall> walls)
+        {
+            int sourceNumOfElements;
+            int targetNumOfElements;
+            _conflictingSweepSourceEdgeIds = new HashSet<int>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                //
+                sourceNumOfElements = 0;
+                targetNumOfElements = 0;
+                foreach (var edgeId in wall.SourceEdgeIds)
+                    sourceNumOfElements += SweepWallTopology.GetElementCount(edgeId);
+                foreach (var edgeId in wall.TargetEdgeIds)
+                    targetNumOfElements += SweepWallTopology.GetElementCount(edgeId);
+                if (sourceNumOfElements == targetNumOfElements) continue;
+                //
+                foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds))
+                {
+                    if (_sweepSourceMesh.EdgeIdNumOfElements.ContainsKey(edgeId))
+                        _conflictingSweepSourceEdgeIds.Add(edgeId);
+                }
+            }
+            if (_conflictingSweepSourceEdgeIds.Count > 0)
+                throw new CaeException("The two sides of a sweep side surface do not carry the same number of " +
+                                       "elements, an edge of a source surface being meshed already.");
+            _conflictingSweepSourceEdgeIds = null;
         }
         /// <summary>
         /// The number of elements on an edge: the one the source surface mesh carries when it owns the edge -
