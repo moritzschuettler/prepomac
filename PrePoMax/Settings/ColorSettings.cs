@@ -153,7 +153,7 @@ namespace PrePoMax
             _frontFaceColor = Color.Coral;
             _backFaceColor = Color.PowderBlue;
             //
-            _transfiniteMeshColor = Color.PaleGreen;
+            _transfiniteMeshColor = Color.DarkSeaGreen;
             _sweepMeshColor = Color.Khaki;
             _tetrahedralMeshColor = Color.Pink;
             _otherMeshColor = Color.LightGray;
