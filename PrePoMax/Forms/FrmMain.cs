@@ -70,7 +70,10 @@ namespace PrePoMax
         private Controller _controller;
         private CommandLineOptions _cmdOptions;
         private bool _hideWindow;
-        private string[] outputLines;
+        private const int _numOfOutputDateChars = 20;
+        private const int _numOfOutputLines = 500;
+        private List<string> _outputLines = new List<string>();
+        private int _numOfOutputColumns;
         private SidePanel _visibleSidePanel;
         private SplitContainer _sidePanelHost;
         private PythonPanel _pythonPanel;
@@ -1132,10 +1135,13 @@ namespace PrePoMax
         //
         private void timerOutput_Tick(object sender, EventArgs e)
         {
-            tbOutput.Lines = outputLines;
-            tbOutput.SelectionStart = tbOutput.Text.Length;
-            tbOutput.ScrollToCaret();
             timerOutput.Stop();
+            //
+            UpdateOutputTextBox();
+        }
+        private void tbOutput_Resize(object sender, EventArgs e)
+        {
+            if (GetNumOfOutputColumns() != _numOfOutputColumns) timerOutput.Start();
         }
 
         #region ModelTree Events ###################################################################################################
@@ -11109,7 +11115,7 @@ namespace PrePoMax
                 _vtk.Clear();
                 _vtk.RemoveAllArrowWidgets();
                 _modelTree.Clear();
-                outputLines = new string[0];
+                _outputLines.Clear();
                 tbOutput.Text = "";
                 ClearResults();
                 ClearAnnotationStatus();
@@ -12080,13 +12086,15 @@ namespace PrePoMax
         // Output
         private void tsmiClearOutputTextbox_Click(object sender, EventArgs e)
         {
+            _outputLines.Clear();
             tbOutput.Clear();
         }
         public void WriteDataToOutput(string data)
         {
             if (data == null) return;
-            // 20 chars is an empty line with date
-            if (data.Length == 0 && (outputLines.Length > 0 && outputLines.Last().Length == 20)) return;
+            // An empty line contains only the date
+            if (data.Length == 0 && _outputLines.Count > 0 &&
+                _outputLines.Last().Length == _numOfOutputDateChars) return;
             //
             InvokeIfRequired(() =>
             {
@@ -12106,42 +12114,61 @@ namespace PrePoMax
         }
         private void WriteLineToOutputWithDate(string data)
         {
-            if (outputLines != null)
+            _outputLines.Add(DateTime.Now.ToString("MM/dd/yy HH:mm:ss").PadRight(_numOfOutputDateChars) + data);
+            //
+            if (_outputLines.Count > _numOfOutputLines)
+                _outputLines.RemoveRange(0, _outputLines.Count - _numOfOutputLines);
+        }
+        private void UpdateOutputTextBox()
+        {
+            _numOfOutputColumns = GetNumOfOutputColumns();
+            //
+            int numOfDataColumns = _numOfOutputColumns - _numOfOutputDateChars;
+            StringBuilder sb = new StringBuilder();
+            //
+            foreach (string outputLine in _outputLines)
             {
-                int numColDate = 20;
-                int numCol = (int)((tbOutput.Width - 60) / tbOutput.TextCharWidth);
-                int numRows = 500;      // number of displayed lines
+                string date = outputLine.Substring(0, _numOfOutputDateChars);
                 //
-                List<string> lines = new List<string>(outputLines);
-                List<string> wrappedLines = new List<string>();
-                //
-                while (numColDate + data.Length > numCol)
+                foreach (string wrappedLine in WrapOutputData(outputLine.Substring(_numOfOutputDateChars),
+                                                              numOfDataColumns))
                 {
-                    if (numCol - numColDate <= 0)
-                    {
-                        wrappedLines.Add(data);
-                        data = "";
-                        break;
-                    }
-                    else
-                    {
-                        wrappedLines.Add(data.Substring(0, numCol - numColDate) + "...");
-                        data = data.Substring(numCol - numColDate);
-                    }
+                    if (sb.Length > 0) sb.AppendLine();
+                    sb.Append(date);
+                    sb.Append(wrappedLine);
                 }
-                wrappedLines.Add(data);
-                //
-                foreach (var wrappedLine in wrappedLines)
-                {
-                    lines.Add(DateTime.Now.ToString("MM/dd/yy HH:mm:ss").PadRight(numColDate) + wrappedLine);
-                }
-                //
-                int firstLine = Math.Max(0, lines.Count - numRows);
-                int numLines = Math.Min(lines.Count, numRows);
-                //
-                outputLines = new string[numLines];
-                Array.Copy(lines.ToArray(), firstLine, outputLines, 0, numLines);
             }
+            //
+            tbOutput.AutoScrollSetText(sb.ToString());
+        }
+        private int GetNumOfOutputColumns()
+        {
+            int numOfColumns = (int)(tbOutput.ClientSize.Width / tbOutput.TextCharWidth) - 3;
+            //
+            return Math.Max(_numOfOutputDateChars + 10, numOfColumns);
+        }
+        private List<string> WrapOutputData(string data, int numOfColumns)
+        {
+            List<string> wrappedLines = new List<string>();
+            //
+            while (data.Length > numOfColumns)
+            {
+                int breakPosition = data.LastIndexOf(' ', numOfColumns);
+                //
+                if (breakPosition <= 0)
+                {
+                    wrappedLines.Add(data.Substring(0, numOfColumns));
+                    data = data.Substring(numOfColumns);
+                }
+                else
+                {
+                    wrappedLines.Add(data.Substring(0, breakPosition));
+                    data = data.Substring(breakPosition + 1).TrimStart(' ');
+                }
+            }
+            if (data.Length > 0 || wrappedLines.Count == 0) wrappedLines.Add(data);
+            //
+            return wrappedLines;
         }
 
         #region Invoke  ############################################################################################################

@@ -5219,6 +5219,7 @@ namespace PrePoMax
             this.tbOutput.Size = new System.Drawing.Size(419, 86);
             this.tbOutput.TabIndex = 0;
             this.tbOutput.Text = "Output text box";
+            this.tbOutput.Resize += new System.EventHandler(this.tbOutput_Resize);
             // 
             // cmsOutputTextbox
             // 
