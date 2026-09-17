@@ -1897,9 +1897,15 @@ namespace CaeMesh
                     if (block.ImprintEdgeCopyIds == null) continue;
                     foreach (var entry in block.ImprintEdgeCopyIds)
                     {
-                        if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
-                            !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements))
-                            numOfElements = GetSweepEdgeElementCount(entry.Key);
+                        // The source surface mesh decides for the edge it owns - its nodes are not the sweep's
+                        // to space - and the edge splitting the target above it follows, node for node
+                        if (_sweepSourceMesh == null ||
+                            !_sweepSourceMesh.EdgeIdNumOfElements.TryGetValue(entry.Value, out numOfElements))
+                        {
+                            if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
+                                !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements))
+                                numOfElements = GetSweepEdgeElementCount(entry.Key);
+                        }
                         imprintEdgeIdNumOfElements[entry.Key] = numOfElements;
                         imprintEdgeIdNumOfElements[entry.Value] = numOfElements;
                     }
