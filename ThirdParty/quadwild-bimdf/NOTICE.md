@@ -12,8 +12,8 @@ README_release.md identifies the binary version as 0.0.2.
 Upstream project and corresponding source:
 https://github.com/cgg-bern/quadwild-bimdf
 
-License: GNU General Public License version 3. A copy is provided in LICENSE
-beside this notice and the deployed executables.
+License: GNU General Public License version 3. The copy in Licenses/quadwild is
+deployed as LICENSE beside the executables.
 
 SHA-256 checksums of the supplied binaries:
 
