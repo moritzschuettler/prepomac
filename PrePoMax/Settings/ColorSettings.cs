@@ -152,23 +152,11 @@ namespace PrePoMax
             //
             _frontFaceColor = Color.Coral;
             _backFaceColor = Color.PowderBlue;
-            ResetMeshTypeColors();
-        }
-        private void ResetMeshTypeColors()
-        {
+            //
             _transfiniteMeshColor = Color.PaleGreen;
             _sweepMeshColor = Color.Khaki;
-            _tetrahedralMeshColor = Color.Plum;
+            _tetrahedralMeshColor = Color.Pink;
             _otherMeshColor = Color.LightGray;
-        }
-        [OnDeserialized]
-        private void OnDeserialized(StreamingContext context)
-        {
-            if (_saturation < MinSaturation) _saturation = DefaultSaturation;
-            // A settings file written before the mesh type colors existed carries none, and an empty color
-            // draws the parts away rather than coloring them
-            if (_transfiniteMeshColor.IsEmpty || _sweepMeshColor.IsEmpty ||
-                _tetrahedralMeshColor.IsEmpty || _otherMeshColor.IsEmpty) ResetMeshTypeColors();
         }
         public void ApplyColorPalette()
         {

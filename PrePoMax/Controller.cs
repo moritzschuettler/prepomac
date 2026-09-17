@@ -21917,7 +21917,7 @@ namespace PrePoMax
             }
             catch { }
         }
-        public void HighlightGeometryParts(string[] partNames)
+        public void HighlightGeometryParts(string[] partNames, bool onlyVisible = false)
         {
             HashSet<string> allPartNames = new HashSet<string>(partNames);
             // Find all sub parts to select except the compound parts
@@ -21941,7 +21941,8 @@ namespace PrePoMax
             List<int[]> edgeCells = new List<int[]>();
             foreach (var part in parts)
             {
-                if (allPartNames.Contains(part.Name) && _form.ContainsActor(part.Name))
+                if (allPartNames.Contains(part.Name) && (!onlyVisible || part.Visible) &&
+                    _form.ContainsActor(part.Name))
                 {
                     _form.HighlightActor(part.Name);
                     //
@@ -22084,13 +22085,14 @@ namespace PrePoMax
             else if (meshSetupItem is RevolveMesh rm) HighlightRevolveMesh(rm, useSecondaryHighlightColor);
             else throw new NotSupportedException();
         }
+        // A hidden part shows nothing of itself, so a mesh setup item highlights only the parts on display
         public void HighlightMeshSetupItemParts(MeshSetupItem meshSetupItem, bool useSecondaryHighlightColor = false)
         {
             HashSet<int> selectedPartIds = new HashSet<int>(meshSetupItem.CreationIds);
             if (selectedPartIds.Count > 0)
             {
                 string[] partNames = _model.Geometry.GetPartNamesFromPartIds(selectedPartIds.ToArray());
-                HighlightGeometryParts(partNames);
+                HighlightGeometryParts(partNames, true);
             }
         }
         public void HighlightLocalMeshSize(LocalMeshSize localMeshSize, bool highlightNodes = true, 
@@ -22136,7 +22138,7 @@ namespace PrePoMax
             //
             bool backfaceCulling = part.PartType != PartType.Shell;
             //
-            HighlightItemsByGeometryIds(ids, backfaceCulling, false);
+            HighlightItemsByGeometryIds(ids, backfaceCulling, false, true);
         }
         public void HighlightExtrudeMesh(ExtrudeMesh extrudeMesh, bool useSecondaryHighlightColor = false)
         {
@@ -22178,8 +22180,9 @@ namespace PrePoMax
             }
             // The source surfaces filled. The visualization of a CAD part is a shell of two dimensional cells
             // and a solid surface resolves to their back side, whose winding points into the solid, so the
-            // faces are drawn without backface culling or nothing of them is drawn at all
-            HighlightItemsByGeometryIds(geometryIds.ToArray(), false, useSecondaryHighlightColor);
+            // faces are drawn without backface culling or nothing of them is drawn at all. A sweep spans as
+            // many parts as it has blocks and the hidden ones among them show nothing of their surfaces
+            HighlightItemsByGeometryIds(geometryIds.ToArray(), false, useSecondaryHighlightColor, true);
             //
             if (sweepMesh.BlockArrowStarts == null || sweepMesh.BlockArrowDirections == null) return;
             //
@@ -22191,6 +22194,8 @@ namespace PrePoMax
                 // The exploded view moves every sub-part by its own offset
                 BasePart part = _model.Geometry.GetPartFromId(
                     FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]));
+                // The block of a hidden part is not on display and neither is the arrow of its sweep direction
+                if (part != null && !part.Visible) continue;
                 double[] offset = part != null ? part.Offset : new double[3];
                 starts.Add(new double[] { sweepMesh.BlockArrowStarts[i][0] + offset[0],
                                           sweepMesh.BlockArrowStarts[i][1] + offset[1],
@@ -23082,11 +23087,12 @@ namespace PrePoMax
             //
             HighlightSurface(cells, elementFaceTypes, useSecondaryHighlightColor);
         }
-        private void HighlightItemsByGeometryIds(int[] ids, bool backfaceCulling, bool useSecondaryHighlightColor)
+        private void HighlightItemsByGeometryIds(int[] ids, bool backfaceCulling, bool useSecondaryHighlightColor,
+                                                 bool onlyVisible = false)
         {
             int nodeSize = _settings.Pre.NodeSymbolSize + 2;
             DrawItemsByGeometryIds(ids, "highlight", "items", Color.Empty, vtkRendererLayer.Selection, nodeSize,
-                                   backfaceCulling, useSecondaryHighlightColor);
+                                   backfaceCulling, useSecondaryHighlightColor, onlyVisible);
         }
         public void HighlightActorData(vtkMaxActorData aData)
         {

@@ -69,6 +69,8 @@ namespace PrePoMax.Forms
             _sweepMesh = sweepMesh;
             SetBase(_sweepMesh);
             //
+            _dctd.RenameBooleanPropertyToYesNo(nameof(KeepImprintEdges));
+            //
             _dctd.GetProperty(nameof(AlgorithmMesh3D)).SetIsBrowsable(false);
             //
             _dctd.GetProperty(nameof(ElementSizeType)).SetIsBrowsable(false);
