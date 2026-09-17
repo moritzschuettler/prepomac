@@ -1834,6 +1834,14 @@ namespace CaeMesh
             GenerateMesh(1);
             // The counts are measured off the source surface mesh and the target splits are projected onto it
             _sweepSourceMesh?.AddBoundary();
+            // The nodes that mesh carries are not the sweep's to respace, so the counts on the edges it owns are
+            // pinned like any the user set. An edge of a source surface can follow the sweep direction of a
+            // neighbouring block, and the ring it stands in has to be resolved to the count it already has
+            if (_sweepSourceMesh != null)
+            {
+                foreach (var entry in _sweepSourceMesh.EdgeIdNumOfElements)
+                    _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+            }
             // How many elements each edge following the sweep direction gets, from the levels along the sweep
             // the chains define - so that the two sides of every wall add up to the same total, however each
             // of them is split. A direction edge on no chain keeps the count the user pinned on it, else the
