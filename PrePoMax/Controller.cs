@@ -17231,6 +17231,10 @@ namespace PrePoMax
             {
                 int maxColor = -int.MaxValue;
                 float value;
+                Color cellColor;
+                double sumR = 0;
+                double sumG = 0;
+                double sumB = 0;
                 float[] values = new float[data.Geometry.Cells.Ids.Length];
                 ColorSettings colorSettings = _settings.Color;
                 for (int i = 0; i < values.Length; i++)
@@ -17238,8 +17242,17 @@ namespace PrePoMax
                     value = elementIdColorId[data.Geometry.Cells.Ids[i]] % colorSettings.ColorTable.Length;
                     values[i] = value;
                     if (value > maxColor) maxColor = (int)value;
+                    //
+                    cellColor = value < 0 ? Color.White : colorSettings.ColorTable[(int)value];
+                    sumR += cellColor.R;
+                    sumG += cellColor.G;
+                    sumB += cellColor.B;
                 }
                 data.Geometry.Cells.Values = values;
+                // The shading and the highlights of the cell colors are taken from their mean color
+                int alpha = maxColor < 0 ? data.Color.A / 2 : data.Color.A;
+                data.Color = Color.FromArgb(alpha, (int)(sumR / values.Length), (int)(sumG / values.Length),
+                                            (int)(sumB / values.Length));
                 //
                 maxColor++; // first color is 0 so add +1
                 data.ColorTable = new Color[maxColor];

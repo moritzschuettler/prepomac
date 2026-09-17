@@ -1842,15 +1842,19 @@ namespace vtkControl
         {
             double opacity = _color.A / 255d;
             // Custom coloring of elements: sections, materials...
-            if (_colorTable != null)    
+            if (_colorTable != null)
             {
+                // The color table replaces the ambient material color and not the ambient component, so the
+                // ambient component is baked into the color table
+                double diffuse = Math.Min(_diffuse, 0.999);
                 // Create color table
                 vtkLookupTable cellLut = vtkLookupTable.New();
                 cellLut.SetNumberOfTableValues(_colorTable.Length + 1); // +1 for the missing color
                 cellLut.Build();
-                cellLut.SetTableValue(0, 1, 1, 1, 0.5);                 // White for missing color
+                cellLut.SetTableValue(0, _ambient, _ambient, _ambient, 1);  // White for missing color
                 for (int i = 0; i < _colorTable.Length; i++)
-                    cellLut.SetTableValue(i + 1, _colorTable[i].R / 255d, _colorTable[i].G / 255d, _colorTable[i].B / 255d, 1);
+                    cellLut.SetTableValue(i + 1, _ambient * _colorTable[i].R / 255d, _ambient * _colorTable[i].G / 255d,
+                                          _ambient * _colorTable[i].B / 255d, 1);
                 //cellLut.SetValueRange(0, _colorTable.Length - 1);
                 //
                 _geometryMapper.SetLookupTable(cellLut);
@@ -1862,13 +1866,13 @@ namespace vtkControl
                 //mapper.SetInterpolateScalarsBeforeMapping(1);
                 //mapper.SetColorModeToMapScalars();
                 //
-                _geometryProperty.SetAmbientColor(0.8, 0.8, 0.8);  // also reset part color highlight
-                _geometryProperty.SetAmbient(0.2);
-                _geometryProperty.SetDiffuse(0.201); // must be a little larger
+                _geometryProperty.SetAmbient(1);      // must be larger to color the ambient and not the diffuse
+                _geometryProperty.SetDiffuse(diffuse);
+                _geometryProperty.SetDiffuseColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
                 //
                 _geometryProperty.SetOpacity(opacity);
                 // This changes the base color and forces graphics update !?
-                _geometryProperty.SetSpecularColor(1, 1, 1); // must be here to enable specular for colorTable
+                _geometryProperty.SetSpecularColor(_color.R / 255d, _color.G / 255d, _color.B / 255d);
                 _geometryProperty.SetSpecular(0.6);
                 _geometryProperty.SetSpecularPower(100);
             }
