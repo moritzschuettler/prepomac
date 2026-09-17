@@ -20,6 +20,11 @@ namespace FileInOut.Output
 {
     static public class QuadWildInputWriter
     {
+        // The largest angle by which a face normal may deviate from the mean normal for the surface to
+        // count as planar. QuadWild computes its own cross field from principal curvature directions,
+        // which are undefined on a flat surface and make its solver return a field full of NaN.
+        private const double PlanarNormalTolerance = 1E-3;
+
         private class FaceEdge
         {
             public int FaceIndex;
@@ -36,7 +41,7 @@ namespace FileInOut.Output
         }
 
 
-        public static QuadWildInputFileInfo Write(string objFileName, string sharpFileName,
+        public static QuadWildInputFileInfo Write(string objFileName, string sharpFileName, string rosyFileName,
                                                    FeMesh mesh, string partName)
         {
             if (mesh == null) throw new ArgumentNullException(nameof(mesh));
@@ -167,12 +172,120 @@ namespace FileInOut.Output
                 sharp.AppendLine(edge.LocalEdgeIndex.ToString(CultureInfo.InvariantCulture));
             }
             //
+            string rosy = GetPlanarCrossField(mesh, faceNodeIds, faceNormals, sharpEdges);
+            //
             UTF8Encoding utf8WithoutBom = new UTF8Encoding(false);
             File.WriteAllText(objFileName, obj.ToString(), utf8WithoutBom);
             File.WriteAllText(sharpFileName, sharp.ToString(), utf8WithoutBom);
+            if (rosy != null) File.WriteAllText(rosyFileName, rosy, utf8WithoutBom);
             //
             return new QuadWildInputFileInfo(nodeIdsOrdered.Length, faceNodeIds.Length, sharpEdges.Count,
-                                             modelEdges, GetModelFaceEdgeIds(part.Visualization));
+                                             modelEdges, GetModelFaceEdgeIds(part.Visualization), rosy != null);
+        }
+
+        // A flat surface leaves QuadWild's curvature driven cross field solver without any constraint and it
+        // returns NaN directions, after which no patch can be traced. The field is constant on a flat
+        // surface, so it is supplied here instead and QuadWild skips its own field computation.
+        private static string GetPlanarCrossField(FeMesh mesh, int[][] faceNodeIds, double[][] faceNormals,
+                                                  List<SharpEdge> sharpEdges)
+        {
+            double[] normal = GetPlanarNormal(faceNormals);
+            if (normal == null) return null;
+            //
+            double[] axis1 = GetOrthogonalAxis(normal);
+            double[] axis2 = Cross(normal, axis1);
+            double[] direction = GetDominantSharpEdgeDirection(mesh, faceNodeIds, sharpEdges, axis1, axis2);
+            //
+            StringBuilder rosy = new StringBuilder();
+            rosy.AppendLine(faceNodeIds.Length.ToString(CultureInfo.InvariantCulture));
+            rosy.AppendLine("4");
+            string line = direction[0].ToString("R", CultureInfo.InvariantCulture) + " " +
+                          direction[1].ToString("R", CultureInfo.InvariantCulture) + " " +
+                          direction[2].ToString("R", CultureInfo.InvariantCulture);
+            for (int faceIndex = 0; faceIndex < faceNodeIds.Length; faceIndex++) rosy.AppendLine(line);
+            return rosy.ToString();
+        }
+
+        private static double[] GetPlanarNormal(double[][] faceNormals)
+        {
+            double x = 0;
+            double y = 0;
+            double z = 0;
+            foreach (double[] faceNormal in faceNormals)
+            {
+                x += faceNormal[0];
+                y += faceNormal[1];
+                z += faceNormal[2];
+            }
+            double length = Math.Sqrt(x * x + y * y + z * z);
+            if (length < 1E-20) return null;
+            double[] normal = new double[] { x / length, y / length, z / length };
+            //
+            double minimumDot = Math.Cos(PlanarNormalTolerance);
+            foreach (double[] faceNormal in faceNormals)
+            {
+                if (Dot(faceNormal, normal) < minimumDot) return null;
+            }
+            return normal;
+        }
+
+        // The cross field is four way symmetric, so the sharp edge directions are averaged at four times
+        // their in-plane angle. Edges that are 90 degrees apart then reinforce each other instead of
+        // canceling out, and the result aligns the quads with the dominant feature direction.
+        private static double[] GetDominantSharpEdgeDirection(FeMesh mesh, int[][] faceNodeIds,
+                                                              List<SharpEdge> sharpEdges,
+                                                              double[] axis1, double[] axis2)
+        {
+            double sumX = 0;
+            double sumY = 0;
+            foreach (SharpEdge sharpEdge in sharpEdges)
+            {
+                int[] nodeIds = faceNodeIds[sharpEdge.FaceIndex];
+                FeNode start = mesh.Nodes[nodeIds[sharpEdge.LocalEdgeIndex]];
+                FeNode end = mesh.Nodes[nodeIds[(sharpEdge.LocalEdgeIndex + 1) % 3]];
+                double[] edge = new double[] { end.X - start.X, end.Y - start.Y, end.Z - start.Z };
+                double component1 = Dot(edge, axis1);
+                double component2 = Dot(edge, axis2);
+                double length = Math.Sqrt(component1 * component1 + component2 * component2);
+                if (length < 1E-20) continue;
+                double angle = 4 * Math.Atan2(component2, component1);
+                sumX += length * Math.Cos(angle);
+                sumY += length * Math.Sin(angle);
+            }
+            if (Math.Sqrt(sumX * sumX + sumY * sumY) < 1E-12) return axis1;
+            //
+            double dominantAngle = Math.Atan2(sumY, sumX) / 4;
+            double cos = Math.Cos(dominantAngle);
+            double sin = Math.Sin(dominantAngle);
+            return new double[]
+            {
+                axis1[0] * cos + axis2[0] * sin,
+                axis1[1] * cos + axis2[1] * sin,
+                axis1[2] * cos + axis2[2] * sin
+            };
+        }
+
+        private static double[] GetOrthogonalAxis(double[] normal)
+        {
+            double[] candidate = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double[] axis = Cross(normal, candidate);
+            double length = Math.Sqrt(Dot(axis, axis));
+            return new double[] { axis[0] / length, axis[1] / length, axis[2] / length };
+        }
+
+        private static double[] Cross(double[] vector1, double[] vector2)
+        {
+            return new double[]
+            {
+                vector1[1] * vector2[2] - vector1[2] * vector2[1],
+                vector1[2] * vector2[0] - vector1[0] * vector2[2],
+                vector1[0] * vector2[1] - vector1[1] * vector2[0]
+            };
+        }
+
+        private static double Dot(double[] vector1, double[] vector2)
+        {
+            return vector1[0] * vector2[0] + vector1[1] * vector2[1] + vector1[2] * vector2[2];
         }
 
         private static int[][] GetModelFaceEdgeIds(VisualizationData visualization)

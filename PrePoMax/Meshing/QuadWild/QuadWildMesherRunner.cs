@@ -95,10 +95,13 @@ namespace PrePoMax
             //
             string objFileName = Path.Combine(workDirectory, Globals.QuadWildInputObjFileName);
             string sharpFileName = Path.Combine(workDirectory, Globals.QuadWildSharpFileName);
+            string rosyFileName = Path.Combine(workDirectory, Globals.QuadWildRosyFileName);
             string prepConfigFileName = Path.Combine(workDirectory, Globals.QuadWildPrepConfigFileName);
             string flowConfigFileName = Path.Combine(workDirectory, Globals.QuadWildFlowConfigFileName);
             string inputPrefix = Path.Combine(workDirectory,
                                               Path.GetFileNameWithoutExtension(Globals.QuadWildInputObjFileName));
+            string preparedObjFileName = inputPrefix + "_rem.obj";
+            string preparedRosyFileName = inputPrefix + "_rem.rosy";
             string tracePrefix = inputPrefix + "_rem_p0";
             string tracedObjFileName = tracePrefix + ".obj";
             string[] tracedFileNames = new string[]
@@ -114,14 +117,17 @@ namespace PrePoMax
             //
             DeleteIfExists(objFileName);
             DeleteIfExists(sharpFileName);
+            DeleteIfExists(rosyFileName);
             DeleteIfExists(prepConfigFileName);
             DeleteIfExists(flowConfigFileName);
+            DeleteIfExists(preparedObjFileName);
+            DeleteIfExists(preparedRosyFileName);
             foreach (string tracedFileName in tracedFileNames) DeleteIfExists(tracedFileName);
             DeleteIfExists(smoothObjFileName);
             DeleteIfExists(unsmoothedObjFileName);
             //
             FeMesh triangularMesh = CreateTriangularMesh(part, shellQuadWild, workDirectory, null);
-            QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName,
+            QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName, rosyFileName,
                                                                         triangularMesh, part.Name);
             _controller.Form.WriteDataToOutput("QuadWild input: " + inputInfo.NodeCount + " nodes, " +
                                                inputInfo.FaceCount + " triangles, " +
@@ -163,6 +169,37 @@ namespace PrePoMax
                                                   : tracedFileNames;
             bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
                                               workDirectory, preparationOutputFileNames);
+            if (IsCrossFieldDegenerate(preparedRosyFileName))
+            {
+                // QuadWild aligns its cross field to the principal curvature directions, which are undefined
+                // on a flat surface, and then writes a field of NaN directions. Nothing can be traced along
+                // such a field, and the tracer silently deletes the patches it could not resolve.
+                if (inputInfo.CrossFieldWritten && !shellQuadWild.Remesh)
+                {
+                    _controller.Form.WriteDataToOutput("QuadWild computed a degenerate cross field for this " +
+                                                       "planar surface. Repeating the preparation with a " +
+                                                       "constant cross field aligned to the model edges...");
+                    DeleteIfExists(preparedObjFileName);
+                    DeleteIfExists(preparedRosyFileName);
+                    foreach (string tracedFileName in tracedFileNames) DeleteIfExists(tracedFileName);
+                    argument += " " + Quote(rosyFileName);
+                    preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
+                                                 workDirectory, preparationOutputFileNames);
+                }
+                else if (inputInfo.CrossFieldWritten)
+                {
+                    _controller.Form.WriteDataToOutput("Warning: QuadWild computed a degenerate cross field for " +
+                                                       "this planar surface. A valid field can only be supplied " +
+                                                       "when Remesh input is set to No.");
+                }
+                else
+                {
+                    _controller.Form.WriteDataToOutput("Warning: QuadWild computed a degenerate cross field for " +
+                                                       "this surface. The resulting mesh may not follow the " +
+                                                       "geometry.");
+                }
+            }
+            EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName);
             if (shellQuadWild.Preview)
             {
                 QuadWildOutputInfo previewInfo = ValidateTriangularOutput(tracedObjFileName);
@@ -446,6 +483,62 @@ namespace PrePoMax
         {
             return fileNames != null && fileNames.Length > 0 &&
                    fileNames.All(fileName => File.Exists(fileName) && new FileInfo(fileName).Length > 0);
+        }
+        // The .rosy file holds one cross-field direction per triangle after a count and the field symmetry.
+        private static bool IsCrossFieldDegenerate(string rosyFileName)
+        {
+            if (!File.Exists(rosyFileName)) return false;
+            using (StreamReader reader = new StreamReader(rosyFileName))
+            {
+                string line;
+                int lineIndex = 0;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    lineIndex++;
+                    if (lineIndex <= 2 || line.Trim().Length == 0) continue;
+                    string[] tokens = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Length < 3) return true;
+                    double lengthSquared = 0;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        double component;
+                        if (!Double.TryParse(tokens[i], NumberStyles.Float, CultureInfo.InvariantCulture,
+                                             out component) ||
+                            Double.IsNaN(component) || Double.IsInfinity(component)) return true;
+                        lengthSquared += component * component;
+                    }
+                    if (lengthSquared <= 0) return true;
+                }
+            }
+            return false;
+        }
+        // The tracer deletes every patch it could not make disk-like and then reports success, so a model
+        // that lost most of its surface still leaves a readable but almost empty traced mesh behind. Tracing
+        // splits triangles and never removes them, so a drop in the triangle count means patches were erased.
+        private static void EnsureNoPatchesErased(string preparedObjFileName, string tracedObjFileName)
+        {
+            if (!File.Exists(preparedObjFileName) || !File.Exists(tracedObjFileName)) return;
+            int preparedFaceCount = CountObjFaces(preparedObjFileName);
+            int tracedFaceCount = CountObjFaces(tracedObjFileName);
+            if (preparedFaceCount <= 0 || tracedFaceCount >= preparedFaceCount) return;
+            //
+            throw new CaeException("QuadWild patch tracing discarded " +
+                                   (preparedFaceCount - tracedFaceCount) + " of " + preparedFaceCount +
+                                   " triangles because it could not split the surface into disk-like patches. " +
+                                   "The remaining mesh would cover only a part of the model.");
+        }
+        private static int CountObjFaces(string fileName)
+        {
+            int faceCount = 0;
+            using (StreamReader reader = new StreamReader(fileName))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.StartsWith("f ", StringComparison.Ordinal)) faceCount++;
+                }
+            }
+            return faceCount;
         }
         private static QuadWildOutputInfo ValidateOutput(string fileName)
         {

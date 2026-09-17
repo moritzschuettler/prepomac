@@ -107,6 +107,7 @@ namespace PrePoMax
         public static string QuadWildGmshInpFileName = "quadwildTriangles.inp";
         public static string QuadWildInputObjFileName = "quadwildInput.obj";
         public static string QuadWildSharpFileName = "quadwildInput.sharp";
+        public static string QuadWildRosyFileName = "quadwildInput.rosy";
         public static string QuadWildPrepConfigFileName = "quadwildPrep.txt";
         public static string QuadWildFlowConfigFileName = "quadwildFlow.txt";
         public static string VolFileName = "geometry.vol";

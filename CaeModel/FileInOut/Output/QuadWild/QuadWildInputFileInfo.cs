@@ -20,6 +20,7 @@ namespace FileInOut.Output
         private QuadWildModelEdge[] _modelEdges;
         // For each input model face the sorted ids of the model edges that bound it
         private int[][] _modelFaceEdgeIds;
+        private bool _crossFieldWritten;
 
 
         // Properties
@@ -28,17 +29,20 @@ namespace FileInOut.Output
         public int SharpEdgeCount { get { return _sharpEdgeCount; } }
         public QuadWildModelEdge[] ModelEdges { get { return _modelEdges; } }
         public int[][] ModelFaceEdgeIds { get { return _modelFaceEdgeIds; } }
+        public bool CrossFieldWritten { get { return _crossFieldWritten; } }
 
 
         // Constructors
         public QuadWildInputFileInfo(int nodeCount, int faceCount, int sharpEdgeCount,
-                                     QuadWildModelEdge[] modelEdges, int[][] modelFaceEdgeIds)
+                                     QuadWildModelEdge[] modelEdges, int[][] modelFaceEdgeIds,
+                                     bool crossFieldWritten)
         {
             _nodeCount = nodeCount;
             _faceCount = faceCount;
             _sharpEdgeCount = sharpEdgeCount;
             _modelEdges = modelEdges;
             _modelFaceEdgeIds = modelFaceEdgeIds;
+            _crossFieldWritten = crossFieldWritten;
         }
     }
 }
