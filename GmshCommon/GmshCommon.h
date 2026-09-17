@@ -577,29 +577,6 @@ namespace GmshCommon {
                     if ((int)nodeTags_native.size() > 0)
                         Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
                 }
-                // Overload returning the parametric coordinates as well - needed when a mesh read from one
-                // model is added to another and second order midside nodes must be placed on the geometry.
-                static void GetNodes([System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
-                    [System::Runtime::InteropServices::Out] array<double>^% coord,
-                    [System::Runtime::InteropServices::Out] array<double>^% parametricCoord,
-                    int dim, int tag, System::Boolean includeBoundary, System::Boolean returnParametricCoord)
-                {
-                    std::vector<size_t> nodeTags_native;
-                    std::vector<double> coord_native, parametricCoord_native;
-                    gmsh::model::mesh::getNodes(nodeTags_native, coord_native, parametricCoord_native, dim, tag, includeBoundary, returnParametricCoord);
-
-                    coord = gcnew array<double>((int)coord_native.size());
-                    if ((int)coord_native.size() > 0)
-                        Marshal::Copy(IntPtr(coord_native.data()), coord, 0, (int)coord_native.size());
-
-                    parametricCoord = gcnew array<double>((int)parametricCoord_native.size());
-                    if ((int)parametricCoord_native.size() > 0)
-                        Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, (int)parametricCoord_native.size());
-
-                    nodeTags = gcnew array<IntPtr>((int)nodeTags_native.size());
-                    if ((int)nodeTags_native.size() > 0)
-                        Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
-                }
                 static void GetElement(IntPtr elementTag, int elementType,
                     [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
                     [System::Runtime::InteropServices::Out] int% dim,
