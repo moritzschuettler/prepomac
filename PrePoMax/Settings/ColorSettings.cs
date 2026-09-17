@@ -154,16 +154,12 @@ namespace PrePoMax
             _backFaceColor = Color.PowderBlue;
             ResetMeshTypeColors();
         }
-        /// <summary>
-        /// The mesh types are told apart by color alone, so the four are taken from a palette that stays
-        /// distinguishable for the most common forms of color blindness.
-        /// </summary>
         private void ResetMeshTypeColors()
         {
-            _transfiniteMeshColor = Color.FromArgb(0, 114, 178);
-            _sweepMeshColor = Color.FromArgb(0, 158, 115);
-            _tetrahedralMeshColor = Color.FromArgb(230, 159, 0);
-            _otherMeshColor = Color.FromArgb(150, 150, 150);
+            _transfiniteMeshColor = Color.PaleGreen;
+            _sweepMeshColor = Color.Khaki;
+            _tetrahedralMeshColor = Color.Plum;
+            _otherMeshColor = Color.LightGray;
         }
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
