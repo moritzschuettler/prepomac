@@ -6307,7 +6307,7 @@ namespace PrePoMax
                     {
                         selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(entry.Value.CreationIds));
                         //
-                        if (DoesMeshSetupItemCoverPart(entry.Value, selectedPartIds, meshablePartIds))
+                        if (_model.DoesMeshSetupItemCoverPart(entry.Value, selectedPartIds, meshablePartIds))
                             meshSetupItemsToCheck.Add(entry.Value);
                     }
                 }
@@ -6334,48 +6334,13 @@ namespace PrePoMax
                     {
                         selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(msi.CreationIds));
                         //
-                        if (DoesMeshSetupItemCoverPart(msi, selectedPartIds, meshablePartIds))
+                        if (_model.DoesMeshSetupItemCoverPart(msi, selectedPartIds, meshablePartIds))
                             meshSetupItemsToCheck.Add(msi);
                     }
                 }
             }
             //
             return meshSetupItemsToCheck.ToArray();
-        }
-        // A sweep mesh is defined by source surfaces lying on a single sub-part of a compound part and derives
-        // the other sub-volumes from them, so it covers a part as soon as its selection lies on that part - or
-        // names the compound part itself, when the source surfaces are found automatically. One item may also
-        // span parts that stand apart from each other, and then it covers each of them in turn. Every other
-        // item has to be selected on the whole part.
-        private bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
-                                                int[] meshablePartIds)
-        {
-            if (meshSetupItem is SweepMesh sweepMesh)
-            {
-                // The item sweeps the parts its blocks lie on, which are the parts of the selection that
-                // could be swept. A part the selection reached but the sweep left out is meshed by an item
-                // of its own and must not be claimed here
-                if (sweepMesh.BlockSourceSurfaceIds != null && sweepMesh.BlockSourceSurfaceIds.Length > 0)
-                {
-                    HashSet<int> blockPartIds = new HashSet<int>();
-                    foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
-                    {
-                        foreach (var gmshTopologyId in blockSourceSurfaceIds)
-                            blockPartIds.Add(FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId));
-                    }
-                    return blockPartIds.Overlaps(meshablePartIds);
-                }
-                //
-                HashSet<int> sweptPartIds = new HashSet<int>();
-                foreach (var partId in selectedPartIds)
-                {
-                    if (_model.Geometry.GetPartFromId(partId) is CompoundGeometryPart compoundPart)
-                        sweptPartIds.UnionWith(_model.Geometry.GetPartIdsFomPartNames(compoundPart.SubPartNames));
-                    else sweptPartIds.Add(partId);
-                }
-                return sweptPartIds.Overlaps(meshablePartIds);
-            }
-            else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
         }
         // Returns the name of the compound part carrying each sub-part
         private Dictionary<string, string> GetCompoundPartNamesBySubPartName()

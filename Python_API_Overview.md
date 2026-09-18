@@ -695,7 +695,8 @@ rejects a setup item without creation data. The target follows the item type, as
 
 An item the model cannot honour is **refused rather than recorded**, on an add and on a replace that
 names a new selection, and the refusal says why - a shell mesher on a solid part, an extruded mesh on
-an STL part. This is the question the dialog asks before it applies. An item that was accepted and
+an STL part, a mesher defined on some of the sub-parts of a compound part and not the others. This is
+the question the dialog asks before it applies. An item that was accepted and
 later became invalid, because the part it covered was removed, becomes valid again as soon as a
 replace points it at geometry it can be defined on: a replacement is judged by the definition it
 carries, not by the verdict of the item it replaces.

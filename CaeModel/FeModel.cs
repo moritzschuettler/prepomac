@@ -2459,17 +2459,88 @@ namespace CaeModel
         public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)
         {
             if (meshSetupItem is MeshingParameters) return null;
-            else if (meshSetupItem is LocalMeshSize) return null;
-            else if (meshSetupItem is ShellMmg smmg) return IsShellMmgProperlyDefined(smmg);
-            else if (meshSetupItem is ShellGmsh sg) return IsShellGmshProperlyDefined(sg);
-            else if (meshSetupItem is ShellQuadWild sqw) return IsShellQuadWildProperlyDefined(sqw);
-            else if (meshSetupItem is ThickenShellMesh tsm) return IsThickenShellMeshProperlyDefined(tsm);
-            else if (meshSetupItem is TetrahedralGmsh tg) return IsTetrahedralGmshProperlyDefined(tg);
-            else if (meshSetupItem is TransfiniteMesh tm) return IsTransfiniteMeshProperlyDefined(tm);
-            else if (meshSetupItem is ExtrudeMesh em) return IsExtrudeMeshProperlyDefined(em);
-            else if (meshSetupItem is SweepMesh sm) return IsSweepMeshProperlyDefined(sm);
-            else if (meshSetupItem is RevolveMesh rm) return IsRevolveMeshProperlyDefined(rm);
+            if (meshSetupItem is LocalMeshSize) return null;
+            //
+            string error;
+            if (meshSetupItem is ShellMmg smmg) error = IsShellMmgProperlyDefined(smmg);
+            else if (meshSetupItem is ShellGmsh sg) error = IsShellGmshProperlyDefined(sg);
+            else if (meshSetupItem is ShellQuadWild sqw) error = IsShellQuadWildProperlyDefined(sqw);
+            else if (meshSetupItem is ThickenShellMesh tsm) error = IsThickenShellMeshProperlyDefined(tsm);
+            else if (meshSetupItem is TetrahedralGmsh tg) error = IsTetrahedralGmshProperlyDefined(tg);
+            else if (meshSetupItem is TransfiniteMesh tm) error = IsTransfiniteMeshProperlyDefined(tm);
+            else if (meshSetupItem is ExtrudeMesh em) error = IsExtrudeMeshProperlyDefined(em);
+            else if (meshSetupItem is SweepMesh sm) error = IsSweepMeshProperlyDefined(sm);
+            else if (meshSetupItem is RevolveMesh rm) error = IsRevolveMeshProperlyDefined(rm);
             else throw new NotSupportedException("MeshSetupItemTypeException");
+            if (error != null) return error;
+            // A sweep has found its blocks by now, so the coverage asked for here is the coverage the
+            // mesher will use to decide which item meshes which part
+            return IsMeshSetupItemCoveringAPart(meshSetupItem);
+        }
+        /// <summary>
+        /// Whether a mesh setup item covers a part - whether it is the item that meshes it. A sweep mesh is
+        /// defined by source surfaces lying on a single sub-part of a compound part and derives the other
+        /// sub-volumes from them, so it covers a part as soon as its selection lies on that part - or names
+        /// the compound part itself, when the source surfaces are found automatically. One item may also span
+        /// parts that stand apart from each other, and then it covers each of them in turn. Every other item
+        /// has to be selected on the whole part.
+        /// </summary>
+        public bool DoesMeshSetupItemCoverPart(MeshSetupItem meshSetupItem, HashSet<int> selectedPartIds,
+                                               int[] meshablePartIds)
+        {
+            if (meshSetupItem is SweepMesh sweepMesh)
+            {
+                // The item sweeps the parts its blocks lie on, which are the parts of the selection that
+                // could be swept. A part the selection reached but the sweep left out is meshed by an item
+                // of its own and must not be claimed here
+                if (sweepMesh.BlockSourceSurfaceIds != null && sweepMesh.BlockSourceSurfaceIds.Length > 0)
+                {
+                    HashSet<int> blockPartIds = new HashSet<int>();
+                    foreach (var blockSourceSurfaceIds in sweepMesh.BlockSourceSurfaceIds)
+                    {
+                        foreach (var gmshTopologyId in blockSourceSurfaceIds)
+                            blockPartIds.Add(FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId));
+                    }
+                    return blockPartIds.Overlaps(meshablePartIds);
+                }
+                //
+                HashSet<int> sweptPartIds = new HashSet<int>();
+                foreach (var partId in selectedPartIds)
+                {
+                    if (_geometry.GetPartFromId(partId) is CompoundGeometryPart compoundPart)
+                        sweptPartIds.UnionWith(_geometry.GetPartIdsFomPartNames(compoundPart.SubPartNames));
+                    else sweptPartIds.Add(partId);
+                }
+                return sweptPartIds.Overlaps(meshablePartIds);
+            }
+            else return selectedPartIds.Intersect(meshablePartIds).Count() == meshablePartIds.Length;
+        }
+        /// <summary>
+        /// Whether the item covers any part at all, asked by the same rule that decides which item meshes a
+        /// part. An item covering none of them is applied to nothing, and is refused rather than recorded and
+        /// left in the model tree looking active. What it catches is an item defined on some of the sub-parts
+        /// of a compound and not the others, since a compound is meshed as a whole. A sweep passes the same
+        /// rule rather than an exception to it, covering a compound as soon as it reaches one sub-part.
+        /// </summary>
+        private string IsMeshSetupItemCoveringAPart(MeshSetupItem meshSetupItem)
+        {
+            if (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0) return null;
+            //
+            GeometryPart part;
+            int[] meshablePartIds;
+            HashSet<int> selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds));
+            foreach (var entry in _geometry.Parts)
+            {
+                part = entry.Value as GeometryPart;
+                if (part == null || GetCompoundPartOfSubPart(part.Name) != null) continue;
+                //
+                meshablePartIds = _geometry.GetPartIdsFomPartNames(
+                                      _geometry.GetMeshablePartNames(new string[] { part.Name }));
+                if (DoesMeshSetupItemCoverPart(meshSetupItem, selectedPartIds, meshablePartIds)) return null;
+            }
+            return "The mesh setup item covers no part. A compound part is meshed as a whole, so an item " +
+                   "defined on some of its sub-parts and not the others meshes nothing: define it on all of " +
+                   "them, or on none of them.";
         }
         private string IsShellMmgProperlyDefined(ShellMmg shellMmg)
         {
