@@ -76,8 +76,10 @@
 #  - sweep_incline_shallow.brep and sweep_incline_steep.brep are blocks with a bore, so that the bore is
 #    the only sweepable direction, and a top inclined by 30 and by 50 degrees. The sweep lines meet the
 #    target that far from its normal, and the scaled Jacobian of the mesh follows: 0.54 at 30 degrees and
-#    0.29 at 50. The detection finds the shallow one and refuses the steep one; a source selected by hand
-#    is swept either way, since the angle is the user's own judgement.
+#    0.29 at 50. Both are swept. The angle costs the source four points in ScoreSweepBlocks and so loses
+#    to a squarer one wherever the geometry offers it, but it is not a refusal: measured over a set of
+#    real CAD models, the angle separates nothing the shape measurement does not already catch, and a
+#    wall that runs straight on into its target is refused by ValidateSweepRings before it.
 #
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Compound.py -g No -x Yes -w <dir>
 #
@@ -516,7 +518,7 @@ def test_geometric_constraints():
     check(report[part.name] == "", "the automatic sweep of the cone frustum reported: " + report[part.name])
     items.remove([SWEEP_NAME])
     # A bored block with a top inclined by 30 degrees: the bore leaves one sweepable direction, and the
-    # sweep lines meet the target close enough to its normal for the elements to stay usable
+    # sweep lines meet the target away from its normal without the elements ceasing to be usable
     solids, compound = import_geometry("sweep_incline_shallow.brep")
     part = solids[0]
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
@@ -524,14 +526,16 @@ def test_geometric_constraints():
     report = pmx.model.mesh.create(part.name)
     check(report[part.name] == "", "the shallow inclined target reported: " + report[part.name])
     items.remove([SWEEP_NAME])
-    # The same block inclined by 50 degrees, where the elements at the target are flattened. The detection
-    # refuses it and leaves the part to another mesher; a source selected by hand is still swept
+    # The same block inclined by 50 degrees, which is swept as well: the angle is what the score prefers
+    # against, not what the validation refuses on, since a bend carries its ends in different directions
+    # and an angle alone says nothing about whether the block is a sweep
     solids, compound = import_geometry("sweep_incline_steep.brep")
     part = solids[0]
-    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
-    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
-                 "a sweep meeting a steeply inclined target must not be found automatically")
-    check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the steep inclined target is not valid")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the steep inclined target reported: " + report[part.name])
+    items.remove([SWEEP_NAME])
     source_part, face_id = find_end_face(solids, False)
     items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id))
     check(items[SWEEP_NAME].valid, "a hand selected source on the steeply inclined target must be swept")
