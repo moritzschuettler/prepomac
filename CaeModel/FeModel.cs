@@ -3891,6 +3891,25 @@ namespace CaeModel
                         return "An edge chain following the sweep direction turns back on itself instead of " +
                                "running from the source surface/s to the target surface/s.";
                     }
+                    // The sweep leaves the source into the material and arrives at the target out of it.
+                    // The visualization is wound outward, so the cosine against the source normal is
+                    // negative and the one against the target normal positive; a block reporting them the
+                    // other way round has its source and its target the wrong way about, and sweeps out of
+                    // the part rather than through it
+                    Vec3D entryDirection = GetSweepEdgeTangent(vis, edgeId, vertexId);
+                    Vec3D exitDirection = -1 * GetSweepEdgeTangent(vis, lastEdgeId, lastVertexId);
+                    double entryCosine = entryDirection.Len > 0
+                                       ? GetSweepFaceCosine(vis, sourceSurfaceIdsArray, vertexId, entryDirection)
+                                       : double.NaN;
+                    double exitCosine = exitDirection.Len > 0
+                                      ? GetSweepFaceCosine(vis, targetSurfaceIds, lastVertexId, exitDirection)
+                                      : double.NaN;
+                    if (entryCosine > 0 || exitCosine < 0)
+                    {
+                        return "The sweep direction leaves the part through the sweep source surface/s " +
+                               "instead of entering it, so the source and the target surface/s are the " +
+                               "wrong way round.";
+                    }
                     //
                     if (chainLength > 0)
                     {
@@ -3910,6 +3929,28 @@ namespace CaeModel
             }
             //
             return null;
+        }
+        /// <summary>
+        /// The cosine between a direction and the normal of the given surfaces at a vertex, taken from the
+        /// surface whose normal is most nearly parallel to the direction, and NaN when none of them reaches
+        /// the vertex. It is the sign that is read: the visualization is wound outward, so a direction
+        /// leading into the material reports a negative cosine.
+        /// </summary>
+        private double GetSweepFaceCosine(VisualizationData vis, int[] surfaceIds, int vertexId, Vec3D direction)
+        {
+            double best = -1;
+            double cosine = double.NaN;
+            foreach (var surfaceId in surfaceIds)
+            {
+                Vec3D normal = GetFaceNormalAtVertex(vis, surfaceId, vertexId);
+                if (normal == null || normal.Len == 0) continue;
+                //
+                double value = Vec3D.DotProduct(direction, normal) / (direction.Len * normal.Len);
+                if (Math.Abs(value) <= best) continue;
+                best = Math.Abs(value);
+                cosine = value;
+            }
+            return cosine;
         }
         /// <summary>
         /// The length of the free edge loops of a group of surfaces - its outer boundary and the boundaries
