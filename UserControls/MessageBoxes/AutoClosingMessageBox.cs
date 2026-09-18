@@ -49,15 +49,15 @@ namespace UserControls
         }
         public static void ShowWarning(string text, int timeout)
         {
-            new AutoClosingMessageBox(text, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning, timeout);
+            new AutoClosingMessageBox(text, "Warning", MessageBoxButtons.OK, MessageBoxIcon.None, timeout);
         }
         public static void ShowError(string text, int timeout)
         {
-            new AutoClosingMessageBox(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, timeout);
+            new AutoClosingMessageBox(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.None, timeout);
         }
         public static void ShowInfo(string caption, string text, int timeout)
         {
-            new AutoClosingMessageBox(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Information, timeout);
+            new AutoClosingMessageBox(text, caption, MessageBoxButtons.OK, MessageBoxIcon.None, timeout);
         }
         void OnTimerElapsed(object state)
         {

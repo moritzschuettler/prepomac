@@ -139,7 +139,7 @@ namespace CaeGlobals
         }
         public static DialogResult ShowInfo(string text, string caption, MessageBoxButtons buttons)
         {
-            return Show(text, caption, buttons, MessageBoxIcon.Information);
+            return Show(text, caption, buttons, MessageBoxIcon.None);
         }
         // Question
         public static DialogResult ShowQuestionYesNo(string caption, string text)
@@ -149,40 +149,40 @@ namespace CaeGlobals
         // Warning
         public static void ShowWarning(string text)
         {
-            Show(text, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Show(text, "Warning", MessageBoxButtons.OK, MessageBoxIcon.None);
         }
         public static DialogResult ShowWarningQuestionOKCancel(string text)
         {
-            return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         }
         public static DialogResult ShowWarningQuestionYesNo(string text)
         {
-            return Show(text, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            return Show(text, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         }
         public static DialogResult ShowWarningQuestionYesNoCancel(string text)
         {
-            return Show(text, "Warning", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+            return Show(text, "Warning", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
         }
         public static DialogResult ShowWarningQuestionYesNoCancel(string caption, string text)
         {
-            return Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+            return Show(text, caption, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
         }
         public static DialogResult ShowWarningQuestionOKCancel(IWin32Window owner, string text)
         {
             // The owner based overload must not open a blocking dialog when no user is present
             if (GetEffectiveMode() != MessageBoxModeEnum.Interactive)
-                return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
             //
-            return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         }
         // Error
         public static void ShowError(string text)
         {
-            Show(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Show(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.None);
         }
         public static void ShowWorkDirectoryError()
         {
-            Show("The work directory does not exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Show("The work directory does not exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.None);
         }
     }
 }
