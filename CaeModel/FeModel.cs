@@ -2654,7 +2654,10 @@ namespace CaeModel
         /// <summary>
         /// Whether one part can be meshed by the transfinite algorithm, or why it cannot. Without pyramid
         /// elements the part has to be a five or six sided solid whose faces are 3-sided and 4-sided, which
-        /// is the shape gmsh can lay a structured grid over.
+        /// is the shape gmsh can lay a structured grid over. A face is counted by the number of edges it
+        /// carries, which a face with a hole in it passes although gmsh cannot lay a grid over it: the end
+        /// face of a hollow cylinder whose walls are split in two carries four edges in two loops, and gmsh
+        /// meshes it with the unstructured algorithm and then the volume with tetrahedrons.
         /// </summary>
         private string IsPartTransfinite(GeometryPart part, bool allowPyramidElements)
         {
@@ -2674,6 +2677,10 @@ namespace CaeModel
             HashSet<int> triSurfaceEdgeIds = new HashSet<int>();
             for (int i = 0; i < part.Visualization.FaceCount; i++)
             {
+                if (part.Visualization.GetFreeEdgeLoops(new int[] { i }).Length != 1)
+                    return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
+                           "with faces bounded by a single edge loop. Split the faces with a hole in them.";
+                //
                 if (part.Visualization.FaceEdgeIds[i].Length == 3)
                 {
                     num3sided++;
