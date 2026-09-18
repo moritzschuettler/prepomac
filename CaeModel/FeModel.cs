@@ -3180,10 +3180,16 @@ namespace CaeModel
             return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp);
         }
         /// <summary>
-        /// The source selections tried on a part: every surface on its own, and every group of surfaces that
-        /// continue one another smoothly, which is what one click of the angle picker selects. A bent plate is
-        /// swept from a front face made of a plane, the cylinder of the bend and a plane again, and the
-        /// extension over coplanar surfaces does not reach across the bend.
+        /// The source selections tried on a part: every surface on its own, every group of surfaces that
+        /// continue one another smoothly, which is what one click of the angle picker selects, and every
+        /// surface together with the neighbours that lean on it at a shallow angle. A bent plate is swept
+        /// from a front face made of a plane, the cylinder of the bend and a plane again, and the extension
+        /// over coplanar surfaces does not reach across the bend. The leaning neighbours are what carries a
+        /// chamfer around a hole into the source, where the sweep meshes it on the face itself; left in the
+        /// target the chamfer is flattened onto the face the projection lands on and is lost. They are taken
+        /// one face out and not followed on, so the chamfer joins the end face it cuts without the bore it
+        /// runs into joining with it, and a chamfer that leans more towards the bore than towards the end
+        /// face reaches no source at all.
         /// </summary>
         private List<HashSet<int>> GetSeedSurfaceIds(GeometryPart part)
         {
@@ -3195,7 +3201,27 @@ namespace CaeModel
             {
                 if (group.Count > 1) seedSurfaceIds.Add(group);
             }
+            //
+            Dictionary<int, HashSet<int>> leaningSurfaceIds = new Dictionary<int, HashSet<int>>();
+            foreach (var entry in _geometry.GetSurfaceIdPairAngles(part))
+            {
+                if (entry.Value[0] > Globals.SweepSourceAngle) continue;
+                AddLeaningSurfaceId(leaningSurfaceIds, entry.Key[0], entry.Key[1]);
+                AddLeaningSurfaceId(leaningSurfaceIds, entry.Key[1], entry.Key[0]);
+            }
+            foreach (var entry in leaningSurfaceIds)
+            {
+                entry.Value.Add(entry.Key);
+                if (!seedSurfaceIds.Any(ids => ids.SetEquals(entry.Value))) seedSurfaceIds.Add(entry.Value);
+            }
             return seedSurfaceIds;
+        }
+        private static void AddLeaningSurfaceId(Dictionary<int, HashSet<int>> leaningSurfaceIds, int surfaceId,
+                                                int neighbourId)
+        {
+            HashSet<int> neighbourIds;
+            if (leaningSurfaceIds.TryGetValue(surfaceId, out neighbourIds)) neighbourIds.Add(neighbourId);
+            else leaningSurfaceIds.Add(surfaceId, new HashSet<int>() { neighbourId });
         }
         private static Dictionary<int, HashSet<int>> CopySelection(Dictionary<int, HashSet<int>> selection)
         {

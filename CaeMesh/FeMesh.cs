@@ -7017,18 +7017,16 @@ namespace CaeMesh
             return geometryIds;
         }
         /// <summary>
-        /// The faces of a part gathered into the groups that continue one another smoothly: two faces belong
-        /// to one group when the visualization cells on the two sides of the boundary between them meet
-        /// anywhere at an angle below the one that makes an edge. This is the group of faces that one click of
-        /// the angle picker selects - the front face of a bent plate is a plane, the cylinder of the bend and
-        /// a plane again. A face that continues no other is in no group.
+        /// The smallest angle at which two faces of a part meet anywhere along the boundary between them, by
+        /// the pair of face ids. The angle is the deviation from flat: two faces that continue one another
+        /// meet at 0, two that stand perpendicular at 90.
         /// </summary>
-        public List<HashSet<int>> GetSmoothSurfaceIdGroups(BasePart part, double angleDeg)
+        public Dictionary<int[], double[]> GetSurfaceIdPairAngles(BasePart part)
         {
-            List<HashSet<int>> groups = new List<HashSet<int>>();
+            Dictionary<int[], double[]> facePairAngles = new Dictionary<int[], double[]>(new CompareIntArray());
             VisualizationData vis = part.Visualization;
             if (vis == null || vis.Cells == null || vis.CellIdsByFace == null ||
-                vis.CellNeighboursOverCellEdge == null) return groups;
+                vis.CellNeighboursOverCellEdge == null) return facePairAngles;
             //
             int[][] cells = vis.Cells;
             int[] faceIdOfCell = new int[cells.Length];
@@ -7036,14 +7034,13 @@ namespace CaeMesh
             {
                 foreach (var cellId in vis.CellIdsByFace[faceId]) faceIdOfCell[cellId] = faceId;
             }
-            // The smallest angle at which two faces meet anywhere along the boundary between them
+            //
             int face1Id;
             int face2Id;
             int cell2Id;
             double alpha;
             double[] minAngle;
             int[] facePair;
-            Dictionary<int[], double[]> facePairAngles = new Dictionary<int[], double[]>(new CompareIntArray());
             for (int cell1Id = 0; cell1Id < cells.Length; cell1Id++)
             {
                 face1Id = faceIdOfCell[cell1Id];
@@ -7063,6 +7060,20 @@ namespace CaeMesh
                     else facePairAngles.Add(facePair, new double[] { alpha });
                 }
             }
+            return facePairAngles;
+        }
+        /// <summary>
+        /// The faces of a part gathered into the groups that continue one another smoothly: two faces belong
+        /// to one group when the visualization cells on the two sides of the boundary between them meet
+        /// anywhere at an angle below the one that makes an edge. This is the group of faces that one click of
+        /// the angle picker selects - the front face of a bent plate is a plane, the cylinder of the bend and
+        /// a plane again. A face that continues no other is in no group.
+        /// </summary>
+        public List<HashSet<int>> GetSmoothSurfaceIdGroups(BasePart part, double angleDeg)
+        {
+            List<HashSet<int>> groups = new List<HashSet<int>>();
+            Dictionary<int[], double[]> facePairAngles = GetSurfaceIdPairAngles(part);
+            if (facePairAngles.Count == 0) return groups;
             // The faces that continue one another
             Dictionary<int, HashSet<int>> smoothNeighbourIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in facePairAngles)

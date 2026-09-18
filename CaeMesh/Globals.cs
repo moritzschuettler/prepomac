@@ -39,5 +39,6 @@ namespace CaeMesh
             Color.NavajoWhite
         };
         public static double EdgeAngle = 30;
+        public static double SweepSourceAngle = 60;
     }
 }
