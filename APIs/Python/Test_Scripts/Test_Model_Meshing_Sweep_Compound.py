@@ -62,6 +62,23 @@
 #to be carried to the source whatever type the edges carry, and every surface piece the carrying leaves has
 #to be traced back to the face it came from, the closed cylinder included.
 #
+#A block whose walls close a loop and reduce to four sides is not yet a block the sweep can mesh, so the
+#last tests cover the measurements that judge the geometry rather than the topology.
+#
+#  - sweep_shaft_chamfer.brep is a stepped shaft with a chamfer around its end. Every candidate source
+#    passes the topological checks, while the walk stops at the shoulder and leaves the whole rest of the
+#    shaft standing as the target, ten times the area of the source. The target of a sweep is the source
+#    carried along the sweep lines, so it is a similar shape however strongly the sweep tapers and the
+#    square root of the area ratio and the perimeter ratio report the same scale; here they do not.
+#  - sweep_frustum.brep is a cone frustum whose target is a circle of a tenth of the area of its source,
+#    and which sweeps perfectly well. It is what the measurement above must not refuse, and what a bare
+#    ratio of the areas would have refused.
+#  - sweep_incline_shallow.brep and sweep_incline_steep.brep are blocks with a bore, so that the bore is
+#    the only sweepable direction, and a top inclined by 30 and by 50 degrees. The sweep lines meet the
+#    target that far from its normal, and the scaled Jacobian of the mesh follows: 0.54 at 30 degrees and
+#    0.29 at 50. The detection finds the shallow one and refuses the steep one; a source selected by hand
+#    is swept either way, since the angle is the user's own judgement.
+#
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Compound.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
@@ -475,6 +492,54 @@ def test_two_parts_apart():
     items.remove([SWEEP_NAME])
 
 
+def test_geometric_constraints():
+    items = pmx.model.mesh.setup_items
+    # A stepped shaft with a chamfer at its end. The topology is satisfied and the geometry is not: the
+    # target is the rest of the shaft, so it is not the shape of the source carried along the sweep
+    solids, compound = import_geometry("sweep_shaft_chamfer.brep")
+    check(compound is None and len(solids) == 1, "the stepped shaft must import as a single part")
+    part = solids[0]
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
+                 "a sweep whose target is the rest of the body must be refused")
+    check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
+    source_part, face_id = find_end_face(solids, False)
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id)),
+                 "a hand selected source whose target is the rest of the body must be refused")
+    # A cone frustum, which the same measurement must accept: its target is a far smaller circle and the
+    # sweep is good all the same, because the target is the source scaled
+    solids, compound = import_geometry("sweep_frustum.brep")
+    part = solids[0]
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the cone frustum is not valid")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the automatic sweep of the cone frustum reported: " + report[part.name])
+    items.remove([SWEEP_NAME])
+    # A bored block with a top inclined by 30 degrees: the bore leaves one sweepable direction, and the
+    # sweep lines meet the target close enough to its normal for the elements to stay usable
+    solids, compound = import_geometry("sweep_incline_shallow.brep")
+    part = solids[0]
+    items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the shallow inclined target is not valid")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the shallow inclined target reported: " + report[part.name])
+    items.remove([SWEEP_NAME])
+    # The same block inclined by 50 degrees, where the elements at the target are flattened. The detection
+    # refuses it and leaves the part to another mesher; a source selected by hand is still swept
+    solids, compound = import_geometry("sweep_incline_steep.brep")
+    part = solids[0]
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
+                 "a sweep meeting a steeply inclined target must not be found automatically")
+    check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
+    source_part, face_id = find_end_face(solids, False)
+    items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id))
+    check(items[SWEEP_NAME].valid, "a hand selected source on the steeply inclined target must be swept")
+    report = pmx.model.mesh.create(part.name)
+    check(report[part.name] == "", "the hand selected steep inclined target reported: " + report[part.name])
+    items.remove([SWEEP_NAME])
+
+
 def mesh_both(first, second, what):
     """Meshes two parts in one call and checks that both of them carry elements."""
     report = pmx.model.mesh.create([first.name, second.name])
@@ -506,6 +571,7 @@ def main():
     test_plate_imprinted_on_both_sides()
     test_spline_edges_and_round_post()
     test_bent_plate()
+    test_geometric_constraints()
     print("TEST PASSED")
 
 

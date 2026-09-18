@@ -2925,7 +2925,7 @@ namespace CaeModel
                             groupSelectedSurfaceIds.Add(sweptPart.PartId, surfaceIds);
                     }
                     blocks = CreateSweepBlocks(sweptParts, groupSelectedSurfaceIds, null, null, new SweepPartMaps(),
-                                               out error, out errorPartName, out _, out _);
+                                               false, out error, out errorPartName, out _, out _);
                 }
                 // A group that cannot be swept is left out the way a part that cannot be swept is, so that
                 // the groups that can be swept still are. Only an item that sweeps nothing at all is refused
@@ -2973,8 +2973,8 @@ namespace CaeModel
         /// seed; it is extended over its plane and propagated through the compound exactly as a selected
         /// surface would be, so what is tried is what the user could have selected. A seed that sweeps every
         /// part is scored and the best score wins. When no single seed reaches every part, the seed reaching
-        /// the most parts is kept and another seed is tried on the parts it did not reach, until every part is
-        /// swept or no seed adds a part.
+        /// the most parts is kept - the best scoring one of those that reach as many - and another seed is
+        /// tried on the parts it did not reach, until every part is swept or no seed adds a part.
         /// </summary>
         private SweepDetectionData DetectSweepSources(GeometryPart[] sweptParts, string stamp)
         {
@@ -2983,6 +2983,7 @@ namespace CaeModel
             bool onlyUnreached;
             double score;
             double bestScore;
+            double bestPartialScore;
             int bestReachedCount;
             SweepBlocks blocks;
             HashSet<int> sweptPartIds;
@@ -3011,6 +3012,7 @@ namespace CaeModel
             while (bestSelection == null)
             {
                 bestScore = double.NegativeInfinity;
+                bestPartialScore = double.NegativeInfinity;
                 bestReachedCount = reachedPartIds.Count;
                 bestPartialSelection = null;
                 // A seed gives the same trial as another only together with the same kept selection
@@ -3027,7 +3029,7 @@ namespace CaeModel
                         //
                         trial = CopySelection(selection);
                         trial[part.PartId] = new HashSet<int>(seedSurfaceIds);
-                        blocks = CreateSweepBlocks(sweptParts, trial, twinSurfaceIds, twinEdgeIds, maps,
+                        blocks = CreateSweepBlocks(sweptParts, trial, twinSurfaceIds, twinEdgeIds, maps, true,
                                                    out error, out _, out sweptPartIds, out onlyUnreached);
                         // Every surface of the seed's extended source would give the same trial
                         if (singleSurfaceSeed) MarkTriedSeeds(blocks, part.PartId, triedSeedIds);
@@ -3041,11 +3043,20 @@ namespace CaeModel
                                 bestSelection = trial;
                             }
                         }
-                        else if (onlyUnreached && sweptPartIds.Count > bestReachedCount)
+                        else if (onlyUnreached && sweptPartIds.Count > reachedPartIds.Count &&
+                                 sweptPartIds.Count >= bestReachedCount)
                         {
-                            bestReachedCount = sweptPartIds.Count;
-                            bestPartialSelection = trial;
-                            bestPartialReachedPartIds = sweptPartIds;
+                            // The partial trial becomes the kept selection of the next round, so it is ranked
+                            // the way a complete one is: first by the number of parts it reached, and among
+                            // the trials that reached as many by the score of the blocks it did build
+                            score = ScoreSweepBlocks(blocks, faceTypes, maps);
+                            if (sweptPartIds.Count > bestReachedCount || score > bestPartialScore)
+                            {
+                                bestReachedCount = sweptPartIds.Count;
+                                bestPartialScore = score;
+                                bestPartialSelection = trial;
+                                bestPartialReachedPartIds = sweptPartIds;
+                            }
                         }
                     }
                 }
@@ -3070,7 +3081,7 @@ namespace CaeModel
                 reachedPartIds = bestPartialReachedPartIds;
             }
             // The blocks of the best selection are the ones the item keeps
-            blocks = CreateSweepBlocks(sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, maps,
+            blocks = CreateSweepBlocks(sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, maps, true,
                                        out error, out errorPartName, out sweptPartIds, out _);
             //
             return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp);
@@ -3113,7 +3124,7 @@ namespace CaeModel
             }
         }
         /// <summary>
-        /// Ranks a complete set of sweep blocks. A source with many edges carries the features of the cross
+        /// Ranks a set of sweep blocks, complete or partial. A source with many edges carries the features of the cross
         /// section, so sweeping it meshes them once in 2D and extrudes them; a wall that is neither planar
         /// nor cylindrical strains the projection of the target layer.
         /// </summary>
@@ -3182,7 +3193,7 @@ namespace CaeModel
                 {
                     if (sourceEdgeIds.Contains(edgeId) || chainEdgeIds.Contains(edgeId)) continue;
                     FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIds,
-                                     out lastEdgeId, out lastVertexId);
+                                     out lastEdgeId, out lastVertexId, out _);
                     Vec3D direction = -1 * GetSweepEdgeTangent(vis, lastEdgeId, lastVertexId);
                     if (direction.Len == 0) continue;
                     //
@@ -3294,12 +3305,17 @@ namespace CaeModel
         /// target surface is swept next, from the mesh the blocks before it leave on the shared surfaces,
         /// and a sub-part sharing a side surface is swept alongside, from the surfaces that continue the
         /// source across the shared wall.
+        ///
+        /// A trial stopped only because a sub-part was never reached still returns the blocks of the
+        /// sub-parts it did sweep, with the error set, so that the detection can rank one such trial against
+        /// another. Every other refusal returns nothing.
         /// </summary>
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
                                               Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
-                                              SweepPartMaps maps, out string error, out string errorPartName,
-                                              out HashSet<int> sweptPartIds, out bool onlyUnreached)
+                                              SweepPartMaps maps, bool refuseGrazingSweepLines, out string error,
+                                              out string errorPartName, out HashSet<int> sweptPartIds,
+                                              out bool onlyUnreached)
         {
             sweptPartIds = new HashSet<int>();
             onlyUnreached = false;
@@ -3388,8 +3404,8 @@ namespace CaeModel
                 }
                 //
                 error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps,
-                                           out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
-                                           out int[] directionEdgeIds);
+                                           refuseGrazingSweepLines, out sideSurfaceIds, out targetSurfaceIds,
+                                           out layerSideSurfaceIds, out int[] directionEdgeIds);
                 if (error != null)
                 {
                     // A neighbour that cannot be swept alongside the block across their shared wall is left
@@ -3487,9 +3503,10 @@ namespace CaeModel
                 onlyUnreached = true;
                 error = "The part " + sweptPart.Name + " is not reached by the sweep. Select a source surface on it " +
                         "as well.";
-                return null;
+                break;
             }
-            //
+            // The blocks of the parts that were reached are returned even when a part was not, so that the
+            // detection can rank one partial trial against another. The error is what says it is partial
             return new SweepBlocks(blockSourceSurfaceIds.ToArray(), blockSideSurfaceIds.ToArray(),
                                    blockTargetSurfaceIds.ToArray(), layerGroupEdgeIds.ToArray(),
                                    blockArrowStarts.ToArray(), blockArrowDirections.ToArray());
@@ -3680,7 +3697,7 @@ namespace CaeModel
         /// </summary>
         private string ValidateSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                           Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
-                                          SweepPartMaps maps,
+                                          SweepPartMaps maps, bool refuseGrazingSweepLines,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
                                           out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds)
         {
@@ -3711,18 +3728,142 @@ namespace CaeModel
             //
             string error = ValidateSweepRings(part, sourceSurfaceIds, maps, out sideSurfaceIds, out targetSurfaceIds,
                                               out layerSideSurfaceIds);
-            if (error == null) return null;
+            if (error == null)
+            {
+                error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, maps,
+                                                   refuseGrazingSweepLines);
+                if (error == null) return null;
+                sideSurfaceIds = null;
+                targetSurfaceIds = null;
+                layerSideSurfaceIds = null;
+                return error;
+            }
             //
             int[] chainSideSurfaceIds;
             int[] chainTargetSurfaceIds;
             int[] chainEdgeIds;
             if (ValidateSweepChains(part, sourceSurfaceIds, maps, out chainSideSurfaceIds, out chainTargetSurfaceIds,
                                     out chainEdgeIds) != null) return error;
+            error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds, maps,
+                                               refuseGrazingSweepLines);
+            if (error != null) return error;
             sideSurfaceIds = chainSideSurfaceIds;
             targetSurfaceIds = chainTargetSurfaceIds;
             layerSideSurfaceIds = new List<int[]>() { chainSideSurfaceIds };
             directionEdgeIds = chainEdgeIds;
             return null;
+        }
+        /// <summary>
+        /// Measures the sweep a block would make and refuses the ones the topology allows but the geometry
+        /// does not. The topological checks only ask that the walls close a loop and reduce to four sides,
+        /// which a body satisfies just as readily when the walk stops after one ring and leaves the whole
+        /// rest of the body standing as the target. Every measurement below is a property of the geometry
+        /// alone, taken on the visualization the part already carries, so it costs the trial nothing.
+        /// </summary>
+        private string ValidateSweepBlockGeometry(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                  int[] targetSurfaceIds, SweepPartMaps maps,
+                                                  bool refuseGrazingSweepLines)
+        {
+            VisualizationData vis = part.Visualization;
+            int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
+            // The target of a sweep is the source carried along the sweep lines, so it is a similar shape
+            // however strongly the sweep tapers: the square root of its area ratio and its perimeter ratio
+            // then report the same scale. A target that is the rest of the body reports two different ones
+            if (vis.FaceAreas != null && vis.EdgeLengths != null && targetSurfaceIds.Length > 0)
+            {
+                double sourceArea = sourceSurfaceIdsArray.Sum(id => vis.FaceAreas[id]);
+                double targetArea = targetSurfaceIds.Sum(id => vis.FaceAreas[id]);
+                double sourcePerimeter = GetSweepPerimeter(vis, sourceSurfaceIdsArray);
+                double targetPerimeter = GetSweepPerimeter(vis, targetSurfaceIds);
+                if (sourceArea > 0 && sourcePerimeter > 0 && targetPerimeter > 0)
+                {
+                    double scale = Math.Sqrt(targetArea / sourceArea) * sourcePerimeter / targetPerimeter;
+                    if (scale < 0.8 || scale > 1.25)
+                    {
+                        return "The sweep target surface/s are not the shape of the sweep source surface/s " +
+                               "carried along the sweep direction. Select the source surfaces by hand, or " +
+                               "split the part so that each piece is swept on its own.";
+                    }
+                }
+            }
+            //
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
+            HashSet<int> chainEdgeIds = new HashSet<int>();
+            double minChordLength = double.MaxValue;
+            double maxChordLength = 0;
+            foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
+            {
+                foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
+                {
+                    if (sourceEdgeIds.Contains(edgeId) || chainEdgeIds.Contains(edgeId)) continue;
+                    //
+                    int lastEdgeId;
+                    int lastVertexId;
+                    double chainLength;
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIds,
+                                     out lastEdgeId, out lastVertexId, out chainLength);
+                    Vec3D chord = new Vec3D(_geometry.Nodes[lastVertexId].Coor) -
+                                  new Vec3D(_geometry.Nodes[vertexId].Coor);
+                    // A chain that ends near where it began has run around the body rather than across it
+                    if (chainLength > 0 && chord.Len < 0.3 * chainLength)
+                    {
+                        return "An edge chain following the sweep direction turns back on itself instead of " +
+                               "running from the source surface/s to the target surface/s.";
+                    }
+                    //
+                    minChordLength = Math.Min(minChordLength, chord.Len);
+                    maxChordLength = Math.Max(maxChordLength, chord.Len);
+                    if (!refuseGrazingSweepLines || chord.Len == 0) continue;
+                    // The sweep lines leave the source and arrive at the target along the chains, so the
+                    // angle they make there bounds the scaled Jacobian of the elements at either end
+                    if (GetSweepFaceCosine(vis, sourceSurfaceIdsArray, vertexId, chord) < 0.8 ||
+                        GetSweepFaceCosine(vis, targetSurfaceIds, lastVertexId, chord) < 0.8)
+                    {
+                        return "The sweep lines meet the source or the target surface/s more than 36 degrees " +
+                               "away from their normal, which flattens the elements there.";
+                    }
+                }
+            }
+            // Every sweep line of a block is divided into the same number of elements, so lines of very
+            // different lengths give elements of very different sizes and the shortest of them invert
+            if (maxChordLength > 0 && minChordLength < 0.5 * maxChordLength)
+            {
+                return "The sweep lines of the block differ in length by more than half, so one element " +
+                       "layer count cannot suit them all.";
+            }
+            //
+            return null;
+        }
+        /// <summary>
+        /// The length of the free edge loops of a group of surfaces - its outer boundary and the boundaries
+        /// of the holes in it.
+        /// </summary>
+        private static double GetSweepPerimeter(VisualizationData vis, int[] surfaceIds)
+        {
+            double perimeter = 0;
+            foreach (var loop in vis.GetFreeEdgeLoops(surfaceIds))
+            {
+                foreach (var edgeId in loop) perimeter += vis.EdgeLengths[edgeId];
+            }
+            return perimeter;
+        }
+        /// <summary>
+        /// The cosine between a direction and the normal of the given surfaces at a vertex, the largest over
+        /// the surfaces that reach the vertex. A vertex none of them reaches reports 1, so that a chain is
+        /// refused for the angle it makes and never for a normal that could not be read.
+        /// </summary>
+        private double GetSweepFaceCosine(VisualizationData vis, int[] surfaceIds, int vertexId, Vec3D direction)
+        {
+            double cosine = -1;
+            foreach (var surfaceId in surfaceIds)
+            {
+                Vec3D normal = GetFaceNormalAtVertex(vis, surfaceId, vertexId);
+                if (normal == null || normal.Len == 0) continue;
+                cosine = Math.Max(cosine, Math.Abs(Vec3D.DotProduct(direction, normal)) /
+                                          (direction.Len * normal.Len));
+            }
+            return cosine < 0 ? 1 : cosine;
         }
         private string ValidateSweepRings(GeometryPart part, HashSet<int> sourceSurfaceIds, SweepPartMaps maps,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
@@ -3826,7 +3967,8 @@ namespace CaeModel
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
                 {
                     if (sourceEdgeIds.Contains(edgeId) || chainEdgeIdSet.Contains(edgeId)) continue;
-                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet, out _, out _);
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet, out _,
+                                     out _, out _);
                 }
             }
             if (chainEdgeIdSet.Count == 0) return "No edges follow the sweep direction from the source surfaces.";
@@ -3863,11 +4005,13 @@ namespace CaeModel
         }
         private void FollowSweepChain(VisualizationData vis, int edgeId, int vertexId, HashSet<int> sourceEdgeIds,
                                       Dictionary<int, HashSet<int>> vertexIdEdgeIds, HashSet<int> chainEdgeIds,
-                                      out int lastEdgeId, out int lastVertexId)
+                                      out int lastEdgeId, out int lastVertexId, out double chainLength)
         {
+            chainLength = 0;
             while (true)
             {
                 chainEdgeIds.Add(edgeId);
+                if (vis.EdgeLengths != null) chainLength += vis.EdgeLengths[edgeId];
                 int[] endVertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
                 int nextVertexId = endVertexIds[0] == vertexId ? endVertexIds[1] : endVertexIds[0];
                 lastEdgeId = edgeId;
