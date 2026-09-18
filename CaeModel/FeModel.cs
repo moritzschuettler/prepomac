@@ -3838,7 +3838,7 @@ namespace CaeModel
                                               out layerSideSurfaceIds);
             if (error == null)
             {
-                error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, maps);
+                error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps);
                 if (error == null) return null;
                 sideSurfaceIds = null;
                 targetSurfaceIds = null;
@@ -3851,7 +3851,8 @@ namespace CaeModel
             int[] chainEdgeIds;
             if (ValidateSweepChains(part, sourceSurfaceIds, maps, out chainSideSurfaceIds, out chainTargetSurfaceIds,
                                     out chainEdgeIds) != null) return error;
-            error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds, maps);
+            error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
+                                               chainSideSurfaceIds, maps);
             if (error != null) return error;
             sideSurfaceIds = chainSideSurfaceIds;
             targetSurfaceIds = chainTargetSurfaceIds;
@@ -3867,10 +3868,25 @@ namespace CaeModel
         /// alone, taken on the visualization the part already carries, so it costs the trial nothing.
         /// </summary>
         private string ValidateSweepBlockGeometry(GeometryPart part, HashSet<int> sourceSurfaceIds,
-                                                  int[] targetSurfaceIds, SweepPartMaps maps)
+                                                  int[] targetSurfaceIds, int[] sideSurfaceIds,
+                                                  SweepPartMaps maps)
         {
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
+            // A wall that continues the source or the target smoothly is a rounding of that end of the
+            // block rather than a side of it, and the sweep lines along it leave the source in the plane of
+            // the source instead of across it. Abaqus asks the same of a swept region, that the angle
+            // between the source side and each connecting side stand close to 90 degrees
+            foreach (var group in maps.GetSmoothSurfaceIdGroups(_geometry, part, Globals.EdgeAngle))
+            {
+                if (!group.Overlaps(sideSurfaceIds)) continue;
+                if (group.Overlaps(sourceSurfaceIdsArray) || group.Overlaps(targetSurfaceIds))
+                {
+                    return "A sweep side surface continues the sweep source or target surface/s smoothly, " +
+                           "so it rounds the end of the sweep instead of following it. Select the source " +
+                           "surfaces by hand, or split the part so that each piece is swept on its own.";
+                }
+            }
             // The walls carry the source to the target, so the two stand apart. A block whose source and
             // target meet along an edge has no sweep length there at all and its layers collapse onto that
             // edge, which is where the inverted elements of such a mesh come from

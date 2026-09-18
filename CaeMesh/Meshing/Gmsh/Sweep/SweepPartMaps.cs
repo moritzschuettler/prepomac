@@ -23,6 +23,7 @@ namespace CaeMesh
         // Variables
         private Dictionary<int, Dictionary<int, HashSet<int>>> _partIdSurfaceIdSurfaceNeighbourIds;
         private Dictionary<int, Dictionary<int, HashSet<int>>> _partIdVertexIdEdgeIds;
+        private Dictionary<int, List<HashSet<int>>> _partIdSmoothSurfaceIdGroups;
 
 
         // Constructors
@@ -30,6 +31,7 @@ namespace CaeMesh
         {
             _partIdSurfaceIdSurfaceNeighbourIds = new Dictionary<int, Dictionary<int, HashSet<int>>>();
             _partIdVertexIdEdgeIds = new Dictionary<int, Dictionary<int, HashSet<int>>>();
+            _partIdSmoothSurfaceIdGroups = new Dictionary<int, List<HashSet<int>>>();
         }
 
 
@@ -54,6 +56,17 @@ namespace CaeMesh
             _partIdVertexIdEdgeIds.Add(part.PartId, vertexIdEdgeIds);
             //
             return vertexIdEdgeIds;
+        }
+        public List<HashSet<int>> GetSmoothSurfaceIdGroups(FeMesh geometry, BasePart part, double angleDeg)
+        {
+            List<HashSet<int>> smoothSurfaceIdGroups;
+            if (_partIdSmoothSurfaceIdGroups.TryGetValue(part.PartId, out smoothSurfaceIdGroups))
+                return smoothSurfaceIdGroups;
+            //
+            smoothSurfaceIdGroups = geometry.GetSmoothSurfaceIdGroups(part, angleDeg);
+            _partIdSmoothSurfaceIdGroups.Add(part.PartId, smoothSurfaceIdGroups);
+            //
+            return smoothSurfaceIdGroups;
         }
     }
 }
