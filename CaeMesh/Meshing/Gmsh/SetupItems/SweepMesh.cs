@@ -115,6 +115,17 @@ namespace CaeMesh
         {
             base.Reset();
             //
+            // A sweep exists to give a structured solid mesh, and the elements it builds are the elements
+            // of the source carried along the sweep lines: a triangle gives a wedge and a quadrangle a
+            // hexahedron. The source is therefore recombined, which halves the element count and leaves
+            // the minimum scaled Jacobian better on most of the test models and no worse than 0.01 on any.
+            // The algorithm has to be the simple one. Every other way of making the source quadrangular -
+            // Blossom, either full-quad variant, Frontal-Delaunay for quads, packing of parallelograms and
+            // the quasi-structured quad algorithm - rebuilds the source enough to change the node counts
+            // along its boundary, and the walls pinned to those counts are then refused by gmsh as
+            // transfinite surfaces with non-matching sides. Simple recombination joins triangles where it
+            // can and leaves the boundary alone
+            AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
             // The layer interior comes out of the morph already smooth; extra relaxation only
             // erodes the grading the source mesh carries, so it is off unless it is asked for
             _numberOfGlobalSmoothSteps = 0;
