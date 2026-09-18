@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -560,6 +560,7 @@ namespace CaeMesh.Sweep
                                                   Dictionary<int, int> edgeIdNumOfElements, int forcedTotal,
                                                   out int total, out bool spansAllLevels)
         {
+            chains = OrientChainsAlike(chains);
             // Every chain vertex, with the fraction of its chain's length it lies at
             double length;
             List<int> chainOfVertex = new List<int>();
@@ -738,6 +739,75 @@ namespace CaeMesh.Sweep
         /// along every chain, ties broken by the mean fraction - and returns which level comes before which.
         /// Levels the chains order inconsistently are sorted by their mean fraction alone.
         /// </summary>
+        /// <summary>
+        /// The chains of a family, every one of them running the way its neighbours run. A chain is built
+        /// from the source it starts at, and two chains that meet can therefore walk the edge they share in
+        /// opposite directions - the seam of a bore is walked down by the chain that came up the post it
+        /// passes through and up by the chain of the plate. The levels of the two then order each other both
+        /// ways round, the order comes out cyclic, and the fractions of the chains decide instead, which puts
+        /// a level of one chain between two levels of another and gives the edges between them the count of
+        /// two layers instead of one. Reversing the chains that disagree with their neighbours removes the
+        /// cycle at its source.
+        /// </summary>
+        private static List<SweepChain> OrientChainsAlike(List<SweepChain> chains)
+        {
+            // The chains meeting on each edge, with the direction each of them walks it in
+            Dictionary<int, List<int>> edgeIdChains = new Dictionary<int, List<int>>();
+            Dictionary<int, List<bool>> edgeIdForward = new Dictionary<int, List<bool>>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                for (int i = 0; i < chains[c].EdgeIds.Length; i++)
+                {
+                    int edgeId = chains[c].EdgeIds[i];
+                    if (!edgeIdChains.ContainsKey(edgeId))
+                    {
+                        edgeIdChains.Add(edgeId, new List<int>());
+                        edgeIdForward.Add(edgeId, new List<bool>());
+                    }
+                    edgeIdChains[edgeId].Add(c);
+                    edgeIdForward[edgeId].Add(chains[c].VertexIds[i] < chains[c].VertexIds[i + 1]);
+                }
+            }
+            // Spread an orientation from each chain to the ones it shares an edge with
+            bool[] reversed = new bool[chains.Count];
+            bool[] oriented = new bool[chains.Count];
+            for (int start = 0; start < chains.Count; start++)
+            {
+                if (oriented[start]) continue;
+                oriented[start] = true;
+                Queue<int> pending = new Queue<int>();
+                pending.Enqueue(start);
+                while (pending.Count > 0)
+                {
+                    int c = pending.Dequeue();
+                    for (int i = 0; i < chains[c].EdgeIds.Length; i++)
+                    {
+                        int edgeId = chains[c].EdgeIds[i];
+                        bool forward = edgeIdForward[edgeId][edgeIdChains[edgeId].IndexOf(c)] != reversed[c];
+                        List<int> others = edgeIdChains[edgeId];
+                        for (int k = 0; k < others.Count; k++)
+                        {
+                            int other = others[k];
+                            if (other == c || oriented[other]) continue;
+                            oriented[other] = true;
+                            reversed[other] = edgeIdForward[edgeId][k] != forward;
+                            pending.Enqueue(other);
+                        }
+                    }
+                }
+            }
+            //
+            List<SweepChain> orientedChains = new List<SweepChain>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                if (!reversed[c]) { orientedChains.Add(chains[c]); continue; }
+                //
+                int[] edgeIds = chains[c].EdgeIds.Reverse().ToArray();
+                int[] vertexIds = chains[c].VertexIds.Reverse().ToArray();
+                orientedChains.Add(new SweepChain(edgeIds, vertexIds));
+            }
+            return orientedChains;
+        }
         private static bool[,] GetLevelOrder(List<SweepChain> chains, List<List<int>> levels, List<int> chainOfVertex,
                                              List<int> indexOfVertex, List<double> fractionOfVertex)
         {

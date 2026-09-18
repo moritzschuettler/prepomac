@@ -1709,8 +1709,59 @@ namespace CaeMesh
             foreach (var entry in imprintEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
             foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
             //
+            CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+        }
+        /// <summary>
+        /// Checks that every wall is a grid before gmsh is asked to lay one over it: the two sides across the
+        /// sweep carry the same number of elements between them, and so do the two sides along it. Gmsh
+        /// refuses such a wall with a message naming a surface number and nothing else, and carries on to
+        /// fail elsewhere, so the counts are checked here where the wall can still be named by what it is.
+        /// </summary>
+        private static void CheckWallElementCounts(List<SweepWall> walls, List<SweepChain> chains,
+                                                   Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int numOfElements;
+            Dictionary<int, int> edgeIdChainIndex = new Dictionary<int, int>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                foreach (var edgeId in chains[c].EdgeIds) edgeIdChainIndex[edgeId] = c;
+            }
+            foreach (var wall in walls)
+            {
+                // Across the sweep: the source side against the target side
+                int sourceCount = 0;
+                int targetCount = 0;
+                foreach (var edgeId in wall.SourceEdgeIds)
+                    if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) sourceCount += numOfElements;
+                foreach (var edgeId in wall.TargetEdgeIds)
+                    if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) targetCount += numOfElements;
+                if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0 && sourceCount != targetCount)
+                    throw new CaeException(GetWallCountMessage("across the sweep direction", sourceCount, targetCount));
+                // Along the sweep: the two sides, each of them one chain however many edges it is made of
+                int chainIndex;
+                Dictionary<int, int> chainIndexCount = new Dictionary<int, int>();
+                foreach (var edgeId in wall.DirectionEdgeIds)
+                {
+                    if (!edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) continue;
+                    if (!edgeIdChainIndex.TryGetValue(edgeId, out chainIndex)) chainIndex = -edgeId;
+                    chainIndexCount.TryGetValue(chainIndex, out int count);
+                    chainIndexCount[chainIndex] = count + numOfElements;
+                }
+                if (chainIndexCount.Count != 2) continue;
+                //
+                int[] counts = chainIndexCount.Values.ToArray();
+                if (counts[0] != counts[1])
+                    throw new CaeException(GetWallCountMessage("along the sweep direction", counts[0], counts[1]));
+            }
+        }
+        private static string GetWallCountMessage(string what, int first, int second)
+        {
+            return "A sweep side surface cannot be meshed: its two sides " + what + " were given " + first +
+                   " and " + second + " elements, and a structured grid needs the same number on both. " +
+                   "Select the source surfaces by hand, or split the part so that each piece is swept on " +
+                   "its own.";
         }
         /// <summary>
         /// The counts of a wall's target side taken one for one from its source side, in the order the two
