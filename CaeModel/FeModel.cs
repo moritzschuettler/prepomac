@@ -3871,6 +3871,16 @@ namespace CaeModel
         {
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
+            // The walls carry the source to the target, so the two stand apart. A block whose source and
+            // target meet along an edge has no sweep length there at all and its layers collapse onto that
+            // edge, which is where the inverted elements of such a mesh come from
+            if (vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray)
+                   .Intersect(vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds)).Count() > 0)
+            {
+                return "The sweep source surface/s touch the sweep target surface/s, so the sweep has no " +
+                       "length along the edge/s they share. Select the source surfaces by hand, or split " +
+                       "the part so that each piece is swept on its own.";
+            }
             // The target of a sweep is the source carried along the sweep lines, so it is a similar shape
             // however strongly the sweep tapers: the square root of its area ratio and its perimeter ratio
             // then report the same scale. A target that is the rest of the body reports two different ones
