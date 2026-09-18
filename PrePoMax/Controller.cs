@@ -741,6 +741,8 @@ namespace PrePoMax
         }
         public void ClearResults()
         {
+            // A failed file read leaves the results collection null; the model is recreated the same way
+            if (_allResults == null) _allResults = new ResultsCollection();
             // Section view
             _sectionViews.ClearResultsSectionViews();
             // Exploded view
