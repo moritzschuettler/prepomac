@@ -3230,7 +3230,9 @@ namespace CaeModel
         /// planes, coaxial cylinders, a body of constant thickness - earns a bonus, since every sweep line
         /// then has the same length and the layers are the same shape as the source. Among the rest a larger
         /// source is preferred a little, so that a body is swept through its thin direction, where the layers
-        /// are few and the source carries most of the mesh.
+        /// are few and the source carries most of the mesh. A hole in the source earns a bonus of its own,
+        /// since a face the bores run into is the one that carries the cross section, and a source made of
+        /// planes earns a small one, its mesh being the one that projects onto the layers most faithfully.
         /// </summary>
         private double ScoreSweepBlocks(SweepBlocks blocks, Dictionary<int, GeomFaceType> faceTypes, SweepPartMaps maps)
         {
@@ -3252,6 +3254,14 @@ namespace CaeModel
                 //
                 sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds);
                 score += sourceEdgeIds.Count;
+                score += 3 * Math.Max(0, vis.GetFreeEdgeLoops(sourceSurfaceIds).Length - 1);
+                //
+                bool planarSource = true;
+                foreach (var surfaceId in blocks.SourceSurfaceIds[i])
+                {
+                    if (GetSweepFaceType(vis, surfaceId, faceTypes) != GeomFaceType.Plane) planarSource = false;
+                }
+                if (planarSource) score += 2;
                 //
                 foreach (var surfaceId in blocks.SideSurfaceIds[i])
                 {
