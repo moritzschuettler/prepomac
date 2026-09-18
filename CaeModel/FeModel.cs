@@ -3422,6 +3422,7 @@ namespace CaeModel
             // caps of other blocks the blocks it has to wait for
             List<int> pendingPartIds = new List<int>();
             HashSet<int> sideDerivedPartIds = new HashSet<int>();
+            HashSet<int> refusedPartIds = new HashSet<int>();
             Dictionary<int, HashSet<int>> partIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
             Dictionary<int, HashSet<int>> partIdFeederPartIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in partIdSelectedSurfaceIds)
@@ -3449,6 +3450,10 @@ namespace CaeModel
             {
                 partId = pendingPartIds[0];
                 pendingPartIds.RemoveAt(0);
+                // A part refused once stays unreached: it is given a source of its own in a later round.
+                // Without this it is queued again by the next neighbour that shares a surface with it,
+                // and two parts that refuse each other queue each other for ever
+                if (refusedPartIds.Contains(partId)) continue;
                 // A block reads the caps of the blocks feeding it, so it is swept after all of them
                 partIdFeederPartIds.TryGetValue(partId, out feederPartIds);
                 if (feederPartIds != null && !feederPartIds.IsSubsetOf(sweptPartIds))
@@ -3492,6 +3497,7 @@ namespace CaeModel
                     {
                         error = null;
                         partIdSourceSurfaceIds.Remove(partId);
+                        refusedPartIds.Add(partId);
                         continue;
                     }
                     errorPartName = part.Name;
