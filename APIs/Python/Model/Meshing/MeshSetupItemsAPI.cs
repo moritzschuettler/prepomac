@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -195,6 +195,26 @@ namespace APIs.Python.Model
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             if (keep_model_edges != null)
                 item.KeepModelEdges = PythonValueConverter.ToBool(keep_model_edges, "keep_model_edges");
+            return Replace(old_name, name, item, selection);
+        }
+
+        [PythonAPI("Adds a Netgen tetrahedral mesh item for the selected solid parts. The mesher is driven " +
+                   "by the meshing parameters, so the item carries no values of its own.",
+                   Arguments = "name: str, selection: Selection", Returns = "MeshSetupItem")]
+        public MeshSetupItemAPI add_tetrahedral_netgen(string name, SelectionAPI selection)
+        {
+            TetrahedralNetgen item = new TetrahedralNetgen(name);
+            _service.Add(item, name, selection);
+            return this[name];
+        }
+
+        [PythonAPI("Replaces a Netgen tetrahedral mesh item, keeping every value that is not given.",
+                   Arguments = "old_name: str, name: str = None, selection: Selection = None",
+                   Returns = "MeshSetupItem")]
+        public MeshSetupItemAPI replace_tetrahedral_netgen(string old_name, string name = null,
+                                                           SelectionAPI selection = null)
+        {
+            TetrahedralNetgen item = (TetrahedralNetgen)_service.CloneItem(old_name);
             return Replace(old_name, name, item, selection);
         }
 

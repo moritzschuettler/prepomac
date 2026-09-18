@@ -2466,6 +2466,7 @@ namespace CaeModel
             else if (meshSetupItem is ShellGmsh sg) error = IsShellGmshProperlyDefined(sg);
             else if (meshSetupItem is ShellQuadWild sqw) error = IsShellQuadWildProperlyDefined(sqw);
             else if (meshSetupItem is ThickenShellMesh tsm) error = IsThickenShellMeshProperlyDefined(tsm);
+            else if (meshSetupItem is TetrahedralNetgen tn) error = IsTetrahedralNetgenProperlyDefined(tn);
             else if (meshSetupItem is TetrahedralGmsh tg) error = IsTetrahedralGmshProperlyDefined(tg);
             else if (meshSetupItem is TransfiniteMesh tm) error = IsTransfiniteMeshProperlyDefined(tm);
             else if (meshSetupItem is ExtrudeMesh em) error = IsExtrudeMeshProperlyDefined(em);
@@ -2620,6 +2621,20 @@ namespace CaeModel
             }
             else return "No parts are defined for the thicken shell mesh setup item.";
             //
+            return null;
+        }
+        private string IsTetrahedralNetgenProperlyDefined(TetrahedralNetgen tetrahedralNetgen)
+        {
+            BasePart part;
+            int[] partIds = FeMesh.GetPartIdsFromGeometryIds(tetrahedralNetgen.CreationIds);
+            //
+            foreach (var partId in partIds)
+            {
+                part = _geometry.GetPartFromId(partId);
+                //
+                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
+                    return "The tetrahedral netgen setup item can only be defined on solid parts.";
+            }
             return null;
         }
         private string IsTetrahedralGmshProperlyDefined(TetrahedralGmsh tetrahedralGmsh)

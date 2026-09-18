@@ -625,6 +625,28 @@ namespace CaeMesh
                     SetItemValidity(tsm, valid, items);
                     if (!valid && tsm.Active) invalidItems.Add("Thicken shell mesh: " + tsm.Name);
                 }
+                else if (entry.Value is TetrahedralNetgen tn)
+                {
+                    valid = tn.Valid;              // this is set to invalid after deleting a part
+                    if (!valid) tn.Valid = true;   // set this to true to detect a change in validity
+                    //
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(tn.CreationIds);
+                    if (partNames == null || partNames.Length == 0) valid &= false;
+                    else
+                    {
+                        foreach (var partName in partNames)
+                        {
+                            if (!_parts.ContainsKey(partName))
+                            {
+                                valid &= false;
+                                break;
+                            }
+                        }
+                    }
+                    //
+                    SetItemValidity(tn, valid, items);
+                    if (!valid && tn.Active) invalidItems.Add("Tetrahedral Netgen: " + tn.Name);
+                }
                 else if (entry.Value is TetrahedralGmsh tg)
                 {
                     valid = tg.Valid;              // this is set to invalid after deleting a part
@@ -8530,8 +8552,8 @@ namespace CaeMesh
             {
                 if (entry.Value is MeshingParameters || entry.Value is ShellMmg ||
                     entry.Value is ShellGmsh || entry.Value is ShellQuadWild ||
-                    entry.Value is ThickenShellMesh || entry.Value is TetrahedralGmsh ||
-                    entry.Value is TransfiniteMesh)
+                    entry.Value is ThickenShellMesh || entry.Value is TetrahedralNetgen ||
+                    entry.Value is TetrahedralGmsh || entry.Value is TransfiniteMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))
                     {

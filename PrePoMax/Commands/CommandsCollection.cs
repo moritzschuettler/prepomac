@@ -203,6 +203,15 @@ namespace PrePoMax.Commands
             //
             _commands.Add(command);
         }
+        // A command a compatibility pass puts into the history moves the current position with it, the
+        // way removing one does, or undo and redo would point at the wrong command
+        public void InsertCommand(int index, Command command)
+        {
+            if (index < 0 || index > _commands.Count) throw new ArgumentOutOfRangeException("index");
+            //
+            _commands.Insert(index, command);
+            if (index <= _currPositionIndex + 1) _currPositionIndex++;
+        }
         private bool RemoveCommand(Command command)
         {
             int index = _commands.IndexOf(command);

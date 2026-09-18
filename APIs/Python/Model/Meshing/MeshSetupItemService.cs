@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -68,6 +68,7 @@ namespace APIs.Python.Model
             if (item is LocalMeshSize) return new LocalMeshSize((LocalMeshSize)item);
             if (item is ShellMmg) return new ShellMmg((ShellMmg)item);
             if (item is ThickenShellMesh) return new ThickenShellMesh((ThickenShellMesh)item);
+            if (item is TetrahedralNetgen) return new TetrahedralNetgen((TetrahedralNetgen)item);
             if (item is TetrahedralGmsh) return new TetrahedralGmsh((TetrahedralGmsh)item);
             if (item is ShellGmsh) return new ShellGmsh((ShellGmsh)item);
             if (item is TransfiniteMesh) return new TransfiniteMesh((TransfiniteMesh)item);

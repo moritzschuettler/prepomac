@@ -81,6 +81,13 @@ namespace PrePoMax.Forms
             },
             new MeshSetupItemType()
             {
+                DisplayName = "Tetrahedral Netgen", DefaultNameRoot = "Tetrahedral_Netgen", AvailableInTwoD = true,
+                ItemType = typeof(TetrahedralNetgen), ViewType = typeof(ViewTetrahedralNetgen),
+                CreateDefaultView = (controller, name) => new ViewTetrahedralNetgen(new TetrahedralNetgen(name)),
+                CreateView = (controller, item) => new ViewTetrahedralNetgen(((TetrahedralNetgen)item).DeepClone())
+            },
+            new MeshSetupItemType()
+            {
                 DisplayName = "Tetrahedral Gmsh", DefaultNameRoot = "Tetrahedral_Gmsh", AvailableInTwoD = true,
                 ItemType = typeof(TetrahedralGmsh), ViewType = typeof(ViewTetrahedralGmsh),
                 CreateDefaultView = (controller, name) => new ViewTetrahedralGmsh(new TetrahedralGmsh(name)),

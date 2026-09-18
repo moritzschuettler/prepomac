@@ -186,6 +186,7 @@ namespace PrePoMax.Forms
             {
                 MeshSetupItem.Reset();
                 if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
+                if (_viewMeshSetupItem is ViewSweepMesh vsw) SetSelectItem();
             }
             //
             _propertyItemChanged = true;
@@ -201,7 +202,8 @@ namespace PrePoMax.Forms
                 //
                 string[] partNames;
                 if (MeshSetupItem is MeshingParameters || MeshSetupItem is ShellMmg ||
-                    MeshSetupItem is TetrahedralGmsh || MeshSetupItem is TransfiniteMesh)
+                    MeshSetupItem is TetrahedralNetgen || MeshSetupItem is TetrahedralGmsh ||
+                    MeshSetupItem is TransfiniteMesh)
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
                 }
@@ -244,6 +246,7 @@ namespace PrePoMax.Forms
                 else if (itemTag is ViewShellGmsh vsg) _viewMeshSetupItem = vsg;
                 else if (itemTag is ViewShellQuadWild vsqw) _viewMeshSetupItem = vsqw;
                 else if (itemTag is ViewThickenShellMesh vtsm) _viewMeshSetupItem = vtsm;
+                else if (itemTag is ViewTetrahedralNetgen vtn) _viewMeshSetupItem = vtn;
                 else if (itemTag is ViewTetrahedralGmsh vtg) _viewMeshSetupItem = vtg;
                 else if (itemTag is ViewTransfiniteMesh vtm) _viewMeshSetupItem = vtm;
                 else if (itemTag is ViewExtrudeMesh vem) _viewMeshSetupItem = vem;
@@ -552,6 +555,7 @@ namespace PrePoMax.Forms
                 else if (MeshSetupItem is ShellGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ShellQuadWild) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ThickenShellMesh) _controller.SetSelectItemToPart();
+                else if (MeshSetupItem is TetrahedralNetgen) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TetrahedralGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TransfiniteMesh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ExtrudeMesh) _controller.SetSelectItemToGeometrySurface();
@@ -573,7 +577,8 @@ namespace PrePoMax.Forms
             {
                 if (MeshSetupItem is MeshingParameters || MeshSetupItem is LocalMeshSize ||
                     MeshSetupItem is ShellMmg || MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
-                    MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
+                    MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralNetgen ||
+                    MeshSetupItem is TetrahedralGmsh ||
                     MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||
                     MeshSetupItem is RevolveMesh)
                 {

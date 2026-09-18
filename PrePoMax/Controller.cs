@@ -105,6 +105,9 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshingErrors;
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
+        [NonSerialized] private Dictionary<string, MeshTypeEnum> _effectiveMeshTypes;
+        [NonSerialized] private int _openedPmxVersion;
+        [NonSerialized] private bool _defaultMeshTypesDisabled;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -843,6 +846,8 @@ namespace PrePoMax
         public void New()
         {
             _currentView = ViewGeometryModelResults.Geometry;
+            _openedPmxVersion = 0;
+            _defaultMeshTypesDisabled = false;
             // Add and execute the clear command
             _commands.Clear();      // also calls _modelChanged - must be here
             ClearCommand();         // also calls _modelChanged = false; calls SetNewModelProperties()
@@ -969,6 +974,148 @@ namespace PrePoMax
             }
             // Compatibility v2.3.4
             UpdateGeometryPartMassProperties(false);
+            // Compatibility v2.6.3
+            _defaultMeshTypesDisabled = _openedPmxVersion > 0 && _openedPmxVersion < 2_006_003;
+            if (_defaultMeshTypesDisabled)
+            {
+                TetrahedralNetgen tetrahedralNetgen = CreateTetrahedralNetgenForUncoveredSolidParts();
+                // The model tree is built after the compatibility, so the item is placed rather than added
+                if (tetrahedralNetgen != null)
+                {
+                    _model.Geometry.MeshSetupItems.Add(tetrahedralNetgen.Name, tetrahedralNetgen);
+                    WriteTetrahedralNetgenCompatibilityToOutput(tetrahedralNetgen);
+                }
+            }
+        }
+        /// <summary>
+        /// Meshes a part the user defined no mesh setup item for by Netgen tetrahedra, whatever mesh its
+        /// geometry supports, which is how PrePoMax meshed before v2.6.3. It is turned on for a model read
+        /// from a file written by such a version, and by the command that stands at the head of the command
+        /// history of that model, so that regenerating it produces the mesh it was built with.
+        /// </summary>
+        public void DisableDefaultMeshTypes()
+        {
+            _defaultMeshTypesDisabled = true;
+        }
+        /// <summary>
+        /// The solid parts that no mesh setup item meshes, named as they are meshed - a compound part stands
+        /// for its sub-parts, since they are meshed as one. A model built before v2.6.3 meshed every one of
+        /// them by Netgen tetrahedra, whatever mesh its geometry could carry, so these are the parts such a
+        /// model needs the Netgen item for: without it they would now be swept or meshed transfinitely, and
+        /// the mesh the model was built on would change under the sets, the boundary conditions and the loads.
+        /// </summary>
+        private string[] GetSolidPartNamesWithoutMesherSetupItem()
+        {
+            List<string> partNames = new List<string>();
+            if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return partNames.ToArray();
+            //
+            bool solid;
+            BasePart meshablePart;
+            GeometryPart part;
+            string[] meshablePartNames;
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                part = entry.Value as GeometryPart;
+                // A sub-part is meshed through the compound part that carries it
+                if (part == null || compoundPartNames.ContainsKey(part.Name)) continue;
+                //
+                meshablePartNames = GetMeshablePartNames(new string[] { part.Name });
+                if (meshablePartNames == null || meshablePartNames.Length == 0) continue;
+                // Only a solid part is meshed by another mesher than the one that meshed it before
+                solid = true;
+                foreach (var meshablePartName in meshablePartNames)
+                {
+                    if (!_model.Geometry.Parts.TryGetValue(meshablePartName, out meshablePart) ||
+                        (meshablePart.PartType != PartType.Solid && meshablePart.PartType != PartType.SolidAsShell))
+                    {
+                        solid = false;
+                        break;
+                    }
+                }
+                if (!solid) continue;
+                if (GetUserMesherSetupItems(part.Name).Length > 0) continue;
+                //
+                partNames.Add(part.Name);
+            }
+            return partNames.ToArray();
+        }
+        /// <summary>
+        /// Builds the Netgen tetrahedral item for the solid parts that are still without a mesh setup item,
+        /// or null when there is none. The parts are read from the model as it stands, so the command that
+        /// closes the history of an older model reaches the same ones the reading of that model reached.
+        /// </summary>
+        private TetrahedralNetgen CreateTetrahedralNetgenForUncoveredSolidParts()
+        {
+            if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return null;
+            //
+            List<int> partIds = new List<int>();
+            foreach (var partName in GetSolidPartNamesWithoutMesherSetupItem())
+            {
+                partIds.AddRange(
+                    _model.Geometry.GetPartIdsFomPartNames(GetMeshablePartNames(new string[] { partName })));
+            }
+            if (partIds.Count == 0) return null;
+            //
+            TetrahedralNetgen tetrahedralNetgen =
+                new TetrahedralNetgen(_model.Geometry.MeshSetupItems.GetNextNumberedKey("Tetrahedral_Netgen"));
+            tetrahedralNetgen.CreationIds = partIds.ToArray();
+            //
+            Selection selection = new Selection();
+            selection.CurrentView = (int)ViewGeometryModelResults.Geometry;
+            selection.SelectItem = vtkSelectItem.Part;
+            selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false, tetrahedralNetgen.CreationIds));
+            tetrahedralNetgen.CreationData = selection;
+            //
+            return tetrahedralNetgen;
+        }
+        /// <summary>
+        /// Adds the Netgen tetrahedral item of an older model while its command history is replayed. It is
+        /// called by the command the history carries in front of every meshing command.
+        /// </summary>
+        public TetrahedralNetgen AddTetrahedralNetgenToUncoveredSolidParts()
+        {
+            TetrahedralNetgen tetrahedralNetgen = CreateTetrahedralNetgenForUncoveredSolidParts();
+            if (tetrahedralNetgen == null) return null;
+            //
+            AddMeshSetupItem(tetrahedralNetgen);
+            WriteTetrahedralNetgenCompatibilityToOutput(tetrahedralNetgen);
+            //
+            return tetrahedralNetgen;
+        }
+        private void WriteTetrahedralNetgenCompatibilityToOutput(TetrahedralNetgen tetrahedralNetgen)
+        {
+            _form.WriteDataToOutput("Compatibility: the model was created by a version of PrePoMax in which a " +
+                                    "solid part without a mesh setup item was meshed by Netgen tetrahedra. The " +
+                                    "mesh setup item " + tetrahedralNetgen.Name + " was added to keep that mesh " +
+                                    "for " + tetrahedralNetgen.CreationIds.Length + " part/s.");
+        }
+        /// <summary>
+        /// Gives the command history of a model built before v2.6.3 the two commands that keep its mesh. The
+        /// first one heads the history and meshes every part without a mesh setup item by Netgen tetrahedra,
+        /// the way that version did, which is what the meshing commands replayed after it need. The second
+        /// one closes the history and adds the mesh setup item that says the same thing, which is what the
+        /// model is left with and what it is read back by.
+        /// The commands are written into the history once and are then part of it, so a model already
+        /// carrying them only tells this session to mesh the way they do.
+        /// </summary>
+        private void AddDefaultMeshTypeCompatibilityCommands(CommandsCollection commandsCollection)
+        {
+            if (commandsCollection == null || commandsCollection.Commands == null) return;
+            //
+            foreach (var command in commandsCollection.Commands)
+            {
+                if (command is CDisableDefaultMeshTypes)
+                {
+                    _defaultMeshTypesDisabled = true;
+                    return;
+                }
+            }
+            if (!_defaultMeshTypesDisabled) return;
+            //
+            commandsCollection.InsertCommand(0, new CDisableDefaultMeshTypes());
+            commandsCollection.InsertCommand(commandsCollection.Commands.Count,
+                                             new CAddTetrahedralNetgenToUncoveredParts());
         }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
         {
@@ -982,6 +1129,8 @@ namespace PrePoMax
         }
         private void ApplyCompatibilityToCommands(CommandsCollection commandsCollection)
         {
+            // Compatibility v2.6.3
+            AddDefaultMeshTypeCompatibilityCommands(commandsCollection);
             // Compatibility v2.4.4
             if (commandsCollection != null)
             {
@@ -1484,6 +1633,7 @@ namespace PrePoMax
             model = null;
             allResults = null;
             programmNameVersion = null;
+            _openedPmxVersion = 0;
             //
             int major = 0;
             int minor = 0;
@@ -1512,6 +1662,7 @@ namespace PrePoMax
                     int.TryParse(versionNumbers[3], out build);
                     //
                     int version = major * 1_000_000 + minor * 1000 + build;
+                    _openedPmxVersion = version;
                     //
                     if (version < 2_000_006)
                         data = TryReadCompressedPmxBefore_2_0_6(fs, version, out model, out allResults);
@@ -6272,6 +6423,7 @@ namespace PrePoMax
             _form.AddTreeNode(ViewGeometryModelResults.Geometry, meshSetupItem, null);
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            UpdateMeshTypeColors();
         }
         public MeshSetupItem GetMeshSetupItem(string meshSetupItemName)
         {
@@ -6291,6 +6443,17 @@ namespace PrePoMax
         }
         private MeshSetupItem[] GetActiveValidMesherSetupItems(string partName,
                                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+        {
+            MeshSetupItem[] mesherSetupItems = GetUserMesherSetupItems(partName, meshSetupItems);
+            if (mesherSetupItems.Length > 0) return mesherSetupItems;
+            //
+            MeshSetupItem defaultMesherSetupItem = GetDefaultMesherSetupItem(partName);
+            if (defaultMesherSetupItem == null) return mesherSetupItems;
+            //
+            return new MeshSetupItem[] { defaultMesherSetupItem };
+        }
+        private MeshSetupItem[] GetUserMesherSetupItems(string partName,
+                                                       OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             HashSet<int> selectedPartIds;
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
@@ -6314,6 +6477,66 @@ namespace PrePoMax
             }
             //
             return meshSetupItemsToCheck.ToArray();
+        }
+        /// <summary>
+        /// The setup item that meshes a part the user defined none for. The geometry is given the most
+        /// structured mesh it supports, which is the mesh type the recognition keeps on the parts; a part the
+        /// recognition leaves at tetrahedra is meshed by Netgen as it always was and needs no item at all.
+        /// The item is built for the meshing that asks for it and is neither recorded nor kept in the model
+        /// tree, so the geometry alone decides it and a regenerated model reaches the same one.
+        /// </summary>
+        private MeshSetupItem GetDefaultMesherSetupItem(string partName)
+        {
+            if (_model == null || _model.Geometry == null) return null;
+            // An older model is meshed the way the version that wrote it meshed it
+            if (_defaultMeshTypesDisabled) return null;
+            //
+            MeshTypeEnum meshType = GetMeshTypeOfMeshedPart(partName);
+            // The recognition costs nothing once it has been made, so it is asked for rather than assumed
+            if (meshType == MeshTypeEnum.Unknown)
+            {
+                DetectMeshTypes();
+                meshType = GetMeshTypeOfMeshedPart(partName);
+            }
+            //
+            MeshSetupItem mesherSetupItem;
+            if (meshType == MeshTypeEnum.Transfinite) mesherSetupItem = new TransfiniteMesh("Default_Transfinite_Mesh");
+            else if (meshType == MeshTypeEnum.Sweep)
+            {
+                SweepMesh sweepMesh = new SweepMesh("Default_Sweep_Mesh");
+                sweepMesh.SourceType = SweepSourceTypeEnum.Automatic;
+                mesherSetupItem = sweepMesh;
+            }
+            else return null;
+            //
+            string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
+            mesherSetupItem.CreationIds = _model.Geometry.GetPartIdsFomPartNames(meshablePartNames);
+            // The sweep finds its blocks here, so the item is not only checked but also completed
+            if (_model.IsMeshSetupItemProperlyDefined(mesherSetupItem) != null) return null;
+            //
+            return mesherSetupItem;
+        }
+        /// <summary>
+        /// The most structured mesh the parts that are meshed together support, which is the least structured
+        /// of theirs: the sub-parts of a compound part are meshed as one, and a mesh the compound cannot carry
+        /// as a whole is used for none of them.
+        /// </summary>
+        private MeshTypeEnum GetMeshTypeOfMeshedPart(string partName)
+        {
+            string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
+            if (meshablePartNames == null || meshablePartNames.Length == 0) return MeshTypeEnum.Unknown;
+            //
+            BasePart part;
+            GeometryPart geometryPart;
+            MeshTypeEnum meshType = MeshTypeEnum.Unknown;
+            foreach (var meshablePartName in meshablePartNames)
+            {
+                if (!_model.Geometry.Parts.TryGetValue(meshablePartName, out part)) return MeshTypeEnum.Unknown;
+                geometryPart = part as GeometryPart;
+                if (geometryPart == null || geometryPart.MeshType == MeshTypeEnum.Unknown) return MeshTypeEnum.Unknown;
+                if (geometryPart.MeshType > meshType) meshType = geometryPart.MeshType;
+            }
+            return meshType;
         }
         private MeshSetupItem[] GetActiveValidMeshSetupItems<T>(string partName,
                                                                   OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
@@ -6456,6 +6679,7 @@ namespace PrePoMax
             _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, meshSetupItemName, meshSetupItem, null);
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            UpdateMeshTypeColors();
         }
         public void ReplaceMeshSetupItem(string oldMeshSetupItemName, MeshSetupItem meshSetupItem,
                                          bool updateSelection = true)
@@ -6479,6 +6703,7 @@ namespace PrePoMax
                                  null, updateSelection);
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            UpdateMeshTypeColors(updateSelection);
         }
         public void RenameMeshSetupItem(string oldMeshSetupItemName, string newMeshSetupItemName)
         {
@@ -6516,6 +6741,7 @@ namespace PrePoMax
             }
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            UpdateMeshTypeColors();
             //
             ClearAllSelection();
         }
@@ -6554,6 +6780,7 @@ namespace PrePoMax
         /// </summary>
         private void DetectMeshTypes()
         {
+            _effectiveMeshTypes = null;
             if (_model == null) return;
             //
             try
@@ -6575,6 +6802,85 @@ namespace PrePoMax
                 Debug.WriteLine(ex);
             }
         }
+        // The mesh type colors show which item meshes each part, so a changed item recolors the geometry
+        private void UpdateMeshTypeColors(bool redraw = true)
+        {
+            _effectiveMeshTypes = null;
+            //
+            if (redraw && _updateBatchCount == 0 && _annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
+                _currentView == ViewGeometryModelResults.Geometry)
+                Redraw();
+        }
+        /// <summary>
+        /// The mesh type every geometry part is meshed by: the type its mesh setup item asks for, or the type
+        /// the recognition chose for it when the user defined no item. This is what the mesh type colors show,
+        /// so a part colored as swept is a part that is going to be swept.
+        /// </summary>
+        private MeshTypeEnum GetEffectiveMeshType(string partName)
+        {
+            if (_effectiveMeshTypes == null) _effectiveMeshTypes = GetEffectiveMeshTypes();
+            //
+            MeshTypeEnum meshType;
+            if (_effectiveMeshTypes.TryGetValue(partName, out meshType)) return meshType;
+            else return MeshTypeEnum.Unknown;
+        }
+        private Dictionary<string, MeshTypeEnum> GetEffectiveMeshTypes()
+        {
+            Dictionary<string, MeshTypeEnum> effectiveMeshTypes = new Dictionary<string, MeshTypeEnum>();
+            if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return effectiveMeshTypes;
+            //
+            List<MeshSetupItem> mesherSetupItems = new List<MeshSetupItem>();
+            foreach (var entry in _model.Geometry.MeshSetupItems)
+            {
+                if (entry.Value.MesherType != MesherTypeEnum.None && entry.Value.Active && entry.Value.Valid &&
+                    entry.Value.CreationIds != null && entry.Value.CreationIds.Length > 0)
+                    mesherSetupItems.Add(entry.Value);
+            }
+            //
+            GeometryPart part;
+            string meshedPartName;
+            int[] meshedPartIds;
+            int[] partIds = new int[1];
+            MeshTypeEnum meshType;
+            HashSet<int> selectedPartIds;
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                part = entry.Value as GeometryPart;
+                if (part == null || part is CompoundGeometryPart) continue;
+                // A sub-part is meshed through the compound part that carries it
+                if (!compoundPartNames.TryGetValue(part.Name, out meshedPartName)) meshedPartName = part.Name;
+                meshedPartIds =
+                    _model.Geometry.GetPartIdsFomPartNames(GetMeshablePartNames(new string[] { meshedPartName }));
+                partIds[0] = part.PartId;
+                //
+                meshType = MeshTypeEnum.Unknown;
+                foreach (var mesherSetupItem in mesherSetupItems)
+                {
+                    selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(mesherSetupItem.CreationIds));
+                    // A sweep meshes the parts its blocks reach and leaves the rest of a compound part to an
+                    // item of its own, so it is asked about this part alone
+                    if (!_model.DoesMeshSetupItemCoverPart(mesherSetupItem, selectedPartIds,
+                                                           mesherSetupItem is SweepMesh ? partIds : meshedPartIds))
+                        continue;
+                    //
+                    meshType = GetMeshTypeOfMeshSetupItem(mesherSetupItem);
+                    break;
+                }
+                if (meshType == MeshTypeEnum.Unknown) meshType = part.MeshType;
+                //
+                effectiveMeshTypes.Add(part.Name, meshType);
+            }
+            return effectiveMeshTypes;
+        }
+        private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem)
+        {
+            if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
+            else if (meshSetupItem is SweepMesh) return MeshTypeEnum.Sweep;
+            else if (meshSetupItem is TetrahedralNetgen || meshSetupItem is TetrahedralGmsh)
+                return MeshTypeEnum.Tetrahedral;
+            else return MeshTypeEnum.Other;
+        }
         /// <summary>
         /// Writes why each solid part is meshed by tetrahedra rather than swept. The reason names the surface,
         /// the wall or the sub-part that stands in the way, which is what has to be split or selected by hand.
@@ -6592,6 +6898,8 @@ namespace PrePoMax
                 part = entry.Value as GeometryPart;
                 if (part == null || part is CompoundGeometryPart) continue;
                 if (part.MeshType != MeshTypeEnum.Tetrahedral) continue;
+                // Why the geometry cannot be swept says nothing about a part the user gave a setup item
+                if (GetUserMesherSetupItems(part.Name).Length > 0) continue;
                 //
                 reason = _model.GetMeshTypeReason(part);
                 if (reason == null) continue;
@@ -17334,7 +17642,7 @@ namespace PrePoMax
             else if (_annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
                      _currentView == ViewGeometryModelResults.Geometry && part is GeometryPart geometryPart)
             {
-                color = GetMeshTypeColor(geometryPart.MeshType);
+                color = GetMeshTypeColor(GetEffectiveMeshType(geometryPart.Name));
             }
         }
         private Color GetMeshTypeColor(MeshTypeEnum meshType)
@@ -17389,7 +17697,7 @@ namespace PrePoMax
                         foreach (var entry in _model.Geometry.Parts)
                         {
                             if (entry.Value is CompoundGeometryPart || !(entry.Value is GeometryPart geometryPart)) continue;
-                            if (!geometryPart.Visible || geometryPart.MeshType != meshType) continue;
+                            if (!geometryPart.Visible || GetEffectiveMeshType(geometryPart.Name) != meshType) continue;
                             //
                             meshTypeColors.Add(GetMeshTypeColor(meshType));
                             meshTypeNames.Add(GetMeshTypeName(meshType));
@@ -22041,8 +22349,8 @@ namespace PrePoMax
         {
             if (meshSetupItem is MeshingParameters || meshSetupItem is ShellMmg ||
                 meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
-                meshSetupItem is ThickenShellMesh || meshSetupItem is TetrahedralGmsh ||
-                meshSetupItem is TransfiniteMesh)
+                meshSetupItem is ThickenShellMesh || meshSetupItem is TetrahedralNetgen ||
+                meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
             else if (meshSetupItem is LocalMeshSize lms) HighlightLocalMeshSize(lms, highlightNodes, useSecondaryHighlightColor);
             else if (meshSetupItem is ExtrudeMesh em) HighlightExtrudeMesh(em, useSecondaryHighlightColor);
