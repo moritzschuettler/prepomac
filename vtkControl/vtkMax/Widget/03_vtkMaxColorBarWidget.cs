@@ -7,13 +7,14 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using Kitware.VTK;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Kitware.VTK;
 
 
 namespace vtkControl
@@ -412,7 +413,11 @@ namespace vtkControl
             if (labels != null) _labels = labels.ToArray();
             else _labels = new string[0];
             // Replace _ and - for space char
-            for (int i = 0; i < _labels.Length; i++) _labels[i] = _labels[i].Replace('_', ' ').Replace('-', ' ');
+            //for (int i = 0; i < _labels.Length; i++) _labels[i] = _labels[i].Replace('_', ' ').Replace('-', ' ');
+
+            for (int i = 0; i < _labels.Length; i++)
+                _labels[i] = Regex.Replace(_labels[i], @"(?<=\p{L})[-_](?=\p{L})", " ");
+
             //
             // Reconfigured in place rather than replaced; every entry below is overwritten
             if (_lookupTable == null) _lookupTable = vtkLookupTable.New();
