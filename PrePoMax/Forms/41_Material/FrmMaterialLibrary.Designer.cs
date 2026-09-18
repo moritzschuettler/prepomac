@@ -134,7 +134,6 @@ namespace PrePoMax.Forms
             this.tbCategoryName.Name = "tbCategoryName";
             this.tbCategoryName.Size = new System.Drawing.Size(187, 23);
             this.tbCategoryName.TabIndex = 2;
-            this.tbCategoryName.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tbCategoryName_KeyDown);
             this.tbCategoryName.KeyUp += new System.Windows.Forms.KeyEventHandler(this.tbCategoryName_KeyUp);
             // 
             // gbLibraryMaterials

@@ -130,13 +130,6 @@ namespace PrePoMax.Forms
         {
             btnAdd_Click(null, null);
         }
-        private void tbName_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;  // no beep
-            }
-        }
         private void tbDescription_TextChanged(object sender, EventArgs e)
         {
             _propertyItemChanged = true;

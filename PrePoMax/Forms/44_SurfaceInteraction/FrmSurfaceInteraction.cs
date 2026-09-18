@@ -91,13 +91,6 @@ namespace PrePoMax.Forms
         {
             btnAdd_Click(null, null);
         }
-        private void tbName_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;  // no beep
-            }
-        }
         private void btnAdd_Click(object sender, EventArgs e)
         {
             if (tvProperties.SelectedNode != null && tvProperties.SelectedNode.Tag != null)

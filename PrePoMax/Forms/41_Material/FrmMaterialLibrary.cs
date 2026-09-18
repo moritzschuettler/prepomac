@@ -310,13 +310,6 @@ namespace PrePoMax.Forms
             }
         }
         //
-        private void tbCategoryName_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;  // no beep
-            }
-        }
         private void tbCategoryName_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter) btnRename_Click(null, null);

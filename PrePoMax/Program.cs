@@ -145,6 +145,7 @@ namespace PrePoMax
                 //
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
+                Application.AddMessageFilter(new UserControls.NoBeepMessageFilter());
                 //
                 using (FrmMain mainForm = new FrmMain(cmdOptions))
                 {

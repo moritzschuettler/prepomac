@@ -245,7 +245,6 @@ namespace PrePoMax.Forms
             this.tbName.Name = "tbName";
             this.tbName.Size = new System.Drawing.Size(350, 23);
             this.tbName.TabIndex = 1;
-            this.tbName.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tbName_KeyDown);
             // 
             // lName
             // 

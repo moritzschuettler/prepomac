@@ -180,7 +180,6 @@ namespace PrePoMax
             this.tbIds.Size = new System.Drawing.Size(58, 23);
             this.tbIds.TabIndex = 1;
             this.tbIds.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.tbIds.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tbId_KeyDown);
             // 
             // tbSurfaceAngle
             // 

@@ -85,6 +85,7 @@
     <Compile Include="GroupBoxes\CollapsableGroupBox.Designer.cs" />
     <Compile Include="MenuStrip\NoHighlightRenderer.cs" />
     <Compile Include="MessageBoxes\AutoClosingMessageBox.cs" />
+    <Compile Include="NoBeepMessageFilter.cs" />
     <Compile Include="DataGridView\DataGridViewCopyPaste.cs">
       <SubType>Component</SubType>
     </Compile>

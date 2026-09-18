@@ -346,15 +346,8 @@ namespace PrePoMax
         {
             if (sender is UserControls.UnitAwareTextBox uatb) _controller.SetSelectAngle(uatb.Value);
         }
-        private void tbId_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;  // no beep
-            }
-        }
 
-        // Methods                                                                                                                  
+        // Methods                                                                                                                
         public void ShowIfHidden(IWin32Window owner)
         {
             if (!this.Visible)
