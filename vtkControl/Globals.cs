@@ -26,7 +26,6 @@ namespace vtkControl
         public static string SectionViewSuffix = "sectionView";
         public static string SectionViewNodeIdsName = "sectionViewNodeIds";
         public static string SectionViewElementIdsName = "sectionViewElementIds";
-        public static string SectionViewFaceTypeName = "sectionViewFaceType";
         public static string TransformationSuffix = "transformed";
         //
         public static string MinAnnotationName = "Min_Annotation";      // this is a copy from AnnotationContainer

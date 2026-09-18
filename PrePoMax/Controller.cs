@@ -889,6 +889,9 @@ namespace PrePoMax
         private void OpenPmx(string fileName)
         {
             Clear();
+            // The 3D scene is empty after the clear and the current view must say so, or a selection
+            // performed by the compatibility below is resolved on a scene that was never drawn
+            _currentView = ViewGeometryModelResults.Geometry;
             //
             OpenedFileName = fileName;
             //
@@ -17045,8 +17048,14 @@ namespace PrePoMax
         }
         public int[][] GetSurfaceCellsByFaceIds(int[] faceIds, out ElementFaceType[] elementFaceTypes)
         {
+            return GetSurfaceCellsByFaceIds(faceIds, out elementFaceTypes, out _);
+        }
+        public int[][] GetSurfaceCellsByFaceIds(int[] faceIds, out ElementFaceType[] elementFaceTypes,
+                                                out int[] cellElementIds)
+        {
             int[][] cells = new int[faceIds.Length][];
             elementFaceTypes = new ElementFaceType[faceIds.Length];
+            cellElementIds = new int[faceIds.Length];
             int count = 0;
             ElementFaceType cellType;
             FeMesh mesh = DisplayedMesh;        // it is used in loop
@@ -17055,6 +17064,7 @@ namespace PrePoMax
             {
                 cells[count] = mesh.GetCellFromFaceId(faceId, out cellType, out FeElement element);
                 elementFaceTypes[count] = cellType;
+                cellElementIds[count] = element.Id;
                 count++;
             }
             return cells;
@@ -17203,9 +17213,15 @@ namespace PrePoMax
         //
         public int[][] GetSurfaceCellsByGeometryId(int[] geometrySurfaceIds, out ElementFaceType[] elementFaceTypes)
         {
+            return GetSurfaceCellsByGeometryId(geometrySurfaceIds, out elementFaceTypes, out _);
+        }
+        public int[][] GetSurfaceCellsByGeometryId(int[] geometrySurfaceIds, out ElementFaceType[] elementFaceTypes,
+                                                   out int[] cellElementIds)
+        {
             if (geometrySurfaceIds.Length != 1) throw new NotSupportedException();
             //
-            int[][] cells = DisplayedMesh.GetSurfaceCells(geometrySurfaceIds[0], out elementFaceTypes);
+            int[][] cells = DisplayedMesh.GetSurfaceCells(geometrySurfaceIds[0], out elementFaceTypes,
+                                                          out cellElementIds);
             //
             return cells;
         }
@@ -21748,7 +21764,7 @@ namespace PrePoMax
             return 0;
         }
 
-        public void DrawSurface(string prefixName, int[][] cells, Color color,
+        public void DrawSurface(string prefixName, int[][] cells, int[] cellElementIds, Color color,
                                 vtkRendererLayer layer, bool backfaceCulling = true,
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
@@ -21781,6 +21797,8 @@ namespace PrePoMax
                 data.DrawOnGeometry = true;
                 data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
                 data.Geometry.Cells.CellNodeIds = cells;
+                // The element of each face lets the element-wise section view keep the faces of the remaining elements
+                data.Geometry.Cells.Ids = cellElementIds;
                 mesh.GetSurfaceGeometry(cells, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor, out data.Geometry.Cells.Types);
                 //
                 ApplyLighting(data);
@@ -21889,12 +21907,14 @@ namespace PrePoMax
                                           bool useSecondaryHighlightColor = false, bool drawSurfaceEdges = false)
         {
             int[][] cells;
+            int[] cellElementIds;
             // Highlight surface: QuerySurface from frmQuery
             if (ids.Length == 1 && DisplayedMesh.IsThisIdGeometryId(ids[0]))
-                cells = GetSurfaceCellsByGeometryId(ids, out _);
-            else cells = GetSurfaceCellsByFaceIds(ids, out _);
+                cells = GetSurfaceCellsByGeometryId(ids, out _, out cellElementIds);
+            else cells = GetSurfaceCellsByFaceIds(ids, out _, out cellElementIds);
             //
-            DrawSurface(prefixName, cells, color, layer, backfaceCulling, useSecondaryHighlightColor, drawSurfaceEdges);
+            DrawSurface(prefixName, cells, cellElementIds, color, layer, backfaceCulling, useSecondaryHighlightColor,
+                        drawSurfaceEdges);
         }
         private int DrawItemsByGeometryIds(int[] ids, string prefixName, string itemName, Color color,
                                            vtkRendererLayer layer, int nodeSize = -1, bool backfaceCulling = true,

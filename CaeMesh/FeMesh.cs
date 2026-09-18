@@ -5582,12 +5582,19 @@ namespace CaeMesh
         }
         public int[][] GetSurfaceCells(int geometrySurfaceId, out ElementFaceType[] elementFaceTypes)
         {
+            return GetSurfaceCells(geometrySurfaceId, out elementFaceTypes, out _);
+        }
+        public int[][] GetSurfaceCells(int geometrySurfaceId, out ElementFaceType[] elementFaceTypes,
+                                       out int[] cellElementIds)
+        {
             int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometrySurfaceId);
             BasePart part = GetPartFromId(itemTypePartIds[2]);
             GeometryType geomType = (GeometryType)itemTypePartIds[1];
             int[] cellIds = part.Visualization.CellIdsByFace[itemTypePartIds[0]];
+            int[] visualizationCellIds = part.Visualization.CellIds;
             int[][] cells = new int[cellIds.Length][];
             elementFaceTypes = new ElementFaceType[cellIds.Length];
+            cellElementIds = visualizationCellIds != null ? new int[cellIds.Length] : null;
             //
             ElementFaceType elementFaceType = ElementFaceType.Face;
             if (geomType == GeometryType.ShellEdgeSurface) elementFaceType = ElementFaceType.Edge;
@@ -5597,6 +5604,7 @@ namespace CaeMesh
             {
                 cells[i] = part.Visualization.Cells[cellIds[i]].ToArray();
                 elementFaceTypes[i] = elementFaceType;
+                if (cellElementIds != null) cellElementIds[i] = visualizationCellIds[cellIds[i]];
             }
             return cells;
         }
