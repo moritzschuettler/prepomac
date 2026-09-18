@@ -920,6 +920,108 @@ namespace CaeMesh.Sweep
             //
             return result;
         }
+        /// <summary>
+        /// The closed loops the cross edges of the walls form, every edge mapped to the loop it lies on: the
+        /// source and target sides of all the walls, joined through the vertices they share. A loop is one cross
+        /// section of a column of blocks - the boundary of a source or a target, or the ring where one ring of
+        /// walls hands over to the next.
+        /// </summary>
+        public static Dictionary<int, int[]> GetCrossSectionLoops(List<SweepWall> walls)
+        {
+            int[] vertexIds;
+            List<int> edgeIdsAtVertex;
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var wall in walls)
+            {
+                foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds))
+                {
+                    if (edgeIdVertexIds.ContainsKey(edgeId)) continue;
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    edgeIdVertexIds.Add(edgeId, vertexIds);
+                    foreach (var vertexId in vertexIds)
+                    {
+                        if (!vertexIdEdgeIds.TryGetValue(vertexId, out edgeIdsAtVertex))
+                            vertexIdEdgeIds.Add(vertexId, edgeIdsAtVertex = new List<int>());
+                        edgeIdsAtVertex.Add(edgeId);
+                    }
+                }
+            }
+            //
+            Dictionary<int, int[]> edgeIdLoop = new Dictionary<int, int[]>();
+            foreach (var startEdgeId in edgeIdVertexIds.Keys)
+            {
+                if (edgeIdLoop.ContainsKey(startEdgeId)) continue;
+                List<int> loop = new List<int>();
+                Queue<int> pending = new Queue<int>();
+                HashSet<int> reachedEdgeIds = new HashSet<int>() { startEdgeId };
+                pending.Enqueue(startEdgeId);
+                while (pending.Count > 0)
+                {
+                    int edgeId = pending.Dequeue();
+                    loop.Add(edgeId);
+                    foreach (var vertexId in edgeIdVertexIds[edgeId])
+                    {
+                        foreach (var nextEdgeId in vertexIdEdgeIds[vertexId])
+                        {
+                            if (reachedEdgeIds.Add(nextEdgeId)) pending.Enqueue(nextEdgeId);
+                        }
+                    }
+                }
+                int[] loopEdgeIds = loop.ToArray();
+                foreach (var edgeId in loopEdgeIds) edgeIdLoop.Add(edgeId, loopEdgeIds);
+            }
+            return edgeIdLoop;
+        }
+        /// <summary>
+        /// Counts a cross section loop from its length, in place of the counts gmsh measured on its edges one
+        /// by one. Gmsh rounds the count of every curve up, so the sum over a loop cut into several edges is
+        /// inflated by up to one element per edge, and two cuts of one closed curve come out different; the
+        /// length of the curve over the size it was meshed at is the count they share. The size is recovered
+        /// from what gmsh produced over all the given cuts of the curve: a curve of length L given n elements
+        /// says the size is at least L / n, so the largest L / n over the edges the user left to gmsh is the
+        /// size. An edge the user seeded keeps its count exactly, an edge already assigned keeps its count too,
+        /// and only what the loop has left over is shared out by length among the rest of its edges. The counts
+        /// are written into the table of the assigned edges.
+        /// </summary>
+        public static void RecountCrossSection(int[] loopEdgeIds, List<int[]> loops,
+                                               Dictionary<int, int> seededEdgeIdNumOfElements,
+                                               Dictionary<int, int> assignedEdgeIdNumOfElements)
+        {
+            double length;
+            double size = 0;
+            foreach (var loop in loops)
+            {
+                foreach (var edgeId in loop)
+                {
+                    if (seededEdgeIdNumOfElements.ContainsKey(edgeId)) continue;
+                    Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                    size = Math.Max(size, length / GetElementCount(edgeId));
+                }
+            }
+            //
+            int numOfElements;
+            int fixedElements = 0;
+            List<int> restIndices = new List<int>();
+            double[] lengths = GetEdgeLengths(loopEdgeIds);
+            for (int i = 0; i < loopEdgeIds.Length; i++)
+            {
+                if (assignedEdgeIdNumOfElements.TryGetValue(loopEdgeIds[i], out numOfElements)) fixedElements += numOfElements;
+                else if (seededEdgeIdNumOfElements.TryGetValue(loopEdgeIds[i], out numOfElements))
+                {
+                    assignedEdgeIdNumOfElements[loopEdgeIds[i]] = numOfElements;
+                    fixedElements += numOfElements;
+                }
+                else restIndices.Add(i);
+            }
+            if (restIndices.Count == 0) return;
+            //
+            int total = size > 0 ? (int)Math.Round(lengths.Sum() / size, MidpointRounding.AwayFromZero) : 0;
+            double[] restLengths = new double[restIndices.Count];
+            for (int k = 0; k < restIndices.Count; k++) restLengths[k] = lengths[restIndices[k]];
+            int[] counts = DistributeElements(total - fixedElements, restLengths);
+            for (int k = 0; k < restIndices.Count; k++) assignedEdgeIdNumOfElements[loopEdgeIds[restIndices[k]]] = counts[k];
+        }
         public static double[] GetEdgeLengths(int[] edgeIds)
         {
             double length;

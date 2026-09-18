@@ -1650,39 +1650,9 @@ namespace CaeMesh
             }
             // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there. The
             // source side is pinned as well, so that every edge of every wall carries a count
-            int sourceElements;
-            Dictionary<int, int> sourceEdgeIdNumOfElements = new Dictionary<int, int>();
-            Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
-            foreach (var wall in walls)
-            {
-                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
-                //
-                sourceElements = 0;
-                foreach (var edgeId in wall.SourceEdgeIds)
-                {
-                    // The target side of an earlier wall keeps the count that wall was given, and the walls
-                    // of the block fed from it must start from that count rather than from the measured one
-                    if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
-                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
-                    sourceEdgeIdNumOfElements[edgeId] = numOfElements;
-                    sourceElements += numOfElements;
-                }
-                // Where a split was carried across, both sides of the wall are split at the same places. The
-                // counts of the target edges follow the source nodes above them, so that the grid column
-                // through the split stays straight
-                int[] targetElements = DistributeTargetElementsByProjection(wall, sourceElements);
-                // Where the two sides are split at corresponding places, every target segment takes the count of
-                // the source segment opposite it, so that the grid column through the split runs straight
-                if (targetElements == null)
-                    targetElements = DistributeTargetElementsBySide(wall, sourceEdgeIdNumOfElements);
-                if (targetElements == null)
-                {
-                    double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
-                    targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
-                }
-                for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
-                    targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
-            }
+            Dictionary<int, int> sourceEdgeIdNumOfElements;
+            Dictionary<int, int> targetEdgeIdNumOfElements;
+            ResolveCrossEdgeElements(walls, null, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
             // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
             // they carry the same count: the one the user pinned on either, else the measured one
             Dictionary<int, int> imprintEdgeIdNumOfElements = new Dictionary<int, int>();
@@ -1702,16 +1672,277 @@ namespace CaeMesh
                 }
             }
             // Every count in one table, the later ones overriding the earlier
-            Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
-            foreach (var entry in directionEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
-            foreach (var entry in sourceEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
-            foreach (var entry in targetEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
-            foreach (var entry in imprintEdgeIdNumOfElements) edgeIdNumOfElements[entry.Key] = entry.Value;
+            Dictionary<int, int> edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
+                                                                         targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
+            // A wall whose two sides came out unequal stands between two cuts of one closed curve that gmsh
+            // counted differently, and the column those cuts belong to is resolved again, from the cut counted
+            // by its length. Every other edge keeps the count measured above
+            List<int[]> recountedLoops = GetDifferentlyCountedCrossSections(walls, edgeIdNumOfElements);
+            if (recountedLoops.Count > 0)
+            {
+                _writeOutput?.Invoke("Sweep: " + GetRecountedCrossSectionsMessage(recountedLoops));
+                ResolveCrossEdgeElements(walls, recountedLoops, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
+                edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
+                                                        targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
+            }
             foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
             //
             CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+        }
+        /// <summary>
+        /// The element counts of the two cross-sweep sides of every wall, resolved from the source side to the
+        /// target side: the source side keeps the count an earlier wall gave the edge as its target, else the
+        /// measured one, and the target side is distributed from the source total. The walls come block after
+        /// block and ring after ring, so a target one wall assigns is the source the next one reads.
+        ///
+        /// A wall two columns of blocks share is one wall, sided by the column that reached it first, and its
+        /// count may have to come from the other: the four walls of a bore that a post stands in are sided from
+        /// the plate, and it is the post that carries the count of the bore. The loops given are the cuts of
+        /// one closed curve that gmsh counted differently, and a wall whose source side lies on one of them
+        /// waits until another wall has assigned one of its sides - the source, as usual, or the target when
+        /// the other column got there first, and the wall is then resolved the other way round. When no
+        /// waiting wall can be resolved, the coarsest of the loops still unassigned is counted from its length,
+        /// with every count the user seeded on it kept exactly, and the rest of the column follows from it wall
+        /// by wall. Without loops every wall is resolved in its turn.
+        /// </summary>
+        private void ResolveCrossEdgeElements(List<SweepWall> walls, List<int[]> recountedLoops,
+                                              out Dictionary<int, int> sourceEdgeIdNumOfElements,
+                                              out Dictionary<int, int> targetEdgeIdNumOfElements)
+        {
+            Dictionary<int, int> sourceTable = new Dictionary<int, int>();
+            Dictionary<int, int> assignedTable = new Dictionary<int, int>();
+            HashSet<int> recountedEdgeIds = new HashSet<int>();
+            if (recountedLoops != null)
+            {
+                foreach (var loop in recountedLoops) recountedEdgeIds.UnionWith(loop);
+            }
+            //
+            List<SweepWall> waitingWalls = new List<SweepWall>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                if (HasUnassignedEdge(wall.SourceEdgeIds, recountedEdgeIds, assignedTable)) waitingWalls.Add(wall);
+                else ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+            }
+            while (waitingWalls.Count > 0)
+            {
+                bool resolved = false;
+                for (int i = 0; i < waitingWalls.Count; i++)
+                {
+                    SweepWall wall = waitingWalls[i];
+                    bool sourceAssigned = AreAllAssigned(wall.SourceEdgeIds, assignedTable);
+                    if (!sourceAssigned && !AreAllAssigned(wall.TargetEdgeIds, assignedTable)) continue;
+                    if (sourceAssigned) ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+                    else
+                    {
+                        ResolveWallCrossEdges(new SweepWall(wall.SurfaceId, wall.TargetEdgeIds, wall.SourceEdgeIds,
+                                                            wall.DirectionEdgeIds), true, sourceTable, assignedTable);
+                    }
+                    waitingWalls.RemoveAt(i--);
+                    resolved = true;
+                }
+                if (resolved) continue;
+                //
+                int[] loop = GetLoopToRecount(recountedLoops, assignedTable);
+                if (loop == null)
+                {
+                    foreach (var wall in waitingWalls) ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+                    break;
+                }
+                SweepWallTopology.RecountCrossSection(loop, recountedLoops, _gmshData.EdgeIdNumElements, assignedTable);
+            }
+            sourceEdgeIdNumOfElements = sourceTable;
+            targetEdgeIdNumOfElements = assignedTable;
+        }
+        private static bool HasUnassignedEdge(int[] edgeIds, HashSet<int> recountedEdgeIds,
+                                              Dictionary<int, int> assignedEdgeIdNumOfElements)
+        {
+            foreach (var edgeId in edgeIds)
+            {
+                if (recountedEdgeIds.Contains(edgeId) && !assignedEdgeIdNumOfElements.ContainsKey(edgeId)) return true;
+            }
+            return false;
+        }
+        private static bool AreAllAssigned(int[] edgeIds, Dictionary<int, int> assignedEdgeIdNumOfElements)
+        {
+            foreach (var edgeId in edgeIds)
+            {
+                if (!assignedEdgeIdNumOfElements.ContainsKey(edgeId)) return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// The loop to count from its length when no waiting wall can be resolved: the one carrying the most
+        /// seeds of the user's, else the one cut into the fewest edges, whose count the rounding inflated least.
+        /// Null when every loop is assigned.
+        /// </summary>
+        private int[] GetLoopToRecount(List<int[]> loops, Dictionary<int, int> assignedEdgeIdNumOfElements)
+        {
+            int[] best = null;
+            int bestSeeded = -1;
+            int bestUnassigned = int.MaxValue;
+            foreach (var loop in loops)
+            {
+                int seeded = 0;
+                int unassigned = 0;
+                foreach (var edgeId in loop)
+                {
+                    if (assignedEdgeIdNumOfElements.ContainsKey(edgeId)) continue;
+                    unassigned++;
+                    if (_gmshData.EdgeIdNumElements.ContainsKey(edgeId)) seeded++;
+                }
+                if (unassigned == 0) continue;
+                if (seeded > bestSeeded || (seeded == bestSeeded && unassigned < bestUnassigned))
+                {
+                    best = loop;
+                    bestSeeded = seeded;
+                    bestUnassigned = unassigned;
+                }
+            }
+            return best;
+        }
+        private void ResolveWallCrossEdges(SweepWall wall, bool reversed, Dictionary<int, int> sourceEdgeIdNumOfElements,
+                                           Dictionary<int, int> targetEdgeIdNumOfElements)
+        {
+            int numOfElements;
+            int sourceElements = 0;
+            foreach (var edgeId in wall.SourceEdgeIds)
+            {
+                // The target side of an earlier wall keeps the count that wall was given, and the walls
+                // of the block fed from it must start from that count rather than from the measured one
+                if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
+                    numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                sourceEdgeIdNumOfElements[edgeId] = numOfElements;
+                sourceElements += numOfElements;
+            }
+            // Where a split was carried across, both sides of the wall are split at the same places. The
+            // counts of the target edges follow the source nodes above them, so that the grid column
+            // through the split stays straight
+            int[] targetElements = DistributeTargetElementsByProjection(wall, sourceElements, reversed);
+            // Where the two sides are split at corresponding places, every target segment takes the count of
+            // the source segment opposite it, so that the grid column through the split runs straight
+            if (targetElements == null) targetElements = DistributeTargetElementsBySide(wall, sourceEdgeIdNumOfElements);
+            if (targetElements == null)
+            {
+                double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
+                targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
+            }
+            for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
+                targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
+        }
+        /// <summary>
+        /// The cross section loops of one column that gmsh counted differently, found from the walls whose two
+        /// sides came out unequal: the loops the two sides of such a wall lie on, when they are the same closed
+        /// curve - of the same length - cut differently, and from there every loop of that length that a wall
+        /// joins to one of them, since a column carries one count through all its cross sections. Gmsh meshes
+        /// every curve on its own and rounds its count up, so a circle cut into two half arcs and the same
+        /// circle cut into four unequal arcs measure differently, and the walls between them cannot both be
+        /// grids. Empty when every wall is a grid, and when the sides of no unequal wall are cuts of one curve.
+        /// </summary>
+        private static List<int[]> GetDifferentlyCountedCrossSections(List<SweepWall> walls,
+                                                                      Dictionary<int, int> edgeIdNumOfElements)
+        {
+            List<int[]> loops = new List<int[]>();
+            List<SweepWall> refusedWalls = GetWallsRefusedAcrossSweep(walls, edgeIdNumOfElements);
+            if (refusedWalls.Count == 0) return loops;
+            //
+            Dictionary<int, int[]> edgeIdLoop = SweepWallTopology.GetCrossSectionLoops(walls);
+            Dictionary<int[], double> loopLengths = new Dictionary<int[], double>();
+            foreach (var wall in refusedWalls)
+            {
+                int[] sourceLoop = edgeIdLoop[wall.SourceEdgeIds[0]];
+                int[] targetLoop = edgeIdLoop[wall.TargetEdgeIds[0]];
+                if (!AreSameClosedCurve(sourceLoop, targetLoop, loopLengths)) continue;
+                if (!loops.Contains(sourceLoop)) loops.Add(sourceLoop);
+                if (!loops.Contains(targetLoop)) loops.Add(targetLoop);
+            }
+            // The rest of the column: across every wall standing on a loop of the set to the loop of its other
+            // side, as long as that is the same curve
+            bool added = loops.Count > 0;
+            while (added)
+            {
+                added = false;
+                foreach (var wall in walls)
+                {
+                    if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                    int[] sourceLoop = edgeIdLoop[wall.SourceEdgeIds[0]];
+                    int[] targetLoop = edgeIdLoop[wall.TargetEdgeIds[0]];
+                    bool sourceIn = loops.Contains(sourceLoop);
+                    if (sourceIn == loops.Contains(targetLoop)) continue;
+                    if (!AreSameClosedCurve(sourceLoop, targetLoop, loopLengths)) continue;
+                    loops.Add(sourceIn ? targetLoop : sourceLoop);
+                    added = true;
+                }
+            }
+            return loops;
+        }
+        private static bool AreSameClosedCurve(int[] loop1, int[] loop2, Dictionary<int[], double> loopLengths)
+        {
+            if (loop1 == loop2) return false;
+            double length1 = GetLoopLength(loop1, loopLengths);
+            double length2 = GetLoopLength(loop2, loopLengths);
+            return Math.Abs(length1 - length2) <= 1E-3 * Math.Max(length1, length2);
+        }
+        private static double GetLoopLength(int[] loop, Dictionary<int[], double> loopLengths)
+        {
+            double length;
+            if (loopLengths.TryGetValue(loop, out length)) return length;
+            length = SweepWallTopology.GetEdgeLengths(loop).Sum();
+            loopLengths.Add(loop, length);
+            return length;
+        }
+        private static string GetRecountedCrossSectionsMessage(List<int[]> loops)
+        {
+            List<string> cuts = new List<string>();
+            foreach (var loop in loops)
+            {
+                int total = 0;
+                foreach (var edgeId in loop) total += SweepWallTopology.GetElementCount(edgeId);
+                string cut = total + " elements over " + loop.Length + (loop.Length == 1 ? " edge" : " edges");
+                if (!cuts.Contains(cut)) cuts.Add(cut);
+            }
+            double length = SweepWallTopology.GetEdgeLengths(loops[0]).Sum();
+            return "the cross sections of one closed curve of length " + Math.Round(length, 3) + " were given " +
+                   string.Join(" and ", cuts) + " by gmsh, which rounds the count of every edge up; the curve is counted " +
+                   "from its length instead.";
+        }
+        /// <summary>
+        /// Every count in one table, the later tables overriding the earlier.
+        /// </summary>
+        private static Dictionary<int, int> MergeEdgeElements(params Dictionary<int, int>[] tables)
+        {
+            Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
+            foreach (var table in tables)
+            {
+                foreach (var entry in table) edgeIdNumOfElements[entry.Key] = entry.Value;
+            }
+            return edgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The walls whose source side and target side carry a different number of elements between them.
+        /// </summary>
+        private static List<SweepWall> GetWallsRefusedAcrossSweep(List<SweepWall> walls, Dictionary<int, int> edgeIdNumOfElements)
+        {
+            List<SweepWall> refusedWalls = new List<SweepWall>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                if (GetSideElementCount(wall.SourceEdgeIds, edgeIdNumOfElements) !=
+                    GetSideElementCount(wall.TargetEdgeIds, edgeIdNumOfElements)) refusedWalls.Add(wall);
+            }
+            return refusedWalls;
+        }
+        private static int GetSideElementCount(int[] edgeIds, Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int numOfElements;
+            int count = 0;
+            foreach (var edgeId in edgeIds)
+            {
+                if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) count += numOfElements;
+            }
+            return count;
         }
         /// <summary>
         /// Checks that every wall is a grid before gmsh is asked to lay one over it: the two sides across the
@@ -1731,12 +1962,8 @@ namespace CaeMesh
             foreach (var wall in walls)
             {
                 // Across the sweep: the source side against the target side
-                int sourceCount = 0;
-                int targetCount = 0;
-                foreach (var edgeId in wall.SourceEdgeIds)
-                    if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) sourceCount += numOfElements;
-                foreach (var edgeId in wall.TargetEdgeIds)
-                    if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) targetCount += numOfElements;
+                int sourceCount = GetSideElementCount(wall.SourceEdgeIds, edgeIdNumOfElements);
+                int targetCount = GetSideElementCount(wall.TargetEdgeIds, edgeIdNumOfElements);
                 if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0 && sourceCount != targetCount)
                     throw new CaeException(GetWallCountMessage("across the sweep direction", sourceCount, targetCount));
                 // Along the sweep: the two sides, each of them one chain however many edges it is made of
@@ -1787,7 +2014,7 @@ namespace CaeMesh
                 targetElements[i] = targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]];
             return targetElements;
         }
-        private int[] DistributeTargetElementsByProjection(SweepWall wall, int sourceElements)
+        private int[] DistributeTargetElementsByProjection(SweepWall wall, int sourceElements, bool reversed)
         {
             if (_sweepBlocks == null || wall.TargetEdgeIds.Length < 2) return null;
             //
@@ -1802,9 +2029,11 @@ namespace CaeMesh
                 }
             }
             if (block == null) return null;
-            // The source side nodes, carried onto the target plane
+            // The source side nodes, carried onto the target plane - the other way for a wall resolved from
+            // its target side
             IntPtr[] tags;
             double[] coor;
+            double sign = reversed ? -1 : 1;
             List<double> projected = new List<double>();
             HashSet<IntPtr> seen = new HashSet<IntPtr>();
             foreach (var edgeId in wall.SourceEdgeIds)
@@ -1813,9 +2042,9 @@ namespace CaeMesh
                 for (int i = 0; i < tags.Length; i++)
                 {
                     if (!seen.Add(tags[i])) continue;
-                    projected.Add(coor[3 * i] - block.ImprintTranslation[0]);
-                    projected.Add(coor[3 * i + 1] - block.ImprintTranslation[1]);
-                    projected.Add(coor[3 * i + 2] - block.ImprintTranslation[2]);
+                    projected.Add(coor[3 * i] - sign * block.ImprintTranslation[0]);
+                    projected.Add(coor[3 * i + 1] - sign * block.ImprintTranslation[1]);
+                    projected.Add(coor[3 * i + 2] - sign * block.ImprintTranslation[2]);
                 }
             }
             // Each target edge gets the nodes that land on it, an end node of two edges counting for both
