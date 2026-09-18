@@ -17356,6 +17356,8 @@ namespace PrePoMax
         // Geometry mesh
         public void DrawGeometry(bool resetCamera)
         {
+            bool rendering = _form.RenderingOn;
+            //
             try
             {
                 // Set the current view and call DrawGeometry
@@ -17363,6 +17365,7 @@ namespace PrePoMax
                 // Draw geometry
                 else
                 {
+                    if (rendering) _form.RenderingOn = false;
                     _form.Clear3D();    // Removes section cut
                     //
                     if (_model != null)
@@ -17393,6 +17396,10 @@ namespace PrePoMax
             {
                 // Do not throw an error - it might cancel a procedure
                 Debug.WriteLine(ex);
+            }
+            finally
+            {
+                if (rendering) _form.RenderingOn = true;
             }
         }
         public void DrawGeomParts()
