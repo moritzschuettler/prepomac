@@ -79,6 +79,8 @@ namespace PrePoMax
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.tsbCapture = new System.Windows.Forms.ToolStripButton();
             this.tsSymbols = new UserControls.ToolStripFocus();
+            this.tslColorBy = new System.Windows.Forms.ToolStripLabel();
+            this.tscbColorBy = new System.Windows.Forms.ToolStripComboBox();
             this.tslSymbols = new System.Windows.Forms.ToolStripLabel();
             this.tscbSymbols = new System.Windows.Forms.ToolStripComboBox();
             this.tsResultDeformation = new UserControls.ToolStripFocus();
@@ -1012,12 +1014,36 @@ namespace PrePoMax
             this.tsSymbols.DisableMouseButtons = false;
             this.tsSymbols.Dock = System.Windows.Forms.DockStyle.None;
             this.tsSymbols.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tslColorBy,
+            this.tscbColorBy,
             this.tslSymbols,
             this.tscbSymbols});
             this.tsSymbols.Location = new System.Drawing.Point(3, 0);
             this.tsSymbols.Name = "tsSymbols";
-            this.tsSymbols.Size = new System.Drawing.Size(187, 25);
+            this.tsSymbols.Size = new System.Drawing.Size(381, 25);
             this.tsSymbols.TabIndex = 9;
+            // 
+            // tslColorBy
+            // 
+            this.tslColorBy.Name = "tslColorBy";
+            this.tslColorBy.Size = new System.Drawing.Size(52, 22);
+            this.tslColorBy.Text = "Color by";
+            // 
+            // tscbColorBy
+            // 
+            this.tscbColorBy.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.tscbColorBy.FlatStyle = System.Windows.Forms.FlatStyle.Standard;
+            this.tscbColorBy.Items.AddRange(new object[] {
+            "None",
+            "Face Orientations",
+            "Mesh Types",
+            "Parts",
+            "Materials",
+            "Sections",
+            "Section Thicknesses"});
+            this.tscbColorBy.Name = "tscbColorBy";
+            this.tscbColorBy.Size = new System.Drawing.Size(140, 25);
+            this.tscbColorBy.ToolTipText = "Select how the model is colored.";
             // 
             // tslSymbols
             // 
@@ -2025,16 +2051,16 @@ namespace PrePoMax
             this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateFaceOrientations.Text = "Face Orientations";
             this.tsmiAnnotateFaceOrientations.Click += new System.EventHandler(this.tsmiAnnotateFaceOrientations_Click);
-            //
+            // 
             // tsmiAnnotateMeshTypes
-            //
+            // 
             this.tsmiAnnotateMeshTypes.Name = "tsmiAnnotateMeshTypes";
             this.tsmiAnnotateMeshTypes.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateMeshTypes.Text = "Mesh Types";
             this.tsmiAnnotateMeshTypes.Click += new System.EventHandler(this.tsmiAnnotateMeshTypes_Click);
-            //
+            // 
             // tsmiDividerColorAnnotations1
-            //
+            // 
             this.tsmiDividerColorAnnotations1.Name = "tsmiDividerColorAnnotations1";
             this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(176, 6);
             // 
@@ -5871,6 +5897,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiResultWidgetSeparator3;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
         private System.Windows.Forms.ToolStripButton tsbCapture;
+        private System.Windows.Forms.ToolStripLabel tslColorBy;
+        private System.Windows.Forms.ToolStripComboBox tscbColorBy;
     }
 }
 

@@ -64,6 +64,8 @@ namespace PrePoMax
         public static string SymbolNone = "None";
         public static string SymbolModel = "Model";
         public static string SymbolResult = "Result";
+        // Color by names
+        public static string ColorByNone = "None";
         // File names
         public static string SettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";

@@ -94,6 +94,7 @@ namespace PrePoMax
         private bool _closeAfterRegeneration;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
+        private bool _suppressColorByChanged;
         private vtkResultWidgetContextMenuTypeEnum _resultWidgetContextMenuType;
         private bool _resultWidgetContextMenuMinimum;
         private ContextMenuStrip _cmsViewport;
@@ -434,6 +435,8 @@ namespace PrePoMax
                 tsResultDeformation.Location = new Point(0, tsFile.Height);
                 tsResults.Location = new Point(tsResultDeformation.Left + tsResultDeformation.Width, tsFile.Height);
                 tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
+                tscbColorBy.SelectedIndex = 0;
+                tscbColorBy.SelectedIndexChanged += tscbColorBy_SelectedIndexChanged;
                 // Vtk
                 _vtk.OnMouseLeftButtonUpSelection += _vtk_SelectPointOrArea;
                 _vtk.RotationPointChanged += _vtk_RotationPointChanged;
@@ -1632,6 +1635,8 @@ namespace PrePoMax
                 // Toolbar View
                 tsViews.DisableMouseButtons = true;
                 // Toolbar Symbols
+                tslColorBy.Enabled = false;
+                tscbColorBy.Enabled = false;
                 tslSymbols.Enabled = false;
                 tscbSymbols.Enabled = false;
                 UpdateSymbolsList();
@@ -1687,6 +1692,9 @@ namespace PrePoMax
                     tsmiMesh.Enabled = true;
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
+                    // Toolbar Symbols
+                    tslColorBy.Enabled = true;
+                    tscbColorBy.Enabled = true;
                     // Vtk
                     vtkVisible = true;
                 }
@@ -1707,6 +1715,8 @@ namespace PrePoMax
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
                     // Toolbar Symbols
+                    tslColorBy.Enabled = true;
+                    tscbColorBy.Enabled = true;
                     tslSymbols.Enabled = true;
                     tscbSymbols.Enabled = true;
                     // Vtk
@@ -1724,6 +1734,8 @@ namespace PrePoMax
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
                     // Toolbar Symbols
+                    tslColorBy.Enabled = true;
+                    tscbColorBy.Enabled = true;
                     tslSymbols.Enabled = true;
                     tscbSymbols.Enabled = true;
                     // Toolbar Results
@@ -3448,6 +3460,8 @@ namespace PrePoMax
                         tsmi.Checked = true;
                     }
                 }
+                //
+                UpdateColorByComboBox();
                 //
                 if (tsmiAnnotateFaceOrientations.Checked) return AnnotateWithColorEnum.FaceOrientation;
                 else if (tsmiAnnotateMeshTypes.Checked) return AnnotateWithColorEnum.MeshTypes;
@@ -10310,6 +10324,66 @@ namespace PrePoMax
         //
         #endregion  ################################################################################################################
 
+        #region Color by toolbar  ##################################################################################################
+        private void tscbColorBy_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_suppressColorByChanged) return;
+            //
+            try
+            {
+                // The combo box already shows the selection
+                _suppressColorByChanged = true;
+                //
+                ToolStripMenuItem tsmi = GetColorByMenuItem(tscbColorBy.SelectedItem.ToString());
+                if (tsmi == null)
+                {
+                    ClearAnnotationStatus();
+                    _controller.AnnotateWithColor = AnnotateWithColorEnum.None;
+                }
+                else if (!tsmi.Checked) _controller.AnnotateWithColor = ChangeAnnotationStatus(tsmi);
+                //
+                this.ActiveControl = null;
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                _suppressColorByChanged = false;
+            }
+        }
+        private ToolStripMenuItem GetColorByMenuItem(string name)
+        {
+            if (name == tsmiAnnotateFaceOrientations.Text) return tsmiAnnotateFaceOrientations;
+            else if (name == tsmiAnnotateMeshTypes.Text) return tsmiAnnotateMeshTypes;
+            else if (name == tsmiAnnotateParts.Text) return tsmiAnnotateParts;
+            else if (name == tsmiAnnotateMaterials.Text) return tsmiAnnotateMaterials;
+            else if (name == tsmiAnnotateSections.Text) return tsmiAnnotateSections;
+            else if (name == tsmiAnnotateSectionThicknesses.Text) return tsmiAnnotateSectionThicknesses;
+            else return null;
+        }
+        private void UpdateColorByComboBox()
+        {
+            if (_suppressColorByChanged) return;
+            //
+            string name;
+            if (tsmiAnnotateFaceOrientations.Checked) name = tsmiAnnotateFaceOrientations.Text;
+            else if (tsmiAnnotateMeshTypes.Checked) name = tsmiAnnotateMeshTypes.Text;
+            else if (tsmiAnnotateParts.Checked) name = tsmiAnnotateParts.Text;
+            else if (tsmiAnnotateMaterials.Checked) name = tsmiAnnotateMaterials.Text;
+            else if (tsmiAnnotateSections.Checked) name = tsmiAnnotateSections.Text;
+            else if (tsmiAnnotateSectionThicknesses.Checked) name = tsmiAnnotateSectionThicknesses.Text;
+            else name = Globals.ColorByNone;
+            //
+            if (tscbColorBy.SelectedItem != null && tscbColorBy.SelectedItem.ToString() == name) return;
+            //
+            _suppressColorByChanged = true;
+            tscbColorBy.SelectedItem = name;
+            _suppressColorByChanged = false;
+        }
+        #endregion  ################################################################################################################
+
         #region Symbol toolbar  ####################################################################################################
         private void tscbSymbols_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -11182,6 +11256,8 @@ namespace PrePoMax
             tsmiAnnotateLoads.Checked = false;
             tsmiAnnotateDefinedFields.Checked = false;
             tsmiAnnotateAllSymbols.Checked = false;
+            //
+            UpdateColorByComboBox();
             //
             HideColorBar();
         }
