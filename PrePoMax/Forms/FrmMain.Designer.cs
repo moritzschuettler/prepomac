@@ -243,6 +243,7 @@ namespace PrePoMax
             this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSplitGeometry = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -2369,6 +2370,7 @@ namespace PrePoMax
             this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitAFaceUsingTwoPoints,
+            this.tsmiSplitGeometry,
             this.tsmiDividerCAD2,
             this.tsmiDefeature});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
@@ -2407,6 +2409,13 @@ namespace PrePoMax
             this.tsmiSplitAFaceUsingTwoPoints.Size = new System.Drawing.Size(227, 22);
             this.tsmiSplitAFaceUsingTwoPoints.Text = "Split a Face Using Two Points";
             this.tsmiSplitAFaceUsingTwoPoints.Click += new System.EventHandler(this.tsmiSplitAFaceUsingTwoPoints_Click);
+            //
+            // tsmiSplitGeometry
+            //
+            this.tsmiSplitGeometry.Name = "tsmiSplitGeometry";
+            this.tsmiSplitGeometry.Size = new System.Drawing.Size(227, 22);
+            this.tsmiSplitGeometry.Text = "Split Geometry";
+            this.tsmiSplitGeometry.Click += new System.EventHandler(this.tsmiSplitGeometry_Click);
             // 
             // tsmiDividerCAD2
             // 
@@ -5629,6 +5638,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerGeometry2;
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitAFaceUsingTwoPoints;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSplitGeometry;
         private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCylinder;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateElementSet;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateNodeSet;

@@ -41,6 +41,8 @@ namespace CaeMesh
         protected int[][] _edgeCellIdsByEdge;
         protected double[] _edgeLengths;
         protected GeomCurveType[] _edgeTypes;
+        protected int[] _faceKernelIds;
+        protected int[] _edgeKernelIds;
         protected int[] _vertexNodeIds;
 
 
@@ -170,6 +172,14 @@ namespace CaeMesh
         /// [0...num. of vertices] -> global node id (a vertice is a node where more than two edge cells meet)
         /// </summary>
         public int[] VertexNodeIds { get { return _vertexNodeIds; } set { _vertexNodeIds = value; } }
+        /// <summary>
+        /// The id the modelling kernel gave the face that the visualization face of the same index was
+        /// built from. The visualization is ordered by the kernel id but not equal to it: an entity the
+        /// renumbering could not match leaves a zero, and a kernel edge split by a vertex in its interior
+        /// becomes several visualization edges that all carry the same kernel id.
+        /// </summary>
+        public int[] FaceKernelIds { get { return _faceKernelIds; } set { _faceKernelIds = value; } }
+        public int[] EdgeKernelIds { get { return _edgeKernelIds; } set { _edgeKernelIds = value; } }
 
 
         // Constructors                                                                                                             
@@ -186,6 +196,8 @@ namespace CaeMesh
             _edgeCellIdsByEdge = null;
             _edgeLengths = null;
             _edgeTypes = null;
+            _faceKernelIds = null;
+            _edgeKernelIds = null;
             _vertexNodeIds = null;
         }
         public VisualizationData(VisualizationData visualization)
@@ -275,6 +287,8 @@ namespace CaeMesh
             else _edgeTypes = null;
             //
             _vertexNodeIds = visualization.VertexNodeIds != null ? visualization.VertexNodeIds.ToArray() : null;
+            _faceKernelIds = visualization.FaceKernelIds != null ? visualization.FaceKernelIds.ToArray() : null;
+            _edgeKernelIds = visualization.EdgeKernelIds != null ? visualization.EdgeKernelIds.ToArray() : null;
         }
 
 
@@ -301,6 +315,8 @@ namespace CaeMesh
                 ReadWrite.WriteToBinaryStream(visualizationData._edgeLengths, bw);
                 WriteToBinaryStream((int[])(object)visualizationData._edgeTypes, bw);
                 ReadWrite.WriteToBinaryStream(visualizationData._vertexNodeIds, bw);
+                ReadWrite.WriteToBinaryStream(visualizationData._faceKernelIds, bw);
+                ReadWrite.WriteToBinaryStream(visualizationData._edgeKernelIds, bw);
             }
         }
         public static void ReadFromBinaryStream(out VisualizationData visualizationData, System.IO.BinaryReader br, int version)
@@ -328,6 +344,11 @@ namespace CaeMesh
                     visualizationData._edgeTypes = (GeomCurveType[])(object)types;
                 }
                 ReadWrite.ReadFromBinaryStream(out visualizationData._vertexNodeIds, br);
+                if (version >= 2_006_004 || version == -1)
+                {
+                    ReadWrite.ReadFromBinaryStream(out visualizationData._faceKernelIds, br);
+                    ReadWrite.ReadFromBinaryStream(out visualizationData._edgeKernelIds, br);
+                }
             }
         }
         private static void WriteToBinaryStream(int[] data, System.IO.BinaryWriter bw)
@@ -491,6 +512,8 @@ namespace CaeMesh
                 }
                 else _faceTypes = null;
             }
+            // Kernel ids
+            _faceKernelIds = RenumberKernelIds(_faceKernelIds, orderedSurfaceIds);
             // Edges
             int[][] newFaceEdgeIds = new int[_faceEdgeIds.Length][];
             for (int i = 0; i < orderedSurfaceIds.Length; i++)
@@ -550,6 +573,18 @@ namespace CaeMesh
                 }
                 else _edgeTypes = null;
             }
+            // Kernel ids
+            _edgeKernelIds = RenumberKernelIds(_edgeKernelIds, orderedEdgeIds);
+        }
+        private static int[] RenumberKernelIds(int[] kernelIds, int[] orderedIds)
+        {
+            if (kernelIds == null) return null;
+            // The ids can only be renumbered when they belong to the current entities
+            if (kernelIds.Length != orderedIds.Length) return null;
+            //
+            int[] newKernelIds = new int[kernelIds.Length];
+            for (int i = 0; i < orderedIds.Length; i++) newKernelIds[i] = kernelIds[orderedIds[i]];
+            return newKernelIds;
         }
         public HashSet<int> GetNodeIdsForEdgeId(int edgeId)
         {

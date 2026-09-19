@@ -110,6 +110,15 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
+        [OrderedDisplayName(5, 10, "Splitting tool color")]
+        [DescriptionAttribute("Select the color of the geometry splitting tool symbol.")]
+        public Color SplitToolSymbolColor
+        {
+            get { return _preSettings.SplitToolSymbolColor; }
+            set { _preSettings.SplitToolSymbolColor = value; }
+        }
+        //
+        [CategoryAttribute("Symbols")]
         [OrderedDisplayName(5, 10, "Symbol size")]
         [DescriptionAttribute("Select the symbol size.")]
         [TypeConverter(typeof(StringLengthPixelConverter))]

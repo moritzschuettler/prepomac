@@ -50,6 +50,9 @@ namespace vtkControl
         public bool UseEdgeVisibility;
         public bool SmoothShaded;
         public bool DrawOnGeometry;
+        // The selection layer paints what it holds with the highlight color. A symbol that is drawn
+        // there only to be occluded by the model keeps the color it was given.
+        public bool KeepOwnColor;
         public bool UseSecondaryHighlightColor;
         public vtkMaxActorRepresentation ActorRepresentation;
         public bool SectionViewPossible;
@@ -58,6 +61,12 @@ namespace vtkControl
         public int[] PartNodeIds;
         public int[] PartElementIds;
         //
+        // A mouse over highlight that wants a point drawn on top of what it highlights puts the point
+        // here, since Geometry.Nodes carries the highlighted entity itself. Its own color and size say
+        // whether the point is only being pointed out or is what the click would take.
+        public double[][] ExtraPointCoor;
+        public Color ExtraPointColor;
+        public float ExtraPointSize;
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;
         public PartExchangeData ElementEdges;

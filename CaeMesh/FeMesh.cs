@@ -2885,6 +2885,8 @@ namespace CaeMesh
                 }
                 part.Visualization.FaceTypes = partFaceTypes;
             }
+            // After the sort the entry of a visualization surface holds the id the kernel gave it
+            part.Visualization.FaceKernelIds = newSurfaceIds.ToArray();
             //
             return oldIdNewId;
         }
@@ -3050,6 +3052,10 @@ namespace CaeMesh
                 }
                 part.Visualization.EdgeTypes = partEdgeTypes;
             }
+            // After the sort the entry of a visualization edge holds the id the kernel gave it. The two
+            // are not the same number: a kernel edge split by a vertex in its interior becomes several
+            // visualization edges that all carry its id, and every edge after them is shifted.
+            part.Visualization.EdgeKernelIds = newEdgeIds.ToArray();
             //
             return oldIdNewId;
         }

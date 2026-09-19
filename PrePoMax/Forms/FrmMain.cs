@@ -116,6 +116,7 @@ namespace PrePoMax
         private FrmRegenerate _frmRegenerate;
         private FrmAnalyzeGeometry _frmAnalyzeGeometry;
         private FrmMeshSetupItem _frmMeshSetupItem;
+        private FrmGeometryFeature _frmGeometryFeature;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -512,6 +513,9 @@ namespace PrePoMax
                 _frmMeshSetupItem = new FrmMeshSetupItem(_controller);
                 _frmMeshSetupItem.PreviewEdgeMeshAsync = PreviewEdgeMeshAsync;
                 AddFormToAllForms(_frmMeshSetupItem);
+                //
+                _frmGeometryFeature = new FrmGeometryFeature(_controller);
+                AddFormToAllForms(_frmGeometryFeature);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -4182,6 +4186,25 @@ namespace PrePoMax
             {
                 SetStateReady(Globals.SplittingFacesText);
             }
+        }
+        private void tsmiSplitGeometry_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateGeometryFeature();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        // Geometry feature
+        private void CreateGeometryFeature()
+        {
+            if (_controller.Model.Geometry == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmGeometryFeature);
+            ShowForm(_frmGeometryFeature, "Create Geometry Feature", null);
         }
         private async void tsmiDefeature_Click(object sender, EventArgs e)
         {
@@ -10011,6 +10034,7 @@ namespace PrePoMax
             if (ids == null) ids = _controller.GetSelectionIds();
             //
             if (_frmMeshSetupItem != null && _frmMeshSetupItem.Visible) _frmMeshSetupItem.SelectionChanged(ids);
+            if (_frmGeometryFeature != null && _frmGeometryFeature.Visible) _frmGeometryFeature.SelectionChanged(ids);
             if (_frmSelectGeometry != null && _frmSelectGeometry.Visible) _frmSelectGeometry.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);

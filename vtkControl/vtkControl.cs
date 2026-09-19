@@ -133,6 +133,7 @@ namespace vtkControl
         private int _selectionDistance;
         //
         private vtkMaxActor _mouseSelectionActorCurrent;
+        private vtkMaxActor _mouseSelectionPointActorCurrent;
         private HashSet<int> _mouseSelectionAllIds;
         private int[] _mouseSelectionCurrentIds;
         //
@@ -432,6 +433,7 @@ namespace vtkControl
             //
             _areaPicker = vtkRenderedAreaPicker.New();
             _mouseSelectionActorCurrent = null;
+            _mouseSelectionPointActorCurrent = null;
             _mouseSelectionCurrentIds = null;
             _mouseSelectionAllIds = new HashSet<int>();
             //
@@ -1437,6 +1439,21 @@ namespace vtkControl
             //
             AddActorGeometry(_mouseSelectionActorCurrent, vtkRendererLayer.Selection);
             _mouseSelectionActorCurrent.Geometry.SetProperty(Globals.CurrentMouseSelectionProperty);
+            // The highlighted entity stays visible and the point it would give is drawn on top of it
+            if (actorData != null && actorData.ExtraPointCoor != null && actorData.ExtraPointCoor.Length > 0)
+            {
+                vtkMaxActorData pointData = new vtkMaxActorData();
+                pointData.Geometry.Nodes.Coor = actorData.ExtraPointCoor;
+                pointData.NodeSize = actorData.ExtraPointSize;
+                _mouseSelectionPointActorCurrent = new vtkMaxActor(pointData, false, true);
+                AddActorGeometry(_mouseSelectionPointActorCurrent, vtkRendererLayer.Selection);
+                vtkProperty pointProperty = Globals.CurrentMouseSelectionProperty;
+                // The point keeps a color of its own, which is what separates a point being pointed out
+                // from the one the click would take
+                pointProperty.SetColor(actorData.ExtraPointColor.R / 255d, actorData.ExtraPointColor.G / 255d,
+                                      actorData.ExtraPointColor.B / 255d);
+                _mouseSelectionPointActorCurrent.Geometry.SetProperty(pointProperty);
+            }
         }
         private void PickByGeometryVertex(out vtkActor pickedActor, int x, int y)
         {
@@ -2433,6 +2450,9 @@ namespace vtkControl
         private void ApplySelectionFormattingToActor(vtkMaxActor actor)
         {
             if (actor == null || actor.GeometryMapper == null) return;
+            // A symbol put on this layer to be occluded by the model is not a selection and keeps the
+            // color it was drawn with
+            if (actor.KeepOwnColor) return;
             // Get actor cell type
             vtkCellTypes types = vtkCellTypes.New();
             actor.GeometryMapper.GetInput().GetCellTypes(types);
@@ -9097,6 +9117,12 @@ namespace vtkControl
                 _selectionRenderer.RemoveActor(_mouseSelectionActorCurrent.ElementEdges);
                 _selectedActors.Remove(_mouseSelectionActorCurrent);
                 _mouseSelectionActorCurrent = null;
+            }
+            if (_mouseSelectionPointActorCurrent != null)
+            {
+                _selectionRenderer.RemoveActor(_mouseSelectionPointActorCurrent.Geometry);
+                _selectedActors.Remove(_mouseSelectionPointActorCurrent);
+                _mouseSelectionPointActorCurrent = null;
             }
             //
             _mouseSelectionCurrentIds = null;

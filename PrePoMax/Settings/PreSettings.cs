@@ -33,6 +33,7 @@ namespace PrePoMax
         private Color _boundaryConditionSymbolColor;
         private Color _loadSymbolColor;
         private Color _definedFieldSymbolColor;
+        private Color _splitToolSymbolColor;
         private int _symbolSize;
         private int _nodeSymbolSize;
         private bool _drawSymbolEdges;
@@ -86,6 +87,11 @@ namespace PrePoMax
         {
             get { return _definedFieldSymbolColor; }
             set { _definedFieldSymbolColor = value; }
+        }
+        public Color SplitToolSymbolColor
+        {
+            get { return _splitToolSymbolColor; }
+            set { _splitToolSymbolColor = value; }
         }
         public int SymbolSize
         {
@@ -149,6 +155,7 @@ namespace PrePoMax
             _boundaryConditionSymbolColor = Color.Lime;
             _loadSymbolColor = Color.RoyalBlue;
             _definedFieldSymbolColor = Color.Tomato;
+            _splitToolSymbolColor = Color.RoyalBlue;
             _symbolSize = 50;
             _nodeSymbolSize = 5;
             _drawSymbolEdges = true;

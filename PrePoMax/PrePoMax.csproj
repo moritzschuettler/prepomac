@@ -211,6 +211,7 @@
     <Compile Include="Commands\0030_Geometry\01_Part\CShowGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFindEdgesByAngleForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\CSplitAFaceUsingTwoPoints.cs" />
+    <Compile Include="Commands\0030_Geometry\CSplitGeometry.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipFaceOrientations.cs" />
     <Compile Include="Commands\0040_Meshing\CAddMeshSetupItem.cs" />
     <Compile Include="Commands\0040_Meshing\CAddTetrahedralNetgenToUncoveredParts.cs" />
@@ -519,6 +520,16 @@
     <Compile Include="Forms\11_MeshSetup\Mmg\ViewShellMmg.cs" />
     <Compile Include="Forms\11_MeshSetup\Netgen\ViewTetrahedralNetgen.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\MeshSetupItemTypes.cs" />
+    <Compile Include="Forms\03_GeometryFeature\FrmGeometryFeature.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\03_GeometryFeature\GeometryFeatureTypes.cs" />
+    <Compile Include="Forms\03_GeometryFeature\FeatureSelectionTargetEnum.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSplitByExtendedFace.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSplitByExtrudedEdges.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSplitByPlaneThreePoints.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSplitByPointAndNormal.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewGeometryFeature.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
     <Compile Include="Forms\21_FEModel\FrmSplitPartMeshUsingSurface.cs">
@@ -936,6 +947,7 @@
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
+    <Compile Include="GeometryFeaturePointPickingEnum.cs" />
     <Compile Include="Common\SpatialPointSampler.cs" />
     <Compile Include="Meshing\Gmsh\GmshAPI.cs" />
     <Compile Include="Program.cs" />

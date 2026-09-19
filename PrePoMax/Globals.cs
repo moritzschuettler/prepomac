@@ -100,6 +100,8 @@ namespace PrePoMax
         public static string TempFolder = @"\Temp\";
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";
+        public static string SplitSourceBrepFileName = "splitSource.brep";
+        public static string SplitToolFileName = "splitTool";
         public static string StlFileName = "geometry.stl";        
         public static string MeshParametersFileName = "meshParameters";
         public static string LocalMeshSizesFileName = "localMeshSizes";

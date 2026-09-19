@@ -95,6 +95,7 @@ namespace vtkControl
         protected bool _sectionViewPossible;
         protected bool _drawOnGeometry;
         protected bool _useSecondaryHighlightColor;
+        protected bool _keepOwnColor;
         //
         protected bool _canHaveElementEdges;
         protected vtkRendererLayer _layer;
@@ -285,6 +286,7 @@ namespace vtkControl
             get { return _useSecondaryHighlightColor; } 
             set { _useSecondaryHighlightColor = value; } 
         }
+        public bool KeepOwnColor { get { return _keepOwnColor; } set { _keepOwnColor = value; } }
         public bool CanHaveElementEdges { get { return _canHaveElementEdges; } set { _canHaveElementEdges = value; } }
         public vtkRendererLayer Layer { get { return _layer; } set { _layer = value; } }
         public uint MemorySize { get { return _memorySize; } set { _memorySize = value; } }
@@ -412,6 +414,7 @@ namespace vtkControl
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
+            _keepOwnColor = data.KeepOwnColor;
             //
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
@@ -477,6 +480,7 @@ namespace vtkControl
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
+            _keepOwnColor = data.KeepOwnColor;
             //
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
@@ -601,6 +605,7 @@ namespace vtkControl
             _sectionViewPossible = sourceActor.SectionViewPossible;
             _drawOnGeometry = sourceActor.DrawOnGeometry;
             _useSecondaryHighlightColor = sourceActor.UseSecondaryHighlightColor;
+            _keepOwnColor = sourceActor.KeepOwnColor;
             //
             _canHaveElementEdges = sourceActor.CanHaveElementEdges;
             _layer = sourceActor.Layer;
