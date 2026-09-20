@@ -2452,6 +2452,10 @@ namespace CaeMesh
                             count++;
                         }
                     }
+                    // A sweep line cut into several edges is not one layer, and the average would pin the
+                    // same count on a segment of 2 and on a segment of 18. Such a layer is left to the sweep,
+                    // which shares every line out over its segments by length in PrepareWallEdges
+                    if (IsSweepLineCutIntoEdges(layer)) continue;
                     // A sweep layer whose edges all sit on faces that are neither 3 nor 4 sided -
                     // which is what a split source face produces - contributes nothing here. Without
                     // the guard the average is 0/0, and the resulting node count collapses the whole
@@ -2493,6 +2497,25 @@ namespace CaeMesh
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
             }
+        }
+        /// <summary>
+        /// Whether a sweep layer holds a sweep line cut into several edges, which two of its edges meeting at
+        /// a vertex say. The direction edges of one ring run alongside each other and share no vertex, so a
+        /// shared vertex is always the join of two segments of one line.
+        /// </summary>
+        private static bool IsSweepLineCutIntoEdges(HashSet<int> layerEdgeIds)
+        {
+            int[] vertexIds;
+            HashSet<int> layerVertexIds = new HashSet<int>();
+            foreach (var edgeId in layerEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                foreach (var vertexId in vertexIds)
+                {
+                    if (!layerVertexIds.Add(vertexId)) return true;
+                }
+            }
+            return false;
         }
         private void GenerateMesh(int dim)
         {
