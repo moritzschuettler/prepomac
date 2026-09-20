@@ -1817,6 +1817,8 @@ namespace CaeMesh
                 sourceEdgeIdNumOfElements[edgeId] = numOfElements;
                 sourceElements += numOfElements;
             }
+            RaiseSourceToTargetEdgeCount(wall, sourceEdgeIdNumOfElements, targetEdgeIdNumOfElements,
+                                         ref sourceElements);
             // Where a split was carried across, both sides of the wall are split at the same places. The
             // counts of the target edges follow the source nodes above them, so that the grid column
             // through the split stays straight
@@ -1831,6 +1833,35 @@ namespace CaeMesh
             }
             for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
                 targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
+        }
+        /// <summary>
+        /// Raises the source side of a wall to the number of edges its target side is cut into. Every edge
+        /// carries at least one element, so a target cut in two by a chamfer needs two of them, and a source
+        /// side gmsh measured as one element could never be the other side of that grid - the wall would be
+        /// refused however fine the rest of the mesh is. The raise is only made where the source is free to
+        /// take it: a source side the wall before it assigned as its target, or one the user pinned a count
+        /// on, keeps the count it was given, and the wall is refused with the count message as before.
+        /// </summary>
+        private void RaiseSourceToTargetEdgeCount(SweepWall wall, Dictionary<int, int> sourceEdgeIdNumOfElements,
+                                                  Dictionary<int, int> targetEdgeIdNumOfElements,
+                                                  ref int sourceElements)
+        {
+            if (sourceElements >= wall.TargetEdgeIds.Length) return;
+            //
+            foreach (var edgeId in wall.SourceEdgeIds)
+            {
+                if (targetEdgeIdNumOfElements.ContainsKey(edgeId) ||
+                    _gmshData.EdgeIdNumElements.ContainsKey(edgeId)) return;
+            }
+            //
+            double[] lengths = SweepWallTopology.GetEdgeLengths(wall.SourceEdgeIds);
+            int[] raisedElements = SweepWallTopology.DistributeElements(wall.TargetEdgeIds.Length, lengths);
+            sourceElements = 0;
+            for (int i = 0; i < wall.SourceEdgeIds.Length; i++)
+            {
+                sourceEdgeIdNumOfElements[wall.SourceEdgeIds[i]] = raisedElements[i];
+                sourceElements += raisedElements[i];
+            }
         }
         /// <summary>
         /// The cross section loops of one column that gmsh counted differently, found from the walls whose two
