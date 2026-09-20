@@ -231,6 +231,17 @@ namespace CaeMesh.Sweep
             targetEdgeIds = null;
             if (wall.SourceEdgeIds.Length != wall.TargetEdgeIds.Length) return false;
             //
+            return OrderWallSideChains(wall, out sourceEdgeIds, out targetEdgeIds);
+        }
+        /// <summary>
+        /// The same ordering for a wall whose two sides are cut into a different number of edges, which the
+        /// counts of a split target are read off the source with.
+        /// </summary>
+        public static bool OrderWallSideChains(SweepWall wall, out int[] sourceEdgeIds, out int[] targetEdgeIds)
+        {
+            sourceEdgeIds = null;
+            targetEdgeIds = null;
+            //
             int[] sourceEndVertexIds;
             int[] targetEndVertexIds;
             Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();

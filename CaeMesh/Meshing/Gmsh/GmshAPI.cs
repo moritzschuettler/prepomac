@@ -32,6 +32,7 @@ namespace CaeMesh
         private Action<string> _writeOutput;
         private List<SweepBlock> _sweepBlocks;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
+        private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
         private static readonly Regex _entityReference =
@@ -1663,6 +1664,7 @@ namespace CaeMesh
             // source side is pinned as well, so that every edge of every wall carries a count
             Dictionary<int, int> sourceEdgeIdNumOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements;
+            _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
             ResolveCrossEdgeElements(walls, null, null, out sourceEdgeIdNumOfElements,
                                      out targetEdgeIdNumOfElements);
             // Two edges of one source or target surface lying opposite each other belong to the target sides
@@ -1866,6 +1868,9 @@ namespace CaeMesh
             // Where the two sides are split at corresponding places, every target segment takes the count of
             // the source segment opposite it, so that the grid column through the split runs straight
             if (targetElements == null) targetElements = DistributeTargetElementsBySide(wall, sourceEdgeIdNumOfElements);
+            // Where the target is cut into more pieces than the source, each edge of the source shares its own
+            // count out over the run of target edges below it
+            if (targetElements == null) targetElements = DistributeTargetElementsByGroup(wall, sourceEdgeIdNumOfElements);
             if (targetElements == null)
             {
                 double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
@@ -1983,6 +1988,42 @@ namespace CaeMesh
             return "the cross sections of one closed curve of length " + Math.Round(length, 3) + " were given " +
                    string.Join(" and ", cuts) + " by gmsh, which rounds the count of every edge up; the curve is counted " +
                    "from its length instead.";
+        }
+        /// <summary>
+        /// The edges of the walls' cross-sweep sides that lie opposite another such edge across a source or a
+        /// target surface. The two walls have to give such an edge one count, whatever each of them would
+        /// share out on its own, so it is not an edge a single wall may place.
+        /// </summary>
+        private static HashSet<int> GetSharedCrossEdgeIds(List<SweepWall> walls)
+        {
+            HashSet<int> sideEdgeIds = new HashSet<int>();
+            HashSet<int> wallSurfaceIds = new HashSet<int>();
+            foreach (var wall in walls)
+            {
+                wallSurfaceIds.Add(wall.SurfaceId);
+                sideEdgeIds.UnionWith(wall.SourceEdgeIds);
+                sideEdgeIds.UnionWith(wall.TargetEdgeIds);
+            }
+            //
+            int[] faceIds;
+            int[] vertexIds;
+            HashSet<int> sharedEdgeIds = new HashSet<int>();
+            foreach (var edgeId in sideEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out vertexIds);
+                foreach (var faceId in faceIds)
+                {
+                    if (wallSurfaceIds.Contains(faceId)) continue;
+                    //
+                    int oppositeEdgeId;
+                    if (!TryGetOppositeEdgeId(edgeId, faceId, vertexIds, out oppositeEdgeId)) continue;
+                    if (!sideEdgeIds.Contains(oppositeEdgeId)) continue;
+                    //
+                    sharedEdgeIds.Add(edgeId);
+                    sharedEdgeIds.Add(oppositeEdgeId);
+                }
+            }
+            return sharedEdgeIds;
         }
         /// <summary>
         /// The counts two edges of one source or target surface must share. Such a surface lies between the
@@ -2267,6 +2308,159 @@ namespace CaeMesh
             for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
                 targetElements[i] = targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]];
             return targetElements;
+        }
+        /// <summary>
+        /// The counts of a target side cut into more pieces than the source side, shared out run by run
+        /// rather than over the side as a whole. Every edge of the source stands over a run of consecutive
+        /// edges of the target - the flat of a bent plate is split in two on the inner contour and left whole
+        /// on the outer one - and each source edge then shares its own count out over its own run, so that the
+        /// split falls where the nodes above it are.
+        ///
+        /// Sharing the whole side out by length puts it elsewhere: the side of a bend is shorter on the inside
+        /// than on the outside by the difference of the two arcs, so the share every piece takes of the side is
+        /// not the share it takes of the source edge over it, and the grid column through the split comes out
+        /// an element off. The runs are read from the lengths - the grouping whose runs come closest to the
+        /// source edges over them, which leaves the arc of the bend matched to the arc however much shorter it
+        /// is. Null when the sides cannot be ordered, or when no grouping leaves every piece an element.
+        /// </summary>
+        private int[] DistributeTargetElementsByGroup(SweepWall wall,
+                                                      Dictionary<int, int> sourceEdgeIdNumOfElements)
+        {
+            if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length <= wall.SourceEdgeIds.Length) return null;
+            //
+            int[] orderedSourceEdgeIds;
+            int[] orderedTargetEdgeIds;
+            if (!SweepWallTopology.OrderWallSideChains(wall, out orderedSourceEdgeIds, out orderedTargetEdgeIds))
+                return null;
+            //
+            int[] sourceElements = new int[orderedSourceEdgeIds.Length];
+            for (int i = 0; i < orderedSourceEdgeIds.Length; i++)
+            {
+                if (!sourceEdgeIdNumOfElements.TryGetValue(orderedSourceEdgeIds[i], out sourceElements[i])) return null;
+            }
+            double[] sourceLengths = SweepWallTopology.GetEdgeLengths(orderedSourceEdgeIds);
+            double[] targetLengths = SweepWallTopology.GetEdgeLengths(orderedTargetEdgeIds);
+            //
+            int[] runLengths = GetTargetRunLengths(sourceLengths, sourceElements, targetLengths);
+            if (runLengths == null) return null;
+            //
+            int first = 0;
+            Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
+            for (int i = 0; i < runLengths.Length; i++)
+            {
+                int[] runEdgeIds = new int[runLengths[i]];
+                double[] lengths = new double[runLengths[i]];
+                Array.Copy(orderedTargetEdgeIds, first, runEdgeIds, 0, runLengths[i]);
+                Array.Copy(targetLengths, first, lengths, 0, runLengths[i]);
+                // A run holding an edge whose count the wall beside it has a say in is not this method's to
+                // place: what the run has left once that count is taken is not what the lengths ask for, and
+                // the side is better shared out as a whole, which is what the caller falls back on
+                if (runLengths[i] > 1 && runEdgeIds.Any(id => _sharedCrossEdgeIds.Contains(id))) return null;
+                //
+                int[] runElements = DistributeRunElements(sourceElements[i], lengths);
+                for (int k = 0; k < runLengths[i]; k++)
+                    targetEdgeIdNumOfElements[runEdgeIds[k]] = runElements[k];
+                first += runLengths[i];
+            }
+            //
+            int[] targetElements = new int[wall.TargetEdgeIds.Length];
+            for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
+            {
+                if (!targetEdgeIdNumOfElements.TryGetValue(wall.TargetEdgeIds[i], out targetElements[i])) return null;
+            }
+            return targetElements;
+        }
+        /// <summary>
+        /// The count of one run shared out over its edges in proportion to their lengths, the edges with the
+        /// largest remainder taking what the rounding leaves over, and every edge kept above nothing at the
+        /// expense of the one with the most. Handing every edge an element first and sharing only the rest, as
+        /// the distribution of a whole side does, lifts a short edge above its share - two edges of 20 and 100
+        /// take three and eight of eleven elements that way instead of two and nine - and the split between
+        /// them then sits an element away from the node of the source above it.
+        /// </summary>
+        private static int[] DistributeRunElements(int total, double[] lengths)
+        {
+            int numOfEdges = lengths.Length;
+            if (numOfEdges == 0 || total < numOfEdges) return SweepWallTopology.DistributeElements(total, lengths);
+            //
+            double lengthSum = 0;
+            foreach (var length in lengths) lengthSum += Math.Max(0, length);
+            //
+            int assigned = 0;
+            double[] fraction = new double[numOfEdges];
+            int[] elements = new int[numOfEdges];
+            for (int i = 0; i < numOfEdges; i++)
+            {
+                double share = lengthSum > 0 ? total * Math.Max(0, lengths[i]) / lengthSum
+                                             : (double)total / numOfEdges;
+                elements[i] = (int)Math.Floor(share);
+                fraction[i] = share - elements[i];
+                assigned += elements[i];
+            }
+            int[] order = Enumerable.Range(0, numOfEdges).OrderByDescending(i => fraction[i]).ToArray();
+            for (int k = 0; k < total - assigned; k++) elements[order[k % numOfEdges]]++;
+            //
+            while (true)
+            {
+                int smallest = 0;
+                int largest = 0;
+                for (int i = 0; i < numOfEdges; i++)
+                {
+                    if (elements[i] < elements[smallest]) smallest = i;
+                    if (elements[i] > elements[largest]) largest = i;
+                }
+                if (elements[smallest] >= 1 || elements[largest] <= 1) break;
+                elements[smallest]++;
+                elements[largest]--;
+            }
+            return elements;
+        }
+        /// <summary>
+        /// How many consecutive target edges stand under each source edge: the grouping whose runs add up
+        /// closest to the lengths of the source edges over them, every run holding at least one edge and no
+        /// more edges than the source edge over it has elements to give them. Null when there is no such
+        /// grouping.
+        /// </summary>
+        private static int[] GetTargetRunLengths(double[] sourceLengths, int[] sourceElements, double[] targetLengths)
+        {
+            int numOfSource = sourceLengths.Length;
+            int numOfTarget = targetLengths.Length;
+            double[,] cost = new double[numOfSource + 1, numOfTarget + 1];
+            int[,] runLength = new int[numOfSource + 1, numOfTarget + 1];
+            for (int i = 0; i <= numOfSource; i++)
+            {
+                for (int j = 0; j <= numOfTarget; j++) cost[i, j] = double.MaxValue;
+            }
+            cost[0, 0] = 0;
+            //
+            for (int i = 1; i <= numOfSource; i++)
+            {
+                for (int j = 1; j <= numOfTarget; j++)
+                {
+                    double runLengthSum = 0;
+                    int longestRun = Math.Min(j, sourceElements[i - 1]);
+                    for (int run = 1; run <= longestRun; run++)
+                    {
+                        runLengthSum += targetLengths[j - run];
+                        if (cost[i - 1, j - run] == double.MaxValue) continue;
+                        //
+                        double runCost = cost[i - 1, j - run] + Math.Abs(sourceLengths[i - 1] - runLengthSum);
+                        if (runCost >= cost[i, j]) continue;
+                        cost[i, j] = runCost;
+                        runLength[i, j] = run;
+                    }
+                }
+            }
+            if (cost[numOfSource, numOfTarget] == double.MaxValue) return null;
+            //
+            int column = numOfTarget;
+            int[] runLengths = new int[numOfSource];
+            for (int i = numOfSource; i > 0; i--)
+            {
+                runLengths[i - 1] = runLength[i, column];
+                column -= runLength[i, column];
+            }
+            return runLengths;
         }
         private int[] DistributeTargetElementsByProjection(SweepWall wall, int sourceElements, bool reversed)
         {
