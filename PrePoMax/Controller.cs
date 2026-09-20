@@ -6821,7 +6821,10 @@ namespace PrePoMax
             HashSet<int> selectedPartIds;
             string[] meshAblePartNames = GetMeshablePartNames(new string[] { partName });
             int[] meshAblePartIds = _model.Geometry.GetPartIdsFomPartNames(meshAblePartNames);
-            MeshingParameters meshingParameters = GetPartDefaultMeshingParameters(partName);
+            // The sizes the dialog would show for the same selection: a compound is meshed as a whole but
+            // its size follows its sub-parts, and the box around all of them is far larger than any of them
+            MeshingParameters meshingParameters = GetPartDefaultMeshingParameters(meshAblePartNames);
+            if (meshingParameters == null) meshingParameters = GetPartDefaultMeshingParameters(partName);
             //
             if (meshSetupItems == null) meshSetupItems = _model.Geometry.MeshSetupItems;
             //
