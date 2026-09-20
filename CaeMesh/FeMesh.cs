@@ -4290,10 +4290,13 @@ namespace CaeMesh
             List<GmshIdLocation> idLocationList;
             //
             string[] partNames = GetMeshablePartNames(new string[] { partName });
+            // The names the messages of the mesher use to say which part an entity is on
+            gmshData.PartIdPartName = new Dictionary<int, string>();
             //
             for (int i = 0; i < partNames.Length; i++)
             {
                 part = _parts[partNames[i]];
+                gmshData.PartIdPartName[part.PartId] = part.Name;
                 vis = part.Visualization;
                 edgeIdNodeIds = vis.GetEdgeIdNodeIds();
                 faceIdNodeIds = vis.GetSurfaceIdNodeIds();

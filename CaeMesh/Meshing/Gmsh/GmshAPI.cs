@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -31,6 +32,15 @@ namespace CaeMesh
         private Action<string> _writeOutput;
         private List<SweepBlock> _sweepBlocks;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
+        private static readonly Regex _entityProgress =
+            new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
+        private static readonly Regex _entityReference =
+            new Regex(@"(?<![A-Za-z])(Surface|surface|Curve|curve|Point|point)\s+(\d+)", RegexOptions.Compiled);
+        // What a gmsh entity is in the model, so that a message of the mesher can name it the way the
+        // interface does. Empty until the geometry has been renumbered, and empty for a part with no CAD
+        private Dictionary<int, int> _gmshPointIdTopologyId = new Dictionary<int, int>();
+        private Dictionary<int, int> _gmshCurveIdTopologyId = new Dictionary<int, int>();
+        private Dictionary<int, int> _gmshSurfaceIdTopologyId = new Dictionary<int, int>();
         private HashSet<int> _scaffoldEdgeIds;
         private bool _isOCC;
         private string _error;
@@ -99,6 +109,9 @@ namespace CaeMesh
                 _currentLogLine = 0;
                 // Common options
                 Gmsh.Option.SetNumber("Geometry.OCCScaling", 1);
+                // Every message gmsh writes reaches the output twice, once printed by gmsh itself and once
+                // read back from its log, and only the second can be named and filtered on its way out
+                Gmsh.Option.SetNumber("General.Terminal", 0);
                 //
                 _thread = new Thread(new ThreadStart(() => action()));
                 _thread.Start();
@@ -2791,6 +2804,10 @@ namespace CaeMesh
             Dictionary<int, int> netgenVertexIdGmshVertexId = RenumberVertices();
             Dictionary<int, int> netgenEdgeIdGmshEdgeId = RenumberEdges(netgenVertexIdGmshVertexId);
             Dictionary<int, int> netgenFaceIdGmshFaceId = RenumberFaces(netgenVertexIdGmshVertexId);
+            // Read the other way round, so that a gmsh entity in a message can be named
+            _gmshPointIdTopologyId = InvertRenumbering(netgenVertexIdGmshVertexId);
+            _gmshCurveIdTopologyId = InvertRenumbering(netgenEdgeIdGmshEdgeId);
+            _gmshSurfaceIdTopologyId = InvertRenumbering(netgenFaceIdGmshFaceId);
             // Renumber mesh data                                                                                                   
             // Vertex mesh size
             if (_gmshData.VertexNodeIdMeshSize != null)
@@ -3239,13 +3256,71 @@ namespace CaeMesh
                 {
                     StringBuilder sb = new StringBuilder();
                     for (int i = _currentLogLine; i < loggerLines.Length; i++)
-                        sb.AppendLine(loggerLines[i]);
+                    {
+                        if (IsEntityProgressLine(loggerLines[i])) continue;
+                        sb.AppendLine(NameGmshEntities(loggerLines[i]));
+                    }
                     //
                     _currentLogLine = loggerLines.Length;
                     //
-                    _writeOutput?.Invoke(sb.ToString());
+                    if (sb.Length > 0) _writeOutput?.Invoke(sb.ToString());
                 }
             }
+        }
+        /// <summary>
+        /// One line per curve, surface or volume as the mesher walks them. They say nothing a reader acts
+        /// on and there are thousands of them on a compound, which is enough to push everything the sweep
+        /// reports about itself out of the output window before the run ends.
+        /// </summary>
+        private static bool IsEntityProgressLine(string line)
+        {
+            return _entityProgress.IsMatch(line);
+        }
+        /// <summary>
+        /// Writes a gmsh entity in a message the way the interface names it - "Surface 5 of Solid_part-50"
+        /// rather than the tag gmsh gave the imported geometry, which is a number the reader cannot look up
+        /// anywhere. An entity the renumbering did not map is left as gmsh wrote it.
+        /// </summary>
+        private string NameGmshEntities(string line)
+        {
+            if (_gmshSurfaceIdTopologyId.Count == 0 && _gmshCurveIdTopologyId.Count == 0 &&
+                _gmshPointIdTopologyId.Count == 0) return line;
+            //
+            return _entityReference.Replace(line, match =>
+            {
+                string word = match.Groups[1].Value;
+                int gmshId;
+                if (!int.TryParse(match.Groups[2].Value, out gmshId)) return match.Value;
+                //
+                Dictionary<int, int> map;
+                string lower = word.ToLowerInvariant();
+                if (lower == "surface") map = _gmshSurfaceIdTopologyId;
+                else if (lower == "curve") map = _gmshCurveIdTopologyId;
+                else map = _gmshPointIdTopologyId;
+                //
+                int topologyId;
+                if (!map.TryGetValue(gmshId, out topologyId)) return match.Value;
+                //
+                string partName = null;
+                int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+                if (_gmshData.PartIdPartName != null) _gmshData.PartIdPartName.TryGetValue(partId, out partName);
+                if (partName == null) partName = "part " + partId;
+                //
+                return word + " " + (FeMesh.GetItemIdFromGmshTopologyId(topologyId) + 1) + " of " + partName;
+            });
+        }
+        private static Dictionary<int, int> InvertRenumbering(Dictionary<int, int> topologyIdGmshId)
+        {
+            // Two sub-parts share the face between them, so one gmsh entity can stand for several of the
+            // model's; the lowest is kept, which makes the name the same from one run to the next
+            Dictionary<int, int> gmshIdTopologyId = new Dictionary<int, int>();
+            foreach (var entry in topologyIdGmshId)
+            {
+                int topologyId;
+                if (gmshIdTopologyId.TryGetValue(entry.Value, out topologyId) && topologyId <= entry.Key) continue;
+                gmshIdTopologyId[entry.Value] = entry.Key;
+            }
+            return gmshIdTopologyId;
         }
     }
 }

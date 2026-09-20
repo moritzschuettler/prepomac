@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -35,6 +35,7 @@ namespace CaeMesh
         public MeshSetupItem[] GmshSetupItems;
         public bool Preview;
         // Topology
+        public Dictionary<int, string> PartIdPartName;
         public Dictionary<int, FeNode> VertexNodes;
         public Dictionary<int[], List<GmshIdLocation>> EdgeVertexNodeIdsEdgeId;
         public Dictionary<int[], List<GmshIdLocation>> FaceVertexNodeIdsFaceId;
