@@ -3092,7 +3092,7 @@ namespace CaeModel
             SweepPartMaps maps = new SweepPartMaps();
             // The surfaces and the edges the sub-parts share are the same for every trial
             Dictionary<int, int> twinSurfaceIds = new Dictionary<int, int>();
-            Dictionary<int, int> twinEdgeIds = new Dictionary<int, int>();
+            Dictionary<int, List<int>> twinEdgeIds = new Dictionary<int, List<int>>();
             if (sweptParts.Length > 1)
             {
                 twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
@@ -3441,7 +3441,8 @@ namespace CaeModel
         /// </summary>
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
-                                              Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
+                                              Dictionary<int, int> twinSurfaceIds,
+                                              Dictionary<int, List<int>> twinEdgeIds,
                                               SweepPartMaps maps, out string error, out string errorPartName,
                                               out HashSet<int> sweptPartIds, out bool onlyUnreached)
         {
@@ -3461,7 +3462,7 @@ namespace CaeModel
             if (twinSurfaceIds == null)
             {
                 twinSurfaceIds = new Dictionary<int, int>();
-                twinEdgeIds = new Dictionary<int, int>();
+                twinEdgeIds = new Dictionary<int, List<int>>();
                 if (sweptParts.Length > 1)
                 {
                     twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
@@ -3729,11 +3730,11 @@ namespace CaeModel
         /// </summary>
         private string AddSideNeighbourSource(GeometryPart part, HashSet<int> sourceSurfaceIds, int sideSurfaceId,
                                               GeometryPart neighbour, int neighbourSideSurfaceId,
-                                              Dictionary<int, int> twinEdgeIds,
+                                              Dictionary<int, List<int>> twinEdgeIds,
                                               Dictionary<int, HashSet<int>> partIdSourceSurfaceIds, List<int> pendingPartIds)
         {
-            int twinId;
             int neighbourEdgeId;
+            List<int> twinIds;
             VisualizationData vis = part.Visualization;
             VisualizationData neighbourVis = neighbour.Visualization;
             HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
@@ -3742,13 +3743,19 @@ namespace CaeModel
             List<int> neighbourSourceIds = new List<int>();
             foreach (var edgeId in sourceEdgeIds)
             {
-                if (!twinEdgeIds.TryGetValue(FeMesh.GmshTopologyId(edgeId, part.PartId), out twinId)) continue;
-                //
-                neighbourEdgeId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
-                for (int i = 0; i < neighbourVis.FaceEdgeIds.Length; i++)
+                if (!twinEdgeIds.TryGetValue(FeMesh.GmshTopologyId(edgeId, part.PartId), out twinIds)) continue;
+                // An edge where three or four parts meet has a twin on each of them, and only the one on the
+                // neighbour being given a source says which of its edges continues this block's source
+                foreach (var twinId in twinIds)
                 {
-                    if (i == neighbourSideSurfaceId || !neighbourVis.FaceEdgeIds[i].Contains(neighbourEdgeId)) continue;
-                    neighbourSourceIds.Add(i);
+                    if (FeMesh.GetPartIdFromGmshTopologyId(twinId) != neighbour.PartId) continue;
+                    //
+                    neighbourEdgeId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                    for (int i = 0; i < neighbourVis.FaceEdgeIds.Length; i++)
+                    {
+                        if (i == neighbourSideSurfaceId || !neighbourVis.FaceEdgeIds[i].Contains(neighbourEdgeId)) continue;
+                        neighbourSourceIds.Add(i);
+                    }
                 }
             }
             // A neighbour with no surface continuing the source - a collar around the middle of a post - is not
