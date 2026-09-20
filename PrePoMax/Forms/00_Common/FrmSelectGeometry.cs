@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -190,15 +190,15 @@ namespace PrePoMax.Forms
                     //
                     if (geomType == GeometryType.Vertex)
                     {
-                        itemName = "Vertex " + itemTypePartIds[0] + 1;
+                        itemName = "Vertex " + (itemTypePartIds[0] + 1);
                     }
                     else if (geomType.IsEdge())
                     {
-                        itemName = "Edge " + itemTypePartIds[0] + 1;
+                        itemName = "Edge " + (itemTypePartIds[0] + 1);
                     }
                     else if (geomType.IsSurface())
                     {
-                        itemName = "Surface " + itemTypePartIds[0] + 1;
+                        itemName = "Surface " + (itemTypePartIds[0] + 1);
                     }
                     else
                     {
