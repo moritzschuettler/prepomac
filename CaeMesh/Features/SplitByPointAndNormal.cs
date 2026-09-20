@@ -38,7 +38,7 @@ namespace CaeMesh
             : base()
         {
             _point = new double[3];
-            _normal = new double[] { 0, 0, 1 };
+            _normal = new double[] { 0, 0, 0 };
             _offset = 0;
         }
         public SplitByPointAndNormal(SerializationInfo info, StreamingContext context)
@@ -85,7 +85,7 @@ namespace CaeMesh
             base.ClearSplitterSelection();
             //
             _point = new double[3];
-            _normal = new double[] { 0, 0, 1 };
+            _normal = new double[] { 0, 0, 0 };
         }
         public override string CheckValidity()
         {

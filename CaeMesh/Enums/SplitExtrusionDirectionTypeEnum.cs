@@ -19,10 +19,6 @@ namespace CaeMesh
     [Serializable]
     public enum SplitExtrusionDirectionTypeEnum
     {
-        [StandardValue("NormalToFace", DisplayName = "Normal to the face")]
-        NormalToFace,
-        [StandardValue("InFaceNormalToEdge", DisplayName = "In the face, normal to the edge")]
-        InFaceNormalToEdge,
         [StandardValue("Selected", DisplayName = "Selected direction")]
         Selected,
         [StandardValue("Vector", DisplayName = "Vector")]

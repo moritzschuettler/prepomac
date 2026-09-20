@@ -21,11 +21,18 @@ namespace CaeMesh
     {
         // Variables
         private double[][] _points;                         //ISerializable
+        private int _numberOfPoints;                        //ISerializable
         private double _offset;                             //ISerializable
 
 
         // Properties
         public double[][] Points { get { return _points; } set { _points = value; } }
+        /// <summary>
+        /// How many of the points were read from the picked geometry. A pick that does not land on a
+        /// point takes part in the selection without contributing one, so the number of picks and the
+        /// number of points are not the same.
+        /// </summary>
+        public int NumberOfPoints { get { return _numberOfPoints; } set { _numberOfPoints = value; } }
         public double Offset { get { return _offset; } set { _offset = value; } }
         public override SplitGeometryToolTypeEnum ToolType { get { return SplitGeometryToolTypeEnum.Plane; } }
         public override string DisplayName { get { return "Plane by three points"; } }
@@ -36,6 +43,7 @@ namespace CaeMesh
             : base()
         {
             _points = new double[][] { new double[3], new double[3], new double[3] };
+            _numberOfPoints = 0;
             _offset = 0;
         }
         public SplitByPlaneThreePoints(SerializationInfo info, StreamingContext context)
@@ -47,6 +55,8 @@ namespace CaeMesh
                 {
                     case "_points":
                         _points = (double[][])entry.Value; break;
+                    case "_numberOfPoints":
+                        _numberOfPoints = (int)entry.Value; break;
                     case "_offset":
                         _offset = (double)entry.Value; break;
                     default:
@@ -92,9 +102,12 @@ namespace CaeMesh
             base.ClearSplitterSelection();
             //
             _points = new double[][] { new double[3], new double[3], new double[3] };
+            _numberOfPoints = 0;
         }
         public override string CheckValidity()
         {
+            if (_splitterIds != null && _splitterIds.Length > 0 && _numberOfPoints < 3)
+                return "Select three points. A pick that does not land on a point does not give one.";
             if (GetPlaneNormal() == null)
                 return "The three points of the splitting plane lie on one line.";
             return null;
@@ -105,6 +118,7 @@ namespace CaeMesh
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
             info.AddValue("_points", _points, typeof(double[][]));
+            info.AddValue("_numberOfPoints", _numberOfPoints, typeof(int));
             info.AddValue("_offset", _offset, typeof(double));
         }
     }

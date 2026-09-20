@@ -31,7 +31,6 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(0, 10, "Edges")]
         [DescriptionAttribute("Select the edges that are swept into the splitting tool. Hold the Shift key to " +
                               "select a chain of edges in one operation.")]
-        [ReadOnlyAttribute(true)]
         [Id(1, 2)]
         public string SplitterSelection
         {
@@ -41,8 +40,8 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Direction")]
         [OrderedDisplayName(0, 10, "Defined by")]
-        [DescriptionAttribute("Select how the sweep direction is defined. The normal of the face the edges lie " +
-                              "on needs no further selection and cuts a shell straight through.")]
+        [DescriptionAttribute("Select how the sweep direction is defined: by picking the geometry that " +
+                              "gives it, or by entering its components.")]
         [Id(1, 3)]
         public SplitExtrusionDirectionTypeEnum DirectionType
         {
@@ -52,9 +51,11 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Direction")]
         [OrderedDisplayName(1, 10, "Selection")]
-        [DescriptionAttribute("Select a straight edge, a planar face or a cylindrical face that gives the sweep " +
-                              "direction.")]
-        [ReadOnlyAttribute(true)]
+        [DescriptionAttribute("Select the geometry that gives the sweep direction. One item gives the " +
+                              "direction it carries: a straight edge the way it runs, a planar face its " +
+                              "normal, a cylindrical or conical face its axis. Hold the Shift key to select " +
+                              "a planar face and a straight edge together, which gives the direction that " +
+                              "lies in the face and crosses the edge.")]
         [Id(2, 3)]
         public string DirectionSelection
         {

@@ -155,7 +155,7 @@ namespace PrePoMax
             _boundaryConditionSymbolColor = Color.Lime;
             _loadSymbolColor = Color.RoyalBlue;
             _definedFieldSymbolColor = Color.Tomato;
-            _splitToolSymbolColor = Color.RoyalBlue;
+            _splitToolSymbolColor = Color.SkyBlue;
             _symbolSize = 50;
             _nodeSymbolSize = 5;
             _drawSymbolEdges = true;

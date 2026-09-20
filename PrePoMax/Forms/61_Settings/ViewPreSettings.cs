@@ -56,6 +56,15 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Selection")]
+        [OrderedDisplayName(4, 10, "Splitting tool color")]
+        [DescriptionAttribute("Select the color of the geometry splitting tool and of the points it takes.")]
+        public Color SplitToolSymbolColor
+        {
+            get { return _preSettings.SplitToolSymbolColor; }
+            set { _preSettings.SplitToolSymbolColor = value; }
+        }
+        //
+        [CategoryAttribute("Selection")]
         [OrderedDisplayName(3, 10, "Mouse highlight color")]
         [DescriptionAttribute("Select the mouse highlight color.")]
         public Color MouseHighlightColor
@@ -107,15 +116,6 @@ namespace PrePoMax.Settings
         {
             get { return _preSettings.DefinedFieldSymbolColor; }
             set { _preSettings.DefinedFieldSymbolColor = value; }
-        }
-        //
-        [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(5, 10, "Splitting tool color")]
-        [DescriptionAttribute("Select the color of the geometry splitting tool symbol.")]
-        public Color SplitToolSymbolColor
-        {
-            get { return _preSettings.SplitToolSymbolColor; }
-            set { _preSettings.SplitToolSymbolColor = value; }
         }
         //
         [CategoryAttribute("Symbols")]

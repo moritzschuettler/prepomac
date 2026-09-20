@@ -4383,10 +4383,13 @@ namespace CaeMesh
             return MatchSharedItems(parts, surfaceIds, partIds, areas, centroids, vertexCoors);
         }
         /// <summary>
-        /// Finds the edges that two of the given parts have in common, the way GetSharedSurfaceIds finds
-        /// the surfaces: by the vertex positions, the length and the centroid.
+        /// Finds the edges that the given parts have in common, the way GetSharedSurfaceIds finds the
+        /// surfaces: by the vertex positions, the length and the centroid. A surface lies between two solids
+        /// and so has a single twin, but an edge is where three or four of them meet - the line where the
+        /// four quadrants of a swept shaft come together belongs to all four - so every edge is given all of
+        /// its twins and the caller picks the one on the part it is asking about.
         /// </summary>
-        public Dictionary<int, int> GetSharedEdgeIds(BasePart[] parts)
+        public Dictionary<int, List<int>> GetSharedEdgeIds(BasePart[] parts)
         {
             VisualizationData vis;
             List<int> edgeIds = new List<int>();
@@ -4408,7 +4411,7 @@ namespace CaeMesh
                     vertexCoors.Add(GetVertexCoordinates(vis.GetVertexNodeIdsForEdgeId(i)));
                 }
             }
-            return MatchSharedItems(parts, edgeIds, partIds, lengths, centroids, vertexCoors);
+            return MatchCoincidentItems(parts, edgeIds, partIds, lengths, centroids, vertexCoors);
         }
         private Dictionary<int, int> MatchSharedItems(BasePart[] parts, List<int> itemIds, List<int> partIds,
                                                       List<double> sizes, List<double[]> centroids,
@@ -4428,10 +4431,8 @@ namespace CaeMesh
                 for (int j = i + 1; j < itemIds.Count; j++)
                 {
                     if (partIds[i] == partIds[j] || sharedItemIds.ContainsKey(itemIds[j])) continue;
-                    if (vertexCoors[i].Length != vertexCoors[j].Length) continue;
-                    if (Math.Abs(sizes[i] - sizes[j]) > 1E-3 * Math.Max(sizes[i], sizes[j])) continue;
-                    if (GetCoorDistance(centroids[i], centroids[j]) > centroidTolerance) continue;
-                    if (!AreVertexCoordinatesEqual(vertexCoors[i], vertexCoors[j], vertexTolerance)) continue;
+                    if (!AreItemsCoincident(i, j, sizes, centroids, vertexCoors, centroidTolerance,
+                                            vertexTolerance)) continue;
                     //
                     sharedItemIds.Add(itemIds[i], itemIds[j]);
                     sharedItemIds.Add(itemIds[j], itemIds[i]);
@@ -4440,6 +4441,59 @@ namespace CaeMesh
             }
             //
             return sharedItemIds;
+        }
+        /// <summary>
+        /// Matches the items the way MatchSharedItems does, but keeps every match instead of the first one,
+        /// so that an item several parts carry is given all of them.
+        /// </summary>
+        private Dictionary<int, List<int>> MatchCoincidentItems(BasePart[] parts, List<int> itemIds,
+                                                                List<int> partIds, List<double> sizes,
+                                                                List<double[]> centroids,
+                                                                List<double[][]> vertexCoors)
+        {
+            BoundingBox boundingBox = new BoundingBox();
+            foreach (var part in parts) boundingBox.IncludeBox(part.BoundingBox);
+            double diagonal = boundingBox.GetDiagonal();
+            double vertexTolerance = 1E-5 * diagonal;
+            double centroidTolerance = 1E-3 * diagonal;
+            //
+            Dictionary<int, List<int>> coincidentItemIds = new Dictionary<int, List<int>>();
+            for (int i = 0; i < itemIds.Count; i++)
+            {
+                for (int j = i + 1; j < itemIds.Count; j++)
+                {
+                    if (partIds[i] == partIds[j]) continue;
+                    if (!AreItemsCoincident(i, j, sizes, centroids, vertexCoors, centroidTolerance,
+                                            vertexTolerance)) continue;
+                    //
+                    AddCoincidentItem(coincidentItemIds, itemIds[i], itemIds[j]);
+                    AddCoincidentItem(coincidentItemIds, itemIds[j], itemIds[i]);
+                }
+            }
+            //
+            return coincidentItemIds;
+        }
+        private static void AddCoincidentItem(Dictionary<int, List<int>> coincidentItemIds, int itemId,
+                                              int coincidentItemId)
+        {
+            List<int> coincidentIds;
+            if (!coincidentItemIds.TryGetValue(itemId, out coincidentIds))
+            {
+                coincidentIds = new List<int>();
+                coincidentItemIds.Add(itemId, coincidentIds);
+            }
+            coincidentIds.Add(coincidentItemId);
+        }
+        private static bool AreItemsCoincident(int i, int j, List<double> sizes, List<double[]> centroids,
+                                               List<double[][]> vertexCoors, double centroidTolerance,
+                                               double vertexTolerance)
+        {
+            if (vertexCoors[i].Length != vertexCoors[j].Length) return false;
+            if (Math.Abs(sizes[i] - sizes[j]) > 1E-3 * Math.Max(sizes[i], sizes[j])) return false;
+            if (GetCoorDistance(centroids[i], centroids[j]) > centroidTolerance) return false;
+            if (!AreVertexCoordinatesEqual(vertexCoors[i], vertexCoors[j], vertexTolerance)) return false;
+            //
+            return true;
         }
         public double[] ComputeFaceCentroid(VisualizationData visualization, int faceId)
         {

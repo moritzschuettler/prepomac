@@ -34,7 +34,6 @@ namespace PrePoMax.Forms
         [CategoryAttribute("Region")]
         [OrderedDisplayName(0, 10, "Parts to split")]
         [DescriptionAttribute("Select the parts to split. Hold the Shift key to select more than one part.")]
-        [ReadOnlyAttribute(true)]
         [Id(1, 1)]
         public string RegionSelection
         {
@@ -55,9 +54,13 @@ namespace PrePoMax.Forms
         public abstract GeometryFeature GetBase();
         protected static string SelectionToString(int[] ids, string itemName)
         {
-            if (ids == null || ids.Length == 0) return "Empty";
-            else if (ids.Length == 1) return "1 " + itemName;
-            else return ids.Length + " " + itemName + "s";
+            return CountToString(ids == null ? 0 : ids.Length, itemName);
+        }
+        protected static string CountToString(int count, string itemName)
+        {
+            if (count <= 0) return "Empty";
+            else if (count == 1) return "1 " + itemName;
+            else return count + " " + itemName + "s";
         }
         /// <summary>
         /// The property grid rows fill from the picked geometry, so they are refreshed after every pick.

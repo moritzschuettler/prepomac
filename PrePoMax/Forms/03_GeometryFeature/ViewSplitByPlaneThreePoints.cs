@@ -32,11 +32,12 @@ namespace PrePoMax.Forms
         [DescriptionAttribute("Select three points that define the splitting plane. Hold the Shift key to select " +
                               "all three in one operation. A vertex gives its own position and a circular edge " +
                               "gives its center.")]
-        [ReadOnlyAttribute(true)]
         [Id(1, 2)]
         public string SplitterSelection
         {
-            get { return SelectionToString(_splitByPlaneThreePoints.SplitterIds, "point"); }
+            // What is counted is the points that were read, not the picks that were made: an edge or a
+            // face can be picked without landing on a point, and counting it would say otherwise
+            get { return CountToString(_splitByPlaneThreePoints.NumberOfPoints, "point"); }
             set { }
         }
         //

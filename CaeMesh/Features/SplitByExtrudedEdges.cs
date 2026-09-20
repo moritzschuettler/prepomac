@@ -58,8 +58,8 @@ namespace CaeMesh
         public SplitByExtrudedEdges()
             : base()
         {
-            _directionType = SplitExtrusionDirectionTypeEnum.NormalToFace;
-            _direction = new double[] { 0, 0, 1 };
+            _directionType = SplitExtrusionDirectionTypeEnum.Selected;
+            _direction = new double[] { 0, 0, 0 };
             _lengthType = SplitExtrusionLengthTypeEnum.ThroughRegion;
             _length = 0;
             _bothDirections = true;

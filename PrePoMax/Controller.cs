@@ -5032,13 +5032,29 @@ namespace PrePoMax
         // While a geometry feature is picking points, hovering an edge previews the point that edge
         // would give instead of highlighting the edge
         [NonSerialized] private GeometryFeaturePointPickingEnum _geometryFeaturePointPicking;
+        // A picked sub part normally stands for the whole compound it belongs to. A geometry feature cuts
+        // the solids it is given, so there one pick means one sub part and an area selection is what names
+        // several of them.
+        [NonSerialized] private bool _pickCompoundSubPartsSeparately;
         public void SplitGeometry(GeometryFeature geometryFeature)
         {
             // In order for the Regenerate history to work perform the selection
             if (geometryFeature.CreationData == null)
                 throw new NotSupportedException("The region selection does not contain any selection data.");
             //
-            geometryFeature.CreationIds = GetIdsFromSelection(geometryFeature.CreationData);
+            // The region is resolved the way it was picked: one sub part means one sub part. Without this
+            // the resolution would expand it to every sub part of its compound, since by the time the split
+            // runs the picker has long moved on to the splitter and no longer asks for sub parts.
+            bool pickSubPartsSeparately = _pickCompoundSubPartsSeparately;
+            _pickCompoundSubPartsSeparately = true;
+            try
+            {
+                geometryFeature.CreationIds = GetIdsFromSelection(geometryFeature.CreationData);
+            }
+            finally
+            {
+                _pickCompoundSubPartsSeparately = pickSubPartsSeparately;
+            }
             if (geometryFeature.SplitterData != null)
                 geometryFeature.SplitterIds = GetIdsFromSelection(geometryFeature.SplitterData);
             if (geometryFeature is SplitByExtrudedEdges edgeItem && edgeItem.DirectionData != null)
@@ -5060,16 +5076,20 @@ namespace PrePoMax
             double[] extent = GetSplitGeometryRegionExtent(partNames);
             if (extent == null) throw new CaeException("The size of the parts to split could not be determined.");
             //
-            string sourceBrepFileName = WriteSplitGeometrySourceBrep(geometryFeature);
+            Dictionary<int, string> sourceBrepFileNames = WriteSplitGeometrySourceBreps(geometryFeature);
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> failedPartNames = new List<string>();
             //
-            // The pieces are imported before the part they came from is removed, so both are in the scene
-            // for a moment. Rendering is held off until the whole region is done, which turns that into one
-            // redraw instead of a flicker between two versions of the geometry.
+            // The pieces are imported before the part they came from is removed, so for a moment both are
+            // in the scene and both are in the model tree. Rendering and tree updating are held off until
+            // the whole region is done, which turns that into one redraw and one tree, instead of a flicker
+            // between two versions of the geometry.
             bool rendering = _form.RenderingOn;
-            if (rendering) _form.RenderingOn = false;
+            bool screenUpdating = _form.ScreenUpdating;
+            bool stateSet = _form.SetStateWorking(Globals.SplittingGeometryText);
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
             try
             {
                 foreach (string partName in partNames)
@@ -5081,7 +5101,9 @@ namespace PrePoMax
                     int facesBefore = GetGeometryPartFaceCount(partName);
                     _lastGeometryOperationCounts[partName] = 0;
                     //
-                    string brepFileName = SplitGeometryPart(part, geometryFeature, extent, sourceBrepFileName);
+                    int[] solidIds = GetSplitGeometrySolidIds(geometryFeature, partName);
+                    string brepFileName = SplitGeometryPart(part, geometryFeature, extent,
+                                                            sourceBrepFileNames, solidIds);
                     // A part the tool misses must not stop the parts it does not miss
                     if (brepFileName == null) { failedPartNames.Add(partName); continue; }
                     //
@@ -5093,7 +5115,12 @@ namespace PrePoMax
             }
             finally
             {
-                if (rendering) _form.RenderingOn = true;
+                _form.ScreenUpdating = screenUpdating;
+                // A replay of the history draws nothing until it ends, and the tree it leaves behind is
+                // the one it builds then, so only a split the user asked for rebuilds the tree here
+                if (screenUpdating) _form.RegenerateTree();
+                if (stateSet) _form.SetStateReady(Globals.SplittingGeometryText);
+                _form.RenderingOn = rendering;
             }
             //
             WriteGeometryOperationReport("Split geometry", "faces were added");
@@ -5116,15 +5143,16 @@ namespace PrePoMax
                 if (ids == null) return;
                 //
                 double[] point;
-                Dictionary<int, SelectionNodeMouse> threePointPicks =
-                    GetSplitGeometryPickNodes(threePoints.SplitterData);
-                for (int i = 0; i < ids.Length && i < 3; i++)
+                // Every pick means the point the entity it hit carries, so the points fill in the order
+                // they are captured, not in the order of the picks: a pick that gives no point must not
+                // leave a hole that the plane would then be built from
+                int numberOfPoints = 0;
+                for (int i = 0; i < ids.Length && numberOfPoints < 3; i++)
                 {
-                    // The same rule the preview showed: a point that lies on the edge is taken only when
-                    // the pick landed on it, so what was previewed is what is captured
-                    if (!IsSplitGeometryPickOnThePoint(ids[i], threePointPicks)) continue;
-                    if (TryGetSplitGeometryPoint(ids[i], out point)) threePoints.Points[i] = point;
+                    if (TryGetSplitGeometryPoint(ids[i], out point))
+                        threePoints.Points[numberOfPoints++] = point;
                 }
+                threePoints.NumberOfPoints = numberOfPoints;
             }
             else if (geometryFeature is SplitByPointAndNormal pointAndNormal)
             {
@@ -5138,9 +5166,9 @@ namespace PrePoMax
                 foreach (int id in ids)
                 {
                     GeometryType geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(id)[1];
-                    // An edge that carries its point on itself can mean either the point or the direction,
-                    // and where the user clicked is what decides
-                    if (geometryType.IsEdge() && IsSplitGeometryPointOnTheEdge(id))
+                    // An edge can mean either the point on it or the direction it runs in, and where the
+                    // user clicked is what decides
+                    if (geometryType.IsEdge())
                     {
                         bool nearPoint = IsSplitGeometryPickOnThePoint(id, pickNodes);
                         if (nearPoint && TryGetSplitGeometryPoint(id, out point)) pointAndNormal.Point = point;
@@ -5180,6 +5208,27 @@ namespace PrePoMax
             //
             UpdateSplitGeometryExtrusionDirection(extrudedEdges);
         }
+        /// <summary>
+        /// Puts a splitting plane that has not been picked yet through the center of the bounding box of
+        /// the parts it is to cut. A plane needs a point, and the one a new feature carries is the global
+        /// origin, which is usually nowhere near the parts: the plane would be drawn off in space instead
+        /// of through the geometry it is about to cut.
+        /// </summary>
+        public void SetSplitGeometryDefaultPlanePoint(GeometryFeature geometryFeature)
+        {
+            if (!(geometryFeature is SplitByPointAndNormal pointAndNormal)) return;
+            // A picked point is what positions the plane, so only an unpicked one is placed here
+            if (geometryFeature.SplitterIds != null && geometryFeature.SplitterIds.Length > 0) return;
+            //
+            int numOfSkippedParts;
+            string[] partNames = GetSplitGeometryRegionPartNames(geometryFeature, out numOfSkippedParts);
+            double[] extent = GetSplitGeometryRegionExtent(partNames);
+            if (extent == null) return;
+            // The extent is the bounding box grown by a margin on both sides, so its center is the center
+            // of the box itself
+            pointAndNormal.Point = new double[] { 0.5 * (extent[0] + extent[1]), 0.5 * (extent[2] + extent[3]),
+                                                  0.5 * (extent[4] + extent[5]) };
+        }
         public void DrawSplitGeometrySymbols(GeometryFeature geometryFeature, bool regionIsArmed)
         {
             // The selection layer colors what it holds with the selection color, so the tool symbol
@@ -5196,7 +5245,7 @@ namespace PrePoMax
             // While the region is being picked it is shown by the ordinary selection highlight. Once the
             // picker moves on, that highlight belongs to the splitter geometry, so the region is shown by
             // fading everything that is not part of it instead.
-            SetGeometryFeatureRegionFade(partNames, !regionIsArmed);
+            SetGeometryFeatureRegionFade(GetSplitGeometryPickedPartNames(geometryFeature), !regionIsArmed);
             // Arming a picker cleared what was drawn, and installing its selection does not draw it, so
             // the selection of whichever target is armed is highlighted here. An entity that was taken as
             // a point is left out: the point marker is what stands for it, and highlighting the edge as
@@ -5207,19 +5256,26 @@ namespace PrePoMax
             double[] extent = GetSplitGeometryRegionExtent(partNames);
             if (extent == null) return;
             //
+            // The tool is a large surface that lies between the mouse and the parts it is to cut, so it
+            // is shown only once the region has been picked and the picker has moved on to the splitter
             if (geometryFeature is SplitByPlaneThreePoints threePoints)
             {
-                DrawSplitGeometryPlaneSymbol(threePoints.GetPlaneOrigin(), threePoints.GetPlaneNormal(), extent);
+                if (!regionIsArmed)
+                    DrawSplitGeometryPlaneSymbol(threePoints.GetPlaneOrigin(), threePoints.GetPlaneNormal(), extent);
                 // The point an edge resolved to is nowhere near the place that was clicked, so it is
                 // marked rather than left for the user to infer
                 DrawSplitGeometryPointSymbols(threePoints.SplitterIds, threePoints.SplitterData);
             }
             else if (geometryFeature is SplitByPointAndNormal pointAndNormal)
             {
-                DrawSplitGeometryPlaneSymbol(pointAndNormal.GetPlaneOrigin(), pointAndNormal.GetPlaneNormal(), extent);
+                if (!regionIsArmed)
+                    DrawSplitGeometryPlaneSymbol(pointAndNormal.GetPlaneOrigin(), pointAndNormal.GetPlaneNormal(),
+                                                 extent);
                 DrawSplitGeometryPointSymbols(pointAndNormal.SplitterIds, pointAndNormal.SplitterData);
             }
-            else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
+            else if (geometryFeature is SplitByExtendedFace extendedFace && !regionIsArmed)
+                DrawSplitGeometryExtendedFaceSymbol(extendedFace, extent);
+            else if (geometryFeature is SplitByExtrudedEdges extrudedEdges && !regionIsArmed)
                 DrawSplitGeometryExtrusionSymbol(extrudedEdges, extent);
             //
             _form.UpdateScalarsAndRedraw();
@@ -5294,15 +5350,8 @@ namespace PrePoMax
         private void SetGeometryFeatureRegionFade(string[] regionPartNames, bool fadeTheRest)
         {
             if (_geometryFeatureFadedPartNames == null) _geometryFeatureFadedPartNames = new HashSet<string>();
-            // A compound is drawn as its sub parts, so the fade follows them
-            HashSet<string> regionNames = new HashSet<string>();
-            foreach (string partName in regionPartNames)
-            {
-                BasePart part;
-                if (!_model.Geometry.Parts.TryGetValue(partName, out part)) continue;
-                if (part is CompoundGeometryPart compoundPart) regionNames.UnionWith(compoundPart.SubPartNames);
-                else regionNames.Add(partName);
-            }
+            //
+            HashSet<string> regionNames = new HashSet<string>(regionPartNames);
             //
             HashSet<string> namesToFade = new HashSet<string>();
             if (fadeTheRest && regionNames.Count > 0)
@@ -5314,17 +5363,20 @@ namespace PrePoMax
                     namesToFade.Add(entry.Key);
                 }
             }
-            // Restore the parts that are no longer faded before fading the ones that are
+            // The fade dims the color the part is drawn with, which is the part color only while no color
+            // annotation is on. Asking for the drawn color is what keeps the annotation through the fade
+            // and puts it back afterwards, since the annotation never writes the part color itself.
             foreach (string partName in _geometryFeatureFadedPartNames.Except(namesToFade).ToArray())
             {
-                BasePart part;
-                if (_model.Geometry.Parts.TryGetValue(partName, out part))
-                    _form.UpdateActor(partName, partName, part.Color);
+                Color drawnColor;
+                if (TryGetGeometryFeatureDrawnPartColor(partName, out drawnColor))
+                    _form.UpdateActor(partName, partName, drawnColor);
             }
             foreach (string partName in namesToFade.Except(_geometryFeatureFadedPartNames).ToArray())
             {
-                BasePart part = _model.Geometry.Parts[partName];
-                _form.UpdateActor(partName, partName, Color.FromArgb(128, part.Color));
+                Color drawnColor;
+                if (TryGetGeometryFeatureDrawnPartColor(partName, out drawnColor))
+                    _form.UpdateActor(partName, partName, Color.FromArgb(128, drawnColor));
             }
             //
             _geometryFeatureFadedPartNames = namesToFade;
@@ -5338,9 +5390,53 @@ namespace PrePoMax
             get { return _geometryFeaturePointPicking; }
             set { _geometryFeaturePointPicking = value; }
         }
+        public bool PickCompoundSubPartsSeparately
+        {
+            get { return _pickCompoundSubPartsSeparately; }
+            set { _pickCompoundSubPartsSeparately = value; }
+        }
+        /// <summary>
+        /// The color the part is drawn with. A color annotation overrides the part color when the actor is
+        /// built and never writes it back, so this is the only place that knows what is on the screen.
+        /// </summary>
+        private bool TryGetGeometryFeatureDrawnPartColor(string partName, out Color color)
+        {
+            color = Color.Empty;
+            //
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out part)) return false;
+            //
+            Color backfaceColor = Color.Empty;
+            GetPartColor(part, ref color, ref backfaceColor);
+            return true;
+        }
+        /// <summary>
+        /// Resolves the region again from the picks it was made with. The split replaced the geometry
+        /// the region named, and a part that was cut in two is gone by name, so the ids are found by
+        /// picking at the stored positions rather than carried over.
+        /// </summary>
+        public void UpdateGeometryFeatureRegionIds(GeometryFeature geometryFeature)
+        {
+            if (geometryFeature == null || geometryFeature.CreationData == null) return;
+            //
+            Selection liveSelection = _selection;
+            try
+            {
+                geometryFeature.CreationIds = GetIdsFromSelection(geometryFeature.CreationData);
+            }
+            catch
+            {
+                geometryFeature.CreationIds = new int[0];
+            }
+            finally
+            {
+                _selection = liveSelection;
+            }
+        }
         public void ClearGeometryFeatureSymbols()
         {
             _geometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
+            _pickCompoundSubPartsSeparately = false;
             _form.RemoveOverlayActors(_geometryFeatureSymbolNames);
             if (_geometryFeatureSymbolActorNames != null && _geometryFeatureSymbolActorNames.Count > 0)
             {
@@ -5356,9 +5452,9 @@ namespace PrePoMax
             List<string> partNames = new List<string>();
             //
             if (geometryFeature.CreationIds == null) return partNames.ToArray();
-            // What the user picks on a compound is one of its sub parts, but a sub part cannot be
-            // split on its own: its geometry is one solid of the compound's brep, and removing it
-            // would leave the compound holding the name of a part that is gone
+            // What the user picks on a compound is one of its sub parts. The compound is what is sent
+            // to the mesher, because its sub parts share faces and separating them would lose the
+            // imprints; which of its solids are cut is said separately.
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             HashSet<string> addedPartNames = new HashSet<string>();
             //
@@ -5373,6 +5469,56 @@ namespace PrePoMax
                     if (addedPartNames.Add(partName)) partNames.Add(partName);
                 }
                 else numOfSkippedParts++;
+            }
+            return partNames.ToArray();
+        }
+        /// <summary>
+        /// The solids of a compound that the region named, numbered the way the mesher walks them. A
+        /// compound part carries its sub parts in the order they were written out of its brep, so the
+        /// place of a sub part in that list is the number of its solid. An empty answer means the whole
+        /// part is cut, which is what picking the compound itself, or any part that is not one, means.
+        /// </summary>
+        private int[] GetSplitGeometrySolidIds(GeometryFeature geometryFeature, string partName)
+        {
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out part) ||
+                !(part is CompoundGeometryPart compoundPart)) return new int[0];
+            if (geometryFeature.CreationIds == null) return new int[0];
+            //
+            List<int> solidIds = new List<int>();
+            foreach (int partId in geometryFeature.CreationIds)
+            {
+                BasePart pickedPart = _model.Geometry.GetPartFromId(partId);
+                if (pickedPart == null) continue;
+                // The compound itself stands for all of its solids
+                if (pickedPart.Name == compoundPart.Name) return new int[0];
+                //
+                int index = Array.IndexOf(compoundPart.SubPartNames, pickedPart.Name);
+                if (index >= 0 && !solidIds.Contains(index + 1)) solidIds.Add(index + 1);
+            }
+            solidIds.Sort();
+            // Naming every solid is the same as naming none, and says so in fewer words
+            if (solidIds.Count == compoundPart.SubPartNames.Length) return new int[0];
+            //
+            return solidIds.ToArray();
+        }
+        /// <summary>
+        /// The parts the region actually names, as they are drawn. A compound is drawn as its sub parts, so
+        /// picking the compound itself means all of them while picking one sub part means only that one -
+        /// which is what lets the siblings fade while it is being cut.
+        /// </summary>
+        private string[] GetSplitGeometryPickedPartNames(GeometryFeature geometryFeature)
+        {
+            List<string> partNames = new List<string>();
+            if (geometryFeature.CreationIds == null) return partNames.ToArray();
+            //
+            foreach (int partId in geometryFeature.CreationIds)
+            {
+                BasePart part = _model.Geometry.GetPartFromId(partId);
+                if (part == null) continue;
+                //
+                if (part is CompoundGeometryPart compoundPart) partNames.AddRange(compoundPart.SubPartNames);
+                else partNames.Add(part.Name);
             }
             return partNames.ToArray();
         }
@@ -5399,27 +5545,46 @@ namespace PrePoMax
             return new double[] { box.MinX - margin, box.MaxX + margin, box.MinY - margin, box.MaxY + margin,
                                   box.MinZ - margin, box.MaxZ + margin };
         }
-        private string WriteSplitGeometrySourceBrep(GeometryFeature geometryFeature)
+        /// <summary>
+        /// The brep of every part the picked splitter geometry lies on, keyed by part id. An id read from
+        /// one part's brep means nothing in another's, and the picks do land on several parts: a compound
+        /// is split as a whole while its pieces are what the user picks on. So the tool is given every one
+        /// of those breps, each beside the ids that were read from it.
+        /// </summary>
+        private Dictionary<int, string> WriteSplitGeometrySourceBreps(GeometryFeature geometryFeature)
         {
+            Dictionary<int, string> sourceBrepFileNames = new Dictionary<int, string>();
             // Only a tool that names geometry by id needs the part that geometry belongs to
-            if (geometryFeature.ToolType == SplitGeometryToolTypeEnum.Plane) return null;
-            if (geometryFeature.SplitterIds == null || geometryFeature.SplitterIds.Length == 0) return null;
-            //
-            int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryFeature.SplitterIds[0]);
-            BasePart part = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
-            if (!(part is GeometryPart geometryPart) || !geometryPart.IsCADPart) return null;
+            if (geometryFeature.ToolType == SplitGeometryToolTypeEnum.Plane) return sourceBrepFileNames;
+            if (geometryFeature.SplitterIds == null || geometryFeature.SplitterIds.Length == 0)
+                return sourceBrepFileNames;
             //
             string workDirectory = _settings.GetWorkDirectory();
-            if (workDirectory == null || !Directory.Exists(workDirectory)) return null;
-            // The source is written to a file of its own, since the part being split uses the standard one
-            string sourceBrepFileName = Path.Combine(workDirectory, Globals.SplitSourceBrepFileName);
-            if (File.Exists(sourceBrepFileName)) File.Delete(sourceBrepFileName);
-            File.WriteAllText(sourceBrepFileName, geometryPart.CADFileData);
+            if (workDirectory == null || !Directory.Exists(workDirectory)) return sourceBrepFileNames;
             //
-            return sourceBrepFileName;
+            string baseName = Path.GetFileNameWithoutExtension(Globals.SplitSourceBrepFileName);
+            string extension = Path.GetExtension(Globals.SplitSourceBrepFileName);
+            //
+            foreach (int geometryId in geometryFeature.SplitterIds)
+            {
+                int partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2];
+                if (sourceBrepFileNames.ContainsKey(partId)) continue;
+                //
+                BasePart part = _model.Geometry.GetPartFromId(partId);
+                if (!(part is GeometryPart geometryPart) || !geometryPart.IsCADPart) continue;
+                // The sources are written to files of their own, since the part being split uses the
+                // standard one
+                string sourceBrepFileName = Path.Combine(workDirectory, baseName +
+                                                         (sourceBrepFileNames.Count + 1) + extension);
+                if (File.Exists(sourceBrepFileName)) File.Delete(sourceBrepFileName);
+                File.WriteAllText(sourceBrepFileName, geometryPart.CADFileData);
+                //
+                sourceBrepFileNames.Add(partId, sourceBrepFileName);
+            }
+            return sourceBrepFileNames;
         }
         private string SplitGeometryPart(GeometryPart part, GeometryFeature geometryFeature, double[] extent,
-                                         string sourceBrepFileName)
+                                         Dictionary<int, string> sourceBrepFileNames, int[] solidIds)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -5439,7 +5604,7 @@ namespace PrePoMax
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             File.WriteAllText(toolFileName, GetSplitGeometryToolDefinition(geometryFeature, extent,
-                                                                          sourceBrepFileName));
+                                                                          sourceBrepFileNames, solidIds));
             //
             string argument = "BREP_SPLIT " +
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
@@ -5453,7 +5618,8 @@ namespace PrePoMax
             else return null;
         }
         private string GetSplitGeometryToolDefinition(GeometryFeature geometryFeature, double[] extent,
-                                                      string sourceBrepFileName)
+                                                      Dictionary<int, string> sourceBrepFileNames,
+                                                      int[] solidIds)
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("Split tool format: 1");
@@ -5462,7 +5628,12 @@ namespace PrePoMax
             if (geometryFeature.FuzzyValue > 0)
                 sb.AppendLine("Fuzzy value: " + SplitGeometryValuesToString(new double[]
                                                                            { geometryFeature.FuzzyValue }));
-            if (sourceBrepFileName != null) sb.AppendLine("Source file: " + sourceBrepFileName);
+            if (solidIds != null && solidIds.Length > 0)
+            {
+                StringBuilder solids = new StringBuilder();
+                foreach (int solidId in solidIds) solids.Append(" " + solidId);
+                sb.AppendLine("Solid ids:" + solids.ToString());
+            }
             //
             if (geometryFeature is SplitByPlaneThreePoints threePoints)
             {
@@ -5476,14 +5647,41 @@ namespace PrePoMax
             }
             else if (geometryFeature is SplitByExtendedFace)
             {
+                int partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryFeature.SplitterIds[0])[2];
+                string sourceBrepFileName;
+                if (sourceBrepFileNames.TryGetValue(partId, out sourceBrepFileName))
+                    sb.AppendLine("Source file: " + sourceBrepFileName);
                 sb.AppendLine("Face id: " + GetSplitGeometryKernelId(geometryFeature.SplitterIds[0]));
             }
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
             {
-                StringBuilder edgeIds = new StringBuilder();
+                // Each group of ids is written under the brep it was read from, since the same number
+                // means a different edge in every brep
+                List<int> partIds = new List<int>();
+                Dictionary<int, List<int>> kernelIdsByPartId = new Dictionary<int, List<int>>();
                 foreach (int id in extrudedEdges.SplitterIds)
-                    edgeIds.Append(" " + GetSplitGeometryKernelId(id));
-                sb.AppendLine("Edge ids:" + edgeIds.ToString());
+                {
+                    int partId = FeMesh.GetItemTypePartIdsFromGeometryId(id)[2];
+                    List<int> kernelIds;
+                    if (!kernelIdsByPartId.TryGetValue(partId, out kernelIds))
+                    {
+                        kernelIds = new List<int>();
+                        kernelIdsByPartId.Add(partId, kernelIds);
+                        partIds.Add(partId);
+                    }
+                    kernelIds.Add(GetSplitGeometryKernelId(id));
+                }
+                foreach (int partId in partIds)
+                {
+                    string sourceBrepFileName;
+                    // An edge on a part that has no brep cannot be extruded and is left out
+                    if (!sourceBrepFileNames.TryGetValue(partId, out sourceBrepFileName)) continue;
+                    sb.AppendLine("Source file: " + sourceBrepFileName);
+                    //
+                    StringBuilder edgeIds = new StringBuilder();
+                    foreach (int kernelId in kernelIdsByPartId[partId]) edgeIds.Append(" " + kernelId);
+                    sb.AppendLine("Edge ids:" + edgeIds.ToString());
+                }
                 //
                 double[] offset;
                 double[] vector;
@@ -5498,24 +5696,76 @@ namespace PrePoMax
                                                out double[] offset, out double[] vector)
         {
             double[] direction = extrudedEdges.GetExtrusionDirection();
-            //
+            double start;
             double length;
-            if (extrudedEdges.LengthType == SplitExtrusionLengthTypeEnum.Value) length = extrudedEdges.Length;
-            else length = Math.Sqrt((extent[1] - extent[0]) * (extent[1] - extent[0]) +
-                                    (extent[3] - extent[2]) * (extent[3] - extent[2]) +
-                                    (extent[5] - extent[4]) * (extent[5] - extent[4]));
-            // The length is the reach in one direction, so sweeping both ways doubles the swept vector
-            if (extrudedEdges.BothDirections)
+            //
+            if (extrudedEdges.LengthType == SplitExtrusionLengthTypeEnum.Value)
             {
-                offset = new double[] { -direction[0] * length, -direction[1] * length, -direction[2] * length };
-                vector = new double[] { direction[0] * 2 * length, direction[1] * 2 * length,
-                                        direction[2] * 2 * length };
+                // A length the user gave is the reach in one direction, so sweeping both ways doubles it
+                length = extrudedEdges.Length;
+                start = extrudedEdges.BothDirections ? -length : 0;
+                if (extrudedEdges.BothDirections) length *= 2;
             }
             else
             {
-                offset = new double[] { 0, 0, 0 };
-                vector = new double[] { direction[0] * length, direction[1] * length, direction[2] * length };
+                // Through the region means from one side of the region to the other, measured along the
+                // direction. Where the edges already lie inside the region only the rest of the way has
+                // to be swept: a length measured from the edges outwards, or the diagonal of the box that
+                // a direction independent length would have to be, reaches a whole region too far.
+                double regionMin;
+                double regionMax;
+                GetSplitGeometryAxisRange(new double[] { 0, 0, 0 }, direction, extent, out regionMin, out regionMax);
+                //
+                double edgeMin;
+                double edgeMax;
+                if (!TryGetSplitGeometryEdgeRange(extrudedEdges.SplitterIds, direction, out edgeMin, out edgeMax))
+                {
+                    edgeMin = regionMin;
+                    edgeMax = regionMax;
+                }
+                // Every point of every edge has to come out the far side, and the point that starts
+                // furthest back is the one that decides how far the sweep has to travel
+                if (extrudedEdges.BothDirections)
+                {
+                    start = regionMin - edgeMax;
+                    length = (regionMax - regionMin) + (edgeMax - edgeMin);
+                }
+                else
+                {
+                    start = 0;
+                    length = regionMax - edgeMin;
+                    // Edges that sit past the far side of the region are not swept through it at all
+                    if (length <= 0) length = regionMax - regionMin;
+                }
             }
+            //
+            offset = new double[] { direction[0] * start, direction[1] * start, direction[2] * start };
+            vector = new double[] { direction[0] * length, direction[1] * length, direction[2] * length };
+        }
+        /// <summary>
+        /// How far along the direction the edges being swept reach. It is read from the drawn edges rather
+        /// than from the geometry, because what is wanted is where they lie, not what they are.
+        /// </summary>
+        private bool TryGetSplitGeometryEdgeRange(int[] geometryIds, double[] direction, out double min,
+                                                  out double max)
+        {
+            min = double.MaxValue;
+            max = double.MinValue;
+            if (geometryIds == null) return false;
+            //
+            foreach (int geometryId in geometryIds)
+            {
+                double[][] edgeCoor = GetSplitGeometryEdgeCoor(geometryId);
+                if (edgeCoor == null) continue;
+                //
+                foreach (double[] coor in edgeCoor)
+                {
+                    double t = coor[0] * direction[0] + coor[1] * direction[1] + coor[2] * direction[2];
+                    if (t < min) min = t;
+                    if (t > max) max = t;
+                }
+            }
+            return max >= min;
         }
         private static string SplitGeometryValuesToString(double[] values)
         {
@@ -5597,35 +5847,49 @@ namespace PrePoMax
             if (entity == null) return false;
             //
             double[] values;
-            // A complete circle gives its center, which is what makes a hole pickable as a point. Its
-            // midpoint would be the point the seam happens to fall opposite, which means nothing.
-            bool closed = entity.TryGetNumbers("closed", out values) && values.Length == 1 && values[0] != 0;
-            if (!closed && entity.TryGetNumbers("midpoint", out values) && values.Length == 3)
+            // Every edge gives the point that lies on itself, a complete circle included: the center
+            // of a hole is reached by picking the cylindrical face, which gives its axis.
+            if (geometryType.IsEdge())
             {
-                point = new double[] { values[0], values[1], values[2] };
-                return true;
+                if (entity.TryGetNumbers("midpoint", out values) && values.Length == 3)
+                {
+                    point = new double[] { values[0], values[1], values[2] };
+                    return true;
+                }
+                // A straight edge is the one case where the midpoint can be computed rather than read: a
+                // line is represented exactly by its end vertices, so their average is the CAD midpoint
+                // and not an approximation of it. A curved edge waits for the metadata.
+                return TryGetSplitGeometryStraightEdgeMidpoint(geometryId, out point);
             }
+            // A sphere and a torus name their center outright
             if (entity.TryGetNumbers("center", out values) && values.Length == 3)
             {
                 point = new double[] { values[0], values[1], values[2] };
                 return true;
             }
-            if (entity.TryGetNumbers("midpoint", out values) && values.Length == 3)
+            if (geometryType.IsSurface())
             {
-                point = new double[] { values[0], values[1], values[2] };
-                return true;
+                double[] centroid;
+                if (!entity.TryGetCanonicalNumbers("centroid", out centroid) || centroid.Length != 3) return false;
+                //
+                string[] text;
+                bool isPlane = entity.TryGetCanonicalText("type", out text) && text.Length == 1 &&
+                               text[0] == "Plane";
+                // The middle of a planar face lies on the face. The origin of its axis would not: that is
+                // wherever the modelling kernel put the parametric origin of the surface.
+                if (isPlane) { point = centroid; return true; }
+                // The middle of a curved face lies off the face and is no use as a point. What is useful is
+                // the axis the face turns around, taken at the height of the face - which is the middle
+                // projected onto it. For a full cylinder the two are the same point; for half of one they
+                // are not, and the projection is the one that stays on the axis.
+                if (entity.TryGetNumbers("axis", out values) && values.Length == 6)
+                {
+                    point = ProjectPointOntoAxis(centroid, values);
+                    return point != null;
+                }
+                // A face with no axis - a spline patch - carries no point worth reporting
+                return false;
             }
-            // The origin of an axis is a point of a face, never a point of an edge: for a line it is an
-            // end vertex, which is not what a midpoint pick means
-            if (!geometryType.IsEdge() && entity.TryGetNumbers("axis", out values) && values.Length == 6)
-            {
-                point = new double[] { values[0], values[1], values[2] };
-                return true;
-            }
-            // A straight edge is the one case where the midpoint can be computed rather than read: a line
-            // is represented exactly by its end vertices, so their average is the CAD midpoint and not an
-            // approximation of it. A curved edge has no such shortcut and waits for the metadata.
-            if (geometryType.IsEdge()) return TryGetSplitGeometryStraightEdgeMidpoint(geometryId, out point);
             //
             return false;
         }
@@ -5659,6 +5923,23 @@ namespace PrePoMax
             }
             return true;
         }
+        /// <summary>
+        /// The point of an axis closest to the given point. The axis is the six numbers of an axis
+        /// property: an origin and a direction.
+        /// </summary>
+        private static double[] ProjectPointOntoAxis(double[] point, double[] axis)
+        {
+            double length = Math.Sqrt(axis[3] * axis[3] + axis[4] * axis[4] + axis[5] * axis[5]);
+            if (length <= 0) return null;
+            //
+            double dx = axis[3] / length;
+            double dy = axis[4] / length;
+            double dz = axis[5] / length;
+            //
+            double distance = (point[0] - axis[0]) * dx + (point[1] - axis[1]) * dy + (point[2] - axis[2]) * dz;
+            //
+            return new double[] { axis[0] + distance * dx, axis[1] + distance * dy, axis[2] + distance * dz };
+        }
         private bool TryGetSplitGeometryDirection(int geometryId, out double[] direction)
         {
             direction = null;
@@ -5686,70 +5967,42 @@ namespace PrePoMax
         }
         private void UpdateSplitGeometryExtrusionDirection(SplitByExtrudedEdges extrudedEdges)
         {
-            double[] direction = null;
-            //
+            // A typed direction is the user's own and is never overwritten
             if (extrudedEdges.DirectionType == SplitExtrusionDirectionTypeEnum.Vector) return;
-            else if (extrudedEdges.DirectionType == SplitExtrusionDirectionTypeEnum.Selected)
-            {
-                if (extrudedEdges.DirectionIds != null && extrudedEdges.DirectionIds.Length == 1)
-                    TryGetSplitGeometryDirection(extrudedEdges.DirectionIds[0], out direction);
-            }
-            else if (extrudedEdges.SplitterIds != null && extrudedEdges.SplitterIds.Length > 0)
-            {
-                double[] faceNormal;
-                double[] edgeDirection;
-                if (TryGetSplitGeometryEdgeFaceNormal(extrudedEdges.SplitterIds[0], out faceNormal))
-                {
-                    if (extrudedEdges.DirectionType == SplitExtrusionDirectionTypeEnum.NormalToFace)
-                    {
-                        direction = faceNormal;
-                    }
-                    else if (TryGetSplitGeometryDirection(extrudedEdges.SplitterIds[0], out edgeDirection))
-                    {
-                        // In the face and normal to the edge is the cross product of the two
-                        direction = new double[]
-                        {
-                            faceNormal[1] * edgeDirection[2] - faceNormal[2] * edgeDirection[1],
-                            faceNormal[2] * edgeDirection[0] - faceNormal[0] * edgeDirection[2],
-                            faceNormal[0] * edgeDirection[1] - faceNormal[1] * edgeDirection[0]
-                        };
-                    }
-                }
-            }
+            //
+            double[] direction = GetSplitGeometryPickedDirection(extrudedEdges.DirectionIds);
             // A direction that could not be read leaves the value at zero, which the validity check reports
             extrudedEdges.Direction = direction != null ? direction : new double[] { 0, 0, 0 };
         }
-        private bool TryGetSplitGeometryEdgeFaceNormal(int geometryId, out double[] normal)
+        /// <summary>
+        /// The direction a picked selection stands for. One entity gives the direction it carries:
+        /// the way a straight edge runs, the normal of a planar face, the axis of a cylinder or a
+        /// cone. Two give the direction perpendicular to both, which for a planar face and an edge
+        /// is the direction that lies in the face and crosses the edge - the one that cuts the face
+        /// in two along that edge. Nothing is read from the edges being swept: which face of a
+        /// corner is meant, and which edge of a chain, are questions only a pick can answer.
+        /// </summary>
+        private double[] GetSplitGeometryPickedDirection(int[] directionIds)
         {
-            normal = null;
+            if (directionIds == null || directionIds.Length == 0) return null;
             //
-            BasePart part;
-            GeometryType geometryType;
-            int itemId;
-            GeometryMetadataEntity edgeEntity = GetSplitGeometryMetadataEntity(geometryId, out part,
-                                                                              out geometryType, out itemId);
-            if (edgeEntity == null || part == null || part.GeometryMetadata == null) return false;
+            double[] first;
+            if (!TryGetSplitGeometryDirection(directionIds[0], out first)) return null;
+            if (directionIds.Length == 1) return first;
+            if (directionIds.Length != 2) return null;
             //
-            double[] faceIds;
-            if (!edgeEntity.TryGetNumbers("face_ids", out faceIds)) return false;
-            // Only a planar face has one normal for the whole face
-            foreach (double faceId in faceIds)
-            {
-                GeometryMetadataEntity faceEntity = part.GeometryMetadata.GetEntity("face", (int)faceId);
-                if (faceEntity == null) continue;
-                //
-                string[] text;
-                if (!faceEntity.TryGetCanonicalText("type", out text) || text.Length != 1 ||
-                    text[0] != "Plane") continue;
-                //
-                double[] values;
-                if (faceEntity.TryGetNumbers("axis", out values) && values.Length == 6)
-                {
-                    normal = new double[] { values[3], values[4], values[5] };
-                    return true;
-                }
-            }
-            return false;
+            double[] second;
+            if (!TryGetSplitGeometryDirection(directionIds[1], out second)) return null;
+            //
+            double[] direction = new double[] { first[1] * second[2] - first[2] * second[1],
+                                                first[2] * second[0] - first[0] * second[2],
+                                                first[0] * second[1] - first[1] * second[0] };
+            // Two entities that run the same way name no direction between them
+            double length = Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                      direction[2] * direction[2]);
+            if (length <= 1E-8) return null;
+            //
+            return new double[] { direction[0] / length, direction[1] / length, direction[2] / length };
         }
         // The splitting tool is drawn as a translucent blue surface with an opaque border of the same color.
         // The border cannot ride on the model edges of the surface actor, which are drawn at a lower opacity
@@ -5787,15 +6040,11 @@ namespace PrePoMax
             }
             if (coor.Count == 0) return;
             //
-            vtkMaxActor actor = DrawNodes("splitGeometryPoints", coor.ToArray(),
-                                          Color.FromArgb(255, _settings.Pre.SplitToolSymbolColor),
-                                          vtkRendererLayer.Overlay);
-            if (actor != null && actor.Name != null)
-            {
-                if (_geometryFeatureSymbolActorNames == null)
-                    _geometryFeatureSymbolActorNames = new HashSet<string>();
-                _geometryFeatureSymbolActorNames.Add(actor.Name);
-            }
+            // A point that has been taken is part of the selection, so it is drawn on the selection layer:
+            // that gives it the primary highlight color and the same two point sizes the hovered one gets,
+            // and the clear that precedes every redraw of the feature takes it away again.
+            DrawNodes("splitGeometryPoints", coor.ToArray(), _settings.Pre.PrimaryHighlightColor,
+                      vtkRendererLayer.Selection, _settings.Pre.NodeSymbolSize);
         }
         private void DrawSplitGeometryPlaneSymbol(double[] origin, double[] normal, double[] extent)
         {
@@ -5826,6 +6075,260 @@ namespace PrePoMax
             DrawSplitGeometryToolBorder("splitGeometryPlaneBorder", nodeCoor,
                                         new int[][] { new int[] { 0, 1 }, new int[] { 1, 2 },
                                                       new int[] { 2, 3 }, new int[] { 3, 0 } });
+        }
+        /// <summary>
+        /// The tool an extended face makes is the whole surface the face lies on, carried past the
+        /// boundary of the face, so that is what the symbol shows: a plane for a planar face, a tube for
+        /// a cylindrical or conical one, and the closed sphere or torus for a face that lies on one.
+        /// </summary>
+        private void DrawSplitGeometryExtendedFaceSymbol(SplitByExtendedFace extendedFace, double[] extent)
+        {
+            if (extendedFace.SplitterIds == null || extendedFace.SplitterIds.Length != 1) return;
+            //
+            BasePart part;
+            GeometryType geometryType;
+            int itemId;
+            GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(extendedFace.SplitterIds[0], out part,
+                                                                          out geometryType, out itemId);
+            if (entity == null) return;
+            // Every surface that continues past its face either turns around an axis or stands on one
+            double[] axis;
+            if (!entity.TryGetNumbers("axis", out axis) || axis.Length != 6) return;
+            //
+            double[] origin = new double[] { axis[0], axis[1], axis[2] };
+            double[] direction = new double[] { axis[3], axis[4], axis[5] };
+            double[] values;
+            double[] second;
+            //
+            if (extendedFace.FaceType == GeomFaceType.Plane)
+            {
+                DrawSplitGeometryPlaneSymbol(origin, direction, extent);
+            }
+            else if (extendedFace.FaceType == GeomFaceType.Cylinder)
+            {
+                if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], 0);
+            }
+            else if (extendedFace.FaceType == GeomFaceType.Cone)
+            {
+                if (!entity.TryGetNumbers("reference_radius", out values) || values.Length != 1) return;
+                if (!entity.TryGetNumbers("semi_angle_rad", out second) || second.Length != 1) return;
+                // The radius a cone reports belongs to the origin of its axis and grows along it
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], Math.Tan(second[0]));
+            }
+            else if (extendedFace.FaceType == GeomFaceType.Sphere)
+            {
+                if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
+                DrawSplitGeometrySphereSymbol(origin, direction, values[0]);
+            }
+            else if (extendedFace.FaceType == GeomFaceType.Torus)
+            {
+                if (!entity.TryGetNumbers("major_radius", out values) || values.Length != 1) return;
+                if (!entity.TryGetNumbers("minor_radius", out second) || second.Length != 1) return;
+                DrawSplitGeometryTorusSymbol(origin, direction, values[0], second[0]);
+            }
+        }
+        /// <summary>
+        /// A straight line turned around an axis: a cylinder when the slope is zero, a cone otherwise. It
+        /// is drawn over the whole part of the axis the region reaches, since that is as far as it cuts.
+        /// </summary>
+        private void DrawSplitGeometryTubeSymbol(double[] origin, double[] direction, double[] extent,
+                                                 double referenceRadius, double slope)
+        {
+            double[] axis = NormalizeSplitGeometryDirection(direction);
+            if (axis == null) return;
+            //
+            double tMin;
+            double tMax;
+            GetSplitGeometryAxisRange(origin, axis, extent, out tMin, out tMax);
+            //
+            double firstRadius = referenceRadius + tMin * slope;
+            double secondRadius = referenceRadius + tMax * slope;
+            // Past the apex of a cone the radius turns negative, which would mirror the cone instead of
+            // ending it, so the tube stops at the apex
+            if (slope != 0)
+            {
+                double apex = -referenceRadius / slope;
+                if (firstRadius < 0) { tMin = apex; firstRadius = 0; }
+                if (secondRadius < 0) { tMax = apex; secondRadius = 0; }
+            }
+            if (tMax <= tMin || (firstRadius <= 0 && secondRadius <= 0)) return;
+            //
+            double[] first;
+            double[] second;
+            GetSplitGeometryPlaneDirections(axis, out first, out second);
+            //
+            int numOfSegments = 36;
+            double[][] nodeCoor = new double[2 * numOfSegments][];
+            for (int ring = 0; ring < 2; ring++)
+            {
+                double distance = ring == 0 ? tMin : tMax;
+                double radius = ring == 0 ? firstRadius : secondRadius;
+                for (int i = 0; i < numOfSegments; i++)
+                {
+                    nodeCoor[ring * numOfSegments + i] =
+                        GetSplitGeometryRevolvedPoint(origin, axis, first, second, distance, radius,
+                                                      2 * Math.PI * i / numOfSegments);
+                }
+            }
+            //
+            int[][] cells = new int[numOfSegments][];
+            int[][] borderCells = new int[2 * numOfSegments][];
+            for (int i = 0; i < numOfSegments; i++)
+            {
+                int next = (i + 1) % numOfSegments;
+                cells[i] = new int[] { i, next, numOfSegments + next, numOfSegments + i };
+                borderCells[i] = new int[] { i, next };
+                borderCells[numOfSegments + i] = new int[] { numOfSegments + i, numOfSegments + next };
+            }
+            //
+            DrawSplitGeometryToolSurface("splitGeometryTube", nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometryTubeBorder", nodeCoor, borderCells);
+        }
+        /// <summary>
+        /// The whole sphere, which is what a spherical face closes into when it is carried past its
+        /// boundary. It needs no clipping to the region: a sphere is as large as it will ever be.
+        /// </summary>
+        private void DrawSplitGeometrySphereSymbol(double[] center, double[] direction, double radius)
+        {
+            double[] axis = NormalizeSplitGeometryDirection(direction);
+            if (axis == null || radius <= 0) return;
+            //
+            double[] first;
+            double[] second;
+            GetSplitGeometryPlaneDirections(axis, out first, out second);
+            //
+            int numOfSegments = 36;
+            int numOfRings = 18;
+            double[][] nodeCoor = new double[(numOfRings + 1) * numOfSegments][];
+            for (int j = 0; j <= numOfRings; j++)
+            {
+                double polar = Math.PI * j / numOfRings;
+                double distance = radius * Math.Cos(polar);
+                double ringRadius = radius * Math.Sin(polar);
+                for (int i = 0; i < numOfSegments; i++)
+                {
+                    nodeCoor[j * numOfSegments + i] =
+                        GetSplitGeometryRevolvedPoint(center, axis, first, second, distance, ringRadius,
+                                                      2 * Math.PI * i / numOfSegments);
+                }
+            }
+            //
+            int[][] cells = new int[numOfRings * numOfSegments][];
+            for (int j = 0; j < numOfRings; j++)
+            {
+                for (int i = 0; i < numOfSegments; i++)
+                {
+                    int next = (i + 1) % numOfSegments;
+                    cells[j * numOfSegments + i] = new int[] { j * numOfSegments + i, j * numOfSegments + next,
+                                                               (j + 1) * numOfSegments + next,
+                                                               (j + 1) * numOfSegments + i };
+                }
+            }
+            // A closed surface has no boundary to frame it, so the equator is drawn instead, which is also
+            // what shows which way the sphere is turned
+            int equator = (numOfRings / 2) * numOfSegments;
+            int[][] borderCells = new int[numOfSegments][];
+            for (int i = 0; i < numOfSegments; i++)
+                borderCells[i] = new int[] { equator + i, equator + (i + 1) % numOfSegments };
+            //
+            DrawSplitGeometryToolSurface("splitGeometrySphere", nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometrySphereBorder", nodeCoor, borderCells);
+        }
+        /// <summary>
+        /// The whole torus, which is what a toroidal face closes into when it is carried past its
+        /// boundary. Like a sphere it is already as large as it gets, so the region does not clip it.
+        /// </summary>
+        private void DrawSplitGeometryTorusSymbol(double[] center, double[] direction, double majorRadius,
+                                                  double minorRadius)
+        {
+            double[] axis = NormalizeSplitGeometryDirection(direction);
+            if (axis == null || majorRadius <= 0 || minorRadius <= 0) return;
+            //
+            double[] first;
+            double[] second;
+            GetSplitGeometryPlaneDirections(axis, out first, out second);
+            //
+            int numOfSegments = 48;
+            int numOfRings = 20;
+            double[][] nodeCoor = new double[numOfRings * numOfSegments][];
+            for (int j = 0; j < numOfRings; j++)
+            {
+                double tubeAngle = 2 * Math.PI * j / numOfRings;
+                double ringRadius = majorRadius + minorRadius * Math.Cos(tubeAngle);
+                double distance = minorRadius * Math.Sin(tubeAngle);
+                for (int i = 0; i < numOfSegments; i++)
+                {
+                    nodeCoor[j * numOfSegments + i] =
+                        GetSplitGeometryRevolvedPoint(center, axis, first, second, distance, ringRadius,
+                                                      2 * Math.PI * i / numOfSegments);
+                }
+            }
+            //
+            int[][] cells = new int[numOfRings * numOfSegments][];
+            for (int j = 0; j < numOfRings; j++)
+            {
+                int nextRing = (j + 1) % numOfRings;
+                for (int i = 0; i < numOfSegments; i++)
+                {
+                    int next = (i + 1) % numOfSegments;
+                    cells[j * numOfSegments + i] = new int[] { j * numOfSegments + i, j * numOfSegments + next,
+                                                               nextRing * numOfSegments + next,
+                                                               nextRing * numOfSegments + i };
+                }
+            }
+            // The circle the tube starts from stands for the boundary a closed surface does not have
+            int[][] borderCells = new int[numOfSegments][];
+            for (int i = 0; i < numOfSegments; i++)
+                borderCells[i] = new int[] { i, (i + 1) % numOfSegments };
+            //
+            DrawSplitGeometryToolSurface("splitGeometryTorus", nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometryTorusBorder", nodeCoor, borderCells);
+        }
+        private static double[] GetSplitGeometryRevolvedPoint(double[] origin, double[] axis, double[] first,
+                                                              double[] second, double distance, double radius,
+                                                              double angle)
+        {
+            double c = radius * Math.Cos(angle);
+            double s = radius * Math.Sin(angle);
+            //
+            return new double[] { origin[0] + distance * axis[0] + c * first[0] + s * second[0],
+                                  origin[1] + distance * axis[1] + c * first[1] + s * second[1],
+                                  origin[2] + distance * axis[2] + c * first[2] + s * second[2] };
+        }
+        /// <summary>
+        /// How far along the axis the region box reaches, measured from the origin of the axis.
+        /// </summary>
+        private static void GetSplitGeometryAxisRange(double[] origin, double[] axis, double[] extent,
+                                                      out double tMin, out double tMax)
+        {
+            tMin = double.MaxValue;
+            tMax = double.MinValue;
+            //
+            for (int i = 0; i < 8; i++)
+            {
+                double x = extent[i & 1] - origin[0];
+                double y = extent[2 + ((i >> 1) & 1)] - origin[1];
+                double z = extent[4 + ((i >> 2) & 1)] - origin[2];
+                //
+                double t = x * axis[0] + y * axis[1] + z * axis[2];
+                if (t < tMin) tMin = t;
+                if (t > tMax) tMax = t;
+            }
+            // A little past the region, so the end of the tube reads as the end of the symbol
+            double margin = 0.03 * (tMax - tMin);
+            tMin -= margin;
+            tMax += margin;
+        }
+        private static double[] NormalizeSplitGeometryDirection(double[] direction)
+        {
+            if (direction == null || direction.Length != 3) return null;
+            //
+            double length = Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                      direction[2] * direction[2]);
+            if (length <= 0) return null;
+            //
+            return new double[] { direction[0] / length, direction[1] / length, direction[2] / length };
         }
         private void DrawSplitGeometryExtrusionSymbol(SplitByExtrudedEdges extrudedEdges, double[] extent)
         {
@@ -17222,7 +17725,8 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
             // Select all other subparts of a selected compound part
-            if (_selection.CurrentView == (int)ViewGeometryModelResults.Geometry && _selection.SelectItem == vtkSelectItem.Part)
+            if (_selection.CurrentView == (int)ViewGeometryModelResults.Geometry &&
+                _selection.SelectItem == vtkSelectItem.Part && !_pickCompoundSubPartsSeparately)
             {
                 ids = DisplayedMesh.GetGeometryPartIdsForSubPartsFromGeometryIds(ids);
             }
@@ -17406,7 +17910,8 @@ namespace PrePoMax
                     ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
             }
             // Select all other subparts of a selected compound part
-            if (_selection.CurrentView == (int)ViewGeometryModelResults.Geometry && _selection.SelectItem == vtkSelectItem.Part)
+            if (_selection.CurrentView == (int)ViewGeometryModelResults.Geometry &&
+                _selection.SelectItem == vtkSelectItem.Part && !_pickCompoundSubPartsSeparately)
             {
                 ids = DisplayedMesh.GetGeometryPartIdsForSubPartsFromGeometryIds(ids);
             }
@@ -18245,58 +18750,53 @@ namespace PrePoMax
                 bool hasPoint = _geometryFeaturePointPicking != GeometryFeaturePointPickingEnum.None &&
                                 TryGetSplitGeometryDisplayPoint(geomId, out edgePoint);
                 if (!hasPoint) return GetGeometryEdgeActorData(new int[] { geomId });
-                // A point on the edge is hard to aim at without being shown where it is, so hovering the
-                // edge anywhere points it out, and only coming close to it arms it. The three states read
-                // as one scale: pointed out, about to be taken, taken.
-                bool armed = !IsSplitGeometryPointOnTheEdge(geomId) ||
-                             IsSplitGeometryPickNearPoint(geomId, point, precision);
-                // An armed point on the edge replaces the edge, since that is all the click would take
-                if (armed && IsSplitGeometryPointOnTheEdge(geomId)) return GetPointActorData(edgePoint);
-                //
+                // Coming close to the point leaves the point highlighted on its own, the way a hovered
+                // vertex is. Where the direction the edge runs in can also be meant, that is what says the
+                // click will take the point instead of the edge; where nothing but the point can be meant,
+                // it only says the point has been found.
+                if (IsSplitGeometryPickNearPoint(geomId, point, precision)) return GetPointActorData(edgePoint);
+                // Away from the point the edge is shown the way a face is: highlighted, with the point it
+                // carries pointed out on it
                 vtkMaxActorData edgeData = GetGeometryEdgeActorData(new int[] { geomId });
-                if (edgeData != null)
-                {
-                    edgeData.ExtraPointCoor = new double[][] { edgePoint };
-                    // The center of a closed circle is never on the edge, so it can never be aimed at and
-                    // the click always takes it - it is drawn armed even though the edge stays visible
-                    edgeData.ExtraPointColor = _settings.Pre.SplitToolSymbolColor;
-                    edgeData.ExtraPointSize = armed ? _settings.Pre.NodeSymbolSize
-                                                    : 0.6f * _settings.Pre.NodeSymbolSize;
-                }
+                SetPointSymbol(edgeData, edgePoint);
                 return edgeData;
             }
             else if (geomType.IsSurface())
             {
-                return GetSurfaceEdgesActorDataFromElementId(elementId, cellFaceNodeIds, out noEdgePartName);
+                vtkMaxActorData surfaceData = GetSurfaceEdgesActorDataFromElementId(elementId, cellFaceNodeIds,
+                                                                                   out noEdgePartName);
+                // A face carries a point too - the middle of a plane, the axis of a cylinder - and hovering
+                // it points that point out the same way an edge does
+                double[] facePoint;
+                if (_geometryFeaturePointPicking != GeometryFeaturePointPickingEnum.None &&
+                    _currentView == ViewGeometryModelResults.Geometry &&
+                    TryGetSplitGeometryDisplayPoint(geomId, out facePoint))
+                    SetPointSymbol(surfaceData, facePoint);
+                //
+                return surfaceData;
             }
             else throw new NotSupportedException();
         }
         /// <summary>
-        /// One coordinate makes the mouse over selection draw a point marker, the same one a hovered
-        /// vertex gets, so no new drawing path is needed for the preview.
+        /// One coordinate makes the mouse over selection draw the point marker a hovered vertex gets, so a
+        /// point that the click would take looks exactly like a vertex that the click would take.
         /// </summary>
         private vtkMaxActorData GetPointActorData(double[] point)
         {
             vtkMaxActorData data = new vtkMaxActorData();
             data.Geometry.Nodes.Coor = new double[][] { point };
+            data.NodeSize = _settings.Pre.NodeSymbolSize;
             return data;
         }
         /// <summary>
-        /// True when the point an edge gives lies on the edge itself. The center of a closed circle does
-        /// not: it sits in the middle of the hole, so no pick can ever be near it and one pick of such an
-        /// edge keeps giving both its center and its axis.
+        /// Marks where the point of a hovered entity sits, with the marker a hovered vertex gets.
         /// </summary>
-        private bool IsSplitGeometryPointOnTheEdge(int geometryId)
+        private void SetPointSymbol(vtkMaxActorData data, double[] point)
         {
-            BasePart part;
-            GeometryType geometryType;
-            int itemId;
-            GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(geometryId, out part,
-                                                                          out geometryType, out itemId);
-            if (entity == null) return true;
+            if (data == null || point == null) return;
             //
-            double[] values;
-            return !(entity.TryGetNumbers("closed", out values) && values.Length == 1 && values[0] != 0);
+            data.ExtraPointCoor = new double[][] { point };
+            data.ExtraPointSize = _settings.Pre.NodeSymbolSize;
         }
         /// <summary>
         /// True when the pick landed on the point rather than on the rest of the edge. The threshold is
@@ -18305,7 +18805,12 @@ namespace PrePoMax
         /// </summary>
         private bool IsSplitGeometryPickNearPoint(int geometryId, double[] pickedPoint, double precision)
         {
-            if (pickedPoint == null || precision <= 0) return false;
+            if (pickedPoint == null) return false;
+            // A mouse pick starts out with no precision of its own and is given one only when it is
+            // resolved through the geometry path - and that happens on a copy, so the pick this is asked
+            // about can still be carrying the -1 it was made with
+            if (precision <= 0) precision = _form.GetSelectionPrecision();
+            if (precision <= 0) return false;
             //
             double[] point;
             if (!TryGetSplitGeometryDisplayPoint(geometryId, out point)) return false;
@@ -18320,14 +18825,15 @@ namespace PrePoMax
             return Math.Sqrt(dx * dx + dy * dy + dz * dz) < precision;
         }
         /// <summary>
-        /// True when the pick that produced this id landed on the point the entity carries. An entity whose
-        /// point is not on it - a closed circle - is always taken as its point, since no pick can be near it.
+        /// True when the pick that produced this id means the point the entity carries. Only an edge can
+        /// mean something else, and only where the direction it runs in is also being asked for: there
+        /// the point has to be aimed at, everywhere else an edge means its point wherever it was hit.
         /// </summary>
         private bool IsSplitGeometryPickOnThePoint(int geometryId, Dictionary<int, SelectionNodeMouse> pickNodes)
         {
             GeometryType geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[1];
             if (!geometryType.IsEdge()) return true;
-            if (!IsSplitGeometryPointOnTheEdge(geometryId)) return true;
+            if (_geometryFeaturePointPicking != GeometryFeaturePointPickingEnum.PointOrEntity) return true;
             //
             SelectionNodeMouse pick;
             if (!pickNodes.TryGetValue(geometryId, out pick)) return true;

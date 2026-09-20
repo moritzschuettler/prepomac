@@ -134,6 +134,7 @@ namespace vtkControl
         //
         private vtkMaxActor _mouseSelectionActorCurrent;
         private vtkMaxActor _mouseSelectionPointActorCurrent;
+        private const string _mouseSelectionPointActorName = "mouseSelectionPoint";
         private HashSet<int> _mouseSelectionAllIds;
         private int[] _mouseSelectionCurrentIds;
         //
@@ -1418,7 +1419,9 @@ namespace vtkControl
                                                                         globalCellFaceNodeIds,
                                                                         out noEdgePartName);
             //
-            if (actorData != null)
+            // Actor data that carries no geometry highlights nothing; it only brings the point symbol
+            if (actorData != null && actorData.Geometry.Nodes.Coor != null &&
+                actorData.Geometry.Nodes.Coor.Length > 0)
             {
                 if (actorData.Geometry.Nodes.Coor.Length == 1)
                 {
@@ -1437,22 +1440,25 @@ namespace vtkControl
                 _mouseSelectionActorCurrent = GetHighlightActorFromActorName(noEdgePartName);
             }
             //
-            AddActorGeometry(_mouseSelectionActorCurrent, vtkRendererLayer.Selection);
-            _mouseSelectionActorCurrent.Geometry.SetProperty(Globals.CurrentMouseSelectionProperty);
-            // The highlighted entity stays visible and the point it would give is drawn on top of it
+            // The actor data may carry only a point, which is the case when the point is all the click
+            // would take and the entity under it is not to be highlighted
+            if (_mouseSelectionActorCurrent != null)
+            {
+                AddActorGeometry(_mouseSelectionActorCurrent, vtkRendererLayer.Selection);
+                _mouseSelectionActorCurrent.Geometry.SetProperty(Globals.CurrentMouseSelectionProperty);
+            }
+            // The point of the highlighted entity is marked the way a hovered vertex is marked. It sits on
+            // the entity it marks, so on the selection layer the two are at the same depth and blend into
+            // each other - the overlay renderer draws it after everything instead.
             if (actorData != null && actorData.ExtraPointCoor != null && actorData.ExtraPointCoor.Length > 0)
             {
                 vtkMaxActorData pointData = new vtkMaxActorData();
+                pointData.Name = _mouseSelectionPointActorName;
                 pointData.Geometry.Nodes.Coor = actorData.ExtraPointCoor;
                 pointData.NodeSize = actorData.ExtraPointSize;
                 _mouseSelectionPointActorCurrent = new vtkMaxActor(pointData, false, true);
-                AddActorGeometry(_mouseSelectionPointActorCurrent, vtkRendererLayer.Selection);
-                vtkProperty pointProperty = Globals.CurrentMouseSelectionProperty;
-                // The point keeps a color of its own, which is what separates a point being pointed out
-                // from the one the click would take
-                pointProperty.SetColor(actorData.ExtraPointColor.R / 255d, actorData.ExtraPointColor.G / 255d,
-                                      actorData.ExtraPointColor.B / 255d);
-                _mouseSelectionPointActorCurrent.Geometry.SetProperty(pointProperty);
+                AddActorGeometry(_mouseSelectionPointActorCurrent, vtkRendererLayer.Overlay);
+                _mouseSelectionPointActorCurrent.Geometry.SetProperty(Globals.CurrentMouseSelectionProperty);
             }
         }
         private void PickByGeometryVertex(out vtkActor pickedActor, int x, int y)
@@ -9120,8 +9126,8 @@ namespace vtkControl
             }
             if (_mouseSelectionPointActorCurrent != null)
             {
-                _selectionRenderer.RemoveActor(_mouseSelectionPointActorCurrent.Geometry);
-                _selectedActors.Remove(_mouseSelectionPointActorCurrent);
+                _overlayRenderer.RemoveActor(_mouseSelectionPointActorCurrent.Geometry);
+                _overlayActors.Remove(_mouseSelectionPointActorName);
                 _mouseSelectionPointActorCurrent = null;
             }
             //

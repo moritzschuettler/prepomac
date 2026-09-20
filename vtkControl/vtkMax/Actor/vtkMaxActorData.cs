@@ -61,11 +61,9 @@ namespace vtkControl
         public int[] PartNodeIds;
         public int[] PartElementIds;
         //
-        // A mouse over highlight that wants a point drawn on top of what it highlights puts the point
-        // here, since Geometry.Nodes carries the highlighted entity itself. Its own color and size say
-        // whether the point is only being pointed out or is what the click would take.
+        // A mouse over highlight that wants a point marked on top of what it highlights puts the point
+        // here, since Geometry.Nodes carries the highlighted entity itself
         public double[][] ExtraPointCoor;
-        public Color ExtraPointColor;
         public float ExtraPointSize;
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;

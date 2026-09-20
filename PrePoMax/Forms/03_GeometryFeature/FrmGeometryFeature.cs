@@ -24,6 +24,8 @@ namespace PrePoMax.Forms
         private ViewGeometryFeature _viewGeometryFeature;
         private Controller _controller;
         private FeatureSelectionTargetEnum _selectionTarget;
+        // OK - New rebuilds the form, and the operation that was just used comes back selected
+        private int _repeatTypeIndex;
 
 
         // Properties
@@ -42,6 +44,7 @@ namespace PrePoMax.Forms
             _controller = controller;
             _viewGeometryFeature = null;
             _selectionTarget = FeatureSelectionTargetEnum.Region;
+            _repeatTypeIndex = -1;
         }
         private void InitializeComponent()
         {
@@ -125,6 +128,9 @@ namespace PrePoMax.Forms
                 // Picking continues where the previous operation left off
                 SetSelectionTarget(GeometryFeature.CreationIds == null || GeometryFeature.CreationIds.Length == 0 ?
                                    FeatureSelectionTargetEnum.Region : FeatureSelectionTargetEnum.Splitter);
+                // The armed target can be the one that was already armed, and then arming it again does
+                // nothing - but the operation has changed, and how many items it takes changed with it
+                SetSelectItem();
                 //
                 HighlightGeometryFeature();
             }
@@ -167,14 +173,20 @@ namespace PrePoMax.Forms
             if (error != null) throw new CaeException(error);
             //
             _controller.SplitGeometryCommand(geometryFeature.DeepClone());
-            // The split has changed the geometry, so the picked ids and everything read from them
-            // are stale. Clearing them is also what takes the tool symbol off the screen.
+            // The split has changed the geometry, so the picked ids and everything read from them are
+            // stale - a part that was cut has been replaced by a compound of the pieces, and the ids of
+            // the region name parts that are gone. Resolving them again would look them up in a model
+            // that no longer holds them. Clearing the splitter is also what takes the tool symbol off
+            // the screen.
+            geometryFeature.ClearRegionSelection();
             geometryFeature.ClearSplitterSelection();
             SetSelectionTarget(FeatureSelectionTargetEnum.Region);
             propertyGrid.Refresh();
             HighlightGeometryFeature();
             //
-            if (!onOkAddNew)
+            // OK - New rebuilds the form, so what is to survive it is put aside here
+            if (onOkAddNew) _repeatTypeIndex = GeometryFeatureTypes.GetIndex(_viewGeometryFeature);
+            else
             {
                 DialogResult = DialogResult.OK;
                 ItemSetDataEditor.SelectionForm.Hide();
@@ -206,6 +218,10 @@ namespace PrePoMax.Forms
             ShowHideSelectionForm();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            // After OK - New the operation that was just used comes back selected
+            if (_repeatTypeIndex >= 0 && _repeatTypeIndex < lvTypes.Items.Count)
+                lvTypes.Items[_repeatTypeIndex].Selected = true;
+            _repeatTypeIndex = -1;
             //
             return true;
         }
@@ -243,14 +259,24 @@ namespace PrePoMax.Forms
             if (_selectionTarget == selectionTarget && ItemSetDataEditor.SelectionForm.Visible) return;
             //
             _selectionTarget = selectionTarget;
+            // A plane the user has not picked yet is put through the middle of the region, so that arming
+            // the splitter shows a plane that cuts the parts rather than one at the global origin
+            if (_selectionTarget == FeatureSelectionTargetEnum.Splitter)
+            {
+                _controller.SetSplitGeometryDefaultPlanePoint(GeometryFeature);
+                propertyGrid.Refresh();
+            }
             //
             SelectPropertyGridRow(GetSelectionTargetPropertyName(selectionTarget));
             //
             _controller.ClearSelectionHistory();
-            ShowHideSelectionForm();
-            // Continue the selection that belongs to the newly armed target
+            // Continue the selection that belongs to the newly armed target. It is installed before the
+            // picker is set up, because setting the picker up puts the limits of the armed target on
+            // whichever selection is live, and a selection installed after that carries its own back.
             Selection targetData = GetTargetData();
             if (targetData != null) _controller.Selection = targetData.DeepCopy(true, false);
+            //
+            ShowHideSelectionForm();
             // Arming a picker clears the selection that was drawn, so what the feature shows of itself
             // - the highlighted parts and the tool symbol - is drawn again
             HighlightGeometryFeature();
@@ -269,6 +295,10 @@ namespace PrePoMax.Forms
                 _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.PointOrEntity;
             else _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
             //
+            // A split names the solids it cuts, so one pick on a compound is one of its sub parts and the
+            // whole compound is named by dragging an area over it
+            _controller.PickCompoundSubPartsSeparately = _selectionTarget == FeatureSelectionTargetEnum.Region;
+            //
             if (_selectionTarget == FeatureSelectionTargetEnum.Region) _controller.SetSelectItemToPart();
             // The picker takes any geometry and the pick is sorted by the kind of entity it hit, which
             // is also why the dialog does not force a "Select by" mode of its own
@@ -280,8 +310,9 @@ namespace PrePoMax.Forms
                 _controller.Selection.MaxNumberOfGeometryIds = 2;
             else if (GeometryFeature is SplitByExtendedFace && _selectionTarget == FeatureSelectionTargetEnum.Splitter)
                 _controller.Selection.MaxNumberOfGeometryIds = 1;
+            // One item gives a direction of its own, two give the direction across both
             else if (_selectionTarget == FeatureSelectionTargetEnum.Direction)
-                _controller.Selection.MaxNumberOfGeometryIds = 1;
+                _controller.Selection.MaxNumberOfGeometryIds = 2;
             else _controller.Selection.MaxNumberOfGeometryIds = -1;
         }
         private int[] GetTargetIds()

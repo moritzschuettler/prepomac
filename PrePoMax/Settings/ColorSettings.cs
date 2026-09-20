@@ -155,7 +155,7 @@ namespace PrePoMax
             //
             _transfiniteMeshColor = Color.DarkSeaGreen;
             _sweepMeshColor = Color.Khaki;
-            _tetrahedralMeshColor = Color.Pink;
+            _tetrahedralMeshColor = Color.Coral;
             _otherMeshColor = Color.LightGray;
         }
         public void ApplyColorPalette()

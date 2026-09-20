@@ -32,7 +32,6 @@ namespace PrePoMax.Forms
         [DescriptionAttribute("Select the geometry that defines the splitting plane. A vertex gives the point, a " +
                               "straight edge or a planar, cylindrical or conical face gives the normal, and a " +
                               "circular edge gives both at once.")]
-        [ReadOnlyAttribute(true)]
         [Id(1, 2)]
         public string SplitterSelection
         {

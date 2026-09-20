@@ -101,6 +101,11 @@ namespace CaeMesh
         /// Drops the picked geometry and everything that was read from it. The values are not kept,
         /// because the geometry they were read from no longer exists once the split has been applied.
         /// </summary>
+        public void ClearRegionSelection()
+        {
+            _creationIds = null;
+            _creationData = null;
+        }
         public virtual void ClearSplitterSelection()
         {
             _splitterIds = null;

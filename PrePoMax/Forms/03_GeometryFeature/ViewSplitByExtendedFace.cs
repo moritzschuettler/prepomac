@@ -31,7 +31,6 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(0, 10, "Face")]
         [DescriptionAttribute("Select the face whose surface is continued past its boundary into the splitting " +
                               "tool. The face may lie on a part that is not being split.")]
-        [ReadOnlyAttribute(true)]
         [Id(1, 2)]
         public string SplitterSelection
         {
