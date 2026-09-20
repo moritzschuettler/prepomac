@@ -1663,7 +1663,17 @@ namespace CaeMesh
             // source side is pinned as well, so that every edge of every wall carries a count
             Dictionary<int, int> sourceEdgeIdNumOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements;
-            ResolveCrossEdgeElements(walls, null, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
+            ResolveCrossEdgeElements(walls, null, null, out sourceEdgeIdNumOfElements,
+                                     out targetEdgeIdNumOfElements);
+            // Two edges of one source or target surface lying opposite each other belong to the target sides
+            // of two different walls, which share their own totals out and round them apart; they are brought
+            // to one count and the sides resolved again from it
+            Dictionary<int, int> crossEdgePins =
+                GetOppositeCrossEdgePins(walls, MergeEdgeElements(sourceEdgeIdNumOfElements,
+                                                                  targetEdgeIdNumOfElements));
+            if (crossEdgePins.Count > 0)
+                ResolveCrossEdgeElements(walls, null, crossEdgePins, out sourceEdgeIdNumOfElements,
+                                         out targetEdgeIdNumOfElements);
             // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
             // they carry the same count: the one the user pinned on either, else the measured one
             Dictionary<int, int> imprintEdgeIdNumOfElements = new Dictionary<int, int>();
@@ -1700,7 +1710,8 @@ namespace CaeMesh
             if (recountedLoops.Count > 0)
             {
                 _writeOutput?.Invoke("Sweep: " + GetRecountedCrossSectionsMessage(recountedLoops));
-                ResolveCrossEdgeElements(walls, recountedLoops, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
+                ResolveCrossEdgeElements(walls, recountedLoops, crossEdgePins, out sourceEdgeIdNumOfElements,
+                                         out targetEdgeIdNumOfElements);
                 edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                                         targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
             }
@@ -1727,6 +1738,7 @@ namespace CaeMesh
         /// by wall. Without loops every wall is resolved in its turn.
         /// </summary>
         private void ResolveCrossEdgeElements(List<SweepWall> walls, List<int[]> recountedLoops,
+                                              Dictionary<int, int> pinnedEdgeIdNumOfElements,
                                               out Dictionary<int, int> sourceEdgeIdNumOfElements,
                                               out Dictionary<int, int> targetEdgeIdNumOfElements)
         {
@@ -1743,7 +1755,7 @@ namespace CaeMesh
             {
                 if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
                 if (HasUnassignedEdge(wall.SourceEdgeIds, recountedEdgeIds, assignedTable)) waitingWalls.Add(wall);
-                else ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+                else ResolveWallCrossEdges(wall, false, pinnedEdgeIdNumOfElements, sourceTable, assignedTable);
             }
             while (waitingWalls.Count > 0)
             {
@@ -1753,11 +1765,13 @@ namespace CaeMesh
                     SweepWall wall = waitingWalls[i];
                     bool sourceAssigned = AreAllAssigned(wall.SourceEdgeIds, assignedTable);
                     if (!sourceAssigned && !AreAllAssigned(wall.TargetEdgeIds, assignedTable)) continue;
-                    if (sourceAssigned) ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+                    if (sourceAssigned)
+                        ResolveWallCrossEdges(wall, false, pinnedEdgeIdNumOfElements, sourceTable, assignedTable);
                     else
                     {
                         ResolveWallCrossEdges(new SweepWall(wall.SurfaceId, wall.TargetEdgeIds, wall.SourceEdgeIds,
-                                                            wall.DirectionEdgeIds), true, sourceTable, assignedTable);
+                                                            wall.DirectionEdgeIds), true, pinnedEdgeIdNumOfElements,
+                                              sourceTable, assignedTable);
                     }
                     waitingWalls.RemoveAt(i--);
                     resolved = true;
@@ -1767,7 +1781,8 @@ namespace CaeMesh
                 int[] loop = GetLoopToRecount(recountedLoops, assignedTable);
                 if (loop == null)
                 {
-                    foreach (var wall in waitingWalls) ResolveWallCrossEdges(wall, false, sourceTable, assignedTable);
+                    foreach (var wall in waitingWalls)
+                        ResolveWallCrossEdges(wall, false, pinnedEdgeIdNumOfElements, sourceTable, assignedTable);
                     break;
                 }
                 SweepWallTopology.RecountCrossSection(loop, recountedLoops, _gmshData.EdgeIdNumElements, assignedTable);
@@ -1822,7 +1837,9 @@ namespace CaeMesh
             }
             return best;
         }
-        private void ResolveWallCrossEdges(SweepWall wall, bool reversed, Dictionary<int, int> sourceEdgeIdNumOfElements,
+        private void ResolveWallCrossEdges(SweepWall wall, bool reversed,
+                                           Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                           Dictionary<int, int> sourceEdgeIdNumOfElements,
                                            Dictionary<int, int> targetEdgeIdNumOfElements)
         {
             int numOfElements;
@@ -1831,13 +1848,17 @@ namespace CaeMesh
             {
                 // The target side of an earlier wall keeps the count that wall was given, and the walls
                 // of the block fed from it must start from that count rather than from the measured one
-                if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
-                    numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                if (pinnedEdgeIdNumOfElements == null ||
+                    !pinnedEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
+                {
+                    if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
+                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                }
                 sourceEdgeIdNumOfElements[edgeId] = numOfElements;
                 sourceElements += numOfElements;
             }
-            RaiseSourceToTargetEdgeCount(wall, sourceEdgeIdNumOfElements, targetEdgeIdNumOfElements,
-                                         ref sourceElements);
+            RaiseSourceToTargetEdgeCount(wall, pinnedEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
+                                         targetEdgeIdNumOfElements, ref sourceElements);
             // Where a split was carried across, both sides of the wall are split at the same places. The
             // counts of the target edges follow the source nodes above them, so that the grid column
             // through the split stays straight
@@ -1850,6 +1871,9 @@ namespace CaeMesh
                 double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
                 targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
             }
+            // An edge shared with another wall's target side through a source or a target surface takes the
+            // count the two of them settled on, and the rest of the side is shared out again
+            ApplyPinnedTargetElements(wall, targetElements, pinnedEdgeIdNumOfElements);
             for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
                 targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
         }
@@ -1861,7 +1885,8 @@ namespace CaeMesh
         /// take it: a source side the wall before it assigned as its target, or one the user pinned a count
         /// on, keeps the count it was given, and the wall is refused with the count message as before.
         /// </summary>
-        private void RaiseSourceToTargetEdgeCount(SweepWall wall, Dictionary<int, int> sourceEdgeIdNumOfElements,
+        private void RaiseSourceToTargetEdgeCount(SweepWall wall, Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                                  Dictionary<int, int> sourceEdgeIdNumOfElements,
                                                   Dictionary<int, int> targetEdgeIdNumOfElements,
                                                   ref int sourceElements)
         {
@@ -1871,6 +1896,7 @@ namespace CaeMesh
             {
                 if (targetEdgeIdNumOfElements.ContainsKey(edgeId) ||
                     _gmshData.EdgeIdNumElements.ContainsKey(edgeId)) return;
+                if (pinnedEdgeIdNumOfElements != null && pinnedEdgeIdNumOfElements.ContainsKey(edgeId)) return;
             }
             //
             double[] lengths = SweepWallTopology.GetEdgeLengths(wall.SourceEdgeIds);
@@ -1959,6 +1985,135 @@ namespace CaeMesh
                    "from its length instead.";
         }
         /// <summary>
+        /// The counts two edges of one source or target surface must share. Such a surface lies between the
+        /// target sides of two different walls, each of which shares its own total out over its edges by
+        /// length, and the two roundings need not agree: the chamfer at the tip of a plate is given two
+        /// elements by the long wall beside it and one by the short one, and the column of the sweep through
+        /// it is broken. The pair takes the larger of the two counts, held down to what the side with the
+        /// least to give can spare, since every other edge of a side keeps an element of its own. An edge
+        /// that is the only one of its side carries its wall's whole total and is not free, so it is pinned
+        /// only at the count it already has.
+        /// </summary>
+        private static Dictionary<int, int> GetOppositeCrossEdgePins(List<SweepWall> walls,
+                                                                     Dictionary<int, int> edgeIdNumOfElements)
+        {
+            HashSet<int> fixedEdgeIds = new HashSet<int>();
+            HashSet<int> wallSurfaceIds = new HashSet<int>();
+            Dictionary<int, int> edgeIdUpperBound = new Dictionary<int, int>();
+            foreach (var wall in walls)
+            {
+                wallSurfaceIds.Add(wall.SurfaceId);
+                AddCrossSideBounds(wall.SourceEdgeIds, edgeIdNumOfElements, edgeIdUpperBound, fixedEdgeIds);
+                AddCrossSideBounds(wall.TargetEdgeIds, edgeIdNumOfElements, edgeIdUpperBound, fixedEdgeIds);
+            }
+            //
+            int[] faceIds;
+            int[] vertexIds;
+            int numOfElements;
+            int oppositeNumOfElements;
+            int oppositeUpperBound;
+            Dictionary<int, int> pins = new Dictionary<int, int>();
+            foreach (var entry in edgeIdUpperBound)
+            {
+                if (!edgeIdNumOfElements.TryGetValue(entry.Key, out numOfElements)) continue;
+                Gmsh.Model.GetAdjacencies(1, entry.Key, out faceIds, out vertexIds);
+                //
+                foreach (var faceId in faceIds)
+                {
+                    if (wallSurfaceIds.Contains(faceId)) continue;
+                    //
+                    int oppositeEdgeId;
+                    if (!TryGetOppositeEdgeId(entry.Key, faceId, vertexIds, out oppositeEdgeId)) continue;
+                    if (!edgeIdNumOfElements.TryGetValue(oppositeEdgeId, out oppositeNumOfElements)) continue;
+                    if (!edgeIdUpperBound.TryGetValue(oppositeEdgeId, out oppositeUpperBound)) continue;
+                    if (oppositeNumOfElements == numOfElements) continue;
+                    //
+                    bool edgeFixed = fixedEdgeIds.Contains(entry.Key);
+                    bool oppositeFixed = fixedEdgeIds.Contains(oppositeEdgeId);
+                    if (edgeFixed && oppositeFixed) continue;
+                    //
+                    int count;
+                    if (edgeFixed) count = numOfElements;
+                    else if (oppositeFixed) count = oppositeNumOfElements;
+                    else count = Math.Max(numOfElements, oppositeNumOfElements);
+                    count = Math.Min(count, Math.Min(entry.Value, oppositeUpperBound));
+                    //
+                    if (count < 1) continue;
+                    if (edgeFixed && count != numOfElements) continue;
+                    if (oppositeFixed && count != oppositeNumOfElements) continue;
+                    //
+                    pins[entry.Key] = count;
+                    pins[oppositeEdgeId] = count;
+                }
+            }
+            return pins;
+        }
+        /// <summary>
+        /// What one side of a wall leaves every edge of it free to take: the side's total less an element for
+        /// each of its other edges. The tightest bound is kept where an edge lies on the sides of several
+        /// walls, and an edge alone on a side is recorded as carrying a count that is not free at all.
+        /// </summary>
+        private static void AddCrossSideBounds(int[] sideEdgeIds, Dictionary<int, int> edgeIdNumOfElements,
+                                               Dictionary<int, int> edgeIdUpperBound, HashSet<int> fixedEdgeIds)
+        {
+            int numOfElements;
+            int sideElements = 0;
+            foreach (var edgeId in sideEdgeIds)
+            {
+                if (!edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) return;
+                sideElements += numOfElements;
+            }
+            //
+            int upperBound = sideElements - (sideEdgeIds.Length - 1);
+            foreach (var edgeId in sideEdgeIds)
+            {
+                if (sideEdgeIds.Length == 1) fixedEdgeIds.Add(edgeId);
+                if (!edgeIdUpperBound.TryGetValue(edgeId, out numOfElements) || upperBound < numOfElements)
+                    edgeIdUpperBound[edgeId] = upperBound;
+            }
+        }
+        /// <summary>
+        /// Puts the pinned counts onto the edges of a wall's target side and shares the rest of the side's
+        /// total out over the edges that are not pinned, by length. The side is left as the distribution made
+        /// it when the pins would leave an edge without an element of its own.
+        /// </summary>
+        private static void ApplyPinnedTargetElements(SweepWall wall, int[] targetElements,
+                                                      Dictionary<int, int> pinnedEdgeIdNumOfElements)
+        {
+            if (pinnedEdgeIdNumOfElements == null || pinnedEdgeIdNumOfElements.Count == 0) return;
+            //
+            int count;
+            int total = 0;
+            int pinnedElements = 0;
+            List<int> freeIndices = new List<int>();
+            int[] elements = new int[targetElements.Length];
+            for (int i = 0; i < targetElements.Length; i++)
+            {
+                total += targetElements[i];
+                if (pinnedEdgeIdNumOfElements.TryGetValue(wall.TargetEdgeIds[i], out count))
+                {
+                    elements[i] = count;
+                    pinnedElements += count;
+                }
+                else freeIndices.Add(i);
+            }
+            if (freeIndices.Count == targetElements.Length) return;
+            if (total - pinnedElements < freeIndices.Count) return;
+            if (freeIndices.Count == 0 && pinnedElements != total) return;
+            //
+            if (freeIndices.Count > 0)
+            {
+                int[] freeEdgeIds = new int[freeIndices.Count];
+                for (int i = 0; i < freeIndices.Count; i++) freeEdgeIds[i] = wall.TargetEdgeIds[freeIndices[i]];
+                int[] sharedElements =
+                    SweepWallTopology.DistributeElements(total - pinnedElements,
+                                                         SweepWallTopology.GetEdgeLengths(freeEdgeIds));
+                for (int i = 0; i < freeIndices.Count; i++) elements[freeIndices[i]] = sharedElements[i];
+            }
+            //
+            for (int i = 0; i < targetElements.Length; i++) targetElements[i] = elements[i];
+        }
+        /// <summary>
         /// The count settled on an edge lying opposite the given one across a face it bounds. The opposite
         /// edge of a face is the one sharing neither of its vertices; a face whose opposite side is split
         /// into several edges names no single one and is left to the caller, which falls back on measuring.
@@ -1970,30 +2125,42 @@ namespace CaeMesh
             int[] faceIds;
             int[] vertexIds;
             Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out vertexIds);
-            HashSet<int> edgeVertexIds = new HashSet<int>(vertexIds);
             //
             foreach (var faceId in faceIds)
             {
-                int[] faceEdgeIds;
-                Gmsh.Model.GetAdjacencies(2, faceId, out _, out faceEdgeIds);
-                int oppositeEdgeId = -1;
-                foreach (var otherEdgeId in faceEdgeIds)
-                {
-                    if (otherEdgeId == edgeId) continue;
-                    Gmsh.Model.GetAdjacencies(1, otherEdgeId, out _, out vertexIds);
-                    bool touches = false;
-                    foreach (var vertexId in vertexIds)
-                    {
-                        if (edgeVertexIds.Contains(vertexId)) { touches = true; break; }
-                    }
-                    if (touches) continue;
-                    if (oppositeEdgeId >= 0) { oppositeEdgeId = -1; break; }
-                    oppositeEdgeId = otherEdgeId;
-                }
-                if (oppositeEdgeId >= 0 &&
-                    settledEdgeIdNumOfElements.TryGetValue(oppositeEdgeId, out numOfElements)) return true;
+                int oppositeEdgeId;
+                if (!TryGetOppositeEdgeId(edgeId, faceId, vertexIds, out oppositeEdgeId)) continue;
+                if (settledEdgeIdNumOfElements.TryGetValue(oppositeEdgeId, out numOfElements)) return true;
             }
             return false;
+        }
+        /// <summary>
+        /// The edge lying opposite the given one across one face it bounds - the one sharing neither of its
+        /// vertices. A side split into several edges names no single one and gives nothing.
+        /// </summary>
+        private static bool TryGetOppositeEdgeId(int edgeId, int faceId, int[] edgeVertexIds,
+                                                 out int oppositeEdgeId)
+        {
+            oppositeEdgeId = -1;
+            int[] faceEdgeIds;
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(2, faceId, out _, out faceEdgeIds);
+            HashSet<int> vertices = new HashSet<int>(edgeVertexIds);
+            //
+            foreach (var otherEdgeId in faceEdgeIds)
+            {
+                if (otherEdgeId == edgeId) continue;
+                Gmsh.Model.GetAdjacencies(1, otherEdgeId, out _, out vertexIds);
+                bool touches = false;
+                foreach (var vertexId in vertexIds)
+                {
+                    if (vertices.Contains(vertexId)) { touches = true; break; }
+                }
+                if (touches) continue;
+                if (oppositeEdgeId >= 0) { oppositeEdgeId = -1; return false; }
+                oppositeEdgeId = otherEdgeId;
+            }
+            return oppositeEdgeId >= 0;
         }
         /// <summary>
         /// Every count in one table, the later tables overriding the earlier.
