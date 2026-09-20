@@ -1041,8 +1041,7 @@ namespace CaeMesh
         /// <summary>
         /// Pairs every edge splitting the target of a prism inside with the edge of the source below it, which
         /// is what the sweep lines are pinned between. After the carrying every such edge has its counterpart;
-        /// one that does not is an error. The source of a block that carries imprints is meshed free, since
-        /// its pieces have their counts dictated.
+        /// one that does not is an error.
         /// </summary>
         private void PairImprintEdges(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
         {
@@ -1083,7 +1082,6 @@ namespace CaeMesh
                 }
             }
             block.ImprintEdgeCopyIds = imprintEdgeCopyIds;
-            _freeMeshedSurfaceIds.UnionWith(block.SourceSurfaceIds);
         }
         /// <summary>
         /// The edge splitting the source that the given edge splitting the target stands above, for a block
