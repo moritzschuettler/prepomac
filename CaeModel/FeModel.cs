@@ -3897,6 +3897,12 @@ namespace CaeModel
                                                   int[] targetSurfaceIds, int[] sideSurfaceIds,
                                                   SweepPartMaps maps)
         {
+            // A block the transfinite mesher accepts carries the same structured grid whichever of its faces
+            // the sweep starts from, so none of the measurements below has anything to refuse on it. They
+            // would refuse a curved block swept from its inner face to its outer one, where the target is the
+            // source stretched in one direction alone and not scaled the way a taper scales it
+            if (maps.IsTransfiniteBlock(part, p => IsPartTransfinite((GeometryPart)p, false) == null)) return null;
+            //
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
             // A wall that continues the source or the target smoothly is a rounding of that end of the

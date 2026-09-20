@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -24,6 +24,7 @@ namespace CaeMesh
         private Dictionary<int, Dictionary<int, HashSet<int>>> _partIdSurfaceIdSurfaceNeighbourIds;
         private Dictionary<int, Dictionary<int, HashSet<int>>> _partIdVertexIdEdgeIds;
         private Dictionary<int, List<HashSet<int>>> _partIdSmoothSurfaceIdGroups;
+        private Dictionary<int, bool> _partIdIsTransfiniteBlock;
 
 
         // Constructors
@@ -32,6 +33,7 @@ namespace CaeMesh
             _partIdSurfaceIdSurfaceNeighbourIds = new Dictionary<int, Dictionary<int, HashSet<int>>>();
             _partIdVertexIdEdgeIds = new Dictionary<int, Dictionary<int, HashSet<int>>>();
             _partIdSmoothSurfaceIdGroups = new Dictionary<int, List<HashSet<int>>>();
+            _partIdIsTransfiniteBlock = new Dictionary<int, bool>();
         }
 
 
@@ -56,6 +58,19 @@ namespace CaeMesh
             _partIdVertexIdEdgeIds.Add(part.PartId, vertexIdEdgeIds);
             //
             return vertexIdEdgeIds;
+        }
+        /// <summary>
+        /// Whether the part is a block the transfinite mesher accepts, asked of the caller once per part.
+        /// </summary>
+        public bool IsTransfiniteBlock(BasePart part, Func<BasePart, bool> isTransfiniteBlock)
+        {
+            bool isBlock;
+            if (_partIdIsTransfiniteBlock.TryGetValue(part.PartId, out isBlock)) return isBlock;
+            //
+            isBlock = isTransfiniteBlock(part);
+            _partIdIsTransfiniteBlock.Add(part.PartId, isBlock);
+            //
+            return isBlock;
         }
         public List<HashSet<int>> GetSmoothSurfaceIdGroups(FeMesh geometry, BasePart part, double angleDeg)
         {
