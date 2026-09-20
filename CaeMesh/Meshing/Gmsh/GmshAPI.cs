@@ -1669,13 +1669,21 @@ namespace CaeMesh
             Dictionary<int, int> imprintEdgeIdNumOfElements = new Dictionary<int, int>();
             if (_sweepBlocks != null)
             {
+                // An edge splitting a source or a target lies opposite an edge of the same face whose count
+                // the walls have already settled, and the face is a grid only when the two agree. The
+                // measured count is what it falls back on, which is what it used to take in every case
+                Dictionary<int, int> settledEdgeIdNumOfElements =
+                    MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
+                                      targetEdgeIdNumOfElements);
                 foreach (var block in _sweepBlocks)
                 {
                     if (block.ImprintEdgeCopyIds == null) continue;
                     foreach (var entry in block.ImprintEdgeCopyIds)
                     {
                         if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
-                            !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements))
+                            !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements) &&
+                            !TryGetOppositeEdgeElements(entry.Key, settledEdgeIdNumOfElements, out numOfElements) &&
+                            !TryGetOppositeEdgeElements(entry.Value, settledEdgeIdNumOfElements, out numOfElements))
                             numOfElements = SweepWallTopology.GetElementCount(entry.Key);
                         imprintEdgeIdNumOfElements[entry.Key] = numOfElements;
                         imprintEdgeIdNumOfElements[entry.Value] = numOfElements;
@@ -1949,6 +1957,43 @@ namespace CaeMesh
             return "the cross sections of one closed curve of length " + Math.Round(length, 3) + " were given " +
                    string.Join(" and ", cuts) + " by gmsh, which rounds the count of every edge up; the curve is counted " +
                    "from its length instead.";
+        }
+        /// <summary>
+        /// The count settled on an edge lying opposite the given one across a face it bounds. The opposite
+        /// edge of a face is the one sharing neither of its vertices; a face whose opposite side is split
+        /// into several edges names no single one and is left to the caller, which falls back on measuring.
+        /// </summary>
+        private static bool TryGetOppositeEdgeElements(int edgeId, Dictionary<int, int> settledEdgeIdNumOfElements,
+                                                       out int numOfElements)
+        {
+            numOfElements = 0;
+            int[] faceIds;
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out vertexIds);
+            HashSet<int> edgeVertexIds = new HashSet<int>(vertexIds);
+            //
+            foreach (var faceId in faceIds)
+            {
+                int[] faceEdgeIds;
+                Gmsh.Model.GetAdjacencies(2, faceId, out _, out faceEdgeIds);
+                int oppositeEdgeId = -1;
+                foreach (var otherEdgeId in faceEdgeIds)
+                {
+                    if (otherEdgeId == edgeId) continue;
+                    Gmsh.Model.GetAdjacencies(1, otherEdgeId, out _, out vertexIds);
+                    bool touches = false;
+                    foreach (var vertexId in vertexIds)
+                    {
+                        if (edgeVertexIds.Contains(vertexId)) { touches = true; break; }
+                    }
+                    if (touches) continue;
+                    if (oppositeEdgeId >= 0) { oppositeEdgeId = -1; break; }
+                    oppositeEdgeId = otherEdgeId;
+                }
+                if (oppositeEdgeId >= 0 &&
+                    settledEdgeIdNumOfElements.TryGetValue(oppositeEdgeId, out numOfElements)) return true;
+            }
+            return false;
         }
         /// <summary>
         /// Every count in one table, the later tables overriding the earlier.
