@@ -3523,6 +3523,10 @@ namespace CaeModel
                 surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
                 // The surfaces lying in the plane of the source are swept from as well
                 ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds);
+                // A source the sweep derived for this part is the surface it is fed through and nothing more,
+                // and a chamfer or a round at that end of the block is left out of it
+                if (!partIdSelectedSurfaceIds.ContainsKey(partId))
+                    ExtendDerivedSourceOverLeaningSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
                 // A neighbour sharing a source surface is swept away from the same meshed surface - unless it
                 // is one of the blocks feeding this one, whose target the shared surface is
                 foreach (var surfaceId in sourceSurfaceIds.ToArray())
@@ -4293,6 +4297,55 @@ namespace CaeModel
         /// surface so that both conform along the imprint; a shared surface in the same plane joins as
         /// well, and the neighbour behind it is then swept away from it.
         /// </summary>
+        /// <summary>
+        /// Adds to a source the sweep derived for a part the surfaces leaning on it, where that leaves the
+        /// block one target surface instead of several.
+        ///
+        /// A derived source is the twin of the surface the part is fed through, while the seeds the automatic
+        /// search tries take a face together with everything leaning on it within the source angle. The
+        /// difference tells on a chamfer or a round at that end of the block: left out of the source it is a
+        /// wall, the face it would have rounded stands as a second target surface, and a surface shared with
+        /// the next part that ends against that second face cannot be swept through - the sweep stops there.
+        /// The chamfered end of one slab of the stack of sweep_21 refuses the whole stack that way, although
+        /// the automatic search sweeps it from the very seed this adds.
+        ///
+        /// Only a source the sweep derived is extended; the one the user selected is the user's. And only
+        /// where the block validates both ways and the extension leaves fewer target surfaces, so that a wall
+        /// leaning on the source - the side of a tapered block - is not swallowed by it.
+        /// </summary>
+        private void ExtendDerivedSourceOverLeaningSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                                            SweepPartMaps maps)
+        {
+            int[] targetSurfaceIds;
+            if (ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, out _,
+                                   out targetSurfaceIds, out _, out _) != null) return;
+            if (targetSurfaceIds == null || targetSurfaceIds.Length < 2) return;
+            //
+            HashSet<int> leaningIds;
+            HashSet<int> extendedSourceSurfaceIds = new HashSet<int>(sourceSurfaceIds);
+            Dictionary<int, HashSet<int>> leaningSurfaceIds = new Dictionary<int, HashSet<int>>();
+            foreach (var entry in _geometry.GetSurfaceIdPairAngles(part))
+            {
+                if (entry.Value[0] > Globals.SweepSourceAngle) continue;
+                AddLeaningSurfaceId(leaningSurfaceIds, entry.Key[0], entry.Key[1]);
+                AddLeaningSurfaceId(leaningSurfaceIds, entry.Key[1], entry.Key[0]);
+            }
+            foreach (var surfaceId in sourceSurfaceIds)
+            {
+                if (leaningSurfaceIds.TryGetValue(surfaceId, out leaningIds))
+                    extendedSourceSurfaceIds.UnionWith(leaningIds);
+            }
+            if (extendedSourceSurfaceIds.Count == sourceSurfaceIds.Count) return;
+            //
+            int[] extendedTargetSurfaceIds;
+            if (ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, out _,
+                                   out extendedTargetSurfaceIds, out _, out _) != null) return;
+            if (extendedTargetSurfaceIds == null ||
+                extendedTargetSurfaceIds.Length >= targetSurfaceIds.Length) return;
+            //
+            sourceSurfaceIds.UnionWith(extendedSourceSurfaceIds);
+        }
         private void ExtendSourceOverCoplanarSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                                       Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds)
         {
