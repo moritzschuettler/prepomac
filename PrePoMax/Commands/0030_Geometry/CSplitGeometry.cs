@@ -30,7 +30,8 @@ namespace PrePoMax.Commands
 
         // Constructor                                                                                                              
         public CSplitGeometry(GeometryFeature geometryFeature)
-            : base("Split geometry")
+            : base(geometryFeature.SplitType == SplitTypeEnum.Shell ?
+                   "Split shell" : "Split solid")
         {
             _geometryFeature = geometryFeature.DeepClone();
         }

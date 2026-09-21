@@ -18,11 +18,11 @@ using System.Windows.Forms;
 
 namespace PrePoMax.Forms
 {
-    class FrmGeometryFeature : UserControls.FrmPropertyListView, IFormBase, IFormItemSetDataParent, IFormHighlight
+    class FrmSplitSolid : UserControls.FrmPropertyListView, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables
         private ViewGeometryFeature _viewGeometryFeature;
-        private Controller _controller;
+        protected Controller _controller;
         private FeatureSelectionTargetEnum _selectionTarget;
         // OK - New rebuilds the form, and the operation that was just used comes back selected
         private int _repeatTypeIndex;
@@ -33,10 +33,16 @@ namespace PrePoMax.Forms
         {
             get { return _viewGeometryFeature != null ? _viewGeometryFeature.GetBase() : null; }
         }
+        /// <summary>
+        /// What the region of this splitting tool is picked on, which is the only thing that separates
+        /// the two tools and decides which operations they offer.
+        /// </summary>
+        protected virtual SplitTypeEnum SplitType { get { return SplitTypeEnum.Solid; } }
+        private bool RegionPicksParts { get { return SplitType == SplitTypeEnum.Solid; } }
 
 
         // Constructors
-        public FrmGeometryFeature(Controller controller)
+        public FrmSplitSolid(Controller controller)
             : base(1.72)
         {
             InitializeComponent();
@@ -81,14 +87,14 @@ namespace PrePoMax.Forms
             //
             this.btnOkAddNew.Location = new System.Drawing.Point(109, 436);
             //
-            // FrmGeometryFeature
+            // FrmSplitSolid
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.ClientSize = new System.Drawing.Size(364, 471);
             this.MinimumSize = new System.Drawing.Size(380, 510);
-            this.Name = "FrmGeometryFeature";
-            this.Text = "Split Geometry";
-            this.VisibleChanged += new System.EventHandler(this.FrmGeometryFeature_VisibleChanged);
+            this.Name = "FrmSplitSolid";
+            this.Text = "Split Solid";
+            this.VisibleChanged += new System.EventHandler(this.FrmSplitSolid_VisibleChanged);
             this.Controls.SetChildIndex(this.gbProperties, 0);
             this.Controls.SetChildIndex(this.btnCancel, 0);
             this.Controls.SetChildIndex(this.btnOK, 0);
@@ -102,7 +108,7 @@ namespace PrePoMax.Forms
 
 
         // Event handlers
-        private void FrmGeometryFeature_VisibleChanged(object sender, EventArgs e)
+        private void FrmSplitSolid_VisibleChanged(object sender, EventArgs e)
         {
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
             else
@@ -167,17 +173,18 @@ namespace PrePoMax.Forms
             GeometryFeature geometryFeature = GeometryFeature;
             //
             if (geometryFeature.CreationIds == null || geometryFeature.CreationIds.Length == 0)
-                throw new CaeException("Select at least one part to split.");
+                throw new CaeException(RegionPicksParts ? "Select at least one part to split." :
+                                                          "Select at least one surface to split.");
             //
             string error = geometryFeature.CheckValidity();
             if (error != null) throw new CaeException(error);
             //
             _controller.SplitGeometryCommand(geometryFeature.DeepClone());
             // The split has changed the geometry, so the picked ids and everything read from them are
-            // stale - a part that was cut has been replaced by a compound of the pieces, and the ids of
-            // the region name parts that are gone. Resolving them again would look them up in a model
-            // that no longer holds them. Clearing the splitter is also what takes the tool symbol off
-            // the screen.
+            // stale - a part that was cut has been replaced by a compound of the pieces, and a part whose
+            // surfaces were divided has been renumbered, so the ids of the region name geometry that is
+            // gone. Resolving them again would look them up in a model that no longer holds them.
+            // Clearing the splitter is also what takes the tool symbol off the screen.
             geometryFeature.ClearRegionSelection();
             geometryFeature.ClearSplitterSelection();
             SetSelectionTarget(FeatureSelectionTargetEnum.Region);
@@ -185,7 +192,8 @@ namespace PrePoMax.Forms
             HighlightGeometryFeature();
             //
             // OK - New rebuilds the form, so what is to survive it is put aside here
-            if (onOkAddNew) _repeatTypeIndex = GeometryFeatureTypes.GetIndex(_viewGeometryFeature);
+            if (onOkAddNew)
+                _repeatTypeIndex = GeometryFeatureTypes.GetIndex(SplitType, _viewGeometryFeature);
             else
             {
                 DialogResult = DialogResult.OK;
@@ -228,14 +236,24 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        /// <summary>
+        /// Tells a newly built view what its region is, which is what makes one of the two splitting tools
+        /// out of the operations they share.
+        /// </summary>
+        protected virtual void PrepareGeometryFeatureView(ViewGeometryFeature viewGeometryFeature)
+        {
+            viewGeometryFeature.GetBase().SplitType = SplitType;
+        }
         private void PopulateListOfGeometryFeatures()
         {
             ListViewItem item;
             //
-            for (int i = 0; i < GeometryFeatureTypes.Count; i++)
+            for (int i = 0; i < GeometryFeatureTypes.Count(SplitType); i++)
             {
-                item = new ListViewItem(GeometryFeatureTypes.GetDisplayName(i));
-                item.Tag = GeometryFeatureTypes.CreateDefaultView(i);
+                item = new ListViewItem(GeometryFeatureTypes.GetDisplayName(SplitType, i));
+                ViewGeometryFeature view = GeometryFeatureTypes.CreateDefaultView(SplitType, i);
+                PrepareGeometryFeatureView(view);
+                item.Tag = view;
                 lvTypes.Items.Add(item);
             }
         }
@@ -289,27 +307,34 @@ namespace PrePoMax.Forms
             // point or the direction and lets the pick position choose
             if (_selectionTarget != FeatureSelectionTargetEnum.Splitter)
                 _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
-            else if (GeometryFeature is SplitByPlaneThreePoints)
+            else if (GeometryFeature is SplitByPlaneThreePoints || GeometryFeature is SplitByLineTwoPoints)
                 _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.PointOnly;
             else if (GeometryFeature is SplitByPointAndNormal)
                 _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.PointOrEntity;
             else _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
             //
             // A split names the solids it cuts, so one pick on a compound is one of its sub parts and the
-            // whole compound is named by dragging an area over it
-            _controller.PickCompoundSubPartsSeparately = _selectionTarget == FeatureSelectionTargetEnum.Region;
+            // whole compound is named by dragging an area over it. A picked surface already names one sub
+            // part, so there the question does not arise
+            _controller.PickCompoundSubPartsSeparately =
+                _selectionTarget == FeatureSelectionTargetEnum.Region && RegionPicksParts;
             //
-            if (_selectionTarget == FeatureSelectionTargetEnum.Region) _controller.SetSelectItemToPart();
+            if (_selectionTarget == FeatureSelectionTargetEnum.Region)
+            {
+                if (RegionPicksParts) _controller.SetSelectItemToPart();
+                else _controller.SetSelectItemToGeometrySurface();
+            }
             // The picker takes any geometry and the pick is sorted by the kind of entity it hit, which
             // is also why the dialog does not force a "Select by" mode of its own
             else _controller.SetSelectItemToGeometry();
             // One point, one face or one chain of edges - a cap only helps where the count is fixed
             if (GeometryFeature is SplitByPlaneThreePoints && _selectionTarget == FeatureSelectionTargetEnum.Splitter)
                 _controller.Selection.MaxNumberOfGeometryIds = 3;
+            else if (GeometryFeature is SplitByLineTwoPoints &&
+                     _selectionTarget == FeatureSelectionTargetEnum.Splitter)
+                _controller.Selection.MaxNumberOfGeometryIds = 2;
             else if (GeometryFeature is SplitByPointAndNormal && _selectionTarget == FeatureSelectionTargetEnum.Splitter)
                 _controller.Selection.MaxNumberOfGeometryIds = 2;
-            else if (GeometryFeature is SplitByExtendedFace && _selectionTarget == FeatureSelectionTargetEnum.Splitter)
-                _controller.Selection.MaxNumberOfGeometryIds = 1;
             // One item gives a direction of its own, two give the direction across both
             else if (_selectionTarget == FeatureSelectionTargetEnum.Direction)
                 _controller.Selection.MaxNumberOfGeometryIds = 2;

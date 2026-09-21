@@ -22,6 +22,7 @@ namespace CaeMesh
     {
         // Variables
         protected RegionTypeEnum _regionType;               //ISerializable
+        protected SplitTypeEnum _splitType;     //ISerializable
         protected string[] _partNames;                      //ISerializable
         protected int[] _creationIds;                       //ISerializable
         protected Selection _creationData;                  //ISerializable
@@ -32,6 +33,11 @@ namespace CaeMesh
 
         // Properties
         public RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
+        public SplitTypeEnum SplitType
+        {
+            get { return _splitType; }
+            set { _splitType = value; }
+        }
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
@@ -54,6 +60,7 @@ namespace CaeMesh
         public GeometryFeature()
         {
             _regionType = RegionTypeEnum.Selection;
+            _splitType = SplitTypeEnum.Solid;
             _partNames = null;
             _creationIds = null;
             _creationData = null;
@@ -69,6 +76,8 @@ namespace CaeMesh
                 {
                     case "_regionType":
                         _regionType = (RegionTypeEnum)entry.Value; break;
+                    case "_splitType":
+                        _splitType = (SplitTypeEnum)entry.Value; break;
                     case "_partNames":
                         _partNames = (string[])entry.Value; break;
                     case "_creationIds":
@@ -92,6 +101,7 @@ namespace CaeMesh
         public void CopyRegionFrom(GeometryFeature geometryFeature)
         {
             _regionType = geometryFeature.RegionType;
+            _splitType = geometryFeature.SplitType;
             _partNames = geometryFeature.PartNames?.ToArray();
             _creationIds = geometryFeature.CreationIds?.ToArray();
             _creationData = geometryFeature.CreationData?.DeepCopy(true, false);
@@ -120,6 +130,7 @@ namespace CaeMesh
         {
             // Using typeof() works also for null fields
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
+            info.AddValue("_splitType", _splitType, typeof(SplitTypeEnum));
             info.AddValue("_partNames", _partNames, typeof(string[]));
             info.AddValue("_creationIds", _creationIds, typeof(int[]));
             info.AddValue("_creationData", _creationData, typeof(Selection));

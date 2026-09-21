@@ -4378,6 +4378,9 @@ namespace PrePoMax
                 }
                 else partNamesToRemove.Add(part.Name);
             }
+            // A sub part named on its own is one solid of the brep of its compound, so that brep has to
+            // lose the solid as well, and the compound may stop being one
+            bool compoundChanged = RemoveCompoundSubParts(partNamesToRemove, compoundPartNamesToRemove);
             // Use a list fo remove the compound parts as last
             List<string> orderedPartsToRemove = new List<string>(partNamesToRemove);
             orderedPartsToRemove.AddRange(compoundPartNamesToRemove);
@@ -4390,10 +4393,125 @@ namespace PrePoMax
             _model.Geometry.RemoveParts(orderedPartsToRemove.ToArray(), out removedParts, keepGeometrySelections);
             //
             foreach (var name in removedParts) _form.RemoveTreeNode<GeometryPart>(view, name, null);
+            // A sub part that outlived its compound was a node under it and has to be shown on its own,
+            // which is a change of the shape of the tree rather than of one node
+            if (compoundChanged) _form.RegenerateTree();
             //
             if (checkValidity) CheckAndUpdateModelValidity(true);
             //
             DrawGeometry(false);
+        }
+        /// <summary>
+        /// Takes the sub parts that are being removed out of the compounds that hold them. A sub part is
+        /// one solid of the compound brep, so the brep loses that solid too - and only that solid. Every
+        /// other solid is left exactly as it was, which is why the parts built from them are not touched
+        /// either: they keep their ids, their properties, their meshes and every geometry id already
+        /// built on them. A compound left holding one sub part is no longer a compound and is removed,
+        /// which leaves that sub part standing on its own; one left holding none goes with them.
+        /// </summary>
+        private bool RemoveCompoundSubParts(HashSet<string> partNamesToRemove,
+                                            HashSet<string> compoundPartNamesToRemove)
+        {
+            bool compoundChanged = false;
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart)) continue;
+                if (compoundPartNamesToRemove.Contains(compoundPart.Name)) continue;
+                // The place of a sub part in the list is the number of its solid, which is the numbering
+                // every other command that names a solid of a compound uses
+                List<int> solidIds = new List<int>();
+                List<string> remainingSubPartNames = new List<string>();
+                for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                {
+                    if (partNamesToRemove.Contains(compoundPart.SubPartNames[i])) solidIds.Add(i + 1);
+                    else remainingSubPartNames.Add(compoundPart.SubPartNames[i]);
+                }
+                if (solidIds.Count == 0) continue;
+                //
+                compoundChanged = true;
+                // One solid is not a compound and no solid is nothing, so either way the compound itself
+                // goes and whatever is left of it stands on its own
+                if (remainingSubPartNames.Count <= 1)
+                {
+                    compoundPart.SubPartNames = remainingSubPartNames.ToArray();
+                    compoundPartNamesToRemove.Add(compoundPart.Name);
+                    continue;
+                }
+                //
+                if (RemoveCompoundGeometrySolids(compoundPart, solidIds.ToArray()))
+                {
+                    compoundPart.SubPartNames = remainingSubPartNames.ToArray();
+                    UpdateCompoundPartMassProperties(compoundPart);
+                }
+                else
+                {
+                    // The compound still holds the solids, so it still holds the parts made from them
+                    foreach (string subPartName in compoundPart.SubPartNames)
+                        partNamesToRemove.Remove(subPartName);
+                    _form.WriteDataToOutput("Delete: the geometry of the compound part " + compoundPart.Name +
+                                            " could not be changed, so none of its parts was deleted.");
+                }
+            }
+            return compoundChanged;
+        }
+        /// <summary>
+        /// Has the mesher write the brep of the compound without the named solids. The solids that stay
+        /// are written out as they are, so every face, edge and vertex of theirs keeps its number.
+        /// </summary>
+        private bool RemoveCompoundGeometrySolids(CompoundGeometryPart compoundPart, int[] solidIds)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return false;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            File.WriteAllText(brepFileName, compoundPart.CADFileData);
+            //
+            StringBuilder ids = new StringBuilder();
+            foreach (int solidId in solidIds) ids.Append(" " + solidId);
+            //
+            string argument = "BREP_REMOVE_SOLIDS " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\"" + ids.ToString();
+            //
+            JobStatus jobStatus = _jobRunner.Run(compoundPart.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK) return false;
+            //
+            compoundPart.CADFileDataFromFile(brepFileName);
+            return true;
+        }
+        /// <summary>
+        /// The volume and the center of mass of a compound are those of its sub parts together. The
+        /// bounding box is not recomputed here, since removing the parts does that for every compound.
+        /// </summary>
+        private void UpdateCompoundPartMassProperties(CompoundGeometryPart compoundPart)
+        {
+            double volume = 0;
+            Vec3D centerOfMass = new Vec3D();
+            //
+            foreach (string subPartName in compoundPart.SubPartNames)
+            {
+                BasePart subPart;
+                if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart)) continue;
+                //
+                volume += subPart.MassProperties.Volume;
+                centerOfMass += new Vec3D(subPart.MassProperties.CenterOfMass) * subPart.MassProperties.Volume;
+            }
+            if (volume > 0) centerOfMass *= (1 / volume);
+            //
+            PartMassProperties massProperties = compoundPart.MassProperties;
+            massProperties.Volume = volume;
+            massProperties.CenterOfMass = centerOfMass.Coor;
+            compoundPart.MassProperties = massProperties;
         }
         public void SwapGeometryPartsDictionaryPositions(string partName1, string partName2,
                                                          out GeometryPart part1, out GeometryPart part2)
@@ -5070,7 +5188,10 @@ namespace PrePoMax
             int numOfSkippedParts;
             string[] partNames = GetSplitGeometryRegionPartNames(geometryFeature, out numOfSkippedParts);
             if (partNames.Length == 0)
-                throw new CaeException("None of the selected parts is a CAD part that can be split.");
+                throw new CaeException(geometryFeature.SplitType == SplitTypeEnum.Shell ?
+                                       "None of the selected surfaces belongs to a CAD part that can be " +
+                                       "split." :
+                                       "None of the selected parts is a CAD part that can be split.");
             // One tool is built for the whole region, so it is sized from the bounding box of all of its
             // parts here. A tool sized inside the mesher would come out different for each part.
             double[] extent = GetSplitGeometryRegionExtent(partNames);
@@ -5080,6 +5201,7 @@ namespace PrePoMax
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> failedPartNames = new List<string>();
+            List<string> refusedPartNames = new List<string>();
             //
             // The pieces are imported before the part they came from is removed, so for a moment both are
             // in the scene and both are in the model tree. Rendering and tree updating are held off until
@@ -5102,12 +5224,29 @@ namespace PrePoMax
                     _lastGeometryOperationCounts[partName] = 0;
                     //
                     int[] solidIds = GetSplitGeometrySolidIds(geometryFeature, partName);
+                    List<int> targetSolids;
+                    List<int[]> targetFaceIds;
+                    GetSplitGeometryTargetFaces(geometryFeature, partName, out targetSolids,
+                                                out targetFaceIds);
                     string brepFileName = SplitGeometryPart(part, geometryFeature, extent,
-                                                            sourceBrepFileNames, solidIds);
+                                                            sourceBrepFileNames, solidIds, targetSolids,
+                                                            targetFaceIds);
                     // A part the tool misses must not stop the parts it does not miss
                     if (brepFileName == null) { failedPartNames.Add(partName); continue; }
                     //
-                    string resultPartName = ReplaceSplitGeometryPart(part, brepFileName);
+                    string resultPartName;
+                    if (geometryFeature.SplitType == SplitTypeEnum.Shell)
+                    {
+                        // The faces were divided and the body they belong to was left whole, so the part
+                        // is put back as itself. A result that is not the same body cannot be put back
+                        // that way, and the part then keeps the geometry it had
+                        if (!ReplaceSplitSurfacePart(part, brepFileName, out resultPartName))
+                        {
+                            refusedPartNames.Add(partName);
+                            continue;
+                        }
+                    }
+                    else resultPartName = ReplaceSplitGeometryPart(part, brepFileName);
                     //
                     _lastGeometryOperationCounts[partName] =
                         GetGeometryPartFaceCount(resultPartName) - facesBefore;
@@ -5123,13 +5262,18 @@ namespace PrePoMax
                 _form.RenderingOn = rendering;
             }
             //
-            WriteGeometryOperationReport("Split geometry", "faces were added");
+            string operationName = geometryFeature.SplitType == SplitTypeEnum.Shell ?
+                                   "Split shell" : "Split solid";
+            WriteGeometryOperationReport(operationName, "faces were added");
             //
             foreach (string partName in failedPartNames)
-                _form.WriteDataToOutput("Split geometry: the part " + partName + " was not split.");
+                _form.WriteDataToOutput(operationName + ": the part " + partName + " was not split.");
+            foreach (string partName in refusedPartNames)
+                _form.WriteDataToOutput(operationName + ": the part " + partName + " was left as it was, " +
+                                        "because splitting its surfaces did not give back the same body.");
             if (numOfSkippedParts > 0)
-                _form.WriteDataToOutput("Split geometry: " + numOfSkippedParts + " selected parts are not CAD " +
-                                        "parts and were skipped.");
+                _form.WriteDataToOutput(operationName + ": " + numOfSkippedParts + " selected parts are not " +
+                                        "CAD parts and were skipped.");
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
@@ -5153,6 +5297,20 @@ namespace PrePoMax
                         threePoints.Points[numberOfPoints++] = point;
                 }
                 threePoints.NumberOfPoints = numberOfPoints;
+            }
+            else if (geometryFeature is SplitByLineTwoPoints twoPointLine)
+            {
+                if (ids == null) return;
+                // Two points, captured the way the three of a plane are: a pick that gives no point
+                // must not leave a hole that the line would then be drawn through
+                double[] point;
+                int numberOfPoints = 0;
+                for (int i = 0; i < ids.Length && numberOfPoints < 2; i++)
+                {
+                    if (TryGetSplitGeometryPoint(ids[i], out point))
+                        twoPointLine.Points[numberOfPoints++] = point;
+                }
+                twoPointLine.NumberOfPoints = numberOfPoints;
             }
             else if (geometryFeature is SplitByPointAndNormal pointAndNormal)
             {
@@ -5184,23 +5342,33 @@ namespace PrePoMax
             }
             else if (geometryFeature is SplitByExtendedFace extendedFace)
             {
-                extendedFace.FaceType = GeomFaceType.Unknown;
-                if (ids == null || ids.Length != 1) return;
+                if (ids == null) { extendedFace.FaceTypes = null; return; }
                 //
-                BasePart part;
-                GeometryType geometryType;
-                int itemId;
-                GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(ids[0], out part, out geometryType,
-                                                                              out itemId);
-                string[] text;
-                GeomFaceType faceType;
-                if (entity != null && entity.TryGetCanonicalText("type", out text) && text.Length == 1 &&
-                    Enum.TryParse(text[0], true, out faceType)) extendedFace.FaceType = faceType;
+                GeomFaceType[] faceTypes = new GeomFaceType[ids.Length];
+                for (int i = 0; i < ids.Length; i++) faceTypes[i] = GetSplitGeometryFaceType(ids[i]);
+                extendedFace.FaceTypes = faceTypes;
             }
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
             {
                 UpdateSplitGeometryExtrusionDirection(extrudedEdges);
             }
+        }
+        /// <summary>
+        /// The surface a picked face lies on, as the CAD metadata reports it.
+        /// </summary>
+        private GeomFaceType GetSplitGeometryFaceType(int geometryId)
+        {
+            BasePart part;
+            GeometryType geometryType;
+            int itemId;
+            GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(geometryId, out part,
+                                                                          out geometryType, out itemId);
+            string[] text;
+            GeomFaceType faceType;
+            if (entity != null && entity.TryGetCanonicalText("type", out text) && text.Length == 1 &&
+                Enum.TryParse(text[0], true, out faceType)) return faceType;
+            //
+            return GeomFaceType.Unknown;
         }
         public void UpdateSplitGeometryFromDirectionSelection(GeometryFeature geometryFeature)
         {
@@ -5273,6 +5441,12 @@ namespace PrePoMax
                                                  extent);
                 DrawSplitGeometryPointSymbols(pointAndNormal.SplitterIds, pointAndNormal.SplitterData);
             }
+            else if (geometryFeature is SplitByLineTwoPoints twoPointLine)
+            {
+                // The line is drawn on the surface by the modelling kernel and is not known here, so
+                // what is shown is the two points it will be drawn through
+                DrawSplitGeometryPointSymbols(twoPointLine.SplitterIds, twoPointLine.SplitterData);
+            }
             else if (geometryFeature is SplitByExtendedFace extendedFace && !regionIsArmed)
                 DrawSplitGeometryExtendedFaceSymbol(extendedFace, extent);
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges && !regionIsArmed)
@@ -5323,6 +5497,72 @@ namespace PrePoMax
                 return faceCount;
             }
             return part.Visualization == null ? 0 : part.Visualization.FaceCount;
+        }
+        /// <summary>
+        /// Puts a surface split back. The faces were divided and nothing was added to the body or taken
+        /// from it, so the part is replaced by itself: a shell part stays a shell part, a solid stays a
+        /// solid and a compound keeps its sub parts, each with the name and the id it had. A result that
+        /// is not the same body cannot be put back that way, and false is answered instead of leaving a
+        /// part behind that nothing in the model refers to.
+        /// </summary>
+        private bool ReplaceSplitSurfacePart(GeometryPart part, string brepFileName, out string resultPartName)
+        {
+            resultPartName = part.Name;
+            //
+            int numOfSolids;
+            int numOfShells;
+            if (!TryGetSplitGeometryBodyCounts(brepFileName, out numOfSolids, out numOfShells)) return false;
+            //
+            if (part is CompoundGeometryPart compoundPart)
+            {
+                if (numOfSolids != compoundPart.SubPartNames.Length) return false;
+                //
+                Guid? targetGroupId =
+                    GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts,
+                                                              new string[] { compoundPart.Name });
+                string newCompoundPartName;
+                ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
+                                       out newCompoundPartName, out _);
+                SwapCompoundParts(compoundPart.Name, newCompoundPartName, true);
+                //
+                return true;
+            }
+            // A part that is not a compound is one body, and the same one has to come back: a shell that
+            // came apart, or faces that are no longer a shell, would be parts the split invented
+            if (numOfShells != 1) return false;
+            if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
+            { if (numOfSolids != 1) return false; }
+            else if (numOfSolids != 0) return false;
+            //
+            ReplacePartGeometryFromFile(part, brepFileName, true);
+            //
+            return true;
+        }
+        /// <summary>
+        /// The bodies a brep holds, as the visualization counts them: the solids, and the shells including
+        /// the one a solid is made of. Together they say whether a split gave back the body it was given.
+        /// </summary>
+        private bool TryGetSplitGeometryBodyCounts(string brepFileName, out int numOfSolids, out int numOfShells)
+        {
+            numOfSolids = 0;
+            numOfShells = 0;
+            //
+            string visFileName = CreateVisFile(brepFileName, false);
+            if (visFileName == null || !File.Exists(visFileName)) return false;
+            //
+            const string solidsPrefix = "Number of solids:";
+            const string shellsPrefix = "Number of shells:";
+            bool solidsRead = false;
+            bool shellsRead = false;
+            foreach (string line in File.ReadLines(visFileName))
+            {
+                if (!solidsRead && line.StartsWith(solidsPrefix, StringComparison.Ordinal))
+                    solidsRead = int.TryParse(line.Substring(solidsPrefix.Length).Trim(), out numOfSolids);
+                else if (!shellsRead && line.StartsWith(shellsPrefix, StringComparison.Ordinal))
+                    shellsRead = int.TryParse(line.Substring(shellsPrefix.Length).Trim(), out numOfShells);
+                if (solidsRead && shellsRead) return true;
+            }
+            return false;
         }
         private int GetNumberOfSplitGeometrySolids(string brepFileName)
         {
@@ -5445,11 +5685,23 @@ namespace PrePoMax
             }
             SetGeometryFeatureRegionFade(new string[0], false);
         }
+        /// <summary>
+        /// The part a region id names. A region of parts names a part, a region of surfaces names one of
+        /// its faces, and the part that face belongs to is the one that is split.
+        /// </summary>
+        private BasePart GetSplitGeometryRegionPart(GeometryFeature geometryFeature, int regionId)
+        {
+            if (geometryFeature.SplitType == SplitTypeEnum.Shell)
+                return _model.Geometry.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(regionId)[2]);
+            //
+            return _model.Geometry.GetPartFromId(regionId);
+        }
         private string[] GetSplitGeometryRegionPartNames(GeometryFeature geometryFeature,
                                                          out int numOfSkippedParts)
         {
             numOfSkippedParts = 0;
             List<string> partNames = new List<string>();
+            HashSet<string> skippedPartNames = new HashSet<string>();
             //
             if (geometryFeature.CreationIds == null) return partNames.ToArray();
             // What the user picks on a compound is one of its sub parts. The compound is what is sent
@@ -5458,9 +5710,9 @@ namespace PrePoMax
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             HashSet<string> addedPartNames = new HashSet<string>();
             //
-            foreach (int partId in geometryFeature.CreationIds)
+            foreach (int regionId in geometryFeature.CreationIds)
             {
-                BasePart part = _model.Geometry.GetPartFromId(partId);
+                BasePart part = GetSplitGeometryRegionPart(geometryFeature, regionId);
                 if (part is GeometryPart geometryPart && geometryPart.IsCADPart)
                 {
                     string partName;
@@ -5468,7 +5720,8 @@ namespace PrePoMax
                         partName = geometryPart.Name;
                     if (addedPartNames.Add(partName)) partNames.Add(partName);
                 }
-                else numOfSkippedParts++;
+                // Several surfaces of one part that cannot be split are one part that was skipped
+                else if (part == null || skippedPartNames.Add(part.Name)) numOfSkippedParts++;
             }
             return partNames.ToArray();
         }
@@ -5480,6 +5733,10 @@ namespace PrePoMax
         /// </summary>
         private int[] GetSplitGeometrySolidIds(GeometryFeature geometryFeature, string partName)
         {
+            // A region of surfaces names the faces that are divided, and the solid each of them belongs
+            // to is named with the face, so there is no solid to name here
+            if (geometryFeature.SplitType == SplitTypeEnum.Shell) return new int[0];
+            //
             BasePart part;
             if (!_model.Geometry.Parts.TryGetValue(partName, out part) ||
                 !(part is CompoundGeometryPart compoundPart)) return new int[0];
@@ -5503,6 +5760,58 @@ namespace PrePoMax
             return solidIds.ToArray();
         }
         /// <summary>
+        /// The faces of one part that a region of surfaces names, grouped by the solid they belong to and
+        /// numbered the way the modelling kernel numbers them. A compound is split as a whole while its
+        /// faces are picked on its sub parts, so a face there is named by its solid and by its place in
+        /// that solid; a part that is not a compound numbers its faces in itself, which is solid zero.
+        /// </summary>
+        private void GetSplitGeometryTargetFaces(GeometryFeature geometryFeature, string partName,
+                                                 out List<int> targetSolids, out List<int[]> targetFaceIds)
+        {
+            targetSolids = new List<int>();
+            targetFaceIds = new List<int[]>();
+            //
+            if (geometryFeature.SplitType != SplitTypeEnum.Shell) return;
+            if (geometryFeature.CreationIds == null) return;
+            //
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out part)) return;
+            CompoundGeometryPart compoundPart = part as CompoundGeometryPart;
+            //
+            List<int> solidNumbers = new List<int>();
+            Dictionary<int, List<int>> kernelIdsBySolidNumber = new Dictionary<int, List<int>>();
+            foreach (int geometryId in geometryFeature.CreationIds)
+            {
+                int facePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2];
+                BasePart facePart = _model.Geometry.GetPartFromId(facePartId);
+                if (facePart == null) continue;
+                // The region can name faces on several parts, and this pass is about one of them
+                int solidNumber = 0;
+                if (compoundPart != null)
+                {
+                    int index = Array.IndexOf(compoundPart.SubPartNames, facePart.Name);
+                    if (index < 0) continue;
+                    solidNumber = index + 1;
+                }
+                else if (facePart.Name != partName) continue;
+                //
+                List<int> kernelIds;
+                if (!kernelIdsBySolidNumber.TryGetValue(solidNumber, out kernelIds))
+                {
+                    kernelIds = new List<int>();
+                    kernelIdsBySolidNumber.Add(solidNumber, kernelIds);
+                    solidNumbers.Add(solidNumber);
+                }
+                int kernelId = GetSplitGeometryKernelId(geometryId);
+                if (!kernelIds.Contains(kernelId)) kernelIds.Add(kernelId);
+            }
+            foreach (int solidNumber in solidNumbers)
+            {
+                targetSolids.Add(solidNumber);
+                targetFaceIds.Add(kernelIdsBySolidNumber[solidNumber].ToArray());
+            }
+        }
+        /// <summary>
         /// The parts the region actually names, as they are drawn. A compound is drawn as its sub parts, so
         /// picking the compound itself means all of them while picking one sub part means only that one -
         /// which is what lets the siblings fade while it is being cut.
@@ -5512,10 +5821,10 @@ namespace PrePoMax
             List<string> partNames = new List<string>();
             if (geometryFeature.CreationIds == null) return partNames.ToArray();
             //
-            foreach (int partId in geometryFeature.CreationIds)
+            foreach (int regionId in geometryFeature.CreationIds)
             {
-                BasePart part = _model.Geometry.GetPartFromId(partId);
-                if (part == null) continue;
+                BasePart part = GetSplitGeometryRegionPart(geometryFeature, regionId);
+                if (part == null || partNames.Contains(part.Name)) continue;
                 //
                 if (part is CompoundGeometryPart compoundPart) partNames.AddRange(compoundPart.SubPartNames);
                 else partNames.Add(part.Name);
@@ -5555,7 +5864,8 @@ namespace PrePoMax
         {
             Dictionary<int, string> sourceBrepFileNames = new Dictionary<int, string>();
             // Only a tool that names geometry by id needs the part that geometry belongs to
-            if (geometryFeature.ToolType == SplitGeometryToolTypeEnum.Plane) return sourceBrepFileNames;
+            if (geometryFeature.ToolType == SplitGeometryToolTypeEnum.Plane ||
+                geometryFeature.ToolType == SplitGeometryToolTypeEnum.TwoPointLine) return sourceBrepFileNames;
             if (geometryFeature.SplitterIds == null || geometryFeature.SplitterIds.Length == 0)
                 return sourceBrepFileNames;
             //
@@ -5584,7 +5894,8 @@ namespace PrePoMax
             return sourceBrepFileNames;
         }
         private string SplitGeometryPart(GeometryPart part, GeometryFeature geometryFeature, double[] extent,
-                                         Dictionary<int, string> sourceBrepFileNames, int[] solidIds)
+                                         Dictionary<int, string> sourceBrepFileNames, int[] solidIds,
+                                         List<int> targetSolids, List<int[]> targetFaceIds)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -5604,7 +5915,8 @@ namespace PrePoMax
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             File.WriteAllText(toolFileName, GetSplitGeometryToolDefinition(geometryFeature, extent,
-                                                                          sourceBrepFileNames, solidIds));
+                                                                          sourceBrepFileNames, solidIds,
+                                                                          targetSolids, targetFaceIds));
             //
             string argument = "BREP_SPLIT " +
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
@@ -5619,10 +5931,11 @@ namespace PrePoMax
         }
         private string GetSplitGeometryToolDefinition(GeometryFeature geometryFeature, double[] extent,
                                                       Dictionary<int, string> sourceBrepFileNames,
-                                                      int[] solidIds)
+                                                      int[] solidIds, List<int> targetSolids,
+                                                      List<int[]> targetFaceIds)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Split tool format: 1");
+            sb.AppendLine("Split tool format: 2");
             sb.AppendLine("Tool type: " + geometryFeature.ToolType.ToString());
             sb.AppendLine("Extent: " + SplitGeometryValuesToString(extent));
             if (geometryFeature.FuzzyValue > 0)
@@ -5633,6 +5946,19 @@ namespace PrePoMax
                 StringBuilder solids = new StringBuilder();
                 foreach (int solidId in solidIds) solids.Append(" " + solidId);
                 sb.AppendLine("Solid ids:" + solids.ToString());
+            }
+            // A surface split divides the named faces and leaves the body they belong to whole. The solid
+            // is named with every group, zero included, so that a group opens where the next solid begins
+            if (geometryFeature.SplitType == SplitTypeEnum.Shell && targetSolids != null)
+            {
+                sb.AppendLine("Split target: Shell");
+                for (int i = 0; i < targetSolids.Count; i++)
+                {
+                    sb.AppendLine("Target solid: " + targetSolids[i]);
+                    StringBuilder faces = new StringBuilder();
+                    foreach (int faceId in targetFaceIds[i]) faces.Append(" " + faceId);
+                    sb.AppendLine("Target face ids:" + faces.ToString());
+                }
             }
             //
             if (geometryFeature is SplitByPlaneThreePoints threePoints)
@@ -5645,43 +5971,25 @@ namespace PrePoMax
                 sb.AppendLine("Plane origin: " + SplitGeometryValuesToString(pointAndNormal.GetPlaneOrigin()));
                 sb.AppendLine("Plane normal: " + SplitGeometryValuesToString(pointAndNormal.GetPlaneNormal()));
             }
-            else if (geometryFeature is SplitByExtendedFace)
+            else if (geometryFeature is SplitByLineTwoPoints twoPointLine)
             {
-                int partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryFeature.SplitterIds[0])[2];
-                string sourceBrepFileName;
-                if (sourceBrepFileNames.TryGetValue(partId, out sourceBrepFileName))
-                    sb.AppendLine("Source file: " + sourceBrepFileName);
-                sb.AppendLine("Face id: " + GetSplitGeometryKernelId(geometryFeature.SplitterIds[0]));
+                sb.AppendLine("Point 1: " + SplitGeometryValuesToString(twoPointLine.Points[0]));
+                sb.AppendLine("Point 2: " + SplitGeometryValuesToString(twoPointLine.Points[1]));
+            }
+            else if (geometryFeature is SplitByExtendedFace extendedFace)
+            {
+                // A face that cannot be continued past its boundary is left out, which is also what the
+                // symbols show, so the tool is what the user was looking at
+                List<int> extendedIds = new List<int>();
+                for (int i = 0; i < extendedFace.SplitterIds.Length; i++)
+                    if (extendedFace.IsExtended(i)) extendedIds.Add(extendedFace.SplitterIds[i]);
+                //
+                AppendSplitGeometryKernelIdGroups(sb, "Face ids", extendedIds.ToArray(), sourceBrepFileNames);
             }
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
             {
-                // Each group of ids is written under the brep it was read from, since the same number
-                // means a different edge in every brep
-                List<int> partIds = new List<int>();
-                Dictionary<int, List<int>> kernelIdsByPartId = new Dictionary<int, List<int>>();
-                foreach (int id in extrudedEdges.SplitterIds)
-                {
-                    int partId = FeMesh.GetItemTypePartIdsFromGeometryId(id)[2];
-                    List<int> kernelIds;
-                    if (!kernelIdsByPartId.TryGetValue(partId, out kernelIds))
-                    {
-                        kernelIds = new List<int>();
-                        kernelIdsByPartId.Add(partId, kernelIds);
-                        partIds.Add(partId);
-                    }
-                    kernelIds.Add(GetSplitGeometryKernelId(id));
-                }
-                foreach (int partId in partIds)
-                {
-                    string sourceBrepFileName;
-                    // An edge on a part that has no brep cannot be extruded and is left out
-                    if (!sourceBrepFileNames.TryGetValue(partId, out sourceBrepFileName)) continue;
-                    sb.AppendLine("Source file: " + sourceBrepFileName);
-                    //
-                    StringBuilder edgeIds = new StringBuilder();
-                    foreach (int kernelId in kernelIdsByPartId[partId]) edgeIds.Append(" " + kernelId);
-                    sb.AppendLine("Edge ids:" + edgeIds.ToString());
-                }
+                AppendSplitGeometryKernelIdGroups(sb, "Edge ids", extrudedEdges.SplitterIds,
+                                                  sourceBrepFileNames);
                 //
                 double[] offset;
                 double[] vector;
@@ -5766,6 +6074,42 @@ namespace PrePoMax
                 }
             }
             return max >= min;
+        }
+        /// <summary>
+        /// Writes the picked ids as the kernel numbers them, in groups under the brep each group was
+        /// read from. The same number means a different entity in every brep, so a group without its
+        /// source file would be read against the wrong shape - and geometry on a part that has no
+        /// brep of its own cannot be used at all, so it is left out.
+        /// </summary>
+        private void AppendSplitGeometryKernelIdGroups(StringBuilder sb, string idsName, int[] geometryIds,
+                                                       Dictionary<int, string> sourceBrepFileNames)
+        {
+            if (geometryIds == null) return;
+            //
+            List<int> partIds = new List<int>();
+            Dictionary<int, List<int>> kernelIdsByPartId = new Dictionary<int, List<int>>();
+            foreach (int geometryId in geometryIds)
+            {
+                int partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2];
+                List<int> kernelIds;
+                if (!kernelIdsByPartId.TryGetValue(partId, out kernelIds))
+                {
+                    kernelIds = new List<int>();
+                    kernelIdsByPartId.Add(partId, kernelIds);
+                    partIds.Add(partId);
+                }
+                kernelIds.Add(GetSplitGeometryKernelId(geometryId));
+            }
+            foreach (int partId in partIds)
+            {
+                string sourceBrepFileName;
+                if (!sourceBrepFileNames.TryGetValue(partId, out sourceBrepFileName)) continue;
+                sb.AppendLine("Source file: " + sourceBrepFileName);
+                //
+                StringBuilder ids = new StringBuilder();
+                foreach (int kernelId in kernelIdsByPartId[partId]) ids.Append(" " + kernelId);
+                sb.AppendLine(idsName + ":" + ids.ToString());
+            }
         }
         private static string SplitGeometryValuesToString(double[] values)
         {
@@ -6046,7 +6390,8 @@ namespace PrePoMax
             DrawNodes("splitGeometryPoints", coor.ToArray(), _settings.Pre.PrimaryHighlightColor,
                       vtkRendererLayer.Selection, _settings.Pre.NodeSymbolSize);
         }
-        private void DrawSplitGeometryPlaneSymbol(double[] origin, double[] normal, double[] extent)
+        private void DrawSplitGeometryPlaneSymbol(double[] origin, double[] normal, double[] extent,
+                                                  int symbolIndex = 0)
         {
             if (origin == null || normal == null) return;
             //
@@ -6070,9 +6415,9 @@ namespace PrePoMax
                                              origin[2] + u * first[2] + v * second[2] };
             }
             //
-            DrawSplitGeometryToolSurface("splitGeometryPlane", nodeCoor,
+            DrawSplitGeometryToolSurface("splitGeometryPlane" + symbolIndex, nodeCoor,
                                          new int[][] { new int[] { 0, 1, 2, 3 } });
-            DrawSplitGeometryToolBorder("splitGeometryPlaneBorder", nodeCoor,
+            DrawSplitGeometryToolBorder("splitGeometryPlaneBorder" + symbolIndex, nodeCoor,
                                         new int[][] { new int[] { 0, 1 }, new int[] { 1, 2 },
                                                       new int[] { 2, 3 }, new int[] { 3, 0 } });
         }
@@ -6083,12 +6428,24 @@ namespace PrePoMax
         /// </summary>
         private void DrawSplitGeometryExtendedFaceSymbol(SplitByExtendedFace extendedFace, double[] extent)
         {
-            if (extendedFace.SplitterIds == null || extendedFace.SplitterIds.Length != 1) return;
+            if (extendedFace.SplitterIds == null) return;
             //
+            for (int i = 0; i < extendedFace.SplitterIds.Length; i++)
+            {
+                // Only a face that will be extended gets a symbol, which is how the user sees that the
+                // others are being left out
+                if (extendedFace.IsExtended(i))
+                    DrawSplitGeometryExtendedSurfaceSymbol(extendedFace.SplitterIds[i], extendedFace.FaceTypes[i],
+                                                           extent, i);
+            }
+        }
+        private void DrawSplitGeometryExtendedSurfaceSymbol(int geometryId, GeomFaceType faceType, double[] extent,
+                                                            int symbolIndex)
+        {
             BasePart part;
             GeometryType geometryType;
             int itemId;
-            GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(extendedFace.SplitterIds[0], out part,
+            GeometryMetadataEntity entity = GetSplitGeometryMetadataEntity(geometryId, out part,
                                                                           out geometryType, out itemId);
             if (entity == null) return;
             // Every surface that continues past its face either turns around an axis or stands on one
@@ -6100,32 +6457,32 @@ namespace PrePoMax
             double[] values;
             double[] second;
             //
-            if (extendedFace.FaceType == GeomFaceType.Plane)
+            if (faceType == GeomFaceType.Plane)
             {
-                DrawSplitGeometryPlaneSymbol(origin, direction, extent);
+                DrawSplitGeometryPlaneSymbol(origin, direction, extent, symbolIndex);
             }
-            else if (extendedFace.FaceType == GeomFaceType.Cylinder)
+            else if (faceType == GeomFaceType.Cylinder)
             {
                 if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
-                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], 0);
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], 0, symbolIndex);
             }
-            else if (extendedFace.FaceType == GeomFaceType.Cone)
+            else if (faceType == GeomFaceType.Cone)
             {
                 if (!entity.TryGetNumbers("reference_radius", out values) || values.Length != 1) return;
                 if (!entity.TryGetNumbers("semi_angle_rad", out second) || second.Length != 1) return;
                 // The radius a cone reports belongs to the origin of its axis and grows along it
-                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], Math.Tan(second[0]));
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], Math.Tan(second[0]), symbolIndex);
             }
-            else if (extendedFace.FaceType == GeomFaceType.Sphere)
+            else if (faceType == GeomFaceType.Sphere)
             {
                 if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
-                DrawSplitGeometrySphereSymbol(origin, direction, values[0]);
+                DrawSplitGeometrySphereSymbol(origin, direction, values[0], symbolIndex);
             }
-            else if (extendedFace.FaceType == GeomFaceType.Torus)
+            else if (faceType == GeomFaceType.Torus)
             {
                 if (!entity.TryGetNumbers("major_radius", out values) || values.Length != 1) return;
                 if (!entity.TryGetNumbers("minor_radius", out second) || second.Length != 1) return;
-                DrawSplitGeometryTorusSymbol(origin, direction, values[0], second[0]);
+                DrawSplitGeometryTorusSymbol(origin, direction, values[0], second[0], symbolIndex);
             }
         }
         /// <summary>
@@ -6133,7 +6490,7 @@ namespace PrePoMax
         /// is drawn over the whole part of the axis the region reaches, since that is as far as it cuts.
         /// </summary>
         private void DrawSplitGeometryTubeSymbol(double[] origin, double[] direction, double[] extent,
-                                                 double referenceRadius, double slope)
+                                                 double referenceRadius, double slope, int symbolIndex = 0)
         {
             double[] axis = NormalizeSplitGeometryDirection(direction);
             if (axis == null) return;
@@ -6182,14 +6539,15 @@ namespace PrePoMax
                 borderCells[numOfSegments + i] = new int[] { numOfSegments + i, numOfSegments + next };
             }
             //
-            DrawSplitGeometryToolSurface("splitGeometryTube", nodeCoor, cells);
-            DrawSplitGeometryToolBorder("splitGeometryTubeBorder", nodeCoor, borderCells);
+            DrawSplitGeometryToolSurface("splitGeometryTube" + symbolIndex, nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometryTubeBorder" + symbolIndex, nodeCoor, borderCells);
         }
         /// <summary>
         /// The whole sphere, which is what a spherical face closes into when it is carried past its
         /// boundary. It needs no clipping to the region: a sphere is as large as it will ever be.
         /// </summary>
-        private void DrawSplitGeometrySphereSymbol(double[] center, double[] direction, double radius)
+        private void DrawSplitGeometrySphereSymbol(double[] center, double[] direction, double radius,
+                                                   int symbolIndex = 0)
         {
             double[] axis = NormalizeSplitGeometryDirection(direction);
             if (axis == null || radius <= 0) return;
@@ -6232,15 +6590,15 @@ namespace PrePoMax
             for (int i = 0; i < numOfSegments; i++)
                 borderCells[i] = new int[] { equator + i, equator + (i + 1) % numOfSegments };
             //
-            DrawSplitGeometryToolSurface("splitGeometrySphere", nodeCoor, cells);
-            DrawSplitGeometryToolBorder("splitGeometrySphereBorder", nodeCoor, borderCells);
+            DrawSplitGeometryToolSurface("splitGeometrySphere" + symbolIndex, nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometrySphereBorder" + symbolIndex, nodeCoor, borderCells);
         }
         /// <summary>
         /// The whole torus, which is what a toroidal face closes into when it is carried past its
         /// boundary. Like a sphere it is already as large as it gets, so the region does not clip it.
         /// </summary>
         private void DrawSplitGeometryTorusSymbol(double[] center, double[] direction, double majorRadius,
-                                                  double minorRadius)
+                                                  double minorRadius, int symbolIndex = 0)
         {
             double[] axis = NormalizeSplitGeometryDirection(direction);
             if (axis == null || majorRadius <= 0 || minorRadius <= 0) return;
@@ -6282,8 +6640,8 @@ namespace PrePoMax
             for (int i = 0; i < numOfSegments; i++)
                 borderCells[i] = new int[] { i, (i + 1) % numOfSegments };
             //
-            DrawSplitGeometryToolSurface("splitGeometryTorus", nodeCoor, cells);
-            DrawSplitGeometryToolBorder("splitGeometryTorusBorder", nodeCoor, borderCells);
+            DrawSplitGeometryToolSurface("splitGeometryTorus" + symbolIndex, nodeCoor, cells);
+            DrawSplitGeometryToolBorder("splitGeometryTorusBorder" + symbolIndex, nodeCoor, borderCells);
         }
         private static double[] GetSplitGeometryRevolvedPoint(double[] origin, double[] axis, double[] first,
                                                               double[] second, double distance, double radius,

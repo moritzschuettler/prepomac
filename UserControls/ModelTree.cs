@@ -1856,8 +1856,9 @@ namespace UserControls
                 if (item.Active) menuFields.Deactivate++;
                 else menuFields.Activate++;
             }
-            // Delete
-            if (item != null && !subPart)
+            // Delete - a sub part of a compound may be deleted: the compound loses that solid of its
+            // geometry and keeps the rest of them as they are
+            if (item != null)
             {
                 if (node.TreeView == cltvResults &&
                     (item is FeNodeSet ||

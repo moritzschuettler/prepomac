@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -243,7 +243,8 @@ namespace PrePoMax
             this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSplitGeometry = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSplitSolid = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSplitShell = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -2370,7 +2371,8 @@ namespace PrePoMax
             this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitAFaceUsingTwoPoints,
-            this.tsmiSplitGeometry,
+            this.tsmiSplitSolid,
+            this.tsmiSplitShell,
             this.tsmiDividerCAD2,
             this.tsmiDefeature});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
@@ -2410,12 +2412,19 @@ namespace PrePoMax
             this.tsmiSplitAFaceUsingTwoPoints.Text = "Split a Face Using Two Points";
             this.tsmiSplitAFaceUsingTwoPoints.Click += new System.EventHandler(this.tsmiSplitAFaceUsingTwoPoints_Click);
             //
-            // tsmiSplitGeometry
+            // tsmiSplitSolid
             //
-            this.tsmiSplitGeometry.Name = "tsmiSplitGeometry";
-            this.tsmiSplitGeometry.Size = new System.Drawing.Size(227, 22);
-            this.tsmiSplitGeometry.Text = "Split Geometry";
-            this.tsmiSplitGeometry.Click += new System.EventHandler(this.tsmiSplitGeometry_Click);
+            this.tsmiSplitSolid.Name = "tsmiSplitSolid";
+            this.tsmiSplitSolid.Size = new System.Drawing.Size(227, 22);
+            this.tsmiSplitSolid.Text = "Split Solid";
+            this.tsmiSplitSolid.Click += new System.EventHandler(this.tsmiSplitSolid_Click);
+            // 
+            // tsmiSplitShell
+            // 
+            this.tsmiSplitShell.Name = "tsmiSplitShell";
+            this.tsmiSplitShell.Size = new System.Drawing.Size(227, 22);
+            this.tsmiSplitShell.Text = "Split Shell";
+            this.tsmiSplitShell.Click += new System.EventHandler(this.tsmiSplitShell_Click);
             // 
             // tsmiDividerCAD2
             // 
@@ -5638,7 +5647,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerGeometry2;
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitAFaceUsingTwoPoints;
-        private System.Windows.Forms.ToolStripMenuItem tsmiSplitGeometry;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSplitSolid;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSplitShell;
         private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCylinder;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateElementSet;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateNodeSet;

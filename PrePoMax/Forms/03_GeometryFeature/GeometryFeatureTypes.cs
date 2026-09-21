@@ -19,6 +19,11 @@ namespace PrePoMax.Forms
     {
         public string DisplayName;
         public Type ItemType;
+        /// <summary>
+        /// An operation that only means something when the region is a surface, because its tool is
+        /// drawn on the surface rather than built in space.
+        /// </summary>
+        public bool ShellOnly;
         public Func<ViewGeometryFeature> CreateDefaultView;
         public Func<GeometryFeature, ViewGeometryFeature> CreateView;
     }
@@ -28,6 +33,13 @@ namespace PrePoMax.Forms
         // Variables
         private static readonly GeometryFeatureType[] _all = new GeometryFeatureType[]
         {
+            new GeometryFeatureType()
+            {
+                DisplayName = "Line by Two Points", ItemType = typeof(SplitByLineTwoPoints),
+                ShellOnly = true,
+                CreateDefaultView = () => new ViewSplitByLineTwoPoints(new SplitByLineTwoPoints()),
+                CreateView = (item) => new ViewSplitByLineTwoPoints(((SplitByLineTwoPoints)item).DeepClone())
+            },
             new GeometryFeatureType()
             {
                 DisplayName = "Plane by Three Points", ItemType = typeof(SplitByPlaneThreePoints),
@@ -55,18 +67,28 @@ namespace PrePoMax.Forms
         };
 
 
-        // Properties
-        public static int Count { get { return _all.Length; } }
-
-
         // Methods
-        public static string GetDisplayName(int index)
+        /// <summary>
+        /// The operations one of the two splitting tools offers. They share every operation that builds
+        /// its tool in space; an operation that draws its tool on a surface is only in the surface tool.
+        /// </summary>
+        private static GeometryFeatureType[] GetTypes(SplitTypeEnum splitType)
         {
-            return _all[index].DisplayName;
+            if (splitType == SplitTypeEnum.Shell) return _all;
+            //
+            return _all.Where(entry => !entry.ShellOnly).ToArray();
         }
-        public static ViewGeometryFeature CreateDefaultView(int index)
+        public static int Count(SplitTypeEnum splitType)
         {
-            return _all[index].CreateDefaultView();
+            return GetTypes(splitType).Length;
+        }
+        public static string GetDisplayName(SplitTypeEnum splitType, int index)
+        {
+            return GetTypes(splitType)[index].DisplayName;
+        }
+        public static ViewGeometryFeature CreateDefaultView(SplitTypeEnum splitType, int index)
+        {
+            return GetTypes(splitType)[index].CreateDefaultView();
         }
         public static ViewGeometryFeature CreateView(GeometryFeature geometryFeature)
         {
@@ -76,12 +98,14 @@ namespace PrePoMax.Forms
             }
             throw new NotSupportedException("GeometryFeatureTypeException");
         }
-        public static int GetIndex(ViewGeometryFeature viewGeometryFeature)
+        public static int GetIndex(SplitTypeEnum splitType,
+                                   ViewGeometryFeature viewGeometryFeature)
         {
+            GeometryFeatureType[] types = GetTypes(splitType);
             Type itemType = viewGeometryFeature.GetBase().GetType();
-            for (int i = 0; i < _all.Length; i++)
+            for (int i = 0; i < types.Length; i++)
             {
-                if (_all[i].ItemType == itemType) return i;
+                if (types[i].ItemType == itemType) return i;
             }
             throw new NotSupportedException("GeometryFeatureTypeException");
         }

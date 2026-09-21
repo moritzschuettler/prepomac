@@ -520,11 +520,15 @@
     <Compile Include="Forms\11_MeshSetup\Mmg\ViewShellMmg.cs" />
     <Compile Include="Forms\11_MeshSetup\Netgen\ViewTetrahedralNetgen.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\MeshSetupItemTypes.cs" />
-    <Compile Include="Forms\03_GeometryFeature\FrmGeometryFeature.cs">
+    <Compile Include="Forms\03_GeometryFeature\FrmSplitSolid.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\03_GeometryFeature\FrmSplitShell.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\03_GeometryFeature\GeometryFeatureTypes.cs" />
     <Compile Include="Forms\03_GeometryFeature\FeatureSelectionTargetEnum.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSplitByLineTwoPoints.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByExtendedFace.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByExtrudedEdges.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByPlaneThreePoints.cs" />

@@ -70,11 +70,13 @@
     <Compile Include="Enums\SplitExtrusionDirectionTypeEnum.cs" />
     <Compile Include="Enums\SplitExtrusionLengthTypeEnum.cs" />
     <Compile Include="Enums\SplitGeometryToolTypeEnum.cs" />
+    <Compile Include="Enums\SplitTypeEnum.cs" />
     <Compile Include="Features\SplitByExtendedFace.cs" />
     <Compile Include="Features\SplitByExtrudedEdges.cs" />
     <Compile Include="Features\SplitByPlaneThreePoints.cs" />
     <Compile Include="Features\SplitByPointAndNormal.cs" />
     <Compile Include="Features\GeometryFeature.cs" />
+    <Compile Include="Features\SplitByLineTwoPoints.cs" />
     <Compile Include="Enums\ImportOptions.cs" />
     <Compile Include="CellEdgeData.cs" />
     <Compile Include="Enums\GeometryType.cs" />

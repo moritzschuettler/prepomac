@@ -52,6 +52,18 @@ namespace PrePoMax.Forms
 
         // Methods
         public abstract GeometryFeature GetBase();
+        /// <summary>
+        /// The region row asks for parts in one splitting tool and for surfaces in the other, so what it
+        /// says is set by the form that built the view rather than by the attribute.
+        /// </summary>
+        public void SetRegionSelectionText(string displayName, string description)
+        {
+            // The rows of a category are ordered by their names, which the attribute does with zero
+            // width spaces in front of them, so a name set here is given the same ones
+            CustomPropertyDescriptor cpd = _dctd.GetProperty(RegionSelectionName);
+            cpd.SetDisplayName(new OrderedDisplayNameAttribute(0, 10, displayName).DisplayName);
+            cpd.SetDescription(description);
+        }
         protected static string SelectionToString(int[] ids, string itemName)
         {
             return CountToString(ids == null ? 0 : ids.Length, itemName);

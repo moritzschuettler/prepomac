@@ -20,11 +20,14 @@ namespace CaeMesh
     public class SplitByExtendedFace : GeometryFeature
     {
         // Variables
-        private GeomFaceType _faceType;                     //ISerializable
+        private GeomFaceType[] _faceTypes;                  //ISerializable
 
 
         // Properties
-        public GeomFaceType FaceType { get { return _faceType; } set { _faceType = value; } }
+        /// <summary>
+        /// The surface each picked face lies on, one for one with the splitter ids.
+        /// </summary>
+        public GeomFaceType[] FaceTypes { get { return _faceTypes; } set { _faceTypes = value; } }
         public override SplitGeometryToolTypeEnum ToolType { get { return SplitGeometryToolTypeEnum.ExtendFace; } }
         public override string DisplayName { get { return "Extend face"; } }
 
@@ -33,7 +36,7 @@ namespace CaeMesh
         public SplitByExtendedFace()
             : base()
         {
-            _faceType = GeomFaceType.Unknown;
+            _faceTypes = null;
         }
         public SplitByExtendedFace(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -42,8 +45,8 @@ namespace CaeMesh
             {
                 switch (entry.Name)
                 {
-                    case "_faceType":
-                        _faceType = (GeomFaceType)entry.Value; break;
+                    case "_faceTypes":
+                        _faceTypes = (GeomFaceType[])entry.Value; break;
                     default:
                         break;
                 }
@@ -63,18 +66,36 @@ namespace CaeMesh
                    faceType == GeomFaceType.Cone || faceType == GeomFaceType.Sphere ||
                    faceType == GeomFaceType.Torus;
         }
+        /// <summary>
+        /// Which of the picked faces are extended. A face that cannot be continued past its boundary
+        /// is left out rather than refused: it is also left out of the symbols, so what is drawn is
+        /// what will cut.
+        /// </summary>
+        public bool IsExtended(int index)
+        {
+            return _faceTypes != null && index >= 0 && index < _faceTypes.Length &&
+                   CanBeExtended(_faceTypes[index]);
+        }
+        public int GetNumberOfExtendedFaces()
+        {
+            if (_faceTypes == null) return 0;
+            //
+            int count = 0;
+            for (int i = 0; i < _faceTypes.Length; i++) { if (CanBeExtended(_faceTypes[i])) count++; }
+            return count;
+        }
         public override void ClearSplitterSelection()
         {
             base.ClearSplitterSelection();
             //
-            _faceType = GeomFaceType.Unknown;
+            _faceTypes = null;
         }
         public override string CheckValidity()
         {
-            if (_splitterIds == null || _splitterIds.Length != 1)
-                return "Select one face to extend into the splitting tool.";
-            if (!CanBeExtended(_faceType))
-                return "A " + _faceType.ToString().ToLower() + " face cannot be extended past its boundary.";
+            if (_splitterIds == null || _splitterIds.Length == 0)
+                return "Select at least one face to extend into the splitting tool.";
+            if (GetNumberOfExtendedFaces() == 0)
+                return "None of the selected faces can be extended past its boundary.";
             return null;
         }
         // ISerialization
@@ -82,7 +103,7 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
-            info.AddValue("_faceType", _faceType, typeof(GeomFaceType));
+            info.AddValue("_faceTypes", _faceTypes, typeof(GeomFaceType[]));
         }
     }
 }

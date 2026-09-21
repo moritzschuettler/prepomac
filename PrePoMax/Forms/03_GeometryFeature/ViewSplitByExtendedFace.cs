@@ -29,8 +29,9 @@ namespace PrePoMax.Forms
         // Properties
         [CategoryAttribute("Splitter")]
         [OrderedDisplayName(0, 10, "Face")]
-        [DescriptionAttribute("Select the face whose surface is continued past its boundary into the splitting " +
-                              "tool. The face may lie on a part that is not being split.")]
+        [DescriptionAttribute("Select the faces whose surfaces are continued past their boundaries into the " +
+                              "splitting tool. Hold the Shift key to select more than one. A face may lie on a " +
+                              "part that is not being split.")]
         [Id(1, 2)]
         public string SplitterSelection
         {
@@ -40,20 +41,32 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Splitter")]
         [OrderedDisplayName(1, 10, "Surface type")]
-        [DescriptionAttribute("The surface the picked face lies on. Only a plane, a cylinder, a cone, a sphere " +
-                              "and a torus continue past the face boundary; a spline patch does not.")]
+        [DescriptionAttribute("The surfaces the picked faces lie on. Only a plane, a cylinder, a cone, a sphere " +
+                              "and a torus continue past the face boundary; a face that lies on a spline patch " +
+                              "is left out of the tool rather than stopping it, and gets no symbol.")]
         [ReadOnlyAttribute(true)]
         [Id(2, 2)]
         public string SurfaceType
         {
             get
             {
-                if (_splitByExtendedFace.SplitterIds == null || _splitByExtendedFace.SplitterIds.Length == 0)
-                    return "Empty";
-                else if (SplitByExtendedFace.CanBeExtended(_splitByExtendedFace.FaceType))
-                    return _splitByExtendedFace.FaceType.ToString();
-                else
-                    return _splitByExtendedFace.FaceType.ToString() + " - cannot be extended";
+                GeomFaceType[] faceTypes = _splitByExtendedFace.FaceTypes;
+                if (faceTypes == null || faceTypes.Length == 0) return "Empty";
+                // The same surface picked twice is one entry, so a long selection still reads as a list
+                List<string> names = new List<string>();
+                int numOfLeftOutFaces = 0;
+                foreach (GeomFaceType faceType in faceTypes)
+                {
+                    if (!SplitByExtendedFace.CanBeExtended(faceType)) { numOfLeftOutFaces++; continue; }
+                    if (!names.Contains(faceType.ToString())) names.Add(faceType.ToString());
+                }
+                //
+                if (names.Count == 0) return "None can be extended";
+                //
+                string text = string.Join(", ", names);
+                if (numOfLeftOutFaces == 1) text += " - 1 face left out";
+                else if (numOfLeftOutFaces > 1) text += " - " + numOfLeftOutFaces + " faces left out";
+                return text;
             }
             set { }
         }

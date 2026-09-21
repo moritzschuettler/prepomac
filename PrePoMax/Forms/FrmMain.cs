@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -116,7 +116,8 @@ namespace PrePoMax
         private FrmRegenerate _frmRegenerate;
         private FrmAnalyzeGeometry _frmAnalyzeGeometry;
         private FrmMeshSetupItem _frmMeshSetupItem;
-        private FrmGeometryFeature _frmGeometryFeature;
+        private FrmSplitSolid _frmSplitSolid;
+        private FrmSplitShell _frmSplitShell;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -514,8 +515,11 @@ namespace PrePoMax
                 _frmMeshSetupItem.PreviewEdgeMeshAsync = PreviewEdgeMeshAsync;
                 AddFormToAllForms(_frmMeshSetupItem);
                 //
-                _frmGeometryFeature = new FrmGeometryFeature(_controller);
-                AddFormToAllForms(_frmGeometryFeature);
+                _frmSplitSolid = new FrmSplitSolid(_controller);
+                AddFormToAllForms(_frmSplitSolid);
+                //
+                _frmSplitShell = new FrmSplitShell(_controller);
+                AddFormToAllForms(_frmSplitShell);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -3795,7 +3799,7 @@ namespace PrePoMax
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetGeometryPartsWithoutSubParts(), DeleteGeometryParts);
+                SelectMultipleEntities("Parts", _controller.GetGeometryParts(), DeleteGeometryParts);
             }
             catch (Exception ex)
             {
@@ -3971,20 +3975,11 @@ namespace PrePoMax
         }
         private void DeleteGeometryParts(string[] partNames)
         {
-            GeometryPart[] parts = _controller.GetGeometryPartsWithoutSubParts();
-            HashSet<string> deleteAblePartNames = new HashSet<string>();
-            foreach (GeometryPart part in parts) deleteAblePartNames.Add(part.Name);
-            deleteAblePartNames.IntersectWith(partNames);
-            if (deleteAblePartNames.Count > 0)
-            {
-                partNames = deleteAblePartNames.ToArray();
-                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected parts?") == DialogResult.OK)
-                {
-                    _controller.RemoveGeometryPartsCommand(partNames.ToArray());
-                }
-            }
-            else MessageBoxes.ShowError("Selected parts belong to a compound part and cannot be deleted:" + Environment.NewLine +
-                                        partNames.ToRows());
+            if (partNames == null || partNames.Length == 0) return;
+            // A sub part of a compound is deleted like any other part: the compound loses that solid of
+            // its geometry and the solids that stay are not touched
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected parts?") == DialogResult.OK)
+                _controller.RemoveGeometryPartsCommand(partNames);
         }
         //
         private async void CreateAndImportCompoundPart(string[] partNames)
@@ -4187,11 +4182,22 @@ namespace PrePoMax
                 SetStateReady(Globals.SplittingFacesText);
             }
         }
-        private void tsmiSplitGeometry_Click(object sender, EventArgs e)
+        private void tsmiSplitSolid_Click(object sender, EventArgs e)
         {
             try
             {
-                CreateGeometryFeature();
+                CreateSplitSolid();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiSplitShell_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateSplitShell();
             }
             catch (Exception ex)
             {
@@ -4199,12 +4205,19 @@ namespace PrePoMax
             }
         }
         // Geometry feature
-        private void CreateGeometryFeature()
+        private void CreateSplitSolid()
         {
             if (_controller.Model.Geometry == null) return;
             // Data editor
-            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmGeometryFeature);
-            ShowForm(_frmGeometryFeature, "Create Geometry Feature", null);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitSolid);
+            ShowForm(_frmSplitSolid, "Split Solid", null);
+        }
+        private void CreateSplitShell()
+        {
+            if (_controller.Model.Geometry == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitShell);
+            ShowForm(_frmSplitShell, "Split Shell", null);
         }
         private async void tsmiDefeature_Click(object sender, EventArgs e)
         {
@@ -10034,7 +10047,8 @@ namespace PrePoMax
             if (ids == null) ids = _controller.GetSelectionIds();
             //
             if (_frmMeshSetupItem != null && _frmMeshSetupItem.Visible) _frmMeshSetupItem.SelectionChanged(ids);
-            if (_frmGeometryFeature != null && _frmGeometryFeature.Visible) _frmGeometryFeature.SelectionChanged(ids);
+            if (_frmSplitSolid != null && _frmSplitSolid.Visible) _frmSplitSolid.SelectionChanged(ids);
+            if (_frmSplitShell != null && _frmSplitShell.Visible) _frmSplitShell.SelectionChanged(ids);
             if (_frmSelectGeometry != null && _frmSelectGeometry.Visible) _frmSelectGeometry.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);

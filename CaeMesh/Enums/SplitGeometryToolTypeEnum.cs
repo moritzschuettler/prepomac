@@ -20,7 +20,8 @@ namespace CaeMesh
     {
         Plane,
         ExtendFace,
-        ExtrudeEdges
+        ExtrudeEdges,
+        TwoPointLine
     }
 
 }
