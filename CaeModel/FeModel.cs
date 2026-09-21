@@ -3321,8 +3321,8 @@ namespace CaeModel
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
                 {
                     if (sourceEdgeIds.Contains(edgeId) || chainEdgeIds.Contains(edgeId)) continue;
-                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIds,
-                                     out lastEdgeId, out lastVertexId, out _);
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, _sweepChainCosine,
+                                     chainEdgeIds, out lastEdgeId, out lastVertexId, out _);
                     Vec3D direction = -1 * GetSweepEdgeTangent(vis, lastEdgeId, lastVertexId);
                     if (direction.Len == 0) continue;
                     //
@@ -3540,7 +3540,7 @@ namespace CaeModel
                                      pendingPartIds, false);
                 }
                 //
-                error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps,
+                error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
                                            out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
                                            out int[] directionEdgeIds);
                 if (error != null)
@@ -3835,7 +3835,7 @@ namespace CaeModel
         /// </summary>
         private string ValidateSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                           Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
-                                          SweepPartMaps maps,
+                                          SweepPartMaps maps, Dictionary<int, int> twinSurfaceIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
                                           out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds)
         {
@@ -3864,8 +3864,8 @@ namespace CaeModel
                 }
             }
             //
-            string error = ValidateSweepRings(part, sourceSurfaceIds, maps, out sideSurfaceIds, out targetSurfaceIds,
-                                              out layerSideSurfaceIds);
+            string error = ValidateSweepRings(part, sourceSurfaceIds, maps, twinSurfaceIds, out sideSurfaceIds,
+                                              out targetSurfaceIds, out layerSideSurfaceIds);
             if (error == null)
             {
                 error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps);
@@ -3876,11 +3876,17 @@ namespace CaeModel
                 return error;
             }
             //
+            // A body handed over because the walk swallowed a wall is followed with the wider angle, since
+            // the wall it swallowed is the one that turns by more than a chain ordinarily may. Every other
+            // body keeps the ordinary bound: a target inclined by more than it - the top of a block cut at
+            // fifty degrees - lies within the wider one, and a chain would run out onto the target itself
             int[] chainSideSurfaceIds;
             int[] chainTargetSurfaceIds;
             int[] chainEdgeIds;
-            if (ValidateSweepChains(part, sourceSurfaceIds, maps, out chainSideSurfaceIds, out chainTargetSurfaceIds,
-                                    out chainEdgeIds) != null) return error;
+            double chainCosine = error == _swallowedWallError
+                               ? Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180) : _sweepChainCosine;
+            if (ValidateSweepChains(part, sourceSurfaceIds, maps, chainCosine, out chainSideSurfaceIds,
+                                    out chainTargetSurfaceIds, out chainEdgeIds) != null) return error;
             error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
                                                chainSideSurfaceIds, maps);
             if (error != null) return error;
@@ -3968,8 +3974,8 @@ namespace CaeModel
                     int lastEdgeId;
                     int lastVertexId;
                     double chainLength;
-                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIds,
-                                     out lastEdgeId, out lastVertexId, out chainLength);
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, _sweepChainCosine,
+                                     chainEdgeIds, out lastEdgeId, out lastVertexId, out chainLength);
                     Vec3D chord = new Vec3D(_geometry.Nodes[lastVertexId].Coor) -
                                   new Vec3D(_geometry.Nodes[vertexId].Coor);
                     // A chain that ends near where it began has run around the body rather than across it
@@ -4052,7 +4058,10 @@ namespace CaeModel
             }
             return perimeter;
         }
+        private const double _sweepChainCosine = 0.9;
+        private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
         private string ValidateSweepRings(GeometryPart part, HashSet<int> sourceSurfaceIds, SweepPartMaps maps,
+                                          Dictionary<int, int> twinSurfaceIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
                                           out List<int[]> layerSideSurfaceIds)
         {
@@ -4128,17 +4137,121 @@ namespace CaeModel
                     }
                 }
             }
+            // The same body read the other way round: a wall split partway along the sweep leaves its far
+            // half in the last wavefront, and the walk takes that for a target beside the real one. Such a
+            // surface faces across the sweep instead of along it, and the chains reach it as the wall it is
+            if (IsWallTakenForTarget(part, sourceSurfaceIds, targetSurfaceIds, twinSurfaceIds))
+                return _swallowedWallError;
             //
             return null;
         }
         /// <summary>
+        /// Whether the walk took a wall for a target. Everything the ring walk has not reached when it stops
+        /// becomes the target, so a wall split partway along the sweep with no ring around the body - the tip
+        /// wall standing above the chamfer of a plate, which reaches the one end of the block and not the
+        /// other - lands in the target beside the face that really is the end.
+        ///
+        /// It is told apart by where it faces: the end of a block faces along the sweep and a side of it faces
+        /// across, so a surface that turns its back on the source everywhere, by more than the chain angle, is
+        /// a side. A source too curved to have a direction of its own - a bore swept around its axis - gives
+        /// no reading and is left alone.
+        ///
+        /// Asked only where the reading decides anything: of a surface this block hands on to another part,
+        /// which ends against a second surface of the same target. That is the one configuration the sweep
+        /// cannot carry - the shared surface cannot be swept through, and the whole run of parts stops at it -
+        /// and it is the surface on the other side of that edge that has to be a wall for the sweep to go on.
+        /// A part swept on its own projects onto every surface of its target and is left to the reading it has
+        /// always had, and so is a target whose surfaces stand apart from the one that is handed on. Only a
+        /// target of exactly two surfaces is read again - the end of the block and the one wall the walk
+        /// swallowed - since a target cut into more than that is not this at all.
+        /// </summary>
+        private bool IsWallTakenForTarget(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] targetSurfaceIds,
+                                          Dictionary<int, int> twinSurfaceIds)
+        {
+            if (targetSurfaceIds.Length != 2 || twinSurfaceIds == null) return false;
+            //
+            double flatness = 0;
+            Vec3D sourceNormal = null;
+            VisualizationData vis = part.Visualization;
+            foreach (var surfaceId in targetSurfaceIds)
+            {
+                if (!twinSurfaceIds.ContainsKey(FeMesh.GmshTopologyId(surfaceId, part.PartId))) continue;
+                //
+                foreach (var neighbourId in targetSurfaceIds)
+                {
+                    if (neighbourId == surfaceId) continue;
+                    if (!vis.FaceEdgeIds[surfaceId].Intersect(vis.FaceEdgeIds[neighbourId]).Any()) continue;
+                    //
+                    if (sourceNormal == null)
+                    {
+                        sourceNormal = GetSurfaceGroupNormal(vis, sourceSurfaceIds, out flatness);
+                        if (sourceNormal == null || flatness < 0.9) return false;
+                    }
+                    if (!DoesSurfaceFaceAlong(vis, neighbourId, sourceNormal)) return true;
+                }
+            }
+            return false;
+        }
+        /// <summary>
+        /// Whether any part of a surface faces the way the source does, within the chain angle. The end of a
+        /// block faces along the sweep and a side of it faces across, and a surface curved enough to do both -
+        /// the wall of a bore the sweep runs into - counts as an end.
+        /// </summary>
+        private bool DoesSurfaceFaceAlong(VisualizationData vis, int surfaceId, Vec3D sourceNormal)
+        {
+            double cosine = Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180);
+            foreach (var cellId in vis.CellIdsByFace[surfaceId])
+            {
+                Vec3D normal = GetCellNormal(vis.Cells[cellId]);
+                if (normal == null) continue;
+                if (Math.Abs(Vec3D.DotProduct(normal, sourceNormal)) > cosine * normal.Len * sourceNormal.Len)
+                    return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// The normals of the cells of a group of surfaces added up, and how flat the group is - the length of
+        /// the sum against the sum of the lengths, one for a plane and nothing for a surface that closes on
+        /// itself.
+        /// </summary>
+        private Vec3D GetSurfaceGroupNormal(VisualizationData vis, IEnumerable<int> surfaceIds, out double flatness)
+        {
+            flatness = 0;
+            double lengthSum = 0;
+            Vec3D groupNormal = new Vec3D();
+            foreach (var surfaceId in surfaceIds)
+            {
+                foreach (var cellId in vis.CellIdsByFace[surfaceId])
+                {
+                    Vec3D normal = GetCellNormal(vis.Cells[cellId]);
+                    if (normal == null) continue;
+                    groupNormal += normal;
+                    lengthSum += normal.Len;
+                }
+            }
+            if (lengthSum == 0) return null;
+            //
+            flatness = groupNormal.Len / lengthSum;
+            return groupNormal;
+        }
+        private Vec3D GetCellNormal(int[] cell)
+        {
+            if (cell.Length < 3) return null;
+            Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+            Vec3D b = new Vec3D(_geometry.Nodes[cell[1]].Coor);
+            Vec3D c = new Vec3D(_geometry.Nodes[cell[2]].Coor);
+            Vec3D normal = Vec3D.CrossProduct(b - a, c - a);
+            return normal.Len > 0 ? normal : null;
+        }
+        /// <summary>
         /// Sorts the surfaces by following the edges from the source: from every vertex of the source, along
         /// every edge leaving it, and on through the edge that continues most smoothly at every vertex, until
-        /// nothing continues within 25 degrees. The edges so reached follow the sweep direction; a surface
+        /// nothing continues within the chain angle. The edges so reached follow the sweep direction; a surface
         /// carrying one of them is a wall, every other surface is a target. A wall must have exactly two such
         /// chains on it, whatever number of edges each is made of.
         /// </summary>
         private string ValidateSweepChains(GeometryPart part, HashSet<int> sourceSurfaceIds, SweepPartMaps maps,
+                                           double chainCosine,
                                            out int[] sideSurfaceIds, out int[] targetSurfaceIds, out int[] chainEdgeIds)
         {
             sideSurfaceIds = null;
@@ -4154,8 +4267,8 @@ namespace CaeModel
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
                 {
                     if (sourceEdgeIds.Contains(edgeId) || chainEdgeIdSet.Contains(edgeId)) continue;
-                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainEdgeIdSet, out _,
-                                     out _, out _);
+                    FollowSweepChain(vis, edgeId, vertexId, sourceEdgeIds, vertexIdEdgeIds, chainCosine,
+                                     chainEdgeIdSet, out _, out _, out _);
                 }
             }
             if (chainEdgeIdSet.Count == 0) return "No edges follow the sweep direction from the source surfaces.";
@@ -4191,7 +4304,8 @@ namespace CaeModel
             return null;
         }
         private void FollowSweepChain(VisualizationData vis, int edgeId, int vertexId, HashSet<int> sourceEdgeIds,
-                                      Dictionary<int, HashSet<int>> vertexIdEdgeIds, HashSet<int> chainEdgeIds,
+                                      Dictionary<int, HashSet<int>> vertexIdEdgeIds, double chainCosine,
+                                      HashSet<int> chainEdgeIds,
                                       out int lastEdgeId, out int lastVertexId, out double chainLength)
         {
             chainLength = 0;
@@ -4208,7 +4322,7 @@ namespace CaeModel
                 Vec3D incoming = -1 * GetSweepEdgeTangent(vis, edgeId, nextVertexId);
                 if (incoming.Len == 0) return;
                 int bestEdgeId = -1;
-                double bestCosine = 0.9;
+                double bestCosine = chainCosine;
                 foreach (var candidateId in vertexIdEdgeIds[nextVertexId].OrderBy(id => id))
                 {
                     if (candidateId == edgeId || sourceEdgeIds.Contains(candidateId) || chainEdgeIds.Contains(candidateId))
@@ -4318,7 +4432,7 @@ namespace CaeModel
                                                             SweepPartMaps maps)
         {
             int[] targetSurfaceIds;
-            if (ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, out _,
+            if (ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null, out _,
                                    out targetSurfaceIds, out _, out _) != null) return;
             if (targetSurfaceIds == null || targetSurfaceIds.Length < 2) return;
             //
@@ -4339,7 +4453,7 @@ namespace CaeModel
             if (extendedSourceSurfaceIds.Count == sourceSurfaceIds.Count) return;
             //
             int[] extendedTargetSurfaceIds;
-            if (ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, out _,
+            if (ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null, out _,
                                    out extendedTargetSurfaceIds, out _, out _) != null) return;
             if (extendedTargetSurfaceIds == null ||
                 extendedTargetSurfaceIds.Length >= targetSurfaceIds.Length) return;

@@ -40,5 +40,6 @@ namespace CaeMesh
         };
         public static double EdgeAngle = 30;
         public static double SweepSourceAngle = 50;
+        public static double SweepSwallowedWallAngle = 45;
     }
 }

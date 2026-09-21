@@ -403,7 +403,7 @@ namespace CaeMesh.Sweep
                         // The direction of travel into the vertex is against the direction the edge leaves it in
                         double[] incoming = GetEdgeTangent(edgeId, nextVertexId);
                         int bestEdgeId = -1;
-                        double bestCosine = 0.9;
+                        double bestCosine = Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180);
                         foreach (var candidateId in vertexIdEdgeIds[nextVertexId])
                         {
                             if (usedEdgeIds.Contains(candidateId)) continue;
