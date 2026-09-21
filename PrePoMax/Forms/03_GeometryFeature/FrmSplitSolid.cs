@@ -304,14 +304,11 @@ namespace PrePoMax.Forms
             if (GeometryFeature == null) { _controller.SetSelectByToOff(); return; }
             //
             // Three points reads a point out of every pick, while point and normal reads either the
-            // point or the direction and lets the pick position choose
+            // point or the direction and lets the pick position choose. What a feature reads out of a
+            // pick is the feature's own, so the hovering follows the same rule the split itself does
             if (_selectionTarget != FeatureSelectionTargetEnum.Splitter)
                 _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
-            else if (GeometryFeature is SplitByPlaneThreePoints || GeometryFeature is SplitByLineTwoPoints)
-                _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.PointOnly;
-            else if (GeometryFeature is SplitByPointAndNormal)
-                _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.PointOrEntity;
-            else _controller.GeometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
+            else _controller.GeometryFeaturePointPicking = Controller.GetSplitGeometryPointPicking(GeometryFeature);
             //
             // A split names the solids it cuts, so one pick on a compound is one of its sub parts and the
             // whole compound is named by dragging an area over it. A picked surface already names one sub

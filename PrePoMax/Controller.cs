@@ -5203,10 +5203,10 @@ namespace PrePoMax
             List<string> failedPartNames = new List<string>();
             List<string> refusedPartNames = new List<string>();
             //
-            // The pieces are imported before the part they came from is removed, so for a moment both are
-            // in the scene and both are in the model tree. Rendering and tree updating are held off until
-            // the whole region is done, which turns that into one redraw and one tree, instead of a flicker
-            // between two versions of the geometry.
+            // A part is taken out of the scene and out of the model tree before the pieces it was cut
+            // into are put back. Rendering and tree updating are held off until the whole region is done,
+            // which turns that into one redraw and one tree, instead of a flicker through a scene the
+            // part has left and the pieces have not yet reached.
             bool rendering = _form.RenderingOn;
             bool screenUpdating = _form.ScreenUpdating;
             bool stateSet = _form.SetStateWorking(Globals.SplittingGeometryText);
@@ -5328,7 +5328,7 @@ namespace PrePoMax
                     // user clicked is what decides
                     if (geometryType.IsEdge())
                     {
-                        bool nearPoint = IsSplitGeometryPickOnThePoint(id, pickNodes);
+                        bool nearPoint = IsSplitGeometryPickOnThePoint(id, pickNodes, pointAndNormal);
                         if (nearPoint && TryGetSplitGeometryPoint(id, out point)) pointAndNormal.Point = point;
                         else if (TryGetSplitGeometryDirection(id, out direction))
                             pointAndNormal.Normal = direction;
@@ -5432,20 +5432,20 @@ namespace PrePoMax
                     DrawSplitGeometryPlaneSymbol(threePoints.GetPlaneOrigin(), threePoints.GetPlaneNormal(), extent);
                 // The point an edge resolved to is nowhere near the place that was clicked, so it is
                 // marked rather than left for the user to infer
-                DrawSplitGeometryPointSymbols(threePoints.SplitterIds, threePoints.SplitterData);
+                DrawSplitGeometryPointSymbols(threePoints);
             }
             else if (geometryFeature is SplitByPointAndNormal pointAndNormal)
             {
                 if (!regionIsArmed)
                     DrawSplitGeometryPlaneSymbol(pointAndNormal.GetPlaneOrigin(), pointAndNormal.GetPlaneNormal(),
                                                  extent);
-                DrawSplitGeometryPointSymbols(pointAndNormal.SplitterIds, pointAndNormal.SplitterData);
+                DrawSplitGeometryPointSymbols(pointAndNormal);
             }
             else if (geometryFeature is SplitByLineTwoPoints twoPointLine)
             {
                 // The line is drawn on the surface by the modelling kernel and is not known here, so
                 // what is shown is the two points it will be drawn through
-                DrawSplitGeometryPointSymbols(twoPointLine.SplitterIds, twoPointLine.SplitterData);
+                DrawSplitGeometryPointSymbols(twoPointLine);
             }
             else if (geometryFeature is SplitByExtendedFace extendedFace && !regionIsArmed)
                 DrawSplitGeometryExtendedFaceSymbol(extendedFace, extent);
@@ -5459,7 +5459,13 @@ namespace PrePoMax
         /// Replaces the geometry of a split part and returns the name the result carries. A tool that only
         /// imprints a face leaves one solid and the part keeps its name. A tool that cuts a solid in two
         /// leaves a compound of solids, which PrePoMax meshes conformally only as a compound part, so the
-        /// pieces are imported as parts of their own and gathered into one.
+        /// pieces are imported as parts of their own and gathered into one. The part that was cut is
+        /// removed before they are imported, so the name and the id it held are free again and the pieces
+        /// are numbered from the beginning: a part cut into five gives Solid_part-1 to Solid_part-5 and a
+        /// compound named after the lowest number that is free, whatever the part that was cut was called.
+        /// Importing first and removing afterwards leaves the numbering carrying every part the splits
+        /// before it made and took away again, which is a different set of names each time an earlier
+        /// command cuts a different number of pieces.
         /// </summary>
         private string ReplaceSplitGeometryPart(GeometryPart part, string brepFileName)
         {
@@ -5470,13 +5476,14 @@ namespace PrePoMax
                 ReplacePartGeometryFromFile(part, brepFileName, true);
                 return partName;
             }
+            // The pieces are imported from a brep file, so nothing of the part is needed once it is
+            // written; the command history is what rebuilds the compound on a regenerate, so the
+            // compound does not have to remember where it came from
+            RemoveGeometryParts(new string[] { partName }, true, false);
             //
             string compoundPartName;
             string[] importedPartNames;
             ImportBrepCompoundPart(brepFileName, null, null, out compoundPartName, out importedPartNames);
-            // The geometry the part held no longer exists; the command history is what rebuilds the
-            // compound on a regenerate, so the compound does not have to remember where it came from
-            RemoveGeometryParts(new string[] { partName }, true, false);
             //
             return compoundPartName;
         }
@@ -6365,19 +6372,20 @@ namespace PrePoMax
             Dictionary<int, SelectionNodeMouse> pickNodes = GetSplitGeometryPickNodes(geometryFeature.SplitterData);
             List<int> idsToHighlight = new List<int>();
             foreach (int id in ids)
-                if (!IsSplitGeometryPickOnThePoint(id, pickNodes)) idsToHighlight.Add(id);
+                if (!IsSplitGeometryPickOnThePoint(id, pickNodes, geometryFeature)) idsToHighlight.Add(id);
             //
             if (idsToHighlight.Count > 0) HighlightItemsByGeometryIds(idsToHighlight.ToArray(), true, false);
         }
-        private void DrawSplitGeometryPointSymbols(int[] geometryIds, Selection splitterData)
+        private void DrawSplitGeometryPointSymbols(GeometryFeature geometryFeature)
         {
+            int[] geometryIds = geometryFeature.SplitterIds;
             if (geometryIds == null || geometryIds.Length == 0) return;
             //
-            Dictionary<int, SelectionNodeMouse> pickNodes = GetSplitGeometryPickNodes(splitterData);
+            Dictionary<int, SelectionNodeMouse> pickNodes = GetSplitGeometryPickNodes(geometryFeature.SplitterData);
             List<double[]> coor = new List<double[]>();
             foreach (int geometryId in geometryIds)
             {
-                if (!IsSplitGeometryPickOnThePoint(geometryId, pickNodes)) continue;
+                if (!IsSplitGeometryPickOnThePoint(geometryId, pickNodes, geometryFeature)) continue;
                 //
                 double[] point;
                 if (TryGetSplitGeometryPoint(geometryId, out point)) coor.Add(point);
@@ -19186,15 +19194,32 @@ namespace PrePoMax
             return Math.Sqrt(dx * dx + dy * dy + dz * dz) < precision;
         }
         /// <summary>
+        /// What the splitter picks of a feature are read as. A plane through three points and a line
+        /// through two take the point out of every pick, while a plane through a point and a normal
+        /// takes either the point or the direction. This follows from the feature alone and from
+        /// nothing the dialog holds, so a regenerate reads the picks the way the dialog that recorded
+        /// them did.
+        /// </summary>
+        public static GeometryFeaturePointPickingEnum GetSplitGeometryPointPicking(GeometryFeature geometryFeature)
+        {
+            if (geometryFeature is SplitByPlaneThreePoints || geometryFeature is SplitByLineTwoPoints)
+                return GeometryFeaturePointPickingEnum.PointOnly;
+            else if (geometryFeature is SplitByPointAndNormal)
+                return GeometryFeaturePointPickingEnum.PointOrEntity;
+            else return GeometryFeaturePointPickingEnum.None;
+        }
+        /// <summary>
         /// True when the pick that produced this id means the point the entity carries. Only an edge can
         /// mean something else, and only where the direction it runs in is also being asked for: there
         /// the point has to be aimed at, everywhere else an edge means its point wherever it was hit.
         /// </summary>
-        private bool IsSplitGeometryPickOnThePoint(int geometryId, Dictionary<int, SelectionNodeMouse> pickNodes)
+        private bool IsSplitGeometryPickOnThePoint(int geometryId, Dictionary<int, SelectionNodeMouse> pickNodes,
+                                                   GeometryFeature geometryFeature)
         {
             GeometryType geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[1];
             if (!geometryType.IsEdge()) return true;
-            if (_geometryFeaturePointPicking != GeometryFeaturePointPickingEnum.PointOrEntity) return true;
+            if (GetSplitGeometryPointPicking(geometryFeature) != GeometryFeaturePointPickingEnum.PointOrEntity)
+                return true;
             //
             SelectionNodeMouse pick;
             if (!pickNodes.TryGetValue(geometryId, out pick)) return true;
