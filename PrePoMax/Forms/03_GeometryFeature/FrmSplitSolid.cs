@@ -424,7 +424,8 @@ namespace PrePoMax.Forms
             // it at the end would not. Undoing the pick asks for the selection again, which arrives
             // here without it
             bool idsArePartIds = _selectionTarget == FeatureSelectionTargetEnum.Region && RegionPicksParts;
-            if (_controller.DropSplitGeometryPickAtOtherOffset(GeometryFeature, ids, idsArePartIds)) return;
+            if (_controller.DropSplitGeometryPickAtOtherOffset(GeometryFeature, ids, idsArePartIds,
+                                                              _selectionTarget)) return;
             //
             if (_selectionTarget == FeatureSelectionTargetEnum.Region)
             {

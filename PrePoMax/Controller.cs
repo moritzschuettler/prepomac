@@ -7367,13 +7367,33 @@ namespace PrePoMax
         /// would be refused when it is applied, and the part it landed on is named.
         /// </summary>
         public bool DropSplitGeometryPickAtOtherOffset(GeometryFeature geometryFeature, int[] ids,
-                                                       bool idsArePartIds)
+                                                       bool idsArePartIds,
+                                                       FeatureSelectionTargetEnum selectionTarget)
         {
             if (geometryFeature == null || ids == null || ids.Length == 0) return false;
             if (!IsExplodedViewActive()) return false;
-            // The offset the operation already stands at, which the first part it reaches sets
-            double[] offset;
-            TryGetSplitGeometryFeatureOffset(geometryFeature, out offset);
+            // The offset the rest of the operation stands at. What the armed target held is replaced by
+            // the ids that have just arrived, so it pins nothing: picking a part again, or picking
+            // another one instead, has to be allowed to move the whole operation to that part
+            List<string> standingPartNames = new List<string>();
+            if (selectionTarget != FeatureSelectionTargetEnum.Region)
+                standingPartNames.AddRange(GetSplitGeometryPickedPartNames(geometryFeature));
+            if (selectionTarget != FeatureSelectionTargetEnum.Splitter)
+                AddSplitGeometryPartNames(geometryFeature.SplitterIds, standingPartNames);
+            if (selectionTarget != FeatureSelectionTargetEnum.Direction &&
+                geometryFeature is SplitByExtrudedEdges extrudedEdges)
+                AddSplitGeometryPartNames(extrudedEdges.DirectionIds, standingPartNames);
+            //
+            double[] offset = null;
+            foreach (string standingPartName in standingPartNames)
+            {
+                BasePart standingPart;
+                if (!_model.Geometry.Parts.TryGetValue(standingPartName, out standingPart) ||
+                    standingPart.Offset == null) continue;
+                //
+                offset = standingPart.Offset;
+                break;
+            }
             //
             List<string> partNames = new List<string>();
             foreach (int id in ids)
