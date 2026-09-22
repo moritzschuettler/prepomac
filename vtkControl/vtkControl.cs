@@ -5535,7 +5535,9 @@ namespace vtkControl
                 vtkMaxActor actorToHighLight = _actors[actorName];
                 //
                 vtkPolyData data = vtkPolyData.New();
-                data.DeepCopy(actorToHighLight.ModelEdges.GetMapper().GetInput());
+                if (actorToHighLight.ModelEdgesForHighlight != null)
+                    data.DeepCopy(actorToHighLight.ModelEdgesForHighlight);
+                else data.DeepCopy(actorToHighLight.ModelEdges.GetMapper().GetInput());
                 //
                 vtkDataSetMapper mapper = vtkDataSetMapper.New();
                 mapper.SetInput(data);
@@ -9989,6 +9991,13 @@ namespace vtkControl
             }
             //
             return null;
+        }
+        public void UpdateActorModelEdgesToDraw(string actorName, PartExchangeData modelEdgesToDraw)
+        {
+            vtkMaxActor actor;
+            if (!_actors.TryGetValue(actorName, out actor)) return;
+            //
+            actor.UpdateModelEdgesToDraw(modelEdgesToDraw);
         }
         public void UpdateActor(string oldName, string newName, Color newColor)
         {            

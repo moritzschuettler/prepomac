@@ -11665,6 +11665,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.UpdateActor, oldName, newName, newColor);
         }
+        public void UpdateActorModelEdgesToDraw(string actorName, PartExchangeData modelEdgesToDraw)
+        {
+            InvokeIfRequired(_vtk.UpdateActorModelEdgesToDraw, actorName, modelEdgesToDraw);
+        }
         public void HideActors(string[] actorNames, bool updateColorContours)
         {
             InvokeIfRequired(_vtk.HideActors, actorNames, updateColorContours);

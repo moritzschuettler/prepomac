@@ -43,6 +43,11 @@ namespace PrePoMax.Forms
             // -1 stands for disabled scale factor
             if (parameters.ScaleFactor == -1) parameters.ScaleFactor = _controller.GetLastUsedExplodedViewScaleFactor();
             _viewExplodedViewParameters.Parameters = parameters.DeepClone();
+            // Only the geometry is built of compound parts
+            GeometryPart[] compoundParts = _controller.CurrentView == ViewGeometryModelResults.Geometry ?
+                                           _controller.GetCompoundParts() : null;
+            _viewExplodedViewParameters.CompoundPartsExist = compoundParts != null && compoundParts.Length > 0;
+            _viewExplodedViewParameters.UpdateVisibility();
             //
             UpdateScrollbarPosition(false);
         }

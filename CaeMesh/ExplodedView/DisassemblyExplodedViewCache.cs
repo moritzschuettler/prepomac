@@ -35,6 +35,7 @@ namespace CaeMesh
         private double _tolerance;
         private string[] _partNames;
         private double[] _partState;
+        private bool _explodeCompoundParts;
         private ExplodedViewStagedOffsets _stagedOffsets;
 
 
@@ -47,12 +48,14 @@ namespace CaeMesh
 
         // Constructors                                                                                                             
         public DisassemblyExplodedViewCache(int explodedDirection, double tolerance, string[] sortedPartNames,
-                                            double[] partState, ExplodedViewStagedOffsets stagedOffsets)
+                                            double[] partState, bool explodeCompoundParts,
+                                            ExplodedViewStagedOffsets stagedOffsets)
         {
             _explodedDirection = explodedDirection;
             _tolerance = tolerance;
             _partNames = sortedPartNames;
             _partState = partState;
+            _explodeCompoundParts = explodeCompoundParts;
             _stagedOffsets = stagedOffsets;
         }
 
@@ -91,9 +94,11 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        public bool IsValidFor(int explodedDirection, double tolerance, string[] sortedPartNames, double[] partState)
+        public bool IsValidFor(int explodedDirection, double tolerance, string[] sortedPartNames, double[] partState,
+                               bool explodeCompoundParts)
         {
             if (_explodedDirection != explodedDirection || _tolerance != tolerance) return false;
+            if (_explodeCompoundParts != explodeCompoundParts) return false;
             if (_partNames.Length != sortedPartNames.Length || _partState.Length != partState.Length) return false;
             //
             for (int i = 0; i < _partNames.Length; i++)

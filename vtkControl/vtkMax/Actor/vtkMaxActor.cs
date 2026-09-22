@@ -33,6 +33,7 @@ namespace vtkControl
         protected vtkActor _geometry;
         protected vtkActor _elementEdges;
         protected vtkActor _modelEdges;
+        protected vtkPolyData _modelEdgesForHighlight;
         protected vtkActor _nodes;
         //
         protected vtkProperty _geometryProperty;
@@ -155,6 +156,11 @@ namespace vtkControl
                 InvalidateAnimationInputs();
                 if (_modelEdges != null) _modelEdgesProperty = _modelEdges.GetProperty();
             }
+        }
+        public vtkPolyData ModelEdgesForHighlight
+        {
+            get { return _modelEdgesForHighlight; }
+            set { _modelEdgesForHighlight = value; }
         }
         public vtkActor Nodes
         {
@@ -580,6 +586,12 @@ namespace vtkControl
                 _modelEdges.SetPickable(sourceActor.ModelEdges.GetPickable());
                 //
                 _modelEdgesProperty = _modelEdges.GetProperty();
+                //
+                if (sourceActor.ModelEdgesForHighlight != null)
+                {
+                    _modelEdgesForHighlight = vtkPolyData.New();
+                    _modelEdgesForHighlight.DeepCopy(sourceActor.ModelEdgesForHighlight);
+                }
             }
             // Section view
             _sectionViewActor = copyDataSets ? sourceActor.SectionViewActor : null;
@@ -1033,6 +1045,13 @@ namespace vtkControl
                 AddNodeAndCellDataToPoly(data.ModelEdges, out polyActor, out _, out _, false);
                 // Poly data
                 polyData = polyActor;
+                // The model edges another part draws are left out of the drawn ones
+                if (data.ModelEdgesToDraw != null)
+                {
+                    _modelEdgesForHighlight = polyData;
+                    AddNodeAndCellDataToPoly(data.ModelEdgesToDraw, out polyActor, out _, out _, false);
+                    polyData = polyActor;
+                }
                 // Mapper
                 mapper = vtkDataSetMapper.New();
                 mapper.SetInput(polyData);
@@ -1949,6 +1968,19 @@ namespace vtkControl
         {
             // Update even if VtkMaxActorVisible == _visible to set the visibility for the geometry actor
             VtkMaxActorVisible = _visible;
+        }
+        public void UpdateModelEdgesToDraw(PartExchangeData modelEdgesToDraw)
+        {
+            if (_modelEdges == null || modelEdgesToDraw == null) return;
+            //
+            vtkPolyData polyActor;
+            AddNodeAndCellDataToPoly(modelEdgesToDraw, out polyActor, out _, out _, false);
+            //
+            vtkDataSetMapper mapper = vtkDataSetMapper.New();
+            mapper.SetInput(polyActor);
+            _modelEdges.SetMapper(mapper);
+            //
+            InvalidateAnimationInputs();
         }
         public void Highlight()
         {

@@ -3309,7 +3309,8 @@ namespace PrePoMax
                 partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                           (int)parameters.Direction,
                                                           parameters.ScaleFactor * parameters.Magnification,
-                                                          parameters.Tolerance, parameters.Sequential, partNames);
+                                                          parameters.Tolerance, parameters.Sequential, partNames,
+                                                          parameters.ExplodeCompoundParts);
             }
             //
             _animating = animate;
@@ -3335,7 +3336,8 @@ namespace PrePoMax
             if (mesh == null) return;
             //
             int stepCount = mesh.GetExplodedViewStepCount((int)parameters.Method, (int)parameters.Direction,
-                                                          parameters.Tolerance);
+                                                          parameters.Tolerance, null,
+                                                          parameters.ExplodeCompoundParts);
             List<double> scaleFactors = GetExplodedViewSequenceScaleFactors(fromScaleFactor, toScaleFactor, stepCount);
             //
             _animating = true;
@@ -3343,7 +3345,8 @@ namespace PrePoMax
             {
                 Dictionary<string, double[]> partOffsets =
                     mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center, (int)parameters.Direction,
-                                                scaleFactor, parameters.Tolerance, parameters.Sequential);
+                                                scaleFactor, parameters.Tolerance, parameters.Sequential, null,
+                                                parameters.ExplodeCompoundParts);
                 //
                 _form.PreviewExplodedView(partOffsets, true, Globals.ExplodedViewStepTimeMs);
             }
@@ -3392,7 +3395,8 @@ namespace PrePoMax
             Dictionary<string, double[]> partOffsets;
             partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                       (int)parameters.Direction, parameters.ScaleFactor * parameters.Magnification,
-                                                      parameters.Tolerance, parameters.Sequential, partNames);
+                                                      parameters.Tolerance, parameters.Sequential, partNames,
+                                                      parameters.ExplodeCompoundParts);
             mesh.ApplyExplodedView(partOffsets);
             //
             _form.SetExplodedViewStatus(true);
@@ -3400,6 +3404,40 @@ namespace PrePoMax
             ClearSelectionBuffer();
             //
             if (update) Redraw();
+        }
+        /// <summary>
+        /// Moves a mesh generated for the given geometry part by the exploded view offsets, so that a
+        /// preview of it is drawn on the part where the part is shown. A mesh is always generated without
+        /// the offsets, which are a matter of display alone. A compound part is moved by its sub parts, so
+        /// each part of the generated mesh takes the offset of the sub part it carries the name of, and the
+        /// first sub part stands in for a name the geometry does not hold.
+        /// </summary>
+        public void ApplyExplodedViewToGeneratedMesh(BasePart part, FeMesh generatedMesh)
+        {
+            double[] offset;
+            Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
+            //
+            foreach (var entry in generatedMesh.Parts)
+            {
+                offset = GetExplodedViewOffsetForGeneratedMeshPart(part, entry.Key);
+                if (offset != null) partOffsets.Add(entry.Key, offset);
+            }
+            if (partOffsets.Count > 0) generatedMesh.ApplyExplodedView(partOffsets);
+        }
+        public double[] GetExplodedViewOffsetForGeneratedMeshPart(BasePart part, string generatedPartName)
+        {
+            if (!IsExplodedViewActive() || part == null || _model == null || _model.Geometry == null) return null;
+            //
+            if (!(part is CompoundGeometryPart compoundPart)) return part.Offset;
+            //
+            BasePart subPart;
+            if (generatedPartName != null && Array.IndexOf(compoundPart.SubPartNames, generatedPartName) >= 0 &&
+                _model.Geometry.Parts.TryGetValue(generatedPartName, out subPart)) return subPart.Offset;
+            //
+            if (compoundPart.SubPartNames.Length > 0 &&
+                _model.Geometry.Parts.TryGetValue(compoundPart.SubPartNames[0], out subPart)) return subPart.Offset;
+            //
+            return null;
         }
         public void SuppressExplodedView(string[] partNames = null)
         {
@@ -3474,7 +3512,8 @@ namespace PrePoMax
                     mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                 (int)parameters.Direction,
                                                 parameters.ScaleFactor * parameters.Magnification,
-                                                parameters.Tolerance, parameters.Sequential, partNames);
+                                                parameters.Tolerance, parameters.Sequential, partNames,
+                                                parameters.ExplodeCompoundParts);
                 mesh.ApplyExplodedView(partOffsets);
                 //
                 ClearSelectionBuffer();
@@ -4239,12 +4278,89 @@ namespace PrePoMax
             }
             _modelChanged = true;
         }
+        private Dictionary<string, bool[]> GetCompoundSubPartVisibilities()
+        {
+            BasePart subPart;
+            bool[] visibilities;
+            Dictionary<string, bool[]> subPartVisibilities = new Dictionary<string, bool[]>();
+            //
+            if (_model == null || _model.Geometry == null) return subPartVisibilities;
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart)) continue;
+                //
+                visibilities = new bool[compoundPart.SubPartNames.Length];
+                for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                {
+                    if (_model.Geometry.Parts.TryGetValue(compoundPart.SubPartNames[i], out subPart))
+                        visibilities[i] = subPart.Visible;
+                }
+                subPartVisibilities.Add(compoundPart.Name, visibilities);
+            }
+            return subPartVisibilities;
+        }
+        private void UpdateCompoundSharedModelEdges(Dictionary<string, bool[]> previousSubPartVisibilities)
+        {
+            if (_currentView != ViewGeometryModelResults.Geometry) return;
+            if (_model == null || _model.Geometry == null) return;
+            //
+            BasePart subPart;
+            bool[] previousVisibilities;
+            PartExchangeData modelEdgesToDraw;
+            //
+            foreach (var entry in GetCompoundSubPartVisibilities())
+            {
+                if (!previousSubPartVisibilities.TryGetValue(entry.Key, out previousVisibilities)) continue;
+                if (!IsSharedModelEdgeOwnerChanged(previousVisibilities, entry.Value)) continue;
+                if (!(_model.Geometry.Parts[entry.Key] is CompoundGeometryPart compoundPart)) continue;
+                //
+                foreach (string subPartName in compoundPart.SubPartNames)
+                {
+                    if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart) || !subPart.Visible) continue;
+                    if (!subPart.PartType.HasEdges() || subPart.Visualization == null ||
+                        subPart.Visualization.EdgeCells == null) continue;
+                    //
+                    modelEdgesToDraw = GetModelEdgesToDraw(_model.Geometry, subPart);
+                    if (modelEdgesToDraw == null)
+                    {
+                        modelEdgesToDraw = new PartExchangeData();
+                        _model.Geometry.GetNodesAndCellsForModelEdges(subPart,
+                                                                      out modelEdgesToDraw.Nodes.Ids,
+                                                                      out modelEdgesToDraw.Nodes.Coor,
+                                                                      out modelEdgesToDraw.Cells.CellNodeIds,
+                                                                      out modelEdgesToDraw.Cells.Types);
+                    }
+                    _form.UpdateActorModelEdgesToDraw(subPartName, modelEdgesToDraw);
+                }
+            }
+        }
+        private bool IsSharedModelEdgeOwnerChanged(bool[] previousVisibilities, bool[] visibilities)
+        {
+            if (previousVisibilities.Length != visibilities.Length) return true;
+            //
+            bool changed = false;
+            for (int i = 0; i < visibilities.Length; i++)
+            {
+                if (previousVisibilities[i] != visibilities[i]) { changed = true; break; }
+            }
+            if (!changed) return false;
+            // All sub parts visible and none of them visible leave each shared edge to the same sub part
+            return !(IsAllOrNoneVisible(previousVisibilities) && IsAllOrNoneVisible(visibilities));
+        }
+        private bool IsAllOrNoneVisible(bool[] visibilities)
+        {
+            int visibleCount = 0;
+            for (int i = 0; i < visibilities.Length; i++) { if (visibilities[i]) visibleCount++; }
+            return visibleCount == 0 || visibleCount == visibilities.Length;
+        }
         public void HideGeometryParts(string[] partNames)
         {
             BeforeHideShow();
             //
             bool hide;
             BasePart part;
+            Dictionary<string, bool[]> subPartVisibilities = GetCompoundSubPartVisibilities();
             HashSet<string> partNamesToHide = new HashSet<string>(partNames);
             // Find all sub parts to hide
             foreach (var name in partNames)
@@ -4277,6 +4393,7 @@ namespace PrePoMax
                 part.Visible = false;
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, _model.Geometry.Parts[name], null, false);
             }
+            UpdateCompoundSharedModelEdges(subPartVisibilities);
             _form.HideActors(partNamesToHide.ToArray(), false);
             // Update
             AnnotateWithColorLegend();
@@ -4290,6 +4407,7 @@ namespace PrePoMax
             //
             bool show;
             BasePart part;
+            Dictionary<string, bool[]> subPartVisibilities = GetCompoundSubPartVisibilities();
             HashSet<string> partNamesToShow = new HashSet<string>(partNames);
             // Find all sub parts to show
             foreach (var name in partNames)
@@ -4322,6 +4440,7 @@ namespace PrePoMax
                 part.Visible = true;
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, _model.Geometry.Parts[name], null, false);
             }
+            UpdateCompoundSharedModelEdges(subPartVisibilities);
             _form.ShowActors(partNamesToShow.ToArray(), false);
             // Update
             AnnotateWithColorLegend();
@@ -7508,16 +7627,7 @@ namespace PrePoMax
             //
             FeMesh mesh = FileInOut.Input.NetgenVolFileReader.Read(fileName, FileInOut.Input.ElementsToImport.All, false);
             // Exploded view
-            if (IsExplodedViewActive())
-            {
-                double[] offset;
-                if (part is CompoundGeometryPart cgp) offset = _model.Geometry.Parts[cgp.SubPartNames[0]].Offset;
-                else offset = part.Offset;
-                //
-                Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
-                foreach (var entry in mesh.Parts) partOffsets.Add(entry.Key, offset);
-                mesh.ApplyExplodedView(partOffsets);
-            }
+            ApplyExplodedViewToGeneratedMesh(part, mesh);
             //
             double[][] nodeCoor = mesh.GetAllNodeCoor();
             HighlightNodes(nodeCoor);
@@ -19518,6 +19628,32 @@ namespace PrePoMax
                 _form.Add3DCells(data);
             }
         }
+        private PartExchangeData GetModelEdgesToDraw(FeMesh mesh, BasePart part)
+        {
+            CompoundGeometryPart compoundPart = GetCompoundPartOfSubPart(mesh, part.Name);
+            if (compoundPart == null) return null;
+            //
+            HashSet<int> edgeCellIds =
+                compoundPart.GetSharedEdges(mesh).GetEdgeCellIdsDrawnByAnotherSubPart(part.Name, mesh);
+            if (edgeCellIds == null) return null;
+            //
+            PartExchangeData modelEdges = new PartExchangeData();
+            mesh.GetNodesAndCellsForModelEdges(part, edgeCellIds, out modelEdges.Nodes.Ids, out modelEdges.Nodes.Coor,
+                                               out modelEdges.Cells.CellNodeIds, out modelEdges.Cells.Types);
+            //
+            return modelEdges;
+        }
+        private CompoundGeometryPart GetCompoundPartOfSubPart(FeMesh mesh, string subPartName)
+        {
+            if (mesh == null || _model == null || mesh != _model.Geometry) return null;
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart compoundPart &&
+                    Array.IndexOf(compoundPart.SubPartNames, subPartName) >= 0) return compoundPart;
+            }
+            return null;
+        }
         private vtkMaxActorData GetGeometryPartActorData(FeMesh mesh, BasePart part,
                                                          vtkRendererLayer layer,
                                                          bool canHaveElementEdges,
@@ -19546,6 +19682,8 @@ namespace PrePoMax
                 data.ModelEdges = new PartExchangeData();
                 mesh.GetNodesAndCellsForModelEdges(part, out data.ModelEdges.Nodes.Ids, out data.ModelEdges.Nodes.Coor,
                                                    out data.ModelEdges.Cells.CellNodeIds, out data.ModelEdges.Cells.Types);
+                //
+                data.ModelEdgesToDraw = GetModelEdgesToDraw(mesh, part);
             }
             // Back face
             if (part.PartType == PartType.Shell) data.BackfaceCulling = false;

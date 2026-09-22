@@ -91,20 +91,6 @@ namespace PrePoMax
             //
             return text;
         }
-        //
-        public void ApplyExplodedViewToPosition(Vec3D position)
-        {
-            if (Controller.IsExplodedViewActive())
-            {
-                if (_partIds != null && _partIds.Length > 0)
-                {
-                    CaeMesh.BasePart part = Controller.AllResults.CurrentResult.Mesh.GetPartFromId(_partIds[0]);
-                    position.X += part.Offset[0];
-                    position.Y += part.Offset[1];
-                    position.Z += part.Offset[2];
-                }
-            }
-        }
 
     }
 }

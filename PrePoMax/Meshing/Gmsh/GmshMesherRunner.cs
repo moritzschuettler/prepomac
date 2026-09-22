@@ -203,16 +203,7 @@ namespace PrePoMax
                 // Mesh
                 FeMesh mesh = FileInOut.Input.InpFileReader.ReadMesh(inpFileName, elementsToImport, false);
                 // Exploded view
-                if (_controller.IsExplodedViewActive())
-                {
-                    double[] offset;
-                    if (part is CompoundGeometryPart cgp) offset = _controller.Model.Geometry.Parts[cgp.SubPartNames[0]].Offset;
-                    else offset = part.Offset;
-                    //
-                    Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
-                    foreach (var entry in mesh.Parts) partOffsets.Add(entry.Key, offset);
-                    mesh.ApplyExplodedView(partOffsets);
-                }
+                _controller.ApplyExplodedViewToGeneratedMesh(part, mesh);
                 // Import edges
                 if (importEdges)
                 {
@@ -321,16 +312,7 @@ namespace PrePoMax
             // The preview output contains only line elements, so display its nodes without importing a mesh.
             FeMesh mesh = FileInOut.Input.InpFileReader.ReadMesh(inpFileName,
                                                                  FileInOut.Input.ElementsToImport.Beam, false);
-            if (_controller.IsExplodedViewActive())
-            {
-                double[] offset;
-                if (part is CompoundGeometryPart compoundPart)
-                    offset = _controller.Model.Geometry.Parts[compoundPart.SubPartNames[0]].Offset;
-                else offset = part.Offset;
-                Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
-                foreach (var entry in mesh.Parts) partOffsets.Add(entry.Key, offset);
-                mesh.ApplyExplodedView(partOffsets);
-            }
+            _controller.ApplyExplodedViewToGeneratedMesh(part, mesh);
             double[][] nodeCoor = mesh.GetAllNodeCoor();
             _controller.HighlightNodes(nodeCoor);
             _controller.Form.WriteDataToOutput("QuadWild Gmsh edge-node preview: " + nodeCoor.Length + " nodes.");

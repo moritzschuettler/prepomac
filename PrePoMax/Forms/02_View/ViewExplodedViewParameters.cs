@@ -26,6 +26,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private DynamicCustomTypeDescriptor _dctd = null;
         private ExplodedViewParameters _explodedViewParameters;
+        private bool _compoundPartsExist;
 
 
         // Properties                                                                                                               
@@ -34,6 +35,12 @@ namespace PrePoMax.Forms
         {
             get { return _explodedViewParameters; }
             set { _explodedViewParameters = value; }
+        }
+        [Browsable(false)]
+        public bool CompoundPartsExist
+        {
+            get { return _compoundPartsExist; }
+            set { _compoundPartsExist = value; }
         }
         //
         [Category("Method")]
@@ -102,6 +109,16 @@ namespace PrePoMax.Forms
             }
         }
         //
+        [Category("Method")]
+        [OrderedDisplayName(5, 10, "Explode compound parts")]
+        [DescriptionAttribute("Move each sub part of a compound part on its own instead of moving the " +
+                              "compound part as one body.")]
+        [Id(6, 1)]
+        public bool ExplodeCompoundParts
+        {
+            get { return _explodedViewParameters.ExplodeCompoundParts; }
+            set { _explodedViewParameters.ExplodeCompoundParts = value; }
+        }
         [Category("Direction and scaling")]
         [OrderedDisplayName(0, 10, "Exploded view direction")]
         [DescriptionAttribute("Select the exploded view direction.")]
@@ -175,6 +192,7 @@ namespace PrePoMax.Forms
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             _dctd.RenameBooleanPropertyToYesNo(nameof(Sequential));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ExplodeCompoundParts));
             //
             UpdateVisibility();
         }
@@ -191,6 +209,7 @@ namespace PrePoMax.Forms
             visible = _explodedViewParameters.Method == ExplodedViewMethodEnum.Disassembly;
             _dctd.GetProperty(nameof(Tolerance)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Sequential)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(ExplodeCompoundParts)).SetIsBrowsable(_compoundPartsExist);
         }
 
        

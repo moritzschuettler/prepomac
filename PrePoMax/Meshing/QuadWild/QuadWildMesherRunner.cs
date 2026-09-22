@@ -369,13 +369,7 @@ namespace PrePoMax
             double[][] displayCoor = new double[nodeCoor.Length][];
             for (int i = 0; i < nodeCoor.Length; i++) displayCoor[i] = nodeCoor[i].ToArray();
             //
-            double[] offset = null;
-            if (_controller.IsExplodedViewActive())
-            {
-                if (part is CompoundGeometryPart compoundPart)
-                    offset = _controller.Model.Geometry.Parts[compoundPart.SubPartNames[0]].Offset;
-                else offset = part.Offset;
-            }
+            double[] offset = _controller.GetExplodedViewOffsetForGeneratedMeshPart(part, null);
             if (offset != null)
             {
                 for (int i = 0; i < displayCoor.Length; i++)

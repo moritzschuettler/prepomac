@@ -55,6 +55,7 @@ namespace PrePoMax
         private double _magnification;
         private double _tolerance;
         private bool _sequential;
+        private bool _explodeCompoundParts;
 
 
         // Properties                                                                                                               
@@ -83,6 +84,15 @@ namespace PrePoMax
         /// Move the parts one level of the assembly after the other instead of all of them at the same time
         /// </summary>
         public bool Sequential { get { return _sequential; } set { _sequential = value; } }
+        /// <summary>
+        /// Move each sub part of a compound part on its own instead of moving the compound part as one
+        /// body; only the geometry is built of compound parts
+        /// </summary>
+        public bool ExplodeCompoundParts
+        {
+            get { return _explodeCompoundParts; }
+            set { _explodeCompoundParts = value; }
+        }
         
 
         // Constructors                                                                                                             
@@ -102,6 +112,7 @@ namespace PrePoMax
             _magnification = 2;
             _tolerance = 0;
             _sequential = false;
+            _explodeCompoundParts = false;
         }
     }
 }

@@ -23,6 +23,7 @@ namespace CaeMesh
         private string[] _createdFromPartNames;
         private string[] _subPartNames;
         private Guid _linkedGroupId;
+        [NonSerialized] private CompoundSharedEdges _sharedEdges;
 
 
         // Properties                                                                                                               
@@ -61,6 +62,14 @@ namespace CaeMesh
         public override void SetProperties(PartProperties properties)
         {
             base.SetProperties(properties);
+        }
+        public CompoundSharedEdges GetSharedEdges(FeMesh mesh)
+        {
+            string signature = CompoundSharedEdges.GetSignature(this, mesh);
+            if (_sharedEdges == null || _sharedEdges.Signature != signature)
+                _sharedEdges = new CompoundSharedEdges(this, mesh, signature);
+            //
+            return _sharedEdges;
         }
         
         

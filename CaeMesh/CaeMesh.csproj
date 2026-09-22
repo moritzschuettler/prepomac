@@ -190,6 +190,7 @@
     <Compile Include="FeNodeSet.cs" />
     <Compile Include="Parts\BasePart.cs" />
     <Compile Include="Parts\CompoundGeometryPart.cs" />
+    <Compile Include="Parts\CompoundSharedEdges.cs" />
     <Compile Include="Parts\GeometryPart.cs" />
     <Compile Include="Parts\PartMassProperties.cs" />
     <Compile Include="Parts\ResultPart.cs" />

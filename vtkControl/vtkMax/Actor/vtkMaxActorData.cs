@@ -67,6 +67,9 @@ namespace vtkControl
         public float ExtraPointSize;
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;
+        // A sub part of a compound part draws only the model edges no other sub part draws, while the
+        // model edges it owns on its own are the ones it is highlighted by
+        public PartExchangeData ModelEdgesToDraw;
         public PartExchangeData ElementEdges;
 
 
@@ -104,6 +107,7 @@ namespace vtkControl
             //
             Geometry = new PartExchangeData();
             ModelEdges = null;
+            ModelEdgesToDraw = null;
             ElementEdges = null;
         }
 
