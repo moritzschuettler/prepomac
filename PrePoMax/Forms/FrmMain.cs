@@ -3501,6 +3501,32 @@ namespace PrePoMax
             }
             return AnnotateWithColorEnum.None;
         }
+        public void SetAnnotateWithColor(AnnotateWithColorEnum annotateWithColor)
+        {
+            InvokeIfRequired(() =>
+            {
+                ToolStripMenuItem tsmi = GetAnnotateWithColorMenuItem(annotateWithColor);
+                if (tsmi == null)
+                {
+                    ClearAnnotationStatus();
+                    _controller.AnnotateWithColor = AnnotateWithColorEnum.None;
+                }
+                else if (!tsmi.Checked) _controller.AnnotateWithColor = ChangeAnnotationStatus(tsmi);
+            });
+        }
+        private ToolStripMenuItem GetAnnotateWithColorMenuItem(AnnotateWithColorEnum annotateWithColor)
+        {
+            switch (annotateWithColor)
+            {
+                case AnnotateWithColorEnum.FaceOrientation: return tsmiAnnotateFaceOrientations;
+                case AnnotateWithColorEnum.MeshTypes: return tsmiAnnotateMeshTypes;
+                case AnnotateWithColorEnum.Parts: return tsmiAnnotateParts;
+                case AnnotateWithColorEnum.Materials: return tsmiAnnotateMaterials;
+                case AnnotateWithColorEnum.Sections: return tsmiAnnotateSections;
+                case AnnotateWithColorEnum.SectionThicknesses: return tsmiAnnotateSectionThicknesses;
+                default: return null;
+            }
+        }
         // Items
         private void tsmiViewVertexIds_Click(object sender, EventArgs e)
         {

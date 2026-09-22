@@ -3189,6 +3189,11 @@ namespace PrePoMax
             UserViewParameters parameters = _model.UserViews[name];
             SetViewParameters(true, parameters.Position, parameters.FocalPoint, parameters.UpVector, parameters.ParallelScale);
         }
+        // Color annotations
+        public void SetAnnotateWithColor(AnnotateWithColorEnum annotateWithColor)
+        {
+            _form.SetAnnotateWithColor(annotateWithColor);
+        }
         // Section view
         public bool IsSectionViewActive()
         {

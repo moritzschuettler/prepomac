@@ -1150,6 +1150,12 @@
     <EmbeddedResource Include="Forms\54_BoundaryConditions\FrmBC.resx">
       <DependentUpon>FrmBC.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\03_GeometryFeature\FrmSplitSolid.resx">
+      <DependentUpon>FrmSplitSolid.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\03_GeometryFeature\FrmSplitShell.resx">
+      <DependentUpon>FrmSplitShell.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\55_Load\FrmLoad.resx">
       <DependentUpon>FrmLoad.cs</DependentUpon>
     </EmbeddedResource>

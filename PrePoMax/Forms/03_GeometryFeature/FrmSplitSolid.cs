@@ -26,6 +26,11 @@ namespace PrePoMax.Forms
         private FeatureSelectionTargetEnum _selectionTarget;
         // OK - New rebuilds the form, and the operation that was just used comes back selected
         private int _repeatTypeIndex;
+        private bool _suppressAnnotateMeshTypesChanged;
+        //
+        private System.ComponentModel.IContainer components;
+        private ToolTip ttText;
+        private CheckBox cbAnnotateMeshTypes;
 
 
         // Properties
@@ -51,55 +56,76 @@ namespace PrePoMax.Forms
             _viewGeometryFeature = null;
             _selectionTarget = FeatureSelectionTargetEnum.Region;
             _repeatTypeIndex = -1;
+            _suppressAnnotateMeshTypesChanged = false;
         }
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
+            this.cbAnnotateMeshTypes = new System.Windows.Forms.CheckBox();
+            this.ttText = new System.Windows.Forms.ToolTip(this.components);
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // gbType
-            //
-            this.gbType.Size = new System.Drawing.Size(340, 101);
+            // 
+            this.gbType.Size = new System.Drawing.Size(340, 108);
             this.gbType.Text = "Operation";
-            //
+            // 
             // lvTypes
-            //
+            // 
             this.lvTypes.Size = new System.Drawing.Size(328, 73);
-            //
+            // 
             // gbProperties
-            //
-            this.gbProperties.Size = new System.Drawing.Size(340, 310);
-            //
+            // 
+            this.gbProperties.Location = new System.Drawing.Point(12, 126);
+            this.gbProperties.Size = new System.Drawing.Size(340, 304);
+            // 
             // propertyGrid
-            //
+            // 
             this.propertyGrid.Size = new System.Drawing.Size(328, 282);
-            //
+            // 
             // btnOK
-            //
+            // 
             this.btnOK.Location = new System.Drawing.Point(190, 436);
-            //
+            // 
             // btnCancel
-            //
+            // 
             this.btnCancel.Location = new System.Drawing.Point(271, 436);
-            //
+            // 
             // btnOkAddNew
-            //
+            // 
             this.btnOkAddNew.Location = new System.Drawing.Point(109, 436);
-            //
+            // 
+            // cbAnnotateMeshTypes
+            // 
+            this.cbAnnotateMeshTypes.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.cbAnnotateMeshTypes.Appearance = System.Windows.Forms.Appearance.Button;
+            this.cbAnnotateMeshTypes.Image = global::PrePoMax.Properties.Resources.Color_palette;
+            this.cbAnnotateMeshTypes.Location = new System.Drawing.Point(75, 436);
+            this.cbAnnotateMeshTypes.Name = "cbAnnotateMeshTypes";
+            this.cbAnnotateMeshTypes.Size = new System.Drawing.Size(28, 23);
+            this.cbAnnotateMeshTypes.TabIndex = 17;
+            this.ttText.SetToolTip(this.cbAnnotateMeshTypes, "Color the parts by the mesh type they are meshed with");
+            this.cbAnnotateMeshTypes.UseVisualStyleBackColor = true;
+            this.cbAnnotateMeshTypes.CheckedChanged += new System.EventHandler(this.cbAnnotateMeshTypes_CheckedChanged);
+            // 
             // FrmSplitSolid
-            //
+            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.ClientSize = new System.Drawing.Size(364, 471);
+            this.Controls.Add(this.cbAnnotateMeshTypes);
             this.MinimumSize = new System.Drawing.Size(380, 510);
             this.Name = "FrmSplitSolid";
             this.Text = "Split Solid";
+            this.Activated += new System.EventHandler(this.FrmSplitSolid_Activated);
             this.VisibleChanged += new System.EventHandler(this.FrmSplitSolid_VisibleChanged);
             this.Controls.SetChildIndex(this.gbProperties, 0);
             this.Controls.SetChildIndex(this.btnCancel, 0);
             this.Controls.SetChildIndex(this.btnOK, 0);
             this.Controls.SetChildIndex(this.btnOkAddNew, 0);
             this.Controls.SetChildIndex(this.gbType, 0);
+            this.Controls.SetChildIndex(this.cbAnnotateMeshTypes, 0);
             this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -116,6 +142,18 @@ namespace PrePoMax.Forms
                 _controller.ClearGeometryFeatureSymbols();
                 _controller.ClearAllSelection();
             }
+        }
+        private void FrmSplitSolid_Activated(object sender, EventArgs e)
+        {
+            // The color annotation can also be changed from the main window while this form is open
+            UpdateAnnotateMeshTypesButton();
+        }
+        private void cbAnnotateMeshTypes_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_suppressAnnotateMeshTypesChanged) return;
+            //
+            _controller.SetAnnotateWithColor(cbAnnotateMeshTypes.Checked ? AnnotateWithColorEnum.MeshTypes :
+                                                                          AnnotateWithColorEnum.None);
         }
 
 
@@ -225,6 +263,8 @@ namespace PrePoMax.Forms
             //
             ShowHideSelectionForm();
             //
+            UpdateAnnotateMeshTypesButton();
+            //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             // After OK - New the operation that was just used comes back selected
             if (_repeatTypeIndex >= 0 && _repeatTypeIndex < lvTypes.Items.Count)
@@ -236,6 +276,15 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        private void UpdateAnnotateMeshTypesButton()
+        {
+            bool annotated = _controller.AnnotateWithColor == AnnotateWithColorEnum.MeshTypes;
+            if (cbAnnotateMeshTypes.Checked == annotated) return;
+            //
+            _suppressAnnotateMeshTypesChanged = true;
+            cbAnnotateMeshTypes.Checked = annotated;
+            _suppressAnnotateMeshTypesChanged = false;
+        }
         /// <summary>
         /// Tells a newly built view what its region is, which is what makes one of the two splitting tools
         /// out of the operations they share.
