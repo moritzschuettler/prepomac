@@ -6129,11 +6129,16 @@ namespace PrePoMax
                 if (TryGetGeometryFeatureDrawnPartColor(partName, out drawnColor))
                     _form.UpdateActor(partName, partName, drawnColor);
             }
-            foreach (string partName in namesToFade.Except(_geometryFeatureFadedPartNames).ToArray())
+            // Every part that is to be faded is faded again, and not only the ones that were not faded
+            // before: a redraw - switching a color annotation on is one - draws them with their own
+            // color again, and a fade that only looked at what had changed would take the remembered
+            // names for faded parts and leave them opaque
+            int alpha = 64;
+            foreach (string partName in namesToFade)
             {
                 Color drawnColor;
                 if (TryGetGeometryFeatureDrawnPartColor(partName, out drawnColor))
-                    _form.UpdateActor(partName, partName, Color.FromArgb(128, drawnColor));
+                    _form.UpdateActor(partName, partName, Color.FromArgb(alpha, drawnColor));
             }
             //
             _geometryFeatureFadedPartNames = namesToFade;

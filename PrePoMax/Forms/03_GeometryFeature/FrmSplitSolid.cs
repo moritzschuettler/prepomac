@@ -154,6 +154,10 @@ namespace PrePoMax.Forms
             //
             _controller.SetAnnotateWithColor(cbAnnotateMeshTypes.Checked ? AnnotateWithColorEnum.MeshTypes :
                                                                           AnnotateWithColorEnum.None);
+            // Switching the annotation redraws everything, which takes the tool symbols off the screen
+            // and draws the parts outside the region with their own color again, so what the dialog
+            // had drawn is drawn once more
+            HighlightGeometryFeature();
         }
 
 
