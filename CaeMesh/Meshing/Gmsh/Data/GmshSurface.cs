@@ -72,6 +72,10 @@ namespace CaeMesh
             // Three-sided faces
             if (VertexIds.Length == 3 && edgeIds.Length == 3)
             {
+                ThreeSided = true;
+                HasHole = AreEdgesInSeveralLoops(edgeIds, _edgeVertexIds);
+                if (HasHole) return;
+                //
                 double delta1 = Math.Abs(edgeLengths[0] - edgeLengths[1]);
                 double delta2 = Math.Abs(edgeLengths[1] - edgeLengths[2]);
                 double delta3 = Math.Abs(edgeLengths[2] - edgeLengths[0]);
@@ -101,7 +105,6 @@ namespace CaeMesh
                 //
                 OppositeEdgesB = null;
                 //
-                ThreeSided = true;
                 Transfinite = true;
             }
             // Four-sided cylinder faces - not working
@@ -139,6 +142,34 @@ namespace CaeMesh
             {
                 Collapsed = true;
             }
+        }
+        /// <summary>
+        /// Whether the edges of the face form more than one loop, which is a face with a hole. The flat ring
+        /// around a bore has its outer circle as one closed edge and the two halves of the bore as two more -
+        /// three edges over three vertices, which counts as a triangle by the numbers alone - and the
+        /// transfinite algorithm of gmsh refuses a surface with a hole.
+        /// </summary>
+        private static bool AreEdgesInSeveralLoops(int[] edgeIds, int[][] edgeVertexIds)
+        {
+            if (edgeIds.Length < 2) return false;
+            //
+            bool added = true;
+            HashSet<int> loopEdgeIndices = new HashSet<int>() { 0 };
+            HashSet<int> loopVertexIds = new HashSet<int>(edgeVertexIds[0]);
+            while (added)
+            {
+                added = false;
+                for (int i = 1; i < edgeIds.Length; i++)
+                {
+                    if (loopEdgeIndices.Contains(i)) continue;
+                    if (!edgeVertexIds[i].Any(id => loopVertexIds.Contains(id))) continue;
+                    //
+                    loopVertexIds.UnionWith(edgeVertexIds[i]);
+                    loopEdgeIndices.Add(i);
+                    added = true;
+                }
+            }
+            return loopEdgeIndices.Count != edgeIds.Length;
         }
         public void SetFirstVertexId(int firstVertexId)
         {
