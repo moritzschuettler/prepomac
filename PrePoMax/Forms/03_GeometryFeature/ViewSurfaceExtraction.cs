@@ -33,8 +33,10 @@ namespace PrePoMax.Forms
         [CategoryAttribute("Region")]
         [OrderedDisplayName(0, 10, "Surfaces")]
         [DescriptionAttribute("Select the surfaces to extract. Hold the Shift key to select more than one " +
-                              "surface. The surfaces of one part become one new shell part and the part they " +
-                              "were taken from is left as it was, a sub-part of a compound included.")]
+                              "surface. The surfaces picked on one part become one new shell part, sewn " +
+                              "together where they touch, and the part they were taken from is left as it " +
+                              "was. The sub-parts of a compound are sewn together the same way and give one " +
+                              "part named after the compound.")]
         [Id(1, 1)]
         public string RegionSelection
         {

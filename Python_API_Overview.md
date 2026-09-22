@@ -812,15 +812,20 @@ well as its wall.
 `extract_surface(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
 are lifted out of the parts that carry them and become new shell parts, named after the part they
 were taken from, and that part is left exactly as it was. It returns the names of the parts that
-were created. The surfaces of one part become one shell part, so a selection spanning three parts
-gives three. A non zero `offset` moves the extracted surfaces along their own normals, outwards
-when it is positive: half the wall thickness entered as a negative value on an outer surface is a
-mid-surface. A connected patch is offset as a whole, so the faces that meet are trimmed against
-each other rather than coming apart at the edge they share, and an offset the modelling kernel
-cannot make fails the extraction for that part instead of returning the surfaces unmoved. A sub-part
-of a compound gives a part of its own, extracted from the geometry of its compound, because a sub-part
-carries no geometry of its own; the extracted part is a standalone shell and shares nothing with the
-surfaces its siblings were extracted from.
+were created.
+
+The unit of extraction is the geometry the surfaces are written out of, and the surfaces picked on
+one geometry are sewn together where they touch, so they come back as one body rather than as loose
+faces. A selection spanning three parts therefore gives three parts, while the surfaces of several
+sub-parts of one compound give one part, named after the compound: a sub-part carries no geometry of
+its own, the compound is what all of them are written out of, and the faces of two sub-parts that
+meet are sewn along the edge they share exactly as the faces of one part are.
+
+A non zero `offset` moves the extracted surfaces along their own normals, outwards when it is
+positive: half the wall thickness entered as a negative value on an outer surface is a mid-surface.
+A connected patch is offset as a whole, so the faces that meet are trimmed against each other rather
+than coming apart at the edge they share, and an offset the modelling kernel cannot make fails the
+extraction for that part instead of returning the surfaces unmoved.
 
 `ModelParts` adds `translate`, `rotate`, `mirror`, `merge` and `find_edges_by_angle`.
 

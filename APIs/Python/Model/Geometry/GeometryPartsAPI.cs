@@ -90,13 +90,15 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Extracts the selected surfaces into new shell parts using command history. The " +
-                   "selection uses the 'geometry' view and target. The surfaces of one part become " +
-                   "one new shell part named after it, and the part they were taken from is left as " +
-                   "it was. A non zero offset moves the extracted surfaces along their own normals, " +
-                   "outwards when it is positive, so half the wall thickness entered as a negative " +
-                   "value on an outer surface gives a mid-surface. Returns the names of the parts " +
-                   "that were created. A sub-part of a compound gives a part of its own, extracted " +
-                   "from the geometry of its compound.",
+                   "selection uses the 'geometry' view and target. The surfaces picked on one " +
+                   "geometry become one new shell part, sewn together where they touch, and the " +
+                   "parts they were taken from are left as they were. A selection spanning three " +
+                   "parts gives three, while the surfaces of several sub-parts of one compound give " +
+                   "one part named after the compound, because a sub-part carries no geometry of " +
+                   "its own and the compound is what all of them are written out of. A non zero " +
+                   "offset moves the extracted surfaces along their own normals, outwards when it " +
+                   "is positive, so half the wall thickness entered as a negative value on an outer " +
+                   "surface gives a mid-surface. Returns the names of the parts that were created.",
                    Arguments = "selection: Selection, offset: float = 0", Returns = "list[str]",
                    Example = "names = pmx.model.geometry.parts.extract_surface(selection, -1.5)")]
         public string[] extract_surface(SelectionAPI selection, object offset = null)

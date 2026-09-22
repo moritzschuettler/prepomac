@@ -5251,6 +5251,10 @@ namespace PrePoMax
             // the faces of the sub part are numbered inside the solid it was written out of
             Dictionary<int, string> sourcePartNameByPartId = new Dictionary<int, string>();
             Dictionary<int, int> solidNumberByPartId = new Dictionary<int, int>();
+            // Everything picked on one geometry is extracted in one go, so that the surfaces of several
+            // sub parts of a compound are sewn together the way the surfaces of one part are
+            List<string> sourcePartNames = new List<string>();
+            Dictionary<string, List<int>> partIdsBySourcePartName = new Dictionary<string, List<int>>();
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             int numOfSkippedSurfaces = 0;
             //
@@ -5282,18 +5286,21 @@ namespace PrePoMax
                     kernelFaceIds = new List<int>();
                     kernelFaceIdsByPartId.Add(itemTypePartIds[2], kernelFaceIds);
                     partIds.Add(itemTypePartIds[2]);
+                    //
+                    List<int> sourcePartIds;
+                    if (!partIdsBySourcePartName.TryGetValue(sourcePartName, out sourcePartIds))
+                    {
+                        sourcePartIds = new List<int>();
+                        partIdsBySourcePartName.Add(sourcePartName, sourcePartIds);
+                        sourcePartNames.Add(sourcePartName);
+                    }
+                    sourcePartIds.Add(itemTypePartIds[2]);
                 }
                 int kernelFaceId = GetSplitGeometryKernelId(geometryId);
                 if (!kernelFaceIds.Contains(kernelFaceId)) kernelFaceIds.Add(kernelFaceId);
             }
             // The new parts are placed beside the parts whose geometry they were written out of, which
             // for a sub part is the compound rather than the sub part itself
-            List<string> sourcePartNames = new List<string>();
-            foreach (int partId in partIds)
-            {
-                string sourcePartName = sourcePartNameByPartId[partId];
-                if (!sourcePartNames.Contains(sourcePartName)) sourcePartNames.Add(sourcePartName);
-            }
             //
             Guid? targetGroupId =
                 GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, sourcePartNames.ToArray());
@@ -5311,23 +5318,36 @@ namespace PrePoMax
             _form.ScreenUpdating = false;
             try
             {
-                foreach (int partId in partIds)
+                foreach (string sourcePartName in sourcePartNames)
                 {
-                    GeometryPart part = (GeometryPart)_model.Geometry.GetPartFromId(partId);
-                    GeometryPart sourcePart = (GeometryPart)_model.Geometry.Parts[sourcePartNameByPartId[partId]];
-                    _lastGeometryOperationCounts[part.Name] = 0;
+                    GeometryPart sourcePart = (GeometryPart)_model.Geometry.Parts[sourcePartName];
+                    List<int> sourcePartIds = partIdsBySourcePartName[sourcePartName];
                     //
-                    string brepFileName = ExtractPartSurface(sourcePart, solidNumberByPartId[partId],
-                                                             kernelFaceIdsByPartId[partId].ToArray(),
-                                                             surfaceExtraction.Offset);
+                    List<int> solidNumbers = new List<int>();
+                    List<int[]> groupKernelFaceIds = new List<int[]>();
+                    foreach (int partId in sourcePartIds)
+                    {
+                        _lastGeometryOperationCounts[_model.Geometry.GetPartFromId(partId).Name] = 0;
+                        solidNumbers.Add(solidNumberByPartId[partId]);
+                        groupKernelFaceIds.Add(kernelFaceIdsByPartId[partId].ToArray());
+                    }
+                    // The new part is named after the part the surfaces were picked on, and after the part
+                    // that carries the geometry when they were picked on several of its sub parts
+                    string pickedPartName = sourcePartIds.Count == 1 ?
+                                            _model.Geometry.GetPartFromId(sourcePartIds[0]).Name : sourcePartName;
+                    //
+                    string brepFileName = ExtractPartSurface(sourcePart, solidNumbers.ToArray(),
+                                                             groupKernelFaceIds, surfaceExtraction.Offset);
                     // A part the modelling kernel refuses must not stop the parts it does not refuse
-                    if (brepFileName == null) { failedPartNames.Add(part.Name); continue; }
+                    if (brepFileName == null) { failedPartNames.Add(pickedPartName); continue; }
                     //
-                    string[] partNames = ImportExtractedSurfaceParts(part, brepFileName);
-                    if (partNames.Length == 0) { failedPartNames.Add(part.Name); continue; }
+                    string[] partNames = ImportExtractedSurfaceParts(pickedPartName, brepFileName);
+                    if (partNames.Length == 0) { failedPartNames.Add(pickedPartName); continue; }
                     //
                     extractedPartNames.AddRange(partNames);
-                    _lastGeometryOperationCounts[part.Name] = kernelFaceIdsByPartId[partId].Count;
+                    foreach (int partId in sourcePartIds)
+                        _lastGeometryOperationCounts[_model.Geometry.GetPartFromId(partId).Name] =
+                            kernelFaceIdsByPartId[partId].Count;
                 }
             }
             finally
@@ -5384,7 +5404,10 @@ namespace PrePoMax
             solidNumber = index + 1;
             return true;
         }
-        private string ExtractPartSurface(GeometryPart part, int solidNumber, int[] kernelFaceIds, double offset)
+        // The picked faces arrive grouped by the solid of the written geometry they are numbered inside,
+        // which is one group for a part of its own and one group per picked sub part for a compound.
+        private string ExtractPartSurface(GeometryPart part, int[] solidNumbers, List<int[]> kernelFaceIds,
+                                          double offset)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -5397,8 +5420,12 @@ namespace PrePoMax
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string outputBrepFileName = inputBrepFileName;
-            string faceIdsArgument = "";
-            foreach (int kernelFaceId in kernelFaceIds) faceIdsArgument += kernelFaceId + " ";
+            string faceIdsArgument = solidNumbers.Length.ToString();
+            for (int i = 0; i < solidNumbers.Length; i++)
+            {
+                faceIdsArgument += " " + solidNumbers[i] + " " + kernelFaceIds[i].Length;
+                foreach (int kernelFaceId in kernelFaceIds[i]) faceIdsArgument += " " + kernelFaceId;
+            }
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
             //
@@ -5408,7 +5435,6 @@ namespace PrePoMax
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
                               "\"" + outputBrepFileName.ToUTF8() + "\" " +
                               offset + " " +
-                              solidNumber + " " +
                               faceIdsArgument;
             //
             JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
@@ -5419,7 +5445,7 @@ namespace PrePoMax
         }
         // The extracted geometry is added as a part of its own, named after the part it was taken from so
         // that the two can be told apart in the tree.
-        private string[] ImportExtractedSurfaceParts(GeometryPart part, string brepFileName)
+        private string[] ImportExtractedSurfaceParts(string pickedPartName, string brepFileName)
         {
             string[] importedPartNames = ImportBrepPartFile(brepFileName);
             if (importedPartNames == null) return new string[0];
@@ -5430,7 +5456,7 @@ namespace PrePoMax
                 BasePart importedPart;
                 if (!_model.Geometry.Parts.TryGetValue(importedPartName, out importedPart)) continue;
                 //
-                string extractedPartName = GetExtractedSurfacePartName(part.Name);
+                string extractedPartName = GetExtractedSurfacePartName(pickedPartName);
                 importedPart.Name = extractedPartName;
                 _model.Geometry.Parts.Replace(importedPartName, extractedPartName, importedPart);
                 //
