@@ -9008,6 +9008,13 @@ namespace vtkControl
                 if (entry.Value is vtkMaxCaptionActor ca) _renderer.RemoveActor2D(ca.CaptionActor);
                 else
                 {
+                    // The graphics resources of an actor are given back here, while the render window
+                    // is alive and this is the thread that draws. An actor that is only dropped keeps
+                    // them until the garbage collector finalizes it, which happens on a thread of its
+                    // own and while the renderer is drawing
+                    ReleaseActorGraphicsResources(entry.Value);
+                    ReleaseActorGraphicsResources(entry.Value.SectionViewActor);
+                    ReleaseActorGraphicsResources(entry.Value.SectionViewSkinActor);
                     _renderer.RemoveActor(entry.Value.Geometry);
                     _renderer.RemoveActor(entry.Value.ElementEdges);
                     _renderer.RemoveActor(entry.Value.ModelEdges);
@@ -9055,9 +9062,14 @@ namespace vtkControl
                 {
                     actorsToRemove.Add(actor.Name);
                     // A buffered actor may be added again, without its section view actors
+                    ReleaseActorGraphicsResources(actor.SectionViewActor);
+                    ReleaseActorGraphicsResources(actor.SectionViewSkinActor);
                     actor.SectionViewActor = null;
                     actor.SectionViewSkinActor = null;
                     actor.GeometryHiddenBySectionView = false;
+                    // The graphics resources are given back on this thread rather than left to the
+                    // finalizer, which releases them from a thread of its own while the renderer draws
+                    ReleaseActorGraphicsResources(actor);
                     // Remove from renderer
                     _renderer.RemoveActor(actor.Geometry);
                     _renderer.RemoveActor(actor.ElementEdges);
