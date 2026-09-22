@@ -23,6 +23,7 @@ namespace PrePoMax.Forms
         // Variables
         private ViewSurfaceExtraction _viewSurfaceExtraction;
         private Controller _controller;
+        private Button btnPreview;
 
 
         // Properties
@@ -44,12 +45,25 @@ namespace PrePoMax.Forms
         }
         private void InitializeComponent()
         {
+            this.btnPreview = new System.Windows.Forms.Button();
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
+            //
+            // btnPreview
+            //
+            this.btnPreview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPreview.Image = global::PrePoMax.Properties.Resources.Show;
+            this.btnPreview.Location = new System.Drawing.Point(45, 376);
+            this.btnPreview.Name = "btnPreview";
+            this.btnPreview.Size = new System.Drawing.Size(28, 23);
+            this.btnPreview.TabIndex = 18;
+            this.btnPreview.UseVisualStyleBackColor = true;
+            this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
             //
             // FrmExtractSurface
             //
             this.ClientSize = new System.Drawing.Size(334, 411);
+            this.Controls.Add(this.btnPreview);
             this.MinimumSize = new System.Drawing.Size(350, 350);
             this.Name = "FrmExtractSurface";
             this.Text = "Extract Surface";
@@ -57,9 +71,31 @@ namespace PrePoMax.Forms
             this.Controls.SetChildIndex(this.btnCancel, 0);
             this.Controls.SetChildIndex(this.btnOK, 0);
             this.Controls.SetChildIndex(this.btnOkAddNew, 0);
+            this.Controls.SetChildIndex(this.btnPreview, 0);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
 
+        }
+
+
+        // Event handlers                                                                                                    
+        private async void btnPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SurfaceExtraction surfaceExtraction = SurfaceExtraction;
+                //
+                if (surfaceExtraction == null) throw new CaeException("No surface extraction was prepared.");
+                //
+                string error = surfaceExtraction.CheckValidity();
+                if (error != null) throw new CaeException(error);
+                //
+                await _controller.PreviewExtractSurfaceAsync(surfaceExtraction.DeepClone());
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
 
 
@@ -67,9 +103,21 @@ namespace PrePoMax.Forms
         protected override void OnVisibleChanged(EventArgs e)
         {
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
-            else _controller.ClearAllSelection();
+            else
+            {
+                _controller.ClearExtractSurfacePreview();
+                _controller.ClearAllSelection();
+            }
             //
             base.OnVisibleChanged(e);
+        }
+        // A preview shows the extraction as it stood when the button was pressed, so a change of the
+        // offset or of the picked surfaces takes it off the screen rather than leaving a stale one there
+        protected override void OnPropertyGridPropertyValueChanged()
+        {
+            _controller.ClearExtractSurfacePreview();
+            //
+            base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
@@ -80,6 +128,7 @@ namespace PrePoMax.Forms
             string error = surfaceExtraction.CheckValidity();
             if (error != null) throw new CaeException(error);
             //
+            _controller.ClearExtractSurfacePreview();
             _controller.ExtractSurfaceCommand(surfaceExtraction.DeepClone());
             // The parts the surfaces were taken from are left as they were, but a selection carried into the
             // next extraction would extract the same surfaces again, so the picking starts over
@@ -106,6 +155,7 @@ namespace PrePoMax.Forms
             _propertyItemChanged = false;
             _viewSurfaceExtraction = null;
             propertyGrid.SelectedObject = null;
+            _controller.ClearExtractSurfacePreview();
             _controller.ClearAllSelection();
             //
             btnOkAddNew.Visible = true;
@@ -162,6 +212,8 @@ namespace PrePoMax.Forms
         public void SelectionChanged(int[] ids)
         {
             if (SurfaceExtraction == null) return;
+            //
+            _controller.ClearExtractSurfacePreview();
             //
             SurfaceExtraction.CreationIds = ids;
             SurfaceExtraction.CreationData = _controller.Selection.DeepCopy(true, false);

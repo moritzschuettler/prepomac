@@ -5374,7 +5374,10 @@ namespace vtkControl
             }
             else if (layer == vtkRendererLayer.Overlay)
             {
-                _overlayActors.Add(actor.Name, actor);
+                if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
+                // The geometry of the actor was added first and registered the name, and the edges of an
+                // actor that has both arrive here after it, so the name is already taken by this actor
+                if (!_overlayActors.ContainsKey(actor.Name)) _overlayActors.Add(actor.Name, actor);
                 //
                 if (isModelEdge) _overlayRenderer.AddActor(actor.ModelEdges);
                 else _overlayRenderer.AddActor(actor.ElementEdges);
@@ -9160,6 +9163,11 @@ namespace vtkControl
                 {
                     ReleaseActorGraphicsResources(entry.Value);
                     _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                    // An actor that was added with edges or nodes added them to the renderer of its own,
+                    // so taking only its geometry off leaves them drawn
+                    if (entry.Value.ElementEdges != null) _overlayRenderer.RemoveActor(entry.Value.ElementEdges);
+                    if (entry.Value.ModelEdges != null) _overlayRenderer.RemoveActor(entry.Value.ModelEdges);
+                    if (entry.Value.Nodes != null) _overlayRenderer.RemoveActor(entry.Value.Nodes);
                 }
             }
             //
@@ -9379,6 +9387,11 @@ namespace vtkControl
                     {
                         ReleaseActorGraphicsResources(actor);
                         _overlayRenderer.RemoveActor(actor.Geometry);
+                        // An actor that was added with edges or nodes added them to the renderer of its
+                        // own, so taking only its geometry off leaves them drawn
+                        if (actor.ElementEdges != null) _overlayRenderer.RemoveActor(actor.ElementEdges);
+                        if (actor.ModelEdges != null) _overlayRenderer.RemoveActor(actor.ModelEdges);
+                        if (actor.Nodes != null) _overlayRenderer.RemoveActor(actor.Nodes);
                     }
                     //
                     _overlayActors.Remove(actorName);

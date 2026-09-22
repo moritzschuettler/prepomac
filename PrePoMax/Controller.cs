@@ -5224,17 +5224,47 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
+        public void ExtractSurface(SurfaceExtraction surfaceExtraction)
+        {
+            ExtractSurface(surfaceExtraction, false);
+        }
+        // The same extraction, drawn where it would land instead of being added to the model, so that an
+        // offset can be judged before it is applied. It records nothing and changes nothing.
+        public async Task PreviewExtractSurfaceAsync(SurfaceExtraction surfaceExtraction)
+        {
+            _form.SetStateWorking(Globals.PreviewText, false);
+            try
+            {
+                await Task.Run(() => ExtractSurface(surfaceExtraction, true));
+            }
+            finally
+            {
+                _form.SetStateReady(Globals.PreviewText);
+            }
+        }
+        public void ClearExtractSurfacePreview()
+        {
+            if (_extractSurfacePreviewActorNames == null || _extractSurfacePreviewActorNames.Count == 0) return;
+            //
+            _form.RemoveOverlayActors(_extractSurfacePreviewActorNames.ToArray());
+            _extractSurfacePreviewActorNames.Clear();
+        }
         // The surfaces the user picked, lifted out of the parts that carry them and added to the model as
         // new shell parts. The parts they were taken from are left exactly as they were, so an extraction
         // adds and never changes.
-        public void ExtractSurface(SurfaceExtraction surfaceExtraction)
+        private void ExtractSurface(SurfaceExtraction surfaceExtraction, bool preview)
         {
-            if (surfaceExtraction.CreationData == null)
-                throw new NotSupportedException("The surface selection does not contain any selection data.");
-            // In order for the Regenerate history to work perform the selection
-            _selection = surfaceExtraction.CreationData.DeepCopy(true, false);
-            surfaceExtraction.CreationIds = GetSelectionIds();
-            _selection.Clear();
+            // A preview runs while the user is still picking, so it takes the ids the dialog holds rather
+            // than resolving the selection again, which would replace the selection being picked
+            if (!preview)
+            {
+                if (surfaceExtraction.CreationData == null)
+                    throw new NotSupportedException("The surface selection does not contain any selection data.");
+                // In order for the Regenerate history to work perform the selection
+                _selection = surfaceExtraction.CreationData.DeepCopy(true, false);
+                surfaceExtraction.CreationIds = GetSelectionIds();
+                _selection.Clear();
+            }
             //
             string error = surfaceExtraction.CheckValidity();
             if (error != null) throw new CaeException(error);
@@ -5307,6 +5337,8 @@ namespace PrePoMax
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
             //
+            if (preview) ClearExtractSurfacePreview();
+            //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> extractedPartNames = new List<string>();
             List<string> failedPartNames = new List<string>();
@@ -5341,6 +5373,12 @@ namespace PrePoMax
                     // A part the modelling kernel refuses must not stop the parts it does not refuse
                     if (brepFileName == null) { failedPartNames.Add(pickedPartName); continue; }
                     //
+                    if (preview)
+                    {
+                        DrawExtractSurfacePreview(brepFileName, sourcePartIds);
+                        continue;
+                    }
+                    //
                     string[] partNames = ImportExtractedSurfaceParts(pickedPartName, brepFileName);
                     if (partNames.Length == 0) { failedPartNames.Add(pickedPartName); continue; }
                     //
@@ -5354,6 +5392,16 @@ namespace PrePoMax
             {
                 _form.ScreenUpdating = screenUpdating;
                 _form.RenderingOn = rendering;
+            }
+            //
+            // A preview leaves the model alone: nothing is added, nothing is renamed and the selection the
+            // user is still picking with stays as it is
+            if (preview)
+            {
+                foreach (string partName in failedPartNames)
+                    _form.WriteDataToOutput("Extract surface preview: no surface was extracted from the part " +
+                                            partName + ".");
+                return;
             }
             //
             _lastExtractedSurfacePartNames = extractedPartNames.ToArray();
@@ -5379,6 +5427,88 @@ namespace PrePoMax
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
+        }
+        // The extracted geometry drawn where it would land. It is the geometry the operation itself would
+        // add, read back from the file the mesher wrote, so what the user sees is what the extraction
+        // makes and not an approximation of it.
+        private void DrawExtractSurfacePreview(string brepFileName, List<int> pickedPartIds)
+        {
+            string visFileName = CreateVisFile(brepFileName, false);
+            if (visFileName == null) return;
+            //
+            CaeMesh.FeMesh previewMesh = FileInOut.Input.VisFileReader.Read(visFileName);
+            if (previewMesh == null) return;
+            //
+            double[] offset = GetExtractSurfacePreviewOffset(pickedPartIds);
+            if (_extractSurfacePreviewActorNames == null) _extractSurfacePreviewActorNames = new HashSet<string>();
+            //
+            foreach (var entry in previewMesh.Parts)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = "extractSurfacePreview" + _extractSurfacePreviewActorNames.Count;
+                // A symbol goes on the overlay layer; the selection layer recolors what it holds with the
+                // selection color, and the picking the user is doing keeps clearing it
+                data.Layer = vtkRendererLayer.Overlay;
+                data.Color = _settings.Pre.SplitToolSymbolColor;
+                data.KeepOwnColor = true;
+                data.CanHaveElementEdges = false;
+                data.BackfaceCulling = false;
+                data.Pickable = false;
+                data.SmoothShaded = true;
+                //
+                previewMesh.GetVisualizationNodesAndCells(entry.Value, out data.Geometry.Nodes.Ids,
+                                                          out data.Geometry.Nodes.Coor,
+                                                          out data.Geometry.Cells.Ids,
+                                                          out data.Geometry.Cells.CellNodeIds,
+                                                          out data.Geometry.Cells.Types);
+                data.Geometry.Nodes.Coor = MoveExtractSurfacePreviewCoor(data.Geometry.Nodes.Coor, offset);
+                // The boundaries of the extracted faces are what says where one face ends and the next
+                // begins, which is the whole question an offset raises
+                if (entry.Value.PartType.HasEdges() && entry.Value.Visualization.EdgeCells != null)
+                {
+                    data.ModelEdges = new PartExchangeData();
+                    previewMesh.GetNodesAndCellsForModelEdges(entry.Value, out data.ModelEdges.Nodes.Ids,
+                                                              out data.ModelEdges.Nodes.Coor,
+                                                              out data.ModelEdges.Cells.CellNodeIds,
+                                                              out data.ModelEdges.Cells.Types);
+                    data.ModelEdges.Nodes.Coor = MoveExtractSurfacePreviewCoor(data.ModelEdges.Nodes.Coor, offset);
+                }
+                //
+                ApplyLighting(data);
+                _form.Add3DCells(data);
+                _extractSurfacePreviewActorNames.Add(data.Name);
+            }
+        }
+        // The exploded view offset the preview is drawn at. The picked parts carry it, and where they do
+        // not all stand at the same one there is no single place the extracted surface can be drawn at, so
+        // it is drawn where the geometry itself is.
+        private double[] GetExtractSurfacePreviewOffset(List<int> pickedPartIds)
+        {
+            double[] offset = null;
+            foreach (int partId in pickedPartIds)
+            {
+                BasePart part = _model.Geometry.GetPartFromId(partId);
+                double[] partOffset = part == null ? null : part.Offset;
+                if (partOffset == null) partOffset = new double[3];
+                //
+                if (offset == null) offset = partOffset;
+                else if (offset[0] != partOffset[0] || offset[1] != partOffset[1] || offset[2] != partOffset[2])
+                    return null;
+            }
+            return offset;
+        }
+        private static double[][] MoveExtractSurfacePreviewCoor(double[][] nodeCoor, double[] offset)
+        {
+            if (nodeCoor == null || offset == null) return nodeCoor;
+            if (offset[0] == 0 && offset[1] == 0 && offset[2] == 0) return nodeCoor;
+            //
+            double[][] movedCoor = new double[nodeCoor.Length][];
+            for (int i = 0; i < nodeCoor.Length; i++)
+            {
+                movedCoor[i] = new double[] { nodeCoor[i][0] + offset[0], nodeCoor[i][1] + offset[1],
+                                              nodeCoor[i][2] + offset[2] };
+            }
+            return movedCoor;
         }
         // The part the geometry is written out of, and the solid of it the picked faces are numbered
         // inside. A sub part of a compound is written as its compound, because it carries no geometry of
@@ -5643,6 +5773,8 @@ namespace PrePoMax
         // own - so every name that actually reached the renderer is collected and those are the names
         // that get removed, rather than the names the symbols were asked to use
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
+        // The faces a surface extraction preview drew, which are removed by name before the next one
+        [NonSerialized] private HashSet<string> _extractSurfacePreviewActorNames;
         // The exploded view offset the symbols of the feature are drawn at. The symbols are computed
         // from the geometry metadata, which holds the coordinates of the part itself, and are moved
         // onto the drawn part as they are handed to the renderer - the metadata is never touched
