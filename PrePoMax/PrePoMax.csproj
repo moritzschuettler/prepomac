@@ -198,6 +198,7 @@
     <Compile Include="Commands\0030_Geometry\CConvertSolidToShell.cs" />
     <Compile Include="Commands\0030_Geometry\CDeleteStlPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\CDefeature.cs" />
+    <Compile Include="Commands\0030_Geometry\CExtractSurface.cs" />
     <Compile Include="Commands\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />
     <Compile Include="Commands\0030_Geometry\CConvertShellToSolid.cs" />
@@ -526,6 +527,9 @@
     <Compile Include="Forms\03_GeometryFeature\FrmSplitShell.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\03_GeometryFeature\FrmExtractSurface.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\03_GeometryFeature\GeometryFeatureTypes.cs" />
     <Compile Include="Forms\03_GeometryFeature\FeatureSelectionTargetEnum.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByLineTwoPoints.cs" />
@@ -533,6 +537,7 @@
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByExtrudedEdges.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByPlaneThreePoints.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewSplitByPointAndNormal.cs" />
+    <Compile Include="Forms\03_GeometryFeature\ViewSurfaceExtraction.cs" />
     <Compile Include="Forms\03_GeometryFeature\ViewGeometryFeature.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
@@ -1155,6 +1160,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\03_GeometryFeature\FrmSplitShell.resx">
       <DependentUpon>FrmSplitShell.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\03_GeometryFeature\FrmExtractSurface.resx">
+      <DependentUpon>FrmExtractSurface.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\55_Load\FrmLoad.resx">
       <DependentUpon>FrmLoad.cs</DependentUpon>

@@ -118,6 +118,7 @@ namespace PrePoMax
         private FrmMeshSetupItem _frmMeshSetupItem;
         private FrmSplitSolid _frmSplitSolid;
         private FrmSplitShell _frmSplitShell;
+        private FrmExtractSurface _frmExtractSurface;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -520,6 +521,9 @@ namespace PrePoMax
                 //
                 _frmSplitShell = new FrmSplitShell(_controller);
                 AddFormToAllForms(_frmSplitShell);
+                //
+                _frmExtractSurface = new FrmExtractSurface(_controller);
+                AddFormToAllForms(_frmExtractSurface);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -2544,13 +2548,13 @@ namespace PrePoMax
         {
             try
             {
-                SetFormLocation(_frmRegenerate);
-                if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
+                RegenerateTypeEnum regenerateType;
+                if (TryGetRegenerateType(_controller.IsRegenerateTypeUsedByUndo(), out regenerateType))
                 {
                     SetStateWorking(Globals.UndoingText);
                     _modelTree.ScreenUpdating = false;
                     //
-                    await Task.Run(() => _controller.UndoHistory(_frmRegenerate.RegenerateType));
+                    await Task.Run(() => _controller.UndoHistory(regenerateType));
                 }
             }
             catch (Exception ex)
@@ -2605,27 +2609,39 @@ namespace PrePoMax
         //
         private void tsmiRegenerateHistory_Click(object sender, EventArgs e)
         {
-            SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
+            RegenerateTypeEnum regenerateType;
+            if (TryGetRegenerateType(_controller.IsRegenerateTypeUsed(), out regenerateType))
             {
-                RegenerateHistory(false, false, _frmRegenerate.RegenerateType);
+                RegenerateHistory(false, false, regenerateType);
             }
         }
         private void tsmiRegenerateHistoryUsingOtherFiles_Click(object sender, EventArgs e)
         {
-            SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
+            RegenerateTypeEnum regenerateType;
+            if (TryGetRegenerateType(_controller.IsRegenerateTypeUsed(), out regenerateType))
             {
-                RegenerateHistory(true, false, _frmRegenerate.RegenerateType);
+                RegenerateHistory(true, false, regenerateType);
             }
         }
         private void tsmiRegenerateHistoryWithRemeshing_Click(object sender, EventArgs e)
         {
-            SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
+            RegenerateTypeEnum regenerateType;
+            if (TryGetRegenerateType(_controller.IsRegenerateTypeUsed(), out regenerateType))
             {
-                RegenerateHistory(false, true, _frmRegenerate.RegenerateType);
+                RegenerateHistory(false, true, regenerateType);
             }
+        }
+        private bool TryGetRegenerateType(bool regenerateTypeUsed, out RegenerateTypeEnum regenerateType)
+        {
+            regenerateType = RegenerateTypeEnum.All;
+            //
+            if (!regenerateTypeUsed) return true;
+            //
+            SetFormLocation(_frmRegenerate);
+            if (_frmRegenerate.ShowDialog(this) != DialogResult.OK) return false;
+            //
+            regenerateType = _frmRegenerate.RegenerateType;
+            return true;
         }
         //
         public async void RegenerateHistory(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
@@ -4244,6 +4260,24 @@ namespace PrePoMax
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitShell);
             ShowForm(_frmSplitShell, "Split Shell", null);
+        }
+        private void tsmiExtractSurface_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateExtractSurface();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void CreateExtractSurface()
+        {
+            if (_controller.Model.Geometry == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmExtractSurface);
+            ShowForm(_frmExtractSurface, "Extract Surface", null);
         }
         private async void tsmiDefeature_Click(object sender, EventArgs e)
         {
@@ -10075,6 +10109,7 @@ namespace PrePoMax
             if (_frmMeshSetupItem != null && _frmMeshSetupItem.Visible) _frmMeshSetupItem.SelectionChanged(ids);
             if (_frmSplitSolid != null && _frmSplitSolid.Visible) _frmSplitSolid.SelectionChanged(ids);
             if (_frmSplitShell != null && _frmSplitShell.Visible) _frmSplitShell.SelectionChanged(ids);
+            if (_frmExtractSurface != null && _frmExtractSurface.Visible) _frmExtractSurface.SelectionChanged(ids);
             if (_frmSelectGeometry != null && _frmSelectGeometry.Visible) _frmSelectGeometry.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);

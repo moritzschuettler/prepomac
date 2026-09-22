@@ -245,6 +245,7 @@ namespace PrePoMax
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitSolid = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitShell = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiExtractSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -2373,6 +2374,7 @@ namespace PrePoMax
             this.tsmiSplitAFaceUsingTwoPoints,
             this.tsmiSplitSolid,
             this.tsmiSplitShell,
+            this.tsmiExtractSurface,
             this.tsmiDividerCAD2,
             this.tsmiDefeature});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
@@ -2425,6 +2427,13 @@ namespace PrePoMax
             this.tsmiSplitShell.Size = new System.Drawing.Size(227, 22);
             this.tsmiSplitShell.Text = "Split Shell";
             this.tsmiSplitShell.Click += new System.EventHandler(this.tsmiSplitShell_Click);
+            // 
+            // tsmiExtractSurface
+            // 
+            this.tsmiExtractSurface.Name = "tsmiExtractSurface";
+            this.tsmiExtractSurface.Size = new System.Drawing.Size(227, 22);
+            this.tsmiExtractSurface.Text = "Extract Surface";
+            this.tsmiExtractSurface.Click += new System.EventHandler(this.tsmiExtractSurface_Click);
             // 
             // tsmiDividerCAD2
             // 
@@ -5649,6 +5658,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitAFaceUsingTwoPoints;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitSolid;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitShell;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExtractSurface;
         private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCylinder;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateElementSet;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateNodeSet;

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -270,6 +270,16 @@ namespace PrePoMax.Python
                 facesRemoved.Add(partName, before - after);
             }
             return facesRemoved;
+        }
+        public string[] ExtractSurface(GeometrySelection geometrySelection, double offset)
+        {
+            SurfaceExtraction surfaceExtraction = new SurfaceExtraction();
+            surfaceExtraction.CreationIds = geometrySelection.GeometryIds;
+            surfaceExtraction.CreationData = geometrySelection.CreationData;
+            surfaceExtraction.Offset = offset;
+            //
+            _controller.ExtractSurfaceCommand(surfaceExtraction);
+            return _controller.LastExtractedSurfacePartNames;
         }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -72,6 +72,13 @@ namespace APIs.Python.Model
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
             EnsureCommandsAvailable();
             return MeshGateway.Defeature(geometrySelection);
+        }
+        public string[] ExtractSurface(SelectionAPI selection, object offset)
+        {
+            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            double offsetValue = offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset");
+            EnsureCommandsAvailable();
+            return MeshGateway.ExtractSurface(geometrySelection, offsetValue);
         }
         public Dictionary<string, int> SplitFace(SelectionAPI surfaceSelection, SelectionAPI verticesSelection)
         {

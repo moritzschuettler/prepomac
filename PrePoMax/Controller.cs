@@ -104,6 +104,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshedModelPartNames;
         [NonSerialized] protected string[] _lastMeshingErrors;
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
+        [NonSerialized] protected string[] _lastExtractedSurfacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
         [NonSerialized] private Dictionary<string, MeshTypeEnum> _effectiveMeshTypes;
         [NonSerialized] private int _openedPmxVersion;
@@ -223,6 +224,16 @@ namespace PrePoMax
         public string[] LastDefeaturedPartNames
         {
             get { return _lastDefeaturedPartNames == null ? new string[0] : _lastDefeaturedPartNames; }
+        }
+        // The shell parts the last surface extraction created, named in the order the surfaces were
+        // taken, so that a caller that cannot read the output window knows what was added and what it
+        // is called
+        public string[] LastExtractedSurfacePartNames
+        {
+            get
+            {
+                return _lastExtractedSurfacePartNames == null ? new string[0] : _lastExtractedSurfacePartNames;
+            }
         }
         // What the last geometry operation did to each part it was asked about, zero included. A caller
         // that is not a person cannot read the output window, and an operation that did nothing looks
@@ -464,6 +475,14 @@ namespace PrePoMax
         public List<string> GetCommandCollectionErrors()
         {
             return _commands.Errors;
+        }
+        public bool IsRegenerateTypeUsed()
+        {
+            return _commands.IsRegenerateTypeUsed();
+        }
+        public bool IsRegenerateTypeUsedByUndo()
+        {
+            return _commands.IsRegenerateTypeUsedByUndo();
         }
         // Setters                                                                                                                  
         public void SetQuerySelection(bool querySelection)
@@ -4978,12 +4997,28 @@ namespace PrePoMax
         }
         public void SplitGeometryCommand(GeometryFeature geometryFeature)
         {
+            // A point is brought back onto the part it was picked on, so picks spread over parts the
+            // exploded view has moved apart give a tool that is not the one that was drawn, and a tool
+            // picked on one part does not cut another where it appears to. The operation is refused
+            // rather than recorded, since what is recorded is replayed with no view at all
+            double[] offset;
+            if (!TryGetSplitGeometryFeatureOffset(geometryFeature, out offset))
+                throw new CaeException("The exploded view holds the parts of this operation at " +
+                                       "different places, so the splitting tool would not cut where it " +
+                                       "is drawn. Turn the exploded view off, or split only parts that " +
+                                       "stand at the same offset.");
+            //
             CSplitGeometry comm = new CSplitGeometry(geometryFeature);
             _commands.AddAndExecute(comm);
         }
         public void DefeatureCommand(GeometrySelection geometrySelection)
         {
             CDefeature comm = new CDefeature(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExtractSurfaceCommand(SurfaceExtraction surfaceExtraction)
+        {
+            CExtractSurface comm = new CExtractSurface(surfaceExtraction);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -5189,6 +5224,229 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
+        // The surfaces the user picked, lifted out of the parts that carry them and added to the model as
+        // new shell parts. The parts they were taken from are left exactly as they were, so an extraction
+        // adds and never changes.
+        public void ExtractSurface(SurfaceExtraction surfaceExtraction)
+        {
+            if (surfaceExtraction.CreationData == null)
+                throw new NotSupportedException("The surface selection does not contain any selection data.");
+            // In order for the Regenerate history to work perform the selection
+            _selection = surfaceExtraction.CreationData.DeepCopy(true, false);
+            surfaceExtraction.CreationIds = GetSelectionIds();
+            _selection.Clear();
+            //
+            string error = surfaceExtraction.CheckValidity();
+            if (error != null) throw new CaeException(error);
+            // The surfaces of one part become one new part, so the picks are gathered by the part that
+            // carries them and named by the id the modelling kernel gave the face
+            int[] itemTypePartIds;
+            GeometryType geometryType;
+            List<int> kernelFaceIds;
+            List<int> partIds = new List<int>();
+            Dictionary<int, List<int>> kernelFaceIdsByPartId = new Dictionary<int, List<int>>();
+            // The part whose geometry is written to the mesher, and the solid of it the ids are numbered
+            // inside. They are the picked part itself and zero, unless the picked part is a sub part of a
+            // compound: a sub part carries no geometry of its own, so the compound is what is written and
+            // the faces of the sub part are numbered inside the solid it was written out of
+            Dictionary<int, string> sourcePartNameByPartId = new Dictionary<int, string>();
+            Dictionary<int, int> solidNumberByPartId = new Dictionary<int, int>();
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            int numOfSkippedSurfaces = 0;
+            //
+            foreach (int geometryId in surfaceExtraction.CreationIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                geometryType = (GeometryType)itemTypePartIds[1];
+                BasePart part = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+                //
+                if (!geometryType.IsSurface() || !(part is GeometryPart geometryPart) || !geometryPart.IsCADPart ||
+                    geometryPart is CompoundGeometryPart)
+                {
+                    numOfSkippedSurfaces++;
+                    continue;
+                }
+                //
+                if (!kernelFaceIdsByPartId.TryGetValue(itemTypePartIds[2], out kernelFaceIds))
+                {
+                    string sourcePartName;
+                    int solidNumber;
+                    if (!GetExtractSurfaceSource(geometryPart, compoundPartNames, out sourcePartName,
+                                                 out solidNumber))
+                    {
+                        numOfSkippedSurfaces++;
+                        continue;
+                    }
+                    sourcePartNameByPartId.Add(itemTypePartIds[2], sourcePartName);
+                    solidNumberByPartId.Add(itemTypePartIds[2], solidNumber);
+                    kernelFaceIds = new List<int>();
+                    kernelFaceIdsByPartId.Add(itemTypePartIds[2], kernelFaceIds);
+                    partIds.Add(itemTypePartIds[2]);
+                }
+                int kernelFaceId = GetSplitGeometryKernelId(geometryId);
+                if (!kernelFaceIds.Contains(kernelFaceId)) kernelFaceIds.Add(kernelFaceId);
+            }
+            // The new parts are placed beside the parts whose geometry they were written out of, which
+            // for a sub part is the compound rather than the sub part itself
+            List<string> sourcePartNames = new List<string>();
+            foreach (int partId in partIds)
+            {
+                string sourcePartName = sourcePartNameByPartId[partId];
+                if (!sourcePartNames.Contains(sourcePartName)) sourcePartNames.Add(sourcePartName);
+            }
+            //
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, sourcePartNames.ToArray());
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Geometry.Parts, targetGroupId);
+            //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
+            List<string> extractedPartNames = new List<string>();
+            List<string> failedPartNames = new List<string>();
+            // The new parts reach the tree and the scene together at the end, so that the extraction is
+            // one redraw and one tree instead of one of each per part
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                foreach (int partId in partIds)
+                {
+                    GeometryPart part = (GeometryPart)_model.Geometry.GetPartFromId(partId);
+                    GeometryPart sourcePart = (GeometryPart)_model.Geometry.Parts[sourcePartNameByPartId[partId]];
+                    _lastGeometryOperationCounts[part.Name] = 0;
+                    //
+                    string brepFileName = ExtractPartSurface(sourcePart, solidNumberByPartId[partId],
+                                                             kernelFaceIdsByPartId[partId].ToArray(),
+                                                             surfaceExtraction.Offset);
+                    // A part the modelling kernel refuses must not stop the parts it does not refuse
+                    if (brepFileName == null) { failedPartNames.Add(part.Name); continue; }
+                    //
+                    string[] partNames = ImportExtractedSurfaceParts(part, brepFileName);
+                    if (partNames.Length == 0) { failedPartNames.Add(part.Name); continue; }
+                    //
+                    extractedPartNames.AddRange(partNames);
+                    _lastGeometryOperationCounts[part.Name] = kernelFaceIdsByPartId[partId].Count;
+                }
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                _form.RenderingOn = rendering;
+            }
+            //
+            _lastExtractedSurfacePartNames = extractedPartNames.ToArray();
+            //
+            if (extractedPartNames.Count > 0)
+            {
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
+                UpdateAfterImport(".brep");
+            }
+            //
+            WriteGeometryOperationReport("Extract surface", "surfaces were extracted");
+            //
+            foreach (string partName in extractedPartNames)
+                _form.WriteDataToOutput("Extract surface: the part " + partName + " was created.");
+            foreach (string partName in failedPartNames)
+                _form.WriteDataToOutput("Extract surface: no surface was extracted from the part " + partName + ".");
+            if (numOfSkippedSurfaces > 0)
+                _form.WriteDataToOutput("Extract surface: " + numOfSkippedSurfaces + " selected surfaces do not " +
+                                        "belong to a CAD part a surface can be extracted from and were skipped.");
+            //
+            if (partIds.Count == 0)
+                MessageBoxes.ShowWarning("Surfaces can only be extracted from CAD parts.");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
+        }
+        // The part the geometry is written out of, and the solid of it the picked faces are numbered
+        // inside. A sub part of a compound is written as its compound, because it carries no geometry of
+        // its own, and its place in the sub part list is the number of its solid - the order the solids
+        // were written out of the compound in.
+        private bool GetExtractSurfaceSource(GeometryPart part, Dictionary<string, string> compoundPartNames,
+                                             out string sourcePartName, out int solidNumber)
+        {
+            sourcePartName = part.Name;
+            solidNumber = 0;
+            //
+            string compoundPartName;
+            if (!compoundPartNames.TryGetValue(part.Name, out compoundPartName)) return true;
+            //
+            BasePart basePart;
+            if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out basePart) ||
+                !(basePart is CompoundGeometryPart compoundPart)) return false;
+            //
+            int index = Array.IndexOf(compoundPart.SubPartNames, part.Name);
+            if (index < 0) return false;
+            //
+            sourcePartName = compoundPartName;
+            solidNumber = index + 1;
+            return true;
+        }
+        private string ExtractPartSurface(GeometryPart part, int solidNumber, int[] kernelFaceIds, double offset)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = inputBrepFileName;
+            string faceIdsArgument = "";
+            foreach (int kernelFaceId in kernelFaceIds) faceIdsArgument += kernelFaceId + " ";
+            //
+            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            //
+            File.WriteAllText(inputBrepFileName, part.CADFileData);
+            //
+            string argument = "BREP_EXTRACT_FACES " +
+                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              offset + " " +
+                              solidNumber + " " +
+                              faceIdsArgument;
+            //
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            // Job completed
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
+            else return null;
+        }
+        // The extracted geometry is added as a part of its own, named after the part it was taken from so
+        // that the two can be told apart in the tree.
+        private string[] ImportExtractedSurfaceParts(GeometryPart part, string brepFileName)
+        {
+            string[] importedPartNames = ImportBrepPartFile(brepFileName);
+            if (importedPartNames == null) return new string[0];
+            //
+            List<string> extractedPartNames = new List<string>();
+            foreach (string importedPartName in importedPartNames)
+            {
+                BasePart importedPart;
+                if (!_model.Geometry.Parts.TryGetValue(importedPartName, out importedPart)) continue;
+                //
+                string extractedPartName = GetExtractedSurfacePartName(part.Name);
+                importedPart.Name = extractedPartName;
+                _model.Geometry.Parts.Replace(importedPartName, extractedPartName, importedPart);
+                //
+                extractedPartNames.Add(extractedPartName);
+            }
+            return extractedPartNames.ToArray();
+        }
+        private string GetExtractedSurfacePartName(string sourcePartName)
+        {
+            HashSet<string> reservedPartNames = _model.GetReservedPartNames();
+            string baseName = sourcePartName + "-Surface";
+            string partName = baseName;
+            int count = 1;
+            while (reservedPartNames.Contains(partName)) partName = baseName + "-" + ++count;
+            return partName;
+        }
         private bool ReplacePartGeometryFromFile(GeometryPart part, string fileName, bool keepGeometrySelections)
         {
             int count = 0;
@@ -5359,6 +5617,10 @@ namespace PrePoMax
         // own - so every name that actually reached the renderer is collected and those are the names
         // that get removed, rather than the names the symbols were asked to use
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
+        // The exploded view offset the symbols of the feature are drawn at. The symbols are computed
+        // from the geometry metadata, which holds the coordinates of the part itself, and are moved
+        // onto the drawn part as they are handed to the renderer - the metadata is never touched
+        [NonSerialized] private double[] _geometryFeatureSymbolOffset;
         // The parts faded while a geometry feature dialog is open. The fade is a display state only -
         // the part keeps its own color, so closing the dialog restores it without a command
         [NonSerialized] private HashSet<string> _geometryFeatureFadedPartNames;
@@ -5614,6 +5876,13 @@ namespace PrePoMax
         }
         public void DrawSplitGeometrySymbols(GeometryFeature geometryFeature, bool regionIsArmed)
         {
+            // Where the parts of the operation do not share one offset there is no one place the tool
+            // can be drawn at, so it is drawn where the modelling kernel will use it, and the operation
+            // is refused when it is applied
+            double[] symbolOffset;
+            TryGetSplitGeometryFeatureOffset(geometryFeature, out symbolOffset);
+            _geometryFeatureSymbolOffset = symbolOffset;
+            //
             // The selection layer colors what it holds with the selection color, so the tool symbol
             // lives on the overlay layer with the rest of the symbols and is removed by name
             _form.RemoveOverlayActors(_geometryFeatureSymbolNames);
@@ -5897,6 +6166,7 @@ namespace PrePoMax
         }
         public void ClearGeometryFeatureSymbols()
         {
+            _geometryFeatureSymbolOffset = null;
             _geometryFeaturePointPicking = GeometryFeaturePointPickingEnum.None;
             _pickCompoundSubPartsSeparately = false;
             _form.RemoveOverlayActors(_geometryFeatureSymbolNames);
@@ -6062,9 +6332,13 @@ namespace PrePoMax
             {
                 BasePart part;
                 if (!_model.Geometry.Parts.TryGetValue(partName, out part) || part.BoundingBox == null) continue;
+                // The exploded view moves the box with the part, and the tool is built and used where
+                // the modelling kernel holds the geometry, so the box is brought back onto the part
+                BoundingBox partBox = new BoundingBox(part.BoundingBox);
+                if (IsExplodedViewActive() && part.Offset != null) partBox.RemoveOffset(part.Offset);
                 //
-                if (box == null) box = new BoundingBox(part.BoundingBox);
-                else box.IncludeBox(part.BoundingBox);
+                if (box == null) box = partBox;
+                else box.IncludeBox(partBox);
             }
             if (box == null) return null;
             // The tool has to reach past the geometry instead of ending exactly on it
@@ -6606,8 +6880,9 @@ namespace PrePoMax
             {
                 if (!IsSplitGeometryPickOnThePoint(geometryId, pickNodes, geometryFeature)) continue;
                 //
+                // The marker stands where the point is drawn, not where the modelling kernel holds it
                 double[] point;
-                if (TryGetSplitGeometryPoint(geometryId, out point)) coor.Add(point);
+                if (TryGetSplitGeometryDisplayPoint(geometryId, out point)) coor.Add(point);
             }
             if (coor.Count == 0) return;
             //
@@ -7009,6 +7284,117 @@ namespace PrePoMax
             }
             return coor;
         }
+        /// <summary>
+        /// The coordinates of a symbol, moved onto the part as it is drawn. The symbol is computed from
+        /// the geometry metadata, which holds the coordinates of the part itself, and the exploded view
+        /// draws the part somewhere else; moving the finished symbol leaves the metadata alone, and the
+        /// same coordinates are handed to two actors, so a copy is made rather than moving them in place.
+        /// </summary>
+        private double[][] GetSplitGeometrySymbolCoor(double[][] nodeCoor)
+        {
+            double[] offset = _geometryFeatureSymbolOffset;
+            if (offset == null || nodeCoor == null) return nodeCoor;
+            if (offset[0] == 0 && offset[1] == 0 && offset[2] == 0) return nodeCoor;
+            //
+            double[][] movedCoor = new double[nodeCoor.Length][];
+            for (int i = 0; i < nodeCoor.Length; i++)
+            {
+                movedCoor[i] = new double[] { nodeCoor[i][0] + offset[0], nodeCoor[i][1] + offset[1],
+                                              nodeCoor[i][2] + offset[2] };
+            }
+            return movedCoor;
+        }
+        /// <summary>
+        /// The exploded view offset every part of the operation stands at, and false when they do not
+        /// stand at one: the parts of the region and the parts the splitter and the direction were
+        /// picked on. One tool means the same thing on all of them only while they share an offset.
+        /// </summary>
+        private bool TryGetSplitGeometryFeatureOffset(GeometryFeature geometryFeature, out double[] offset)
+        {
+            offset = null;
+            if (geometryFeature == null || !IsExplodedViewActive()) return true;
+            //
+            List<string> partNames = new List<string>(GetSplitGeometryPickedPartNames(geometryFeature));
+            AddSplitGeometryPartNames(geometryFeature.SplitterIds, partNames);
+            if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
+                AddSplitGeometryPartNames(extrudedEdges.DirectionIds, partNames);
+            //
+            foreach (string partName in partNames)
+            {
+                BasePart part;
+                if (!_model.Geometry.Parts.TryGetValue(partName, out part) || part.Offset == null) continue;
+                //
+                if (offset == null) offset = part.Offset;
+                else if (part.Offset[0] != offset[0] || part.Offset[1] != offset[1] ||
+                         part.Offset[2] != offset[2])
+                {
+                    offset = null;
+                    return false;
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// Takes back a pick that landed on a part the exploded view holds at another offset than the
+        /// parts the operation already stands on. One tool is the same tool on all of them only while
+        /// they stand together, so the pick is undone as it is made rather than building a tool that
+        /// would be refused when it is applied, and the part it landed on is named.
+        /// </summary>
+        public bool DropSplitGeometryPickAtOtherOffset(GeometryFeature geometryFeature, int[] ids,
+                                                       bool idsArePartIds)
+        {
+            if (geometryFeature == null || ids == null || ids.Length == 0) return false;
+            if (!IsExplodedViewActive()) return false;
+            // The offset the operation already stands at, which the first part it reaches sets
+            double[] offset;
+            TryGetSplitGeometryFeatureOffset(geometryFeature, out offset);
+            //
+            List<string> partNames = new List<string>();
+            foreach (int id in ids)
+            {
+                BasePart part = idsArePartIds ? _model.Geometry.GetPartFromId(id) :
+                                _model.Geometry.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(id)[2]);
+                if (part == null) continue;
+                //
+                if (part is CompoundGeometryPart compoundPart) partNames.AddRange(compoundPart.SubPartNames);
+                else partNames.Add(part.Name);
+            }
+            //
+            string otherPartName = null;
+            foreach (string partName in partNames)
+            {
+                BasePart part;
+                if (!_model.Geometry.Parts.TryGetValue(partName, out part) || part.Offset == null) continue;
+                //
+                if (offset == null) offset = part.Offset;
+                else if (part.Offset[0] != offset[0] || part.Offset[1] != offset[1] ||
+                         part.Offset[2] != offset[2])
+                {
+                    otherPartName = part.Name;
+                    break;
+                }
+            }
+            if (otherPartName == null) return false;
+            //
+            _form.WriteDataToOutput("Split: the part " + otherPartName + " was not taken, because the " +
+                                    "exploded view holds it away from the parts this operation already " +
+                                    "stands on, and one splitting tool cannot cut them both where it is " +
+                                    "drawn.");
+            RemoveLastSelectionNode();
+            //
+            return true;
+        }
+        private void AddSplitGeometryPartNames(int[] geometryIds, List<string> partNames)
+        {
+            if (geometryIds == null) return;
+            //
+            foreach (int geometryId in geometryIds)
+            {
+                int partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2];
+                BasePart part = _model.Geometry.GetPartFromId(partId);
+                if (part != null && !partNames.Contains(part.Name)) partNames.Add(part.Name);
+            }
+        }
         private void DrawSplitGeometryToolSurface(string name, double[][] nodeCoor, int[][] cells)
         {
             int[] cellTypes = new int[cells.Length];
@@ -7017,6 +7403,7 @@ namespace PrePoMax
             //
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
+            nodeCoor = GetSplitGeometrySymbolCoor(nodeCoor);
             data.Color = Color.FromArgb(70, _settings.Pre.SplitToolSymbolColor);
             data.Layer = vtkRendererLayer.Selection;
             data.DrawOnGeometry = true;
@@ -7039,6 +7426,7 @@ namespace PrePoMax
             //
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
+            nodeCoor = GetSplitGeometrySymbolCoor(nodeCoor);
             data.Color = _settings.Pre.SplitToolSymbolColor;
             data.Layer = vtkRendererLayer.Selection;
             data.DrawOnGeometry = true;

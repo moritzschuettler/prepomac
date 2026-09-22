@@ -1366,7 +1366,7 @@ namespace CaeMesh
             if (errorNodeIdsList.Count > 0) errorNodeIds = errorNodeIdsList.ToArray();
             else errorNodeIds = null;
         }
-        public HashSet<int>[] GetFreeEdgeLoops(int[] surfaceIds)
+        public HashSet<int>[] GetFreeEdgeLoops(int[] surfaceIds, Dictionary<int, HashSet<int>> vertexIdEdgeIds = null)
         {
             int edgeId;
             int surfaceId;
@@ -1388,7 +1388,7 @@ namespace CaeMesh
                 if (entry.Value == 1) outerEdgeIds.Add(entry.Key);
             }
             //
-            Dictionary<int, HashSet<int>> vertexIdEdgeIds = GetVertexIdEdgeIds();
+            if (vertexIdEdgeIds == null) vertexIdEdgeIds = GetVertexIdEdgeIds();
             // Split edges into connected groups
             Node<int> node;
             Graph<int> connections = new Graph<int>();
@@ -1895,17 +1895,19 @@ namespace CaeMesh
         }
         // Sweep mesh
         public bool IsBodySweepable(HashSet<int> sourceSurfaceIds, out int[] sideSurfaceIds, out int[] targetSurfaceIds,
-                                    out List<int[]> layerSideSurfaceIds)
+                                    out List<int[]> layerSideSurfaceIds,
+                                    Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = null,
+                                    Dictionary<int, HashSet<int>> vertexIdEdgeIds = null)
         {
             sideSurfaceIds = null;
             targetSurfaceIds = null;
             layerSideSurfaceIds = new List<int[]>();
-            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
+            if (surfaceIdSurfaceNeighbourIds == null) surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
             // If source faces are not connected return false
             if (!AreSurfacesConnected(sourceSurfaceIds.ToArray(), surfaceIdSurfaceNeighbourIds)) return false;
             // Are there any free edge loops with a single edge - cylinder with a single seam line
             int singleEdgeLoops = 0;
-            HashSet<int>[] freeEdgeLoops = GetFreeEdgeLoops(sourceSurfaceIds.ToArray());
+            HashSet<int>[] freeEdgeLoops = GetFreeEdgeLoops(sourceSurfaceIds.ToArray(), vertexIdEdgeIds);
             for (int i = 0; i < freeEdgeLoops.Length; i++)
             {
                 if (freeEdgeLoops[i].Count == 1) singleEdgeLoops++;

@@ -590,6 +590,24 @@ namespace PrePoMax.Commands
             }
             return lastCommand;
         }
+        public bool IsRegenerateTypeUsed()
+        {
+            return ContainsNonPreprocessCommands(_currPositionIndex);
+        }
+        public bool IsRegenerateTypeUsedByUndo()
+        {
+            return IsUndoPossible && !IsGeneralCommandAffected() && ContainsNonPreprocessCommands(_currPositionIndex - 1);
+        }
+        private bool ContainsNonPreprocessCommands(int lastCommandIndex)
+        {
+            if (lastCommandIndex > _commands.Count - 1) lastCommandIndex = _commands.Count - 1;
+            //
+            for (int i = 0; i <= lastCommandIndex; i++)
+            {
+                if (!(_commands[i] is PreprocessCommand) && !(_commands[i] is SaveCommand)) return true;
+            }
+            return false;
+        }
         // Set execution time for async commands
         public void SetLastAnalysisTime(TimeSpan timeSpan)
         {
@@ -759,21 +777,9 @@ namespace PrePoMax.Commands
         {
             if (IsUndoPossible)
             {
-                bool generalCommandAffected = _commands[_currPositionIndex] is GeneralCommand;
+                if (IsGeneralCommandAffected()) regenerateType = RegenerateTypeEnum.All;
                 //
                 _currPositionIndex--;
-                if (!generalCommandAffected)
-                {
-                    for (int i = 0; i <= _currPositionIndex; i++)
-                    {
-                        if (_commands[i] is GeneralCommand)
-                        {
-                            generalCommandAffected = true;
-                            break;
-                        }
-                    }
-                }
-                if (generalCommandAffected) regenerateType = RegenerateTypeEnum.All;
                 //
                 ExecuteAllCommands(false, false, regenerateType);   // also rewrites history
                 //
@@ -803,6 +809,16 @@ namespace PrePoMax.Commands
         private bool IsUndoPossible
         {
             get { return _currPositionIndex > -1; }
+        }
+        private bool IsGeneralCommandAffected()
+        {
+            int lastCommandIndex = Math.Min(_currPositionIndex, _commands.Count - 1);
+            //
+            for (int i = 0; i <= lastCommandIndex; i++)
+            {
+                if (_commands[i] is GeneralCommand) return true;
+            }
+            return false;
         }
         private bool IsRedoPossible
         {

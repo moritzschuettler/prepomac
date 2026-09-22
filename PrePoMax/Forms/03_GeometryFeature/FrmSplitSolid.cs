@@ -419,6 +419,12 @@ namespace PrePoMax.Forms
         public void SelectionChanged(int[] ids)
         {
             if (GeometryFeature == null) return;
+            // A pick on a part the exploded view holds somewhere else cannot take part in the
+            // operation, and taking it back as it is made says so where building a tool and refusing
+            // it at the end would not. Undoing the pick asks for the selection again, which arrives
+            // here without it
+            bool idsArePartIds = _selectionTarget == FeatureSelectionTargetEnum.Region && RegionPicksParts;
+            if (_controller.DropSplitGeometryPickAtOtherOffset(GeometryFeature, ids, idsArePartIds)) return;
             //
             if (_selectionTarget == FeatureSelectionTargetEnum.Region)
             {

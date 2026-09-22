@@ -32,6 +32,8 @@ namespace CaeMesh
         private Action<string> _writeOutput;
         private List<SweepBlock> _sweepBlocks;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
+        private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
+        private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
@@ -317,11 +319,15 @@ namespace CaeMesh
                 {
                     numOfElements = (int)(numOfElements / sf);
                     edgeIdNumberOfElements[edgeId] = numOfElements;
-                    // Sweep edge sizes
+                    // Sweep edge sizes. A layer whose sweep lines are cut into several edges is left to the
+                    // sweep, which shares a count pinned on one piece out over the levels of the line in
+                    // PrepareWallEdges; copied onto the full-length edges of such a layer the count would be
+                    // shared out over their levels as well and override the pin on the piece it was set on
                     if (_gmshData.EdgeIdsBySweepLayer != null)
                     {
                         foreach (var edgeIds in _gmshData.EdgeIdsBySweepLayer)
                         {
+                            if (IsSweepLineCutIntoEdges(edgeIds)) continue;
                             if (edgeIds.Contains(edgeId))
                             {
                                 foreach (var sweepEdgeId in edgeIds)
@@ -1382,6 +1388,8 @@ namespace CaeMesh
         {
             // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
             PrepareWallEdges(walls, chains, chainBlockIndices);
+            FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds,
+                                        sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
             foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
             // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
             // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
@@ -1391,12 +1399,26 @@ namespace CaeMesh
             // later attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
             // gmsh reports a wall it could not mesh with a structured grid, meshes it free and carries on, so
-            // its log is read for the report
+            // its log is read for the report. A surface whose corners were nominated it refuses with an exception
+            // instead, which is caught for the same report
             int logLength = Gmsh.Logger.Get().Length;
-            GenerateMesh(2);
-            if (WereWallsRefused(logLength))
-                throw new CaeException("A sweep side surface could not be meshed with a structured grid. See the gmsh " +
+            try
+            {
+                GenerateMesh(2);
+            }
+            catch (Exception ex) when (!(ex is CaeException))
+            {
+                if (!WereWallsRefused(logLength)) throw;
+                ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds, logLength);
+                throw new CaeException("A sweep surface could not be meshed with a structured grid. See the gmsh " +
                                        "messages above.");
+            }
+            if (WereWallsRefused(logLength))
+            {
+                ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds, logLength);
+                throw new CaeException("A sweep surface could not be meshed with a structured grid. See the gmsh " +
+                                       "messages above.");
+            }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
             List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>();
@@ -1609,6 +1631,170 @@ namespace CaeMesh
             return groups;
         }
         /// <summary>
+        /// One count for every class of edges a transfinite source ties together. The pass before the sweep makes
+        /// every four sided source transfinite, and such a surface needs the same count on its two opposite
+        /// sides; a wall with one edge on each side needs the same count on both as well. The edges tied by
+        /// these two relations form classes, and every class holding an edge of a transfinite source is given
+        /// one count: the count the user pinned on one of its edges, else the count the levels along the sweep
+        /// gave one of them - such an edge is a layer edge of a neighbouring block - else the smallest of the
+        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree is left alone, and the source falls to the free
+        /// mesh later.
+        /// </summary>
+        private Dictionary<int, int> PinTransfiniteSourceSides(List<SweepWall> walls,
+                                                               Dictionary<int, int> directionEdgeIdNumOfElements)
+        {
+            Dictionary<int, int> pins = new Dictionary<int, int>();
+            if (_sweepBlocks == null) return pins;
+            //
+            int[] edgeIds;
+            int[] vertexIds;
+            Dictionary<int, int> parent = new Dictionary<int, int>();
+            HashSet<int> transfiniteSourceEdgeIds = new HashSet<int>();
+            HashSet<int> checkedSurfaceIds = new HashSet<int>();
+            foreach (var block in _sweepBlocks)
+            {
+                foreach (var surfaceId in block.SourceSurfaceIds)
+                {
+                    if (!checkedSurfaceIds.Add(surfaceId) || !_transfiniteSurfaceIds.Contains(surfaceId)) continue;
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                    if (edgeIds.Length != 4) continue;
+                    int[][] edgeVertexIds = new int[4][];
+                    for (int j = 0; j < 4; j++)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeIds[j], out _, out vertexIds);
+                        edgeVertexIds[j] = vertexIds;
+                    }
+                    int opposite = -1;
+                    for (int j = 1; j < 4; j++)
+                    {
+                        if (!edgeVertexIds[0].Intersect(edgeVertexIds[j]).Any()) { opposite = j; break; }
+                    }
+                    if (opposite < 0) continue;
+                    int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
+                    transfiniteSourceEdgeIds.UnionWith(edgeIds);
+                    Unite(parent, edgeIds[0], edgeIds[opposite]);
+                    Unite(parent, edgeIds[others[0]], edgeIds[others[1]]);
+                }
+            }
+            if (transfiniteSourceEdgeIds.Count == 0) return pins;
+            // A wall with one edge on each side carries one count across
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 1 && wall.TargetEdgeIds.Length == 1)
+                    Unite(parent, wall.SourceEdgeIds[0], wall.TargetEdgeIds[0]);
+            }
+            //
+            foreach (var group in parent.Keys.ToArray().GroupBy(id => Find(parent, id)))
+            {
+                int[] classEdgeIds = group.OrderBy(id => id).ToArray();
+                if (!classEdgeIds.Any(id => transfiniteSourceEdgeIds.Contains(id))) continue;
+                //
+                int count;
+                int fixedCount = -1;
+                string origin = null;
+                bool conflict = false;
+                foreach (var edgeId in classEdgeIds)
+                {
+                    if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count)) continue;
+                    if (fixedCount < 0) { fixedCount = count; origin = "the count the user set"; }
+                    else if (fixedCount != count) conflict = true;
+                }
+                if (fixedCount < 0)
+                {
+                    foreach (var edgeId in classEdgeIds)
+                    {
+                        if (!directionEdgeIdNumOfElements.TryGetValue(edgeId, out count)) continue;
+                        if (fixedCount < 0) { fixedCount = count; origin = "the layer count of the neighbouring block"; }
+                        else if (fixedCount != count) conflict = true;
+                    }
+                }
+                if (conflict) continue;
+                int[] measured = classEdgeIds.Select(id => SweepWallTopology.GetElementCount(id)).ToArray();
+                if (fixedCount < 0) { fixedCount = measured.Min(); origin = "the smallest of them"; }
+                // A class whose edges already carry one count has nothing to enforce, and is left to the walls
+                if (measured.All(m => m == fixedCount)) continue;
+                foreach (var edgeId in classEdgeIds) pins[edgeId] = fixedCount;
+                //
+                _writeOutput?.Invoke(NameGmshEntities("Sweep: " + string.Join(", ", classEdgeIds.Select(id => "Curve " + id)) +
+                                                      " are tied together by a transfinite source surface, measured " +
+                                                      string.Join(", ", measured) + " element/s and are all given " +
+                                                      fixedCount + ", " + origin + "."));
+            }
+            return pins;
+        }
+        private static void Unite(Dictionary<int, int> parent, int a, int b)
+        {
+            int ra = Find(parent, a);
+            int rb = Find(parent, b);
+            if (ra != rb) parent[ra] = rb;
+        }
+        private static int Find(Dictionary<int, int> parent, int id)
+        {
+            int p;
+            if (!parent.TryGetValue(id, out p)) { parent[id] = id; return id; }
+            while (p != id)
+            {
+                id = p;
+                p = parent[id];
+            }
+            return id;
+        }
+        /// <summary>
+        /// Meshes free every four sided source surface whose opposite sides were given different element counts.
+        /// The pass before the sweep makes every four sided surface transfinite, but the counts on the edges of a
+        /// source are settled wall by wall, and an edge shared with a neighbouring part carries the count that
+        /// part's walls need, so two opposite edges settled by different walls need not agree. gmsh refuses such
+        /// a surface with an exception rather than meshing it free, so the constraint is taken off first and the
+        /// source is meshed the way a source carrying an imprint is. The recombination is set again, since the
+        /// constraints go together.
+        /// </summary>
+        private void FreeSourcesWithUnequalSides(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                 Dictionary<int, int[]> surfaceIdEdgeIds, bool recombine)
+        {
+            int[] edgeIds;
+            int[] vertexIds;
+            HashSet<int> checkedSurfaceIds = new HashSet<int>();
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                foreach (var surfaceId in blocks[i].SourceSurfaceIds)
+                {
+                    if (!checkedSurfaceIds.Add(surfaceId)) continue;
+                    // A source that is the cap of the block before it is meshed free already
+                    if (!_transfiniteSurfaceIds.Contains(surfaceId)) continue;
+                    if (!surfaceIdEdgeIds.TryGetValue(surfaceId, out edgeIds) || edgeIds.Length != 4) continue;
+                    // Every edge must carry a settled count
+                    int[] counts = new int[4];
+                    bool settled = true;
+                    for (int j = 0; j < 4 && settled; j++) settled = _gmshData.EdgeIdNumElements.TryGetValue(edgeIds[j], out counts[j]);
+                    if (!settled) continue;
+                    // The edge opposite the first is the one sharing no vertex with it; the other two are opposite each other
+                    int[][] edgeVertexIds = new int[4][];
+                    for (int j = 0; j < 4; j++)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeIds[j], out _, out vertexIds);
+                        edgeVertexIds[j] = vertexIds;
+                    }
+                    int opposite = -1;
+                    for (int j = 1; j < 4; j++)
+                    {
+                        if (!edgeVertexIds[0].Intersect(edgeVertexIds[j]).Any()) { opposite = j; break; }
+                    }
+                    if (opposite < 0) continue;
+                    int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
+                    if (counts[0] == counts[opposite] && counts[others[0]] == counts[others[1]]) continue;
+                    //
+                    Gmsh.Model.Mesh.RemoveConstraints(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
+                    _transfiniteSurfaceIds.Remove(surfaceId);
+                    if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
+                    _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + surfaceId + ", the source of sweep block " + (i + 1) +
+                                                          ", was given " + counts[0] + " and " + counts[opposite] + " elements on one " +
+                                                          "pair of opposite sides and " + counts[others[0]] + " and " + counts[others[1]] +
+                                                          " on the other, so it is meshed free rather than as a structured grid. " +
+                                                          "Its edges: " + DescribeEdgeRoles(edgeIds, walls) + "."));
+                }
+            }
+        }
+        /// <summary>
         /// Takes back the transfinite constraints the first attempt set on the edges of the walls, so that the
         /// 1D mesh the second attempt measures follows the sizes and not those counts. The surfaces keep their
         /// constraints: a transfinite surface set a second time would add its corners to the ones gmsh holds.
@@ -1629,6 +1815,80 @@ namespace CaeMesh
         private static bool WereWallsRefused(int logLength)
         {
             return Gmsh.Logger.Get().Skip(logLength).Any(line => line.Contains("cannot be meshed using the transfinite"));
+        }
+        /// <summary>
+        /// Writes, for every surface gmsh refused as a transfinite surface, what the surface is to the sweep and
+        /// the edges of each of its sides with the element count the sweep gave the edge and the count the curve
+        /// mesh carries, so that the side the counts disagree on can be read off the output instead of guessed
+        /// at. A wall is written side by side; a source or a target - constrained by the transfinite pass that
+        /// runs before the sweep when it has four sides - is written with the blocks it belongs to and its edges.
+        /// </summary>
+        private void ReportRefusedSurfaces(List<SweepWall> walls, List<SweepBlock> blocks,
+                                           Dictionary<int, int[]> surfaceIdEdgeIds, int logLength)
+        {
+            Regex refused = new Regex(@"Surface (\d+) cannot be meshed using the transfinite");
+            foreach (var line in Gmsh.Logger.Get().Skip(logLength))
+            {
+                Match match = refused.Match(line);
+                if (!match.Success) continue;
+                int surfaceId = int.Parse(match.Groups[1].Value);
+                SweepWall wall = walls.FirstOrDefault(w => w.SurfaceId == surfaceId);
+                if (wall != null)
+                {
+                    _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + surfaceId + " is a side surface - source side: " +
+                                                          DescribeWallSide(wall.SourceEdgeIds) + "; target side: " +
+                                                          DescribeWallSide(wall.TargetEdgeIds) + "; along the sweep: " +
+                                                          DescribeWallSide(wall.DirectionEdgeIds) + "."));
+                    continue;
+                }
+                List<string> roles = new List<string>();
+                for (int i = 0; i < blocks.Count; i++)
+                {
+                    if (blocks[i].SourceSurfaceIds.Contains(surfaceId)) roles.Add("the source of sweep block " + (i + 1));
+                    if (blocks[i].TargetSurfaceIds.Contains(surfaceId)) roles.Add("the target of sweep block " + (i + 1));
+                }
+                int[] edgeIds;
+                string edges = surfaceIdEdgeIds.TryGetValue(surfaceId, out edgeIds) ? DescribeWallSide(edgeIds) : "unknown";
+                _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + surfaceId + " is " +
+                                                      (roles.Count > 0 ? string.Join(" and ", roles) : "no surface of any sweep block") +
+                                                      " - its edges: " + edges + "."));
+            }
+        }
+        /// <summary>
+        /// The roles of the given edges in the walls: which wall has each of them as its source side, its target
+        /// side or one of its edges along the sweep.
+        /// </summary>
+        private string DescribeEdgeRoles(int[] edgeIds, List<SweepWall> walls)
+        {
+            List<string> items = new List<string>();
+            foreach (var edgeId in edgeIds)
+            {
+                List<string> roles = new List<string>();
+                foreach (var wall in walls)
+                {
+                    if (wall.SourceEdgeIds.Contains(edgeId)) roles.Add("source side of Surface " + wall.SurfaceId);
+                    if (wall.TargetEdgeIds.Contains(edgeId)) roles.Add("target side of Surface " + wall.SurfaceId);
+                    if (wall.DirectionEdgeIds.Contains(edgeId)) roles.Add("along the sweep on Surface " + wall.SurfaceId);
+                }
+                int pinned;
+                string pin = _transfiniteSourcePins.TryGetValue(edgeId, out pinned) ? ", tied to " + pinned : ", not tied";
+                items.Add("Curve " + edgeId + " (" + (roles.Count > 0 ? string.Join(", ", roles) : "on no wall") + pin + ")");
+            }
+            return string.Join("; ", items);
+        }
+        private string DescribeWallSide(int[] edgeIds)
+        {
+            if (edgeIds.Length == 0) return "no edges";
+            //
+            int given;
+            List<string> items = new List<string>();
+            foreach (var edgeId in edgeIds)
+            {
+                string givenText = _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out given) ? given.ToString() : "no";
+                items.Add("Curve " + edgeId + " (" + givenText + " element/s given, " +
+                          SweepWallTopology.GetElementCount(edgeId) + " meshed)");
+            }
+            return string.Join(", ", items);
         }
         private static void SetTransfiniteWalls(List<SweepWall> walls)
         {
@@ -1660,21 +1920,30 @@ namespace CaeMesh
                     directionEdgeIdNumOfElements[edgeId] = Math.Max(1, numOfElements);
                 }
             }
+            // A four sided source the pass before the sweep made transfinite needs one count on its two opposite
+            // sides, while the counts on its edges are settled wall by wall - an edge it shares with a
+            // neighbouring block is a layer edge of that block and carries its layer count. So every pair of
+            // opposite edges of such a source is brought to one count first, and the walls on both sides of the
+            // edge follow it: the count the user pinned on either edge, else the one the levels along the
+            // sweep gave either of them, else the larger of the two measured
+            Dictionary<int, int> transfiniteSourcePins = PinTransfiniteSourceSides(walls, directionEdgeIdNumOfElements);
+            _transfiniteSourcePins = transfiniteSourcePins;
             // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there. The
             // source side is pinned as well, so that every edge of every wall carries a count
             Dictionary<int, int> sourceEdgeIdNumOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements;
             _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
-            ResolveCrossEdgeElements(walls, null, null, out sourceEdgeIdNumOfElements,
-                                     out targetEdgeIdNumOfElements);
+            ResolveCrossEdgeElements(walls, null, transfiniteSourcePins.Count > 0 ? transfiniteSourcePins : null,
+                                     transfiniteSourcePins, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
             // Two edges of one source or target surface lying opposite each other belong to the target sides
             // of two different walls, which share their own totals out and round them apart; they are brought
             // to one count and the sides resolved again from it
             Dictionary<int, int> crossEdgePins =
                 GetOppositeCrossEdgePins(walls, MergeEdgeElements(sourceEdgeIdNumOfElements,
                                                                   targetEdgeIdNumOfElements));
-            if (crossEdgePins.Count > 0)
-                ResolveCrossEdgeElements(walls, null, crossEdgePins, out sourceEdgeIdNumOfElements,
+            crossEdgePins = MergeEdgeElements(crossEdgePins, transfiniteSourcePins);
+            if (crossEdgePins.Count > transfiniteSourcePins.Count)
+                ResolveCrossEdgeElements(walls, null, crossEdgePins, transfiniteSourcePins, out sourceEdgeIdNumOfElements,
                                          out targetEdgeIdNumOfElements);
             // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
             // they carry the same count: the one the user pinned on either, else the measured one
@@ -1712,8 +1981,8 @@ namespace CaeMesh
             if (recountedLoops.Count > 0)
             {
                 _writeOutput?.Invoke("Sweep: " + GetRecountedCrossSectionsMessage(recountedLoops));
-                ResolveCrossEdgeElements(walls, recountedLoops, crossEdgePins, out sourceEdgeIdNumOfElements,
-                                         out targetEdgeIdNumOfElements);
+                ResolveCrossEdgeElements(walls, recountedLoops, crossEdgePins, transfiniteSourcePins,
+                                         out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
                 edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                                         targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
             }
@@ -1741,6 +2010,7 @@ namespace CaeMesh
         /// </summary>
         private void ResolveCrossEdgeElements(List<SweepWall> walls, List<int[]> recountedLoops,
                                               Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                              Dictionary<int, int> assignedEdgeIdNumOfElements,
                                               out Dictionary<int, int> sourceEdgeIdNumOfElements,
                                               out Dictionary<int, int> targetEdgeIdNumOfElements)
         {
@@ -1751,12 +2021,30 @@ namespace CaeMesh
             {
                 foreach (var loop in recountedLoops) recountedEdgeIds.UnionWith(loop);
             }
+            // The edges a transfinite source ties together are assigned before any wall is, so that a wall reading
+            // one of them as its target is resolved from that side and carries the count onto its source
+            HashSet<int> seededEdgeIds = new HashSet<int>();
+            if (assignedEdgeIdNumOfElements != null)
+            {
+                foreach (var entry in assignedEdgeIdNumOfElements)
+                {
+                    assignedTable[entry.Key] = entry.Value;
+                    seededEdgeIds.Add(entry.Key);
+                }
+            }
             //
             List<SweepWall> waitingWalls = new List<SweepWall>();
             foreach (var wall in walls)
             {
                 if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
                 if (HasUnassignedEdge(wall.SourceEdgeIds, recountedEdgeIds, assignedTable)) waitingWalls.Add(wall);
+                else if (wall.TargetEdgeIds.Any(id => seededEdgeIds.Contains(id)) &&
+                         AreAllAssigned(wall.TargetEdgeIds, assignedTable) && !AreAllAssigned(wall.SourceEdgeIds, assignedTable))
+                {
+                    ResolveWallCrossEdges(new SweepWall(wall.SurfaceId, wall.TargetEdgeIds, wall.SourceEdgeIds,
+                                                        wall.DirectionEdgeIds), true, pinnedEdgeIdNumOfElements,
+                                          sourceTable, assignedTable);
+                }
                 else ResolveWallCrossEdges(wall, false, pinnedEdgeIdNumOfElements, sourceTable, assignedTable);
             }
             while (waitingWalls.Count > 0)
@@ -2899,9 +3187,15 @@ namespace CaeMesh
                 {
                     // "Left", "Right", "AlternateLeft" and "AlternateRight"
                     if (surface.ThreeSided && transfiniteThreeSided)
+                    {
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft", surface.VertexIds);
+                        _transfiniteSurfaceIds.Add(surface.Id);
+                    }
                     else if (surface.FourSided && transfiniteFourSided)
+                    {
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft");
+                        _transfiniteSurfaceIds.Add(surface.Id);
+                    }
                     //
                     if (recombine && surface.Recombine) Gmsh.Model.Mesh.SetRecombine(2, surface.Id);
                     //

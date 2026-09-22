@@ -3280,7 +3280,7 @@ namespace CaeModel
                 //
                 sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds);
                 score += sourceEdgeIds.Count;
-                score += 3 * Math.Max(0, vis.GetFreeEdgeLoops(sourceSurfaceIds).Length - 1);
+                score += 3 * Math.Max(0, vis.GetFreeEdgeLoops(sourceSurfaceIds, maps.GetVertexIdEdgeIds(part)).Length - 1);
                 //
                 bool planarSource = true;
                 foreach (var surfaceId in blocks.SourceSurfaceIds[i])
@@ -3522,7 +3522,7 @@ namespace CaeModel
                 sourceSurfaceIds = partIdSourceSurfaceIds[partId];
                 surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
                 // The surfaces lying in the plane of the source are swept from as well
-                ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds);
+                ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
                 // A source the sweep derived for this part is the surface it is fed through and nothing more,
                 // and a chamfer or a round at that end of the block is left out of it
                 if (!partIdSelectedSurfaceIds.ContainsKey(partId))
@@ -3540,9 +3540,11 @@ namespace CaeModel
                                      pendingPartIds, false);
                 }
                 //
-                error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
-                                           out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
-                                           out int[] directionEdgeIds);
+                // A block is validated once per source and read again by every trial that reaches the same source
+                SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, twinSurfaceIds != null,
+                    () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
+                error = validation.Error;
+                validation.CopyTo(out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds, out int[] directionEdgeIds);
                 if (error != null)
                 {
                     // A neighbour that cannot be swept alongside the block across their shared wall is left
@@ -3852,7 +3854,7 @@ namespace CaeModel
                 return "The source surfaces are not connected.";
             }
             // Are there any free edge loops with a single edge - cylinder with a single seam line
-            HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray);
+            HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray, maps.GetVertexIdEdgeIds(part));
             for (int i = 0; i < freeEdgeLoops.Length; i++)
             {
                 if (freeEdgeLoops[i].Count == 1)
@@ -3895,6 +3897,19 @@ namespace CaeModel
             layerSideSurfaceIds = new List<int[]>() { chainSideSurfaceIds };
             directionEdgeIds = chainEdgeIds;
             return null;
+        }
+        private SweepBlockValidation ValidateSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                        Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                                        SweepPartMaps maps, Dictionary<int, int> twinSurfaceIds)
+        {
+            int[] sideSurfaceIds;
+            int[] targetSurfaceIds;
+            int[] directionEdgeIds;
+            List<int[]> layerSideSurfaceIds;
+            string error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
+                                              out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
+                                              out directionEdgeIds);
+            return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds, directionEdgeIds);
         }
         /// <summary>
         /// Measures the sweep a block would make and refuses the ones the topology allows but the geometry
@@ -3946,8 +3961,8 @@ namespace CaeModel
             {
                 double sourceArea = sourceSurfaceIdsArray.Sum(id => vis.FaceAreas[id]);
                 double targetArea = targetSurfaceIds.Sum(id => vis.FaceAreas[id]);
-                double sourcePerimeter = GetSweepPerimeter(vis, sourceSurfaceIdsArray);
-                double targetPerimeter = GetSweepPerimeter(vis, targetSurfaceIds);
+                double sourcePerimeter = GetSweepPerimeter(vis, sourceSurfaceIdsArray, maps.GetVertexIdEdgeIds(part));
+                double targetPerimeter = GetSweepPerimeter(vis, targetSurfaceIds, maps.GetVertexIdEdgeIds(part));
                 if (sourceArea > 0 && sourcePerimeter > 0 && targetPerimeter > 0)
                 {
                     double scale = Math.Sqrt(targetArea / sourceArea) * sourcePerimeter / targetPerimeter;
@@ -4020,8 +4035,176 @@ namespace CaeModel
                 return "The sweep lines of the block differ in length by more than half, so one element " +
                        "layer count cannot suit them all.";
             }
+            // The chains measure the sweep only where an edge leaves the source. A source whose faces continue
+            // one another smoothly - the two walls of a slot and the rounded bottom between them - has vertices
+            // no edge leaves, and the length across the body behind them is never seen: the chains report the
+            // width of the prongs and nothing of the way from the bottom of the slot to the end of the part.
+            // So the sweep lines are measured across the source as well, from its cells into the material
+            double minSampledLength;
+            double maxSampledLength;
+            if (SampleSweepLengths(vis, sourceSurfaceIdsArray, targetSurfaceIds, out minSampledLength,
+                                   out maxSampledLength) && minSampledLength < 0.5 * maxSampledLength)
+            {
+                return "The sweep lines measured across the sweep source surface/s differ in length by more " +
+                       "than half, so one element layer count cannot suit them all. Select the source surfaces " +
+                       "by hand, or split the part so that each piece is swept on its own.";
+            }
             //
             return null;
+        }
+        /// <summary>
+        /// The shortest and the longest sweep line measured across the source: from the centroid of a source
+        /// cell along the inward normal of the cell to the first cell of the part the line meets, for up to a
+        /// hundred cells spread over the source. Only a line ending on a target surface is measured - a line
+        /// ending on a wall belongs to a body that bends, and the straight line says nothing of its length.
+        /// False when no line reached a target.
+        /// </summary>
+        private bool SampleSweepLengths(VisualizationData vis, int[] sourceSurfaceIds, int[] targetSurfaceIds,
+                                        out double minLength, out double maxLength)
+        {
+            minLength = double.MaxValue;
+            maxLength = 0;
+            if (vis.Cells == null || vis.CellIdsByFace == null) return false;
+            //
+            HashSet<int> sourceSurfaceIdSet = new HashSet<int>(sourceSurfaceIds);
+            HashSet<int> targetSurfaceIdSet = new HashSet<int>(targetSurfaceIds);
+            // The box of every surface a line may end on, so that a line is tested against the cells of the
+            // surfaces it can reach alone
+            int numSurfaces = vis.CellIdsByFace.Length;
+            double[][] surfaceMin = new double[numSurfaces][];
+            double[][] surfaceMax = new double[numSurfaces][];
+            for (int surfaceId = 0; surfaceId < numSurfaces; surfaceId++)
+            {
+                if (sourceSurfaceIdSet.Contains(surfaceId)) continue;
+                double[] min = new double[] { double.MaxValue, double.MaxValue, double.MaxValue };
+                double[] max = new double[] { double.MinValue, double.MinValue, double.MinValue };
+                foreach (var cellId in vis.CellIdsByFace[surfaceId])
+                {
+                    foreach (var nodeId in vis.Cells[cellId])
+                    {
+                        double[] coor = _geometry.Nodes[nodeId].Coor;
+                        for (int k = 0; k < 3; k++)
+                        {
+                            if (coor[k] < min[k]) min[k] = coor[k];
+                            if (coor[k] > max[k]) max[k] = coor[k];
+                        }
+                    }
+                }
+                surfaceMin[surfaceId] = min;
+                surfaceMax[surfaceId] = max;
+            }
+            //
+            const int maxSamples = 100;
+            List<int> sourceCellIds = new List<int>();
+            foreach (var surfaceId in sourceSurfaceIds) sourceCellIds.AddRange(vis.CellIdsByFace[surfaceId]);
+            int step = Math.Max(1, sourceCellIds.Count / maxSamples);
+            //
+            for (int i = 0; i < sourceCellIds.Count; i += step)
+            {
+                int[] cell = vis.Cells[sourceCellIds[i]];
+                if (cell.Length < 3) continue;
+                int numCorners = cell.Length == 3 || cell.Length == 6 ? 3 : 4;
+                Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+                Vec3D b = new Vec3D(_geometry.Nodes[cell[1]].Coor);
+                Vec3D c = new Vec3D(_geometry.Nodes[cell[2]].Coor);
+                Vec3D normal = Vec3D.CrossProduct(b - a, c - a);
+                if (normal.Len == 0) continue;
+                // Into the material: the visualization is wound outward
+                Vec3D direction = (-1 / normal.Len) * normal;
+                Vec3D origin = new Vec3D();
+                for (int j = 0; j < numCorners; j++) origin = origin + new Vec3D(_geometry.Nodes[cell[j]].Coor);
+                origin = (1.0 / numCorners) * origin;
+                //
+                double nearest = double.MaxValue;
+                int nearestSurfaceId = -1;
+                for (int surfaceId = 0; surfaceId < numSurfaces; surfaceId++)
+                {
+                    if (surfaceMin[surfaceId] == null) continue;
+                    if (!DoesRayHitBox(origin, direction, surfaceMin[surfaceId], surfaceMax[surfaceId], nearest)) continue;
+                    foreach (var cellId in vis.CellIdsByFace[surfaceId])
+                    {
+                        double distance;
+                        if (!DoesRayHitCell(vis.Cells[cellId], origin, direction, out distance)) continue;
+                        if (distance < nearest)
+                        {
+                            nearest = distance;
+                            nearestSurfaceId = surfaceId;
+                        }
+                    }
+                }
+                if (nearestSurfaceId < 0 || !targetSurfaceIdSet.Contains(nearestSurfaceId)) continue;
+                minLength = Math.Min(minLength, nearest);
+                maxLength = Math.Max(maxLength, nearest);
+            }
+            return maxLength > 0;
+        }
+        private static bool DoesRayHitBox(Vec3D origin, Vec3D direction, double[] min, double[] max, double maxDistance)
+        {
+            double near = 0;
+            double far = maxDistance;
+            double[] o = origin.Coor;
+            double[] d = direction.Coor;
+            for (int k = 0; k < 3; k++)
+            {
+                if (Math.Abs(d[k]) < 1E-12)
+                {
+                    if (o[k] < min[k] || o[k] > max[k]) return false;
+                    continue;
+                }
+                double t1 = (min[k] - o[k]) / d[k];
+                double t2 = (max[k] - o[k]) / d[k];
+                if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+                if (t1 > near) near = t1;
+                if (t2 < far) far = t2;
+                if (near > far) return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// Whether a line starting at the origin meets the cell, and how far along the line it does so. A
+        /// quadrangle is tested as its two triangles.
+        /// </summary>
+        private bool DoesRayHitCell(int[] cell, Vec3D origin, Vec3D direction, out double distance)
+        {
+            distance = double.MaxValue;
+            if (cell.Length < 3) return false;
+            Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+            Vec3D b = new Vec3D(_geometry.Nodes[cell[1]].Coor);
+            Vec3D c = new Vec3D(_geometry.Nodes[cell[2]].Coor);
+            bool hit = DoesRayHitTriangle(a, b, c, origin, direction, out distance);
+            if (cell.Length == 4 || cell.Length == 8)
+            {
+                double distance2;
+                Vec3D d = new Vec3D(_geometry.Nodes[cell[3]].Coor);
+                if (DoesRayHitTriangle(a, c, d, origin, direction, out distance2) && distance2 < distance)
+                {
+                    distance = distance2;
+                    hit = true;
+                }
+            }
+            return hit;
+        }
+        private static bool DoesRayHitTriangle(Vec3D a, Vec3D b, Vec3D c, Vec3D origin, Vec3D direction,
+                                               out double distance)
+        {
+            distance = double.MaxValue;
+            Vec3D ab = b - a;
+            Vec3D ac = c - a;
+            Vec3D p = Vec3D.CrossProduct(direction, ac);
+            double det = Vec3D.DotProduct(ab, p);
+            double scale = ab.Len * ac.Len;
+            if (Math.Abs(det) < 1E-12 * scale) return false;
+            double invDet = 1 / det;
+            Vec3D s = origin - a;
+            double u = Vec3D.DotProduct(s, p) * invDet;
+            if (u < -1E-9 || u > 1 + 1E-9) return false;
+            Vec3D q = Vec3D.CrossProduct(s, ab);
+            double v = Vec3D.DotProduct(direction, q) * invDet;
+            if (v < -1E-9 || u + v > 1 + 1E-9) return false;
+            double t = Vec3D.DotProduct(ac, q) * invDet;
+            if (t <= 1E-9 * Math.Sqrt(scale)) return false;
+            distance = t;
+            return true;
         }
         /// <summary>
         /// The cosine between a direction and the normal of the given surfaces at a vertex, taken from the
@@ -4049,10 +4232,11 @@ namespace CaeModel
         /// The length of the free edge loops of a group of surfaces - its outer boundary and the boundaries
         /// of the holes in it.
         /// </summary>
-        private static double GetSweepPerimeter(VisualizationData vis, int[] surfaceIds)
+        private static double GetSweepPerimeter(VisualizationData vis, int[] surfaceIds,
+                                                Dictionary<int, HashSet<int>> vertexIdEdgeIds)
         {
             double perimeter = 0;
-            foreach (var loop in vis.GetFreeEdgeLoops(surfaceIds))
+            foreach (var loop in vis.GetFreeEdgeLoops(surfaceIds, vertexIdEdgeIds))
             {
                 foreach (var edgeId in loop) perimeter += vis.EdgeLengths[edgeId];
             }
@@ -4068,7 +4252,8 @@ namespace CaeModel
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
             // Is it possible to determine the side and target surfaces
-            if (!vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds))
+            if (!vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
+                                     maps.GetSurfaceIdSurfaceNeighbourIds(part), maps.GetVertexIdEdgeIds(part)))
                 return "It is not possible to determine the side and target surfaces.";
             if (sideSurfaceIds.Length == 0) return "The sweep side surfaces do not form a closed loop.";
             // The mesh is built by projecting onto every target surface and keeping the nearest hit, so a
@@ -4431,15 +4616,16 @@ namespace CaeModel
                                                             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
                                                             SweepPartMaps maps)
         {
-            int[] targetSurfaceIds;
-            if (ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null, out _,
-                                   out targetSurfaceIds, out _, out _) != null) return;
+            SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, false,
+                () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null));
+            if (validation.Error != null) return;
+            int[] targetSurfaceIds = validation.TargetSurfaceIds;
             if (targetSurfaceIds == null || targetSurfaceIds.Length < 2) return;
             //
             HashSet<int> leaningIds;
             HashSet<int> extendedSourceSurfaceIds = new HashSet<int>(sourceSurfaceIds);
             Dictionary<int, HashSet<int>> leaningSurfaceIds = new Dictionary<int, HashSet<int>>();
-            foreach (var entry in _geometry.GetSurfaceIdPairAngles(part))
+            foreach (var entry in maps.GetSurfaceIdPairAngles(_geometry, part))
             {
                 if (entry.Value[0] > Globals.SweepSourceAngle) continue;
                 AddLeaningSurfaceId(leaningSurfaceIds, entry.Key[0], entry.Key[1]);
@@ -4452,23 +4638,25 @@ namespace CaeModel
             }
             if (extendedSourceSurfaceIds.Count == sourceSurfaceIds.Count) return;
             //
-            int[] extendedTargetSurfaceIds;
-            if (ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null, out _,
-                                   out extendedTargetSurfaceIds, out _, out _) != null) return;
+            SweepBlockValidation extendedValidation = maps.GetSweepBlockValidation(part, extendedSourceSurfaceIds, false,
+                () => ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null));
+            if (extendedValidation.Error != null) return;
+            int[] extendedTargetSurfaceIds = extendedValidation.TargetSurfaceIds;
             if (extendedTargetSurfaceIds == null ||
                 extendedTargetSurfaceIds.Length >= targetSurfaceIds.Length) return;
             //
             sourceSurfaceIds.UnionWith(extendedSourceSurfaceIds);
         }
         private void ExtendSourceOverCoplanarSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds,
-                                                      Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds)
+                                                      Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                                      SweepPartMaps maps)
         {
             int surfaceId;
             GeomFaceData faceData;
             GeomFaceData neighbourFaceData;
             VisualizationData vis = part.Visualization;
             double tolerance = 1E-4 * part.BoundingBox.GetDiagonal();
-            Dictionary<int, GeomFaceData> surfaceIdFaceData = new Dictionary<int, GeomFaceData>();
+            Dictionary<int, GeomFaceData> surfaceIdFaceData = maps.GetSurfaceIdFaceData(part);
             Queue<int> pendingSurfaceIds = new Queue<int>(sourceSurfaceIds);
             //
             while (pendingSurfaceIds.Count > 0)

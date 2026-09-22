@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CaeMesh
 {
@@ -25,6 +26,9 @@ namespace CaeMesh
         private Dictionary<int, Dictionary<int, HashSet<int>>> _partIdVertexIdEdgeIds;
         private Dictionary<int, List<HashSet<int>>> _partIdSmoothSurfaceIdGroups;
         private Dictionary<int, bool> _partIdIsTransfiniteBlock;
+        private Dictionary<int, Dictionary<int, GeomFaceData>> _partIdSurfaceIdFaceData;
+        private Dictionary<int, Dictionary<int[], double[]>> _partIdSurfaceIdPairAngles;
+        private Dictionary<int, Dictionary<string, SweepBlockValidation>> _partIdSourceValidations;
 
 
         // Constructors
@@ -34,6 +38,9 @@ namespace CaeMesh
             _partIdVertexIdEdgeIds = new Dictionary<int, Dictionary<int, HashSet<int>>>();
             _partIdSmoothSurfaceIdGroups = new Dictionary<int, List<HashSet<int>>>();
             _partIdIsTransfiniteBlock = new Dictionary<int, bool>();
+            _partIdSurfaceIdFaceData = new Dictionary<int, Dictionary<int, GeomFaceData>>();
+            _partIdSurfaceIdPairAngles = new Dictionary<int, Dictionary<int[], double[]>>();
+            _partIdSourceValidations = new Dictionary<int, Dictionary<string, SweepBlockValidation>>();
         }
 
 
@@ -82,6 +89,53 @@ namespace CaeMesh
             _partIdSmoothSurfaceIdGroups.Add(part.PartId, smoothSurfaceIdGroups);
             //
             return smoothSurfaceIdGroups;
+        }
+        /// <summary>
+        /// The recognized face data of the part's surfaces, filled by the caller as it asks for a surface and
+        /// kept for every later trial.
+        /// </summary>
+        public Dictionary<int, GeomFaceData> GetSurfaceIdFaceData(BasePart part)
+        {
+            Dictionary<int, GeomFaceData> surfaceIdFaceData;
+            if (_partIdSurfaceIdFaceData.TryGetValue(part.PartId, out surfaceIdFaceData)) return surfaceIdFaceData;
+            //
+            surfaceIdFaceData = new Dictionary<int, GeomFaceData>();
+            _partIdSurfaceIdFaceData.Add(part.PartId, surfaceIdFaceData);
+            //
+            return surfaceIdFaceData;
+        }
+        public Dictionary<int[], double[]> GetSurfaceIdPairAngles(FeMesh geometry, BasePart part)
+        {
+            Dictionary<int[], double[]> surfaceIdPairAngles;
+            if (_partIdSurfaceIdPairAngles.TryGetValue(part.PartId, out surfaceIdPairAngles)) return surfaceIdPairAngles;
+            //
+            surfaceIdPairAngles = geometry.GetSurfaceIdPairAngles(part);
+            _partIdSurfaceIdPairAngles.Add(part.PartId, surfaceIdPairAngles);
+            //
+            return surfaceIdPairAngles;
+        }
+        /// <summary>
+        /// The validation of a block of the part swept from the given source, made once and read again by every
+        /// trial that reaches the same source. Whether the surfaces the parts share were known to the validation
+        /// is part of the key, since a validation made without them reads a target differently.
+        /// </summary>
+        public SweepBlockValidation GetSweepBlockValidation(BasePart part, HashSet<int> sourceSurfaceIds,
+                                                            bool sharedSurfacesKnown, Func<SweepBlockValidation> validate)
+        {
+            Dictionary<string, SweepBlockValidation> validations;
+            if (!_partIdSourceValidations.TryGetValue(part.PartId, out validations))
+            {
+                validations = new Dictionary<string, SweepBlockValidation>();
+                _partIdSourceValidations.Add(part.PartId, validations);
+            }
+            string key = (sharedSurfacesKnown ? "shared:" : "alone:") + string.Join(",", sourceSurfaceIds.OrderBy(id => id));
+            SweepBlockValidation validation;
+            if (validations.TryGetValue(key, out validation)) return validation;
+            //
+            validation = validate();
+            validations.Add(key, validation);
+            //
+            return validation;
         }
     }
 }

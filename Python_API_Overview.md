@@ -1,4 +1,4 @@
-# PrePoMax Python API Overview
+﻿# PrePoMax Python API Overview
 
 This document is a simple overview of the Python API objects exposed by PrePoMax.
 The root object available in the Python console is `pmx`.
@@ -795,8 +795,8 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`defeature`, `split_face`, `flip_stl_normals` and `delete_stl_faces`. The four selection based methods
-take a selection built in the `geometry` view with the `geometry` target.
+`defeature`, `split_face`, `extract_surface`, `flip_stl_normals` and `delete_stl_faces`. The five
+selection based methods take a selection built in the `geometry` view with the `geometry` target.
 
 Each of `defeature`, `flip_face_orientations`, `split_face` and `delete_stl_faces` reports what it
 did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
@@ -809,6 +809,19 @@ The modelling kernel returns a shape whether or not it closed anything, so a par
 is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
 well as its wall.
 
+`extract_surface(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
+are lifted out of the parts that carry them and become new shell parts, named after the part they
+were taken from, and that part is left exactly as it was. It returns the names of the parts that
+were created. The surfaces of one part become one shell part, so a selection spanning three parts
+gives three. A non zero `offset` moves the extracted surfaces along their own normals, outwards
+when it is positive: half the wall thickness entered as a negative value on an outer surface is a
+mid-surface. A connected patch is offset as a whole, so the faces that meet are trimmed against
+each other rather than coming apart at the edge they share, and an offset the modelling kernel
+cannot make fails the extraction for that part instead of returning the surfaces unmoved. A sub-part
+of a compound gives a part of its own, extracted from the geometry of its compound, because a sub-part
+carries no geometry of its own; the extracted part is a standalone shell and shares nothing with the
+surfaces its siblings were extracted from.
+
 `ModelParts` adds `translate`, `rotate`, `mirror`, `merge` and `find_edges_by_angle`.
 
 ```python
@@ -818,6 +831,7 @@ pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
 removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
+names = pmx.model.geometry.parts.extract_surface(selection, -1.5)   # ['Solid-1-Surface']
 ```
 
 `translate` and `rotate` take `number_of_copies`; a value larger than zero keeps the original and

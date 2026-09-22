@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -87,6 +87,21 @@ namespace APIs.Python.Model
         public Dictionary<string, int> defeature(SelectionAPI selection)
         {
             return _service.Defeature(selection);
+        }
+
+        [PythonAPI("Extracts the selected surfaces into new shell parts using command history. The " +
+                   "selection uses the 'geometry' view and target. The surfaces of one part become " +
+                   "one new shell part named after it, and the part they were taken from is left as " +
+                   "it was. A non zero offset moves the extracted surfaces along their own normals, " +
+                   "outwards when it is positive, so half the wall thickness entered as a negative " +
+                   "value on an outer surface gives a mid-surface. Returns the names of the parts " +
+                   "that were created. A sub-part of a compound gives a part of its own, extracted " +
+                   "from the geometry of its compound.",
+                   Arguments = "selection: Selection, offset: float = 0", Returns = "list[str]",
+                   Example = "names = pmx.model.geometry.parts.extract_surface(selection, -1.5)")]
+        public string[] extract_surface(SelectionAPI selection, object offset = null)
+        {
+            return _service.ExtractSurface(selection, offset);
         }
 
         [PythonAPI("Splits a face using two vertices. Both selections use the 'geometry' view and target. " +
