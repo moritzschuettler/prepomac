@@ -98,10 +98,16 @@ namespace CaeMesh
             }
             return sb.ToString();
         }
+        /// <summary>
+        /// A coordinate is written with the digits a changed geometry shows in and not with all of them.
+        /// An exploded view adds an offset to the box and takes it away again, which does not give back the
+        /// very same number, and a stamp written with every digit would throw the detection away each time
+        /// a part is moved for looking at.
+        /// </summary>
         private static void AppendCoordinate(StringBuilder sb, double value)
         {
             sb.Append('|');
-            sb.Append(value.ToString("R", CultureInfo.InvariantCulture));
+            sb.Append(value.ToString("G9", CultureInfo.InvariantCulture));
         }
     }
 }
