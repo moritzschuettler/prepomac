@@ -1973,14 +1973,42 @@ namespace vtkControl
         {
             if (_modelEdges == null || modelEdgesToDraw == null) return;
             //
+            vtkDataSetMapper mapper = vtkDataSetMapper.SafeDownCast(_modelEdges.GetMapper());
+            if (mapper == null) return;
+            //
+            vtkDataSet drawnData = mapper.GetInput();
+            if (drawnData != null && drawnData.GetNumberOfCells() == GetPolyCellCount(modelEdgesToDraw)) return;
+            // The edges the part holds on its own are the ones it is highlighted by
+            if (_modelEdgesForHighlight == null && drawnData != null)
+            {
+                _modelEdgesForHighlight = vtkPolyData.New();
+                _modelEdgesForHighlight.DeepCopy(drawnData);
+            }
+            //
             vtkPolyData polyActor;
             AddNodeAndCellDataToPoly(modelEdgesToDraw, out polyActor, out _, out _, false);
-            //
-            vtkDataSetMapper mapper = vtkDataSetMapper.New();
+            // The mapper is kept and only its input is replaced. A mapper that is dropped releases its
+            // graphics resources when the garbage collector finalizes it, on a thread that holds no
+            // rendering context, and the rendering window answers that with a failed wglMakeCurrent
             mapper.SetInput(polyActor);
-            _modelEdges.SetMapper(mapper);
             //
             InvalidateAnimationInputs();
+        }
+        /// <summary>
+        /// The number of cells the given edges are drawn by: a quadratic edge is drawn as two lines, and
+        /// every other edge cell as one cell of its own
+        /// </summary>
+        private static int GetPolyCellCount(PartExchangeData modelEdges)
+        {
+            if (modelEdges.Cells.Types == null) return 0;
+            //
+            int cellCount = 0;
+            int quadraticEdgeType = (int)vtkCellType.VTK_QUADRATIC_EDGE;
+            for (int i = 0; i < modelEdges.Cells.Types.Length; i++)
+            {
+                cellCount += modelEdges.Cells.Types[i] == quadraticEdgeType ? 2 : 1;
+            }
+            return cellCount;
         }
         public void Highlight()
         {

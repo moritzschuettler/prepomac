@@ -3313,6 +3313,8 @@ namespace PrePoMax
                                                           parameters.ExplodeCompoundParts);
             }
             //
+            DrawAllModelEdgesOfSeparatedCompounds(partOffsets);
+            //
             _animating = animate;
             _form.PreviewExplodedView(partOffsets, animate, timeMs);
             _animating = false;
@@ -3348,6 +3350,7 @@ namespace PrePoMax
                                                 scaleFactor, parameters.Tolerance, parameters.Sequential, null,
                                                 parameters.ExplodeCompoundParts);
                 //
+                DrawAllModelEdgesOfSeparatedCompounds(partOffsets);
                 _form.PreviewExplodedView(partOffsets, true, Globals.ExplodedViewStepTimeMs);
             }
             _animating = false;
@@ -3404,6 +3407,57 @@ namespace PrePoMax
             ClearSelectionBuffer();
             //
             if (update) Redraw();
+        }
+        /// <summary>
+        /// A preview moves the actors while the nodes stay where they are, so a shared model edge that one
+        /// sub part draws for its neighbours is carried away from them. Each sub part of a compound part the
+        /// preview pulls apart is therefore given the model edges it holds on its own for as long as the
+        /// preview lasts, and the redraw that ends the exploded view hands the shared ones back.
+        /// </summary>
+        private void DrawAllModelEdgesOfSeparatedCompounds(Dictionary<string, double[]> partOffsets)
+        {
+            if (partOffsets == null || _currentView != ViewGeometryModelResults.Geometry) return;
+            if (_model == null || _model.Geometry == null) return;
+            //
+            BasePart subPart;
+            PartExchangeData modelEdges;
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart)) continue;
+                if (!AreSubPartOffsetsDifferent(compoundPart, partOffsets)) continue;
+                //
+                foreach (string subPartName in compoundPart.SubPartNames)
+                {
+                    if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart) || !subPart.Visible) continue;
+                    if (!subPart.PartType.HasEdges() || subPart.Visualization == null ||
+                        subPart.Visualization.EdgeCells == null) continue;
+                    //
+                    modelEdges = new PartExchangeData();
+                    _model.Geometry.GetNodesAndCellsForModelEdges(subPart,
+                                                                  out modelEdges.Nodes.Ids,
+                                                                  out modelEdges.Nodes.Coor,
+                                                                  out modelEdges.Cells.CellNodeIds,
+                                                                  out modelEdges.Cells.Types);
+                    _form.UpdateActorModelEdgesToDraw(subPartName, modelEdges);
+                }
+            }
+        }
+        private bool AreSubPartOffsetsDifferent(CompoundGeometryPart compoundPart,
+                                                Dictionary<string, double[]> partOffsets)
+        {
+            double[] offset;
+            double[] firstOffset = null;
+            //
+            foreach (string subPartName in compoundPart.SubPartNames)
+            {
+                if (!partOffsets.TryGetValue(subPartName, out offset) || offset == null) offset = new double[3];
+                //
+                if (firstOffset == null) firstOffset = offset;
+                else if (offset[0] != firstOffset[0] || offset[1] != firstOffset[1] ||
+                         offset[2] != firstOffset[2]) return true;
+            }
+            return false;
         }
         /// <summary>
         /// Moves a mesh generated for the given geometry part by the exploded view offsets, so that a
