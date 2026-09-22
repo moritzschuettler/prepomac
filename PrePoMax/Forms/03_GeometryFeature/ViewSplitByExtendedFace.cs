@@ -72,6 +72,23 @@ namespace PrePoMax.Forms
         }
 
 
+        //
+        [CategoryAttribute("Splitter")]
+        [OrderedDisplayName(2, 10, "Offset")]
+        [DescriptionAttribute("Enter the distance each continued surface is moved along its own " +
+                              "normal before it cuts. A positive value moves a plane along its " +
+                              "normal and grows the radius of a cylinder, a cone, a sphere and a " +
+                              "torus; an offset that would leave no surface at all takes the face " +
+                              "out of the tool.")]
+        [TypeConverter(typeof(StringLengthConverter))]
+        [Id(3, 2)]
+        public double Offset
+        {
+            get { return _splitByExtendedFace.Offset; }
+            set { _splitByExtendedFace.Offset = value; }
+        }
+
+
         // Constructors
         public ViewSplitByExtendedFace(SplitByExtendedFace splitByExtendedFace)
         {

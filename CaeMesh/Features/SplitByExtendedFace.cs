@@ -21,6 +21,7 @@ namespace CaeMesh
     {
         // Variables
         private GeomFaceType[] _faceTypes;                  //ISerializable
+        private double _offset;                             //ISerializable
 
 
         // Properties
@@ -28,6 +29,11 @@ namespace CaeMesh
         /// The surface each picked face lies on, one for one with the splitter ids.
         /// </summary>
         public GeomFaceType[] FaceTypes { get { return _faceTypes; } set { _faceTypes = value; } }
+        /// <summary>
+        /// How far each continued surface is moved along its own normal before it cuts. The same
+        /// distance is used for every picked face, each along its own normal.
+        /// </summary>
+        public double Offset { get { return _offset; } set { _offset = value; } }
         public override SplitGeometryToolTypeEnum ToolType { get { return SplitGeometryToolTypeEnum.ExtendFace; } }
         public override string DisplayName { get { return "Extend face"; } }
 
@@ -37,6 +43,7 @@ namespace CaeMesh
             : base()
         {
             _faceTypes = null;
+            _offset = 0;
         }
         public SplitByExtendedFace(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -47,6 +54,8 @@ namespace CaeMesh
                 {
                     case "_faceTypes":
                         _faceTypes = (GeomFaceType[])entry.Value; break;
+                    case "_offset":
+                        _offset = (double)entry.Value; break;
                     default:
                         break;
                 }
@@ -104,6 +113,7 @@ namespace CaeMesh
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
             info.AddValue("_faceTypes", _faceTypes, typeof(GeomFaceType[]));
+            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

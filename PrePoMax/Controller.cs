@@ -1990,9 +1990,10 @@ namespace PrePoMax
             //
             if (extension == ".inp") CheckAndUpdateModelValidity();  // must be here at the last place
         }
-        public string[] ImportCADAssemblyFile(string assemblyFileName, string splitCommand)
+        public string[] ImportCADAssemblyFile(string assemblyFileName, string splitCommand,
+                                              int numOfSplitFacesOverride = -1)
         {
-            string[] filesToImport = SplitAssembly(assemblyFileName, splitCommand);
+            string[] filesToImport = SplitAssembly(assemblyFileName, splitCommand, numOfSplitFacesOverride);
             string[] addedPartNames;
             List<string> allAddedPartNames = new List<string>();
             //
@@ -2039,7 +2040,8 @@ namespace PrePoMax
             return allAddedPartNames.ToArray();
         }
         //
-        public string[] SplitAssembly(string assemblyFileName, string splitCommand)
+        public string[] SplitAssembly(string assemblyFileName, string splitCommand,
+                                      int numOfSplitFacesOverride = -1)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -2053,7 +2055,8 @@ namespace PrePoMax
             string outFileName = Tools.GetNonExistentRandomFileName(workDirectory, ".brep");
             //
             string argumentSplit = "";
-            int numOfSplitFaces = _settings.General.NumOfSplitFaces;
+            int numOfSplitFaces = numOfSplitFacesOverride >= 1 ? numOfSplitFacesOverride :
+                                                                _settings.General.NumOfSplitFaces;
             if (numOfSplitFaces > 1) argumentSplit = " " + numOfSplitFaces;
 
             string argument = splitCommand +
@@ -2183,7 +2186,12 @@ namespace PrePoMax
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
             compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
-            importedPartNames = ImportCADAssemblyFile(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS");
+            // A part written out of a compound has its closed faces divided, and the compound has to
+            // carry the same division: the compound is what the mesher is given, and a face of a part
+            // that the compound does not hold is a surface id the mesher cannot be asked for. The
+            // division is therefore made once, on the whole shape, and the parts are taken from that
+            string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+            importedPartNames = ImportCADAssemblyFile(dividedBrepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS", 1);
             //
             bool shellParts = true;
             BasePart part;
@@ -2235,7 +2243,7 @@ namespace PrePoMax
                 massProperties.CenterOfMass = cm.Coor;
                 compPart.MassProperties = massProperties;
                 //
-                compPart.CADFileDataFromFile(brepFileName);
+                compPart.CADFileDataFromFile(dividedBrepFileName);
                 compPart.PartId = _model.Geometry.GetMaxPartId() + 1;
                 _model.Geometry.SetPartColorFromColorTable(compPart);
                 _model.Geometry.Parts.Add(compoundPartName, compPart);
@@ -2243,6 +2251,35 @@ namespace PrePoMax
             //
             MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
             UpdateAfterImport(".brep");
+        }
+        /// <summary>
+        /// Has the mesher divide every closed face of the shape, the way a part written out of it is
+        /// divided, and answers the file it wrote. A closed face divided solid by solid gives each solid
+        /// a face the shape they came from does not have, so the shape and its parts are numbered
+        /// differently and a face of a part names nothing in the shape. Dividing the whole shape at once
+        /// also keeps a face two solids share shared. The file that came in is answered when there is
+        /// nothing to divide or the division could not be made, since it is the same shape either way.
+        /// </summary>
+        private string SplitClosedFacesOfBrep(string brepFileName)
+        {
+            int numOfSplitFaces = _settings.General.NumOfSplitFaces;
+            if (numOfSplitFaces <= 1) return brepFileName;
+            //
+            string workDirectory = _settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory)) return brepFileName;
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string dividedBrepFileName = Tools.GetNonExistentRandomFileName(workDirectory, ".brep");
+            //
+            string argument = "BREP_SPLIT_CLOSED_FACES " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + dividedBrepFileName.ToUTF8() + "\" " + numOfSplitFaces;
+            //
+            JobStatus jobStatus = _jobRunner.Run("SplitClosedFaces", executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK || !File.Exists(dividedBrepFileName)) return brepFileName;
+            //
+            return dividedBrepFileName;
         }
         //
         public string[] ImportBrepPartFile(string brepFileName, bool showError = true)
@@ -5992,6 +6029,10 @@ namespace PrePoMax
                     if (extendedFace.IsExtended(i)) extendedIds.Add(extendedFace.SplitterIds[i]);
                 //
                 AppendSplitGeometryKernelIdGroups(sb, "Face ids", extendedIds.ToArray(), sourceBrepFileNames);
+                //
+                if (extendedFace.Offset != 0)
+                    sb.AppendLine("Offset: " + SplitGeometryValuesToString(new double[]
+                                                                          { extendedFace.Offset }));
             }
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
             {
@@ -6444,11 +6485,16 @@ namespace PrePoMax
                 // others are being left out
                 if (extendedFace.IsExtended(i))
                     DrawSplitGeometryExtendedSurfaceSymbol(extendedFace.SplitterIds[i], extendedFace.FaceTypes[i],
-                                                           extent, i);
+                                                           extendedFace.Offset, extent, i);
             }
         }
-        private void DrawSplitGeometryExtendedSurfaceSymbol(int geometryId, GeomFaceType faceType, double[] extent,
-                                                            int symbolIndex)
+        /// <summary>
+        /// The surface a picked face is continued into, moved along its own normal by the offset. The
+        /// symbol is offset the way the modelling kernel offsets the tool - a plane along its normal and
+        /// the others by their radius - so the user cuts with what was drawn.
+        /// </summary>
+        private void DrawSplitGeometryExtendedSurfaceSymbol(int geometryId, GeomFaceType faceType, double offset,
+                                                            double[] extent, int symbolIndex)
         {
             BasePart part;
             GeometryType geometryType;
@@ -6467,30 +6513,49 @@ namespace PrePoMax
             //
             if (faceType == GeomFaceType.Plane)
             {
+                if (offset != 0)
+                {
+                    double[] normal = NormalizeSplitGeometryDirection(direction);
+                    if (normal == null) return;
+                    origin = new double[] { origin[0] + offset * normal[0], origin[1] + offset * normal[1],
+                                            origin[2] + offset * normal[2] };
+                }
                 DrawSplitGeometryPlaneSymbol(origin, direction, extent, symbolIndex);
             }
             else if (faceType == GeomFaceType.Cylinder)
             {
                 if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
-                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], 0, symbolIndex);
+                double radius = values[0] + offset;
+                if (radius <= 0) return;
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, radius, 0, symbolIndex);
             }
             else if (faceType == GeomFaceType.Cone)
             {
                 if (!entity.TryGetNumbers("reference_radius", out values) || values.Length != 1) return;
                 if (!entity.TryGetNumbers("semi_angle_rad", out second) || second.Length != 1) return;
+                // The offset is measured along the normal and the radius across the axis, and the two
+                // stand at the half angle of the cone to each other
+                double cosine = Math.Cos(second[0]);
+                if (Math.Abs(cosine) <= 0) return;
+                double radius = values[0] + offset / cosine;
+                if (radius < 0) return;
                 // The radius a cone reports belongs to the origin of its axis and grows along it
-                DrawSplitGeometryTubeSymbol(origin, direction, extent, values[0], Math.Tan(second[0]), symbolIndex);
+                DrawSplitGeometryTubeSymbol(origin, direction, extent, radius, Math.Tan(second[0]), symbolIndex);
             }
             else if (faceType == GeomFaceType.Sphere)
             {
                 if (!entity.TryGetNumbers("radius", out values) || values.Length != 1) return;
-                DrawSplitGeometrySphereSymbol(origin, direction, values[0], symbolIndex);
+                double radius = values[0] + offset;
+                if (radius <= 0) return;
+                DrawSplitGeometrySphereSymbol(origin, direction, radius, symbolIndex);
             }
             else if (faceType == GeomFaceType.Torus)
             {
                 if (!entity.TryGetNumbers("major_radius", out values) || values.Length != 1) return;
                 if (!entity.TryGetNumbers("minor_radius", out second) || second.Length != 1) return;
-                DrawSplitGeometryTorusSymbol(origin, direction, values[0], second[0], symbolIndex);
+                double minorRadius = second[0] + offset;
+                if (minorRadius <= 0 || minorRadius >= values[0]) return;
+                DrawSplitGeometryTorusSymbol(origin, direction, values[0], minorRadius, symbolIndex);
             }
         }
         /// <summary>
