@@ -4129,7 +4129,9 @@ namespace PrePoMax
                 }
             }
             // Update
-            if (!(geomPart is CompoundGeometryPart)) _form.UpdateActor(oldPartName, geomPart.Name, geomPart.Color);
+            if (nameChanged) _effectiveMeshTypes = null;
+            if (!(geomPart is CompoundGeometryPart))
+                _form.UpdateActor(oldPartName, geomPart.Name, GetDrawnGeometryPartColor(geomPart));
             _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, oldPartName, geomPart, null);
             // Annotations
             _annotations.DrawAnnotations();
@@ -4549,7 +4551,7 @@ namespace PrePoMax
             {
                 part = _model.Geometry.Parts[name];
                 part.Color = color;
-                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateActor(name, name, GetDrawnGeometryPartColor(part));
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
             }
             //
@@ -4574,7 +4576,7 @@ namespace PrePoMax
             {
                 part = _model.Geometry.Parts[name];
                 SetGeometryPartColorFromColorTable(part);
-                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateActor(name, name, GetDrawnGeometryPartColor(part));
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
             }
             //
@@ -4599,7 +4601,7 @@ namespace PrePoMax
             {
                 part = _model.Geometry.Parts[name];
                 part.Color = Color.FromArgb(alpha, part.Color);
-                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateActor(name, name, GetDrawnGeometryPartColor(part));
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
             }
             //
@@ -6166,13 +6168,14 @@ namespace PrePoMax
             }
             //
             string[] cellSubPartNames = new string[origins.Length];
+            _effectiveMeshTypes = null;
             for (int i = 0; i < origins.Length; i++)
             {
                 cellSubPartNames[i] = sourceSubPartNames[origins[i] - 1];
                 //
                 BasePart cell = _model.Geometry.Parts[compoundPart.SubPartNames[i]];
                 cell.Color = sourceColors[origins[i] - 1];
-                _form.UpdateActor(cell.Name, cell.Name, cell.Color);
+                _form.UpdateActor(cell.Name, cell.Name, GetDrawnGeometryPartColor(cell));
             }
             compoundPart.CellSubPartNames = cellSubPartNames;
             RenameSplitCells(compoundPart);
@@ -6494,6 +6497,18 @@ namespace PrePoMax
         /// The color the part is drawn with. A color annotation overrides the part color when the actor is
         /// built and never writes it back, so this is the only place that knows what is on the screen.
         /// </summary>
+        /// <summary>
+        /// The color a geometry part is drawn with: its own, unless a color annotation such as the mesh
+        /// types or the face orientation is shown, and always with its own transparency. An actor given
+        /// the part color while an annotation is on shows the part color until the next full redraw.
+        /// </summary>
+        private Color GetDrawnGeometryPartColor(BasePart part)
+        {
+            Color color = Color.Empty;
+            Color backfaceColor = Color.Empty;
+            GetPartColor(part, ref color, ref backfaceColor);
+            return Color.FromArgb(part.Color.A, color);
+        }
         private bool TryGetGeometryFeatureDrawnPartColor(string partName, out Color color)
         {
             color = Color.Empty;
