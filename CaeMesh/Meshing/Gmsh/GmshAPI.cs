@@ -2233,10 +2233,41 @@ namespace CaeMesh
                 targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
             }
             // An edge shared with another wall's target side through a source or a target surface takes the
-            // count the two of them settled on, and the rest of the side is shared out again
-            ApplyPinnedTargetElements(wall, targetElements, pinnedEdgeIdNumOfElements);
+            // count the two of them settled on, and an edge an earlier wall has already built its grid on keeps
+            // the count it had there; the rest of the side is shared out again
+            ApplyPinnedTargetElements(wall, targetElements,
+                                      GetSettledTargetElements(wall, pinnedEdgeIdNumOfElements,
+                                                               sourceEdgeIdNumOfElements, targetEdgeIdNumOfElements));
             for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
                 targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
+        }
+        /// <summary>
+        /// The counts the edges of a wall's target side have to keep: the one a pin gives, else the one an
+        /// earlier wall already used the edge with, as its source or as its target. An edge of a compound is
+        /// shared by the faces of several parts, so the wall of one column can be resolved from it long before
+        /// the wall of another column reaches it as the tail of its own target side - the plate beside a cell
+        /// of a split bent plate, whose shared wall is resolved with the plate. Sharing that side out by length
+        /// again moves the count under the earlier wall, and the two sides of that wall no longer agree. Null
+        /// when no edge of the side carries a count.
+        /// </summary>
+        private static Dictionary<int, int> GetSettledTargetElements(SweepWall wall,
+                                                                     Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                                                     Dictionary<int, int> sourceEdgeIdNumOfElements,
+                                                                     Dictionary<int, int> targetEdgeIdNumOfElements)
+        {
+            int numOfElements;
+            Dictionary<int, int> settledEdgeIdNumOfElements = null;
+            foreach (var edgeId in wall.TargetEdgeIds)
+            {
+                if ((pinnedEdgeIdNumOfElements == null ||
+                     !pinnedEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) &&
+                    !sourceEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements) &&
+                    !targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) continue;
+                //
+                if (settledEdgeIdNumOfElements == null) settledEdgeIdNumOfElements = new Dictionary<int, int>();
+                settledEdgeIdNumOfElements[edgeId] = numOfElements;
+            }
+            return settledEdgeIdNumOfElements;
         }
         /// <summary>
         /// Raises the source side of a wall to the number of edges its target side is cut into. Every edge
