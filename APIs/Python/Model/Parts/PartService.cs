@@ -31,6 +31,7 @@ namespace APIs.Python.Model
 
         // Properties
         protected IPythonMeshGateway MeshGateway { get { return _meshGateway; } }
+        protected IPythonModelGateway ModelGateway { get { return _modelGateway; } }
         protected SelectionService SelectionService { get { return _selectionService; } }
         protected ModelResolver ModelResolver { get { return _modelResolver; } }
         protected abstract string ViewName { get; }

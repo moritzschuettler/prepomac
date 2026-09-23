@@ -28,6 +28,11 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public string GetRecognizedMeshType(string partName)
+        {
+            ResolvePart(partName);
+            return ModelGateway.GetRecognizedMeshType(partName);
+        }
         public void CreateCompound(string[] partNames)
         {
             EnsureCommandsAvailable();

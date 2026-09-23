@@ -30,6 +30,9 @@ namespace APIs.Python
                                                           "Isometric", "IsometricNegative", "Normal", "Vertical" };
         private static readonly string[] ResultTypes = { "Undeformed", "Deformed", "ColorContours", "VectorPlot",
                                                          "TensorPlot" };
+        private static readonly string[] ExplodedViewMethods = { "Disassembly", "AssemblyCenter", "CenterPoint" };
+        private static readonly double[] ExplodedViewMaxMagnifications = { 10, 25, 1000 };
+        private static readonly string[] ExplodedViewDirections = { "XYZ", "X", "Y", "Z", "XY", "XZ", "YZ" };
 
         private readonly IPythonViewGateway _gateway;
         private readonly ViewAnnotationsAPI _annotations;
@@ -83,6 +86,8 @@ namespace APIs.Python
                 Resolve().SetUndeformedModelType(type.ToString());
             }
         }
+        [PythonAPI("True when the displayed view is pulled apart by an exploded view.", Returns = "bool")]
+        public bool exploded_view_active { get { return Resolve().IsExplodedViewActive(); } }
         [PythonAPI("The arrow annotations of the displayed view.", Returns = "ViewAnnotations")]
         public ViewAnnotationsAPI annotations { get { return _annotations; } }
 
@@ -253,6 +258,64 @@ namespace APIs.Python
                                              MaxMagnification + ".");
             //
             return Resolve().SaveImage(file_name == null ? null : file_name.Trim(), transparent, scale);
+        }
+        [PythonAPI("Pulls the parts of the displayed view apart, the way the exploded view dialog does. The " +
+                   "method is Disassembly, which moves each part the way it would be taken off, AssemblyCenter, " +
+                   "which moves the parts away from the center of the assembly, or CenterPoint, which moves them " +
+                   "away from the given center. The scale factor, from 0 to 1, is the position of the dialog's " +
+                   "slider, and the magnification - from 1 to 10 for Disassembly, 25 for AssemblyCenter and 1000 " +
+                   "for CenterPoint - how far the full separation goes. The direction limits the movement to the " +
+                   "given axes: XYZ, X, Y, Z, XY, XZ or YZ. A compound part moves as one body. Step by step and " +
+                   "the contact tolerance, where 0 means one thousandth of the assembly diagonal, belong to the " +
+                   "Disassembly method. An exploded view is a display translation only: it is not recorded, and " +
+                   "meshing always runs without it.",
+                   Arguments = "scale_factor: float = 0.5, method: str = 'Disassembly', magnification: float = 2, " +
+                               "direction: str = 'XYZ', step_by_step: bool = False, tolerance: float = 0, " +
+                               "center: list[float] = None",
+                   Returns = "None",
+                   Example = "pmx.view.current = 'geometry'\n" +
+                             "pmx.view.apply_exploded_view(1, 'AssemblyCenter', 5)\n" +
+                             "pmx.view.remove_exploded_view()")]
+        public void apply_exploded_view(object scale_factor = null, string method = null, object magnification = null,
+                                        string direction = null, object step_by_step = null, object tolerance = null,
+                                        object center = null)
+        {
+            double scaleFactor = scale_factor == null ? 0.5 : PythonValueConverter.ToFiniteDouble(scale_factor,
+                                                                                                "scale_factor");
+            if (scaleFactor < 0 || scaleFactor > 1)
+                throw new PythonAPIException("The argument 'scale_factor' must be from 0 to 1.");
+            string methodName = method == null ? ExplodedViewMethods[0]
+                                               : ValidateOneOf(method, ExplodedViewMethods, "method");
+            double maxMagnification = ExplodedViewMaxMagnifications[Array.IndexOf(ExplodedViewMethods, methodName)];
+            double magnificationValue = magnification == null ? 2 : PythonValueConverter.ToFiniteDouble(magnification,
+                                                                                                       "magnification");
+            if (magnificationValue < 1 || magnificationValue > maxMagnification)
+                throw new PythonAPIException("The argument 'magnification' must be from 1 to " + maxMagnification +
+                                             " for the " + methodName + " method.");
+            string directionName = direction == null ? ExplodedViewDirections[0]
+                                                     : ValidateOneOf(direction, ExplodedViewDirections, "direction");
+            bool sequential = step_by_step != null && PythonValueConverter.ToBool(step_by_step, "step_by_step");
+            double toleranceValue = tolerance == null ? 0 : PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
+            if (toleranceValue < 0) throw new PythonAPIException("The argument 'tolerance' must not be negative.");
+            double[] centerPoint = null;
+            if (center != null)
+            {
+                centerPoint = PythonDoubleListConverter.ToDoubleArray(center, "center");
+                if (centerPoint == null || centerPoint.Length != 3)
+                    throw new PythonAPIException("The argument 'center' must contain 3 coordinates.");
+            }
+            else if (methodName == "CenterPoint")
+                throw new PythonAPIException("The CenterPoint method needs the argument 'center'.");
+            //
+            Resolve().ApplyExplodedView(methodName, scaleFactor, magnificationValue, directionName, sequential,
+                                        toleranceValue, centerPoint);
+        }
+        [PythonAPI("Puts the parts of the displayed view back where they are, the way the exploded view " +
+                   "dialog's Disable button does. Nothing happens when no exploded view is applied.",
+                   Returns = "None")]
+        public void remove_exploded_view()
+        {
+            Resolve().RemoveExplodedView();
         }
         [PythonAPI("Returns the standard orientation names set_orientation accepts.", Returns = "StringList")]
         public StringListAPI get_orientation_names()

@@ -280,6 +280,34 @@ namespace PrePoMax.Python
             ResolveForm().SaveAutomationScreenshot(path, transparentBackground, magnification);
             return path;
         }
+        public bool IsExplodedViewActive()
+        {
+            return _controller.IsExplodedViewActive();
+        }
+        // The dialog applies its parameters to the displayed view, so the view the script left displayed
+        // is the one that is pulled apart
+        public void ApplyExplodedView(string method, double scaleFactor, double magnification, string direction,
+                                      bool sequential, double tolerance, double[] center)
+        {
+            if (_controller.DisplayedMesh == null)
+                throw new PythonAPIException("The displayed view has no parts to pull apart.");
+            //
+            ExplodedViewParameters parameters = new ExplodedViewParameters();
+            parameters.Method = (ExplodedViewMethodEnum)Enum.Parse(typeof(ExplodedViewMethodEnum), method, true);
+            parameters.Direction = (ExplodedViewDirectionEnum)Enum.Parse(typeof(ExplodedViewDirectionEnum), direction,
+                                                                         true);
+            parameters.ScaleFactor = scaleFactor;
+            parameters.Magnification = magnification;
+            parameters.Sequential = sequential;
+            parameters.Tolerance = tolerance;
+            if (center != null) parameters.Center = center;
+            //
+            ResolveForm().InvokeIfRequired(() => { _controller.ApplyExplodedView(parameters); });
+        }
+        public void RemoveExplodedView()
+        {
+            ResolveForm().InvokeIfRequired(() => { _controller.RemoveExplodedView(true); });
+        }
         //
         private FrmMain ResolveForm()
         {

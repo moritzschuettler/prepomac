@@ -4562,12 +4562,11 @@ namespace CaeMesh
         }
         
         // Exploded view
-        public DisassemblyContactGraph GetDisassemblyContactGraph(double tolerance = -1, string[] partNames = null,
-                                                                  bool explodeCompoundParts = false)
+        public DisassemblyContactGraph GetDisassemblyContactGraph(double tolerance = -1, string[] partNames = null)
         {
             if (partNames == null) partNames = _parts.Keys.ToArray();
             //
-            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames, explodeCompoundParts);
+            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames);
             if (allConnectedParts.Count == 0) return null;
             //
             if (tolerance <= 0)
@@ -4584,10 +4583,9 @@ namespace CaeMesh
         }
         public DisassemblyExplodedViewLayout GetDisassemblyExplodedViewLayout(int explodedDirection = 0,
                                                                              double tolerance = -1,
-                                                                             string[] partNames = null,
-                                                                             bool explodeCompoundParts = false)
+                                                                             string[] partNames = null)
         {
-            DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames, explodeCompoundParts);
+            DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames);
             if (graph == null) return null;
             //
             return DisassemblyExplodedViewLayout.Create(graph, explodedDirection);
@@ -4598,10 +4596,9 @@ namespace CaeMesh
         /// </summary>
         private Dictionary<string, double[]> GetDisassemblyExplodedViewOffsets(int explodedDirection,
                                                                                double scaleFactor, double tolerance,
-                                                                               bool sequential, string[] partNames,
-                                                                               bool explodeCompoundParts)
+                                                                               bool sequential, string[] partNames)
         {
-            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames, explodeCompoundParts);
+            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames);
             //
             return _disassemblyExplodedViewCache.GetPartOffsets(scaleFactor, sequential);
         }
@@ -4610,40 +4607,35 @@ namespace CaeMesh
         /// assembly levels. One means that a sequential explosion is the same as a simultaneous one.
         /// </summary>
         public int GetExplodedViewStepCount(int explodedMethod, int explodedDirection, double tolerance,
-                                            string[] partNames = null, bool explodeCompoundParts = false)
+                                            string[] partNames = null)
         {
             if (explodedMethod != 0) return 1;      // Disassembly
             //
             if (partNames == null) partNames = _parts.Keys.ToArray();
-            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames, explodeCompoundParts);
+            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames);
             //
             return _disassemblyExplodedViewCache.StepCount;
         }
-        private void UpdateDisassemblyExplodedViewCache(int explodedDirection, double tolerance, string[] partNames,
-                                                        bool explodeCompoundParts)
+        private void UpdateDisassemblyExplodedViewCache(int explodedDirection, double tolerance, string[] partNames)
         {
             string[] sortedPartNames = partNames.OrderBy(partName => partName, StringComparer.Ordinal).ToArray();
             double[] partState = DisassemblyExplodedViewCache.GetPartState(this, sortedPartNames);
             //
             if (_disassemblyExplodedViewCache == null ||
-                !_disassemblyExplodedViewCache.IsValidFor(explodedDirection, tolerance, sortedPartNames, partState,
-                                                         explodeCompoundParts))
+                !_disassemblyExplodedViewCache.IsValidFor(explodedDirection, tolerance, sortedPartNames, partState))
             {
                 _disassemblyExplodedViewCache =
                     new DisassemblyExplodedViewCache(explodedDirection, tolerance, sortedPartNames, partState,
-                                                     explodeCompoundParts,
                                                      GetDisassemblyStagedOffsets(explodedDirection, tolerance,
-                                                                                 partNames, explodeCompoundParts));
+                                                                                 partNames));
             }
         }
         private ExplodedViewStagedOffsets GetDisassemblyStagedOffsets(int explodedDirection, double tolerance,
-                                                                      string[] partNames,
-                                                                      bool explodeCompoundParts)
+                                                                      string[] partNames)
         {
             try
             {
-                DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames,
-                                                                           explodeCompoundParts);
+                DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames);
                 if (graph == null || graph.Clusters.Length < 2 || graph.Interfaces.Length == 0) return null;
                 //
                 DisassemblyExplodedViewLayout layout = DisassemblyExplodedViewLayout.Create(graph, explodedDirection);
@@ -4659,8 +4651,7 @@ namespace CaeMesh
         public Dictionary<string, double[]> GetExplodedViewOffsets(int explodedMethod, double[] centerPoint,
                                                                    int explodedDirection, double scaleFactor,
                                                                    double tolerance, bool sequential,
-                                                                   string[] partNames = null,
-                                                                   bool explodeCompoundParts = false)
+                                                                   string[] partNames = null)
         {
             //
             // https://stackoverflow.com/questions/3265986/an-algorithm-to-space-out-overlapping-rectangles
@@ -4671,13 +4662,13 @@ namespace CaeMesh
             {
                 Dictionary<string, double[]> disassemblyOffsets =
                     GetDisassemblyExplodedViewOffsets(explodedDirection, scaleFactor, tolerance, sequential,
-                                                      partNames, explodeCompoundParts);
+                                                      partNames);
                 if (disassemblyOffsets != null) return disassemblyOffsets;
                 // Fall back to the assembly center method
                 explodedMethod = 1;
             }
             // Get connected part names
-            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames, explodeCompoundParts);
+            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames);
             // Get bounding boxes of the selected parts
             int count = 0;
             BoundingBox[] boxes = new BoundingBox[allConnectedParts.Count];
@@ -4849,7 +4840,7 @@ namespace CaeMesh
                 compoundPart.BoundingBox = boundingBox;
             }
         }
-        private List<List<BasePart>> GetAllConnectedParts(string[] partNames, bool explodeCompoundParts = false)
+        private List<List<BasePart>> GetAllConnectedParts(string[] partNames)
         {
             BasePart part;
             HashSet<BasePart> partsToInclude = new HashSet<BasePart>();
@@ -4869,22 +4860,17 @@ namespace CaeMesh
                 {
                     if (parts[i] is CompoundGeometryPart cgp)
                     {
-                        // The sub parts of a compound part are moved as one body, unless each of them is
-                        // asked to be moved on its own, in which case they are left to the loop below
-                        if (!explodeCompoundParts)
+                        connectedParts = new List<BasePart>();
+                        for (int j = 0; j < cgp.SubPartNames.Length; j++)
                         {
-                            connectedParts = new List<BasePart>();
-                            for (int j = 0; j < cgp.SubPartNames.Length; j++)
+                            part = _parts[cgp.SubPartNames[j]];
+                            if (partsToInclude.Contains(part))
                             {
-                                part = _parts[cgp.SubPartNames[j]];
-                                if (partsToInclude.Contains(part))
-                                {
-                                    connectedParts.Add(part);
-                                    includedParts.Add(cgp.SubPartNames[j]);
-                                }
+                                connectedParts.Add(part);
+                                includedParts.Add(cgp.SubPartNames[j]);
                             }
-                            if (connectedParts.Count() > 0) allConnectedParts.Add(connectedParts);
                         }
+                        if (connectedParts.Count() > 0) allConnectedParts.Add(connectedParts);
                         //
                         includedParts.Add(parts[i].Name);   // add compound part
                     }

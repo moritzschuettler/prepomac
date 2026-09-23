@@ -862,7 +862,10 @@ creates that many transformed copies. `mirror` and `scale` take `copy` instead.
 | `get_vertex_data()` | The vertices of the part as `VertexData`. |
 | `get_geometry_metadata()` | Supplemental CAD metadata such as analytic axes, primitive parameters, orientation, entity bounds and topology links. |
 
-`GeometryPart` adds `is_cad_part`.
+`GeometryPart` adds `is_cad_part` and `mesh_type`, the most structured mesh the recognition finds the
+part supports whatever the mesh setup items ask for: `Transfinite`, `Sweep`, `Tetrahedral`, or `Other`
+for a part that is not a CAD solid. A compound part reports the most restrictive type of its sub-parts.
+The recognition depends on the geometry alone, so an exploded view does not change it.
 
 #### `FaceData`, `EdgeData` and `VertexData`
 
@@ -1760,8 +1763,12 @@ moved the view should put it back itself rather than expecting replay to.
 | `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
 | `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
 
+| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, direction='XYZ', step_by_step=False, tolerance=0, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, which needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `direction` limits the movement to `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`. A compound part moves as one body. `step_by_step` and `tolerance`, where 0 means one thousandth of the assembly diagonal, belong to `Disassembly`. A value out of range is refused, not clamped. |
+| `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
+| `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
 Part visibility is not here: `hide` and `show` on the part collections are model changes and go
-through the command history like any other.
+through the command history like any other. An exploded view is view state like the camera: each of
+the three views keeps its own, and meshing always runs without it.
 
 ```python
 camera = pmx.view.get_parameters()

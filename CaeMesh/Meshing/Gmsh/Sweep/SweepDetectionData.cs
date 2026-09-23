@@ -87,12 +87,13 @@ namespace CaeMesh
                 if (bb != null)
                 {
                     double[] offset = part.Offset != null ? part.Offset : new double[3];
-                    AppendCoordinate(sb, bb.MinX - offset[0]);
-                    AppendCoordinate(sb, bb.MinY - offset[1]);
-                    AppendCoordinate(sb, bb.MinZ - offset[2]);
-                    AppendCoordinate(sb, bb.MaxX - offset[0]);
-                    AppendCoordinate(sb, bb.MaxY - offset[1]);
-                    AppendCoordinate(sb, bb.MaxZ - offset[2]);
+                    double step = GetCoordinateStep(bb);
+                    AppendCoordinate(sb, bb.MinX - offset[0], step);
+                    AppendCoordinate(sb, bb.MinY - offset[1], step);
+                    AppendCoordinate(sb, bb.MinZ - offset[2], step);
+                    AppendCoordinate(sb, bb.MaxX - offset[0], step);
+                    AppendCoordinate(sb, bb.MaxY - offset[1], step);
+                    AppendCoordinate(sb, bb.MaxZ - offset[2], step);
                 }
                 sb.Append(';');
             }
@@ -102,12 +103,20 @@ namespace CaeMesh
         /// A coordinate is written with the digits a changed geometry shows in and not with all of them.
         /// An exploded view adds an offset to the box and takes it away again, which does not give back the
         /// very same number, and a stamp written with every digit would throw the detection away each time
-        /// a part is moved for looking at.
+        /// a part is moved for looking at. The digits are counted from the size of the part and not from the
+        /// coordinate, since a coordinate that should be zero comes out of CAD as a tiny number whose every
+        /// significant digit is the noise the offset changes.
         /// </summary>
-        private static void AppendCoordinate(StringBuilder sb, double value)
+        private static double GetCoordinateStep(BoundingBox bb)
+        {
+            double size = Math.Max(bb.MaxX - bb.MinX, Math.Max(bb.MaxY - bb.MinY, bb.MaxZ - bb.MinZ));
+            if (!(size > 0) || double.IsInfinity(size)) size = 1;
+            return size * 1E-7;
+        }
+        private static void AppendCoordinate(StringBuilder sb, double value, double step)
         {
             sb.Append('|');
-            sb.Append(value.ToString("G9", CultureInfo.InvariantCulture));
+            sb.Append((Math.Round(value / step) + 0.0).ToString("R", CultureInfo.InvariantCulture));
         }
     }
 }

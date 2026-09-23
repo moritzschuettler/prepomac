@@ -3328,11 +3328,8 @@ namespace PrePoMax
                 partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                           (int)parameters.Direction,
                                                           parameters.ScaleFactor * parameters.Magnification,
-                                                          parameters.Tolerance, parameters.Sequential, partNames,
-                                                          parameters.ExplodeCompoundParts);
+                                                          parameters.Tolerance, parameters.Sequential, partNames);
             }
-            //
-            DrawAllModelEdgesOfSeparatedCompounds(partOffsets);
             //
             _animating = animate;
             _form.PreviewExplodedView(partOffsets, animate, timeMs);
@@ -3357,8 +3354,7 @@ namespace PrePoMax
             if (mesh == null) return;
             //
             int stepCount = mesh.GetExplodedViewStepCount((int)parameters.Method, (int)parameters.Direction,
-                                                          parameters.Tolerance, null,
-                                                          parameters.ExplodeCompoundParts);
+                                                          parameters.Tolerance);
             List<double> scaleFactors = GetExplodedViewSequenceScaleFactors(fromScaleFactor, toScaleFactor, stepCount);
             //
             _animating = true;
@@ -3366,10 +3362,8 @@ namespace PrePoMax
             {
                 Dictionary<string, double[]> partOffsets =
                     mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center, (int)parameters.Direction,
-                                                scaleFactor, parameters.Tolerance, parameters.Sequential, null,
-                                                parameters.ExplodeCompoundParts);
+                                                scaleFactor, parameters.Tolerance, parameters.Sequential);
                 //
-                DrawAllModelEdgesOfSeparatedCompounds(partOffsets);
                 _form.PreviewExplodedView(partOffsets, true, Globals.ExplodedViewStepTimeMs);
             }
             _animating = false;
@@ -3417,8 +3411,7 @@ namespace PrePoMax
             Dictionary<string, double[]> partOffsets;
             partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                       (int)parameters.Direction, parameters.ScaleFactor * parameters.Magnification,
-                                                      parameters.Tolerance, parameters.Sequential, partNames,
-                                                      parameters.ExplodeCompoundParts);
+                                                      parameters.Tolerance, parameters.Sequential, partNames);
             mesh.ApplyExplodedView(partOffsets);
             //
             _form.SetExplodedViewStatus(true);
@@ -3426,57 +3419,6 @@ namespace PrePoMax
             ClearSelectionBuffer();
             //
             if (update) Redraw();
-        }
-        /// <summary>
-        /// A preview moves the actors while the nodes stay where they are, so a shared model edge that one
-        /// sub part draws for its neighbours is carried away from them. Each sub part of a compound part the
-        /// preview pulls apart is therefore given the model edges it holds on its own for as long as the
-        /// preview lasts, and the redraw that ends the exploded view hands the shared ones back.
-        /// </summary>
-        private void DrawAllModelEdgesOfSeparatedCompounds(Dictionary<string, double[]> partOffsets)
-        {
-            if (partOffsets == null || _currentView != ViewGeometryModelResults.Geometry) return;
-            if (_model == null || _model.Geometry == null) return;
-            //
-            BasePart subPart;
-            PartExchangeData modelEdges;
-            //
-            foreach (var entry in _model.Geometry.Parts)
-            {
-                if (!(entry.Value is CompoundGeometryPart compoundPart)) continue;
-                if (!AreSubPartOffsetsDifferent(compoundPart, partOffsets)) continue;
-                //
-                foreach (string subPartName in compoundPart.SubPartNames)
-                {
-                    if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart) || !subPart.Visible) continue;
-                    if (!subPart.PartType.HasEdges() || subPart.Visualization == null ||
-                        subPart.Visualization.EdgeCells == null) continue;
-                    //
-                    modelEdges = new PartExchangeData();
-                    _model.Geometry.GetNodesAndCellsForModelEdges(subPart,
-                                                                  out modelEdges.Nodes.Ids,
-                                                                  out modelEdges.Nodes.Coor,
-                                                                  out modelEdges.Cells.CellNodeIds,
-                                                                  out modelEdges.Cells.Types);
-                    _form.UpdateActorModelEdgesToDraw(subPartName, modelEdges);
-                }
-            }
-        }
-        private bool AreSubPartOffsetsDifferent(CompoundGeometryPart compoundPart,
-                                                Dictionary<string, double[]> partOffsets)
-        {
-            double[] offset;
-            double[] firstOffset = null;
-            //
-            foreach (string subPartName in compoundPart.SubPartNames)
-            {
-                if (!partOffsets.TryGetValue(subPartName, out offset) || offset == null) offset = new double[3];
-                //
-                if (firstOffset == null) firstOffset = offset;
-                else if (offset[0] != firstOffset[0] || offset[1] != firstOffset[1] ||
-                         offset[2] != firstOffset[2]) return true;
-            }
-            return false;
         }
         /// <summary>
         /// Moves a mesh generated for the given geometry part by the exploded view offsets, so that a
@@ -3585,8 +3527,7 @@ namespace PrePoMax
                     mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                 (int)parameters.Direction,
                                                 parameters.ScaleFactor * parameters.Magnification,
-                                                parameters.Tolerance, parameters.Sequential, partNames,
-                                                parameters.ExplodeCompoundParts);
+                                                parameters.Tolerance, parameters.Sequential, partNames);
                 mesh.ApplyExplodedView(partOffsets);
                 //
                 ClearSelectionBuffer();
@@ -9433,12 +9374,13 @@ namespace PrePoMax
         /// <summary>
         /// Recognizes the mesh type of every geometry part. The recognition is kept on the parts and redone
         /// only for the parts whose geometry changed, so it is asked for after every change of the parts and
-        /// before every drawing of the geometry, and costs nothing once it has been made.
+        /// before every drawing of the geometry, and costs nothing once it has been made. An exploded view
+        /// only moves the parts, so turning it on or off leaves the recognition standing.
         /// </summary>
         private void DetectMeshTypes()
         {
             _effectiveMeshTypes = null;
-            if (_model == null) return;
+            if (_model == null || _model.AreMeshTypesDetected()) return;
             //
             try
             {
@@ -9539,6 +9481,15 @@ namespace PrePoMax
             else return MeshTypeEnum.Other;
         }
         /// <summary>
+        /// <summary>
+        /// The most structured mesh the recognition finds a geometry part supports, regardless of the mesh
+        /// setup items. A compound part reports the most restrictive type of its sub-parts.
+        /// </summary>
+        public MeshTypeEnum GetRecognizedMeshType(string partName)
+        {
+            DetectMeshTypes();
+            return GetMeshTypeOfMeshedPart(partName);
+        }
         /// Writes why each solid part is meshed by tetrahedra rather than swept. The reason names the surface,
         /// the wall or the sub-part that stands in the way, which is what has to be split or selected by hand.
         /// </summary>

@@ -58,6 +58,7 @@ namespace CaeModel
         [NonSerialized] private List<Section> _assignedSections;
         [NonSerialized] private int[] _unAssignedElementIds;
         [NonSerialized] private object[] _sectionAssignmentsState;
+        [NonSerialized] private string _meshTypesStamp;
 
 
         // Properties                                                                                                               
@@ -2403,6 +2404,12 @@ namespace CaeModel
         {
             if (_geometry == null || _geometry.Parts == null) return;
             //
+            string stamp = GetMeshTypesStamp();
+            DetectMeshTypesOfParts();
+            _meshTypesStamp = stamp;
+        }
+        private void DetectMeshTypesOfParts()
+        {
             GeometryPart part;
             HashSet<int> solidPartIds = new HashSet<int>();
             foreach (var entry in _geometry.Parts)
@@ -2441,6 +2448,39 @@ namespace CaeModel
                     if (detection.SweepablePartIds.Contains(sweptPart.PartId)) sweptPart.MeshType = MeshTypeEnum.Sweep;
                 }
             }
+        }
+        /// <summary>
+        /// Whether the mesh types kept on the parts were recognized from the geometry the parts have now. An
+        /// exploded view only moves the parts and leaves the recognition standing.
+        /// </summary>
+        public bool AreMeshTypesDetected()
+        {
+            if (_geometry == null || _geometry.Parts == null) return true;
+            if (_meshTypesStamp == null) return false;
+            //
+            foreach (var entry in _geometry.Parts)
+            {
+                if (entry.Value is GeometryPart part && !(part is CompoundGeometryPart) &&
+                    part.MeshType == MeshTypeEnum.Unknown) return false;
+            }
+            return _meshTypesStamp == GetMeshTypesStamp();
+        }
+        private string GetMeshTypesStamp()
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (var entry in _geometry.Parts)
+            {
+                sb.Append(entry.Key);
+                sb.Append('|');
+                sb.Append(entry.Value.PartType);
+                if (entry.Value is GeometryPart part) sb.Append(part.IsCADPart);
+                // The box of a compound follows its sub-parts when an exploded view moves them, while the
+                // compound keeps no offset of its own, so a compound is stamped by its sub-parts alone
+                if (entry.Value is CompoundGeometryPart compoundPart)
+                    sb.Append(string.Join("|", compoundPart.SubPartNames));
+                else sb.Append(SweepDetectionData.GetStamp(new BasePart[] { entry.Value }));
+            }
+            return sb.ToString();
         }
         /// <summary>
         /// Why a solid part cannot be swept, or null when it can be or when the sweep was never tried on it.

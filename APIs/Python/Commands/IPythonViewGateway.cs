@@ -50,5 +50,10 @@ namespace APIs.Python
         void ShowMinMaxAnnotations(bool showMin, bool showMax);
         //
         string SaveImage(string fileName, bool transparentBackground, int magnification);
+        //
+        bool IsExplodedViewActive();
+        void ApplyExplodedView(string method, double scaleFactor, double magnification, string direction,
+                               bool sequential, double tolerance, double[] center);
+        void RemoveExplodedView();
     }
 }

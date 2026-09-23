@@ -24,6 +24,7 @@ namespace APIs.Python
         bool IsInsideRecordedScript();
         void RenameModelItem(NamedClass item, string newName, string stepName);
         void ActivateDeactivateItems(NamedClass[] items, bool activate, string[] stepNames);
+        string GetRecognizedMeshType(string partName);
         // Document
         void NewModel(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType);
         void OpenFile(string fileName);

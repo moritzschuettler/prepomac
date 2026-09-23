@@ -28,6 +28,14 @@ namespace APIs.Python.Model
                 return part != null && part.IsCADPart;
             }
         }
+        [PythonAPI("The most structured mesh the recognition finds the part supports, whatever the mesh setup " +
+                   "items ask for: Transfinite, Sweep, Tetrahedral, or Other for a part that is not a CAD solid. " +
+                   "A compound part reports the most restrictive type of its sub-parts. The recognition depends " +
+                   "on the geometry alone, so an exploded view does not change it.", Returns = "str")]
+        public string mesh_type
+        {
+            get { return _service.GetRecognizedMeshType(_partName); }
+        }
 
 
         // Constructors

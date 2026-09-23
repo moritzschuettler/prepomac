@@ -53,6 +53,10 @@ namespace PrePoMax.Python
         {
             _controller.ActivateDeactivateMultipleCommand(items, activate, stepNames);
         }
+        public string GetRecognizedMeshType(string partName)
+        {
+            return _controller.GetRecognizedMeshType(partName).ToString();
+        }
         // Document
         public void NewModel(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType)
         {
