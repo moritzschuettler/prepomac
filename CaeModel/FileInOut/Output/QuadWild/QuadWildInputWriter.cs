@@ -96,8 +96,6 @@ namespace FileInOut.Output
             //
             foreach (var entry in faceEdges)
             {
-                if (entry.Value.Count > 2)
-                    throw new CaeException("QuadWild input must be manifold; an edge belongs to more than two triangles.");
                 if (entry.Value.Count == 2)
                 {
                     FaceEdge first = entry.Value[0];
@@ -117,14 +115,42 @@ namespace FileInOut.Output
                 if (entry.Value.Count == 1) sharpEdgeKeys.Add(entry.Key);
             }
             //
-            List<SharpEdge> sharpEdges = new List<SharpEdge>();
-            foreach ((int, int) key in sharpEdgeKeys)
+            // A shell compound has edges shared by more than two triangles. The sheets are detached there (see
+            // SplitSheets), so QuadWild meshes a manifold input whose seams carry vertex copies; the copies get the
+            // same prescribed nodes and are merged again after meshing.
+            int[] nodeIdsOrdered = usedNodeIds.OrderBy(id => id).ToArray();
+            Dictionary<int, int> nodeIdObjIndex = new Dictionary<int, int>();
+            for (int i = 0; i < nodeIdsOrdered.Length; i++) nodeIdObjIndex.Add(nodeIdsOrdered[i], i + 1);
+            List<int> objIndexNodeId = new List<int>(nodeIdsOrdered);         // obj index - 1 -> node id
+            HashSet<int> splitNodeIds;
+            int[][] faceObjIndices = SplitSheets(mesh, faceNodeIds, faceEdges, nodeIdObjIndex, objIndexNodeId,
+                                                 out splitNodeIds);
+            // Edges of the split input: the model edges, including every copy of a seam, and all boundaries
+            Dictionary<(int, int), List<FaceEdge>> splitFaceEdges = new Dictionary<(int, int), List<FaceEdge>>();
+            foreach (var entry in faceEdges)
             {
-                List<FaceEdge> references = faceEdges[key];
-                FaceEdge reference = references.OrderBy(item => item.FaceIndex)
-                                               .ThenBy(item => item.LocalEdgeIndex)
-                                               .First();
-                int type = GetSharpEdgeType(mesh, reference, references, faceNormals);
+                foreach (FaceEdge faceEdge in entry.Value)
+                {
+                    int[] objIndices = faceObjIndices[faceEdge.FaceIndex];
+                    (int, int) key = GetEdgeKey(objIndices[faceEdge.LocalEdgeIndex],
+                                                objIndices[(faceEdge.LocalEdgeIndex + 1) % 3]);
+                    if (!splitFaceEdges.TryGetValue(key, out List<FaceEdge> references))
+                    {
+                        references = new List<FaceEdge>();
+                        splitFaceEdges.Add(key, references);
+                    }
+                    references.Add(faceEdge);
+                }
+            }
+            List<SharpEdge> sharpEdges = new List<SharpEdge>();
+            foreach (var entry in splitFaceEdges)
+            {
+                FaceEdge reference = entry.Value.OrderBy(item => item.FaceIndex)
+                                                .ThenBy(item => item.LocalEdgeIndex)
+                                                .First();
+                if (entry.Value.Count != 1 &&
+                    !sharpEdgeKeys.Contains(GetEdgeKey(reference.StartNodeId, reference.EndNodeId))) continue;
+                int type = GetSharpEdgeType(mesh, reference, entry.Value, faceNormals);
                 sharpEdges.Add(new SharpEdge()
                 {
                     Type = type,
@@ -136,13 +162,9 @@ namespace FileInOut.Output
                                    .ThenBy(item => item.LocalEdgeIndex)
                                    .ToList();
             //
-            int[] nodeIdsOrdered = usedNodeIds.OrderBy(id => id).ToArray();
-            Dictionary<int, int> nodeIdObjIndex = new Dictionary<int, int>();
-            for (int i = 0; i < nodeIdsOrdered.Length; i++) nodeIdObjIndex.Add(nodeIdsOrdered[i], i + 1);
-            //
             StringBuilder obj = new StringBuilder();
             obj.AppendLine("# PrePoMax QuadWild triangular input");
-            foreach (int nodeId in nodeIdsOrdered)
+            foreach (int nodeId in objIndexNodeId)
             {
                 FeNode node = mesh.Nodes[nodeId];
                 obj.Append("v ");
@@ -150,12 +172,12 @@ namespace FileInOut.Output
                 obj.Append(node.Y.ToString("R", CultureInfo.InvariantCulture)).Append(" ");
                 obj.AppendLine(node.Z.ToString("R", CultureInfo.InvariantCulture));
             }
-            foreach (int[] nodeIds in faceNodeIds)
+            foreach (int[] objIndices in faceObjIndices)
             {
                 obj.Append("f ");
-                obj.Append(nodeIdObjIndex[nodeIds[0]]).Append(" ");
-                obj.Append(nodeIdObjIndex[nodeIds[1]]).Append(" ");
-                obj.AppendLine(nodeIdObjIndex[nodeIds[2]].ToString(CultureInfo.InvariantCulture));
+                obj.Append(objIndices[0]).Append(" ");
+                obj.Append(objIndices[1]).Append(" ");
+                obj.AppendLine(objIndices[2].ToString(CultureInfo.InvariantCulture));
             }
             //
             StringBuilder sharp = new StringBuilder();
@@ -179,6 +201,34 @@ namespace FileInOut.Output
                 modelVertexNodeIds.Add(modelEdge.NodeIds[modelEdge.NodeIds.Length - 1]);
             }
             StringBuilder nodes = new StringBuilder();
+            // Seams between detached sheets: every node of the model edge, so that each sheet gets the same nodes
+            HashSet<(int, int)> seamKeys = new HashSet<(int, int)>(faceEdges.Where(entry => entry.Value.Count > 2)
+                                                                            .Select(entry => entry.Key));
+            int seamEdgeCount = 0;
+            if (seamKeys.Count > 0)
+            {
+                nodes.AppendLine("# PrePoMax seams between sheets of a shell compound, one polyline per model edge");
+                foreach (QuadWildModelEdge modelEdge in modelEdges)
+                {
+                    int[] ids = modelEdge.NodeIds;
+                    List<int> polyline = new List<int>(ids);
+                    if (modelEdge.IsClosed) polyline.Add(ids[0]);
+                    bool isSeam = false;
+                    for (int i = 0; i + 1 < polyline.Count && !isSeam; i++)
+                        isSeam = seamKeys.Contains(GetEdgeKey(polyline[i], polyline[i + 1]));
+                    if (!isSeam) continue;
+                    seamEdgeCount++;
+                    nodes.Append(polyline.Count.ToString(CultureInfo.InvariantCulture));
+                    foreach (int nodeId in polyline)
+                    {
+                        FeNode node = mesh.Nodes[nodeId];
+                        nodes.Append(" ").Append(node.X.ToString("R", CultureInfo.InvariantCulture));
+                        nodes.Append(" ").Append(node.Y.ToString("R", CultureInfo.InvariantCulture));
+                        nodes.Append(" ").Append(node.Z.ToString("R", CultureInfo.InvariantCulture));
+                    }
+                    nodes.AppendLine();
+                }
+            }
             nodes.AppendLine("# PrePoMax model vertices, one prescribed node per line");
             foreach (int nodeId in modelVertexNodeIds)
             {
@@ -194,8 +244,127 @@ namespace FileInOut.Output
             File.WriteAllText(sharpFileName, sharp.ToString(), utf8WithoutBom);
             File.WriteAllText(nodesFileName, nodes.ToString(), utf8WithoutBom);
             //
+            double[][] splitNodeCoordinates = splitNodeIds.OrderBy(id => id)
+                                                          .Select(id => mesh.Nodes[id].Coor.ToArray()).ToArray();
             return new QuadWildInputFileInfo(nodeIdsOrdered.Length, faceNodeIds.Length, sharpEdges.Count,
-                                             modelEdges, GetModelFaceEdgeIds(part.Visualization));
+                                             modelEdges, GetModelFaceEdgeIds(part.Visualization),
+                                             seamEdgeCount, splitNodeCoordinates);
+        }
+
+        // Detaches the sheets of a shell compound at edges shared by more than two triangles. At such an edge the pair
+        // of triangles that continues most smoothly stays joined as one sheet: their in-plane directions away from the
+        // edge are the most opposite (at least 120 degrees apart) and they traverse the edge in opposite directions.
+        // Every other triangle there is detached. The vertices are then split by the triangle fans around them over
+        // the edges that stay joined: the first fan keeps the vertex, each further fan gets a copy appended to
+        // objIndexNodeId. Returns the obj indices of the triangle corners.
+        private static int[][] SplitSheets(FeMesh mesh, int[][] faceNodeIds,
+                                           Dictionary<(int, int), List<FaceEdge>> faceEdges,
+                                           Dictionary<int, int> nodeIdObjIndex, List<int> objIndexNodeId,
+                                           out HashSet<int> splitNodeIds)
+        {
+            splitNodeIds = new HashSet<int>();
+            int[][] faceObjIndices = new int[faceNodeIds.Length][];
+            for (int faceIndex = 0; faceIndex < faceNodeIds.Length; faceIndex++)
+                faceObjIndices[faceIndex] = faceNodeIds[faceIndex].Select(id => nodeIdObjIndex[id]).ToArray();
+            // The joined neighbour of a triangle across one of its edges: (face, local edge) -> face
+            Dictionary<(int, int), int> joined = new Dictionary<(int, int), int>();
+            bool hasSeams = false;
+            foreach (var entry in faceEdges)
+            {
+                List<FaceEdge> references = entry.Value;
+                if (references.Count == 2)
+                {
+                    joined[(references[0].FaceIndex, references[0].LocalEdgeIndex)] = references[1].FaceIndex;
+                    joined[(references[1].FaceIndex, references[1].LocalEdgeIndex)] = references[0].FaceIndex;
+                }
+                else if (references.Count > 2)
+                {
+                    hasSeams = true;
+                    Vec3D[] inward = references.Select(item => GetInwardDirection(mesh, faceNodeIds[item.FaceIndex],
+                                                                                  item.StartNodeId, item.EndNodeId))
+                                               .ToArray();
+                    List<(double, int, int)> pairs = new List<(double, int, int)>();
+                    for (int i = 0; i < references.Count; i++)
+                    {
+                        for (int j = i + 1; j < references.Count; j++)
+                        {
+                            if (references[i].StartNodeId == references[j].StartNodeId) continue;
+                            pairs.Add((Vec3D.DotProduct(inward[i], inward[j]), i, j));
+                        }
+                    }
+                    HashSet<int> used = new HashSet<int>();
+                    foreach (var pair in pairs.OrderBy(item => item.Item1))
+                    {
+                        if (pair.Item1 > -0.5 || used.Contains(pair.Item2) || used.Contains(pair.Item3)) continue;
+                        FaceEdge first = references[pair.Item2];
+                        FaceEdge second = references[pair.Item3];
+                        joined[(first.FaceIndex, first.LocalEdgeIndex)] = second.FaceIndex;
+                        joined[(second.FaceIndex, second.LocalEdgeIndex)] = first.FaceIndex;
+                        used.Add(pair.Item2);
+                        used.Add(pair.Item3);
+                    }
+                }
+            }
+            if (!hasSeams) return faceObjIndices;
+            // Triangle fans around each vertex
+            Dictionary<int, List<int>> nodeIdFaceIndices = new Dictionary<int, List<int>>();
+            for (int faceIndex = 0; faceIndex < faceNodeIds.Length; faceIndex++)
+            {
+                foreach (int nodeId in faceNodeIds[faceIndex])
+                {
+                    if (!nodeIdFaceIndices.TryGetValue(nodeId, out List<int> faceIndices))
+                    {
+                        faceIndices = new List<int>();
+                        nodeIdFaceIndices.Add(nodeId, faceIndices);
+                    }
+                    faceIndices.Add(faceIndex);
+                }
+            }
+            foreach (var entry in nodeIdFaceIndices)
+            {
+                int nodeId = entry.Key;
+                Dictionary<int, int> parent = entry.Value.ToDictionary(faceIndex => faceIndex, faceIndex => faceIndex);
+                Func<int, int> find = null;
+                find = x => parent[x] == x ? x : (parent[x] = find(parent[x]));
+                foreach (int faceIndex in entry.Value)
+                {
+                    int[] nodeIds = faceNodeIds[faceIndex];
+                    for (int localEdgeIndex = 0; localEdgeIndex < 3; localEdgeIndex++)
+                    {
+                        if (nodeIds[localEdgeIndex] != nodeId && nodeIds[(localEdgeIndex + 1) % 3] != nodeId) continue;
+                        if (joined.TryGetValue((faceIndex, localEdgeIndex), out int other) && parent.ContainsKey(other))
+                            parent[find(faceIndex)] = find(other);
+                    }
+                }
+                List<int> roots = entry.Value.Select(faceIndex => find(faceIndex)).Distinct().ToList();
+                if (roots.Count < 2) continue;
+                splitNodeIds.Add(nodeId);
+                for (int k = 1; k < roots.Count; k++)
+                {
+                    objIndexNodeId.Add(nodeId);
+                    int copyIndex = objIndexNodeId.Count;
+                    foreach (int faceIndex in entry.Value)
+                    {
+                        if (find(faceIndex) != roots[k]) continue;
+                        int[] nodeIds = faceNodeIds[faceIndex];
+                        for (int c = 0; c < 3; c++)
+                            if (nodeIds[c] == nodeId) faceObjIndices[faceIndex][c] = copyIndex;
+                    }
+                }
+            }
+            return faceObjIndices;
+        }
+
+        private static Vec3D GetInwardDirection(FeMesh mesh, int[] nodeIds, int startNodeId, int endNodeId)
+        {
+            int otherNodeId = nodeIds.First(id => id != startNodeId && id != endNodeId);
+            Vec3D start = new Vec3D(mesh.Nodes[startNodeId].Coor);
+            Vec3D edge = new Vec3D(mesh.Nodes[endNodeId].Coor) - start;
+            edge.Normalize();
+            Vec3D toOther = new Vec3D(mesh.Nodes[otherNodeId].Coor) - start;
+            Vec3D inward = toOther - edge * Vec3D.DotProduct(toOther, edge);
+            inward.Normalize();
+            return inward;
         }
 
         private static int[][] GetModelFaceEdgeIds(VisualizationData visualization)

@@ -995,63 +995,72 @@ namespace CaeMesh
             Gmsh.Model.OCC.Synchronize();
         }
         /// <summary>
-        /// The surfaces with an edge lying inside them (an internal edge). The OCC import embeds such an edge in
-        /// its face, so it bounds no surface, and the face must not be meshed as transfinite, which ignores
+        /// The surfaces with an edge lying inside them (an internal edge): a curve that is not on the boundary of the
+        /// surface, although it may bound other surfaces (a rib standing on the edge), and lies inside it. The OCC
+        /// import embeds such an edge in its face, and the face must not be meshed as transfinite, which ignores
         /// embedded curves.
         /// </summary>
         private static HashSet<int> GetSurfaceIdsWithInternalCurves(Tuple<int, int>[] surfaceDimTags)
         {
-            int[] surfaceIds;
-            Tuple<int, int>[] edgeDimTags;
             HashSet<int> surfaceIdsWithInternalCurves = new HashSet<int>();
             if (surfaceDimTags.Length == 0) return surfaceIdsWithInternalCurves;
             //
+            Tuple<int, int>[] edgeDimTags;
             Gmsh.Model.GetEntities(out edgeDimTags, 1);
-            foreach (var dimTag in edgeDimTags)
+            double tolerance = 1E-6 * GetModelDiagonal();
+            double[][] curveBoxes = edgeDimTags.Select(dimTag => GetBoundingBox(1, dimTag.Item2)).ToArray();
+            foreach (var surfaceDimTag in surfaceDimTags)
             {
-                Gmsh.Model.GetAdjacencies(1, dimTag.Item2, out surfaceIds, out _);
-                if (surfaceIds.Length > 0) continue;
-                //
-                int surfaceId = GetSurfaceContainingCurve(dimTag.Item2, surfaceDimTags);
-                if (surfaceId >= 0) surfaceIdsWithInternalCurves.Add(surfaceId);
+                Tuple<int, int>[] boundaryDimTags;
+                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out boundaryDimTags, false, false, false);
+                HashSet<int> boundaryCurveIds = new HashSet<int>(boundaryDimTags.Select(dimTag => Math.Abs(dimTag.Item2)));
+                double[] surfaceBox = GetBoundingBox(2, surfaceDimTag.Item2);
+                for (int i = 0; i < edgeDimTags.Length; i++)
+                {
+                    int curveId = edgeDimTags[i].Item2;
+                    if (boundaryCurveIds.Contains(curveId)) continue;
+                    // The curve box must lie within the surface box
+                    bool inBox = true;
+                    for (int k = 0; k < 3 && inBox; k++)
+                        inBox = curveBoxes[i][k] >= surfaceBox[k] - tolerance &&
+                                curveBoxes[i][k + 3] <= surfaceBox[k + 3] + tolerance;
+                    if (!inBox) continue;
+                    //
+                    if (IsCurveInsideSurface(curveId, surfaceDimTag.Item2))
+                    {
+                        surfaceIdsWithInternalCurves.Add(surfaceDimTag.Item2);
+                        break;
+                    }
+                }
             }
             return surfaceIdsWithInternalCurves;
         }
+        private static double[] GetBoundingBox(int dim, int tag)
+        {
+            double xMin, yMin, zMin, xMax, yMax, zMax;
+            Gmsh.Model.GetBoundingBox(dim, tag, out xMin, out yMin, out zMin, out xMax, out yMax, out zMax);
+            return new double[] { xMin, yMin, zMin, xMax, yMax, zMax };
+        }
         /// <summary>
-        /// The surface on which three points of the curve lie inside, or -1.
+        /// True when three points of the curve lie on the surface and inside it.
         /// </summary>
-        private static int GetSurfaceContainingCurve(int curveId, Tuple<int, int>[] surfaceDimTags)
+        private static bool IsCurveInsideSurface(int curveId, int surfaceId)
         {
             double[] coor;
             double[] minimum;
             double[] maximum;
             Gmsh.Model.GetParametrizationBounds(1, curveId, out minimum, out maximum);
-            if (minimum.Length < 1 || maximum.Length < 1) return -1;
+            if (minimum.Length < 1 || maximum.Length < 1) return false;
             //
-            List<double[]> points = new List<double[]>();
             for (int i = 1; i <= 3; i++)
             {
                 double t = minimum[0] + (maximum[0] - minimum[0]) * i / 4.0;
                 Gmsh.Model.GetValue(1, curveId, new double[] { t }, out coor);
-                if (coor.Length >= 3) points.Add(coor);
+                if (coor.Length < 3) return false;
+                if (!IsPointOnSurface(surfaceId, coor) || Gmsh.Model.IsInside(2, surfaceId, coor, false) <= 0)
+                    return false;
             }
-            if (points.Count == 0) return -1;
-            //
-            foreach (var surfaceDimTag in surfaceDimTags)
-            {
-                bool onSurface = true;
-                foreach (double[] point in points)
-                {
-                    if (!IsPointOnSurface(surfaceDimTag.Item2, point) ||
-                        Gmsh.Model.IsInside(2, surfaceDimTag.Item2, point, false) <= 0)
-                    {
-                        onSurface = false;
-                        break;
-                    }
-                }
-                if (onSurface) return surfaceDimTag.Item2;
-            }
-            return -1;
+            return true;
         }
         /// <summary>
         /// A point strictly inside a surface and lying on it: its centre of mass where that serves, else a

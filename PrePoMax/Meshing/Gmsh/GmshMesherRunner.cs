@@ -360,6 +360,7 @@ namespace PrePoMax
                     gmshData.StlFeatureAngleDeg = _controller.Settings.General.EdgeAngle;
                 _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
                 _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
+                MakeSeamElementCountsEven(part, gmshData, partMeshingParameters);
                 gmshData.WriteToFile(gmshDataFileName);
             }
             finally
@@ -395,6 +396,45 @@ namespace PrePoMax
             if (mesh.Parts.Count != 1 || !mesh.Parts.ContainsKey(part.Name))
                 throw new CaeException("The triangular QuadWild pre-pass produced an unexpected mesh part layout.");
             return mesh;
+        }
+        // The seams of a shell compound (edges with triangles of more than two faces, including an internal edge that a
+        // rib stands on) are meshed by QuadWild with the pre-mesh nodes as quad nodes. A sheet bounded only by seams
+        // then needs an even number of them, so every seam gets an even number of elements: its local mesh size count,
+        // or its length over the maximum element size, rounded up.
+        private static void MakeSeamElementCountsEven(GeometryPart part, GmshData gmshData,
+                                                      MeshingParameters meshingParameters)
+        {
+            VisualizationData visualization = part.Visualization;
+            if (visualization == null || visualization.Cells == null || visualization.EdgeCells == null ||
+                visualization.EdgeCellIdsByEdge == null || visualization.EdgeLengths == null) return;
+            //
+            Dictionary<(int, int), int> cellEdgeCount = new Dictionary<(int, int), int>();
+            foreach (int[] cell in visualization.Cells)
+            {
+                int n = cell.Length == 6 || cell.Length == 8 ? cell.Length / 2 : cell.Length;
+                for (int i = 0; i < n; i++)
+                {
+                    int a = cell[i];
+                    int b = cell[(i + 1) % n];
+                    (int, int) key = a < b ? (a, b) : (b, a);
+                    cellEdgeCount.TryGetValue(key, out int count);
+                    cellEdgeCount[key] = count + 1;
+                }
+            }
+            for (int edgeId = 0; edgeId < visualization.EdgeCellIdsByEdge.Length; edgeId++)
+            {
+                int[] edgeCellIds = visualization.EdgeCellIdsByEdge[edgeId];
+                if (edgeCellIds == null || edgeCellIds.Length == 0) continue;
+                int[] edgeCell = visualization.EdgeCells[edgeCellIds[0]];
+                (int, int) segment = edgeCell[0] < edgeCell[1] ? (edgeCell[0], edgeCell[1]) : (edgeCell[1], edgeCell[0]);
+                if (!cellEdgeCount.TryGetValue(segment, out int useCount) || useCount <= 2) continue;
+                //
+                int key = FeMesh.GmshTopologyId(edgeId, part.PartId);
+                if (!gmshData.EdgeIdNumElements.TryGetValue(key, out int numElements))
+                    numElements = (int)Math.Round(visualization.EdgeLengths[edgeId] / meshingParameters.MaxH);
+                numElements = Math.Max(2, numElements + numElements % 2);
+                gmshData.EdgeIdNumElements[key] = numElements;
+            }
         }
         public GeneratedMeshData CreateMeshFromStl(GeometryPart part, MeshSetupItem[] meshSetupItems,
                                                         string workDirectory)

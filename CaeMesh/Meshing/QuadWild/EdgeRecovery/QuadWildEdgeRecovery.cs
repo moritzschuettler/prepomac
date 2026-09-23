@@ -35,7 +35,8 @@ namespace CaeMesh
             public int OwnerEdgeId;
             public bool IsFeature
             {
-                get { return UseCount == 1 || MaterialNames.Count > 1 || AngleDetected; }
+                // An edge shared by more than two faces is a seam of a shell compound
+                get { return UseCount != 2 || MaterialNames.Count > 1 || AngleDetected; }
             }
             public CandidateEdge(int index, int[] edgeCell)
             {
@@ -244,9 +245,6 @@ namespace CaeMesh
                     }
                     candidate.UseCount++;
                     if (!String.IsNullOrWhiteSpace(materialName)) candidate.MaterialNames.Add(materialName);
-                    if (candidate.UseCount > 2)
-                        throw new CaeException("The QuadWild output is non-manifold at the mesh edge between " +
-                                               "nodes " + key.Item1 + " and " + key.Item2 + ".");
                 }
             }
             // Angle detected creases from the imported mesh remain a feature signal next to the patch

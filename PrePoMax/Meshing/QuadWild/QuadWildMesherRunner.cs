@@ -131,6 +131,11 @@ namespace PrePoMax
             _controller.Form.WriteDataToOutput("QuadWild input: " + inputInfo.NodeCount + " nodes, " +
                                                inputInfo.FaceCount + " triangles, " +
                                                inputInfo.SharpEdgeCount + " sharp-edge segments.");
+            if (inputInfo.SeamEdgeCount > 0)
+                _controller.Form.WriteDataToOutput("QuadWild shell compound: " + inputInfo.SeamEdgeCount +
+                                                   " model edge/s shared by more than two faces are meshed as seams " +
+                                                   "between detached sheets (" +
+                                                   inputInfo.SplitNodeCoordinates.Length + " split nodes).");
             if (shellQuadWild.Preview)
             {
                 _controller.Form.WriteDataToOutput("QuadWild preview is enabled: importing the " +
@@ -196,7 +201,14 @@ namespace PrePoMax
             // through is still recognized by the freshly-written-output check.
             bool quadGenerationFailed = RunStage(part.Name, "quad generation", patchExecutable, argument,
                                                  workDirectory, unsmoothedObjFileName, smoothObjFileName);
-            QuadWildOutputInfo outputInfo = ValidateOutput(finalObjFileName);
+            // The sheets of a shell compound are meshed with coincident node copies on their seams: merge them
+            bool hasSeams = inputInfo.SeamEdgeCount > 0;
+            if (hasSeams)
+            {
+                int mergedCount = MergeSplitNodes(finalObjFileName, inputInfo.SplitNodeCoordinates);
+                _controller.Form.WriteDataToOutput("QuadWild seams: " + mergedCount + " node copies merged.");
+            }
+            QuadWildOutputInfo outputInfo = ValidateOutput(finalObjFileName, hasSeams);
             _controller.Form.WriteDataToOutput("QuadWild output: " + outputInfo.NodeCount + " nodes, " +
                                                outputInfo.QuadCount + " quadrilaterals, " +
                                                outputInfo.TriangleCount + " triangles.");
@@ -416,14 +428,97 @@ namespace PrePoMax
             }
             return faceCount;
         }
-        private static QuadWildOutputInfo ValidateOutput(string fileName)
+        // Merges the output vertices that lie at the position of a split input node into one vertex and removes the
+        // copies. The copies of a prescribed seam node are snapped to its input coordinates; QuadWild stores its quad
+        // mesh in single precision, so they match the input within the float precision and each other exactly.
+        // Returns the number of removed copies.
+        private static int MergeSplitNodes(string objFileName, double[][] splitNodeCoordinates)
         {
-            QuadWildOutputInfo outputInfo = ReadAndValidateOutput(fileName);
+            string[] lines = File.ReadAllLines(objFileName);
+            List<double[]> vertices = new List<double[]>();
+            foreach (string line in lines)
+            {
+                if (!line.StartsWith("v ")) continue;
+                string[] tmp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                vertices.Add(new double[] { double.Parse(tmp[1], NumberStyles.Float, CultureInfo.InvariantCulture),
+                                            double.Parse(tmp[2], NumberStyles.Float, CultureInfo.InvariantCulture),
+                                            double.Parse(tmp[3], NumberStyles.Float, CultureInfo.InvariantCulture) });
+            }
+            if (vertices.Count == 0 || splitNodeCoordinates.Length == 0) return 0;
+            //
+            BoundingBox box = new BoundingBox();
+            foreach (double[] vertex in vertices) box.IncludeCoor(vertex);
+            double maxAbsCoor = vertices.Max(coor => Math.Max(Math.Abs(coor[0]), Math.Max(Math.Abs(coor[1]), Math.Abs(coor[2]))));
+            double tolerance = Math.Max(Math.Max(box.GetDiagonal(), maxAbsCoor), 1E-30) * 1E-6;
+            Func<double[], (long, long, long)> cell = coor => ((long)Math.Floor(coor[0] / tolerance),
+                                                               (long)Math.Floor(coor[1] / tolerance),
+                                                               (long)Math.Floor(coor[2] / tolerance));
+            Dictionary<(long, long, long), int> cellSplitNodeIndex = new Dictionary<(long, long, long), int>();
+            for (int i = 0; i < splitNodeCoordinates.Length; i++)
+            {
+                var c = cell(splitNodeCoordinates[i]);
+                for (long dx = -1; dx <= 1; dx++)
+                    for (long dy = -1; dy <= 1; dy++)
+                        for (long dz = -1; dz <= 1; dz++)
+                            cellSplitNodeIndex[(c.Item1 + dx, c.Item2 + dy, c.Item3 + dz)] = i;
+            }
+            // New 1-based index of every vertex; the first vertex at a split node keeps it for all copies
+            int[] newIndex = new int[vertices.Count];
+            bool[] isCopy = new bool[vertices.Count];
+            Dictionary<int, int> splitNodeVertexIndex = new Dictionary<int, int>();
+            int count = 0;
+            int mergedCount = 0;
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                if (cellSplitNodeIndex.TryGetValue(cell(vertices[i]), out int splitNodeIndex))
+                {
+                    if (splitNodeVertexIndex.TryGetValue(splitNodeIndex, out int existing))
+                    {
+                        newIndex[i] = existing;
+                        isCopy[i] = true;
+                        mergedCount++;
+                        continue;
+                    }
+                    splitNodeVertexIndex.Add(splitNodeIndex, count + 1);
+                }
+                newIndex[i] = ++count;
+            }
+            if (mergedCount == 0) return 0;
+            //
+            StringBuilder output = new StringBuilder();
+            int vertexIndex = 0;
+            foreach (string line in lines)
+            {
+                if (line.StartsWith("v "))
+                {
+                    if (!isCopy[vertexIndex++]) output.AppendLine(line);
+                }
+                else if (line.StartsWith("f "))
+                {
+                    string[] tmp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    output.Append("f");
+                    for (int i = 1; i < tmp.Length; i++)
+                    {
+                        string[] parts = tmp[i].Split('/');
+                        parts[0] = newIndex[int.Parse(parts[0], CultureInfo.InvariantCulture) - 1]
+                                   .ToString(CultureInfo.InvariantCulture);
+                        output.Append(" ").Append(String.Join("/", parts));
+                    }
+                    output.AppendLine();
+                }
+                else output.AppendLine(line);
+            }
+            File.WriteAllText(objFileName, output.ToString());
+            return mergedCount;
+        }
+        private static QuadWildOutputInfo ValidateOutput(string fileName, bool allowSeams)
+        {
+            QuadWildOutputInfo outputInfo = ReadAndValidateOutput(fileName, allowSeams);
             if (outputInfo.QuadCount == 0)
                 throw new CaeException("The QuadWild output does not contain any quadrilateral elements.");
             return outputInfo;
         }
-        private static QuadWildOutputInfo ReadAndValidateOutput(string fileName)
+        private static QuadWildOutputInfo ReadAndValidateOutput(string fileName, bool allowSeams = false)
         {
             FeMesh mesh;
             try
@@ -481,7 +576,7 @@ namespace PrePoMax
                     else edgeUseCount.Add(edgeKey, 1);
                 }
             }
-            if (edgeUseCount.Values.Any(count => count > 2))
+            if (!allowSeams && edgeUseCount.Values.Any(count => count > 2))
                 throw new CaeException("The QuadWild output is non-manifold; an edge belongs to more than two faces.");
             return new QuadWildOutputInfo(mesh.Nodes.Count, triangleCount, quadCount, degenerateFaceCount);
         }
