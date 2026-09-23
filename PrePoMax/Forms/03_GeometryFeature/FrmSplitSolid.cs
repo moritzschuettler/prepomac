@@ -27,6 +27,8 @@ namespace PrePoMax.Forms
         // OK - New rebuilds the form, and the operation that was just used comes back selected
         private int _repeatTypeIndex;
         private bool _suppressAnnotateMeshTypesChanged;
+        // The split redraws the view while it replaces the parts, and the picks still name the old ones
+        private bool _splitting;
         //
         private System.ComponentModel.IContainer components;
         private ToolTip ttText;
@@ -221,7 +223,15 @@ namespace PrePoMax.Forms
             string error = geometryFeature.CheckValidity();
             if (error != null) throw new CaeException(error);
             //
-            _controller.SplitGeometryCommand(geometryFeature.DeepClone());
+            try
+            {
+                _splitting = true;
+                _controller.SplitGeometryCommand(geometryFeature.DeepClone());
+            }
+            finally
+            {
+                _splitting = false;
+            }
             // The split has changed the geometry, so the picked ids and everything read from them are
             // stale - a part that was cut has been replaced by a compound of the pieces, and a part whose
             // surfaces were divided has been renumbered, so the ids of the region name geometry that is
@@ -412,7 +422,7 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (_closing || GeometryFeature == null) return;
+                if (_closing || _splitting || GeometryFeature == null) return;
                 //
                 _controller.DrawSplitGeometrySymbols(GeometryFeature,
                                                      _selectionTarget == FeatureSelectionTargetEnum.Region);
