@@ -684,7 +684,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_tetrahedral_netgen(name, selection)` | A Netgen tetrahedral mesh item. It carries no values of its own - the mesher is driven by the meshing parameters - and exists to ask for tetrahedra on a solid part whose geometry would otherwise be meshed transfinitely or swept. |
+| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_four_sided=None, transfinite_angle=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
@@ -692,7 +692,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
 | `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. |
 | `add_shell_quad_wild(name, selection, preview=None, remesh=None, smooth=None, alpha=None, triangulation_mesher=None, scale_factor=None, flow_profile=None, keep_files_on_failure=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. Every value that is not given keeps the application default. |
-| `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_tetrahedral_netgen`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
+| `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_netgen_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
 An item the model cannot honour is **refused rather than recorded**, on an add and on a replace that
 names a new selection, and the refusal says why - a shell mesher on a solid part, an extruded mesh on
@@ -702,15 +702,17 @@ later became invalid, because the part it covered was removed, becomes valid aga
 replace points it at geometry it can be defined on: a replacement is judged by the definition it
 carries, not by the verdict of the item it replaces.
 
-`add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`, `min_size`,
-`fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `optimize_steps_2d`,
-`optimize_steps_3d`, `second_order`, `quad_dominated`, `midside_nodes_on_geometry`,
-`split_compound_mesh` and `merge_compound_parts`. Like the dialog, it derives `max_size` and
-`min_size` from the size of the selected parts, and the arguments of the call are applied on top of
-those. `replace_meshing_parameters` does the same when it is given a new `selection` and no other
-value, so the sizes follow the geometry the item now covers; a replace that also sets a value is the
-caller's and keeps everything it is not told about. This is what the dialog does when the selection
-changes and nothing was typed into the property grid.
+`add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`,
+`min_size`, `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `second_order`,
+`midside_nodes_on_geometry`, `split_compound_mesh` and `merge_compound_parts`. The Netgen settings
+`optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_four_sided` and
+`transfinite_angle` belong to `add_netgen_mesh`.
+Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
+arguments of the call are applied on top of those. `replace_meshing_parameters` does the same when
+it is given a new `selection` and no other value, so the sizes follow the geometry the item now
+covers; a replace that also sets a value is the caller's and keeps everything it is not told about.
+This is what the dialog does when the selection changes and nothing was typed into the property
+grid.
 
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
@@ -733,7 +735,7 @@ item:
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,
-`shell_quad_wild`, `thicken_shell_mesh`, `tetrahedral_netgen`, `tetrahedral_gmsh` and
+`shell_quad_wild`, `thicken_shell_mesh`, `netgen_mesh`, `tetrahedral_gmsh` and
 `transfinite_mesh` - takes a `parts`
 selection or the `geometry` those parts cover, an element size takes `geometry`, a number of
 elements takes `edges`, and an extruded, revolved or swept mesh takes `geometry_surfaces` - the

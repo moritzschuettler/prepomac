@@ -45,6 +45,9 @@ namespace CaeGlobals
                 { "CaeMesh.Meshing.GmshOptimizeFirstOrderShellEnum", "CaeMesh.GmshOptimizeFirstOrderShellEnum, CaeMesh" },
                 { "CaeMesh.Meshing.GmshOptimizeFirstOrderSolidEnum", "CaeMesh.GmshOptimizeFirstOrderSolidEnum, CaeMesh" },
                 { "CaeMesh.Meshing.GmshOptimizeHighOrderEnum", "CaeMesh.GmshOptimizeHighOrderEnum, CaeMesh" },
+                { "CaeMesh.TetrahedralNetgen", "CaeMesh.NetgenMesh, CaeMesh" },
+                { "PrePoMax.Commands.CAddTetrahedralNetgenToUncoveredParts",
+                  "PrePoMax.Commands.CAddNetgenMeshToUncoveredParts, PrePoMax" },
                 { "PrePoMax.SplitPartMeshData", "CaeMesh.SplitPartMeshData, CaeMesh" }
             };
         }

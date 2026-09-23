@@ -176,7 +176,7 @@
     <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
     <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
     <Compile Include="Meshing\Mmg\SetupItems\ShellMmg.cs" />
-    <Compile Include="Meshing\Netgen\SetupItems\TetrahedralNetgen.cs" />
+    <Compile Include="Meshing\Netgen\SetupItems\NetgenMesh.cs" />
     <Compile Include="Meshing\Base\MesherTypeEnum.cs" />
     <Compile Include="Meshing\Base\MeshSetupItem.cs" />
     <Compile Include="Nodes\MergeCoincidentNodes.cs" />

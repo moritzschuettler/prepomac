@@ -38,15 +38,30 @@ def settings(items, name):
 
 
 def test_meshing_parameters(items, selection):
-    items.add_meshing_parameters(PREFIX + "Parameters", selection, max_size=0.5, optimize_steps_2d=4)
+    items.add_meshing_parameters(PREFIX + "Parameters", selection, max_size=0.5, grading=0.4)
     # A replacement keeps the region it was created from and every value it is not told about
     items.replace_meshing_parameters(PREFIX + "Parameters", max_size=0.25)
     values = settings(items, PREFIX + "Parameters")
     check(values["max_h"] == 0.25, "the maximum size was not replaced: " + str(values["max_h"]))
-    check(values["optimize_steps2_d"] == 4, "the omitted optimization steps were not kept: " + str(values))
+    check(values["grading"] == 0.4, "the omitted grading was not kept: " + str(values))
     check(len(items[PREFIX + "Parameters"].get_geometry_ids()) > 0, "the region was lost")
-    check_raises(lambda: items.replace_meshing_parameters(PREFIX + "Parameters", optimize_steps_2d=2.5),
+
+
+def test_netgen_mesh(items, selection, shell_selection):
+    items.add_netgen_mesh(PREFIX + "Netgen", selection, optimize_steps_2d=4, transfinite_four_sided=True)
+    items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_3d=5)
+    values = settings(items, PREFIX + "Netgen")
+    check(values["optimize_steps3_d"] == 5, "the Netgen 3-D optimization steps were not replaced")
+    check(values["optimize_steps2_d"] == 4, "the omitted Netgen optimization steps were not kept: " + str(values))
+    check(values["transfinite_four_sided"] is True, "the omitted Netgen transfinite setting was not kept")
+    check(items[PREFIX + "Netgen"].mesher_type == "Netgen", "the Netgen mesh item does not select Netgen")
+    check(len(items[PREFIX + "Netgen"].get_geometry_ids()) > 0, "the Netgen region was lost")
+    check_raises(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_2d=2.5),
                  "a fractional optimization step count was accepted")
+    # The item meshes shell parts as well as solid ones
+    items.add_netgen_mesh(PREFIX + "NetgenShell", shell_selection, quad_dominated=True)
+    check(settings(items, PREFIX + "NetgenShell")["quad_dominated"] is True,
+          "the Netgen quad-dominated setting was not stored")
 
 
 def test_local_mesh_size(items, selection):
@@ -246,6 +261,7 @@ def main():
             items.remove([name])
     #
     test_meshing_parameters(items, solid_selection)
+    test_netgen_mesh(items, solid_selection, shell_selection)
     test_local_mesh_size(items, solid_selection)
     test_shell_mmg(items, shell_selection)
     test_thicken_shell(items, shell_selection)

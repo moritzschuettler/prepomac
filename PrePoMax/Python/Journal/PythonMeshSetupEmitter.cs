@@ -126,9 +126,15 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Text(shellGmsh.OptimizeFirstOrderShell.ToString()));
                 return "shell_gmsh";
             }
-            if (item is TetrahedralNetgen)
+            if (item is NetgenMesh netgenMesh)
             {
-                return "tetrahedral_netgen";
+                arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps2D));
+                arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps3D));
+                arguments.Add("quad_dominated=" + PythonValueFormatter.Format(netgenMesh.QuadDominated));
+                arguments.Add("transfinite_four_sided=" +
+                              PythonValueFormatter.Format(netgenMesh.TransfiniteFourSided));
+                arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
+                return "netgen_mesh";
             }
             if (item is TetrahedralGmsh tetrahedralGmsh)
             {
@@ -198,14 +204,11 @@ namespace PrePoMax.Python.Journal
             arguments.Add("elements_per_edge=" + PythonValueFormatter.Number(parameters.ElementsPerEdge));
             arguments.Add("elements_per_curve=" + PythonValueFormatter.Number(parameters.ElementsPerCurve));
             arguments.Add("second_order=" + PythonValueFormatter.Format(parameters.SecondOrder));
-            arguments.Add("quad_dominated=" + PythonValueFormatter.Format(parameters.QuadDominated));
             arguments.Add("midside_nodes_on_geometry=" +
                           PythonValueFormatter.Format(parameters.MidsideNodesOnGeometry));
             arguments.Add("relative_size=" + PythonValueFormatter.Format(parameters.RelativeSize));
             arguments.Add("factor_max=" + PythonValueFormatter.Number(parameters.FactorMax));
             arguments.Add("factor_min=" + PythonValueFormatter.Number(parameters.FactorMin));
-            arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(parameters.OptimizeSteps2D));
-            arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(parameters.OptimizeSteps3D));
             arguments.Add("split_compound_mesh=" + PythonValueFormatter.Format(parameters.SplitCompoundMesh));
             arguments.Add("merge_compound_parts=" +
                           PythonValueFormatter.Format(parameters.MergeCompoundParts));

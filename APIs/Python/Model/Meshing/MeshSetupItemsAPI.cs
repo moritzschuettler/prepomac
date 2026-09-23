@@ -19,10 +19,12 @@ namespace APIs.Python.Model
         private const string MeshingParameterArguments =
             "relative_size: bool = None, factor_max: float = None, factor_min: float = None, " +
             "max_size: float = None, min_size: float = None, fineness: float = None, grading: float = None, " +
-            "elements_per_edge: float = None, elements_per_curve: float = None, " +
-            "optimize_steps_2d: int = None, optimize_steps_3d: int = None, second_order: bool = None, " +
-            "quad_dominated: bool = None, midside_nodes_on_geometry: bool = None, " +
-            "split_compound_mesh: bool = None, merge_compound_parts: bool = None";
+            "elements_per_edge: float = None, elements_per_curve: float = None, second_order: bool = None, " +
+            "midside_nodes_on_geometry: bool = None, split_compound_mesh: bool = None, " +
+            "merge_compound_parts: bool = None";
+        private const string NetgenMeshArguments =
+            "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
+            "transfinite_four_sided: bool = None, transfinite_angle: float = None";
         private const string ShellMmgArguments =
             "relative_size: bool = None, relative_hausdorff: float = None, hausdorff: float = None, " +
             "keep_model_edges: bool = None";
@@ -54,11 +56,9 @@ namespace APIs.Python.Model
                                                        object min_size = null, object fineness = null,
                                                        object grading = null, object elements_per_edge = null,
                                                        object elements_per_curve = null, object second_order = null,
-                                                       object quad_dominated = null,
                                                        object midside_nodes_on_geometry = null,
                                                        object relative_size = null, object factor_max = null,
-                                                       object factor_min = null, object optimize_steps_2d = null,
-                                                       object optimize_steps_3d = null,
+                                                       object factor_min = null,
                                                        object split_compound_mesh = null,
                                                        object merge_compound_parts = null)
         {
@@ -66,9 +66,9 @@ namespace APIs.Python.Model
             _service.PrepareItem(item, name, selection);
             _service.ApplyPartDefaults(item);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
-                                   elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
-                                   relative_size, factor_max, factor_min, optimize_steps_2d, optimize_steps_3d,
-                                   split_compound_mesh, merge_compound_parts);
+                                   elements_per_curve, second_order, midside_nodes_on_geometry,
+                                   relative_size, factor_max, factor_min, split_compound_mesh,
+                                   merge_compound_parts);
             _service.AddPreparedItem(item);
             return this[name];
         }
@@ -82,24 +82,22 @@ namespace APIs.Python.Model
                                                            object min_size = null, object fineness = null,
                                                            object grading = null, object elements_per_edge = null,
                                                            object elements_per_curve = null,
-                                                           object second_order = null, object quad_dominated = null,
+                                                           object second_order = null,
                                                            object midside_nodes_on_geometry = null,
                                                            object relative_size = null, object factor_max = null,
-                                                           object factor_min = null, object optimize_steps_2d = null,
-                                                           object optimize_steps_3d = null,
+                                                           object factor_min = null,
                                                            object split_compound_mesh = null,
                                                            object merge_compound_parts = null)
         {
             MeshingParameters item = (MeshingParameters)_service.CloneItem(old_name);
             bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
-                                          elements_per_curve, second_order, quad_dominated,
-                                          midside_nodes_on_geometry, relative_size, factor_max, factor_min,
-                                          optimize_steps_2d, optimize_steps_3d, split_compound_mesh,
+                                          elements_per_curve, second_order, midside_nodes_on_geometry,
+                                          relative_size, factor_max, factor_min, split_compound_mesh,
                                           merge_compound_parts);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
-                                   elements_per_curve, second_order, quad_dominated, midside_nodes_on_geometry,
-                                   relative_size, factor_max, factor_min, optimize_steps_2d, optimize_steps_3d,
-                                   split_compound_mesh, merge_compound_parts);
+                                   elements_per_curve, second_order, midside_nodes_on_geometry,
+                                   relative_size, factor_max, factor_min, split_compound_mesh,
+                                   merge_compound_parts);
             return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
@@ -198,23 +196,35 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a Netgen tetrahedral mesh item for the selected solid parts. The mesher is driven " +
-                   "by the meshing parameters, so the item carries no values of its own.",
-                   Arguments = "name: str, selection: Selection", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_tetrahedral_netgen(string name, SelectionAPI selection)
+        [PythonAPI("Adds a Netgen mesh item for the selected solid or shell parts. The mesh size comes " +
+                   "from the meshing parameters; the item carries the settings that apply to Netgen alone.",
+                   Arguments = "name: str, selection: Selection, " + NetgenMeshArguments,
+                   Returns = "MeshSetupItem")]
+        public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection, object optimize_steps_2d = null,
+                                                object optimize_steps_3d = null, object quad_dominated = null,
+                                                object transfinite_four_sided = null,
+                                                object transfinite_angle = null)
         {
-            TetrahedralNetgen item = new TetrahedralNetgen(name);
+            NetgenMesh item = new NetgenMesh(name);
+            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_four_sided,
+                            transfinite_angle);
             _service.Add(item, name, selection);
             return this[name];
         }
 
-        [PythonAPI("Replaces a Netgen tetrahedral mesh item, keeping every value that is not given.",
-                   Arguments = "old_name: str, name: str = None, selection: Selection = None",
+        [PythonAPI("Replaces a Netgen mesh item, keeping every value that is not given.",
+                   Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
+                               NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_tetrahedral_netgen(string old_name, string name = null,
-                                                           SelectionAPI selection = null)
+        public MeshSetupItemAPI replace_netgen_mesh(string old_name, string name = null, SelectionAPI selection = null,
+                                                    object optimize_steps_2d = null, object optimize_steps_3d = null,
+                                                    object quad_dominated = null,
+                                                    object transfinite_four_sided = null,
+                                                    object transfinite_angle = null)
         {
-            TetrahedralNetgen item = (TetrahedralNetgen)_service.CloneItem(old_name);
+            NetgenMesh item = (NetgenMesh)_service.CloneItem(old_name);
+            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_four_sided,
+                            transfinite_angle);
             return Replace(old_name, name, item, selection);
         }
 
@@ -627,10 +637,9 @@ namespace APIs.Python.Model
         }
         private static void ApplyMeshingParameters(MeshingParameters item, object maxSize, object minSize,
                                                    object fineness, object grading, object elementsPerEdge,
-                                                   object elementsPerCurve, object secondOrder, object quadDominated,
+                                                   object elementsPerCurve, object secondOrder,
                                                    object midsideNodesOnGeometry, object relativeSize,
-                                                   object factorMax, object factorMin, object optimizeSteps2D,
-                                                   object optimizeSteps3D, object splitCompoundMesh,
+                                                   object factorMax, object factorMin, object splitCompoundMesh,
                                                    object mergeCompoundParts)
         {
             if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
@@ -644,14 +653,8 @@ namespace APIs.Python.Model
                 item.ElementsPerEdge = PythonValueConverter.ToFiniteDouble(elementsPerEdge, "elements_per_edge");
             if (elementsPerCurve != null)
                 item.ElementsPerCurve = PythonValueConverter.ToFiniteDouble(elementsPerCurve, "elements_per_curve");
-            if (optimizeSteps2D != null)
-                item.OptimizeSteps2D = PythonValueConverter.ToInt(optimizeSteps2D, "optimize_steps_2d");
-            if (optimizeSteps3D != null)
-                item.OptimizeSteps3D = PythonValueConverter.ToInt(optimizeSteps3D, "optimize_steps_3d");
             if (secondOrder != null)
                 item.SecondOrder = PythonValueConverter.ToBool(secondOrder, "second_order");
-            if (quadDominated != null)
-                item.QuadDominated = PythonValueConverter.ToBool(quadDominated, "quad_dominated");
             if (midsideNodesOnGeometry != null)
                 item.MidsideNodesOnGeometry = PythonValueConverter.ToBool(midsideNodesOnGeometry,
                                                                           "midside_nodes_on_geometry");
@@ -659,6 +662,21 @@ namespace APIs.Python.Model
                 item.SplitCompoundMesh = PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh");
             if (mergeCompoundParts != null)
                 item.MergeCompoundParts = PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts");
+        }
+        private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
+                                            object quadDominated, object transfiniteFourSided,
+                                            object transfiniteAngle)
+        {
+            if (optimizeSteps2D != null)
+                item.OptimizeSteps2D = PythonValueConverter.ToInt(optimizeSteps2D, "optimize_steps_2d");
+            if (optimizeSteps3D != null)
+                item.OptimizeSteps3D = PythonValueConverter.ToInt(optimizeSteps3D, "optimize_steps_3d");
+            if (quadDominated != null)
+                item.QuadDominated = PythonValueConverter.ToBool(quadDominated, "quad_dominated");
+            if (transfiniteFourSided != null)
+                item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
+            if (transfiniteAngle != null)
+                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle");
         }
         private static void ApplyShellMmg(ShellMmg item, object relativeSize, object relativeHausdorff,
                                           object hausdorff, object keepModelEdges)

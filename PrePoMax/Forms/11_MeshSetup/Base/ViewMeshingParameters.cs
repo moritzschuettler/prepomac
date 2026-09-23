@@ -120,19 +120,6 @@ namespace PrePoMax.Forms
         [TypeConverter(typeof(StringDoubleConverter))]
         [Id(8, 3)]
         public double ElementsPerCurve { get { return _parameters.ElementsPerCurve; } set { _parameters.ElementsPerCurve = value; } }
-        [Category("Mesh optimization")]
-        [OrderedDisplayName(0, 10, "Optimize steps 2D")]
-        [Description("Number of optimize steps to use for 2-D mesh optimization.")]
-        [Id(1, 4)]
-        public int OptimizeSteps2D { get { return _parameters.OptimizeSteps2D; } set { _parameters.OptimizeSteps2D = value; } }
-        //
-        [Category("Mesh optimization")]
-        [OrderedDisplayName(1, 10, "Optimize steps 3D")]
-        [Description("Number of optimize steps to use for 3-D mesh optimization.")]
-        [Id(2, 4)]
-        public int OptimizeSteps3D { get { return _parameters.OptimizeSteps3D; } set { _parameters.OptimizeSteps3D = value; } }
-        //
-        //
         [Category("Mesh type")]
         [OrderedDisplayName(0, 10, "Second order")]
         [Description("Create second order elements.")]
@@ -152,13 +139,6 @@ namespace PrePoMax.Forms
         [Description("Create midside nodes on geometry.")]
         [Id(2, 5)]
         public bool MidsideNodesOnGeometry { get { return _parameters.MidsideNodesOnGeometry; } set { _parameters.MidsideNodesOnGeometry = value; } }
-        //
-        [Category("Mesh type")]
-        [OrderedDisplayName(2, 10, "Quad-dominated mesh")]
-        [Description("Use quad-dominated mesh for shell parts.")]
-        [Id(3, 5)]
-        public bool QuadDominated { get { return _parameters.QuadDominated; } set { _parameters.QuadDominated = value; } }
-        //
         //
         [Category("Mesh operations")]
         [OrderedDisplayName(0, 10, "Split compound mesh")]
@@ -222,7 +202,6 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanProperty(nameof(Relative), "Relative", "Absolute");
             _dctd.RenameBooleanPropertyToYesNo(nameof(SecondOrder));
             _dctd.RenameBooleanPropertyToYesNo(nameof(MidsideNodesOnGeometry));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(QuadDominated));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SplitCompoundMesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(MergeCompoundParts));
             //
@@ -247,11 +226,8 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(Grading)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(ElementsPerEdge)).SetIsBrowsable(true);
             _dctd.GetProperty(nameof(ElementsPerCurve)).SetIsBrowsable(true);
-            _dctd.GetProperty(nameof(OptimizeSteps2D)).SetIsBrowsable(advanced);
-            _dctd.GetProperty(nameof(OptimizeSteps3D)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(SecondOrder)).SetIsBrowsable(true);
             _dctd.GetProperty(nameof(MidsideNodesOnGeometry)).SetIsBrowsable(_parameters.SecondOrder && advanced);
-            _dctd.GetProperty(nameof(QuadDominated)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(SplitCompoundMesh)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(MergeCompoundParts)).SetIsBrowsable(advanced);
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;

@@ -44,6 +44,8 @@ namespace CaeMesh
         private double _elementsPerCurve;           //ISerializable
         private bool _secondOrder;                  //ISerializable
         private bool _quadDominated;                //ISerializable
+        private bool _transfiniteFourSided;         //ISerializable
+        private double _transfiniteAngleDeg;        //ISerializable
         private bool _midsideNodesOnGeometry;       //ISerializable
         private int _optimizeSteps2D;               //ISerializable
         private int _optimizeSteps3D;               //ISerializable
@@ -138,6 +140,17 @@ namespace CaeMesh
         //
         public bool SecondOrder { get { return _secondOrder; } set { _secondOrder = value; } }
         public bool QuadDominated { get { return _quadDominated; } set { _quadDominated = value; } }
+        public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
+        public double TransfiniteAngleDeg
+        {
+            get { return _transfiniteAngleDeg; }
+            set
+            {
+                if (value <= 0) throw new Exception("The value must be larger than 0.");
+                if (value >= 180) throw new Exception("The value must be smaller than 180.");
+                _transfiniteAngleDeg = value;
+            }
+        }
         public bool MidsideNodesOnGeometry { get { return _midsideNodesOnGeometry; } set { _midsideNodesOnGeometry = value; } }
         //
         public int OptimizeSteps2D 
@@ -193,6 +206,10 @@ namespace CaeMesh
         public MeshingParameters(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            // Compatibility for version v2.6.3
+            _transfiniteFourSided = false;
+            _transfiniteAngleDeg = 135;
+            //
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -227,6 +244,10 @@ namespace CaeMesh
                         _secondOrder = (bool)entry.Value; break;
                     case "_quadDominated":
                         _quadDominated = (bool)entry.Value; break;
+                    case "_transfiniteFourSided":
+                        _transfiniteFourSided = (bool)entry.Value; break;
+                    case "_transfiniteAngleDeg":
+                        _transfiniteAngleDeg = (double)entry.Value; break;
                     case "_midsideNodesOnGeometry":
                         _midsideNodesOnGeometry = (bool)entry.Value; break;
                     case "_optimizeSteps2D":
@@ -267,6 +288,8 @@ namespace CaeMesh
             _optimizeSteps3D = 3;
             _secondOrder = true;
             _quadDominated = false;
+            _transfiniteFourSided = false;
+            _transfiniteAngleDeg = 135;
             _midsideNodesOnGeometry = false;
             _splitCompoundMesh = false;
             _mergeCompoundParts = false;
@@ -340,6 +363,12 @@ namespace CaeMesh
             sb.AppendLine("int      parallel_meshing_threads    ... Positive integer: 1 = serial, " +
                           "greater than 1 = parallel worker count.");
             sb.AppendLine(parallelMeshingThreads.ToString());
+            sb.AppendLine("int      transfinite_faces           ... Mesh 4-sided faces with matching opposite edge divisions " +
+                          "as structured grids.");
+            sb.AppendLine(Convert.ToInt32(_transfiniteFourSided).ToString());
+            sb.AppendLine("double   transfinite_angle           ... A vertex is a corner of a transfinite face where its " +
+                          "edges meet at less than this angle in degrees.");
+            sb.AppendLine(_transfiniteAngleDeg.ToString());
             //
             //Encoding encoding = Encoding.Unicode;
             System.IO.File.WriteAllText(fileName, sb.ToString());
@@ -365,6 +394,8 @@ namespace CaeMesh
             _optimizeSteps3D = meshingParameters.OptimizeSteps3D;
             _secondOrder = meshingParameters.SecondOrder;
             _quadDominated = meshingParameters.QuadDominated;
+            _transfiniteFourSided = meshingParameters.TransfiniteFourSided;
+            _transfiniteAngleDeg = meshingParameters.TransfiniteAngleDeg;
             _midsideNodesOnGeometry = meshingParameters.MidsideNodesOnGeometry;
             _splitCompoundMesh = meshingParameters.SplitCompoundMesh;
             _mergeCompoundParts = meshingParameters.MergeCompoundParts;
@@ -395,6 +426,8 @@ namespace CaeMesh
             if (meshingParameters1._optimizeSteps3D != meshingParameters2._optimizeSteps3D) return false;
             if (meshingParameters1._secondOrder != meshingParameters2._secondOrder) return false;
             if (meshingParameters1._quadDominated != meshingParameters2._quadDominated) return false;
+            if (meshingParameters1._transfiniteFourSided != meshingParameters2._transfiniteFourSided) return false;
+            if (meshingParameters1._transfiniteAngleDeg != meshingParameters2._transfiniteAngleDeg) return false;
             if (meshingParameters1._midsideNodesOnGeometry != meshingParameters2._midsideNodesOnGeometry) return false;
             if (meshingParameters1._splitCompoundMesh != meshingParameters2._splitCompoundMesh) return false;
             if (meshingParameters1._mergeCompoundParts != meshingParameters2._mergeCompoundParts) return false;
@@ -420,6 +453,8 @@ namespace CaeMesh
             info.AddValue("_elementsPerCurve", _elementsPerCurve, typeof(double));
             info.AddValue("_secondOrder", _secondOrder, typeof(bool));
             info.AddValue("_quadDominated", _quadDominated, typeof(bool));
+            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
+            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
             info.AddValue("_midsideNodesOnGeometry", _midsideNodesOnGeometry, typeof(bool));
             info.AddValue("_optimizeSteps2D", _optimizeSteps2D, typeof(int));
             info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));

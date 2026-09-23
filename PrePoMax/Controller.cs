@@ -1002,18 +1002,18 @@ namespace PrePoMax
             _defaultMeshTypesDisabled = _openedPmxVersion > 0 && _openedPmxVersion < 2_006_003;
             if (_defaultMeshTypesDisabled)
             {
-                TetrahedralNetgen tetrahedralNetgen = CreateTetrahedralNetgenForUncoveredSolidParts();
-                // The model tree is built after the compatibility, so the item is placed rather than added
-                if (tetrahedralNetgen != null)
+                // The model tree is built after the compatibility, so the items are placed rather than added
+                foreach (var netgenMesh in CreateNetgenMeshesForUncoveredParts())
                 {
-                    _model.Geometry.MeshSetupItems.Add(tetrahedralNetgen.Name, tetrahedralNetgen);
-                    WriteTetrahedralNetgenCompatibilityToOutput(tetrahedralNetgen);
+                    _model.Geometry.MeshSetupItems.Add(netgenMesh.Name, netgenMesh);
+                    WriteNetgenMeshCompatibilityToOutput(netgenMesh);
                 }
             }
         }
         /// <summary>
         /// Meshes a part the user defined no mesh setup item for by Netgen tetrahedra, whatever mesh its
-        /// geometry supports, which is how PrePoMax meshed before v2.6.3. It is turned on for a model read
+        /// geometry supports, and with the Netgen settings of its meshing parameters rather than those of a
+        /// Netgen item, which is how PrePoMax meshed before v2.6.3. It is turned on for a model read
         /// from a file written by such a version, and by the command that stands at the head of the command
         /// history of that model, so that regenerating it produces the mesh it was built with.
         /// </summary>
@@ -1022,18 +1022,20 @@ namespace PrePoMax
             _defaultMeshTypesDisabled = true;
         }
         /// <summary>
-        /// The solid parts that no mesh setup item meshes, named as they are meshed - a compound part stands
-        /// for its sub-parts, since they are meshed as one. A model built before v2.6.3 meshed every one of
-        /// them by Netgen tetrahedra, whatever mesh its geometry could carry, so these are the parts such a
-        /// model needs the Netgen item for: without it they would now be swept or meshed transfinitely, and
-        /// the mesh the model was built on would change under the sets, the boundary conditions and the loads.
+        /// The solid and shell parts that no mesh setup item meshes, named as they are meshed - a compound part
+        /// stands for its sub-parts, since they are meshed as one. A model built before v2.6.3 meshed every one
+        /// of them by Netgen, a solid part by tetrahedra whatever mesh its geometry could carry, and with the
+        /// Netgen settings its meshing parameters carried. So these are the parts such a model needs the Netgen
+        /// item for: without it a solid part would now be swept or meshed transfinitely, a part would lose the
+        /// Netgen settings it was meshed with, and the mesh the model was built on would change under the sets,
+        /// the boundary conditions and the loads.
         /// </summary>
-        private string[] GetSolidPartNamesWithoutMesherSetupItem()
+        private string[] GetPartNamesWithoutMesherSetupItem()
         {
             List<string> partNames = new List<string>();
             if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return partNames.ToArray();
             //
-            bool solid;
+            bool meshedByNetgen;
             BasePart meshablePart;
             GeometryPart part;
             string[] meshablePartNames;
@@ -1046,18 +1048,19 @@ namespace PrePoMax
                 //
                 meshablePartNames = GetMeshablePartNames(new string[] { part.Name });
                 if (meshablePartNames == null || meshablePartNames.Length == 0) continue;
-                // Only a solid part is meshed by another mesher than the one that meshed it before
-                solid = true;
+                // Only a solid or a shell part is meshed by Netgen without an item
+                meshedByNetgen = true;
                 foreach (var meshablePartName in meshablePartNames)
                 {
                     if (!_model.Geometry.Parts.TryGetValue(meshablePartName, out meshablePart) ||
-                        (meshablePart.PartType != PartType.Solid && meshablePart.PartType != PartType.SolidAsShell))
+                        (meshablePart.PartType != PartType.Solid && meshablePart.PartType != PartType.SolidAsShell &&
+                         meshablePart.PartType != PartType.Shell))
                     {
-                        solid = false;
+                        meshedByNetgen = false;
                         break;
                     }
                 }
-                if (!solid) continue;
+                if (!meshedByNetgen) continue;
                 if (GetUserMesherSetupItems(part.Name).Length > 0) continue;
                 //
                 partNames.Add(part.Name);
@@ -1065,54 +1068,74 @@ namespace PrePoMax
             return partNames.ToArray();
         }
         /// <summary>
-        /// Builds the Netgen tetrahedral item for the solid parts that are still without a mesh setup item,
-        /// or null when there is none. The parts are read from the model as it stands, so the command that
-        /// closes the history of an older model reaches the same ones the reading of that model reached.
+        /// Builds the Netgen items for the parts that are still without a mesh setup item, one for each set of
+        /// Netgen settings the meshing parameters give those parts, or none when there is no such part. The
+        /// parts are read from the model as it stands, so the command that closes the history of an older model
+        /// reaches the same ones the reading of that model reached.
         /// </summary>
-        private TetrahedralNetgen CreateTetrahedralNetgenForUncoveredSolidParts()
+        private List<NetgenMesh> CreateNetgenMeshesForUncoveredParts()
         {
-            if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return null;
+            List<NetgenMesh> netgenMeshes = new List<NetgenMesh>();
+            if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return netgenMeshes;
             //
-            List<int> partIds = new List<int>();
-            foreach (var partName in GetSolidPartNamesWithoutMesherSetupItem())
+            NetgenMesh partNetgenMesh;
+            NetgenMesh netgenMesh;
+            Dictionary<NetgenMesh, List<int>> partIdsByNetgenMesh = new Dictionary<NetgenMesh, List<int>>();
+            foreach (var partName in GetPartNamesWithoutMesherSetupItem())
             {
-                partIds.AddRange(
+                partNetgenMesh = new NetgenMesh("tmpName");
+                partNetgenMesh.CopyNetgenValuesFrom(GetPartMeshingParameters(partName));
+                //
+                netgenMesh = netgenMeshes.FirstOrDefault(item => item.HasSameNetgenValues(partNetgenMesh));
+                if (netgenMesh == null)
+                {
+                    netgenMesh = partNetgenMesh;
+                    netgenMeshes.Add(netgenMesh);
+                    partIdsByNetgenMesh.Add(netgenMesh, new List<int>());
+                }
+                partIdsByNetgenMesh[netgenMesh].AddRange(
                     _model.Geometry.GetPartIdsFomPartNames(GetMeshablePartNames(new string[] { partName })));
             }
-            if (partIds.Count == 0) return null;
             //
-            TetrahedralNetgen tetrahedralNetgen =
-                new TetrahedralNetgen(_model.Geometry.MeshSetupItems.GetNextNumberedKey("Tetrahedral_Netgen"));
-            tetrahedralNetgen.CreationIds = partIds.ToArray();
+            Selection selection;
+            HashSet<string> names = new HashSet<string>(_model.Geometry.MeshSetupItems.Keys);
+            foreach (var item in netgenMeshes)
+            {
+                item.Name = names.GetNextNumberedKey("Netgen_Mesh");
+                names.Add(item.Name);
+                item.CreationIds = partIdsByNetgenMesh[item].ToArray();
+                //
+                selection = new Selection();
+                selection.CurrentView = (int)ViewGeometryModelResults.Geometry;
+                selection.SelectItem = vtkSelectItem.Part;
+                selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false, item.CreationIds));
+                item.CreationData = selection;
+            }
             //
-            Selection selection = new Selection();
-            selection.CurrentView = (int)ViewGeometryModelResults.Geometry;
-            selection.SelectItem = vtkSelectItem.Part;
-            selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false, tetrahedralNetgen.CreationIds));
-            tetrahedralNetgen.CreationData = selection;
-            //
-            return tetrahedralNetgen;
+            return netgenMeshes;
         }
         /// <summary>
-        /// Adds the Netgen tetrahedral item of an older model while its command history is replayed. It is
-        /// called by the command the history carries in front of every meshing command.
+        /// Adds the Netgen items of an older model while its command history is replayed. It is called by the
+        /// command that closes the history of such a model.
         /// </summary>
-        public TetrahedralNetgen AddTetrahedralNetgenToUncoveredSolidParts()
+        public NetgenMesh[] AddNetgenMeshesToUncoveredParts()
         {
-            TetrahedralNetgen tetrahedralNetgen = CreateTetrahedralNetgenForUncoveredSolidParts();
-            if (tetrahedralNetgen == null) return null;
+            List<NetgenMesh> netgenMeshes = CreateNetgenMeshesForUncoveredParts();
+            foreach (var netgenMesh in netgenMeshes)
+            {
+                AddMeshSetupItem(netgenMesh);
+                WriteNetgenMeshCompatibilityToOutput(netgenMesh);
+            }
             //
-            AddMeshSetupItem(tetrahedralNetgen);
-            WriteTetrahedralNetgenCompatibilityToOutput(tetrahedralNetgen);
-            //
-            return tetrahedralNetgen;
+            return netgenMeshes.ToArray();
         }
-        private void WriteTetrahedralNetgenCompatibilityToOutput(TetrahedralNetgen tetrahedralNetgen)
+        private void WriteNetgenMeshCompatibilityToOutput(NetgenMesh netgenMesh)
         {
             _form.WriteDataToOutput("Compatibility: the model was created by a version of PrePoMax in which a " +
-                                    "solid part without a mesh setup item was meshed by Netgen tetrahedra. The " +
-                                    "mesh setup item " + tetrahedralNetgen.Name + " was added to keep that mesh " +
-                                    "for " + tetrahedralNetgen.CreationIds.Length + " part/s.");
+                                    "part without a mesh setup item was meshed by Netgen with the Netgen " +
+                                    "settings of the meshing parameters. The mesh setup item " + netgenMesh.Name +
+                                    " was added to keep that mesh for " + netgenMesh.CreationIds.Length +
+                                    " part/s.");
         }
         /// <summary>
         /// Gives the command history of a model built before v2.6.3 the two commands that keep its mesh. The
@@ -1139,7 +1162,7 @@ namespace PrePoMax
             //
             commandsCollection.InsertCommand(0, new CDisableDefaultMeshTypes());
             commandsCollection.InsertCommand(commandsCollection.Commands.Count,
-                                             new CAddTetrahedralNetgenToUncoveredParts());
+                                             new CAddNetgenMeshToUncoveredParts());
         }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
         {
@@ -7962,6 +7985,11 @@ namespace PrePoMax
                     }
                 }
             }
+            // The Netgen settings are those of the Netgen item, and only an older model meshes a part without
+            // one by the settings its meshing parameters carry
+            NetgenMesh netgenMesh = GetUserMesherSetupItems(partName, meshSetupItems).FirstOrDefault() as NetgenMesh;
+            if (netgenMesh == null && !_defaultMeshTypesDisabled) netgenMesh = new NetgenMesh("Default");
+            if (netgenMesh != null) netgenMesh.CopyNetgenValuesTo(meshingParameters);
             // Allow a quad dominated mesh only for shells
             if (_model.Geometry.Parts[partName].PartType != PartType.Shell) meshingParameters.QuadDominated = false;
             //
@@ -9463,7 +9491,7 @@ namespace PrePoMax
                                                            mesherSetupItem is SweepMesh ? partIds : meshedPartIds))
                         continue;
                     //
-                    meshType = GetMeshTypeOfMeshSetupItem(mesherSetupItem);
+                    meshType = GetMeshTypeOfMeshSetupItem(mesherSetupItem, part);
                     break;
                 }
                 if (meshType == MeshTypeEnum.Unknown) meshType = part.MeshType;
@@ -9472,12 +9500,13 @@ namespace PrePoMax
             }
             return effectiveMeshTypes;
         }
-        private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem)
+        private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem, GeometryPart part)
         {
             if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
             else if (meshSetupItem is SweepMesh) return MeshTypeEnum.Sweep;
-            else if (meshSetupItem is TetrahedralNetgen || meshSetupItem is TetrahedralGmsh)
-                return MeshTypeEnum.Tetrahedral;
+            else if (meshSetupItem is TetrahedralGmsh) return MeshTypeEnum.Tetrahedral;
+            // A shell part Netgen meshes is colored as any other shell part
+            else if (meshSetupItem is NetgenMesh && part.PartType != PartType.Shell) return MeshTypeEnum.Tetrahedral;
             else return MeshTypeEnum.Other;
         }
         /// <summary>
@@ -25178,7 +25207,7 @@ namespace PrePoMax
         {
             if (meshSetupItem is MeshingParameters || meshSetupItem is ShellMmg ||
                 meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
-                meshSetupItem is ThickenShellMesh || meshSetupItem is TetrahedralNetgen ||
+                meshSetupItem is ThickenShellMesh || meshSetupItem is NetgenMesh ||
                 meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
             else if (meshSetupItem is LocalMeshSize lms) HighlightLocalMeshSize(lms, highlightNodes, useSecondaryHighlightColor);

@@ -625,12 +625,12 @@ namespace CaeMesh
                     SetItemValidity(tsm, valid, items);
                     if (!valid && tsm.Active) invalidItems.Add("Thicken shell mesh: " + tsm.Name);
                 }
-                else if (entry.Value is TetrahedralNetgen tn)
+                else if (entry.Value is NetgenMesh nm)
                 {
-                    valid = tn.Valid;              // this is set to invalid after deleting a part
-                    if (!valid) tn.Valid = true;   // set this to true to detect a change in validity
+                    valid = nm.Valid;              // this is set to invalid after deleting a part
+                    if (!valid) nm.Valid = true;   // set this to true to detect a change in validity
                     //
-                    string[] partNames = GetPartNamesFromPartOrGeometryIds(tn.CreationIds);
+                    string[] partNames = GetPartNamesFromPartOrGeometryIds(nm.CreationIds);
                     if (partNames == null || partNames.Length == 0) valid &= false;
                     else
                     {
@@ -644,8 +644,8 @@ namespace CaeMesh
                         }
                     }
                     //
-                    SetItemValidity(tn, valid, items);
-                    if (!valid && tn.Active) invalidItems.Add("Tetrahedral Netgen: " + tn.Name);
+                    SetItemValidity(nm, valid, items);
+                    if (!valid && nm.Active) invalidItems.Add("Netgen mesh: " + nm.Name);
                 }
                 else if (entry.Value is TetrahedralGmsh tg)
                 {
@@ -8604,7 +8604,7 @@ namespace CaeMesh
             {
                 if (entry.Value is MeshingParameters || entry.Value is ShellMmg ||
                     entry.Value is ShellGmsh || entry.Value is ShellQuadWild ||
-                    entry.Value is ThickenShellMesh || entry.Value is TetrahedralNetgen ||
+                    entry.Value is ThickenShellMesh || entry.Value is NetgenMesh ||
                     entry.Value is TetrahedralGmsh || entry.Value is TransfiniteMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))
