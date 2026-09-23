@@ -4642,7 +4642,15 @@ namespace PrePoMax
             }
             // A sub part named on its own is one solid of the brep of its compound, so that brep has to
             // lose the solid as well, and the compound may stop being one
-            bool compoundChanged = RemoveCompoundSubParts(partNamesToRemove, compoundPartNamesToRemove);
+            List<CompoundGeometryPart> changedSplitCompounds = new List<CompoundGeometryPart>();
+            bool compoundChanged = RemoveCompoundSubParts(partNamesToRemove, compoundPartNamesToRemove,
+                                                          changedSplitCompounds);
+            // The cell left alone by a split compound that goes takes the name of its sub part while the
+            // compound still says whose cell it is
+            foreach (var splitCompound in changedSplitCompounds)
+            {
+                if (compoundPartNamesToRemove.Contains(splitCompound.Name)) RenameSplitCells(splitCompound);
+            }
             // Use a list fo remove the compound parts as last
             List<string> orderedPartsToRemove = new List<string>(partNamesToRemove);
             orderedPartsToRemove.AddRange(compoundPartNamesToRemove);
@@ -4662,6 +4670,16 @@ namespace PrePoMax
             if (checkValidity) CheckAndUpdateModelValidity(true);
             //
             DrawGeometry(false);
+            // The cells that are left are numbered again once the deleted ones have given up their names,
+            // in the model and in the scene
+            bool cellsRenamed = false;
+            foreach (var splitCompound in changedSplitCompounds)
+            {
+                if (!_model.Geometry.Parts.ContainsKey(splitCompound.Name)) continue;
+                RenameSplitCells(splitCompound);
+                cellsRenamed = true;
+            }
+            if (cellsRenamed) _form.RegenerateTree();
         }
         /// <summary>
         /// Takes the sub parts that are being removed out of the compounds that hold them. A sub part is
@@ -4672,7 +4690,8 @@ namespace PrePoMax
         /// which leaves that sub part standing on its own; one left holding none goes with them.
         /// </summary>
         private bool RemoveCompoundSubParts(HashSet<string> partNamesToRemove,
-                                            HashSet<string> compoundPartNamesToRemove)
+                                            HashSet<string> compoundPartNamesToRemove,
+                                            List<CompoundGeometryPart> changedSplitCompounds)
         {
             bool compoundChanged = false;
             //
@@ -4692,6 +4711,7 @@ namespace PrePoMax
                 if (solidIds.Count == 0) continue;
                 //
                 compoundChanged = true;
+                if (compoundPart.CreatedBySplit) changedSplitCompounds.Add(compoundPart);
                 // One solid is not a compound and no solid is nothing, so either way the compound itself
                 // goes and whatever is left of it stands on its own
                 if (remainingSubPartNames.Count <= 1)
