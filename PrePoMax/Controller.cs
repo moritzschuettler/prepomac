@@ -4102,7 +4102,13 @@ namespace PrePoMax
             bool nameChanged = oldPartName != newPartProperties.Name;
             GeometryPart geomPart = GetGeometryPart(oldPartName);
             if (nameChanged)
-                CheckName(oldPartName, newPartProperties.Name, _model.GetReservedPartNames(), "part");
+            {
+                HashSet<string> reservedNames = _model.GetReservedPartNames();
+                // A cell may carry the name of its sub part, which is the only reservation of that name
+                string cellSubPartName = GetSplitSubPartNameOfCell(oldPartName);
+                if (cellSubPartName != null) reservedNames.Remove(cellSubPartName);
+                CheckName(oldPartName, newPartProperties.Name, reservedNames, "part");
+            }
             // Replace geometry part
             geomPart.SetProperties(newPartProperties);
             _model.Geometry.Parts.Replace(oldPartName, geomPart.Name, geomPart);
@@ -4118,6 +4124,10 @@ namespace PrePoMax
                             if (cgp.SubPartNames[i] == oldPartName)
                             {
                                 cgp.SubPartNames[i] = newPartProperties.Name;
+                                // The only cell of a sub part is the sub part, so its name is the sub part's
+                                if (cgp.CreatedBySplit && cgp.CellSubPartNames[i] == oldPartName &&
+                                    cgp.GetCellNames(oldPartName).Length == 1)
+                                    cgp.CellSubPartNames[i] = newPartProperties.Name;
                                 break;
                             }
                         }
@@ -6297,6 +6307,8 @@ namespace PrePoMax
             HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
                                                                 StringComparer.OrdinalIgnoreCase);
             reservedNames.ExceptWith(cellNames);
+            // The name of a sub part is reserved for it, and its only cell is that sub part
+            reservedNames.ExceptWith(compoundPart.GetSplitSubPartNames());
             //
             Dictionary<string, int> cellCounts = new Dictionary<string, int>();
             string[] newCellNames = new string[cellNames.Length];
@@ -6306,12 +6318,16 @@ namespace PrePoMax
                 string subPartName = compoundPart.CellSubPartNames[i];
                 if (subPartName == null) { newCellNames[i] = cellNames[i]; continue; }
                 //
-                int count;
-                cellCounts.TryGetValue(subPartName, out count);
                 string newCellName;
-                do newCellName = subPartName + "_cell-" + (++count);
-                while (reservedNames.Contains(newCellName));
-                cellCounts[subPartName] = count;
+                if (compoundPart.GetCellNames(subPartName).Length == 1) newCellName = subPartName;
+                else
+                {
+                    int count;
+                    cellCounts.TryGetValue(subPartName, out count);
+                    do newCellName = subPartName + "_cell-" + (++count);
+                    while (reservedNames.Contains(newCellName));
+                    cellCounts[subPartName] = count;
+                }
                 reservedNames.Add(newCellName);
                 newCellNames[i] = newCellName;
                 //
@@ -8768,6 +8784,16 @@ namespace PrePoMax
             //
             string firstCellName = splitCompoundPart.GetCellNames(meshPartName).FirstOrDefault();
             return firstCellName == null ? null : GetGeometryPart(firstCellName);
+        }
+        private string GetSplitSubPartNameOfCell(string cellName)
+        {
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                int index = Array.IndexOf(compoundPart.SubPartNames, cellName);
+                if (index >= 0) return compoundPart.CellSubPartNames[index];
+            }
+            return null;
         }
         private CompoundGeometryPart GetSplitCompoundOfSubPart(string subPartName)
         {

@@ -4061,10 +4061,13 @@ namespace UserControls
                     if (context.View == ViewType.Geometry && value is CompoundGeometryPart compoundPart)
                     {
                         // The cells of a split compound are gathered under the part each of them was cut
-                        // from, and those parts start collapsed, since a part may be cut into many cells
+                        // from, and those parts start collapsed, since a part may be cut into many cells.
+                        // A part the split did not cut is its only cell and is shown as that cell
                         Dictionary<string, TreeNode> splitSubPartNodes = new Dictionary<string, TreeNode>();
                         foreach (string splitSubPartName in compoundPart.GetSplitSubPartNames())
                         {
+                            if (compoundPart.GetCellNames(splitSubPartName).Length < 2) continue;
+                            //
                             TreeNode splitSubPartNode = itemNode.Nodes.Add(splitSubPartName);
                             splitSubPartNode.Name = splitSubPartNode.Text;
                             _splitSubPartNodes[splitSubPartNode] = compoundPart.Name;
@@ -4080,7 +4083,8 @@ namespace UserControls
                             //
                             TreeNode parentOfSubPartNode = itemNode;
                             string splitSubPartName = compoundPart.CellSubPartNames?[i];
-                            if (splitSubPartName != null) parentOfSubPartNode = splitSubPartNodes[splitSubPartName];
+                            if (splitSubPartName != null && splitSubPartNodes.ContainsKey(splitSubPartName))
+                                parentOfSubPartNode = splitSubPartNodes[splitSubPartName];
                             //
                             TreeNode subPartNode = parentOfSubPartNode.Nodes.Add(subPartName);
                             subPartNode.Name = subPartNode.Text;
