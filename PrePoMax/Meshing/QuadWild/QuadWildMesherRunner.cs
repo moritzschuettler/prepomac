@@ -136,6 +136,12 @@ namespace PrePoMax
                                                    " model edge/s shared by more than two faces are meshed as seams " +
                                                    "between detached sheets (" +
                                                    inputInfo.SplitNodeCoordinates.Length + " split nodes).");
+            if (inputInfo.SeamEdgeCount > 0 && shellQuadWild.TriangulationMesher != MesherTypeEnum.Gmsh)
+                _controller.Form.WriteDataToOutput("Warning: only the Gmsh triangulation gives every seam an even " +
+                                                   "number of elements. With " +
+                                                   GetMesherName(shellQuadWild.TriangulationMesher) +
+                                                   " a sheet bounded only by seams can have an odd number of " +
+                                                   "seam segments, which QuadWild cannot mesh with quads.");
             if (shellQuadWild.Preview)
             {
                 _controller.Form.WriteDataToOutput("QuadWild preview is enabled: importing the " +
@@ -169,7 +175,7 @@ namespace PrePoMax
             string argument = Quote(objFileName) + " 2 " + Quote(prepConfigFileName) + " " + Quote(sharpFileName);
             bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
                                               workDirectory, tracedFileNames);
-            EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName);
+            EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName, inputInfo.SeamEdgeCount > 0);
             string flowTemplateName;
             if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.Aligned) flowTemplateName = "flow.txt";
             else if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.NoAlignment)
@@ -403,7 +409,7 @@ namespace PrePoMax
         // The tracer deletes every patch it could not make disk-like and then reports success, so a model
         // that lost most of its surface still leaves a readable but almost empty traced mesh behind. Tracing
         // splits triangles and never removes them, so a drop in the triangle count means patches were erased.
-        private static void EnsureNoPatchesErased(string preparedObjFileName, string tracedObjFileName)
+        private static void EnsureNoPatchesErased(string preparedObjFileName, string tracedObjFileName, bool hasSeams)
         {
             if (!File.Exists(preparedObjFileName) || !File.Exists(tracedObjFileName)) return;
             int preparedFaceCount = CountObjFaces(preparedObjFileName);
@@ -413,7 +419,9 @@ namespace PrePoMax
             throw new CaeException("QuadWild patch tracing discarded " +
                                    (preparedFaceCount - tracedFaceCount) + " of " + preparedFaceCount +
                                    " triangles because it could not split the surface into disk-like patches. " +
-                                   "The remaining mesh would cover only a part of the model.");
+                                   "The remaining mesh would cover only a part of the model." +
+                                   (hasSeams ? " In a shell compound a sheet bounded only by short seams can need " +
+                                               "more elements per seam: try a smaller maximum element size." : ""));
         }
         private static int CountObjFaces(string fileName)
         {

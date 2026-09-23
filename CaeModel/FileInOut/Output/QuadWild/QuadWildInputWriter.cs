@@ -123,7 +123,8 @@ namespace FileInOut.Output
             for (int i = 0; i < nodeIdsOrdered.Length; i++) nodeIdObjIndex.Add(nodeIdsOrdered[i], i + 1);
             List<int> objIndexNodeId = new List<int>(nodeIdsOrdered);         // obj index - 1 -> node id
             HashSet<int> splitNodeIds;
-            int[][] faceObjIndices = SplitSheets(mesh, faceNodeIds, faceEdges, nodeIdObjIndex, objIndexNodeId,
+            int[][] faceObjIndices = SplitSheets(mesh, faceNodeIds, faceEdges, GetFaceModelFaceIds(part, elementIds),
+                                                 GetSegmentModelEdgeIds(modelEdges), nodeIdObjIndex, objIndexNodeId,
                                                  out splitNodeIds);
             // Edges of the split input: the model edges, including every copy of a seam, and all boundaries
             Dictionary<(int, int), List<FaceEdge>> splitFaceEdges = new Dictionary<(int, int), List<FaceEdge>>();
@@ -254,11 +255,14 @@ namespace FileInOut.Output
         // Detaches the sheets of a shell compound at edges shared by more than two triangles. At such an edge the pair
         // of triangles that continues most smoothly stays joined as one sheet: their in-plane directions away from the
         // edge are the most opposite (at least 120 degrees apart) and they traverse the edge in opposite directions.
-        // Every other triangle there is detached. The vertices are then split by the triangle fans around them over
-        // the edges that stay joined: the first fan keeps the vertex, each further fan gets a copy appended to
-        // objIndexNodeId. Returns the obj indices of the triangle corners.
+        // Every other triangle there is detached. The pairing of the model faces that most segments of a model edge
+        // agree on is then used along the whole model edge, so that a curved seam is not joined differently from one
+        // segment to the next. The vertices are split by the triangle fans around them over the edges that stay
+        // joined: the first fan keeps the vertex, each further fan gets a copy appended to objIndexNodeId. Returns
+        // the obj indices of the triangle corners.
         private static int[][] SplitSheets(FeMesh mesh, int[][] faceNodeIds,
                                            Dictionary<(int, int), List<FaceEdge>> faceEdges,
+                                           int[] faceModelFaceIds, Dictionary<(int, int), int> segmentModelEdgeIds,
                                            Dictionary<int, int> nodeIdObjIndex, List<int> objIndexNodeId,
                                            out HashSet<int> splitNodeIds)
         {
@@ -268,7 +272,8 @@ namespace FileInOut.Output
                 faceObjIndices[faceIndex] = faceNodeIds[faceIndex].Select(id => nodeIdObjIndex[id]).ToArray();
             // The joined neighbour of a triangle across one of its edges: (face, local edge) -> face
             Dictionary<(int, int), int> joined = new Dictionary<(int, int), int>();
-            bool hasSeams = false;
+            // The joined pairs of every seam segment, as indices into its references
+            Dictionary<(int, int), List<(int, int)>> segmentPairs = new Dictionary<(int, int), List<(int, int)>>();
             foreach (var entry in faceEdges)
             {
                 List<FaceEdge> references = entry.Value;
@@ -279,33 +284,44 @@ namespace FileInOut.Output
                 }
                 else if (references.Count > 2)
                 {
-                    hasSeams = true;
                     Vec3D[] inward = references.Select(item => GetInwardDirection(mesh, faceNodeIds[item.FaceIndex],
                                                                                   item.StartNodeId, item.EndNodeId))
                                                .ToArray();
-                    List<(double, int, int)> pairs = new List<(double, int, int)>();
+                    List<(double, int, int)> candidates = new List<(double, int, int)>();
                     for (int i = 0; i < references.Count; i++)
                     {
                         for (int j = i + 1; j < references.Count; j++)
                         {
                             if (references[i].StartNodeId == references[j].StartNodeId) continue;
-                            pairs.Add((Vec3D.DotProduct(inward[i], inward[j]), i, j));
+                            candidates.Add((Vec3D.DotProduct(inward[i], inward[j]), i, j));
                         }
                     }
                     HashSet<int> used = new HashSet<int>();
-                    foreach (var pair in pairs.OrderBy(item => item.Item1))
+                    List<(int, int)> pairs = new List<(int, int)>();
+                    foreach (var candidate in candidates.OrderBy(item => item.Item1))
                     {
-                        if (pair.Item1 > -0.5 || used.Contains(pair.Item2) || used.Contains(pair.Item3)) continue;
-                        FaceEdge first = references[pair.Item2];
-                        FaceEdge second = references[pair.Item3];
-                        joined[(first.FaceIndex, first.LocalEdgeIndex)] = second.FaceIndex;
-                        joined[(second.FaceIndex, second.LocalEdgeIndex)] = first.FaceIndex;
-                        used.Add(pair.Item2);
-                        used.Add(pair.Item3);
+                        if (candidate.Item1 > -0.5 || used.Contains(candidate.Item2) || used.Contains(candidate.Item3))
+                            continue;
+                        pairs.Add((candidate.Item2, candidate.Item3));
+                        used.Add(candidate.Item2);
+                        used.Add(candidate.Item3);
                     }
+                    segmentPairs.Add(entry.Key, pairs);
                 }
             }
-            if (!hasSeams) return faceObjIndices;
+            if (segmentPairs.Count == 0) return faceObjIndices;
+            MakeSeamPairingConsistent(faceEdges, segmentPairs, faceModelFaceIds, segmentModelEdgeIds);
+            foreach (var entry in segmentPairs)
+            {
+                List<FaceEdge> references = faceEdges[entry.Key];
+                foreach (var pair in entry.Value)
+                {
+                    FaceEdge first = references[pair.Item1];
+                    FaceEdge second = references[pair.Item2];
+                    joined[(first.FaceIndex, first.LocalEdgeIndex)] = second.FaceIndex;
+                    joined[(second.FaceIndex, second.LocalEdgeIndex)] = first.FaceIndex;
+                }
+            }
             // Triangle fans around each vertex
             Dictionary<int, List<int>> nodeIdFaceIndices = new Dictionary<int, List<int>>();
             for (int faceIndex = 0; faceIndex < faceNodeIds.Length; faceIndex++)
@@ -353,6 +369,114 @@ namespace FileInOut.Output
                 }
             }
             return faceObjIndices;
+        }
+
+        // Along each model edge, the pairing of model faces that most of its segments chose is applied to every segment
+        // where it fits: each pair needs two unused triangles of its model faces that traverse the segment in opposite
+        // directions. A segment where it does not fit keeps its own pairing.
+        private static void MakeSeamPairingConsistent(Dictionary<(int, int), List<FaceEdge>> faceEdges,
+                                                      Dictionary<(int, int), List<(int, int)>> segmentPairs,
+                                                      int[] faceModelFaceIds,
+                                                      Dictionary<(int, int), int> segmentModelEdgeIds)
+        {
+            if (faceModelFaceIds == null) return;
+            Dictionary<int, List<(int, int)>> modelEdgeSegments = new Dictionary<int, List<(int, int)>>();
+            foreach (var key in segmentPairs.Keys)
+            {
+                if (!segmentModelEdgeIds.TryGetValue(key, out int modelEdgeId)) continue;
+                if (!modelEdgeSegments.TryGetValue(modelEdgeId, out List<(int, int)> keys))
+                {
+                    keys = new List<(int, int)>();
+                    modelEdgeSegments.Add(modelEdgeId, keys);
+                }
+                keys.Add(key);
+            }
+            foreach (var entry in modelEdgeSegments)
+            {
+                if (entry.Value.Count < 2) continue;
+                // The pairing of a segment in model face ids: sorted "a-b" pairs
+                Dictionary<(int, int), List<(int, int)>> segmentFacePairs = new Dictionary<(int, int), List<(int, int)>>();
+                Dictionary<string, int> signatureCount = new Dictionary<string, int>();
+                foreach (var key in entry.Value)
+                {
+                    List<FaceEdge> references = faceEdges[key];
+                    List<(int, int)> facePairs = segmentPairs[key]
+                        .Select(pair => (faceModelFaceIds[references[pair.Item1].FaceIndex],
+                                         faceModelFaceIds[references[pair.Item2].FaceIndex]))
+                        .Select(pair => pair.Item1 <= pair.Item2 ? pair : (pair.Item2, pair.Item1))
+                        .OrderBy(pair => pair.Item1).ThenBy(pair => pair.Item2).ToList();
+                    segmentFacePairs.Add(key, facePairs);
+                    string signature = String.Join(";", facePairs.Select(pair => pair.Item1 + "-" + pair.Item2));
+                    signatureCount.TryGetValue(signature, out int count);
+                    signatureCount[signature] = count + 1;
+                }
+                if (signatureCount.Count < 2) continue;
+                string mostCommon = signatureCount.OrderByDescending(item => item.Value).First().Key;
+                List<(int, int)> chosen = segmentFacePairs.First(item =>
+                    String.Join(";", item.Value.Select(pair => pair.Item1 + "-" + pair.Item2)) == mostCommon).Value;
+                foreach (var key in entry.Value)
+                {
+                    List<FaceEdge> references = faceEdges[key];
+                    HashSet<int> used = new HashSet<int>();
+                    List<(int, int)> pairs = new List<(int, int)>();
+                    foreach (var facePair in chosen)
+                    {
+                        int first = -1;
+                        int second = -1;
+                        for (int i = 0; i < references.Count && second < 0; i++)
+                        {
+                            if (used.Contains(i) || faceModelFaceIds[references[i].FaceIndex] != facePair.Item1) continue;
+                            for (int j = 0; j < references.Count; j++)
+                            {
+                                if (j == i || used.Contains(j) ||
+                                    faceModelFaceIds[references[j].FaceIndex] != facePair.Item2 ||
+                                    references[i].StartNodeId == references[j].StartNodeId) continue;
+                                first = i;
+                                second = j;
+                                break;
+                            }
+                        }
+                        if (second < 0) break;
+                        pairs.Add((first, second));
+                        used.Add(first);
+                        used.Add(second);
+                    }
+                    if (pairs.Count == chosen.Count) segmentPairs[key] = pairs;
+                }
+            }
+        }
+
+        // The model face of every triangle, from the visualization faces of the input part, or null
+        private static int[] GetFaceModelFaceIds(BasePart part, int[] elementIds)
+        {
+            VisualizationData visualization = part.Visualization;
+            if (visualization == null || visualization.CellIds == null || visualization.CellIdsByFace == null) return null;
+            Dictionary<int, int> elementIdFaceId = new Dictionary<int, int>();
+            for (int faceId = 0; faceId < visualization.CellIdsByFace.Length; faceId++)
+            {
+                foreach (int cellId in visualization.CellIdsByFace[faceId])
+                    elementIdFaceId[visualization.CellIds[cellId]] = faceId;
+            }
+            int[] faceModelFaceIds = new int[elementIds.Length];
+            for (int i = 0; i < elementIds.Length; i++)
+            {
+                if (!elementIdFaceId.TryGetValue(elementIds[i], out faceModelFaceIds[i])) return null;
+            }
+            return faceModelFaceIds;
+        }
+
+        // The model edge of every mesh segment of a model edge
+        private static Dictionary<(int, int), int> GetSegmentModelEdgeIds(QuadWildModelEdge[] modelEdges)
+        {
+            Dictionary<(int, int), int> segmentModelEdgeIds = new Dictionary<(int, int), int>();
+            foreach (QuadWildModelEdge modelEdge in modelEdges)
+            {
+                int[] ids = modelEdge.NodeIds;
+                int count = modelEdge.IsClosed ? ids.Length : ids.Length - 1;
+                for (int i = 0; i < count; i++)
+                    segmentModelEdgeIds[GetEdgeKey(ids[i], ids[(i + 1) % ids.Length])] = modelEdge.Id;
+            }
+            return segmentModelEdgeIds;
         }
 
         private static Vec3D GetInwardDirection(FeMesh mesh, int[] nodeIds, int startNodeId, int endNodeId)
