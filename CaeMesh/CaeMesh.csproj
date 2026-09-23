@@ -123,6 +123,7 @@
     <Compile Include="Geometry\GeometrySelection.cs" />
     <Compile Include="GeometryMetadata\GeometryMetadata.cs" />
     <Compile Include="GeometryMetadata\GeometryMetadataEntity.cs" />
+    <Compile Include="GeometryMetadata\GeometryMetadataMatcher.cs" />
     <Compile Include="GeometryMetadata\GeometryMetadataProperty.cs" />
     <Compile Include="Geometry\GeomEdge.cs" />
     <Compile Include="Geometry\GeomVertex.cs" />

@@ -3308,6 +3308,7 @@ namespace CaeMesh
         }
         public void MergeMeshParts(string[] partNamesToMerge, out MeshPart newMeshPart, out string[] mergedPartNames)
         {
+            BasePart[] sourceParts = partNamesToMerge.Select(partName => _parts[partName]).ToArray();
             HashSet<int> elementIds = new HashSet<int>();
             for (int i = 0; i < partNamesToMerge.Length; i++) elementIds.UnionWith(_parts[partNamesToMerge[i]].Labels);
             string name = _elementSets.GetNextNumberedKey("parts");
@@ -3323,7 +3324,156 @@ namespace CaeMesh
             //
             newMeshPart = (MeshPart)newParts[0];
             mergedPartNames = partNamesToMerge;
-            return;
+            //
+            CarryGeometryMetadataToMergedPart(sourceParts, newMeshPart);
+        }
+        /// <summary>
+        /// A merged part is drawn again from its elements, so its faces and edges are numbered anew and the
+        /// geometry metadata of the parts it was merged from no longer names them. Each face and edge of the
+        /// merged part is made of the triangles and segments of one face or edge of a source part, which is
+        /// how it is found, and it takes the metadata and the type of that face or edge. Solids, shells and
+        /// vertices describe topology the merge has changed, so they are not carried; a face or an edge no
+        /// source part had keeps what the mesh recognizes in it.
+        /// </summary>
+        private void CarryGeometryMetadataToMergedPart(BasePart[] sourceParts, BasePart mergedPart)
+        {
+            VisualizationData mergedVisualization = mergedPart.Visualization;
+            if (mergedVisualization == null || mergedVisualization.Cells == null) return;
+            if (!sourceParts.Any(part => part.GeometryMetadata != null && part.Visualization != null)) return;
+            //
+            Dictionary<string, int[]> sourceFaceByCell = new Dictionary<string, int[]>();
+            Dictionary<string, int[]> sourceEdgeByCell = new Dictionary<string, int[]>();
+            for (int i = 0; i < sourceParts.Length; i++)
+            {
+                VisualizationData visualization = sourceParts[i].Visualization;
+                if (sourceParts[i].GeometryMetadata == null || visualization?.Cells == null) continue;
+                //
+                AddCellKeys(visualization.CellIdsByFace, visualization.Cells, i, sourceFaceByCell);
+                if (visualization.EdgeCells != null)
+                    AddCellKeys(visualization.EdgeCellIdsByEdge, visualization.EdgeCells, i, sourceEdgeByCell);
+            }
+            // [merged id] -> { source part index, source id }
+            int[][] faceSources = FindCellSources(mergedVisualization.CellIdsByFace, mergedVisualization.Cells,
+                                                  sourceFaceByCell);
+            int[][] edgeSources = mergedVisualization.EdgeCells == null ? new int[0][] :
+                                  FindCellSources(mergedVisualization.EdgeCellIdsByEdge,
+                                                  mergedVisualization.EdgeCells, sourceEdgeByCell);
+            // [source part index] -> source id -> merged id
+            Dictionary<int, int>[] faceIds = GetMergedIdsBySourceId(faceSources, sourceParts.Length);
+            Dictionary<int, int>[] edgeIds = GetMergedIdsBySourceId(edgeSources, sourceParts.Length);
+            //
+            GeometryMetadata firstMetadata = sourceParts.First(part => part.GeometryMetadata != null).GeometryMetadata;
+            GeometryMetadata metadata = new GeometryMetadata(firstMetadata.FormatVersion,
+                                                             firstMetadata.CoordinateSystem,
+                                                             firstMetadata.LengthUnit);
+            CarryMergedEntities("face", faceSources, sourceParts, faceIds, edgeIds, metadata);
+            CarryMergedEntities("edge", edgeSources, sourceParts, faceIds, edgeIds, metadata);
+            if (metadata.IsEmpty) return;
+            mergedPart.GeometryMetadata = metadata;
+            // The types come with the metadata; the rest are recognized from the mesh
+            if (mergedVisualization.FaceTypes == null ||
+                mergedVisualization.FaceTypes.Length != mergedVisualization.FaceCount)
+                DetectPartFaceTypes(mergedPart, true);
+            GeomFaceType[] faceTypes = mergedVisualization.FaceTypes;
+            GeomCurveType[] edgeTypes = mergedVisualization.EdgeTypes;
+            for (int i = 0; i < faceSources.Length; i++)
+            {
+                GeomFaceType[] sourceTypes = faceSources[i] == null ? null :
+                                             sourceParts[faceSources[i][0]].Visualization.FaceTypes;
+                if (faceTypes != null && sourceTypes != null && faceSources[i][1] < sourceTypes.Length)
+                    faceTypes[i] = sourceTypes[faceSources[i][1]];
+            }
+            for (int i = 0; i < edgeSources.Length; i++)
+            {
+                GeomCurveType[] sourceTypes = edgeSources[i] == null ? null :
+                                              sourceParts[edgeSources[i][0]].Visualization.EdgeTypes;
+                if (edgeTypes != null && sourceTypes != null && i < edgeTypes.Length &&
+                    edgeSources[i][1] < sourceTypes.Length)
+                    edgeTypes[i] = sourceTypes[edgeSources[i][1]];
+            }
+        }
+        private static string GetCellKey(int[] cell)
+        {
+            int[] nodeIds = cell.ToArray();
+            Array.Sort(nodeIds);
+            return string.Join(",", nodeIds);
+        }
+        private static void AddCellKeys(int[][] cellIdsByItem, int[][] cells, int partIndex,
+                                        Dictionary<string, int[]> itemByCell)
+        {
+            if (cellIdsByItem == null) return;
+            for (int itemId = 0; itemId < cellIdsByItem.Length; itemId++)
+            {
+                foreach (int cellId in cellIdsByItem[itemId])
+                    itemByCell[GetCellKey(cells[cellId])] = new int[] { partIndex, itemId };
+            }
+        }
+        private static int[][] FindCellSources(int[][] cellIdsByItem, int[][] cells,
+                                               Dictionary<string, int[]> itemByCell)
+        {
+            if (cellIdsByItem == null) return new int[0][];
+            int[][] sources = new int[cellIdsByItem.Length][];
+            for (int itemId = 0; itemId < cellIdsByItem.Length; itemId++)
+            {
+                foreach (int cellId in cellIdsByItem[itemId])
+                {
+                    if (itemByCell.TryGetValue(GetCellKey(cells[cellId]), out sources[itemId])) break;
+                }
+            }
+            return sources;
+        }
+        private static Dictionary<int, int>[] GetMergedIdsBySourceId(int[][] sources, int numOfSourceParts)
+        {
+            Dictionary<int, int>[] mergedIds = new Dictionary<int, int>[numOfSourceParts];
+            for (int i = 0; i < numOfSourceParts; i++) mergedIds[i] = new Dictionary<int, int>();
+            for (int mergedId = 0; mergedId < sources.Length; mergedId++)
+            {
+                if (sources[mergedId] == null) continue;
+                // The first merged item a source item became names it, which is where the source ended up
+                if (!mergedIds[sources[mergedId][0]].ContainsKey(sources[mergedId][1]))
+                    mergedIds[sources[mergedId][0]].Add(sources[mergedId][1], mergedId);
+            }
+            return mergedIds;
+        }
+        /// <summary>
+        /// Copies the entity of each source face or edge under the number of the merged face or edge it
+        /// became. Metadata ids are the visualization ids plus one, and an id list the entity carries is
+        /// renumbered the same way; an id of a face or an edge the merged part does not have is dropped.
+        /// </summary>
+        private static void CarryMergedEntities(string kind, int[][] sources, BasePart[] sourceParts,
+                                                Dictionary<int, int>[] faceIds, Dictionary<int, int>[] edgeIds,
+                                                GeometryMetadata metadata)
+        {
+            for (int mergedId = 0; mergedId < sources.Length; mergedId++)
+            {
+                if (sources[mergedId] == null) continue;
+                int partIndex = sources[mergedId][0];
+                GeometryMetadataEntity sourceEntity =
+                    sourceParts[partIndex].GeometryMetadata?.GetEntity(kind, sources[mergedId][1] + 1);
+                if (sourceEntity == null) continue;
+                //
+                GeometryMetadataEntity entity = new GeometryMetadataEntity(kind, mergedId + 1);
+                foreach (var entry in sourceEntity.Properties)
+                {
+                    GeometryMetadataProperty property = entry.Value.DeepCopy();
+                    if (entry.Key.EndsWith("_ids"))
+                    {
+                        Dictionary<int, int> ids = entry.Key == "face_ids" ? faceIds[partIndex] :
+                                                   entry.Key == "edge_ids" ? edgeIds[partIndex] : null;
+                        if (ids == null || !property.IsNumeric) continue;
+                        List<double> mergedIds = new List<double>();
+                        foreach (double id in property.NumericValues)
+                        {
+                            int newId;
+                            if (ids.TryGetValue((int)id - 1, out newId)) mergedIds.Add(newId + 1);
+                        }
+                        if (mergedIds.Count == 0) continue;
+                        property = new GeometryMetadataProperty(mergedIds.ToArray());
+                    }
+                    entity.Properties.Add(entry.Key, property);
+                }
+                metadata.AddEntity(entity);
+            }
         }
         public void MergeResultParts(string[] partNamesToMerge, out ResultPart newResultPart, out string[] mergedParts)
         {

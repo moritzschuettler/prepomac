@@ -190,6 +190,24 @@ namespace CaeMesh
         {
             _visualization.RenumberEdges(orderedEdgesIds);
         }
+        /// <summary>
+        /// Fills what the part is missing from the metadata a geometry part gave, already renumbered to the
+        /// faces and edges of this part. Without it the ids are taken to be the same in both parts.
+        /// </summary>
+        public void FillMissingGeometryDataFrom(BasePart sourcePart, GeometryMetadata matchedMetadata)
+        {
+            if (matchedMetadata == null)
+            {
+                FillMissingGeometryDataFrom(sourcePart);
+                return;
+            }
+            if (_geometryMetadata == null)
+                _geometryMetadata = new GeometryMetadata(matchedMetadata.FormatVersion,
+                                                         matchedMetadata.CoordinateSystem,
+                                                         matchedMetadata.LengthUnit);
+            _geometryMetadata.FillMissingFrom(matchedMetadata, true, true, true);
+            FillMissingMassPropertiesFrom(sourcePart);
+        }
         public void FillMissingGeometryDataFrom(BasePart sourcePart)
         {
             GeometryMetadata source = sourcePart?.GeometryMetadata;
@@ -207,6 +225,13 @@ namespace CaeMesh
                 _geometryMetadata = new GeometryMetadata(source.FormatVersion, source.CoordinateSystem,
                                                          source.LengthUnit);
             _geometryMetadata.FillMissingFrom(source, facesMatch, edgesMatch, true);
+            FillMissingMassPropertiesFrom(sourcePart);
+            //
+            FillMissingValues(Visualization?.FaceAreas, sourcePart.Visualization?.FaceAreas, facesMatch);
+            FillMissingValues(Visualization?.EdgeLengths, sourcePart.Visualization?.EdgeLengths, edgesMatch);
+        }
+        private void FillMissingMassPropertiesFrom(BasePart sourcePart)
+        {
             // Existing mesh/result measurements remain authoritative. CAD values fill only absent values.
             PartMassProperties sourceMass = sourcePart.MassProperties;
             PartMassProperties targetMass = MassProperties;
@@ -237,9 +262,6 @@ namespace CaeMesh
                 massChanged = true;
             }
             if (massChanged) MassProperties = targetMass;
-            //
-            FillMissingValues(Visualization?.FaceAreas, sourcePart.Visualization?.FaceAreas, facesMatch);
-            FillMissingValues(Visualization?.EdgeLengths, sourcePart.Visualization?.EdgeLengths, edgesMatch);
         }
         private static void FillMissingValues(double[] target, double[] source, bool topologyMatches)
         {

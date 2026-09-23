@@ -1905,6 +1905,14 @@ namespace CaeModel
             {
                 if (prevPartNames.Length == 1 && partNames.Length > 1)
                 {
+                    // The pieces of a compound meshed as one part are its sub parts in order, so each takes
+                    // the geometry metadata of its sub part first and the merge keeps what it can of it
+                    if (part is CompoundGeometryPart mergedCompoundPart &&
+                        mergedCompoundPart.SubPartNames.Length == partNames.Length)
+                    {
+                        for (int i = 0; i < partNames.Length; i++)
+                            FillMissingGeometryDataOfMeshPart(mesh, partNames[i], mergedCompoundPart.SubPartNames[i]);
+                    }
                     mesh.MergeMeshParts(mesh.Parts.Keys.ToArray(), out _, out _);
                     partNames = mesh.Parts.Keys.ToArray();
                 }
@@ -1948,6 +1956,10 @@ namespace CaeModel
                                                       .Where(cellName => mesh.Parts.ContainsKey(cellName)).ToArray();
                 if (cellNames.Length == 0) continue;
                 //
+                // A cell takes the geometry metadata of its geometry part while it still has its name, so the
+                // merge can carry it to the part the cells become
+                foreach (string cellName in cellNames) FillMissingGeometryDataOfMeshPart(mesh, cellName, cellName);
+                //
                 BasePart subPartMesh;
                 if (cellNames.Length == 1) subPartMesh = mesh.Parts[cellNames[0]];
                 else
@@ -1959,6 +1971,20 @@ namespace CaeModel
                 subPartMesh.Name = subPartName;
                 mesh.Parts.Add(subPartMesh.Name, subPartMesh);
             }
+        }
+        private void FillMissingGeometryDataOfMeshPart(FeMesh mesh, string meshPartName, string geometryPartName)
+        {
+            BasePart meshPart;
+            BasePart geometryPart;
+            if (mesh.Parts.TryGetValue(meshPartName, out meshPart) &&
+                _geometry.Parts.TryGetValue(geometryPartName, out geometryPart))
+                FillMissingGeometryData(meshPart, mesh, geometryPart);
+        }
+        private void FillMissingGeometryData(BasePart meshPart, FeMesh mesh, BasePart geometryPart)
+        {
+            GeometryMetadata matchedMetadata = GeometryMetadataMatcher.Match(geometryPart, _geometry.Nodes,
+                                                                             meshPart, mesh.Nodes);
+            meshPart.FillMissingGeometryDataFrom(geometryPart, matchedMetadata);
         }
         private void CreateFull360RevolveMesh(FeMesh mesh, RevolveMesh revolveMesh)
         {
@@ -2336,7 +2362,7 @@ namespace CaeModel
                     if (targetPart.Name == requestedGeometryPart.Name) sourcePart = requestedGeometryPart;
                     else continue;
                 }
-                targetPart.FillMissingGeometryDataFrom(sourcePart);
+                FillMissingGeometryData(targetPart, targetMesh, sourcePart);
             }
         }
         // Setters                                                                                  
