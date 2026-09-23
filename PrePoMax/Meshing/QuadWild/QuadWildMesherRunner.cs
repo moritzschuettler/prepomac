@@ -99,6 +99,8 @@ namespace PrePoMax
             string flowConfigFileName = Path.Combine(workDirectory, Globals.QuadWildFlowConfigFileName);
             string inputPrefix = Path.Combine(workDirectory,
                                               Path.GetFileNameWithoutExtension(Globals.QuadWildInputObjFileName));
+            // Prescribed nodes, read by quad_from_patches as <input>.cnodes
+            string nodesFileName = inputPrefix + ".cnodes";
             string preparedObjFileName = inputPrefix + "_rem.obj";
             string tracePrefix = inputPrefix + "_rem_p0";
             string tracedObjFileName = tracePrefix + ".obj";
@@ -115,6 +117,7 @@ namespace PrePoMax
             //
             DeleteIfExists(objFileName);
             DeleteIfExists(sharpFileName);
+            DeleteIfExists(nodesFileName);
             DeleteIfExists(prepConfigFileName);
             DeleteIfExists(flowConfigFileName);
             DeleteIfExists(preparedObjFileName);
@@ -123,7 +126,7 @@ namespace PrePoMax
             DeleteIfExists(unsmoothedObjFileName);
             //
             FeMesh triangularMesh = CreateTriangularMesh(part, shellQuadWild, workDirectory, null);
-            QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName,
+            QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName, nodesFileName,
                                                                         triangularMesh, part.Name);
             _controller.Form.WriteDataToOutput("QuadWild input: " + inputInfo.NodeCount + " nodes, " +
                                                inputInfo.FaceCount + " triangles, " +

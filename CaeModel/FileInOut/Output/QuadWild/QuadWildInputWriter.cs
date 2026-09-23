@@ -36,7 +36,7 @@ namespace FileInOut.Output
         }
 
 
-        public static QuadWildInputFileInfo Write(string objFileName, string sharpFileName,
+        public static QuadWildInputFileInfo Write(string objFileName, string sharpFileName, string nodesFileName,
                                                    FeMesh mesh, string partName)
         {
             if (mesh == null) throw new ArgumentNullException(nameof(mesh));
@@ -167,9 +167,32 @@ namespace FileInOut.Output
                 sharp.AppendLine(edge.LocalEdgeIndex.ToString(CultureInfo.InvariantCulture));
             }
             //
+            // Model vertices, the end points of the open model edges, as single prescribed nodes. QuadWild only
+            // keeps a node where the boundary turns sharply, so without them the nodes at the other model
+            // vertices slide along the edges while smoothing. The coordinates are written exactly as in the .obj
+            // file, so QuadWild finds them as vertices of its input.
+            SortedSet<int> modelVertexNodeIds = new SortedSet<int>();
+            foreach (QuadWildModelEdge modelEdge in modelEdges)
+            {
+                if (modelEdge.IsClosed) continue;
+                modelVertexNodeIds.Add(modelEdge.NodeIds[0]);
+                modelVertexNodeIds.Add(modelEdge.NodeIds[modelEdge.NodeIds.Length - 1]);
+            }
+            StringBuilder nodes = new StringBuilder();
+            nodes.AppendLine("# PrePoMax model vertices, one prescribed node per line");
+            foreach (int nodeId in modelVertexNodeIds)
+            {
+                FeNode node = mesh.Nodes[nodeId];
+                nodes.Append("1 ");
+                nodes.Append(node.X.ToString("R", CultureInfo.InvariantCulture)).Append(" ");
+                nodes.Append(node.Y.ToString("R", CultureInfo.InvariantCulture)).Append(" ");
+                nodes.AppendLine(node.Z.ToString("R", CultureInfo.InvariantCulture));
+            }
+            //
             UTF8Encoding utf8WithoutBom = new UTF8Encoding(false);
             File.WriteAllText(objFileName, obj.ToString(), utf8WithoutBom);
             File.WriteAllText(sharpFileName, sharp.ToString(), utf8WithoutBom);
+            File.WriteAllText(nodesFileName, nodes.ToString(), utf8WithoutBom);
             //
             return new QuadWildInputFileInfo(nodeIdsOrdered.Length, faceNodeIds.Length, sharpEdges.Count,
                                              modelEdges, GetModelFaceEdgeIds(part.Visualization));
