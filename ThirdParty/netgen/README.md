@@ -39,7 +39,8 @@ periodic-face split driven by *Split periodic faces*, without which the written 
 and BRepMesh silently drops whole faces, and it warns on stdout about every face it could not
 triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfinite_angle` entries
 of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
-as structured triangle grids.
+as structured triangle grids; the edge meshing gives the opposite edges of faces bounded by four edges
+one count across neighbouring faces, so that most of them match.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.
