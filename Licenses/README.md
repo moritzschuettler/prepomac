@@ -16,7 +16,7 @@ only when that mesher's binary is actually present in the base folder.
 | Gmsh 4.13, patched | `lib\gmsh-4.13.dll`, vendored in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` | GPL-2.0-or-later, with an exception permitting combination with Netgen, METIS, OpenCASCADE and ParaView | `share/doc/gmsh/LICENSE.txt` in the vendored SDK under `ThirdParty/` |
 | OpenCASCADE 7.7.0 | statically linked into `lib\gmsh-4.13.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | Mmg | `Meshers\Mmg\mmgs.exe` (5.5.2), `Meshers\Mmg\mmg3d.exe` (5.7.0), vendored in `ThirdParty/mmg/` | LGPL-3.0-or-later | `LICENSE` at github.com/MmgTools/mmg |
-| QuadWild-BiMDF 0.0.2 | `Meshers\QuadWild\quadwild.exe`, `Meshers\QuadWild\quad_from_patches.exe`, vendored in `ThirdParty/quadwild-bimdf/` | GPL-3.0 | `LICENSE` at github.com/cgg-bern/quadwild-bimdf |
+| QuadWild-BiMDF 0.0.2, modified | `Meshers\QuadWild\quadwild.exe`, `Meshers\QuadWild\quad_from_patches.exe`, vendored in `ThirdParty/quadwild-bimdf/` | GPL-3.0 | `LICENSE` at github.com/cgg-bern/quadwild-bimdf |
 | NetGenMesher | `Meshers\Netgen\NetGenMesher.exe`, vendored in `ThirdParty/netgen/` | GPL-3.0 (own build, same license as PrePoMax) | the author |
 | Netgen 5.3.1 | `Meshers\Netgen\nglib.dll` | LGPL-2.1 | `LICENSE` at github.com/NGSolve/netgen |
 | OpenCASCADE 8.0.1 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
