@@ -138,6 +138,7 @@ namespace UserControls
         private Dictionary<CodersLabTreeView, bool[]> _prevStates;
         private Dictionary<TreeNode, OrderedDictionaryTreeContext> _orderedDictionaryContexts;
         private Dictionary<TreeNode, OrderedDictionaryGroupInfo> _orderedDictionaryGroups;
+        private Dictionary<TreeNode, string> _splitSubPartNodes;
         private TreeNode[] _contextMenuNodes;
         // Geometry
         private TreeNode _geomParts;                // 1
@@ -319,6 +320,7 @@ namespace UserControls
         public event Action<string, string> CreateEvent;
         public event Action<NamedClass, string> EditEvent;
         public event Action<NamedClass, string, string> RenameEvent;
+        public event Action<string, string, string> RenameSplitSubPartEvent;
         //
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
@@ -389,6 +391,7 @@ namespace UserControls
             //
             _orderedDictionaryContexts = new Dictionary<TreeNode, OrderedDictionaryTreeContext>();
             _orderedDictionaryGroups = new Dictionary<TreeNode, OrderedDictionaryGroupInfo>();
+            _splitSubPartNodes = new Dictionary<TreeNode, string>();
             InitializeOrderedDictionaryDragDrop(cltvGeometry);
             InitializeOrderedDictionaryDragDrop(cltvModel);
             InitializeOrderedDictionaryDragDrop(cltvResults);
@@ -600,9 +603,15 @@ namespace UserControls
             if (!(node?.Tag is NamedClass item) || context == null) return false;
             return ContainsOrderedDictionaryItem(context, item.Name);
         }
-        private static bool IsCompoundGeometrySubPartNode(TreeNode node)
+        private bool IsCompoundGeometrySubPartNode(TreeNode node)
         {
-            return node?.Parent?.Tag is CompoundGeometryPart;
+            if (node?.Parent == null) return false;
+            return node.Parent.Tag is CompoundGeometryPart || _splitSubPartNodes.ContainsKey(node.Parent);
+        }
+        private NamedClass[] GetSplitSubPartCellItems(TreeNode subPartNode)
+        {
+            return subPartNode.Nodes.Cast<TreeNode>().Select(cellNode => cellNode.Tag as NamedClass)
+                              .Where(cell => cell != null).ToArray();
         }
         private TreeNode[] GetSelectedNodesIncludingGroupItems(CodersLabTreeView tree)
         {
@@ -633,7 +642,7 @@ namespace UserControls
         private void AddSelectedNodeIncludingGroupItems(TreeNode node, List<TreeNode> nodes,
                                                         HashSet<TreeNode> addedNodes)
         {
-            if (_orderedDictionaryGroups.ContainsKey(node))
+            if (_orderedDictionaryGroups.ContainsKey(node) || _splitSubPartNodes.ContainsKey(node))
             {
                 foreach (TreeNode childNode in node.Nodes)
                 {
@@ -1768,7 +1777,7 @@ namespace UserControls
             }
             //
             NamedClass item = (NamedClass)node.Tag;
-            bool subPart = node.Parent != null && node.Parent.Tag is CompoundGeometryPart;
+            bool subPart = IsCompoundGeometrySubPartNode(node);
             //
             if (item != null) menuFields.Types.Add(item.GetType());
             // Create
@@ -1944,9 +1953,11 @@ namespace UserControls
                 TreeNode lastNode = null;
                 foreach (TreeNode selectedNode in tree.SelectedNodes)
                 {
-                    if (selectedNode.Tag == null) continue;
+                    if (_splitSubPartNodes.ContainsKey(selectedNode))
+                        items.AddRange(GetSplitSubPartCellItems(selectedNode));
+                    else if (selectedNode.Tag == null) continue;
+                    else items.Add((NamedClass)selectedNode.Tag);
                     //
-                    items.Add((NamedClass)selectedNode.Tag);
                     lastNode = selectedNode;
                 }
                 if (lastNode != null) lastNode.EnsureVisible();
@@ -2084,6 +2095,23 @@ namespace UserControls
                         }
                     }));
                 }
+                else if (_splitSubPartNodes.TryGetValue(selectedNode, out string compoundPartName))
+                {
+                    string oldSubPartName = selectedNode.Name;
+                    // Renaming the sub part renames its cells and rebuilds the tree, which has to wait until
+                    // the native label-edit message has completed
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        try
+                        {
+                            RenameSplitSubPartEvent?.Invoke(compoundPartName, oldSubPartName, newName);
+                        }
+                        catch (Exception ex)
+                        {
+                            ExceptionTools.Show(this, ex);
+                        }
+                    }));
+                }
                 else if (e.Node.Tag is NamedClass item)
                 {
                     string stepName = GetStepNameFromNode(selectedNode);
@@ -2114,14 +2142,15 @@ namespace UserControls
             // Select
             foreach (TreeNode selectedNode in tree.SelectedNodes)
             {
-                if (selectedNode.Tag == null) continue;
-                //
-                items.Add((NamedClass)selectedNode.Tag);
+                if (_splitSubPartNodes.ContainsKey(selectedNode))
+                    items.AddRange(GetSplitSubPartCellItems(selectedNode));
+                else if (selectedNode.Tag != null) items.Add((NamedClass)selectedNode.Tag);
             }
             // Add mouse over node
             TreeNode node = tree.MouseOverNode;
             //
-            if (node != null && node.Tag != null)
+            if (node != null && _splitSubPartNodes.ContainsKey(node)) items.AddRange(GetSplitSubPartCellItems(node));
+            else if (node != null && node.Tag != null)
             {
                 items.Add((NamedClass)node.Tag);
             }
@@ -3038,6 +3067,7 @@ namespace UserControls
             HideDropIndicators();
             _orderedDictionaryContexts.Clear();
             _orderedDictionaryGroups.Clear();
+            _splitSubPartNodes.Clear();
             // Geometry
             cltvGeometry.SelectedNodes.Clear();
             cltvGeometry.Nodes.Clear();
@@ -3276,6 +3306,7 @@ namespace UserControls
                 // Expand/Collapse
                 string[][] prevNodeNames;
                 bool[][] prevModelTreeStates = GetAllTreesExpandCollapseState(out prevNodeNames, remeshing);
+                Dictionary<string, bool> prevGeometryTreeState = GetStableTreeExpandCollapseState(cltvGeometry);
                 //
                 cltvGeometry.BeginUpdate();
                 cltvModel.BeginUpdate();
@@ -3374,8 +3405,7 @@ namespace UserControls
                 // Expand/Collapse
                 bool[][] afterModelTreeStates = GetAllTreesExpandCollapseState(out string[][] afterNodeNames, remeshing);
                 // Geometry
-                if (prevModelTreeStates[0].Length == afterModelTreeStates[0].Length)
-                    SetTreeExpandCollapseState(cltvGeometry, prevModelTreeStates[0]);
+                SetStableTreeExpandCollapseState(cltvGeometry, prevGeometryTreeState);
                 // Model
                 if (prevModelTreeStates[1].Length == afterModelTreeStates[1].Length)
                     SetTreeExpandCollapseState(cltvModel, prevModelTreeStates[1], remeshing);
@@ -4027,13 +4057,29 @@ namespace UserControls
                     //
                     if (context.View == ViewType.Geometry && value is CompoundGeometryPart compoundPart)
                     {
-                        foreach (string subPartName in compoundPart.SubPartNames)
+                        // The cells of a split compound are gathered under the part each of them was cut
+                        // from, and those parts start collapsed, since a part may be cut into many cells
+                        Dictionary<string, TreeNode> splitSubPartNodes = new Dictionary<string, TreeNode>();
+                        foreach (string splitSubPartName in compoundPart.GetSplitSubPartNames())
                         {
+                            TreeNode splitSubPartNode = itemNode.Nodes.Add(splitSubPartName);
+                            splitSubPartNode.Name = splitSubPartNode.Text;
+                            _splitSubPartNodes[splitSubPartNode] = compoundPart.Name;
+                            splitSubPartNodes[splitSubPartName] = splitSubPartNode;
+                        }
+                        //
+                        for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                        {
+                            string subPartName = compoundPart.SubPartNames[i];
                             TKey subPartKey = (TKey)(object)subPartName;
                             if (!dictionary.TryGetValue(subPartKey, out TVal subPart)) continue;
                             if (subPart is NamedClass subPartNamedClass && subPartNamedClass.Internal) continue;
                             //
-                            TreeNode subPartNode = itemNode.Nodes.Add(subPartName);
+                            TreeNode parentOfSubPartNode = itemNode;
+                            string splitSubPartName = compoundPart.CellSubPartNames?[i];
+                            if (splitSubPartName != null) parentOfSubPartNode = splitSubPartNodes[splitSubPartName];
+                            //
+                            TreeNode subPartNode = parentOfSubPartNode.Nodes.Add(subPartName);
                             subPartNode.Name = subPartNode.Text;
                             subPartNode.Tag = subPart;
                             SetNodeStatus(subPartNode);
@@ -4278,6 +4324,28 @@ namespace UserControls
                 }
                 // Set status of the step controls
                 if (item != null && item is Step) UpdateNumberOfStepControls(node);
+                // A sub part of a split compound shows the state of its cells
+                if (node.Parent != null && _splitSubPartNodes.ContainsKey(node.Parent))
+                    SetSplitSubPartNodeStatus(node.Parent);
+            }
+        }
+        private void SetSplitSubPartNodeStatus(TreeNode subPartNode)
+        {
+            CodersLabTreeView cltv = (CodersLabTreeView)subPartNode.TreeView;
+            if (cltv == null) return;
+            //
+            TreeNode visibleCellNode = subPartNode.Nodes.Cast<TreeNode>()
+                                                  .FirstOrDefault(cellNode => cellNode.Tag is NamedClass cell &&
+                                                                              cell.Visible);
+            if (visibleCellNode == null)
+            {
+                cltv.SetNodeForeColor(subPartNode, Color.Gray);
+                SetNodeImage(subPartNode, "Hide.ico");
+            }
+            else
+            {
+                cltv.SetNodeForeColor(subPartNode, Color.Black);
+                SetNodeImage(subPartNode, visibleCellNode.ImageKey);
             }
         }
         private void SetNodeImage(TreeNode node, string imageName)
@@ -4290,6 +4358,8 @@ namespace UserControls
         }
         private bool CheckNodeName(TreeNode node, string newName)
         {
+            if (_splitSubPartNodes.ContainsKey(node)) return true;
+            //
             if (_orderedDictionaryGroups.TryGetValue(node, out OrderedDictionaryGroupInfo groupInfo))
             {
                 if ((groupInfo.Context.View == ViewType.Geometry ||
@@ -4564,6 +4634,7 @@ namespace UserControls
         private bool CanRename(TreeNode node)
         {
             if (_orderedDictionaryGroups.ContainsKey(node)) return true;
+            else if (_splitSubPartNodes.ContainsKey(node)) return true;
             else if (node.Tag is BasePart) return true;
             else if (node.Tag is MeshSetupItem) return true;
             //

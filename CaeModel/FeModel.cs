@@ -1928,12 +1928,37 @@ namespace CaeModel
             }
             mesh.Parts.Clear();
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
+            // The cells of a split compound are meshed together, so their meshes share the faces between them,
+            // and each part the split cut becomes one mesh part again
+            if (part is CompoundGeometryPart splitCompoundPart && splitCompoundPart.CreatedBySplit &&
+                !mergeCompoundParts && !splitCompoundMesh)
+                MergeSplitCellMeshParts(mesh, splitCompoundPart);
             // Splitting, merging and revolving the mesh redefines the visualization faces and edges of the
             // affected parts - recognize the types of the parts which lost them
             mesh.DetectFaceTypes(false);
             mesh.DetectEdgeTypes(false);
             //
             return mesh;
+        }
+        private void MergeSplitCellMeshParts(FeMesh mesh, CompoundGeometryPart splitCompoundPart)
+        {
+            foreach (string subPartName in splitCompoundPart.GetSplitSubPartNames())
+            {
+                string[] cellNames = splitCompoundPart.GetCellNames(subPartName)
+                                                      .Where(cellName => mesh.Parts.ContainsKey(cellName)).ToArray();
+                if (cellNames.Length == 0) continue;
+                //
+                BasePart subPartMesh;
+                if (cellNames.Length == 1) subPartMesh = mesh.Parts[cellNames[0]];
+                else
+                {
+                    mesh.MergeMeshParts(cellNames, out MeshPart mergedPart, out _);
+                    subPartMesh = mergedPart;
+                }
+                mesh.Parts.Remove(subPartMesh.Name);
+                subPartMesh.Name = subPartName;
+                mesh.Parts.Add(subPartMesh.Name, subPartMesh);
+            }
         }
         private void CreateFull360RevolveMesh(FeMesh mesh, RevolveMesh revolveMesh)
         {
@@ -2343,6 +2368,8 @@ namespace CaeModel
                         compoundPart.LinkedGroupId == excludedLinkedGroupId.Value)
                         continue;
                     names.Add(entry.Key);
+                    if (entry.Value is CompoundGeometryPart splitCompoundPart)
+                        names.UnionWith(splitCompoundPart.GetSplitSubPartNames());
                 }
                 AddOrderedDictionaryGroupNames(_geometry.Parts.GetItemLayoutSnapshot().Nodes, names,
                                                excludedLinkedGroupId);

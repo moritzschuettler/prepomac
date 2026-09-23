@@ -3859,6 +3859,11 @@ namespace PrePoMax
             CReplaceGeometryPartProperties comm = new CReplaceGeometryPartProperties(oldPartName, newPartProperties);
             _commands.AddAndExecute(comm);
         }
+        public void RenameSplitSubPartCommand(string compoundPartName, string oldSubPartName, string newSubPartName)
+        {
+            CRenameSplitSubPart comm = new CRenameSplitSubPart(compoundPartName, oldSubPartName, newSubPartName);
+            _commands.AddAndExecute(comm);
+        }
         // Transform
         public void ScaleGeometryPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
@@ -4161,6 +4166,44 @@ namespace PrePoMax
             newPartProperties.Name = newPartName;
             ReplaceGeometryPartProperties(oldPartName, newPartProperties);
         }
+        public void RenameSplitSubPart(string compoundPartName, string oldSubPartName, string newSubPartName)
+        {
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out part) ||
+                !(part is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit ||
+                !compoundPart.CellSubPartNames.Contains(oldSubPartName))
+                throw new CaeException("The part " + oldSubPartName + " of the compound part " + compoundPartName +
+                                       " does not exist.");
+            if (newSubPartName == oldSubPartName) return;
+            //
+            HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
+                                                                StringComparer.OrdinalIgnoreCase);
+            reservedNames.Remove(oldSubPartName);
+            CheckName(oldSubPartName, newSubPartName, reservedNames, "part");
+            //
+            SetSplitSubPartName(compoundPart, oldSubPartName, newSubPartName);
+            // The mesh part the sub part was meshed into carries its name
+            if (_model.Mesh != null && _model.Mesh.Parts.ContainsKey(oldSubPartName))
+            {
+                MeshPart meshPart = GetModelPart(oldSubPartName);
+                meshPart.Name = newSubPartName;
+                _model.Mesh.Parts.Replace(oldSubPartName, meshPart.Name, meshPart);
+                _form.UpdateActor(oldSubPartName, meshPart.Name, meshPart.Color);
+                UpdateAfterPartsChanged();
+            }
+            //
+            _form.RegenerateTree();
+        }
+        private void SetSplitSubPartName(CompoundGeometryPart compoundPart, string oldSubPartName,
+                                         string newSubPartName)
+        {
+            string[] cellSubPartNames = compoundPart.CellSubPartNames;
+            for (int i = 0; i < cellSubPartNames.Length; i++)
+            {
+                if (cellSubPartNames[i] == oldSubPartName) cellSubPartNames[i] = newSubPartName;
+            }
+            RenameSplitCells(compoundPart);
+        }
         // Transform
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
@@ -4222,6 +4265,8 @@ namespace PrePoMax
                 {
                     ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
                                            out newCompoundPartName, out importedPartNames);
+                    ((CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName]).CellSubPartNames =
+                        compoundPart.CellSubPartNames?.ToArray();
                     //
                     if (copy) count++;
                     else SwapCompoundParts(partName, newCompoundPartName, true);
@@ -4528,7 +4573,7 @@ namespace PrePoMax
             foreach (var name in partNamesToSet)
             {
                 part = _model.Geometry.Parts[name];
-                _model.Geometry.SetPartColorFromColorTable(part);
+                SetGeometryPartColorFromColorTable(part);
                 _form.UpdateActor(name, name, part.Color);
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
             }
@@ -4825,6 +4870,7 @@ namespace PrePoMax
             // Get new parts
             importedCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
             importedSubParts = GetSubParts(newCompoundPartName);
+            importedCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
             if (subParts.Length != importedSubParts.Length)
                 throw new CaeException("The regenerated compound part has a different number of sub-parts " +
                                        "than before the regeneration.");
@@ -5845,7 +5891,11 @@ namespace PrePoMax
                             continue;
                         }
                     }
-                    else resultPartName = ReplaceSplitGeometryPart(part, brepFileName);
+                    else
+                    {
+                        resultPartName = ReplaceSplitGeometryPart(part, brepFileName);
+                        if (resultPartName == null) { failedPartNames.Add(partName); continue; }
+                    }
                     //
                     _lastGeometryOperationCounts[partName] =
                         GetGeometryPartFaceCount(resultPartName) - facesBefore;
@@ -6077,21 +6127,208 @@ namespace PrePoMax
         {
             string partName = part.Name;
             //
-            if (GetNumberOfSplitGeometrySolids(brepFileName) <= 1)
+            int numOfSolids = GetNumberOfSplitGeometrySolids(brepFileName);
+            if (numOfSolids <= 1)
             {
                 ReplacePartGeometryFromFile(part, brepFileName, true);
                 return partName;
             }
+            // Every cell keeps the sub part and the color of the solid it was cut from, which the mesher
+            // names by its place in the part, the same place its sub part has in the compound
+            string[] sourceSubPartNames;
+            Color[] sourceColors;
+            GetSplitGeometrySourceSolids(part, out sourceSubPartNames, out sourceColors);
+            int[] origins = ReadSplitGeometryOrigins(brepFileName, numOfSolids, sourceSubPartNames.Length);
+            if (origins == null) return null;
             // The pieces are imported from a brep file, so nothing of the part is needed once it is
             // written; the command history is what rebuilds the compound on a regenerate, so the
-            // compound does not have to remember where it came from
-            RemoveGeometryParts(new string[] { partName }, true, false);
+            // compound does not have to remember where it came from. The part is gone for good and its
+            // ids go to the cells, so what was defined on it is let go as for a deleted part: a pick kept
+            // for a replacement would land on whichever cell took its id
+            Color partColor = part.Color;
+            Dictionary<MeshSetupItem, int[]> compoundMeshSetupItems = GetMeshSetupItemsCoveringCompound(part);
+            RemoveGeometryParts(new string[] { partName }, false, false);
             //
             string compoundPartName;
             string[] importedPartNames;
             ImportBrepCompoundPart(brepFileName, null, null, out compoundPartName, out importedPartNames);
             //
+            BasePart basePart;
+            if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out basePart) ||
+                !(basePart is CompoundGeometryPart compoundPart)) return compoundPartName;
+            //
+            compoundPart.Color = partColor;
+            if (compoundPart.SubPartNames.Length != origins.Length)
+            {
+                _form.WriteDataToOutput("Split solid: the cells of the compound part " + compoundPartName +
+                                        " could not be gathered under the parts they were cut from.");
+                return compoundPartName;
+            }
+            //
+            string[] cellSubPartNames = new string[origins.Length];
+            for (int i = 0; i < origins.Length; i++)
+            {
+                cellSubPartNames[i] = sourceSubPartNames[origins[i] - 1];
+                //
+                BasePart cell = _model.Geometry.Parts[compoundPart.SubPartNames[i]];
+                cell.Color = sourceColors[origins[i] - 1];
+                _form.UpdateActor(cell.Name, cell.Name, cell.Color);
+            }
+            compoundPart.CellSubPartNames = cellSubPartNames;
+            RenameSplitCells(compoundPart);
+            // A compound that is split again is still the same body, so what was defined on the whole of it
+            // is defined on the whole of what it became
+            int[] cellPartIds = GetSubParts(compoundPartName).Select(cell => cell.PartId).ToArray();
+            foreach (var entry in compoundMeshSetupItems)
+            {
+                MeshSetupItem meshSetupItem = entry.Key;
+                meshSetupItem.CreationIds = entry.Value.Concat(cellPartIds).ToArray();
+                meshSetupItem.CreationData.Nodes.Clear();
+                meshSetupItem.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false,
+                                                                    meshSetupItem.CreationIds));
+                meshSetupItem.Valid = true;
+            }
+            //
             return compoundPartName;
+        }
+        /// <summary>
+        /// The mesh setup items that mesh the whole of a compound part, each with the ids it holds of the
+        /// parts that are not the compound. Only an item defined on parts can follow a compound into the
+        /// cells of a split; one defined on its surfaces or edges names faces the split has redrawn.
+        /// </summary>
+        private Dictionary<MeshSetupItem, int[]> GetMeshSetupItemsCoveringCompound(GeometryPart part)
+        {
+            Dictionary<MeshSetupItem, int[]> meshSetupItems = new Dictionary<MeshSetupItem, int[]>();
+            if (!(part is CompoundGeometryPart compoundPart)) return meshSetupItems;
+            //
+            HashSet<int> subPartIds = new HashSet<int>(GetSubParts(compoundPart.Name).Select(p => p.PartId));
+            foreach (var entry in _model.Geometry.MeshSetupItems)
+            {
+                MeshSetupItem meshSetupItem = entry.Value;
+                if (!(meshSetupItem is MeshingParameters || meshSetupItem is ShellMmg ||
+                      meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
+                      meshSetupItem is ThickenShellMesh || meshSetupItem is NetgenMesh ||
+                      meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)) continue;
+                if (meshSetupItem.CreationIds == null || meshSetupItem.CreationData == null) continue;
+                //
+                HashSet<int> partIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds));
+                if (!subPartIds.IsSubsetOf(partIds)) continue;
+                //
+                meshSetupItems[meshSetupItem] = meshSetupItem.CreationIds
+                    .Where(id => !subPartIds.Contains(FeMesh.GetPartIdFromGeometryId(id))).ToArray();
+            }
+            return meshSetupItems;
+        }
+        private void GetSplitGeometrySourceSolids(GeometryPart part, out string[] subPartNames, out Color[] colors)
+        {
+            if (part is CompoundGeometryPart compoundPart)
+            {
+                GeometryPart[] subParts = GetSubParts(compoundPart.Name);
+                subPartNames = new string[subParts.Length];
+                colors = new Color[subParts.Length];
+                for (int i = 0; i < subParts.Length; i++)
+                {
+                    subPartNames[i] = compoundPart.CellSubPartNames?[i] ?? subParts[i].Name;
+                    colors[i] = subParts[i].Color;
+                }
+            }
+            else
+            {
+                subPartNames = new string[] { part.Name };
+                colors = new Color[] { part.Color };
+            }
+        }
+        private static string GetSplitGeometryOriginsFileName(string brepFileName)
+        {
+            return brepFileName + ".origins";
+        }
+        /// <summary>
+        /// The solid of the split part each solid of the result was cut from, numbered from one, as the
+        /// mesher writes it beside the result. An answer that does not name one of the solids for every
+        /// piece is no answer, since a cell gathered under the wrong part would be meshed with it.
+        /// </summary>
+        private int[] ReadSplitGeometryOrigins(string brepFileName, int numOfSolids, int numOfSourceSolids)
+        {
+            string originsFileName = GetSplitGeometryOriginsFileName(brepFileName);
+            List<int> origins = new List<int>();
+            if (File.Exists(originsFileName))
+            {
+                foreach (string line in File.ReadAllLines(originsFileName))
+                {
+                    int origin;
+                    if (line.Trim().Length == 0) continue;
+                    if (!int.TryParse(line.Trim(), out origin) || origin < 1 || origin > numOfSourceSolids)
+                    {
+                        origins = null;
+                        break;
+                    }
+                    origins.Add(origin);
+                }
+            }
+            if (origins == null || origins.Count != numOfSolids)
+            {
+                _form.WriteDataToOutput("Split solid: the mesher did not say which solid each piece of the split " +
+                                        "came from.");
+                return null;
+            }
+            return origins.ToArray();
+        }
+        /// <summary>
+        /// Names the cells of a split compound after the sub part each of them belongs to, numbered in the
+        /// order they have in the compound. A name another part already has is skipped, and the cells are
+        /// first moved out of the way when one of them would take a name another of them still holds.
+        /// </summary>
+        private void RenameSplitCells(CompoundGeometryPart compoundPart)
+        {
+            if (!compoundPart.CreatedBySplit) return;
+            //
+            string[] cellNames = compoundPart.SubPartNames.ToArray();
+            HashSet<string> cellNameSet = new HashSet<string>(cellNames, StringComparer.OrdinalIgnoreCase);
+            HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
+                                                                StringComparer.OrdinalIgnoreCase);
+            reservedNames.ExceptWith(cellNames);
+            //
+            Dictionary<string, int> cellCounts = new Dictionary<string, int>();
+            string[] newCellNames = new string[cellNames.Length];
+            bool nameTakenByCell = false;
+            for (int i = 0; i < cellNames.Length; i++)
+            {
+                string subPartName = compoundPart.CellSubPartNames[i];
+                if (subPartName == null) { newCellNames[i] = cellNames[i]; continue; }
+                //
+                int count;
+                cellCounts.TryGetValue(subPartName, out count);
+                string newCellName;
+                do newCellName = subPartName + "_cell-" + (++count);
+                while (reservedNames.Contains(newCellName));
+                cellCounts[subPartName] = count;
+                reservedNames.Add(newCellName);
+                newCellNames[i] = newCellName;
+                //
+                if (!string.Equals(newCellName, cellNames[i], StringComparison.OrdinalIgnoreCase) &&
+                    cellNameSet.Contains(newCellName)) nameTakenByCell = true;
+            }
+            //
+            if (nameTakenByCell)
+            {
+                for (int i = 0; i < cellNames.Length; i++)
+                {
+                    if (newCellNames[i] == cellNames[i]) continue;
+                    string temporaryName = "Cell_" + Guid.NewGuid().ToString("N");
+                    RenameSplitCell(cellNames[i], temporaryName);
+                    cellNames[i] = temporaryName;
+                }
+            }
+            for (int i = 0; i < cellNames.Length; i++)
+            {
+                if (newCellNames[i] != cellNames[i]) RenameSplitCell(cellNames[i], newCellNames[i]);
+            }
+        }
+        private void RenameSplitCell(string oldCellName, string newCellName)
+        {
+            PartProperties properties = GetGeometryPart(oldCellName).GetProperties();
+            properties.Name = newCellName;
+            ReplaceGeometryPartProperties(oldCellName, properties, false);
         }
         private int GetGeometryPartFaceCount(string partName)
         {
@@ -6535,6 +6772,9 @@ namespace PrePoMax
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
             if (File.Exists(toolFileName)) File.Delete(toolFileName);
+            //
+            string originsFileName = GetSplitGeometryOriginsFileName(outputBrepFileName);
+            if (File.Exists(originsFileName)) File.Delete(originsFileName);
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             File.WriteAllText(toolFileName, GetSplitGeometryToolDefinition(geometryFeature, extent,
@@ -8449,6 +8689,7 @@ namespace PrePoMax
             {
                 relatedPartNames.Add(compoundPart.Name);
                 relatedPartNames.AddRange(compoundPart.SubPartNames);
+                relatedPartNames.AddRange(compoundPart.GetSplitSubPartNames());
             }
             else relatedPartNames.Add(part.Name);
             generatedMesh.RelatedPartNames = relatedPartNames.ToArray();
@@ -8489,6 +8730,32 @@ namespace PrePoMax
                                                                   thickenShellMesh.Offset,
                                                                   false, out _);
             if (errors.Length > 0) throw new CaeException(errors[0]);
+        }
+        /// <summary>
+        /// The geometry part a mesh part was meshed from. A sub part of a split compound is meshed from its
+        /// cells and has no geometry part of its own, so its first cell stands for it: the mesh part takes
+        /// that cell's part id, which stays the same on every regenerate, and its color and element types.
+        /// </summary>
+        private GeometryPart GetGeometryPartOfMeshPart(string meshPartName)
+        {
+            BasePart part;
+            if (_model.Geometry.Parts.TryGetValue(meshPartName, out part)) return part as GeometryPart;
+            //
+            CompoundGeometryPart splitCompoundPart = GetSplitCompoundOfSubPart(meshPartName);
+            if (splitCompoundPart == null) return null;
+            //
+            string firstCellName = splitCompoundPart.GetCellNames(meshPartName).FirstOrDefault();
+            return firstCellName == null ? null : GetGeometryPart(firstCellName);
+        }
+        private CompoundGeometryPart GetSplitCompoundOfSubPart(string subPartName)
+        {
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.CreatedBySplit &&
+                    compoundPart.CellSubPartNames.Contains(subPartName))
+                    return compoundPart;
+            }
+            return null;
         }
         private void CommitGeneratedMeshes(List<GeneratedMeshData> generatedMeshes, MeshBatchPerformance performance)
         {
@@ -8531,14 +8798,17 @@ namespace PrePoMax
                         _form.WriteDataToOutput(partName + ": " + meshPart.NodeLabels.Length + " nodes, " +
                                                 meshPart.Labels.Length + " elements");
                         //
-                        if (_model.Geometry.Parts.ContainsKey(partName))
+                        GeometryPart geometryPart = GetGeometryPartOfMeshPart(partName);
+                        if (geometryPart != null)
                         {
-                            _model.Mesh.ChangePartId(partName, _model.Geometry.Parts[partName].PartId);
+                            _model.Mesh.ChangePartId(partName, geometryPart.PartId);
                             renumbered = true;
+                            if (geometryPart.Name != partName) meshPart.Color = geometryPart.Color;
                         }
                         //
-                        if (oldMeshPartNames.Contains(partName) && meshPart is MeshPart modelPart)
-                            modelPart.SetElementTypeEnums(GetGeometryPart(partName).GetElementTypeEnums());
+                        if (oldMeshPartNames.Contains(partName) && meshPart is MeshPart modelPart &&
+                            geometryPart != null)
+                            modelPart.SetElementTypeEnums(geometryPart.GetElementTypeEnums());
                         //
                         if (generatedMesh.SmoothShaded) meshPart.SmoothShaded = true;
                     }
@@ -10594,6 +10864,20 @@ namespace PrePoMax
                 }
                 // Update
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, oldPartName, geomPart, null);
+            }
+            else if (_model.Geometry != null && GetSplitCompoundOfSubPart(oldPartName) is CompoundGeometryPart
+                     splitCompoundPart)
+            {
+                // The mesh part of a sub part of a split compound is paired with its cells
+                foreach (string cellName in splitCompoundPart.GetCellNames(oldPartName))
+                {
+                    GeometryPart cell = GetGeometryPart(cellName);
+                    cell.AddElementTypeEnums(meshPart.GetElementTypeEnums());
+                    cell.Color = meshPart.Color;
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, cellName, cell, null);
+                }
+                if (nameChanged) SetSplitSubPartName(splitCompoundPart, oldPartName, meshPart.Name);
+                _form.RegenerateTree();
             }
             //
             AnnotateWithColorLegend();
@@ -15507,6 +15791,31 @@ namespace PrePoMax
                 }
             }
         }
+        /// <summary>
+        /// The part id whose place in the color table colors a geometry part. The cells of a sub part of a
+        /// split compound are one part to the user, and are meshed into one mesh part that carries the part
+        /// id of the first of them, so they all take the color of that first cell.
+        /// </summary>
+        private int GetColorTablePartId(BasePart part)
+        {
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                //
+                int index = Array.IndexOf(compoundPart.SubPartNames, part.Name);
+                if (index < 0 || compoundPart.CellSubPartNames[index] == null) continue;
+                //
+                string firstCellName = compoundPart.GetCellNames(compoundPart.CellSubPartNames[index])[0];
+                BasePart firstCell;
+                if (_model.Geometry.Parts.TryGetValue(firstCellName, out firstCell)) return firstCell.PartId;
+            }
+            return part.PartId;
+        }
+        private void SetGeometryPartColorFromColorTable(BasePart part)
+        {
+            Color[] colorTable = CaeMesh.Globals.ColorTable;
+            part.Color = colorTable[(GetColorTablePartId(part) - 1) % colorTable.Length];
+        }
         private void UpdatePartColorsFromColorTable(Color[] previousColorTable)
         {
             if (previousColorTable == null || previousColorTable == CaeMesh.Globals.ColorTable) return;
@@ -15529,18 +15838,22 @@ namespace PrePoMax
             if (mesh == null) return;
             //
             byte alpha;
+            int colorPartId;
             Color previousColor;
             //
             foreach (var entry in mesh.Parts)
             {
                 if (entry.Value is CompoundGeometryPart) continue;
                 //
-                previousColor = previousColorTable[(entry.Value.PartId - 1) % previousColorTable.Length];
+                colorPartId = view == ViewGeometryModelResults.Geometry ? GetColorTablePartId(entry.Value)
+                                                                        : entry.Value.PartId;
+                previousColor = previousColorTable[(colorPartId - 1) % previousColorTable.Length];
                 if (entry.Value.Color.R != previousColor.R || entry.Value.Color.G != previousColor.G ||
                     entry.Value.Color.B != previousColor.B) continue;
                 //
                 alpha = entry.Value.Color.A;
-                mesh.SetPartColorFromColorTable(entry.Value);
+                if (view == ViewGeometryModelResults.Geometry) SetGeometryPartColorFromColorTable(entry.Value);
+                else mesh.SetPartColorFromColorTable(entry.Value);
                 entry.Value.Color = Color.FromArgb(alpha, entry.Value.Color);
                 //
                 _form.UpdateTreeNode(view, entry.Key, entry.Value, null, false);

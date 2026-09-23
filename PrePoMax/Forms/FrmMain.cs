@@ -393,6 +393,7 @@ namespace PrePoMax
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_EditEvent;
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
+                _modelTree.RenameSplitSubPartEvent += ModelTree_RenameSplitSubPartEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
@@ -1285,6 +1286,11 @@ namespace PrePoMax
         private void ModelTree_RenameEvent(NamedClass item, string newName, string stepName)
         {
             _controller.RenameCommand(item, newName, stepName);
+        }
+        private void ModelTree_RenameSplitSubPartEvent(string compoundPartName, string oldSubPartName,
+                                                       string newSubPartName)
+        {
+            _controller.RenameSplitSubPartCommand(compoundPartName, oldSubPartName, newSubPartName);
         }
         private void ModelTree_QueryEvent()
         {
