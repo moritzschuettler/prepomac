@@ -518,17 +518,17 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry. Every parameter that is not " +
                    "given keeps the application default.",
-                   Arguments = "name: str, selection: Selection, preview: bool = None, remesh: bool = None, " +
-                               "smooth: bool = None, alpha: float = None, triangulation_mesher: str = None, " +
+                   Arguments = "name: str, selection: Selection, preview: bool = None, smooth: bool = None, " +
+                               "alpha: float = None, triangulation_mesher: str = None, " +
                                "scale_factor: float = None, flow_profile: str = None, " +
                                "keep_files_on_failure: bool = None", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
-                                                    object remesh = null, object smooth = null, object alpha = null,
+                                                    object smooth = null, object alpha = null,
                                                     string triangulation_mesher = null, object scale_factor = null,
                                                     string flow_profile = null, object keep_files_on_failure = null)
         {
             ShellQuadWild item = new ShellQuadWild(name);
-            ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
+            ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher, scale_factor,
                                flow_profile, keep_files_on_failure);
             _service.Add(item, name, selection);
             return this[name];
@@ -539,13 +539,12 @@ namespace APIs.Python.Model
                                "arguments of add_shell_quad_wild", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI replace_shell_quad_wild(string old_name, string name = null,
                                                         SelectionAPI selection = null, object preview = null,
-                                                        object remesh = null, object smooth = null,
-                                                        object alpha = null, string triangulation_mesher = null,
+                                                        object smooth = null, object alpha = null, string triangulation_mesher = null,
                                                         object scale_factor = null, string flow_profile = null,
                                                         object keep_files_on_failure = null)
         {
             ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
-            ApplyShellQuadWild(item, preview, remesh, smooth, alpha, triangulation_mesher, scale_factor,
+            ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher, scale_factor,
                                flow_profile, keep_files_on_failure);
             return Replace(old_name, name, item, selection);
         }
@@ -791,12 +790,11 @@ namespace APIs.Python.Model
             ApplyOptimizeFirstOrderShell(item, optimizeFirstOrderShell);
             ApplyElementsPerLayer(item, elementsPerLayer);
         }
-        private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object remesh, object smooth,
+        private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object smooth,
                                                object alpha, string triangulationMesher, object scaleFactor,
                                                string flowProfile, object keepFilesOnFailure)
         {
             if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
-            if (remesh != null) item.Remesh = PythonValueConverter.ToBool(remesh, "remesh");
             if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
             if (alpha != null) item.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
             if (triangulationMesher != null)

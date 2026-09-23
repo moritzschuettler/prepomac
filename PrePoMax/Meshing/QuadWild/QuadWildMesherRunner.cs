@@ -131,9 +131,7 @@ namespace PrePoMax
             _controller.Form.WriteDataToOutput("QuadWild input: " + inputInfo.NodeCount + " nodes, " +
                                                inputInfo.FaceCount + " triangles, " +
                                                inputInfo.SharpEdgeCount + " sharp-edge segments.");
-            if (shellQuadWild.Remesh) WarnIfInternalRemeshMayOverRefine(triangularMesh,
-                                                                       shellQuadWild.TriangulationMesher);
-            if (shellQuadWild.Preview && !shellQuadWild.Remesh)
+            if (shellQuadWild.Preview)
             {
                 _controller.Form.WriteDataToOutput("QuadWild preview is enabled: importing the " +
                                                    GetMesherName(shellQuadWild.TriangulationMesher) +
@@ -147,46 +145,26 @@ namespace PrePoMax
                     QuadWildInputFileInfo = inputInfo
                 };
             }
-            // A remeshed preview only requires the preparation executable. The triangular-only preview
-            // returned above does not require an installed QuadWild runtime.
+            // The preview returned above does not require an installed QuadWild runtime.
             string executable = Application.StartupPath + Globals.QuadWildMesher;
             string patchExecutable = Application.StartupPath + Globals.QuadWildPatchMesher;
             string runtimeDirectory = Path.GetDirectoryName(executable);
-            ValidateRuntime(executable, patchExecutable, runtimeDirectory, !shellQuadWild.Preview);
+            ValidateRuntime(executable, patchExecutable, runtimeDirectory);
             //
             string prepTemplateFileName = Path.Combine(runtimeDirectory, "config", "prep_config", "basic_setup.txt");
             WriteConfig(prepTemplateFileName, prepConfigFileName,
                         new Dictionary<string, string>()
                         {
-                            { "do_remesh", shellQuadWild.Remesh ? "1" : "0" }
+                            // The triangulation mesher controls the input; QuadWild's remesher would move
+                            // the model vertices and prescribed nodes
+                            { "do_remesh", "0" }
                         });
             //
             _controller.Form.WriteDataToOutput("Running QuadWild preparation and patch tracing...");
             string argument = Quote(objFileName) + " 2 " + Quote(prepConfigFileName) + " " + Quote(sharpFileName);
-            string[] preparationOutputFileNames = shellQuadWild.Preview
-                                                  ? new string[] { tracedObjFileName }
-                                                  : tracedFileNames;
             bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
-                                              workDirectory, preparationOutputFileNames);
+                                              workDirectory, tracedFileNames);
             EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName);
-            if (shellQuadWild.Preview)
-            {
-                QuadWildOutputInfo previewInfo = ValidateTriangularOutput(tracedObjFileName);
-                _controller.Form.WriteDataToOutput("QuadWild remeshed preview: " + previewInfo.NodeCount +
-                                                   " nodes, " + previewInfo.TriangleCount + " triangles. " +
-                                                   "Skipping quad generation.");
-                WarnAboutDegenerateFaces(previewInfo);
-                return new GeneratedMeshData()
-                {
-                    GeometryPart = part,
-                    MeshFileName = tracedObjFileName,
-                    ConvertToSecondOrder = false,
-                    SmoothShaded = true,
-                    QuadWildInputFileInfo = inputInfo,
-                    RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure && preparationFailed
-                };
-            }
-            //
             string flowTemplateName;
             if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.Aligned) flowTemplateName = "flow.txt";
             else if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.NoAlignment)
@@ -285,42 +263,6 @@ namespace PrePoMax
                     throw new CaeException("The QuadWild pre-pass must contain only first-order triangles.");
             }
         }
-        private void WarnIfInternalRemeshMayOverRefine(FeMesh mesh, MesherTypeEnum triangulationMesher)
-        {
-            double minimumEdgeLength = Double.MaxValue;
-            double edgeLengthSum = 0;
-            int edgeCount = 0;
-            foreach (FeElement element in mesh.Elements.Values)
-            {
-                int[] nodeIds = element.NodeIds;
-                for (int i = 0; i < 3; i++)
-                {
-                    FeNode node1 = mesh.Nodes[nodeIds[i]];
-                    FeNode node2 = mesh.Nodes[nodeIds[(i + 1) % 3]];
-                    double dx = node2.X - node1.X;
-                    double dy = node2.Y - node1.Y;
-                    double dz = node2.Z - node1.Z;
-                    double edgeLength = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-                    if (edgeLength < minimumEdgeLength) minimumEdgeLength = edgeLength;
-                    edgeLengthSum += edgeLength;
-                    edgeCount++;
-                }
-            }
-            if (edgeCount == 0) return;
-            double averageEdgeLength = edgeLengthSum / edgeCount;
-            double ratio = minimumEdgeLength > 0 ? averageEdgeLength / minimumEdgeLength
-                                                 : Double.PositiveInfinity;
-            if (ratio < 1000) return;
-            //
-            string warning = "The QuadWild triangular input contains highly nonuniform edge lengths " +
-                             "(minimum " + minimumEdgeLength.ToString("G6", CultureInfo.InvariantCulture) +
-                             ", average " + averageEdgeLength.ToString("G6", CultureInfo.InvariantCulture) +
-                             ", average/minimum ratio " + ratio.ToString("G6", CultureInfo.InvariantCulture) +
-                             "). QuadWild's internal remesher may excessively refine this surface and take a " +
-                             "long time. Consider setting Remesh input to No and controlling the triangulation " +
-                             "sizes with " + GetMesherName(triangulationMesher) + ".";
-            _controller.Form.WriteDataToOutput("Warning: " + warning);
-        }
         private bool PreviewModelEdgeNodes(GeometryPart part, string mesherName)
         {
             int[] nodeIds;
@@ -375,12 +317,11 @@ namespace PrePoMax
             EnsureFilesWritten(stageName, expectedFileNames);
             return jobStatus != JobStatus.OK;
         }
-        private static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory,
-                                            bool requirePatchExecutable)
+        private static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory)
         {
             if (!File.Exists(executable))
                 throw new CaeException("The QuadWild executable was not found: " + executable);
-            if (requirePatchExecutable && !File.Exists(patchExecutable))
+            if (!File.Exists(patchExecutable))
                 throw new CaeException("The QuadWild patch executable was not found: " + patchExecutable);
             if (String.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
                 throw new CaeException("The QuadWild runtime directory was not found.");
@@ -480,15 +421,6 @@ namespace PrePoMax
             QuadWildOutputInfo outputInfo = ReadAndValidateOutput(fileName);
             if (outputInfo.QuadCount == 0)
                 throw new CaeException("The QuadWild output does not contain any quadrilateral elements.");
-            return outputInfo;
-        }
-        private static QuadWildOutputInfo ValidateTriangularOutput(string fileName)
-        {
-            QuadWildOutputInfo outputInfo = ReadAndValidateOutput(fileName);
-            if (outputInfo.TriangleCount == 0)
-                throw new CaeException("The QuadWild remeshed preview does not contain any triangle elements.");
-            if (outputInfo.QuadCount != 0)
-                throw new CaeException("The QuadWild remeshed preview must contain only triangle elements.");
             return outputInfo;
         }
         private static QuadWildOutputInfo ReadAndValidateOutput(string fileName)

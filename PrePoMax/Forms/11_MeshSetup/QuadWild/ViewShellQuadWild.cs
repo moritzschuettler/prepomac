@@ -48,22 +48,13 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Triangulation")]
         [OrderedDisplayName(1, 10, "Preview")]
-        [DescriptionAttribute("When set to Yes, Create Mesh skips quad generation. It imports the selected mesher " +
-                              "triangulation when Remesh input is No, or the QuadWild-remeshed triangulation when " +
-                              "Remesh input is Yes.")]
+        [DescriptionAttribute("When set to Yes, Create Mesh skips quad generation and imports the triangulation " +
+                              "of the selected mesher.")]
         [Id(2, 3)]
         public bool Preview
         {
             get { return _shellQuadWild.Preview; }
             set { _shellQuadWild.Preview = value; UpdateVisibility(); } }
-        //
-        [CategoryAttribute("Preparation")]
-        [OrderedDisplayName(0, 10, "Remesh input")]
-        [DescriptionAttribute("Allow QuadWild to remesh the triangular input before patch tracing. " +
-                              "This can excessively refine meshes containing very short edges. Usually keep it " +
-                              "disabled and control the input using the selected triangulation mesher.")]
-        [Id(1, 4)]
-        public bool Remesh { get { return _shellQuadWild.Remesh; } set { _shellQuadWild.Remesh = value; } }
         //
         [CategoryAttribute("Quad generation")]
         [OrderedDisplayName(1, 10, "Quad edge multiplier")]
@@ -132,7 +123,6 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(TriangulationMesher)).RemoveStandardValues(
                 new HashSet<string>() { MesherTypeEnum.None.ToString(), MesherTypeEnum.QuadWild.ToString() });
             _dctd.RenameBooleanPropertyToYesNo(nameof(Preview));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(Remesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Smooth));
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepFilesOnFailure));
             //
@@ -148,7 +138,6 @@ namespace PrePoMax.Forms
         private void UpdateVisibility()
         {
             bool visible = !_shellQuadWild.Preview;
-            _dctd.GetProperty(nameof(Remesh)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(FlowProfile)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(ScaleFactor)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Alpha)).SetIsBrowsable(visible);

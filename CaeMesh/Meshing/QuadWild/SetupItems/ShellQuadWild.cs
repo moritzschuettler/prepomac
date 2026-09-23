@@ -18,7 +18,6 @@ namespace CaeMesh
         // Variables
         private MesherTypeEnum _triangulationMesher;                      // ISerializable
         private bool _preview;                                           // ISerializable
-        private bool _remesh;                                            // ISerializable
         private bool _smooth;                                            // ISerializable
         private double _scaleFactor;                                     // ISerializable
         private double _alpha;                                           // ISerializable
@@ -39,7 +38,6 @@ namespace CaeMesh
             }
         }
         public bool Preview { get { return _preview; } set { _preview = value; } }
-        public bool Remesh { get { return _remesh; } set { _remesh = value; } }
         public bool Smooth { get { return _smooth; } set { _smooth = value; } }
         public double ScaleFactor
         {
@@ -79,8 +77,6 @@ namespace CaeMesh
                         _triangulationMesher = (MesherTypeEnum)entry.Value; break;
                     case "_preview":
                         _preview = (bool)entry.Value; break;
-                    case "_remesh":
-                        _remesh = (bool)entry.Value; break;
                     case "_smooth":
                         _smooth = (bool)entry.Value; break;
                     case "_scaleFactor":
@@ -105,7 +101,6 @@ namespace CaeMesh
             //
             _triangulationMesher = MesherTypeEnum.Gmsh;
             _preview = false;
-            _remesh = false;
             _smooth = true;
             _scaleFactor = 1;
             _alpha = 0.005;
@@ -118,7 +113,6 @@ namespace CaeMesh
             //
             _triangulationMesher = shellQuadWild._triangulationMesher;
             _preview = shellQuadWild._preview;
-            _remesh = shellQuadWild._remesh;
             _smooth = shellQuadWild._smooth;
             _scaleFactor = shellQuadWild._scaleFactor;
             _alpha = shellQuadWild._alpha;
@@ -132,7 +126,6 @@ namespace CaeMesh
             //
             info.AddValue("_triangulationMesher", _triangulationMesher, typeof(MesherTypeEnum));
             info.AddValue("_preview", _preview, typeof(bool));
-            info.AddValue("_remesh", _remesh, typeof(bool));
             info.AddValue("_smooth", _smooth, typeof(bool));
             info.AddValue("_scaleFactor", _scaleFactor, typeof(double));
             info.AddValue("_alpha", _alpha, typeof(double));

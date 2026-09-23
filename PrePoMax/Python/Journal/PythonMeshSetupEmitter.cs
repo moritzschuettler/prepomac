@@ -63,7 +63,6 @@ namespace PrePoMax.Python.Journal
             if (item is ShellQuadWild quadWild)
             {
                 arguments.Add("preview=" + PythonValueFormatter.Format(quadWild.Preview));
-                arguments.Add("remesh=" + PythonValueFormatter.Format(quadWild.Remesh));
                 arguments.Add("smooth=" + PythonValueFormatter.Format(quadWild.Smooth));
                 arguments.Add("alpha=" + PythonValueFormatter.Number(quadWild.Alpha));
                 arguments.Add("triangulation_mesher=" +
