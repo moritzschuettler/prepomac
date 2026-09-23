@@ -5050,12 +5050,7 @@ namespace PrePoMax
             // exploded view has moved apart give a tool that is not the one that was drawn, and a tool
             // picked on one part does not cut another where it appears to. The operation is refused
             // rather than recorded, since what is recorded is replayed with no view at all
-            double[] offset;
-            if (!TryGetSplitGeometryFeatureOffset(geometryFeature, out offset))
-                throw new CaeException("The exploded view holds the parts of this operation at " +
-                                       "different places, so the splitting tool would not cut where it " +
-                                       "is drawn. Turn the exploded view off, or split only parts that " +
-                                       "stand at the same offset.");
+            ThrowIfSplitGeometryOffsetsDiffer(geometryFeature);
             //
             CSplitGeometry comm = new CSplitGeometry(geometryFeature);
             _commands.AddAndExecute(comm);
@@ -5831,31 +5826,65 @@ namespace PrePoMax
         [NonSerialized] private bool _pickCompoundSubPartsSeparately;
         public void SplitGeometry(GeometryFeature geometryFeature)
         {
-            // In order for the Regenerate history to work perform the selection
-            if (geometryFeature.CreationData == null)
-                throw new NotSupportedException("The region selection does not contain any selection data.");
+            SplitGeometry(geometryFeature, false);
+        }
+        // The edges the split would make, drawn where it would make them, so that a tool can be judged
+        // before it is applied. It records nothing and changes nothing.
+        public async Task PreviewSplitGeometryAsync(GeometryFeature geometryFeature)
+        {
+            ThrowIfSplitGeometryOffsetsDiffer(geometryFeature);
             //
-            // The region is resolved the way it was picked: one sub part means one sub part. Without this
-            // the resolution would expand it to every sub part of its compound, since by the time the split
-            // runs the picker has long moved on to the splitter and no longer asks for sub parts.
-            bool pickSubPartsSeparately = _pickCompoundSubPartsSeparately;
-            _pickCompoundSubPartsSeparately = true;
+            _form.SetStateWorking(Globals.PreviewText, false);
             try
             {
-                geometryFeature.CreationIds = GetIdsFromSelection(geometryFeature.CreationData);
+                await Task.Run(() => SplitGeometry(geometryFeature, true));
             }
             finally
             {
-                _pickCompoundSubPartsSeparately = pickSubPartsSeparately;
+                _form.SetStateReady(Globals.PreviewText);
             }
-            if (geometryFeature.SplitterData != null)
-                geometryFeature.SplitterIds = GetIdsFromSelection(geometryFeature.SplitterData);
-            if (geometryFeature is SplitByExtrudedEdges edgeItem && edgeItem.DirectionData != null)
-                edgeItem.DirectionIds = GetIdsFromSelection(edgeItem.DirectionData);
-            // The picked geometry gives the values again, so that a replay follows the regenerated geometry
-            // instead of the numbers the geometry had when the operation was first applied
-            UpdateSplitGeometryFromDirectionSelection(geometryFeature);
-            UpdateSplitGeometryFromSplitterSelection(geometryFeature);
+        }
+        private void ThrowIfSplitGeometryOffsetsDiffer(GeometryFeature geometryFeature)
+        {
+            double[] offset;
+            if (!TryGetSplitGeometryFeatureOffset(geometryFeature, out offset))
+                throw new CaeException("The exploded view holds the parts of this operation at " +
+                                       "different places, so the splitting tool would not cut where it " +
+                                       "is drawn. Turn the exploded view off, or split only parts that " +
+                                       "stand at the same offset.");
+        }
+        private void SplitGeometry(GeometryFeature geometryFeature, bool preview)
+        {
+            // A preview runs while the user is still picking, so it takes the ids and the values the dialog
+            // holds rather than resolving the selections again, which would replace the selection being picked
+            if (!preview)
+            {
+                // In order for the Regenerate history to work perform the selection
+                if (geometryFeature.CreationData == null)
+                    throw new NotSupportedException("The region selection does not contain any selection data.");
+                //
+                // The region is resolved the way it was picked: one sub part means one sub part. Without this
+                // the resolution would expand it to every sub part of its compound, since by the time the
+                // split runs the picker has long moved on to the splitter and no longer asks for sub parts.
+                bool pickSubPartsSeparately = _pickCompoundSubPartsSeparately;
+                _pickCompoundSubPartsSeparately = true;
+                try
+                {
+                    geometryFeature.CreationIds = GetIdsFromSelection(geometryFeature.CreationData);
+                }
+                finally
+                {
+                    _pickCompoundSubPartsSeparately = pickSubPartsSeparately;
+                }
+                if (geometryFeature.SplitterData != null)
+                    geometryFeature.SplitterIds = GetIdsFromSelection(geometryFeature.SplitterData);
+                if (geometryFeature is SplitByExtrudedEdges edgeItem && edgeItem.DirectionData != null)
+                    edgeItem.DirectionIds = GetIdsFromSelection(edgeItem.DirectionData);
+                // The picked geometry gives the values again, so that a replay follows the regenerated
+                // geometry instead of the numbers the geometry had when the operation was first applied
+                UpdateSplitGeometryFromDirectionSelection(geometryFeature);
+                UpdateSplitGeometryFromSplitterSelection(geometryFeature);
+            }
             //
             string error = geometryFeature.CheckValidity();
             if (error != null) throw new CaeException(error);
@@ -5873,6 +5902,12 @@ namespace PrePoMax
             if (extent == null) throw new CaeException("The size of the parts to split could not be determined.");
             //
             Dictionary<int, string> sourceBrepFileNames = WriteSplitGeometrySourceBreps(geometryFeature);
+            //
+            if (preview)
+            {
+                PreviewSplitGeometryParts(geometryFeature, partNames, extent, sourceBrepFileNames);
+                return;
+            }
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> failedPartNames = new List<string>();
@@ -5905,7 +5940,7 @@ namespace PrePoMax
                                                 out targetFaceIds);
                     string brepFileName = SplitGeometryPart(part, geometryFeature, extent,
                                                             sourceBrepFileNames, solidIds, targetSolids,
-                                                            targetFaceIds);
+                                                            targetFaceIds, false);
                     // A part the tool misses must not stop the parts it does not miss
                     if (brepFileName == null) { failedPartNames.Add(partName); continue; }
                     //
@@ -6802,9 +6837,118 @@ namespace PrePoMax
             }
             return sourceBrepFileNames;
         }
+        // Every part of the region is split as the operation would split it, and the edges each split made
+        // are drawn together. Nothing of the result is taken in, so the model and the picks stay as they are.
+        private void PreviewSplitGeometryParts(GeometryFeature geometryFeature, string[] partNames, double[] extent,
+                                               Dictionary<int, string> sourceBrepFileNames)
+        {
+            List<double[][]> polylines = new List<double[][]>();
+            List<string> failedPartNames = new List<string>();
+            foreach (string partName in partNames)
+            {
+                BasePart basePart;
+                if (!_model.Geometry.Parts.TryGetValue(partName, out basePart) ||
+                    !(basePart is GeometryPart part)) continue;
+                //
+                int[] solidIds = GetSplitGeometrySolidIds(geometryFeature, partName);
+                List<int> targetSolids;
+                List<int[]> targetFaceIds;
+                GetSplitGeometryTargetFaces(geometryFeature, partName, out targetSolids, out targetFaceIds);
+                string edgesFileName = SplitGeometryPart(part, geometryFeature, extent, sourceBrepFileNames,
+                                                         solidIds, targetSolids, targetFaceIds, true);
+                double[][][] partPolylines = edgesFileName == null ? null :
+                                             ReadSplitGeometryPreviewEdges(edgesFileName);
+                if (partPolylines == null) failedPartNames.Add(partName);
+                else polylines.AddRange(partPolylines);
+            }
+            // The parts of the operation share one exploded view offset, or the preview was refused
+            double[] offset;
+            TryGetSplitGeometryFeatureOffset(geometryFeature, out offset);
+            DrawSplitGeometryPreview(polylines, offset);
+            //
+            string operationName = geometryFeature.SplitType == SplitTypeEnum.Shell ?
+                                   "Split shell preview" : "Split solid preview";
+            foreach (string partName in failedPartNames)
+                _form.WriteDataToOutput(operationName + ": the part " + partName + " would not be split.");
+        }
+        private static string GetSplitGeometryPreviewFileName(string brepFileName)
+        {
+            return brepFileName + ".edges";
+        }
+        // The edges the mesher wrote for a preview, each one as the points it was sampled at
+        private static double[][][] ReadSplitGeometryPreviewEdges(string edgesFileName)
+        {
+            if (!File.Exists(edgesFileName)) return null;
+            //
+            string[] lines = File.ReadAllLines(edgesFileName);
+            List<double[][]> polylines = new List<double[][]>();
+            char[] separators = new char[] { ' ', '\t' };
+            int numOfPoints;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].StartsWith("Edge:") ||
+                    !int.TryParse(lines[i].Substring(5).Trim(), out numOfPoints) ||
+                    numOfPoints < 2 || i + numOfPoints >= lines.Length) continue;
+                //
+                double[][] points = new double[numOfPoints][];
+                for (int j = 0; j < numOfPoints; j++)
+                {
+                    string[] values = lines[i + 1 + j].Split(separators, StringSplitOptions.RemoveEmptyEntries);
+                    if (values.Length != 3) return null;
+                    points[j] = new double[3];
+                    for (int k = 0; k < 3; k++)
+                        if (!double.TryParse(values[k], System.Globalization.NumberStyles.Float,
+                                             System.Globalization.CultureInfo.InvariantCulture,
+                                             out points[j][k])) return null;
+                }
+                polylines.Add(points);
+                i += numOfPoints;
+            }
+            return polylines.ToArray();
+        }
+        // The preview is highlighted as the other previews are, so it is taken off the screen with the
+        // selection by the next pick and by every redraw of the tool symbols
+        private void DrawSplitGeometryPreview(List<double[][]> polylines, double[] offset)
+        {
+            List<double[]> nodeCoor = new List<double[]>();
+            List<int[]> cells = new List<int[]>();
+            List<int> cellTypes = new List<int>();
+            int lineType = (int)vtkCellType.VTK_LINE;
+            int firstNode;
+            foreach (double[][] polyline in polylines)
+            {
+                firstNode = nodeCoor.Count;
+                foreach (double[] point in polyline)
+                {
+                    if (offset == null) nodeCoor.Add(point);
+                    else nodeCoor.Add(new double[] { point[0] + offset[0], point[1] + offset[1],
+                                                     point[2] + offset[2] });
+                }
+                for (int i = 0; i < polyline.Length - 1; i++)
+                {
+                    cells.Add(new int[] { firstNode + i, firstNode + i + 1 });
+                    cellTypes.Add(lineType);
+                }
+            }
+            if (cells.Count == 0) return;
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = "splitGeometryPreview";
+            data.Color = _settings.Pre.PrimaryHighlightColor;
+            data.Layer = vtkRendererLayer.Selection;
+            data.LineWidth = 2;
+            data.CanHaveElementEdges = false;
+            data.Pickable = false;
+            data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+            data.Geometry.Cells.CellNodeIds = cells.ToArray();
+            data.Geometry.Cells.Types = cellTypes.ToArray();
+            //
+            ApplyLighting(data);
+            _form.Add3DCells(data);
+        }
         private string SplitGeometryPart(GeometryPart part, GeometryFeature geometryFeature, double[] extent,
                                          Dictionary<int, string> sourceBrepFileNames, int[] solidIds,
-                                         List<int> targetSolids, List<int[]> targetFaceIds)
+                                         List<int> targetSolids, List<int[]> targetFaceIds, bool preview)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -6816,13 +6960,16 @@ namespace PrePoMax
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string outputBrepFileName = inputBrepFileName;
+            // A preview writes the edges the split made in place of the result
+            string outputFileName = preview ? GetSplitGeometryPreviewFileName(inputBrepFileName) :
+                                              inputBrepFileName;
             string toolFileName = Path.Combine(workDirectory, Globals.SplitToolFileName);
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
             if (File.Exists(toolFileName)) File.Delete(toolFileName);
+            if (File.Exists(outputFileName)) File.Delete(outputFileName);
             //
-            string originsFileName = GetSplitGeometryOriginsFileName(outputBrepFileName);
+            string originsFileName = GetSplitGeometryOriginsFileName(inputBrepFileName);
             if (File.Exists(originsFileName)) File.Delete(originsFileName);
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
@@ -6830,15 +6977,15 @@ namespace PrePoMax
                                                                           sourceBrepFileNames, solidIds,
                                                                           targetSolids, targetFaceIds));
             //
-            string argument = "BREP_SPLIT " +
+            string argument = (preview ? "BREP_SPLIT_PREVIEW " : "BREP_SPLIT ") +
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
-                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputFileName.ToUTF8() + "\" " +
                               "\"" + toolFileName.ToUTF8() + "\"";
             //
             JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
                                                  _form.WriteDataToOutput);
             // Job completed
-            if (jobStatus == JobStatus.OK) return outputBrepFileName;
+            if (jobStatus == JobStatus.OK) return outputFileName;
             else return null;
         }
         private string GetSplitGeometryToolDefinition(GeometryFeature geometryFeature, double[] extent,

@@ -33,6 +33,7 @@ namespace PrePoMax.Forms
         private System.ComponentModel.IContainer components;
         private ToolTip ttText;
         private CheckBox cbAnnotateMeshTypes;
+        private Button btnPreview;
 
 
         // Properties
@@ -64,6 +65,7 @@ namespace PrePoMax.Forms
         {
             this.components = new System.ComponentModel.Container();
             this.cbAnnotateMeshTypes = new System.Windows.Forms.CheckBox();
+            this.btnPreview = new System.Windows.Forms.Button();
             this.ttText = new System.Windows.Forms.ToolTip(this.components);
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
@@ -112,11 +114,24 @@ namespace PrePoMax.Forms
             this.cbAnnotateMeshTypes.UseVisualStyleBackColor = true;
             this.cbAnnotateMeshTypes.CheckedChanged += new System.EventHandler(this.cbAnnotateMeshTypes_CheckedChanged);
             // 
+            // btnPreview
+            // 
+            this.btnPreview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPreview.Image = global::PrePoMax.Properties.Resources.Show;
+            this.btnPreview.Location = new System.Drawing.Point(41, 436);
+            this.btnPreview.Name = "btnPreview";
+            this.btnPreview.Size = new System.Drawing.Size(28, 23);
+            this.btnPreview.TabIndex = 18;
+            this.ttText.SetToolTip(this.btnPreview, "Preview the edges the split makes");
+            this.btnPreview.UseVisualStyleBackColor = true;
+            this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
+            // 
             // FrmSplitSolid
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.ClientSize = new System.Drawing.Size(364, 471);
             this.Controls.Add(this.cbAnnotateMeshTypes);
+            this.Controls.Add(this.btnPreview);
             this.MinimumSize = new System.Drawing.Size(380, 510);
             this.Name = "FrmSplitSolid";
             this.Text = "Split Solid";
@@ -128,6 +143,7 @@ namespace PrePoMax.Forms
             this.Controls.SetChildIndex(this.btnOkAddNew, 0);
             this.Controls.SetChildIndex(this.gbType, 0);
             this.Controls.SetChildIndex(this.cbAnnotateMeshTypes, 0);
+            this.Controls.SetChildIndex(this.btnPreview, 0);
             this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -160,6 +176,27 @@ namespace PrePoMax.Forms
             // and draws the parts outside the region with their own color again, so what the dialog
             // had drawn is drawn once more
             HighlightGeometryFeature();
+        }
+        private async void btnPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                GeometryFeature geometryFeature = GeometryFeature;
+                ThrowIfGeometryFeatureCannotSplit(geometryFeature);
+                // The symbols are drawn again, which takes an earlier preview off the screen
+                HighlightGeometryFeature();
+                //
+                btnPreview.Enabled = false;
+                await _controller.PreviewSplitGeometryAsync(geometryFeature.DeepClone());
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                btnPreview.Enabled = true;
+            }
         }
 
 
@@ -212,16 +249,8 @@ namespace PrePoMax.Forms
         {
             _viewGeometryFeature = (ViewGeometryFeature)propertyGrid.SelectedObject;
             //
-            if (_viewGeometryFeature == null) throw new CaeException("No geometry feature was selected.");
-            //
             GeometryFeature geometryFeature = GeometryFeature;
-            //
-            if (geometryFeature.CreationIds == null || geometryFeature.CreationIds.Length == 0)
-                throw new CaeException(RegionPicksParts ? "Select at least one part to split." :
-                                                          "Select at least one surface to split.");
-            //
-            string error = geometryFeature.CheckValidity();
-            if (error != null) throw new CaeException(error);
+            ThrowIfGeometryFeatureCannotSplit(geometryFeature);
             //
             try
             {
@@ -290,6 +319,17 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        private void ThrowIfGeometryFeatureCannotSplit(GeometryFeature geometryFeature)
+        {
+            if (geometryFeature == null) throw new CaeException("No geometry feature was selected.");
+            //
+            if (geometryFeature.CreationIds == null || geometryFeature.CreationIds.Length == 0)
+                throw new CaeException(RegionPicksParts ? "Select at least one part to split." :
+                                                          "Select at least one surface to split.");
+            //
+            string error = geometryFeature.CheckValidity();
+            if (error != null) throw new CaeException(error);
+        }
         private void UpdateAnnotateMeshTypesButton()
         {
             bool annotated = _controller.AnnotateWithColor == AnnotateWithColorEnum.MeshTypes;

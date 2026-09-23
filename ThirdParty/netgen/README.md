@@ -32,7 +32,9 @@ Deploy `NetGenMesher.exe` and `nglib.dll` as a matched pair. The current pair su
 edge-node files may be omitted. Its `BREP_SPLIT` takes `Split target: Shell` with `Target solid`
 and `Target face ids`, which divides only the named faces and leaves the body they belong to whole, and
 `Tool type: TwoPointLine`, which divides them along the line between two points drawn in the parameter space
-of the surface. Its `BREP_VISUALIZATION` metadata reports circular-edge closure and
+of the surface. `BREP_SPLIT_PREVIEW` runs the same split and writes only the edges it made, as
+polylines, instead of the result - an edge the part had before, whole or cut shorter, is left out - which is
+what the split dialogs preview. Its `BREP_VISUALIZATION` metadata reports circular-edge closure and
 swept angle, and classifies solid cylindrical faces as convex or concave by their material side. It
 recomputes the SameParameter and SameRange flags after the
 periodic-face split driven by *Split periodic faces*, without which the written brep is invalid
