@@ -5281,6 +5281,8 @@ namespace PrePoMax
         // offset can be judged before it is applied. It records nothing and changes nothing.
         public async Task PreviewExtractSurfaceAsync(SurfaceExtraction surfaceExtraction)
         {
+            ClearExtractSurfacePreview();
+            //
             _form.SetStateWorking(Globals.PreviewText, false);
             try
             {
@@ -5293,10 +5295,10 @@ namespace PrePoMax
         }
         public void ClearExtractSurfacePreview()
         {
-            if (_extractSurfacePreviewActorNames == null || _extractSurfacePreviewActorNames.Count == 0) return;
-            //
-            _form.RemoveOverlayActors(_extractSurfacePreviewActorNames.ToArray());
-            _extractSurfacePreviewActorNames.Clear();
+            if (!_extractSurfacePreviewDrawn) return;
+            // Redrawing the selection clears the layer the preview was drawn on
+            _extractSurfacePreviewDrawn = false;
+            HighlightSelection();
         }
         // The surfaces the user picked, lifted out of the parts that carry them and added to the model as
         // new shell parts. The parts they were taken from are left exactly as they were, so an extraction
@@ -5385,8 +5387,6 @@ namespace PrePoMax
                 GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, sourcePartNames.ToArray());
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
-            //
-            if (preview) ClearExtractSurfacePreview();
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> extractedPartNames = new List<string>();
@@ -5489,43 +5489,34 @@ namespace PrePoMax
             if (previewMesh == null) return;
             //
             double[] offset = GetExtractSurfacePreviewOffset(pickedPartIds);
-            if (_extractSurfacePreviewActorNames == null) _extractSurfacePreviewActorNames = new HashSet<string>();
+            int count = 0;
             //
             foreach (var entry in previewMesh.Parts)
             {
+                // The boundaries of the extracted faces are what says where one face ends and the next
+                // begins, which is the whole question an offset raises, so only they are drawn
+                if (!entry.Value.PartType.HasEdges() || entry.Value.Visualization.EdgeCells == null) continue;
+                //
                 vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = "extractSurfacePreview" + _extractSurfacePreviewActorNames.Count;
-                // A symbol goes on the overlay layer; the selection layer recolors what it holds with the
-                // selection color, and the picking the user is doing keeps clearing it
-                data.Layer = vtkRendererLayer.Overlay;
-                data.Color = _settings.Pre.SplitToolSymbolColor;
-                data.KeepOwnColor = true;
+                data.Name = "extractSurfacePreview" + count++;
+                // The preview is highlighted as the other previews are, so a pick that changes the selection
+                // also takes it off the screen
+                data.Layer = vtkRendererLayer.Selection;
+                data.Color = _settings.Pre.PrimaryHighlightColor;
+                data.LineWidth = 2;
                 data.CanHaveElementEdges = false;
                 data.BackfaceCulling = false;
                 data.Pickable = false;
-                data.SmoothShaded = true;
                 //
-                previewMesh.GetVisualizationNodesAndCells(entry.Value, out data.Geometry.Nodes.Ids,
+                previewMesh.GetNodesAndCellsForModelEdges(entry.Value, out data.Geometry.Nodes.Ids,
                                                           out data.Geometry.Nodes.Coor,
-                                                          out data.Geometry.Cells.Ids,
                                                           out data.Geometry.Cells.CellNodeIds,
                                                           out data.Geometry.Cells.Types);
                 data.Geometry.Nodes.Coor = MoveExtractSurfacePreviewCoor(data.Geometry.Nodes.Coor, offset);
-                // The boundaries of the extracted faces are what says where one face ends and the next
-                // begins, which is the whole question an offset raises
-                if (entry.Value.PartType.HasEdges() && entry.Value.Visualization.EdgeCells != null)
-                {
-                    data.ModelEdges = new PartExchangeData();
-                    previewMesh.GetNodesAndCellsForModelEdges(entry.Value, out data.ModelEdges.Nodes.Ids,
-                                                              out data.ModelEdges.Nodes.Coor,
-                                                              out data.ModelEdges.Cells.CellNodeIds,
-                                                              out data.ModelEdges.Cells.Types);
-                    data.ModelEdges.Nodes.Coor = MoveExtractSurfacePreviewCoor(data.ModelEdges.Nodes.Coor, offset);
-                }
                 //
                 ApplyLighting(data);
                 _form.Add3DCells(data);
-                _extractSurfacePreviewActorNames.Add(data.Name);
+                _extractSurfacePreviewDrawn = true;
             }
         }
         // The exploded view offset the preview is drawn at. The picked parts carry it, and where they do
@@ -5822,8 +5813,8 @@ namespace PrePoMax
         // own - so every name that actually reached the renderer is collected and those are the names
         // that get removed, rather than the names the symbols were asked to use
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
-        // The faces a surface extraction preview drew, which are removed by name before the next one
-        [NonSerialized] private HashSet<string> _extractSurfacePreviewActorNames;
+        // A surface extraction preview is drawn on the selection layer, which is cleared only as a whole
+        [NonSerialized] private bool _extractSurfacePreviewDrawn;
         // The exploded view offset the symbols of the feature are drawn at. The symbols are computed
         // from the geometry metadata, which holds the coordinates of the part itself, and are moved
         // onto the drawn part as they are handed to the renderer - the metadata is never touched

@@ -116,6 +116,7 @@ namespace PrePoMax.Forms
         protected override void OnPropertyGridPropertyValueChanged()
         {
             _controller.ClearExtractSurfacePreview();
+            UpdatePreviewButton();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -162,6 +163,7 @@ namespace PrePoMax.Forms
             //
             _viewSurfaceExtraction = new ViewSurfaceExtraction(new SurfaceExtraction());
             propertyGrid.SelectedObject = _viewSurfaceExtraction;
+            UpdatePreviewButton();
             //
             SetSelectItem();
             //
@@ -176,6 +178,12 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        // Without an offset the extracted surface lies on the surface it was taken from, so there is nothing
+        // a preview could show
+        private void UpdatePreviewButton()
+        {
+            btnPreview.Enabled = SurfaceExtraction != null && SurfaceExtraction.Offset != 0;
+        }
         private void ShowHideSelectionForm()
         {
             if (!Visible || this.Modal) ItemSetDataEditor.SelectionForm.Hide();
