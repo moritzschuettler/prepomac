@@ -12193,6 +12193,17 @@ namespace PrePoMax
         {
             InvokeIfRequired(_modelTree.SetAllTreeExpandCollapseState, states);
         }
+        public Dictionary<string, bool>[] GetStableTreeExpandCollapseState()
+        {
+            if (InvokeRequired)
+                return (Dictionary<string, bool>[])Invoke((Func<Dictionary<string, bool>[]>)
+                    _modelTree.GetStableTreesExpandCollapseState);
+            else return _modelTree.GetStableTreesExpandCollapseState();
+        }
+        public void SetStableTreeExpandCollapseState(Dictionary<string, bool>[] states)
+        {
+            InvokeIfRequired(_modelTree.SetStableTreesExpandCollapseState, states);
+        }
         public void UpdateHighlight()
         {
             if (_allForms == null) return;

@@ -4545,6 +4545,22 @@ namespace UserControls
                 GetNodeExpandCollapseState(child, ref states, ref names, skipModelParts);
             }
         }
+        /// <summary>
+        /// The expand state of the geometry and the model tree by node name, so that it can be put back on
+        /// trees that were emptied and rebuilt in between, as a regenerate does.
+        /// </summary>
+        public Dictionary<string, bool>[] GetStableTreesExpandCollapseState()
+        {
+            return new Dictionary<string, bool>[] { GetStableTreeExpandCollapseState(cltvGeometry),
+                                                    GetStableTreeExpandCollapseState(cltvModel) };
+        }
+        public void SetStableTreesExpandCollapseState(Dictionary<string, bool>[] states)
+        {
+            if (states == null || states.Length != 2) return;
+            //
+            SetStableTreeExpandCollapseState(cltvGeometry, states[0]);
+            SetStableTreeExpandCollapseState(cltvModel, states[1]);
+        }
         public void SetAllTreeExpandCollapseState(bool[][] states)
         {
             try

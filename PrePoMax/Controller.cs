@@ -3112,9 +3112,11 @@ namespace PrePoMax
         //******************************************************************************************
         public void UndoHistory(RegenerateTypeEnum regenerateType)
         {
+            Dictionary<string, bool>[] treeState = _form.GetStableTreeExpandCollapseState();
             string lastFileName = OpenedFileName;
             _commands.Undo(regenerateType);
             OpenedFileName = lastFileName;
+            _form.SetStableTreeExpandCollapseState(treeState);
         }
         public void RedoHistory()
         {
@@ -3123,6 +3125,9 @@ namespace PrePoMax
         public void RegenerateHistoryCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
             ViewGeometryModelResults prevView = _currentView;
+            // The replay empties the trees and opens every node it adds, so what the user opened and closed
+            // is taken before it and put back after it
+            Dictionary<string, bool>[] treeState = _form.GetStableTreeExpandCollapseState();
             //
             string lastFileName = OpenedFileName;
             _commands.ExecuteAllCommands(showFileDialog, showMeshDialog, regenerateType);
@@ -3150,6 +3155,8 @@ namespace PrePoMax
             }
             // Set view and update
             CurrentView = newView;
+            //
+            _form.SetStableTreeExpandCollapseState(treeState);
         }
         //
         public List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords()
