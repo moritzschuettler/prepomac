@@ -2014,13 +2014,16 @@ namespace CaeMesh
                 ResolveCrossEdgeElements(walls, null, crossEdgePins, transfiniteSourcePins, out sourceEdgeIdNumOfElements,
                                          out targetEdgeIdNumOfElements);
             // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
-            // they carry the same count: the one the user pinned on either, else the measured one
+            // they carry the same count: the one the user pinned on either, else the one the walls settled
             Dictionary<int, int> imprintEdgeIdNumOfElements = new Dictionary<int, int>();
             if (_sweepBlocks != null)
             {
-                // An edge splitting a source or a target lies opposite an edge of the same face whose count
-                // the walls have already settled, and the face is a grid only when the two agree. The
-                // measured count is what it falls back on, which is what it used to take in every case
+                // The walls settle such an edge themselves where it lies on the side of one of them - the edge
+                // along which a wall of the next part meets the target of this one - and that count is the one
+                // the wall's grid is built on, so it has to be kept: measuring the edge again, as this used to,
+                // puts a count back under the wall that its other side does not carry. An edge that lies inside
+                // its face instead lies opposite an edge of the same face whose count the walls have settled,
+                // and the face is a grid only when the two agree. The measured count is the last resort
                 Dictionary<int, int> settledEdgeIdNumOfElements =
                     MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                       targetEdgeIdNumOfElements);
@@ -2031,6 +2034,8 @@ namespace CaeMesh
                     {
                         if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
                             !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements) &&
+                            !settledEdgeIdNumOfElements.TryGetValue(entry.Key, out numOfElements) &&
+                            !settledEdgeIdNumOfElements.TryGetValue(entry.Value, out numOfElements) &&
                             !TryGetOppositeEdgeElements(entry.Key, settledEdgeIdNumOfElements, out numOfElements) &&
                             !TryGetOppositeEdgeElements(entry.Value, settledEdgeIdNumOfElements, out numOfElements))
                             numOfElements = SweepWallTopology.GetElementCount(entry.Key);
