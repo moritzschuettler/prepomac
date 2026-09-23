@@ -37,7 +37,9 @@ swept angle, and classifies solid cylindrical faces as convex or concave by thei
 recomputes the SameParameter and SameRange flags after the
 periodic-face split driven by *Split periodic faces*, without which the written brep is invalid
 and BRepMesh silently drops whole faces, and it warns on stdout about every face it could not
-triangulate.
+triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfinite_angle` entries
+of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
+as structured triangle grids.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.
