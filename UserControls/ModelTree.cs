@@ -1013,7 +1013,10 @@ namespace UserControls
         }
         private void GetStableNodeExpandCollapseState(TreeNode node, Dictionary<string, bool> state)
         {
-            state[GetStableTreeNodeIdentity(node)] = node.IsExpanded;
+            // A node without children cannot be expanded, so what it reports says nothing of what the user
+            // wants once it has children again - after a regenerate emptied the tree, or a part became a
+            // compound - and it is left to take its default
+            if (node.Nodes.Count > 0) state[GetStableTreeNodeIdentity(node)] = node.IsExpanded;
             foreach (TreeNode child in node.Nodes) GetStableNodeExpandCollapseState(child, state);
         }
         private void SetStableTreeExpandCollapseState(CodersLabTreeView tree, Dictionary<string, bool> state)
