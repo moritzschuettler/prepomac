@@ -521,15 +521,17 @@ namespace APIs.Python.Model
                    Arguments = "name: str, selection: Selection, preview: bool = None, smooth: bool = None, " +
                                "alpha: float = None, triangulation_mesher: str = None, " +
                                "scale_factor: float = None, flow_profile: str = None, " +
-                               "keep_files_on_failure: bool = None", Returns = "MeshSetupItem")]
+                               "keep_files_on_failure: bool = None, debug_visualization: bool = None",
+                   Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
                                                     object smooth = null, object alpha = null,
                                                     string triangulation_mesher = null, object scale_factor = null,
-                                                    string flow_profile = null, object keep_files_on_failure = null)
+                                                    string flow_profile = null, object keep_files_on_failure = null,
+                                                    object debug_visualization = null)
         {
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher, scale_factor,
-                               flow_profile, keep_files_on_failure);
+                               flow_profile, keep_files_on_failure, debug_visualization);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -541,11 +543,12 @@ namespace APIs.Python.Model
                                                         SelectionAPI selection = null, object preview = null,
                                                         object smooth = null, object alpha = null, string triangulation_mesher = null,
                                                         object scale_factor = null, string flow_profile = null,
-                                                        object keep_files_on_failure = null)
+                                                        object keep_files_on_failure = null,
+                                                        object debug_visualization = null)
         {
             ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher, scale_factor,
-                               flow_profile, keep_files_on_failure);
+                               flow_profile, keep_files_on_failure, debug_visualization);
             return Replace(old_name, name, item, selection);
         }
         //
@@ -792,7 +795,8 @@ namespace APIs.Python.Model
         }
         private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object smooth,
                                                object alpha, string triangulationMesher, object scaleFactor,
-                                               string flowProfile, object keepFilesOnFailure)
+                                               string flowProfile, object keepFilesOnFailure,
+                                               object debugVisualization)
         {
             if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
             if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
@@ -808,6 +812,8 @@ namespace APIs.Python.Model
             if (keepFilesOnFailure != null)
                 item.KeepFilesOnFailure = PythonValueConverter.ToBool(keepFilesOnFailure,
                                                                        "keep_files_on_failure");
+            if (debugVisualization != null)
+                item.DebugVisualization = PythonValueConverter.ToBool(debugVisualization, "debug_visualization");
         }
         private static void ApplyAlgorithms(GmshSetupItem item, string algorithm2D, string algorithm3D)
         {

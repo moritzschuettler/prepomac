@@ -114,6 +114,8 @@ namespace PrePoMax
             string smoothObjFileName = tracePrefix + "_1_quadrangulation_smooth.obj";
             string unsmoothedObjFileName = tracePrefix + "_1_quadrangulation.obj";
             string finalObjFileName = shellQuadWild.Smooth ? smoothObjFileName : unsmoothedObjFileName;
+            // The output of a shell compound with its seam copies merged
+            string mergedObjFileName = tracePrefix + "_merged.obj";
             //
             DeleteIfExists(objFileName);
             DeleteIfExists(sharpFileName);
@@ -124,6 +126,7 @@ namespace PrePoMax
             foreach (string tracedFileName in tracedFileNames) DeleteIfExists(tracedFileName);
             DeleteIfExists(smoothObjFileName);
             DeleteIfExists(unsmoothedObjFileName);
+            DeleteIfExists(mergedObjFileName);
             //
             FeMesh triangularMesh = CreateTriangularMesh(part, shellQuadWild, workDirectory, null);
             QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName, nodesFileName,
@@ -142,7 +145,7 @@ namespace PrePoMax
                                                    GetMesherName(shellQuadWild.TriangulationMesher) +
                                                    " a sheet bounded only by seams can have an odd number of " +
                                                    "seam segments, which QuadWild cannot mesh with quads.");
-            if (shellQuadWild.Preview)
+            if (shellQuadWild.Preview && !shellQuadWild.DebugVisualization)
             {
                 _controller.Form.WriteDataToOutput("QuadWild preview is enabled: importing the " +
                                                    GetMesherName(shellQuadWild.TriangulationMesher) +
@@ -156,7 +159,8 @@ namespace PrePoMax
                     QuadWildInputFileInfo = inputInfo
                 };
             }
-            // The preview returned above does not require an installed QuadWild runtime.
+            // The preview returned above does not require an installed QuadWild runtime. A preview with the debug
+            // visualization runs the preparation and shows the traced triangle patches.
             string executable = Application.StartupPath + Globals.QuadWildMesher;
             string patchExecutable = Application.StartupPath + Globals.QuadWildPatchMesher;
             string runtimeDirectory = Path.GetDirectoryName(executable);
@@ -176,6 +180,22 @@ namespace PrePoMax
             bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
                                               workDirectory, tracedFileNames);
             EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName, inputInfo.SeamEdgeCount > 0);
+            if (shellQuadWild.Preview)
+            {
+                _controller.Form.WriteDataToOutput("QuadWild preview with debug visualization: importing the traced " +
+                                                   "triangle patches and skipping quad generation.");
+                return new GeneratedMeshData()
+                {
+                    GeometryPart = part,
+                    MeshFileName = tracedObjFileName,
+                    ConvertToSecondOrder = false,
+                    SmoothShaded = true,
+                    QuadWildInputFileInfo = inputInfo,
+                    QuadWildDebugTracePrefix = tracePrefix,
+                    QuadWildTriangularPreview = true,
+                    RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure && preparationFailed
+                };
+            }
             string flowTemplateName;
             if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.Aligned) flowTemplateName = "flow.txt";
             else if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.NoAlignment)
@@ -211,8 +231,9 @@ namespace PrePoMax
             bool hasSeams = inputInfo.SeamEdgeCount > 0;
             if (hasSeams)
             {
-                int mergedCount = MergeSplitNodes(finalObjFileName, inputInfo.SplitNodeCoordinates);
+                int mergedCount = MergeSplitNodes(finalObjFileName, mergedObjFileName, inputInfo.SplitNodeCoordinates);
                 _controller.Form.WriteDataToOutput("QuadWild seams: " + mergedCount + " node copies merged.");
+                finalObjFileName = mergedObjFileName;
             }
             QuadWildOutputInfo outputInfo = ValidateOutput(finalObjFileName, hasSeams);
             _controller.Form.WriteDataToOutput("QuadWild output: " + outputInfo.NodeCount + " nodes, " +
@@ -226,6 +247,7 @@ namespace PrePoMax
                 MeshFileName = finalObjFileName,
                 SmoothShaded = true,
                 QuadWildInputFileInfo = inputInfo,
+                QuadWildDebugTracePrefix = shellQuadWild.DebugVisualization ? tracePrefix : null,
                 RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure &&
                                       (preparationFailed || quadGenerationFailed)
             };
@@ -440,7 +462,7 @@ namespace PrePoMax
         // copies. The copies of a prescribed seam node are snapped to its input coordinates; QuadWild stores its quad
         // mesh in single precision, so they match the input within the float precision and each other exactly.
         // Returns the number of removed copies.
-        private static int MergeSplitNodes(string objFileName, double[][] splitNodeCoordinates)
+        private static int MergeSplitNodes(string objFileName, string mergedObjFileName, double[][] splitNodeCoordinates)
         {
             string[] lines = File.ReadAllLines(objFileName);
             List<double[]> vertices = new List<double[]>();
@@ -452,7 +474,11 @@ namespace PrePoMax
                                             double.Parse(tmp[2], NumberStyles.Float, CultureInfo.InvariantCulture),
                                             double.Parse(tmp[3], NumberStyles.Float, CultureInfo.InvariantCulture) });
             }
-            if (vertices.Count == 0 || splitNodeCoordinates.Length == 0) return 0;
+            if (vertices.Count == 0 || splitNodeCoordinates.Length == 0)
+            {
+                File.Copy(objFileName, mergedObjFileName, true);
+                return 0;
+            }
             //
             BoundingBox box = new BoundingBox();
             foreach (double[] vertex in vertices) box.IncludeCoor(vertex);
@@ -491,7 +517,11 @@ namespace PrePoMax
                 }
                 newIndex[i] = ++count;
             }
-            if (mergedCount == 0) return 0;
+            if (mergedCount == 0)
+            {
+                File.Copy(objFileName, mergedObjFileName, true);
+                return 0;
+            }
             //
             StringBuilder output = new StringBuilder();
             int vertexIndex = 0;
@@ -516,7 +546,7 @@ namespace PrePoMax
                 }
                 else output.AppendLine(line);
             }
-            File.WriteAllText(objFileName, output.ToString());
+            File.WriteAllText(mergedObjFileName, output.ToString());
             return mergedCount;
         }
         private static QuadWildOutputInfo ValidateOutput(string fileName, bool allowSeams)

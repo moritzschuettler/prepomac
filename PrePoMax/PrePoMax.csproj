@@ -81,6 +81,7 @@
     <Compile Include="Meshing\Netgen\NetgenMesherRunner.cs" />
     <Compile Include="Meshing\Mmg\MmgMesherRunner.cs" />
     <Compile Include="Meshing\Gmsh\GmshMesherRunner.cs" />
+    <Compile Include="Meshing\QuadWild\QuadWildDebugVisualization.cs" />
     <Compile Include="Meshing\QuadWild\QuadWildMesherRunner.cs" />
     <Compile Include="Meshing\Base\IMesherRunner.cs" />
     <Compile Include="Meshing\Base\MesherRegistry.cs" />

@@ -111,6 +111,20 @@ namespace PrePoMax.Forms
             get { return _shellQuadWild.KeepFilesOnFailure; }
             set { _shellQuadWild.KeepFilesOnFailure = value; }
         }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(1, 10, "Debug visualization")]
+        [DescriptionAttribute("Add the QuadWild patches as separate parts, the irregular interior nodes (valence 3, 5, " +
+                              "6 and more), the prescribed nodes, the patch corners and the seam nodes as node sets, " +
+                              "the sheets of a shell compound as element sets, and the cross field and the feature " +
+                              "lines QuadWild used as wire parts. With Preview, the traced triangle patches are shown " +
+                              "instead of the pre-mesh. For inspection only: the patch parts are not model faces.")]
+        [Id(2, 6)]
+        public bool DebugVisualization
+        {
+            get { return _shellQuadWild.DebugVisualization; }
+            set { _shellQuadWild.DebugVisualization = value; }
+        }
 
 
         // Constructors
@@ -125,6 +139,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(Preview));
             _dctd.RenameBooleanPropertyToYesNo(nameof(Smooth));
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepFilesOnFailure));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(DebugVisualization));
             //
             UpdateVisibility();
         }

@@ -8745,6 +8745,7 @@ namespace PrePoMax
                         }
                         if (generatedMesh.RetainWorkDirectory) retainBatchDirectory = true;
                         //
+                            AddQuadWildDebugVisualization(generatedMesh);
                         phaseWatch.Restart();
                         try
                         {
@@ -8834,6 +8835,7 @@ namespace PrePoMax
             RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
             Dictionary<int, string> elementIdMaterialName;
             generatedMesh.Mesh = _model.PrepareGeneratedMeshFromMeshFile(generatedMesh.MeshFileName, part,
+            generatedMesh.ElementIdMaterialName = elementIdMaterialName;
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
@@ -8883,8 +8885,34 @@ namespace PrePoMax
             List<string> relatedPartNames = new List<string>();
             if (part is CompoundGeometryPart compoundPart)
             {
+            // The parts of an earlier QuadWild debug visualization are replaced too
+            if (generatedMesh.QuadWildInputFileInfo != null && _model.Mesh != null)
+                relatedPartNames.AddRange(_model.Mesh.Parts.Keys.Where(name =>
+                    QuadWildDebugVisualization.IsDebugItemName(name, part.Name)));
                 relatedPartNames.Add(compoundPart.Name);
                 relatedPartNames.AddRange(compoundPart.SubPartNames);
+        private void AddQuadWildDebugVisualization(GeneratedMeshData generatedMesh)
+        {
+            if (generatedMesh.QuadWildDebugTracePrefix == null) return;
+            if (GetActiveValidMeshSetupItems<ThickenShellMesh>(generatedMesh.GeometryPart.Name).Length > 0)
+            {
+                _form.WriteDataToOutput("Warning: the QuadWild debug visualization is skipped for a thickened shell mesh.");
+                return;
+            }
+            try
+            {
+                QuadWildDebugVisualization.Add(generatedMesh.Mesh, generatedMesh.GeometryPart.Name,
+                                               generatedMesh.QuadWildDebugTracePrefix,
+                                               generatedMesh.QuadWildTriangularPreview,
+                                               generatedMesh.QuadWildInputFileInfo,
+                                               generatedMesh.ElementIdMaterialName, _form.WriteDataToOutput);
+            }
+            catch (Exception ex)
+            {
+                // The visualization only helps inspecting the mesh, so it never rejects it
+                _form.WriteDataToOutput("Warning: the QuadWild debug visualization could not be created. " + ex.Message);
+            }
+        }
                 relatedPartNames.AddRange(compoundPart.GetSplitSubPartNames());
             }
             else relatedPartNames.Add(part.Name);
@@ -8979,6 +9007,18 @@ namespace PrePoMax
             //
             Stopwatch phaseWatch = Stopwatch.StartNew();
             if (_model.Mesh != null)
+                // The node and element sets of an earlier QuadWild debug visualization
+                foreach (GeneratedMeshData generatedMesh in generatedMeshes)
+                {
+                    if (generatedMesh.QuadWildInputFileInfo == null) continue;
+                    string partName = generatedMesh.GeometryPart.Name;
+                    foreach (string name in _model.Mesh.NodeSets.Keys.Where(name =>
+                             QuadWildDebugVisualization.IsDebugItemName(name, partName)).ToArray())
+                        _model.Mesh.NodeSets.Remove(name);
+                    foreach (string name in _model.Mesh.ElementSets.Keys.Where(name =>
+                             QuadWildDebugVisualization.IsDebugItemName(name, partName)).ToArray())
+                        _model.Mesh.ElementSets.Remove(name);
+                }
             {
                 ViewGeometryModelResults view = ViewGeometryModelResults.Model;
                 string[] names = meshPartNamesToRemove.ToArray();

@@ -18,5 +18,10 @@ namespace PrePoMax
         public string[] RelatedPartNames;
         public QuadWildInputFileInfo QuadWildInputFileInfo;
         public bool RetainWorkDirectory;
+        // QuadWild debug visualization: the prefix of the traced files (null when it is off), whether the mesh is
+        // the traced triangle mesh of a preview, and the patch material of every element
+        public string QuadWildDebugTracePrefix;
+        public bool QuadWildTriangularPreview;
+        public Dictionary<int, string> ElementIdMaterialName;
     }
 }

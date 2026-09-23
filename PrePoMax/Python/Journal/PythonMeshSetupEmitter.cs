@@ -71,6 +71,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("flow_profile=" + PythonValueFormatter.Text(quadWild.FlowProfile.ToString()));
                 arguments.Add("keep_files_on_failure=" +
                               PythonValueFormatter.Format(quadWild.KeepFilesOnFailure));
+                arguments.Add("debug_visualization=" +
+                              PythonValueFormatter.Format(quadWild.DebugVisualization));
                 return "shell_quad_wild";
             }
             if (item is ExtrudeMesh extrude)
