@@ -24,7 +24,7 @@ namespace CaeMesh
         private int _optimizeSteps2D;               //ISerializable
         private int _optimizeSteps3D;               //ISerializable
         private bool _quadDominated;                //ISerializable
-        private bool _transfiniteFourSided;         //ISerializable
+        private NetgenTransfiniteFacesEnum _transfiniteFaces;   //ISerializable
         private double _transfiniteAngleDeg;        //ISerializable
 
 
@@ -49,7 +49,11 @@ namespace CaeMesh
             }
         }
         public bool QuadDominated { get { return _quadDominated; } set { _quadDominated = value; } }
-        public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
+        public NetgenTransfiniteFacesEnum TransfiniteFaces
+        {
+            get { return _transfiniteFaces; }
+            set { _transfiniteFaces = value; }
+        }
         public double TransfiniteAngleDeg
         {
             get { return _transfiniteAngleDeg; }
@@ -89,8 +93,8 @@ namespace CaeMesh
                         _optimizeSteps3D = (int)entry.Value; break;
                     case "_quadDominated":
                         _quadDominated = (bool)entry.Value; break;
-                    case "_transfiniteFourSided":
-                        _transfiniteFourSided = (bool)entry.Value; break;
+                    case "_transfiniteFaces":
+                        _transfiniteFaces = (NetgenTransfiniteFacesEnum)entry.Value; break;
                     case "_transfiniteAngleDeg":
                         _transfiniteAngleDeg = (double)entry.Value; break;
                     default:
@@ -112,7 +116,7 @@ namespace CaeMesh
             _optimizeSteps2D = 3;
             _optimizeSteps3D = 3;
             _quadDominated = false;
-            _transfiniteFourSided = false;
+            _transfiniteFaces = NetgenTransfiniteFacesEnum.None;
             _transfiniteAngleDeg = 135;
         }
         public void CopyFrom(NetgenMesh netgenMesh)
@@ -122,7 +126,7 @@ namespace CaeMesh
             _optimizeSteps2D = netgenMesh._optimizeSteps2D;
             _optimizeSteps3D = netgenMesh._optimizeSteps3D;
             _quadDominated = netgenMesh._quadDominated;
-            _transfiniteFourSided = netgenMesh._transfiniteFourSided;
+            _transfiniteFaces = netgenMesh._transfiniteFaces;
             _transfiniteAngleDeg = netgenMesh._transfiniteAngleDeg;
         }
         /// <summary>
@@ -133,7 +137,7 @@ namespace CaeMesh
             _optimizeSteps2D = meshingParameters.OptimizeSteps2D;
             _optimizeSteps3D = meshingParameters.OptimizeSteps3D;
             _quadDominated = meshingParameters.QuadDominated;
-            _transfiniteFourSided = meshingParameters.TransfiniteFourSided;
+            _transfiniteFaces = meshingParameters.TransfiniteFaces;
             _transfiniteAngleDeg = meshingParameters.TransfiniteAngleDeg;
         }
         /// <summary>
@@ -144,7 +148,7 @@ namespace CaeMesh
             meshingParameters.OptimizeSteps2D = _optimizeSteps2D;
             meshingParameters.OptimizeSteps3D = _optimizeSteps3D;
             meshingParameters.QuadDominated = _quadDominated;
-            meshingParameters.TransfiniteFourSided = _transfiniteFourSided;
+            meshingParameters.TransfiniteFaces = _transfiniteFaces;
             meshingParameters.TransfiniteAngleDeg = _transfiniteAngleDeg;
         }
         public bool HasSameNetgenValues(NetgenMesh netgenMesh)
@@ -152,7 +156,7 @@ namespace CaeMesh
             return _optimizeSteps2D == netgenMesh._optimizeSteps2D &&
                    _optimizeSteps3D == netgenMesh._optimizeSteps3D &&
                    _quadDominated == netgenMesh._quadDominated &&
-                   _transfiniteFourSided == netgenMesh._transfiniteFourSided &&
+                   _transfiniteFaces == netgenMesh._transfiniteFaces &&
                    _transfiniteAngleDeg == netgenMesh._transfiniteAngleDeg;
         }
         // ISerialization
@@ -163,7 +167,7 @@ namespace CaeMesh
             info.AddValue("_optimizeSteps2D", _optimizeSteps2D, typeof(int));
             info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
             info.AddValue("_quadDominated", _quadDominated, typeof(bool));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
+            info.AddValue("_transfiniteFaces", _transfiniteFaces, typeof(NetgenTransfiniteFacesEnum));
             info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }

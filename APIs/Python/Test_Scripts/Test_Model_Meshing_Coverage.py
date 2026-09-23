@@ -48,12 +48,14 @@ def test_meshing_parameters(items, selection):
 
 
 def test_netgen_mesh(items, selection, shell_selection):
-    items.add_netgen_mesh(PREFIX + "Netgen", selection, optimize_steps_2d=4, transfinite_four_sided=True)
+    items.add_netgen_mesh(PREFIX + "Netgen", selection, optimize_steps_2d=4, transfinite_faces="SizeChecked")
     items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_3d=5)
     values = settings(items, PREFIX + "Netgen")
     check(values["optimize_steps3_d"] == 5, "the Netgen 3-D optimization steps were not replaced")
     check(values["optimize_steps2_d"] == 4, "the omitted Netgen optimization steps were not kept: " + str(values))
-    check(values["transfinite_four_sided"] is True, "the omitted Netgen transfinite setting was not kept")
+    check(values["transfinite_faces"] == "SizeChecked", "the omitted Netgen transfinite setting was not kept")
+    check_raises(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", transfinite_faces="Some"),
+                 "an unknown transfinite faces value was accepted")
     check(items[PREFIX + "Netgen"].mesher_type == "Netgen", "the Netgen mesh item does not select Netgen")
     check(len(items[PREFIX + "Netgen"].get_geometry_ids()) > 0, "the Netgen region was lost")
     check_raises(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_2d=2.5),

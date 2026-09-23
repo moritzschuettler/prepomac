@@ -24,7 +24,7 @@ namespace APIs.Python.Model
             "merge_compound_parts: bool = None";
         private const string NetgenMeshArguments =
             "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
-            "transfinite_four_sided: bool = None, transfinite_angle: float = None";
+            "transfinite_faces: str = None, transfinite_angle: float = None";
         private const string ShellMmgArguments =
             "relative_size: bool = None, relative_hausdorff: float = None, hausdorff: float = None, " +
             "keep_model_edges: bool = None";
@@ -202,11 +202,11 @@ namespace APIs.Python.Model
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection, object optimize_steps_2d = null,
                                                 object optimize_steps_3d = null, object quad_dominated = null,
-                                                object transfinite_four_sided = null,
+                                                string transfinite_faces = null,
                                                 object transfinite_angle = null)
         {
             NetgenMesh item = new NetgenMesh(name);
-            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_four_sided,
+            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_faces,
                             transfinite_angle);
             _service.Add(item, name, selection);
             return this[name];
@@ -219,11 +219,11 @@ namespace APIs.Python.Model
         public MeshSetupItemAPI replace_netgen_mesh(string old_name, string name = null, SelectionAPI selection = null,
                                                     object optimize_steps_2d = null, object optimize_steps_3d = null,
                                                     object quad_dominated = null,
-                                                    object transfinite_four_sided = null,
+                                                    string transfinite_faces = null,
                                                     object transfinite_angle = null)
         {
             NetgenMesh item = (NetgenMesh)_service.CloneItem(old_name);
-            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_four_sided,
+            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_faces,
                             transfinite_angle);
             return Replace(old_name, name, item, selection);
         }
@@ -664,7 +664,7 @@ namespace APIs.Python.Model
                 item.MergeCompoundParts = PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts");
         }
         private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
-                                            object quadDominated, object transfiniteFourSided,
+                                            object quadDominated, string transfiniteFaces,
                                             object transfiniteAngle)
         {
             if (optimizeSteps2D != null)
@@ -673,8 +673,9 @@ namespace APIs.Python.Model
                 item.OptimizeSteps3D = PythonValueConverter.ToInt(optimizeSteps3D, "optimize_steps_3d");
             if (quadDominated != null)
                 item.QuadDominated = PythonValueConverter.ToBool(quadDominated, "quad_dominated");
-            if (transfiniteFourSided != null)
-                item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
+            if (transfiniteFaces != null)
+                item.TransfiniteFaces = PythonValueConverter.ToEnum<NetgenTransfiniteFacesEnum>(transfiniteFaces,
+                                                                                         "transfinite_faces");
             if (transfiniteAngle != null)
                 item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle");
         }

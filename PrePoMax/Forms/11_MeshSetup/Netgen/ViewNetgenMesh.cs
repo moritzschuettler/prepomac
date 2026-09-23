@@ -53,15 +53,15 @@ namespace PrePoMax.Forms
         //
         [Category("Mesh type")]
         [OrderedDisplayName(1, 10, "Transfinite 4-sided faces")]
-        [Description("Mesh 4-sided model faces with matching numbers of edge divisions on opposite sides as " +
-                     "structured triangle grids.")]
+        [Description("Select the 4-sided model faces meshed as structured triangle grids. Size checked leaves a " +
+                     "face whose grid would be much finer than the mesh size asks for to the usual mesher.")]
         [Id(2, 4)]
-        public bool TransfiniteFourSided
+        public NetgenTransfiniteFacesEnum TransfiniteFaces
         {
-            get { return _netgenMesh.TransfiniteFourSided; }
+            get { return _netgenMesh.TransfiniteFaces; }
             set
             {
-                _netgenMesh.TransfiniteFourSided = value;
+                _netgenMesh.TransfiniteFaces = value;
                 UpdateVisibility();
             }
         }
@@ -88,7 +88,6 @@ namespace PrePoMax.Forms
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(QuadDominated));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
             //
             UpdateVisibility();
         }
@@ -101,7 +100,8 @@ namespace PrePoMax.Forms
         }
         private void UpdateVisibility()
         {
-            _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(_netgenMesh.TransfiniteFourSided);
+            _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(
+                _netgenMesh.TransfiniteFaces != NetgenTransfiniteFacesEnum.None);
         }
     }
 }
