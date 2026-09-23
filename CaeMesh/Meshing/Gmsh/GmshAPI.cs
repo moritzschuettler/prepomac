@@ -995,6 +995,65 @@ namespace CaeMesh
             Gmsh.Model.OCC.Synchronize();
         }
         /// <summary>
+        /// The surfaces with an edge lying inside them (an internal edge). The OCC import embeds such an edge in
+        /// its face, so it bounds no surface, and the face must not be meshed as transfinite, which ignores
+        /// embedded curves.
+        /// </summary>
+        private static HashSet<int> GetSurfaceIdsWithInternalCurves(Tuple<int, int>[] surfaceDimTags)
+        {
+            int[] surfaceIds;
+            Tuple<int, int>[] edgeDimTags;
+            HashSet<int> surfaceIdsWithInternalCurves = new HashSet<int>();
+            if (surfaceDimTags.Length == 0) return surfaceIdsWithInternalCurves;
+            //
+            Gmsh.Model.GetEntities(out edgeDimTags, 1);
+            foreach (var dimTag in edgeDimTags)
+            {
+                Gmsh.Model.GetAdjacencies(1, dimTag.Item2, out surfaceIds, out _);
+                if (surfaceIds.Length > 0) continue;
+                //
+                int surfaceId = GetSurfaceContainingCurve(dimTag.Item2, surfaceDimTags);
+                if (surfaceId >= 0) surfaceIdsWithInternalCurves.Add(surfaceId);
+            }
+            return surfaceIdsWithInternalCurves;
+        }
+        /// <summary>
+        /// The surface on which three points of the curve lie inside, or -1.
+        /// </summary>
+        private static int GetSurfaceContainingCurve(int curveId, Tuple<int, int>[] surfaceDimTags)
+        {
+            double[] coor;
+            double[] minimum;
+            double[] maximum;
+            Gmsh.Model.GetParametrizationBounds(1, curveId, out minimum, out maximum);
+            if (minimum.Length < 1 || maximum.Length < 1) return -1;
+            //
+            List<double[]> points = new List<double[]>();
+            for (int i = 1; i <= 3; i++)
+            {
+                double t = minimum[0] + (maximum[0] - minimum[0]) * i / 4.0;
+                Gmsh.Model.GetValue(1, curveId, new double[] { t }, out coor);
+                if (coor.Length >= 3) points.Add(coor);
+            }
+            if (points.Count == 0) return -1;
+            //
+            foreach (var surfaceDimTag in surfaceDimTags)
+            {
+                bool onSurface = true;
+                foreach (double[] point in points)
+                {
+                    if (!IsPointOnSurface(surfaceDimTag.Item2, point) ||
+                        Gmsh.Model.IsInside(2, surfaceDimTag.Item2, point, false) <= 0)
+                    {
+                        onSurface = false;
+                        break;
+                    }
+                }
+                if (onSurface) return surfaceDimTag.Item2;
+            }
+            return -1;
+        }
+        /// <summary>
         /// A point strictly inside a surface and lying on it: its centre of mass where that serves, else a
         /// point of its parameter box the inside test accepts. The inside test alone does not say that a point
         /// lies on the surface, since it projects the point onto it first, and the centre of mass of a bore
@@ -2927,6 +2986,7 @@ namespace CaeMesh
             Gmsh.Model.GetEntities(out edgeDimTags, 1);
             Gmsh.Model.GetEntities(out surfaceDimTags, 2);
             Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            HashSet<int> surfaceIdsWithInternalCurves = GetSurfaceIdsWithInternalCurves(surfaceDimTags);
             // Collect volume faces
             foreach (var surfaceDimTag in surfaceDimTags)
             {
@@ -2973,6 +3033,7 @@ namespace CaeMesh
                 }
                 //
                 surface = new GmshSurface(surfaceId, surfaceVertexIds.ToArray(), edgeIds, edgeLengths, edgeVertexIds);
+                if (surfaceIdsWithInternalCurves.Contains(surfaceId)) surface.Transfinite = false;
                 surfaceIdSurface.Add(surface.Id, surface);
             }
             // Check if a volume is a transfinite volume                                                                            

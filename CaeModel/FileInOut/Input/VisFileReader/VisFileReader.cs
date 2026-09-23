@@ -39,6 +39,7 @@ namespace FileInOut.Input
                 Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
                 Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
                 Dictionary<int, GeomCurveType> edgeTypes = new Dictionary<int, GeomCurveType>();
+                Dictionary<int, int> elementIdSurfaceId = new Dictionary<int, int>();
                 //
                 BoundingBox bBox = new BoundingBox();
                 double epsilon = 1E-9;
@@ -80,7 +81,7 @@ namespace FileInOut.Input
                     {
                         ReadFace(faceData[i], sourceGeometryMetadata, ref offsetNodeId, nodes,
                                  ref offsetElementId, elements, surfaceIdNodeIds, faceTypes,
-                                 edgeIdNodeIds, edgeTypes, ref bBox);
+                                 edgeIdNodeIds, edgeTypes, elementIdSurfaceId, ref bBox);
                     }
                     //
                     double max = bBox.GetDiagonal();
@@ -90,6 +91,7 @@ namespace FileInOut.Input
                     FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Geometry, importOptions);
                     //
                     mesh.ConvertLineFeElementsToEdges(vertexNodeIds, true);
+                    MergeVisualizationFacesOfOneGeometryFace(mesh, elementIdSurfaceId);
                     //
                     Dictionary<string, Dictionary<int, int>> partLocalFaceIdSourceFaceId =
                         new Dictionary<string, Dictionary<int, int>>();
@@ -133,6 +135,7 @@ namespace FileInOut.Input
                                      Dictionary<int, GeomFaceType> faceTypes,
                                      Dictionary<int, HashSet<int>> edgeIdNodeIds,
                                      Dictionary<int, GeomCurveType> edgeTypes,
+                                     Dictionary<int, int> elementIdSurfaceId,
                                      ref BoundingBox bBox)
         {
             int numOfNodes = 0;
@@ -159,6 +162,7 @@ namespace FileInOut.Input
             Dictionary<int, FeNode> surfaceNodes = new Dictionary<int, FeNode>();
             CompareIntArray comparer = new CompareIntArray();
             HashSet<int[]> freeEdgeKeys = new HashSet<int[]>(comparer);
+            HashSet<int[]> triangleEdgeKeys = new HashSet<int[]>(comparer);
             for (int i = 1; i < data.Length; i++)
             {
                 if (data[i].StartsWith("nodes"))
@@ -169,13 +173,14 @@ namespace FileInOut.Input
                 else if (data[i].StartsWith("triangles"))
                 {
                     numOfElements = ReadTriangles(data[i], reverse, offsetNodeId, offsetElementId, elements, triangleNodeIds,
-                                                  freeEdgeKeys);
+                                                  freeEdgeKeys, triangleEdgeKeys);
+                    for (int j = 1; j <= numOfElements; j++) elementIdSurfaceId[offsetElementId + j] = surfaceId;
                     offsetElementId += numOfElements;
                 }
                 else if (data[i].StartsWith("edge polylines"))
                 {
                     numOfElements = ReadEdges(data[i], geometryMetadata, offsetNodeId, offsetElementId, elements,
-                                              edgeIdNodeIds, edgeTypes, freeEdgeKeys);
+                                              edgeIdNodeIds, edgeTypes, freeEdgeKeys, triangleEdgeKeys);
                     offsetElementId += numOfElements;
                 }
             }
@@ -196,6 +201,51 @@ namespace FileInOut.Input
             }
         }
 
+        // An internal edge that runs from boundary to boundary cuts its face in the flood fill of the visualization
+        // faces, although the geometry face stays one. Merge such pieces again, so the visualization faces are the
+        // geometry faces.
+        private static void MergeVisualizationFacesOfOneGeometryFace(FeMesh mesh, Dictionary<int, int> elementIdSurfaceId)
+        {
+            foreach (var part in mesh.Parts.Values)
+            {
+                VisualizationData vis = part.Visualization;
+                if (vis.CellIdsByFace == null || vis.FaceEdgeIds == null ||
+                    vis.FaceEdgeIds.Length != vis.CellIdsByFace.Length) continue;
+                //
+                int surfaceId;
+                int newFaceId;
+                Dictionary<int, int> surfaceIdNewFaceId = new Dictionary<int, int>();
+                List<List<int>> faceCellIds = new List<List<int>>();
+                List<List<int>> faceEdgeIds = new List<List<int>>();
+                for (int faceId = 0; faceId < vis.CellIdsByFace.Length; faceId++)
+                {
+                    // A face of unknown origin is kept as it is
+                    if (vis.CellIdsByFace[faceId].Length == 0 ||
+                        !elementIdSurfaceId.TryGetValue(vis.CellIds[vis.CellIdsByFace[faceId][0]], out surfaceId))
+                        surfaceId = -1 - faceId;
+                    //
+                    if (!surfaceIdNewFaceId.TryGetValue(surfaceId, out newFaceId))
+                    {
+                        newFaceId = faceCellIds.Count;
+                        surfaceIdNewFaceId.Add(surfaceId, newFaceId);
+                        faceCellIds.Add(new List<int>());
+                        faceEdgeIds.Add(new List<int>());
+                    }
+                    faceCellIds[newFaceId].AddRange(vis.CellIdsByFace[faceId]);
+                    foreach (int edgeId in vis.FaceEdgeIds[faceId])
+                    {
+                        if (!faceEdgeIds[newFaceId].Contains(edgeId)) faceEdgeIds[newFaceId].Add(edgeId);
+                    }
+                }
+                if (faceCellIds.Count == vis.CellIdsByFace.Length) continue;
+                //
+                vis.CellIdsByFace = faceCellIds.Select(cellIds => cellIds.ToArray()).ToArray();
+                vis.FaceEdgeIds = faceEdgeIds.Select(edgeIds => edgeIds.ToArray()).ToArray();
+                vis.FaceAreas = new double[vis.CellIdsByFace.Length];
+                for (int i = 0; i < vis.FaceAreas.Length; i++) vis.FaceAreas[i] = mesh.ComputeFaceArea(vis, i, mesh.Nodes);
+                vis.FaceTypes = null;
+            }
+        }
         private static int ReadNodes(string nodeData, int offsetNodeId, Dictionary<int, FeNode> nodes, ref BoundingBox bBox)
         {
             string[] data = nodeData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
@@ -219,7 +269,8 @@ namespace FileInOut.Input
             return data.Length - 1; // return number of read nodes
         }
         private static int ReadTriangles(string elementData, bool reverse, int offsetNodeId, int offsetElementId,
-                                         Dictionary<int, FeElement> elements, HashSet<int> triangleNodeIds, HashSet<int[]> freeEdgeKeys)
+                                         Dictionary<int, FeElement> elements, HashSet<int> triangleNodeIds, HashSet<int[]> freeEdgeKeys,
+                                         HashSet<int[]> triangleEdgeKeys)
         {
             int id;
             int[] key;
@@ -269,13 +320,15 @@ namespace FileInOut.Input
             foreach (var entry in edgeKeyCount)
             {
                 if (entry.Value[0] == 1) freeEdgeKeys.Add(entry.Key);
+                triangleEdgeKeys.Add(entry.Key);
             }
             return data.Length - 1; // return number of read elements
         }
         private static int ReadEdges(string elementData, GeometryMetadata geometryMetadata,
                                      int offsetNodeId, int offsetElementId,
                                      Dictionary<int, FeElement> elements, Dictionary<int, HashSet<int>> edgeIdNodeIds,
-                                     Dictionary<int, GeomCurveType> edgeTypes, HashSet<int[]> freeEdgeKeys)
+                                     Dictionary<int, GeomCurveType> edgeTypes, HashSet<int[]> freeEdgeKeys,
+                                     HashSet<int[]> triangleEdgeKeys)
         {
             string[] data = elementData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
             GeomCurveType edgeType;
@@ -306,6 +359,10 @@ namespace FileInOut.Input
                 if (edge == null || !edge.TryGetCanonicalText("type", out values) || values.Length != 1)
                     throw new FormatException("The geometry edge " + edgeId + " has no type.");
                 edgeType = (GeomCurveType)Enum.Parse(typeof(GeomCurveType), values[0]);
+                // An internal edge lies inside the face, with triangles on both sides, so none of its segments
+                // is a free triangle edge
+                bool internalEdge = edge.TryGetText("orientation", out values) && values.Length == 1 &&
+                                    values[0] == "Internal";
                 //
                 edgeNodeIds.Clear();
                 for (int j = 1; j < splitData.Length - 1; j++)
@@ -316,6 +373,18 @@ namespace FileInOut.Input
                     //
                     edgeNodeIds.Add(nodeIds[0]);
                     edgeNodeIds.Add(nodeIds[1]);
+                    //
+                    if (internalEdge && nodeIds[0] != nodeIds[1])
+                    {
+                        key = nodeIds[0] < nodeIds[1] ? new int[] { nodeIds[0], nodeIds[1] } :
+                              new int[] { nodeIds[1], nodeIds[0] };
+                        if (triangleEdgeKeys.Contains(key) && !freeEdgeKeys.Contains(key))
+                        {
+                            id = internalId + offsetElementId;
+                            elements.Add(id, new LinearBeamElement(id, key));
+                            internalId++;
+                        }
+                    }
                 }
                 edgeNodeIdsArr = edgeNodeIds.ToArray();
                 for (int j = 0; j < edgeNodeIdsArr.Length; j++)
