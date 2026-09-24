@@ -43,7 +43,9 @@ triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfi
 of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
 as structured triangle grids - none, size checked (only where the grid is not much finer than the mesh
 size) or all; the edge meshing balances the segment counts of opposite sides - each
-one edge or several - across neighbouring faces, so that most of them match.
+one edge or several - across neighbouring faces, so that most of them match. Its `BREP_EXTRACT_FACES`
+writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
+that share no edge to separate files.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.

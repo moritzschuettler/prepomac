@@ -151,6 +151,28 @@ def test_compound():
           "the sub-parts must still be in the model")
 
 
+# Surfaces of one part that share no edge become a part each, and each of them carries only its own
+# geometry: the part is meshed from that geometry, so a part carrying the others as well is meshed with
+# them and its mesh covers surfaces that belong to other parts
+def test_apart(box, sides):
+    first = sides[0]
+    opposite = [row for row in sides[1:] if abs(row["area"] - first["area"]) < TOLERANCE * first["area"]]
+    check(len(opposite) == 1, "the box must carry one side face opposite the first one: " + str(sides))
+    names = extract(selection(box, [first, opposite[0]]))
+    check(len(names) == 2, "two surfaces that share no edge must become two parts: " + str(names))
+    for name in names:
+        part = part_named(name)
+        check(part.is_cad_part, "every part extracted apart must carry its own CAD geometry: " + name)
+        check(len(faces(part)) == 1, "every part extracted apart must carry one face: " + name)
+        close(part.surface_area, first["area"], "every part extracted apart must keep the area of its face")
+    pmx.model.mesh.create(names)
+    mesh_parts = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name in names]
+    check(len(mesh_parts) == 2, "both parts extracted apart must be meshed: " + str([p.name for p in mesh_parts]))
+    for mesh_part in mesh_parts:
+        close(mesh_part.surface_area, first["area"],
+              "the mesh of a part extracted apart must cover its own face only: " + mesh_part.name)
+
+
 def main():
     box = pmx.model.geometry.parts.first()
     rows = faces(box)
@@ -209,6 +231,7 @@ def main():
     limits = list(offset_patch.get_bounding_box())
     check(limits[1] - limits[0] < box_limits[1] - box_limits[0] - TOLERANCE,
           "a patch offset inwards must be smaller than the body it was taken from: " + str(limits))
+    test_apart(box, sides)
     test_compound()
     print("TEST PASSED")
 

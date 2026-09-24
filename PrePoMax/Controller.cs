@@ -5609,23 +5609,32 @@ namespace PrePoMax
             else return null;
         }
         // The extracted geometry is added as a part of its own, named after the part it was taken from so
-        // that the two can be told apart in the tree.
+        // that the two can be told apart in the tree. The extracted surfaces that share no edge are written
+        // to a file each, because a part imported from a file carries the whole file as its geometry and
+        // would be meshed with the others.
         private string[] ImportExtractedSurfaceParts(string pickedPartName, string brepFileName)
         {
-            string[] importedPartNames = ImportBrepPartFile(brepFileName);
-            if (importedPartNames == null) return new string[0];
+            string[] patchFileNames = SplitAssembly(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS", 1);
+            if (patchFileNames == null) return new string[0];
             //
             List<string> extractedPartNames = new List<string>();
-            foreach (string importedPartName in importedPartNames)
+            foreach (string patchFileName in patchFileNames)
             {
-                BasePart importedPart;
-                if (!_model.Geometry.Parts.TryGetValue(importedPartName, out importedPart)) continue;
+                string[] importedPartNames = ImportBrepPartFile(patchFileName);
+                if (File.Exists(patchFileName)) File.Delete(patchFileName);
+                if (importedPartNames == null) continue;
                 //
-                string extractedPartName = GetExtractedSurfacePartName(pickedPartName);
-                importedPart.Name = extractedPartName;
-                _model.Geometry.Parts.Replace(importedPartName, extractedPartName, importedPart);
-                //
-                extractedPartNames.Add(extractedPartName);
+                foreach (string importedPartName in importedPartNames)
+                {
+                    BasePart importedPart;
+                    if (!_model.Geometry.Parts.TryGetValue(importedPartName, out importedPart)) continue;
+                    //
+                    string extractedPartName = GetExtractedSurfacePartName(pickedPartName);
+                    importedPart.Name = extractedPartName;
+                    _model.Geometry.Parts.Replace(importedPartName, extractedPartName, importedPart);
+                    //
+                    extractedPartNames.Add(extractedPartName);
+                }
             }
             return extractedPartNames.ToArray();
         }
