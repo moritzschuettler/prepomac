@@ -186,6 +186,9 @@
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxAutocompleteMenuHelper.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxScriptAnalyzer.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxSyntaxHighlighter.cs" />
+    <Compile Include="TextBoxes\OutputTextBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="TextBoxes\AutoScrollTextBox.cs">
       <SubType>Component</SubType>
     </Compile>

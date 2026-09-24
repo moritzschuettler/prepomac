@@ -25907,12 +25907,41 @@ namespace PrePoMax
         {
             if (_currentView != ViewGeometryModelResults.Geometry) return false;
             //
+            int[] geometryIds = GetLastMeshingErrorGeometryIds();
+            if (geometryIds.Length == 0) return false;
+            // The parts that were being meshed are still highlighted, in the same color
+            ClearAllSelection();
+            // A solid surface is drawn without backface culling, as the sweep sources are
+            HighlightItemsByGeometryIds(geometryIds, false, false, true);
+            return true;
+        }
+        public int[] GetLastMeshingErrorGeometryIds()
+        {
             List<int> geometryIds = new List<int>();
             foreach (var error in LastMeshingErrors)
                 geometryIds.AddRange(MessageGeometryReferences.GetGeometryIds(error, _model.Geometry));
-            if (geometryIds.Count == 0) return false;
-            // A solid surface is drawn without backface culling, as the sweep sources are
-            HighlightItemsByGeometryIds(geometryIds.Distinct().ToArray(), false, false, true);
+            return geometryIds.Distinct().ToArray();
+        }
+        /// <summary>
+        /// Every name of a surface or an edge of the geometry in a line of text, as its start and its length, so
+        /// that the output window can draw the names as links.
+        /// </summary>
+        public int[][] GetGeometryNameRanges(string text)
+        {
+            return MessageGeometryReferences.GetGeometryNameRanges(text, _model == null ? null : _model.Geometry);
+        }
+        /// <summary>
+        /// Highlights the surface or the edge named at the given position of a line of text, in the geometry
+        /// view, which is where it lies, so that a name in the output window can be followed to the geometry.
+        /// </summary>
+        public bool HighlightGeometryNamedAt(string text, int position)
+        {
+            int geometryId = MessageGeometryReferences.GetGeometryIdAt(text, position, _model.Geometry);
+            if (geometryId < 0) return false;
+            //
+            CurrentView = ViewGeometryModelResults.Geometry;
+            ClearAllSelection();
+            HighlightItemsByGeometryIds(new int[] { geometryId }, false, false, true);
             return true;
         }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)

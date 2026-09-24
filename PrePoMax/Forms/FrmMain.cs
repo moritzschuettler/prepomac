@@ -73,7 +73,6 @@ namespace PrePoMax
         private const int _numOfOutputDateChars = 20;
         private const int _numOfOutputLines = 500;
         private List<string> _outputLines = new List<string>();
-        private int _numOfOutputColumns;
         private SidePanel _visibleSidePanel;
         private SplitContainer _sidePanelHost;
         private PythonPanel _pythonPanel;
@@ -471,6 +470,7 @@ namespace PrePoMax
                 _vtk.Form_BoxZoomEnded = BoxZoomEnded;
                 // Output
                 tbOutput.Dock = DockStyle.Fill;
+                tbOutput.LinkFinder = _controller.GetGeometryNameRanges;
                 // Forms
                 _formLocation = new Point(100, 100);
                 _allForms = new List<Form>();
@@ -1156,9 +1156,26 @@ namespace PrePoMax
             //
             UpdateOutputTextBox();
         }
-        private void tbOutput_Resize(object sender, EventArgs e)
+        private void tbOutput_LinkClicked(string line, int position)
         {
-            if (GetNumOfOutputColumns() != _numOfOutputColumns) timerOutput.Start();
+            try
+            {
+                // Following a name changes the view and clears the selection, which would pull the ground from under
+                // a running operation or an open dialog
+                if (IsStateWorking()) return;
+                if (_allForms != null)
+                {
+                    foreach (Form form in _allForms)
+                    {
+                        if (form.Visible) return;
+                    }
+                }
+                _controller.HighlightGeometryNamedAt(line, position);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
 
         #region ModelTree Events ###################################################################################################
@@ -4676,7 +4693,11 @@ namespace PrePoMax
                 {
                     string message = "Errors occurred during meshing. Please check the output window.";
                     if (_controller.HighlightLastMeshingErrorGeometry())
-                        message += " The surfaces and edges the errors name are highlighted.";
+                        message += " The surfaces and edges the errors name are highlighted; click a name in the " +
+                                   "output window to show that one alone.";
+                    else if (_controller.GetLastMeshingErrorGeometryIds().Length > 0)
+                        message += " Click a surface or an edge the errors name in the output window to show it in the " +
+                                   "geometry.";
                     MessageBoxes.ShowError(message);
                 }
             }
@@ -12359,54 +12380,9 @@ namespace PrePoMax
         }
         private void UpdateOutputTextBox()
         {
-            _numOfOutputColumns = GetNumOfOutputColumns();
-            //
-            int numOfDataColumns = _numOfOutputColumns - _numOfOutputDateChars;
-            StringBuilder sb = new StringBuilder();
-            //
-            foreach (string outputLine in _outputLines)
-            {
-                string date = outputLine.Substring(0, _numOfOutputDateChars);
-                //
-                foreach (string wrappedLine in WrapOutputData(outputLine.Substring(_numOfOutputDateChars),
-                                                              numOfDataColumns))
-                {
-                    if (sb.Length > 0) sb.AppendLine();
-                    sb.Append(date);
-                    sb.Append(wrappedLine);
-                }
-            }
-            //
-            tbOutput.AutoScrollSetText(sb.ToString());
-        }
-        private int GetNumOfOutputColumns()
-        {
-            int numOfColumns = (int)(tbOutput.ClientSize.Width / tbOutput.TextCharWidth) - 3;
-            //
-            return Math.Max(_numOfOutputDateChars + 10, numOfColumns);
-        }
-        private List<string> WrapOutputData(string data, int numOfColumns)
-        {
-            List<string> wrappedLines = new List<string>();
-            //
-            while (data.Length > numOfColumns)
-            {
-                int breakPosition = data.LastIndexOf(' ', numOfColumns);
-                //
-                if (breakPosition <= 0)
-                {
-                    wrappedLines.Add(data.Substring(0, numOfColumns));
-                    data = data.Substring(numOfColumns);
-                }
-                else
-                {
-                    wrappedLines.Add(data.Substring(0, breakPosition));
-                    data = data.Substring(breakPosition + 1).TrimStart(' ');
-                }
-            }
-            if (data.Length > 0 || wrappedLines.Count == 0) wrappedLines.Add(data);
-            //
-            return wrappedLines;
+            // The text box wraps the lines itself, indented past the date, so a line stays one line of text and
+            // a name split by the wrapping is still one link
+            tbOutput.SetOutputText(string.Join("\n", _outputLines));
         }
 
         #region Invoke  ############################################################################################################

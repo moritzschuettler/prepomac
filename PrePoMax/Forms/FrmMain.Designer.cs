@@ -599,7 +599,7 @@ namespace PrePoMax
             this.toolStripContainer1 = new System.Windows.Forms.ToolStripContainer();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
-            this.tbOutput = new UserControls.AutoScrollTextBox();
+            this.tbOutput = new UserControls.OutputTextBox();
             this.cmsOutputTextbox = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiClearOutputTextbox = new System.Windows.Forms.ToolStripMenuItem();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
@@ -624,6 +624,7 @@ namespace PrePoMax
             this.splitContainer2.Panel1.SuspendLayout();
             this.splitContainer2.Panel2.SuspendLayout();
             this.splitContainer2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tbOutput)).BeginInit();
             this.cmsOutputTextbox.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -5274,14 +5275,13 @@ namespace PrePoMax
             this.tbOutput.ContextMenuStrip = this.cmsOutputTextbox;
             this.tbOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tbOutput.Location = new System.Drawing.Point(5, 3);
-            this.tbOutput.Multiline = true;
             this.tbOutput.Name = "tbOutput";
             this.tbOutput.ReadOnly = true;
-            this.tbOutput.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.tbOutput.Size = new System.Drawing.Size(419, 86);
             this.tbOutput.TabIndex = 0;
             this.tbOutput.Text = "Output text box";
-            this.tbOutput.Resize += new System.EventHandler(this.tbOutput_Resize);
+            this.tbOutput.WordWrapIndent = 20;
+            this.tbOutput.LinkClicked += new System.Action<string, int>(this.tbOutput_LinkClicked);
             // 
             // cmsOutputTextbox
             // 
@@ -5354,6 +5354,7 @@ namespace PrePoMax
             this.splitContainer2.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
             this.splitContainer2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.tbOutput)).EndInit();
             this.cmsOutputTextbox.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -5504,7 +5505,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbShowNoEdges;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView1;
         private System.Windows.Forms.SplitContainer splitContainer2;
-        private AutoScrollTextBox tbOutput;
+        private OutputTextBox tbOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiQuery;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowWireframeEdges;
         private System.Windows.Forms.ToolStripButton tsbShowWireframeEdges;
