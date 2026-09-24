@@ -130,8 +130,9 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(2, 10, "Algorithm")]
         [DescriptionAttribute("New uses all QuadWild improvements: patch corners on holes and long curved lines, " +
                               "merged strips between holes, the target size and the minimum number of elements on " +
-                              "lines taken from the triangulation, alpha raised when needed, field-aligned smoothing " +
-                              "and the split of quads that touch the boundary with one vertex. Old meshes without " +
+                              "lines taken from the triangulation, alpha raised when needed, field-aligned smoothing, " +
+                              "the split of quads that touch the boundary with one vertex and nodes on the smooth " +
+                              "curves through the triangulation nodes. Old meshes without " +
                               "them, for comparison.")]
         [Id(3, 6)]
         public bool OldAlgorithm
