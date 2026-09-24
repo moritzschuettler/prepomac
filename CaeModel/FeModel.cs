@@ -3532,6 +3532,13 @@ namespace CaeModel
         /// A trial stopped only because a sub-part was never reached still returns the blocks of the
         /// sub-parts it did sweep, with the error set, so that the detection can rank one such trial against
         /// another. Every other refusal returns nothing.
+        ///
+        /// A neighbour swept alongside a block across their shared wall is only one way to sweep it: the wall
+        /// is a wall to a neighbour swept along its other edges just as well. So when the sweep carried on
+        /// from such a neighbour fails further on - the bar beside a plate swept through its thickness, whose
+        /// cap is shared with a bar that leans along a chamfer and can only be swept across it - the neighbour
+        /// is set aside and the trial repeated without it. It is then left unreached, for a source of its own,
+        /// the way a neighbour that cannot be swept alongside at all is left.
         /// </summary>
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
@@ -3539,6 +3546,25 @@ namespace CaeModel
                                               SweepPartMaps maps, out string error, out string errorPartName,
                                               out HashSet<int> sweptPartIds, out bool onlyUnreached)
         {
+            int failedSideNeighbourId;
+            HashSet<int> setAsidePartIds = new HashSet<int>();
+            while (true)
+            {
+                SweepBlocks blocks = CreateSweepBlocks(sweptParts, partIdSelectedSurfaceIds, twinSurfaceIds, twinEdgeIds,
+                                                       maps, setAsidePartIds, out error, out errorPartName,
+                                                       out sweptPartIds, out onlyUnreached, out failedSideNeighbourId);
+                if (error == null || onlyUnreached || failedSideNeighbourId < 0 ||
+                    !setAsidePartIds.Add(failedSideNeighbourId)) return blocks;
+            }
+        }
+        private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
+                                              Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                              Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
+                                              SweepPartMaps maps, HashSet<int> setAsidePartIds, out string error,
+                                              out string errorPartName, out HashSet<int> sweptPartIds,
+                                              out bool onlyUnreached, out int failedSideNeighbourId)
+        {
+            failedSideNeighbourId = -1;
             sweptPartIds = new HashSet<int>();
             onlyUnreached = false;
             error = null;
@@ -3567,6 +3593,9 @@ namespace CaeModel
             List<int> pendingPartIds = new List<int>();
             HashSet<int> sideDerivedPartIds = new HashSet<int>();
             HashSet<int> refusedPartIds = new HashSet<int>();
+            // The neighbour swept alongside a block that every part reached from it goes back to
+            int rootId;
+            Dictionary<int, int> partIdSideNeighbourId = new Dictionary<int, int>();
             Dictionary<int, HashSet<int>> partIdSourceSurfaceIds = new Dictionary<int, HashSet<int>>();
             Dictionary<int, HashSet<int>> partIdFeederPartIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in partIdSelectedSurfaceIds)
@@ -3594,9 +3623,10 @@ namespace CaeModel
             {
                 partId = pendingPartIds[0];
                 pendingPartIds.RemoveAt(0);
-                // A part refused once stays unreached: it is given a source of its own in a later round.
-                // Without this it is queued again by the next neighbour that shares a surface with it,
-                // and two parts that refuse each other queue each other for ever
+                // A part refused as a neighbour swept alongside is not swept alongside again: it is given a
+                // source of its own in a later round. Without this it is queued again by the next neighbour
+                // that shares a wall with it, and two parts that refuse each other queue each other for ever.
+                // A source or a target shared with a block still reaches it, and it is swept from that
                 if (refusedPartIds.Contains(partId)) continue;
                 // A block reads the caps of the blocks feeding it, so it is swept after all of them
                 partIdFeederPartIds.TryGetValue(partId, out feederPartIds);
@@ -3605,6 +3635,7 @@ namespace CaeModel
                     if (++deferrals > pendingPartIds.Count + 1)
                     {
                         error = "The order in which the parts are swept could not be determined.";
+                        if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
                         return null;
                     }
                     pendingPartIds.Add(partId);
@@ -3630,8 +3661,11 @@ namespace CaeModel
                     neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
                     if (sweptPartIds.Contains(neighbourPartId)) continue;
                     if (feederPartIds != null && feederPartIds.Contains(neighbourPartId)) continue;
+                    if (refusedPartIds.Remove(neighbourPartId)) sideDerivedPartIds.Remove(neighbourPartId);
                     AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
                                      pendingPartIds, false);
+                    if (partIdSideNeighbourId.TryGetValue(partId, out rootId) &&
+                        !partIdSideNeighbourId.ContainsKey(neighbourPartId)) partIdSideNeighbourId.Add(neighbourPartId, rootId);
                 }
                 //
                 // A block is validated once per source and read again by every trial that reaches the same source
@@ -3651,6 +3685,7 @@ namespace CaeModel
                         continue;
                     }
                     errorPartName = part.Name;
+                    if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
                     return null;
                 }
                 // A neighbour across a side surface is swept alongside this block, from the surfaces that
@@ -3662,11 +3697,16 @@ namespace CaeModel
                     //
                     neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
                     if (partIdSourceSurfaceIds.ContainsKey(neighbourPartId)) continue;
+                    if (refusedPartIds.Contains(neighbourPartId) || setAsidePartIds.Contains(neighbourPartId)) continue;
                     error = AddSideNeighbourSource(part, sourceSurfaceIds, sideSurfaceId, partIdPart[neighbourPartId],
                                                    FeMesh.GetItemIdFromGmshTopologyId(twinId), twinEdgeIds,
                                                    partIdSourceSurfaceIds, pendingPartIds);
                     if (error != null) return null;
-                    if (partIdSourceSurfaceIds.ContainsKey(neighbourPartId)) sideDerivedPartIds.Add(neighbourPartId);
+                    if (partIdSourceSurfaceIds.ContainsKey(neighbourPartId))
+                    {
+                        sideDerivedPartIds.Add(neighbourPartId);
+                        partIdSideNeighbourId[neighbourPartId] = neighbourPartId;
+                    }
                 }
                 // A neighbour across a target surface is swept next, from the mesh this block leaves there.
                 // That mesh follows the imprint of the shared surface where the imprint is a wall edge of this
@@ -3684,6 +3724,7 @@ namespace CaeModel
                     {
                         error = "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two " +
                                 "sides, the second time across " + GetSweepSurfaceName(part, targetSurfaceId) + ".";
+                        if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
                         return null;
                     }
                     foreach (var edgeId in part.Visualization.FaceEdgeIds[targetSurfaceId])
@@ -3695,10 +3736,14 @@ namespace CaeModel
                                 " is not a prism, so the mesh swept through it cannot follow the split and continue " +
                                 "into the part " + partIdPart[neighbourPartId].Name + ". Select the shared surface as " +
                                 "the source instead, so that both parts are swept away from it.";
+                        if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
                         return null;
                     }
+                    if (refusedPartIds.Remove(neighbourPartId)) sideDerivedPartIds.Remove(neighbourPartId);
                     AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
                                      pendingPartIds, false);
+                    if (partIdSideNeighbourId.TryGetValue(partId, out rootId) &&
+                        !partIdSideNeighbourId.ContainsKey(neighbourPartId)) partIdSideNeighbourId.Add(neighbourPartId, rootId);
                     if (!partIdFeederPartIds.TryGetValue(neighbourPartId, out feederPartIds))
                     {
                         feederPartIds = new HashSet<int>();

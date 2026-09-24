@@ -1076,6 +1076,12 @@ namespace CaeMesh
         /// point of its parameter box the inside test accepts. The inside test alone does not say that a point
         /// lies on the surface, since it projects the point onto it first, and the centre of mass of a bore
         /// lies on the axis of the bore rather than on the bore.
+        ///
+        /// The point also keeps clear of the surface's own boundary. The inside test accepts a point on the
+        /// boundary, and such a point lies on the surface across the edge just as well, so the face it is asked
+        /// to identify is taken for its neighbour: the parameter box of the L-shaped end of a bent bar puts a
+        /// sample on the edge the end shares with a wall, and the end was then swept as a wall of its own
+        /// block. A point on the boundary is kept only when the surface offers no other.
         /// </summary>
         private static double[] GetPointInsideSurface(int surfaceId)
         {
@@ -1084,8 +1090,10 @@ namespace CaeMesh
             double z;
             Gmsh.Model.OCC.GetCenterOfMass(2, surfaceId, out x, out y, out z);
             double[] center = new double[] { x, y, z };
-            if (IsPointOnSurface(surfaceId, center) && Gmsh.Model.IsInside(2, surfaceId, center, false) > 0) return center;
+            if (IsPointOnSurface(surfaceId, center) && Gmsh.Model.IsInside(2, surfaceId, center, false) > 0 &&
+                IsPointClearOfSurfaceBoundary(surfaceId, center)) return center;
             //
+            double[] boundaryCoor = null;
             double[] coor;
             double[] minimum;
             double[] maximum;
@@ -1102,11 +1110,27 @@ namespace CaeMesh
                         if (Gmsh.Model.IsInside(2, surfaceId, parametricCoor, true) <= 0) continue;
                         //
                         Gmsh.Model.GetValue(2, surfaceId, parametricCoor, out coor);
-                        if (coor.Length >= 3) return coor;
+                        if (coor.Length < 3) continue;
+                        if (IsPointClearOfSurfaceBoundary(surfaceId, coor)) return coor;
+                        if (boundaryCoor == null) boundaryCoor = coor;
                     }
                 }
             }
+            if (boundaryCoor != null) return boundaryCoor;
             throw new CaeException("No point inside a surface of the sweep could be found.");
+        }
+        private static bool IsPointClearOfSurfaceBoundary(int surfaceId, double[] coor)
+        {
+            int[] curveIds;
+            double[] closestCoor;
+            double clearance = 1E-5 * GetModelDiagonal();
+            Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out curveIds);
+            foreach (var curveId in curveIds)
+            {
+                Gmsh.Model.GetClosestPoint(1, curveId, coor, out closestCoor, out _);
+                if (closestCoor.Length >= 3 && GetDistance(coor, closestCoor) <= clearance) return false;
+            }
+            return true;
         }
         private static bool IsPointOnSurface(int surfaceId, double[] coor)
         {
