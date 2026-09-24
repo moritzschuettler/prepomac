@@ -8,7 +8,7 @@ processes:
 
 They are built from a local fork of QuadWild-BiMDF 0.0.2 with these changes: prescribed
 nodal positions on edges (optional <input>.cnodes constraint file), pillowing, size
-grading, quality optimisation of the final mesh, projection of the final nodes onto the
+grading, field-aligned smoothing and quality optimisation of the final mesh, projection of the final nodes onto the
 original input surface, stage-1 guards, patch corners on holes and curved lines (thin strips between holes merged), the target
 size and minimum element counts on lines taken from the input mesh, and a
 curvature-free fallback for the cross field on flat surfaces. The changes are described in
@@ -28,4 +28,4 @@ deployed as LICENSE beside the executables.
 SHA-256 checksums of the binaries (modified build, 2026-09-23):
 
     2BB3547DCF24F9F9B48DFC5D329A4A1F44E0C49F44C515826D01A4EC3499F89F  quadwild.exe
-    C406F9B18D3AFCC249F3E7D7E6E82F8429C259499C83821BD016CEE8D46654A5  quad_from_patches.exe
+    7ACCB189A57D54CEDC0690A8F64ACEB9D388FE4CBEB7CA70F3495C18CDB90955  quad_from_patches.exe
