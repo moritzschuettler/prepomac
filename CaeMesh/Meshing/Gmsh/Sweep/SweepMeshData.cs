@@ -477,7 +477,8 @@ namespace CaeMesh.Sweep
                 startNodeTags.UnionWith(tags);
             }
             if (startNodeTags.Count == 0)
-                throw new CaeException("No shared edges between the sweep source and wall surfaces were found.");
+                throw new CaeException("No edges shared between the source and the side surfaces of " +
+                                       block.GetDescription() + " were found.");
             //
             Dictionary<IntPtr, HashSet<IntPtr>> wallNeighbours = GetNodeNeighbours(block.WallSurfaceIds);
             //
@@ -500,16 +501,19 @@ namespace CaeMesh.Sweep
             while (visitedCount < wallNeighbours.Count)
             {
                 if (numLayers > maxLayers)
-                    throw new CaeException("The sweep wall surfaces could not be walked layer by layer.");
+                    throw new CaeException("The side surfaces of " + block.GetDescription() + " could not be walked " +
+                                           "layer by layer.");
                 //
                 nextLayer = new HashSet<IntPtr>();
                 foreach (var tag in currentLayer)
                 {
                     candidates = wallNeighbours[tag].Except(previousTwoLayers).ToHashSet();
                     if (candidates.Count != 1)
-                        throw new CaeException("The number of element layers is not the same on all sweep wall " +
-                                               "surfaces. Use the same number of elements on all edges that " +
-                                               "follow the sweep direction.");
+                        throw new CaeException("The number of element layers is not the same on all side surfaces " +
+                                               "of " + block.GetDescription() + ": it changes at a node of " +
+                                               DescribeSurfacesAtNode(block.WallSurfaceIds, tag) + ". Use the " +
+                                               "same number of elements on all edges that follow the sweep " +
+                                               "direction.");
                     //
                     next = candidates.First();
                     if (!tagLineStart.TryGetValue(tag, out lineStart)) lineStart = tag;
@@ -526,11 +530,13 @@ namespace CaeMesh.Sweep
             }
             //
             if (numLayers < 2)
-                throw new CaeException("The sweep wall surfaces must be divided into at least one element layer.");
+                throw new CaeException("The side surfaces of " + block.GetDescription() + " must be divided into at " +
+                                       "least one element layer.");
             foreach (var entry in lines)
             {
                 if (entry.Value.Count != numLayers)
-                    throw new CaeException("The sweep wall surfaces do not form a single structured grid.");
+                    throw new CaeException("The side surfaces of " + block.GetDescription() + " do not form a single " +
+                                           "structured grid.");
             }
             //
             return lines;
@@ -591,6 +597,20 @@ namespace CaeMesh.Sweep
                 for (int i = 0; i < _interiorNodes.Length; i++)
                     _nodeTags[Index(layer, _interiorNodes[i])] = (IntPtr)nextFreeNodeTag++;
             }
+        }
+        /// <summary>
+        /// The surfaces a node lies on, by their gmsh tags, for a message to say where the grid breaks down.
+        /// </summary>
+        private static string DescribeSurfacesAtNode(IEnumerable<int> surfaceIds, IntPtr nodeTag)
+        {
+            IntPtr[] tags;
+            List<string> items = new List<string>();
+            foreach (var surfaceId in surfaceIds.OrderBy(id => id))
+            {
+                Gmsh.Model.Mesh.GetNodes(out tags, out _, 2, surfaceId, true, false);
+                if (tags.Contains(nodeTag)) items.Add("surface " + surfaceId);
+            }
+            return string.Join(" and ", items);
         }
         private static Dictionary<IntPtr, HashSet<IntPtr>> GetNodeNeighbours(IEnumerable<int> surfaceIds)
         {

@@ -550,6 +550,14 @@ namespace PrePoMax
                                                      _controller.Form.WriteDataToOutput);
                 // Job completed
                 jobCompleted = jobStatus == JobStatus.OK;
+                // The mesher writes why it failed to its standard error, and the reason is kept with the part
+                // it failed on, so that the geometry the reason names can be found and shown
+                if (!jobCompleted && jobStatus != JobStatus.Killed)
+                {
+                    error = _controller.JobRunner.ErrorData;
+                    if (error != null) error = error.Trim();
+                    if (error == "") error = null;
+                }
             }
             //
             if (jobCompleted)

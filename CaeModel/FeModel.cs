@@ -3682,17 +3682,19 @@ namespace CaeModel
                     neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
                     if (sweptPartIds.Contains(neighbourPartId) || partIdSelectedSurfaceIds.ContainsKey(neighbourPartId))
                     {
-                        error = "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two sides.";
+                        error = "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two " +
+                                "sides, the second time across " + GetSweepSurfaceName(part, targetSurfaceId) + ".";
                         return null;
                     }
                     foreach (var edgeId in part.Visualization.FaceEdgeIds[targetSurfaceId])
                     {
                         if (wallEdgeIds.Contains(edgeId) || prismatic) continue;
-                        error = "The surface shared by the parts " + part.Name + " and " + partIdPart[neighbourPartId].Name +
-                                " ends inside the target of the part " + part.Name + ", which is not a prism, so the mesh " +
-                                "swept through it cannot follow the split and continue into the part " +
-                                partIdPart[neighbourPartId].Name + ". Select the shared surface as the source instead, so " +
-                                "that both parts are swept away from it.";
+                        error = "The " + GetSweepSurfaceName(part, targetSurfaceId) + ", shared by the parts " + part.Name +
+                                " and " + partIdPart[neighbourPartId].Name + ", ends inside the target of the part " +
+                                part.Name + " at " + GetSweepEdgeName(part, edgeId) + ". The part " + part.Name +
+                                " is not a prism, so the mesh swept through it cannot follow the split and continue " +
+                                "into the part " + partIdPart[neighbourPartId].Name + ". Select the shared surface as " +
+                                "the source instead, so that both parts are swept away from it.";
                         return null;
                     }
                     AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
@@ -3945,7 +3947,7 @@ namespace CaeModel
                 sideSurfaceIds = null;
                 targetSurfaceIds = null;
                 layerSideSurfaceIds = null;
-                return "The source surfaces are not connected.";
+                return "The source surfaces (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") are not connected.";
             }
             // Are there any free edge loops with a single edge - cylinder with a single seam line
             HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray, maps.GetVertexIdEdgeIds(part));
@@ -3956,7 +3958,9 @@ namespace CaeModel
                     sideSurfaceIds = null;
                     targetSurfaceIds = null;
                     layerSideSurfaceIds = null;
-                    return "The source surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
+                    return "The source surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") contain a " +
+                           "free edge loop with a single edge, " + GetSweepEdgeName(part, freeEdgeLoops[i].First()) +
+                           " (a hole or an extrusion).";
                 }
             }
             //
@@ -4033,20 +4037,26 @@ namespace CaeModel
                 if (!group.Overlaps(sideSurfaceIds)) continue;
                 if (group.Overlaps(sourceSurfaceIdsArray) || group.Overlaps(targetSurfaceIds))
                 {
-                    return "A sweep side surface continues the sweep source or target surface/s smoothly, " +
-                           "so it rounds the end of the sweep instead of following it. Select the source " +
-                           "surfaces by hand, or split the part so that each piece is swept on its own.";
+                    int[] endSurfaceIds = group.Where(id => sourceSurfaceIdsArray.Contains(id) ||
+                                                            targetSurfaceIds.Contains(id)).ToArray();
+                    return "The sweep side surface/s (" +
+                           GetSweepSurfaceNames(part, group.Where(id => sideSurfaceIds.Contains(id))) + ") continue " +
+                           "the sweep source or target surface/s (" + GetSweepSurfaceNames(part, endSurfaceIds) +
+                           ") smoothly, so they round the end of the sweep instead of following it. Select the " +
+                           "source surfaces by hand, or split the part so that each piece is swept on its own.";
                 }
             }
             // The walls carry the source to the target, so the two stand apart. A block whose source and
             // target meet along an edge has no sweep length there at all and its layers collapse onto that
             // edge, which is where the inverted elements of such a mesh come from
-            if (vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray)
-                   .Intersect(vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds)).Count() > 0)
+            int[] sharedEndEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray)
+                                        .Intersect(vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds)).ToArray();
+            if (sharedEndEdgeIds.Length > 0)
             {
-                return "The sweep source surface/s touch the sweep target surface/s, so the sweep has no " +
-                       "length along the edge/s they share. Select the source surfaces by hand, or split " +
-                       "the part so that each piece is swept on its own.";
+                return "The sweep source surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") touch " +
+                       "the sweep target surface/s, so the sweep has no length along the edge/s they share (" +
+                       GetSweepEdgeNames(part, sharedEndEdgeIds) + "). Select the source surfaces by hand, or " +
+                       "split the part so that each piece is swept on its own.";
             }
             // The target of a sweep is the source carried along the sweep lines, so it is a similar shape
             // however strongly the sweep tapers: the square root of its area ratio and its perimeter ratio
@@ -4062,9 +4072,11 @@ namespace CaeModel
                     double scale = Math.Sqrt(targetArea / sourceArea) * sourcePerimeter / targetPerimeter;
                     if (scale < 0.8 || scale > 1.25)
                     {
-                        return "The sweep target surface/s are not the shape of the sweep source surface/s " +
-                               "carried along the sweep direction. Select the source surfaces by hand, or " +
-                               "split the part so that each piece is swept on its own.";
+                        return "The sweep target surface/s (" + GetSweepSurfaceNames(part, targetSurfaceIds) + ") are " +
+                               "not the shape of the sweep source surface/s (" +
+                               GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") carried along the sweep " +
+                               "direction. Select the source surfaces by hand, or split the part so that each piece " +
+                               "is swept on its own.";
                     }
                 }
             }
@@ -4090,8 +4102,9 @@ namespace CaeModel
                     // A chain that ends near where it began has run around the body rather than across it
                     if (chainLength > 0 && chord.Len < 0.3 * chainLength)
                     {
-                        return "An edge chain following the sweep direction turns back on itself instead of " +
-                               "running from the source surface/s to the target surface/s.";
+                        return "The edge chain following the sweep direction from " + GetSweepEdgeName(part, edgeId) +
+                               " turns back on itself instead of running from the source surface/s (" +
+                               GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") to the target surface/s.";
                     }
                     // The sweep leaves the source into the material and arrives at the target out of it.
                     // The visualization is wound outward, so the cosine against the source normal is
@@ -4108,9 +4121,9 @@ namespace CaeModel
                                       : double.NaN;
                     if (entryCosine > 0 || exitCosine < 0)
                     {
-                        return "The sweep direction leaves the part through the sweep source surface/s " +
-                               "instead of entering it, so the source and the target surface/s are the " +
-                               "wrong way round.";
+                        return "The sweep direction leaves the part " + part.Name + " through the sweep source " +
+                               "surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") instead of " +
+                               "entering it, so the source and the target surface/s are the wrong way round.";
                     }
                     //
                     if (chainLength > 0)
@@ -4126,8 +4139,8 @@ namespace CaeModel
             // longer than the chord between its ends, and differently so on the inside and the outside
             if (maxChainLength > 0 && minChainLength < 0.5 * maxChainLength)
             {
-                return "The sweep lines of the block differ in length by more than half, so one element " +
-                       "layer count cannot suit them all.";
+                return "The sweep lines of the block swept from " + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) +
+                       " differ in length by more than half, so one element layer count cannot suit them all.";
             }
             // The chains measure the sweep only where an edge leaves the source. A source whose faces continue
             // one another smoothly - the two walls of a slot and the rounded bottom between them - has vertices
@@ -4139,9 +4152,10 @@ namespace CaeModel
             if (SampleSweepLengths(vis, sourceSurfaceIdsArray, targetSurfaceIds, out minSampledLength,
                                    out maxSampledLength) && minSampledLength < 0.5 * maxSampledLength)
             {
-                return "The sweep lines measured across the sweep source surface/s differ in length by more " +
-                       "than half, so one element layer count cannot suit them all. Select the source surfaces " +
-                       "by hand, or split the part so that each piece is swept on its own.";
+                return "The sweep lines measured across the sweep source surface/s (" +
+                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in length by more than half, so " +
+                       "one element layer count cannot suit them all. Select the source surfaces by hand, or split " +
+                       "the part so that each piece is swept on its own.";
             }
             //
             return null;
@@ -4336,6 +4350,37 @@ namespace CaeModel
             }
             return perimeter;
         }
+        private static string GetSweepSideHoleError(BasePart part, int surfaceId)
+        {
+            return "The sweep side " + GetSweepSurfaceName(part, surfaceId) + " has a hole. A bore running across the " +
+                   "sweep direction has to be swept along its own axis, or the part has to be split.";
+        }
+        private static string GetSweepSideFourSidesError(BasePart part, int surfaceId)
+        {
+            return "The sweep side " + GetSweepSurfaceName(part, surfaceId) + " could not be reduced to 4 sides. Each " +
+                   "side surface must have exactly 2 edges following the sweep direction; the source and target " +
+                   "sides may be split into any number of edges.";
+        }
+        /// <summary>
+        /// A surface or an edge the way the interface names it, so that a message about the sweep says which one
+        /// it means and the geometry it names can be found and shown.
+        /// </summary>
+        private static string GetSweepSurfaceName(BasePart part, int surfaceId)
+        {
+            return "surface " + (surfaceId + 1) + " of " + part.Name;
+        }
+        private static string GetSweepSurfaceNames(BasePart part, IEnumerable<int> surfaceIds)
+        {
+            return string.Join(", ", surfaceIds.OrderBy(id => id).Select(id => GetSweepSurfaceName(part, id)));
+        }
+        private static string GetSweepEdgeName(BasePart part, int edgeId)
+        {
+            return "edge " + (edgeId + 1) + " of " + part.Name;
+        }
+        private static string GetSweepEdgeNames(BasePart part, IEnumerable<int> edgeIds)
+        {
+            return string.Join(", ", edgeIds.OrderBy(id => id).Select(id => GetSweepEdgeName(part, id)));
+        }
         private const double _sweepChainCosine = 0.9;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
         private string ValidateSweepRings(GeometryPart part, HashSet<int> sourceSurfaceIds, SweepPartMaps maps,
@@ -4348,11 +4393,16 @@ namespace CaeModel
             // Is it possible to determine the side and target surfaces
             if (!vis.IsBodySweepable(sourceSurfaceIds, out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
                                      maps.GetSurfaceIdSurfaceNeighbourIds(part), maps.GetVertexIdEdgeIds(part)))
-                return "It is not possible to determine the side and target surfaces.";
-            if (sideSurfaceIds.Length == 0) return "The sweep side surfaces do not form a closed loop.";
+                return "It is not possible to determine the side and target surfaces of a sweep from the source " +
+                       "surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ").";
+            if (sideSurfaceIds.Length == 0)
+                return "The sweep side surfaces around the source surface/s (" +
+                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") do not form a closed loop.";
             // The mesh is built by projecting onto every target surface and keeping the nearest hit, so a
             // target that is split into several surfaces is allowed
-            if (targetSurfaceIds.Length == 0) return "No sweep target surface could be determined.";
+            if (targetSurfaceIds.Length == 0)
+                return "No sweep target surface could be determined for the source surface/s (" +
+                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ").";
             // Can all side surfaces be reduced to 4 sides? A side surface may carry more than 4 edges when
             // the source or the target face has been split, since the split puts an extra vertex partway
             // along one of its sides. What matters is that it still has exactly two edges following the
@@ -4374,8 +4424,7 @@ namespace CaeModel
                 // A wall with a hole - the opening of a bore that runs across the sweep - has no structured
                 // grid; gmsh refuses such a transfinite surface, so it is refused here first
                 if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
-                    return "A sweep side surface has a hole. A bore running across the sweep direction has to be " +
-                           "swept along its own axis, or the part has to be split.";
+                    return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
                 int numDirectionEdges = 0;
@@ -4385,12 +4434,7 @@ namespace CaeModel
                     if (crossEdgeIds.Contains(edgeId)) numCrossEdges++;
                     else numDirectionEdges++;
                 }
-                if (numDirectionEdges != 2 || numCrossEdges < 2)
-                {
-                    return "A sweep side surface could not be reduced to 4 sides. Each side surface must have " +
-                           "exactly 2 edges following the sweep direction; the source and target sides may be " +
-                           "split into any number of edges.";
-                }
+                if (numDirectionEdges != 2 || numCrossEdges < 2) return GetSweepSideFourSidesError(part, surfaceId);
             }
             // A wall split along the sweep direction without a loop around the body makes the walk take the far
             // piece for a target, and the near piece's edge then runs straight on into an edge of that target.
@@ -4411,7 +4455,8 @@ namespace CaeModel
                             Vec3D outgoing = GetSweepEdgeTangent(vis, targetEdgeId, vertexId);
                             if (outgoing.Len == 0) continue;
                             if (Vec3D.DotProduct(incoming, outgoing) > 0.95 * incoming.Len * outgoing.Len)
-                                return "A sweep side surface runs straight on into a target surface.";
+                                return "The sweep side " + GetSweepSurfaceName(part, surfaceId) + " runs straight " +
+                                       "on into a target surface at " + GetSweepEdgeName(part, targetEdgeId) + ".";
                         }
                     }
                 }
@@ -4550,7 +4595,9 @@ namespace CaeModel
                                      chainEdgeIdSet, out _, out _, out _);
                 }
             }
-            if (chainEdgeIdSet.Count == 0) return "No edges follow the sweep direction from the source surfaces.";
+            if (chainEdgeIdSet.Count == 0)
+                return "No edges follow the sweep direction from the source surfaces (" +
+                       GetSweepSurfaceNames(part, sourceSurfaceIds) + ").";
             //
             List<int> wallSurfaceIds = new List<int>();
             List<int> otherSurfaceIds = new List<int>();
@@ -4560,21 +4607,20 @@ namespace CaeModel
                 if (vis.FaceEdgeIds[surfaceId].Any(id => chainEdgeIdSet.Contains(id))) wallSurfaceIds.Add(surfaceId);
                 else otherSurfaceIds.Add(surfaceId);
             }
-            if (otherSurfaceIds.Count == 0) return "No sweep target surface could be determined.";
+            if (otherSurfaceIds.Count == 0)
+                return "No sweep target surface could be determined for the source surface/s (" +
+                       GetSweepSurfaceNames(part, sourceSurfaceIds) + ").";
             //
             foreach (var surfaceId in wallSurfaceIds)
             {
                 if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
-                    return "A sweep side surface has a hole. A bore running across the sweep direction has to be " +
-                           "swept along its own axis, or the part has to be split.";
+                    return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
                 int[] directionEdgeIds = vis.FaceEdgeIds[surfaceId].Where(id => chainEdgeIdSet.Contains(id)).ToArray();
                 int numCrossEdges = vis.FaceEdgeIds[surfaceId].Length - directionEdgeIds.Length;
                 if (CountChainEnds(vis, directionEdgeIds) != 4 || numCrossEdges < 2)
-                    return "A sweep side surface could not be reduced to 4 sides. Each side surface must have " +
-                           "exactly 2 edges following the sweep direction; the source and target sides may be " +
-                           "split into any number of edges.";
+                    return GetSweepSideFourSidesError(part, surfaceId);
             }
             //
             sideSurfaceIds = wallSurfaceIds.ToArray();

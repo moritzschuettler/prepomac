@@ -21,6 +21,7 @@ namespace PrePoMax
         // Properties                                                                                                               
         public bool IsRunning { get { return _executableJob != null && _executableJob.JobStatus == JobStatus.Running; } }
         public bool WasKilled { get { return _executableJob != null && _executableJob.JobStatus == JobStatus.Killed; } }
+        public string ErrorData { get { return _executableJob == null ? null : _executableJob.ErrorData; } }
 
 
         // Constructors                                                                                                             

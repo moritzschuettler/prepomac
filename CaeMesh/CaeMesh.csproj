@@ -130,6 +130,7 @@
     <Compile Include="Geometry\GeomSurface.cs" />
     <Compile Include="Geometry\GeometryItem.cs" />
     <Compile Include="Meshing\Base\LocalMeshSize.cs" />
+    <Compile Include="Meshing\Base\MessageGeometryReferences.cs" />
     <Compile Include="Meshing\Base\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Base\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />

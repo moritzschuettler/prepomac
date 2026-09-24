@@ -38,7 +38,7 @@ namespace CaeMesh
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
         private static readonly Regex _entityReference =
-            new Regex(@"(?<![A-Za-z])(Surface|surface|Curve|curve|Point|point)\s+(\d+)", RegexOptions.Compiled);
+            new Regex(@"(?<![A-Za-z])(Surface|surface|Curve|curve|Edge|edge|Point|point)\s+(\d+)", RegexOptions.Compiled);
         // What a gmsh entity is in the model, so that a message of the mesher can name it the way the
         // interface does. Empty until the geometry has been renumbered, and empty for a part with no CAD
         private Dictionary<int, int> _gmshPointIdTopologyId = new Dictionary<int, int>();
@@ -263,7 +263,7 @@ namespace CaeMesh
             }
             catch (Exception ex)
             {
-                _error = ex.Message;
+                _error = NameGmshEntities(ex.Message);
             }
         }
         /// <summary>
@@ -889,8 +889,10 @@ namespace CaeMesh
             double[] closestCoord;
             double[] parametricCoord;
             double tolerance = 1E-6 * diagonal;
+            int topologyId;
             HashSet<int> surfaceCopyIds = new HashSet<int>(surfaceCopyDimTags.Select(dimTag => dimTag.Item2));
             Dictionary<int, int> newSurfaceIdOriginalId = new Dictionary<int, int>();
+            Dictionary<int, int> gmshSurfaceIdTopologyId = new Dictionary<int, int>();
             Gmsh.Model.GetEntities(out outDimTags, 2);
             foreach (var dimTag in outDimTags)
             {
@@ -913,6 +915,9 @@ namespace CaeMesh
                     throw new CaeException("A surface made by carrying the splits of the sweep ends across lies in no surface " +
                                            "that was there before.");
                 newSurfaceIdOriginalId.Add(dimTag.Item2, surfaceIdOriginalId[oldSurfaceId]);
+                // A piece of a split face is named after the face the user sees
+                if (_gmshSurfaceIdTopologyId.TryGetValue(oldSurfaceId, out topologyId))
+                    gmshSurfaceIdTopologyId[dimTag.Item2] = topologyId;
             }
             RemoveSurfaceCopies(surfaceCopyDimTags, entityCounts);
             surfaceIdOriginalId = newSurfaceIdOriginalId;
@@ -920,6 +925,10 @@ namespace CaeMesh
             Dictionary<int, int> pointIdMap = MatchEntitiesByGeometry(0, oldPointSignatures, diagonal);
             Dictionary<int, int> edgeIdMap = MatchEntitiesByGeometry(1, oldEdgeSignatures, diagonal);
             Dictionary<int, int> volumeIdMap = MatchEntitiesByGeometry(3, oldVolumeSignatures, diagonal);
+            // The messages name the entities by the tags they carry now
+            if (_gmshSurfaceIdTopologyId.Count > 0) _gmshSurfaceIdTopologyId = gmshSurfaceIdTopologyId;
+            _gmshCurveIdTopologyId = RemapEntityNames(_gmshCurveIdTopologyId, edgeIdMap);
+            _gmshPointIdTopologyId = RemapEntityNames(_gmshPointIdTopologyId, pointIdMap);
             //
             int originalId;
             Dictionary<int, int> newEdgeIdOriginalId = new Dictionary<int, int>();
@@ -1149,8 +1158,9 @@ namespace CaeMesh
                 {
                     sourceEdgeId = FindTranslatedEdge(entry.Value, block.ImprintTranslation, sourceSignatures, tolerance);
                     if (sourceEdgeId < 0)
-                        throw new CaeException("Sweep volume " + block.VolumeId + ": an edge splitting the target has no " +
-                                               "counterpart on the source after the splits were carried across.");
+                        throw new CaeException("The edge " + entry.Key + " splitting the target of " +
+                                               block.GetDescription() + " has no counterpart on the source after " +
+                                               "the splits were carried across.");
                     imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
                 }
             }
@@ -1477,15 +1487,13 @@ namespace CaeMesh
             catch (Exception ex) when (!(ex is CaeException))
             {
                 if (!WereWallsRefused(logLength)) throw;
-                ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds, logLength);
-                throw new CaeException("A sweep surface could not be meshed with a structured grid. See the gmsh " +
-                                       "messages above.");
+                throw new CaeException(GetRefusedSurfacesMessage(ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds,
+                                                                                        logLength)));
             }
             if (WereWallsRefused(logLength))
             {
-                ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds, logLength);
-                throw new CaeException("A sweep surface could not be meshed with a structured grid. See the gmsh " +
-                                       "messages above.");
+                throw new CaeException(GetRefusedSurfacesMessage(ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds,
+                                                                                        logLength)));
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
@@ -1553,7 +1561,8 @@ namespace CaeMesh
             //
             foreach (var block in blocks)
             {
-                if (block.TargetSurfaceIds.Count < 1) throw new CaeException("No sweep target surface could be determined.");
+                if (block.TargetSurfaceIds.Count < 1)
+                    throw new CaeException("No target surface could be determined for " + block.GetDescription() + ".");
                 block.VolumeId = GetSweepBlockVolumeId(block);
             }
             //
@@ -1575,7 +1584,8 @@ namespace CaeMesh
                 else candidateIds.IntersectWith(volumeIds);
             }
             if (candidateIds == null || candidateIds.Count != 1)
-                throw new CaeException("The volume of a sweep block could not be determined from its surfaces.");
+                throw new CaeException("The volume of " + block.GetDescription() + " could not be determined from its " +
+                                       "surfaces.");
             //
             return candidateIds.First();
         }
@@ -1816,12 +1826,34 @@ namespace CaeMesh
                 if (measured.All(m => m == fixedCount) && !hasLayerEdge) continue;
                 foreach (var edgeId in classEdgeIds) pins[edgeId] = fixedCount;
                 //
-                _writeOutput?.Invoke(NameGmshEntities("Sweep: " + string.Join(", ", classEdgeIds.Select(id => "Curve " + id)) +
-                                                      " are tied together by a transfinite source surface, measured " +
-                                                      string.Join(", ", measured) + " element/s and are all given " +
-                                                      fixedCount + ", " + origin + "."));
+                _writeOutput?.Invoke(NameGmshEntities("Sweep: " + string.Join(", ", classEdgeIds.Select(id => "Edge " + id)) +
+                                                      " are tied together by the transfinite source surface/s " +
+                                                      string.Join(", ", GetTransfiniteSourceIdsOfEdges(classEdgeIds)
+                                                                            .Select(id => "Surface " + id)) +
+                                                      ", measured " + string.Join(", ", measured) +
+                                                      " element/s and are all given " + fixedCount + ", " + origin + "."));
             }
             return pins;
+        }
+        /// <summary>
+        /// The transfinite sources the given edges lie on, for a message to name them.
+        /// </summary>
+        private SortedSet<int> GetTransfiniteSourceIdsOfEdges(int[] edgeIds)
+        {
+            int[] surfaceEdgeIds;
+            SortedSet<int> surfaceIds = new SortedSet<int>();
+            if (_sweepBlocks == null) return surfaceIds;
+            //
+            foreach (var block in _sweepBlocks)
+            {
+                foreach (var surfaceId in block.SourceSurfaceIds)
+                {
+                    if (!_transfiniteSurfaceIds.Contains(surfaceId)) continue;
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out surfaceEdgeIds);
+                    if (surfaceEdgeIds.Intersect(edgeIds).Any()) surfaceIds.Add(surfaceId);
+                }
+            }
+            return surfaceIds;
         }
         private static void Unite(Dictionary<int, int> parent, int a, int b)
         {
@@ -1923,16 +1955,19 @@ namespace CaeMesh
         /// mesh carries, so that the side the counts disagree on can be read off the output instead of guessed
         /// at. A wall is written side by side; a source or a target - constrained by the transfinite pass that
         /// runs before the sweep when it has four sides - is written with the blocks it belongs to and its edges.
+        /// The refused surfaces are returned, for the error to name them.
         /// </summary>
-        private void ReportRefusedSurfaces(List<SweepWall> walls, List<SweepBlock> blocks,
-                                           Dictionary<int, int[]> surfaceIdEdgeIds, int logLength)
+        private List<int> ReportRefusedSurfaces(List<SweepWall> walls, List<SweepBlock> blocks,
+                                                Dictionary<int, int[]> surfaceIdEdgeIds, int logLength)
         {
+            List<int> refusedSurfaceIds = new List<int>();
             Regex refused = new Regex(@"Surface (\d+) cannot be meshed using the transfinite");
             foreach (var line in Gmsh.Logger.Get().Skip(logLength))
             {
                 Match match = refused.Match(line);
                 if (!match.Success) continue;
                 int surfaceId = int.Parse(match.Groups[1].Value);
+                if (!refusedSurfaceIds.Contains(surfaceId)) refusedSurfaceIds.Add(surfaceId);
                 SweepWall wall = walls.FirstOrDefault(w => w.SurfaceId == surfaceId);
                 if (wall != null)
                 {
@@ -1954,6 +1989,12 @@ namespace CaeMesh
                                                       (roles.Count > 0 ? string.Join(" and ", roles) : "no surface of any sweep block") +
                                                       " - its edges: " + edges + "."));
             }
+            return refusedSurfaceIds;
+        }
+        private static string GetRefusedSurfacesMessage(List<int> refusedSurfaceIds)
+        {
+            return "The sweep surface/s " + string.Join(", ", refusedSurfaceIds.Select(id => "surface " + id)) +
+                   " could not be meshed with a structured grid. See the gmsh messages above.";
         }
         /// <summary>
         /// The roles of the given edges in the walls: which wall has each of them as its source side, its target
@@ -1973,7 +2014,7 @@ namespace CaeMesh
                 }
                 int pinned;
                 string pin = _transfiniteSourcePins.TryGetValue(edgeId, out pinned) ? ", tied to " + pinned : ", not tied";
-                items.Add("Curve " + edgeId + " (" + (roles.Count > 0 ? string.Join(", ", roles) : "on no wall") + pin + ")");
+                items.Add("Edge " + edgeId + " (" + (roles.Count > 0 ? string.Join(", ", roles) : "on no wall") + pin + ")");
             }
             return string.Join("; ", items);
         }
@@ -1986,7 +2027,7 @@ namespace CaeMesh
             foreach (var edgeId in edgeIds)
             {
                 string givenText = _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out given) ? given.ToString() : "no";
-                items.Add("Curve " + edgeId + " (" + givenText + " element/s given, " +
+                items.Add("Edge " + edgeId + " (" + givenText + " element/s given, " +
                           SweepWallTopology.GetElementCount(edgeId) + " meshed)");
             }
             return string.Join(", ", items);
@@ -2695,30 +2736,65 @@ namespace CaeMesh
                 int sourceCount = GetSideElementCount(wall.SourceEdgeIds, edgeIdNumOfElements);
                 int targetCount = GetSideElementCount(wall.TargetEdgeIds, edgeIdNumOfElements);
                 if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0 && sourceCount != targetCount)
-                    throw new CaeException(GetWallCountMessage("across the sweep direction", sourceCount, targetCount));
+                    throw new CaeException(GetWallCountMessage(wall.SurfaceId, "across the sweep direction",
+                                                               sourceCount, targetCount, wall.SourceEdgeIds,
+                                                               wall.TargetEdgeIds, edgeIdNumOfElements));
                 // Along the sweep: the two sides, each of them one chain however many edges it is made of
                 int chainIndex;
+                List<int> sideEdgeIds;
                 Dictionary<int, int> chainIndexCount = new Dictionary<int, int>();
+                Dictionary<int, List<int>> chainIndexEdgeIds = new Dictionary<int, List<int>>();
                 foreach (var edgeId in wall.DirectionEdgeIds)
                 {
                     if (!edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) continue;
                     if (!edgeIdChainIndex.TryGetValue(edgeId, out chainIndex)) chainIndex = -edgeId;
                     chainIndexCount.TryGetValue(chainIndex, out int count);
                     chainIndexCount[chainIndex] = count + numOfElements;
+                    if (!chainIndexEdgeIds.TryGetValue(chainIndex, out sideEdgeIds))
+                    {
+                        sideEdgeIds = new List<int>();
+                        chainIndexEdgeIds.Add(chainIndex, sideEdgeIds);
+                    }
+                    sideEdgeIds.Add(edgeId);
                 }
                 if (chainIndexCount.Count != 2) continue;
                 //
-                int[] counts = chainIndexCount.Values.ToArray();
-                if (counts[0] != counts[1])
-                    throw new CaeException(GetWallCountMessage("along the sweep direction", counts[0], counts[1]));
+                int[] chainIndices = chainIndexCount.Keys.ToArray();
+                int firstCount = chainIndexCount[chainIndices[0]];
+                int secondCount = chainIndexCount[chainIndices[1]];
+                if (firstCount != secondCount)
+                    throw new CaeException(GetWallCountMessage(wall.SurfaceId, "along the sweep direction",
+                                                               firstCount, secondCount,
+                                                               chainIndexEdgeIds[chainIndices[0]].ToArray(),
+                                                               chainIndexEdgeIds[chainIndices[1]].ToArray(),
+                                                               edgeIdNumOfElements));
             }
         }
-        private static string GetWallCountMessage(string what, int first, int second)
+        /// <summary>
+        /// The message of a wall that is no grid, with the surface and the edges of the two sides named by their
+        /// gmsh tags, which the message is renamed from on its way out.
+        /// </summary>
+        private static string GetWallCountMessage(int surfaceId, string what, int first, int second,
+                                                  int[] firstEdgeIds, int[] secondEdgeIds,
+                                                  Dictionary<int, int> edgeIdNumOfElements)
         {
-            return "A sweep side surface cannot be meshed: its two sides " + what + " were given " + first +
-                   " and " + second + " elements, and a structured grid needs the same number on both. " +
-                   "Select the source surfaces by hand, or split the part so that each piece is swept on " +
-                   "its own.";
+            return "The sweep side surface " + surfaceId + " cannot be meshed: its two sides " + what +
+                   " were given " + first + " and " + second + " elements (" +
+                   DescribeEdgeCounts(firstEdgeIds, edgeIdNumOfElements) + "; " +
+                   DescribeEdgeCounts(secondEdgeIds, edgeIdNumOfElements) + "), and a structured grid needs " +
+                   "the same number on both. Select the source surfaces by hand, or split the part so that each " +
+                   "piece is swept on its own.";
+        }
+        private static string DescribeEdgeCounts(int[] edgeIds, Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int numOfElements;
+            List<string> items = new List<string>();
+            foreach (var edgeId in edgeIds)
+            {
+                if (!edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) continue;
+                items.Add("edge " + edgeId + ": " + numOfElements);
+            }
+            return string.Join(", ", items);
         }
         /// <summary>
         /// The counts of a wall's target side taken one for one from its source side, in the order the two
@@ -4144,7 +4220,7 @@ namespace CaeMesh
                 Dictionary<int, int> map;
                 string lower = word.ToLowerInvariant();
                 if (lower == "surface") map = _gmshSurfaceIdTopologyId;
-                else if (lower == "curve") map = _gmshCurveIdTopologyId;
+                else if (lower == "curve" || lower == "edge") map = _gmshCurveIdTopologyId;
                 else map = _gmshPointIdTopologyId;
                 //
                 int topologyId;
@@ -4170,6 +4246,21 @@ namespace CaeMesh
                 gmshIdTopologyId[entry.Value] = entry.Key;
             }
             return gmshIdTopologyId;
+        }
+        /// <summary>
+        /// The names of the entities a fragmentation kept, under the tags it gave them. A split edge or vertex
+        /// is no entity of the model any more and is left without a name.
+        /// </summary>
+        private static Dictionary<int, int> RemapEntityNames(Dictionary<int, int> gmshIdTopologyId,
+                                                             Dictionary<int, int> oldIdNewId)
+        {
+            int topologyId;
+            Dictionary<int, int> newGmshIdTopologyId = new Dictionary<int, int>();
+            foreach (var entry in oldIdNewId)
+            {
+                if (gmshIdTopologyId.TryGetValue(entry.Key, out topologyId)) newGmshIdTopologyId[entry.Value] = topologyId;
+            }
+            return newGmshIdTopologyId;
         }
     }
 }

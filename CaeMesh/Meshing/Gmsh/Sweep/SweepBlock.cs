@@ -8,6 +8,7 @@
 // Contributors:
 
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CaeMesh.Sweep
 {
@@ -75,6 +76,15 @@ namespace CaeMesh.Sweep
             _wallSurfaceIds.UnionWith(wallSurfaceIds);
             _targetSurfaceIds.Clear();
             _targetSurfaceIds.UnionWith(targetSurfaceIds);
+        }
+        /// <summary>
+        /// The block the way a message names it, by the gmsh tags of its source surfaces, which the gmsh interface
+        /// renames to the surfaces of the model on the way out.
+        /// </summary>
+        public string GetDescription()
+        {
+            return "the sweep block swept from " +
+                   string.Join(", ", _sourceSurfaceIds.OrderBy(id => id).Select(id => "surface " + id));
         }
     }
 }

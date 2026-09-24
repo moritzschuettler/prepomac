@@ -98,6 +98,25 @@ namespace CaeJob
                 }
             }
         }
+        /// <summary>
+        /// What the executable wrote to its standard error, which is where an executable of this solution
+        /// writes the reason it failed.
+        /// </summary>
+        public string ErrorData
+        {
+            get
+            {
+                try
+                {
+                    if (_errorFileName != null && File.Exists(_errorFileName)) return File.ReadAllText(_errorFileName);
+                    else return null;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
 
 
         // Events                                                                                                                           

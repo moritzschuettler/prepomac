@@ -25899,6 +25899,22 @@ namespace PrePoMax
                                  _settings.Pre.SymbolSize, vtkRendererLayer.Selection, !useSecondaryHighlightColor);
             }
         }
+        /// <summary>
+        /// Highlights the surfaces and the edges the errors of the last meshing name, so that the user can find
+        /// the one to select or split. They are parts of the geometry, which is shown only in its own view.
+        /// </summary>
+        public bool HighlightLastMeshingErrorGeometry()
+        {
+            if (_currentView != ViewGeometryModelResults.Geometry) return false;
+            //
+            List<int> geometryIds = new List<int>();
+            foreach (var error in LastMeshingErrors)
+                geometryIds.AddRange(MessageGeometryReferences.GetGeometryIds(error, _model.Geometry));
+            if (geometryIds.Count == 0) return false;
+            // A solid surface is drawn without backface culling, as the sweep sources are
+            HighlightItemsByGeometryIds(geometryIds.Distinct().ToArray(), false, false, true);
+            return true;
+        }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)
         {
             HighlightShellInMeshSetupItem(revolveMesh, useSecondaryHighlightColor);

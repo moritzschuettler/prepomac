@@ -4674,7 +4674,10 @@ namespace PrePoMax
                 //
                 if (errors.Count > 0)
                 {
-                    MessageBoxes.ShowError("Errors occurred during meshing. Please check the output window.");
+                    string message = "Errors occurred during meshing. Please check the output window.";
+                    if (_controller.HighlightLastMeshingErrorGeometry())
+                        message += " The surfaces and edges the errors name are highlighted.";
+                    MessageBoxes.ShowError(message);
                 }
             }
             catch (Exception ex)

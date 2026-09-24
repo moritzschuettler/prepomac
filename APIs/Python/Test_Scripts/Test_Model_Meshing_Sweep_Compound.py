@@ -70,6 +70,7 @@
 #    shaft standing as the target, ten times the area of the source. The target of a sweep is the source
 #    carried along the sweep lines, so it is a similar shape however strongly the sweep tapers and the
 #    square root of the area ratio and the perimeter ratio report the same scale; here they do not.
+#    The refusal names the source surface and the part it lies on, so that the user can find it.
 #  - sweep_frustum.brep is a cone frustum whose target is a circle of a tenth of the area of its source,
 #    and which sweeps perfectly well. It is what the measurement above must not refuse, and what a bare
 #    ratio of the areas would have refused.
@@ -103,6 +104,15 @@ def check_raises(function, message):
     except Exception:
         return
     raise Exception("TEST FAILED: " + message)
+
+
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
 
 
 def import_geometry(file_name):
@@ -506,8 +516,11 @@ def test_geometric_constraints():
                  "a sweep whose target is the rest of the body must be refused")
     check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
     source_part, face_id = find_end_face(solids, False)
-    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id)),
-                 "a hand selected source whose target is the rest of the body must be refused")
+    message = raised_message(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id)))
+    check(message is not None, "a hand selected source whose target is the rest of the body must be refused")
+    # The refusal says which surface of which part it is about, so that the user can find it
+    check("surface %d of %s" % (face_id, source_part.name) in message,
+          "the refusal of the chamfered shaft does not name its source surface: " + message)
     # A cone frustum, which the same measurement must accept: its target is a far smaller circle and the
     # sweep is good all the same, because the target is the source scaled
     solids, compound = import_geometry("sweep_frustum.brep")

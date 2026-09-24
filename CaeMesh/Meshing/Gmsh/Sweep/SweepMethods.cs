@@ -98,9 +98,10 @@ namespace CaeMesh
             if (numInverted > 0)
             {
                 writeOutput?.Invoke("Inverted elements: " + numInverted + ".");
-                throw new CaeException("The sweep produced " + numInverted + " inverted element/s. Try a coarser or " +
-                                       "more regular source surface mesh, fewer element layers, or split the volume " +
-                                       "so that each part is swept separately.");
+                throw new CaeException("Sweeping " + block.GetDescription() + " produced " + numInverted +
+                                       " inverted element/s. Try a coarser or more regular source surface mesh, " +
+                                       "fewer element layers, or split the volume so that each part is swept " +
+                                       "separately.");
             }
             //
             LayeredMeshBuilder.Build(data, block, projection, flip);
