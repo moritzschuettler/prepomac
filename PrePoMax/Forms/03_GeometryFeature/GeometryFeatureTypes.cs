@@ -35,7 +35,7 @@ namespace PrePoMax.Forms
         {
             new GeometryFeatureType()
             {
-                DisplayName = "Line by Two Points", ItemType = typeof(SplitByLineTwoPoints),
+                DisplayName = "Line through Two Points", ItemType = typeof(SplitByLineTwoPoints),
                 ShellOnly = true,
                 CreateDefaultView = () => new ViewSplitByLineTwoPoints(new SplitByLineTwoPoints()),
                 CreateView = (item) => new ViewSplitByLineTwoPoints(((SplitByLineTwoPoints)item).DeepClone())

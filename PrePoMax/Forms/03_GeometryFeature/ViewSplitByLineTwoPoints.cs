@@ -29,11 +29,13 @@ namespace PrePoMax.Forms
         // Properties
         [CategoryAttribute("Splitter")]
         [OrderedDisplayName(0, 10, "Points")]
-        [DescriptionAttribute("Select two points that define the splitting line. Hold the Shift key to " +
+        [DescriptionAttribute("Select two points the splitting line runs through. Hold the Shift key to " +
                               "select both in one operation. A vertex gives its own position and a " +
-                              "circular edge gives its center. The line is drawn on the surface itself, " +
-                              "so on a curved surface it follows the surface instead of cutting across " +
-                              "it, and it is continued to the boundary of the surface.")]
+                              "circular edge gives its center. The line does not end at the points: it is " +
+                              "continued past them to the boundary of every selected surface, so it " +
+                              "splits each surface it crosses from edge to edge. It is drawn on the " +
+                              "surface itself, so on a curved surface it follows the surface and is not a " +
+                              "straight line in space.")]
         [Id(1, 2)]
         public string SplitterSelection
         {
