@@ -24,6 +24,7 @@ namespace CaeMesh
         private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
         private bool _keepFilesOnFailure;                                // ISerializable
         private bool _debugVisualization;                                // ISerializable
+        private bool _oldAlgorithm;                                      // ISerializable
 
 
         // Properties
@@ -53,6 +54,7 @@ namespace CaeMesh
         }
         public bool KeepFilesOnFailure { get { return _keepFilesOnFailure; } set { _keepFilesOnFailure = value; } }
         public bool DebugVisualization { get { return _debugVisualization; } set { _debugVisualization = value; } }
+        public bool OldAlgorithm { get { return _oldAlgorithm; } set { _oldAlgorithm = value; } }
 
 
         // Constructors
@@ -91,6 +93,8 @@ namespace CaeMesh
                         _keepFilesOnFailure = (bool)entry.Value; break;
                     case "_debugVisualization":
                         _debugVisualization = (bool)entry.Value; break;
+                    case "_oldAlgorithm":
+                        _oldAlgorithm = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -111,6 +115,7 @@ namespace CaeMesh
             _flowProfile = QuadWildFlowProfileEnum.Aligned;
             _keepFilesOnFailure = false;
             _debugVisualization = false;
+            _oldAlgorithm = false;
         }
         public void CopyFrom(ShellQuadWild shellQuadWild)
         {
@@ -124,6 +129,7 @@ namespace CaeMesh
             _flowProfile = shellQuadWild._flowProfile;
             _keepFilesOnFailure = shellQuadWild._keepFilesOnFailure;
             _debugVisualization = shellQuadWild._debugVisualization;
+            _oldAlgorithm = shellQuadWild._oldAlgorithm;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -138,6 +144,7 @@ namespace CaeMesh
             info.AddValue("_flowProfile", _flowProfile, typeof(QuadWildFlowProfileEnum));
             info.AddValue("_keepFilesOnFailure", _keepFilesOnFailure, typeof(bool));
             info.AddValue("_debugVisualization", _debugVisualization, typeof(bool));
+            info.AddValue("_oldAlgorithm", _oldAlgorithm, typeof(bool));
         }
     }
 }

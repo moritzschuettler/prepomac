@@ -125,6 +125,20 @@ namespace PrePoMax.Forms
             get { return _shellQuadWild.DebugVisualization; }
             set { _shellQuadWild.DebugVisualization = value; }
         }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(2, 10, "Algorithm")]
+        [DescriptionAttribute("New uses all QuadWild improvements: patch corners on holes and long curved lines, " +
+                              "merged strips between holes, the target size and the minimum number of elements on " +
+                              "lines taken from the triangulation, alpha raised when needed, field-aligned smoothing " +
+                              "and the split of quads that touch the boundary with one vertex. Old meshes without " +
+                              "them, for comparison.")]
+        [Id(3, 6)]
+        public bool OldAlgorithm
+        {
+            get { return _shellQuadWild.OldAlgorithm; }
+            set { _shellQuadWild.OldAlgorithm = value; }
+        }
 
 
         // Constructors
@@ -140,6 +154,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(Smooth));
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepFilesOnFailure));
             _dctd.RenameBooleanPropertyToYesNo(nameof(DebugVisualization));
+            _dctd.RenameBooleanProperty(nameof(OldAlgorithm), "Old", "New");
             //
             UpdateVisibility();
         }

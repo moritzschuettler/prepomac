@@ -173,7 +173,11 @@ namespace PrePoMax
                             // The triangulation mesher controls the input; QuadWild's remesher would move
                             // the model vertices and prescribed nodes
                             { "do_remesh", "0" }
-                        });
+                        },
+                        shellQuadWild.OldAlgorithm ? OldAlgorithmPrepOptions : null);
+            if (shellQuadWild.OldAlgorithm)
+                _controller.Form.WriteDataToOutput("QuadWild algorithm: old, without the patch layout and mesh " +
+                                                   "quality improvements.");
             //
             _controller.Form.WriteDataToOutput("Running QuadWild preparation and patch tracing...");
             string argument = Quote(objFileName) + " 2 " + Quote(prepConfigFileName) + " " + Quote(sharpFileName);
@@ -212,7 +216,8 @@ namespace PrePoMax
                             { "scaleFact", shellQuadWild.ScaleFactor.ToString("R", CultureInfo.InvariantCulture) },
                             { "flow_config_filename", QuoteQuadWildPath(flowDependencyFileName) },
                             { "satsuma_config_filename", QuoteQuadWildPath(satsumaDependencyFileName) }
-                        });
+                        },
+                        shellQuadWild.OldAlgorithm ? OldAlgorithmFlowOptions : null);
             //
             _controller.Form.WriteDataToOutput("Running QuadWild quad generation (" +
                                                GetFlowProfileName(shellQuadWild.FlowProfile) +
@@ -366,8 +371,19 @@ namespace PrePoMax
             if (String.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
                 throw new CaeException("The QuadWild runtime directory was not found.");
         }
+        // QuadWild options that switch off the patch layout (stage 1) and mesh quality (stage 2) improvements
+        private static readonly string[] OldAlgorithmPrepOptions = new string[]
+        {
+            "max_side_turning 0", "aligned_hole_corners 0", "thin_patch_ratio 0"
+        };
+        private static readonly string[] OldAlgorithmFlowOptions = new string[]
+        {
+            "input_line_count 0", "input_mesh_size 0", "graded_alpha 0", "field_smooth_sweeps 0",
+            "split_boundary_fans 0"
+        };
         private static void WriteConfig(string templateFileName, string outputFileName,
-                                        Dictionary<string, string> replacements)
+                                        Dictionary<string, string> replacements,
+                                        IEnumerable<string> extraLines = null)
         {
             if (!File.Exists(templateFileName))
                 throw new CaeException("The QuadWild configuration file was not found: " + templateFileName);
@@ -389,6 +405,9 @@ namespace PrePoMax
             if (missingKey != null)
                 throw new CaeException("The QuadWild configuration entry '" + missingKey + "' was not found in " +
                                        templateFileName + ".");
+            // optional "key value" lines at the end, read by QuadWild's option parser
+            if (extraLines != null)
+                lines = lines.Concat(extraLines).ToArray();
             File.WriteAllText(outputFileName, String.Join(Environment.NewLine, lines) + Environment.NewLine,
                               new UTF8Encoding(false));
         }
