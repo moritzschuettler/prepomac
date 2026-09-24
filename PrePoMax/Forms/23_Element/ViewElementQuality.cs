@@ -56,16 +56,45 @@ namespace PrePoMax.Forms
         private GmshElementQualityHighlightCriteriaEnum _highlightCriteria;
         private double _highlightLimit;
         private DynamicCustomTypeDescriptor _dctd = null;
+        private static readonly Dictionary<GmshElementQualityMetricEnum, string> _metricDescriptions =
+            new Dictionary<GmshElementQualityMetricEnum, string>()
+            {
+                { GmshElementQualityMetricEnum.minDetJac, "Adaptively computed minimal Jacobian determinant. " +
+                                                          "A negative value indicates an inverted element." },
+                { GmshElementQualityMetricEnum.maxDetJac, "Adaptively computed maximal Jacobian determinant." },
+                { GmshElementQualityMetricEnum.minSJ, "Sampled minimal scaled Jacobian. " +
+                                                      "The value is 1 for an ideal element and zero or negative for an " +
+                                                      "invalid element." },
+                { GmshElementQualityMetricEnum.minSICN, "Sampled minimal signed inverted condition number. " +
+                                                        "The value ranges from -1 to 1; it is 1 for an ideal element " +
+                                                        "and negative for an invalid element." },
+                { GmshElementQualityMetricEnum.minSIGE, "Sampled signed inverted gradient error. " +
+                                                        "The value ranges from -1 to 1; it is 1 for an ideal element " +
+                                                        "and negative for an invalid element." },
+                { GmshElementQualityMetricEnum.gamma, "Ratio of the inscribed to the circumscribed sphere radius, " +
+                                                      "normalized so that it is 1 for an equilateral element." },
+                { GmshElementQualityMetricEnum.innerRadius, "Inner radius of the element." },
+                { GmshElementQualityMetricEnum.outerRadius, "Outer radius of the element." },
+                { GmshElementQualityMetricEnum.minIsotropy, "Minimum isotropy measure." },
+                { GmshElementQualityMetricEnum.angleShape, "Angle shape measure." },
+                { GmshElementQualityMetricEnum.minEdge, "Minimum straight edge length." },
+                { GmshElementQualityMetricEnum.maxEdge, "Maximum straight edge length." },
+                { GmshElementQualityMetricEnum.volume, "Volume of the element." },
+            };
 
 
-        // Properties                                                                                                               
+        // Properties
         [CategoryAttribute("Data")]
         [OrderedDisplayName(0, 10, "Quality metric")]
         [DescriptionAttribute("Select the element quality metric.")]
         public GmshElementQualityMetricEnum ElementQualityMetric
         {
             get { return _elementQualityMetric; }
-            set { _elementQualityMetric = value; }
+            set
+            {
+                _elementQualityMetric = value;
+                UpdateElementQualityMetricDescription();
+            }
         }
         //
         [CategoryAttribute("Results")]
@@ -123,10 +152,20 @@ namespace PrePoMax.Forms
             _highlightLimit = 0;
             //
             _dctd = ProviderInstaller.Install(this);
+            //
+            UpdateElementQualityMetricDescription();
         }
 
 
-        // Methods                                                                                                                  
+        // Methods
+        private void UpdateElementQualityMetricDescription()
+        {
+            if (_dctd == null) return;
+            //
+            CustomPropertyDescriptor cpd = _dctd.GetProperty(nameof(ElementQualityMetric));
+            cpd.SetDescription("Select the element quality metric." + Environment.NewLine +
+                               _elementQualityMetric.ToString() + ": " + _metricDescriptions[_elementQualityMetric]);
+        }
         public void SetValues(double min, double max, double average, double standardDeviation, double limit)
         {
             _min = Tools.RoundToSignificantDigits(min, 4);
