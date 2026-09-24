@@ -465,12 +465,14 @@ namespace CaeMesh.Sweep
         /// one count, an edge carries the sum over the intervals it spans, and so the two sides of every wall
         /// add up to the same total whatever way each of them is split. A count pinned on an edge spanning
         /// one interval is that interval's count; a count pinned on a longer edge is shared out over its
-        /// intervals; otherwise the counts measured from the 1D mesh decide.
+        /// intervals; otherwise the counts measured from the 1D mesh decide. The edges of one of the tied
+        /// groups must all carry one count, and the families whose layer edges they are are given one total.
         /// </summary>
         public static Dictionary<int, int> ResolveDirectionEdgeElements(List<SweepChain> chains, List<SweepWall> walls,
                                                                         List<int[]> crossSectionVertexIds,
                                                                         Dictionary<int, int> pinnedEdgeIdNumOfElements,
-                                                                        List<int> chainBlockIndices)
+                                                                        List<int> chainBlockIndices,
+                                                                        List<int[]> tiedEdgeGroups)
         {
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
             if (chains.Count == 0) return edgeIdNumOfElements;
@@ -562,6 +564,63 @@ namespace CaeMesh.Sweep
                     if (familyTotals[f] == forcedTotal || forcedTotal < 1) continue;
                     ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
                                           pinnedEdgeIdNumOfElements, edgeIdNumOfElements, forcedTotal, out _, out _);
+                    familyTotals[f] = forcedTotal;
+                }
+            }
+            // A layer edge of one block can be tied to a layer edge of another through the cross edges of a
+            // third - a cell swept sideways between two plates swept through their thickness, whose four sided
+            // source has one side running along a wall onto each plate. The two edges then need one count, and
+            // since each of them runs the whole way along its family, so do the two families. Left to their
+            // own totals the third block can only be meshed with a free source, its opposite sides carrying
+            // both counts. They take the smaller of the two, the user being able to refine it far more easily
+            // than to coarsen it
+            if (tiedEdgeGroups != null)
+            {
+                int[] familyOfChain = new int[chains.Count];
+                for (int f = 0; f < families.Count; f++)
+                {
+                    foreach (var i in families[f]) familyOfChain[i] = f;
+                }
+                int[] tieParent = Enumerable.Range(0, families.Count).ToArray();
+                foreach (var group in Enumerable.Range(0, families.Count).GroupBy(f => Find(familyParent, f)))
+                    Unite(tieParent, group.Where(f => familySpansAllLevels[f]).ToList());
+                bool tied = false;
+                foreach (var group in tiedEdgeGroups)
+                {
+                    int numOfElements;
+                    List<int> chainIndices;
+                    List<int> tiedFamilies = new List<int>();
+                    foreach (var edgeId in group)
+                    {
+                        if (!edgeIdChainIndices.TryGetValue(edgeId, out chainIndices)) continue;
+                        foreach (var f in chainIndices.Select(i => familyOfChain[i]).Distinct())
+                        {
+                            if (familySpansAllLevels[f] && edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements) &&
+                                numOfElements == familyTotals[f]) tiedFamilies.Add(f);
+                        }
+                    }
+                    tiedFamilies = tiedFamilies.Distinct().ToList();
+                    if (tiedFamilies.Select(f => Find(tieParent, f)).Distinct().Count() < 2) continue;
+                    Unite(tieParent, tiedFamilies);
+                    tied = true;
+                }
+                if (tied)
+                {
+                    foreach (var group in Enumerable.Range(0, families.Count).GroupBy(f => Find(tieParent, f)))
+                    {
+                        List<int> familyGroup = group.Where(f => familySpansAllLevels[f]).ToList();
+                        if (familyGroup.Count < 2) continue;
+                        //
+                        int forcedTotal = familyGroup.Min(f => familyTotals[f]);
+                        foreach (var f in familyGroup)
+                        {
+                            if (familyTotals[f] == forcedTotal || forcedTotal < 1) continue;
+                            ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
+                                                  pinnedEdgeIdNumOfElements, edgeIdNumOfElements, forcedTotal,
+                                                  out _, out _);
+                            familyTotals[f] = forcedTotal;
+                        }
+                    }
                 }
             }
             return edgeIdNumOfElements;

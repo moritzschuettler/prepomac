@@ -1699,20 +1699,32 @@ namespace CaeMesh
             return groups;
         }
         /// <summary>
-        /// One count for every class of edges a transfinite source ties together. The pass before the sweep makes
-        /// every four sided source transfinite, and such a surface needs the same count on its two opposite
-        /// sides; a wall with one edge on each side needs the same count on both as well. The edges tied by
-        /// these two relations form classes, and every class holding an edge of a transfinite source is given
-        /// one count: the count the user pinned on one of its edges, else the count the levels along the sweep
-        /// gave one of them - such an edge is a layer edge of a neighbouring block - else the smallest of the
-        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree is left alone, and the source falls to the free
-        /// mesh later.
+        /// The layer count of every edge on the source or target side of a wall that the levels along the sweep
+        /// have already given a count, because it follows the sweep in a wall of another block.
         /// </summary>
-        private Dictionary<int, int> PinTransfiniteSourceSides(List<SweepWall> walls,
-                                                               Dictionary<int, int> directionEdgeIdNumOfElements)
+        private static Dictionary<int, int> GetLayerCrossEdgePins(List<SweepWall> walls,
+                                                                  Dictionary<int, int> directionEdgeIdNumOfElements)
         {
+            int numOfElements;
             Dictionary<int, int> pins = new Dictionary<int, int>();
-            if (_sweepBlocks == null) return pins;
+            foreach (var wall in walls)
+            {
+                foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds))
+                {
+                    if (directionEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) pins[edgeId] = numOfElements;
+                }
+            }
+            return pins;
+        }
+        /// <summary>
+        /// The classes of edges a transfinite source ties together: the two opposite sides of every four sided
+        /// source the pass before the sweep made transfinite, and the two sides of every wall with one edge on
+        /// each, carry one count. Only the classes holding an edge of such a source are returned.
+        /// </summary>
+        private List<int[]> GetTransfiniteSourceTiedEdgeGroups(List<SweepWall> walls)
+        {
+            List<int[]> groups = new List<int[]>();
+            if (_sweepBlocks == null) return groups;
             //
             int[] edgeIds;
             int[] vertexIds;
@@ -1744,7 +1756,7 @@ namespace CaeMesh
                     Unite(parent, edgeIds[others[0]], edgeIds[others[1]]);
                 }
             }
-            if (transfiniteSourceEdgeIds.Count == 0) return pins;
+            if (transfiniteSourceEdgeIds.Count == 0) return groups;
             // A wall with one edge on each side carries one count across
             foreach (var wall in walls)
             {
@@ -1755,8 +1767,26 @@ namespace CaeMesh
             foreach (var group in parent.Keys.ToArray().GroupBy(id => Find(parent, id)))
             {
                 int[] classEdgeIds = group.OrderBy(id => id).ToArray();
-                if (!classEdgeIds.Any(id => transfiniteSourceEdgeIds.Contains(id))) continue;
-                //
+                if (classEdgeIds.Any(id => transfiniteSourceEdgeIds.Contains(id))) groups.Add(classEdgeIds);
+            }
+            return groups;
+        }
+        /// <summary>
+        /// One count for every class of edges a transfinite source ties together. The pass before the sweep makes
+        /// every four sided source transfinite, and such a surface needs the same count on its two opposite
+        /// sides; a wall with one edge on each side needs the same count on both as well. The edges tied by
+        /// these two relations form classes, and every class holding an edge of a transfinite source is given
+        /// one count: the count the user pinned on one of its edges, else the count the levels along the sweep
+        /// gave one of them - such an edge is a layer edge of a neighbouring block - else the smallest of the
+        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree is left alone, and the source falls to the free
+        /// mesh later.
+        /// </summary>
+        private Dictionary<int, int> PinTransfiniteSourceSides(List<int[]> tiedEdgeGroups,
+                                                               Dictionary<int, int> directionEdgeIdNumOfElements)
+        {
+            Dictionary<int, int> pins = new Dictionary<int, int>();
+            foreach (var classEdgeIds in tiedEdgeGroups)
+            {
                 int count;
                 int fixedCount = -1;
                 string origin = null;
@@ -1777,10 +1807,13 @@ namespace CaeMesh
                     }
                 }
                 if (conflict) continue;
+                bool hasLayerEdge = classEdgeIds.Any(id => directionEdgeIdNumOfElements.ContainsKey(id));
                 int[] measured = classEdgeIds.Select(id => SweepWallTopology.GetElementCount(id)).ToArray();
                 if (fixedCount < 0) { fixedCount = measured.Min(); origin = "the smallest of them"; }
-                // A class whose edges already carry one count has nothing to enforce, and is left to the walls
-                if (measured.All(m => m == fixedCount)) continue;
+                // A class whose edges already carry one count has nothing to enforce, and is left to the walls -
+                // unless one of them is a layer edge, which the walls no longer move off its layer count, so that
+                // the edges opposite it have to be held to that count as well
+                if (measured.All(m => m == fixedCount) && !hasLayerEdge) continue;
                 foreach (var edgeId in classEdgeIds) pins[edgeId] = fixedCount;
                 //
                 _writeOutput?.Invoke(NameGmshEntities("Sweep: " + string.Join(", ", classEdgeIds.Select(id => "Curve " + id)) +
@@ -1975,9 +2008,11 @@ namespace CaeMesh
             // of them is split. A direction edge on no chain keeps the count the user pinned on it, else the
             // measured one. Measured while the 1D mesh from GenerateMesh(1) above is still there.
             int numOfElements;
+            List<int[]> tiedEdgeGroups = GetTransfiniteSourceTiedEdgeGroups(walls);
             Dictionary<int, int> directionEdgeIdNumOfElements =
                 SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, GetCrossSectionVertexIds(),
-                                                               _gmshData.EdgeIdNumElements, chainBlockIndices);
+                                                               _gmshData.EdgeIdNumElements, chainBlockIndices,
+                                                               tiedEdgeGroups);
             foreach (var wall in walls)
             {
                 foreach (var edgeId in wall.DirectionEdgeIds)
@@ -1994,24 +2029,32 @@ namespace CaeMesh
             // opposite edges of such a source is brought to one count first, and the walls on both sides of the
             // edge follow it: the count the user pinned on either edge, else the one the levels along the
             // sweep gave either of them, else the larger of the two measured
-            Dictionary<int, int> transfiniteSourcePins = PinTransfiniteSourceSides(walls, directionEdgeIdNumOfElements);
+            Dictionary<int, int> transfiniteSourcePins = PinTransfiniteSourceSides(tiedEdgeGroups, directionEdgeIdNumOfElements);
             _transfiniteSourcePins = transfiniteSourcePins;
+            // An edge that follows the sweep in the walls of one block and crosses it in a wall of another - a
+            // vertical edge of a plate swept through its thickness, shared with a cell beside it swept along
+            // the plate - carries the layer count the whole family of the first block walks. The walls of the
+            // second are resolved around it, the way they are around the edges a transfinite source ties
+            // together; left to them, the count they measure for their own side replaced the layer count and
+            // the walls of the first block came out with a different number of layers on their two sides
+            Dictionary<int, int> seededEdgeIdNumOfElements =
+                MergeEdgeElements(GetLayerCrossEdgePins(walls, directionEdgeIdNumOfElements), transfiniteSourcePins);
             // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there. The
             // source side is pinned as well, so that every edge of every wall carries a count
             Dictionary<int, int> sourceEdgeIdNumOfElements;
             Dictionary<int, int> targetEdgeIdNumOfElements;
             _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
-            ResolveCrossEdgeElements(walls, null, transfiniteSourcePins.Count > 0 ? transfiniteSourcePins : null,
-                                     transfiniteSourcePins, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
+            ResolveCrossEdgeElements(walls, null, seededEdgeIdNumOfElements.Count > 0 ? seededEdgeIdNumOfElements : null,
+                                     seededEdgeIdNumOfElements, out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
             // Two edges of one source or target surface lying opposite each other belong to the target sides
             // of two different walls, which share their own totals out and round them apart; they are brought
             // to one count and the sides resolved again from it
             Dictionary<int, int> crossEdgePins =
                 GetOppositeCrossEdgePins(walls, MergeEdgeElements(sourceEdgeIdNumOfElements,
                                                                   targetEdgeIdNumOfElements));
-            crossEdgePins = MergeEdgeElements(crossEdgePins, transfiniteSourcePins);
-            if (crossEdgePins.Count > transfiniteSourcePins.Count)
-                ResolveCrossEdgeElements(walls, null, crossEdgePins, transfiniteSourcePins, out sourceEdgeIdNumOfElements,
+            crossEdgePins = MergeEdgeElements(crossEdgePins, seededEdgeIdNumOfElements);
+            if (crossEdgePins.Count > seededEdgeIdNumOfElements.Count)
+                ResolveCrossEdgeElements(walls, null, crossEdgePins, seededEdgeIdNumOfElements, out sourceEdgeIdNumOfElements,
                                          out targetEdgeIdNumOfElements);
             // An edge splitting a target and the edge of the source below it pair their nodes one to one, so
             // they carry the same count: the one the user pinned on either, else the one the walls settled
@@ -2054,7 +2097,7 @@ namespace CaeMesh
             if (recountedLoops.Count > 0)
             {
                 _writeOutput?.Invoke("Sweep: " + GetRecountedCrossSectionsMessage(recountedLoops));
-                ResolveCrossEdgeElements(walls, recountedLoops, crossEdgePins, transfiniteSourcePins,
+                ResolveCrossEdgeElements(walls, recountedLoops, crossEdgePins, seededEdgeIdNumOfElements,
                                          out sourceEdgeIdNumOfElements, out targetEdgeIdNumOfElements);
                 edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                                         targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
