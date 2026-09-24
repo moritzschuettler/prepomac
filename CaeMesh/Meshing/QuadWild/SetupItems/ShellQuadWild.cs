@@ -19,7 +19,6 @@ namespace CaeMesh
         private MesherTypeEnum _triangulationMesher;                      // ISerializable
         private bool _preview;                                           // ISerializable
         private bool _smooth;                                            // ISerializable
-        private double _scaleFactor;                                     // ISerializable
         private double _alpha;                                           // ISerializable
         private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
         private bool _keepFilesOnFailure;                                // ISerializable
@@ -41,11 +40,6 @@ namespace CaeMesh
         }
         public bool Preview { get { return _preview; } set { _preview = value; } }
         public bool Smooth { get { return _smooth; } set { _smooth = value; } }
-        public double ScaleFactor
-        {
-            get { return _scaleFactor; }
-            set { _scaleFactor = value < 1E-3 ? 1E-3 : value; }
-        }
         public double Alpha { get { return _alpha; } set { _alpha = value; } }
         public QuadWildFlowProfileEnum FlowProfile
         {
@@ -84,7 +78,7 @@ namespace CaeMesh
                     case "_smooth":
                         _smooth = (bool)entry.Value; break;
                     case "_scaleFactor":
-                        _scaleFactor = (double)entry.Value; break;
+                        break;  // Removed - the quad size follows the triangulation
                     case "_alpha":
                         _alpha = (double)entry.Value; break;
                     case "_flowProfile":
@@ -110,7 +104,6 @@ namespace CaeMesh
             _triangulationMesher = MesherTypeEnum.Gmsh;
             _preview = false;
             _smooth = true;
-            _scaleFactor = 1;
             _alpha = 0.005;
             _flowProfile = QuadWildFlowProfileEnum.Aligned;
             _keepFilesOnFailure = false;
@@ -124,7 +117,6 @@ namespace CaeMesh
             _triangulationMesher = shellQuadWild._triangulationMesher;
             _preview = shellQuadWild._preview;
             _smooth = shellQuadWild._smooth;
-            _scaleFactor = shellQuadWild._scaleFactor;
             _alpha = shellQuadWild._alpha;
             _flowProfile = shellQuadWild._flowProfile;
             _keepFilesOnFailure = shellQuadWild._keepFilesOnFailure;
@@ -139,7 +131,6 @@ namespace CaeMesh
             info.AddValue("_triangulationMesher", _triangulationMesher, typeof(MesherTypeEnum));
             info.AddValue("_preview", _preview, typeof(bool));
             info.AddValue("_smooth", _smooth, typeof(bool));
-            info.AddValue("_scaleFactor", _scaleFactor, typeof(double));
             info.AddValue("_alpha", _alpha, typeof(double));
             info.AddValue("_flowProfile", _flowProfile, typeof(QuadWildFlowProfileEnum));
             info.AddValue("_keepFilesOnFailure", _keepFilesOnFailure, typeof(bool));

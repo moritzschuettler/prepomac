@@ -57,19 +57,6 @@ namespace PrePoMax.Forms
             set { _shellQuadWild.Preview = value; UpdateVisibility(); } }
         //
         [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(1, 10, "Quad edge multiplier")]
-        [DescriptionAttribute("Multiplier applied to the average traced-triangle edge length when targeting final " +
-                              "quad size. Values above 1 create larger and fewer quads. This does not control " +
-                              "triangular preparation.")]
-        [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(2, 5)]
-        public double ScaleFactor
-        {
-            get { return _shellQuadWild.ScaleFactor; }
-            set { _shellQuadWild.ScaleFactor = value; }
-        }
-        //
-        [CategoryAttribute("Quad generation")]
         [OrderedDisplayName(0, 10, "Flow profile")]
         [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
         [Id(1, 5)]
@@ -170,7 +157,6 @@ namespace PrePoMax.Forms
         {
             bool visible = !_shellQuadWild.Preview;
             _dctd.GetProperty(nameof(FlowProfile)).SetIsBrowsable(visible);
-            _dctd.GetProperty(nameof(ScaleFactor)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Alpha)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Smooth)).SetIsBrowsable(visible);
         }

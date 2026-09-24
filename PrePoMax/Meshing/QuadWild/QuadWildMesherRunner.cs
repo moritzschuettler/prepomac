@@ -86,9 +86,6 @@ namespace PrePoMax
             ShellQuadWild shellQuadWild = GetShellQuadWild(mesherSetupItems);
             if (String.IsNullOrWhiteSpace(workDirectory) || !Directory.Exists(workDirectory))
                 throw new CaeException("The QuadWild work directory does not exist.");
-            if (Double.IsNaN(shellQuadWild.ScaleFactor) || Double.IsInfinity(shellQuadWild.ScaleFactor) ||
-                shellQuadWild.ScaleFactor <= 0)
-                throw new CaeException("The QuadWild quad edge multiplier must be a positive finite number.");
             if (Double.IsNaN(shellQuadWild.Alpha) || Double.IsInfinity(shellQuadWild.Alpha) ||
                 shellQuadWild.Alpha < 0 || shellQuadWild.Alpha > 1)
                 throw new CaeException("The QuadWild alpha value must be a finite number from 0 to 1.");
@@ -213,7 +210,8 @@ namespace PrePoMax
                         new Dictionary<string, string>()
                         {
                             { "alpha", shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) },
-                            { "scaleFact", shellQuadWild.ScaleFactor.ToString("R", CultureInfo.InvariantCulture) },
+                            // The quad size follows the triangulation: its sizes and edge node counts
+                            { "scaleFact", "1" },
                             { "flow_config_filename", QuoteQuadWildPath(flowDependencyFileName) },
                             { "satsuma_config_filename", QuoteQuadWildPath(satsumaDependencyFileName) }
                         },
@@ -221,8 +219,6 @@ namespace PrePoMax
             //
             _controller.Form.WriteDataToOutput("Running QuadWild quad generation (" +
                                                GetFlowProfileName(shellQuadWild.FlowProfile) +
-                                               ", quad edge multiplier " +
-                                               shellQuadWild.ScaleFactor.ToString("R", CultureInfo.InvariantCulture) +
                                                ", alpha " +
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +

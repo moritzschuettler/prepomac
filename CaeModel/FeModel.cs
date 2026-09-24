@@ -2667,9 +2667,6 @@ namespace CaeModel
                 shellQuadWild.TriangulationMesher != MesherTypeEnum.Netgen &&
                 shellQuadWild.TriangulationMesher != MesherTypeEnum.Mmg)
                 return "The QuadWild triangulation mesher must be Gmsh, Netgen, or MMG.";
-            if (Double.IsNaN(shellQuadWild.ScaleFactor) || Double.IsInfinity(shellQuadWild.ScaleFactor) ||
-                shellQuadWild.ScaleFactor <= 0)
-                return "The QuadWild quad edge multiplier must be a positive finite number.";
             if (Double.IsNaN(shellQuadWild.Alpha) || Double.IsInfinity(shellQuadWild.Alpha) ||
                 shellQuadWild.Alpha < 0 || shellQuadWild.Alpha > 1)
                 return "The QuadWild alpha value must be a finite number from 0 to 1.";

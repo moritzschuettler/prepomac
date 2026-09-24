@@ -67,7 +67,6 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("alpha=" + PythonValueFormatter.Number(quadWild.Alpha));
                 arguments.Add("triangulation_mesher=" +
                               PythonValueFormatter.Text(quadWild.TriangulationMesher.ToString()));
-                arguments.Add("scale_factor=" + PythonValueFormatter.Number(quadWild.ScaleFactor));
                 arguments.Add("flow_profile=" + PythonValueFormatter.Text(quadWild.FlowProfile.ToString()));
                 arguments.Add("keep_files_on_failure=" +
                               PythonValueFormatter.Format(quadWild.KeepFilesOnFailure));
