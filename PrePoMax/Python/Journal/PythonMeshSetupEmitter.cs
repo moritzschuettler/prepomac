@@ -74,6 +74,8 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Format(quadWild.DebugVisualization));
                 if (quadWild.OldAlgorithm)
                     arguments.Add("old_algorithm=" + PythonValueFormatter.Format(quadWild.OldAlgorithm));
+                if (quadWild.PinEdgeNodes)
+                    arguments.Add("pin_edge_nodes=" + PythonValueFormatter.Format(quadWild.PinEdgeNodes));
                 return "shell_quad_wild";
             }
             if (item is ExtrudeMesh extrude)

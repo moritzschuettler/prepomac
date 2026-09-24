@@ -24,6 +24,7 @@ namespace CaeMesh
         private bool _keepFilesOnFailure;                                // ISerializable
         private bool _debugVisualization;                                // ISerializable
         private bool _oldAlgorithm;                                      // ISerializable
+        private bool _pinEdgeNodes;                                      // ISerializable
 
 
         // Properties
@@ -49,6 +50,7 @@ namespace CaeMesh
         public bool KeepFilesOnFailure { get { return _keepFilesOnFailure; } set { _keepFilesOnFailure = value; } }
         public bool DebugVisualization { get { return _debugVisualization; } set { _debugVisualization = value; } }
         public bool OldAlgorithm { get { return _oldAlgorithm; } set { _oldAlgorithm = value; } }
+        public bool PinEdgeNodes { get { return _pinEdgeNodes; } set { _pinEdgeNodes = value; } }
 
 
         // Constructors
@@ -89,6 +91,8 @@ namespace CaeMesh
                         _debugVisualization = (bool)entry.Value; break;
                     case "_oldAlgorithm":
                         _oldAlgorithm = (bool)entry.Value; break;
+                    case "_pinEdgeNodes":
+                        _pinEdgeNodes = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -109,6 +113,7 @@ namespace CaeMesh
             _keepFilesOnFailure = false;
             _debugVisualization = false;
             _oldAlgorithm = false;
+            _pinEdgeNodes = false;
         }
         public void CopyFrom(ShellQuadWild shellQuadWild)
         {
@@ -122,6 +127,7 @@ namespace CaeMesh
             _keepFilesOnFailure = shellQuadWild._keepFilesOnFailure;
             _debugVisualization = shellQuadWild._debugVisualization;
             _oldAlgorithm = shellQuadWild._oldAlgorithm;
+            _pinEdgeNodes = shellQuadWild._pinEdgeNodes;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -136,6 +142,7 @@ namespace CaeMesh
             info.AddValue("_keepFilesOnFailure", _keepFilesOnFailure, typeof(bool));
             info.AddValue("_debugVisualization", _debugVisualization, typeof(bool));
             info.AddValue("_oldAlgorithm", _oldAlgorithm, typeof(bool));
+            info.AddValue("_pinEdgeNodes", _pinEdgeNodes, typeof(bool));
         }
     }
 }

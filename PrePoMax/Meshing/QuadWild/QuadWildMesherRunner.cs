@@ -127,7 +127,8 @@ namespace PrePoMax
             //
             FeMesh triangularMesh = CreateTriangularMesh(part, shellQuadWild, workDirectory, null);
             QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName, nodesFileName,
-                                                                        triangularMesh, part.Name);
+                                                                        triangularMesh, part.Name,
+                                                                        shellQuadWild.PinEdgeNodes);
             _controller.Form.WriteDataToOutput("QuadWild input: " + inputInfo.NodeCount + " nodes, " +
                                                inputInfo.FaceCount + " triangles, " +
                                                inputInfo.SharpEdgeCount + " sharp-edge segments.");
@@ -172,6 +173,9 @@ namespace PrePoMax
                             { "do_remesh", "0" }
                         },
                         shellQuadWild.OldAlgorithm ? OldAlgorithmPrepOptions : null);
+            if (shellQuadWild.PinEdgeNodes)
+                _controller.Form.WriteDataToOutput("QuadWild edge nodes: pinned, every node of the triangulation on " +
+                                                   "the model edges is kept.");
             if (shellQuadWild.OldAlgorithm)
                 _controller.Form.WriteDataToOutput("QuadWild algorithm: old, without the patch layout and mesh " +
                                                    "quality improvements.");

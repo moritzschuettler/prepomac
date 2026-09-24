@@ -37,7 +37,7 @@ namespace FileInOut.Output
 
 
         public static QuadWildInputFileInfo Write(string objFileName, string sharpFileName, string nodesFileName,
-                                                   FeMesh mesh, string partName)
+                                                   FeMesh mesh, string partName, bool pinEdgeNodes = false)
         {
             if (mesh == null) throw new ArgumentNullException(nameof(mesh));
             if (String.IsNullOrWhiteSpace(partName)) throw new ArgumentException("The part name is not defined.");
@@ -202,13 +202,15 @@ namespace FileInOut.Output
                 modelVertexNodeIds.Add(modelEdge.NodeIds[modelEdge.NodeIds.Length - 1]);
             }
             StringBuilder nodes = new StringBuilder();
-            // Seams between detached sheets: every node of the model edge, so that each sheet gets the same nodes
+            // Seams between detached sheets: every node of the model edge, so that each sheet gets the same nodes.
+            // With pinEdgeNodes every model edge is written this way and keeps the nodes of the triangulation
             HashSet<(int, int)> seamKeys = new HashSet<(int, int)>(faceEdges.Where(entry => entry.Value.Count > 2)
                                                                             .Select(entry => entry.Key));
             int seamEdgeCount = 0;
-            if (seamKeys.Count > 0)
+            if (seamKeys.Count > 0 || pinEdgeNodes)
             {
-                nodes.AppendLine("# PrePoMax seams between sheets of a shell compound, one polyline per model edge");
+                nodes.AppendLine(pinEdgeNodes ? "# PrePoMax model edges with pinned nodes, one polyline per model edge" :
+                                                "# PrePoMax seams between sheets of a shell compound, one polyline per model edge");
                 foreach (QuadWildModelEdge modelEdge in modelEdges)
                 {
                     int[] ids = modelEdge.NodeIds;
@@ -217,8 +219,8 @@ namespace FileInOut.Output
                     bool isSeam = false;
                     for (int i = 0; i + 1 < polyline.Count && !isSeam; i++)
                         isSeam = seamKeys.Contains(GetEdgeKey(polyline[i], polyline[i + 1]));
-                    if (!isSeam) continue;
-                    seamEdgeCount++;
+                    if (isSeam) seamEdgeCount++;
+                    else if (!pinEdgeNodes) continue;
                     nodes.Append(polyline.Count.ToString(CultureInfo.InvariantCulture));
                     foreach (int nodeId in polyline)
                     {

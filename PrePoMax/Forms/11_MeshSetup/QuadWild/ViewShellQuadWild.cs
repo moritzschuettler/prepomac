@@ -127,6 +127,19 @@ namespace PrePoMax.Forms
             get { return _shellQuadWild.OldAlgorithm; }
             set { _shellQuadWild.OldAlgorithm = value; }
         }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(3, 10, "Edge nodes")]
+        [DescriptionAttribute("Free lets QuadWild place the nodes on the model edges, with at least the number of " +
+                              "elements of the triangulation. Pinned keeps every node of the triangulation on the " +
+                              "model edges, as a sweep source meshed after the 1D mesh would need, for comparison. " +
+                              "With pinned nodes every face needs an even number of boundary elements.")]
+        [Id(4, 6)]
+        public bool PinEdgeNodes
+        {
+            get { return _shellQuadWild.PinEdgeNodes; }
+            set { _shellQuadWild.PinEdgeNodes = value; }
+        }
 
 
         // Constructors
@@ -143,6 +156,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepFilesOnFailure));
             _dctd.RenameBooleanPropertyToYesNo(nameof(DebugVisualization));
             _dctd.RenameBooleanProperty(nameof(OldAlgorithm), "Old", "New");
+            _dctd.RenameBooleanProperty(nameof(PinEdgeNodes), "Pinned", "Free");
             //
             UpdateVisibility();
         }
