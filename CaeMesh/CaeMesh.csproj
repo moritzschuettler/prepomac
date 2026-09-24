@@ -152,6 +152,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepLayerMorph.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepProjector.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuality.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepSideNodes.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />
     <Compile Include="Meshing\Gmsh\Revolve\RevolveMethods.cs" />

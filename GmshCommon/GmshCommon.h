@@ -594,6 +594,15 @@ namespace GmshCommon {
                     if ((int)nodeTags_native.size() > 0)
                         Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
                 }
+                static void SetNode(IntPtr nodeTag, array<double>^ coord, array<double>^ parametricCoord)
+                {
+                    std::vector<double> coord_native(coord->Length);
+                    if (coord->Length > 0) Marshal::Copy(coord, 0, IntPtr(&coord_native[0]), coord->Length);
+                    std::vector<double> parametricCoord_native(parametricCoord->Length);
+                    if (parametricCoord->Length > 0)
+                        Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
+                    gmsh::model::mesh::setNode((size_t)nodeTag.ToInt64(), coord_native, parametricCoord_native);
+                }
                 static System::String^ GetElementProperties(
                     int elementType,
                     [System::Runtime::InteropServices::Out] int% dim,

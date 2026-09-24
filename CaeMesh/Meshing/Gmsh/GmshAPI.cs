@@ -35,6 +35,7 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
+        private const double _sideTranslationTolerance = 0.02;
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
         private static readonly Regex _entityReference =
@@ -1497,6 +1498,7 @@ namespace CaeMesh
             // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
             // side check with node counts that are not the ones the constraints above set
             GenerateMesh(1);
+            MatchOppositeSideSpacing(walls);
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
             // later attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
@@ -1552,6 +1554,247 @@ namespace CaeMesh
             {
                 SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
             }
+        }
+        /// <summary>
+        /// Places the nodes of the two opposite sides of every wall across from each other. A wall is meshed as a
+        /// structured grid, which joins the k-th node of one side to the k-th node of the other, but the two
+        /// sides are meshed as curves of their own: a side of several edges carries the density of each of them -
+        /// a strip of a neighbouring part a fraction of a millimetre wide keeps the two elements its own walls
+        /// need - while a side of one edge spreads the same number of nodes evenly. Past such an edge every grid
+        /// line of the wall then leans over by the elements it is ahead, the face beside the wall follows the lean,
+        /// and it folds against a hole whose own walls are straight. Both sides are treated alike: a node that
+        /// cannot move - a vertex, or a node of an edge another wall uses as well - fixes the position of its
+        /// partner on the other side, less the mismatch two fixed partners leave, which is spread evenly between
+        /// such pairs. The source and target sides are matched, and so are the two sides along the sweep, but
+        /// only on a wall whose one side is the other moved.
+        /// </summary>
+        private void MatchOppositeSideSpacing(List<SweepWall> walls)
+        {
+            int count;
+            Dictionary<int, int> edgeIdNumOfUses = new Dictionary<int, int>();
+            foreach (var wall in walls)
+            {
+                foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds).Concat(wall.DirectionEdgeIds))
+                {
+                    edgeIdNumOfUses.TryGetValue(edgeId, out count);
+                    edgeIdNumOfUses[edgeId] = count + 1;
+                }
+            }
+            // The two cross-sweep sides of a wall are matched only where they lie on the source and on the target
+            // of a block. A body whose walls stand in rings - a bar cut by the plates it runs through - has walls
+            // whose sides are the boundaries between the rings, and the layers of the whole block are placed from
+            // its source to its target: matching the last ring's end to the ring boundary above it, rather than to
+            // the source, skews every ring in between
+            int[] edgeIds;
+            HashSet<int> sourceEdgeIds = new HashSet<int>();
+            HashSet<int> targetEdgeIds = new HashSet<int>();
+            if (_sweepBlocks != null)
+            {
+                foreach (var block in _sweepBlocks)
+                {
+                    foreach (var surfaceId in block.SourceSurfaceIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                        sourceEdgeIds.UnionWith(edgeIds);
+                    }
+                    foreach (var surfaceId in block.TargetSurfaceIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                        targetEdgeIds.UnionWith(edgeIds);
+                    }
+                }
+            }
+            //
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.All(sourceEdgeIds.Contains) && wall.TargetEdgeIds.All(targetEdgeIds.Contains))
+                    MatchSideSpacing(wall.SourceEdgeIds, wall.TargetEdgeIds, true, edgeIdNumOfUses);
+                List<int[]> directionSides = GetEdgeChains(wall.DirectionEdgeIds);
+                if (directionSides.Count == 2)
+                    MatchSideSpacing(directionSides[0], directionSides[1], false, edgeIdNumOfUses);
+            }
+        }
+        private static void MatchSideSpacing(int[] edgeIds1, int[] edgeIds2, bool firstIsSource,
+                                             Dictionary<int, int> edgeIdNumOfUses)
+        {
+            if (!edgeIds1.Concat(edgeIds2).Any(id => edgeIdNumOfUses[id] == 1)) return;
+            SweepSideNodes side1 = SweepSideNodes.Create(edgeIds1);
+            SweepSideNodes side2 = SweepSideNodes.Create(edgeIds2);
+            if (side1 == null || side2 == null || side1.NumOfNodes != side2.NumOfNodes) return;
+            int numOfNodes = side1.NumOfNodes;
+            // Whether the second side runs the way the first does
+            double along = 0;
+            double reversed = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                double d1 = side1.EndPoint[i] - side1.StartPoint[i];
+                double d2 = side2.EndPoint[i] - side2.StartPoint[i];
+                along += Math.Pow(d1 - d2, 2);
+                reversed += Math.Pow(d1 + d2, 2);
+            }
+            bool sameDirection = along <= reversed;
+            // Only a wall whose one side is the other moved - both ends moved the same way - has a grid whose lines
+            // can all run straight across. A tapering wall, whose one end leans along a chamfer while the other
+            // stands upright, has none, and the even spacing gmsh gives its sides was measured to sweep better than
+            // one that follows the fractions of the other side
+            double[] startOffset = new double[3];
+            double[] endOffset = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                startOffset[i] = (sameDirection ? side2.StartPoint[i] : side2.EndPoint[i]) - side1.StartPoint[i];
+                endOffset[i] = (sameDirection ? side2.EndPoint[i] : side2.StartPoint[i]) - side1.EndPoint[i];
+            }
+            double sideLength = Math.Min(GetDistance(side1.StartPoint, side1.EndPoint),
+                                         GetDistance(side2.StartPoint, side2.EndPoint));
+            if (GetDistance(startOffset, endOffset) > _sideTranslationTolerance * sideLength) return;
+            Func<int, int> partner = k => sameDirection ? k : numOfNodes - 1 - k;
+            Func<int, double> fraction2 = k => sameDirection ? side2.GetFraction(partner(k))
+                                                              : 1 - side2.GetFraction(partner(k));
+            Func<SweepSideNodes, int, bool> isFixed = (side, k) =>
+            {
+                int edgeId = side.GetEdgeId(k);
+                return edgeId == 0 || edgeIdNumOfUses[edgeId] != 1;
+            };
+            // The mismatch between the two sides is what a node that neither side can move leaves behind: a
+            // vertex of one side opposite a node the other side shares with another wall. It is spread evenly
+            // over the nodes up to the next such pair, and a node that can move is placed at its partner's
+            // position plus the mismatch there. A node moved to lie exactly opposite its partner instead would
+            // leave the whole mismatch to the one element next to the fixed pair - a sliver, where the even
+            // spacing gmsh had given the side was already the best that could be done
+            bool[] fixed1 = new bool[numOfNodes];
+            bool[] fixed2 = new bool[numOfNodes];
+            List<int> hardAnchors = new List<int>();
+            for (int k = 0; k < numOfNodes; k++)
+            {
+                fixed1[k] = isFixed(side1, k);
+                fixed2[k] = isFixed(side2, partner(k));
+                if (fixed1[k] && fixed2[k]) hardAnchors.Add(k);
+            }
+            double[] mismatch = new double[numOfNodes];
+            foreach (var k in hardAnchors) mismatch[k] = side1.GetFraction(k) - fraction2(k);
+            for (int a = 0; a + 1 < hardAnchors.Count; a++)
+            {
+                int first = hardAnchors[a];
+                int last = hardAnchors[a + 1];
+                for (int k = first + 1; k < last; k++)
+                {
+                    double t = (double)(k - first) / (last - first);
+                    mismatch[k] = mismatch[first] + (mismatch[last] - mismatch[first]) * t;
+                }
+            }
+            // Where both nodes of a pair can move they keep a grading. Across the sweep it is the grading of the
+            // source side: the source surface is meshed from its boundary nodes, and moving them to suit the
+            // target - which is only ever projected onto - was measured to give a source mesh of more and worse
+            // elements. The two sides along the sweep share the average of theirs
+            // A source node moved opposite a node of the target that cannot move takes its neighbours along: the
+            // correction it needs is spread evenly towards the next node that cannot move or is moved itself, so
+            // that the source keeps an even spacing instead of one short element beside the moved node
+            double[] sourceCorrections = new double[numOfNodes];
+            if (firstIsSource)
+            {
+                List<int> correctionAnchors = new List<int>();
+                for (int k = 0; k < numOfNodes; k++)
+                {
+                    if (fixed1[k]) correctionAnchors.Add(k);
+                    else if (fixed2[k])
+                    {
+                        sourceCorrections[k] = fraction2(k) + mismatch[k] - side1.GetFraction(k);
+                        correctionAnchors.Add(k);
+                    }
+                }
+                for (int a = 0; a + 1 < correctionAnchors.Count; a++)
+                {
+                    int first = correctionAnchors[a];
+                    int last = correctionAnchors[a + 1];
+                    for (int k = first + 1; k < last; k++)
+                    {
+                        double t = (double)(k - first) / (last - first);
+                        sourceCorrections[k] = sourceCorrections[first] +
+                                               (sourceCorrections[last] - sourceCorrections[first]) * t;
+                    }
+                }
+            }
+            double[] fractions1 = new double[numOfNodes];
+            double[] fractions2 = new double[numOfNodes];
+            for (int k = 0; k < numOfNodes; k++)
+            {
+                double own1 = side1.GetFraction(k);
+                double own2 = fraction2(k);
+                if (fixed1[k] || fixed2[k])
+                {
+                    fractions1[k] = fixed1[k] ? own1 : own2 + mismatch[k];
+                    fractions2[k] = fixed2[k] ? own2 : own1 - mismatch[k];
+                }
+                else if (firstIsSource)
+                {
+                    fractions1[k] = own1 + sourceCorrections[k];
+                    fractions2[k] = fractions1[k] - mismatch[k];
+                }
+                else
+                {
+                    double average = 0.5 * (own1 + own2);
+                    fractions1[k] = average + 0.5 * mismatch[k];
+                    fractions2[k] = average - 0.5 * mismatch[k];
+                }
+            }
+            // Each side takes its positions for the nodes it can move, an edge at a time, and keeps its own nodes on
+            // an edge the positions would not keep in order inside it
+            MoveSideNodes(side1, k => k, k => fractions1[k], fixed1);
+            MoveSideNodes(side2, k => partner(k), k => sameDirection ? fractions2[k] : 1 - fractions2[k], fixed2);
+        }
+        private static void MoveSideNodes(SweepSideNodes side, Func<int, int> nodeIndex, Func<int, double> fraction,
+                                          bool[] isFixed)
+        {
+            int numOfNodes = side.NumOfNodes;
+            Dictionary<int, List<Tuple<int, double>>> edgeIdMoves = new Dictionary<int, List<Tuple<int, double>>>();
+            for (int k = 0; k < numOfNodes; k++)
+            {
+                if (isFixed[k]) continue;
+                int index = nodeIndex(k);
+                int edgeId = side.GetEdgeId(index);
+                if (!edgeIdMoves.ContainsKey(edgeId)) edgeIdMoves[edgeId] = new List<Tuple<int, double>>();
+                edgeIdMoves[edgeId].Add(new Tuple<int, double>(index, fraction(k)));
+            }
+            foreach (var moves in edgeIdMoves.Values)
+            {
+                double start;
+                double end;
+                side.GetEdgeFractions(moves[0].Item1, out start, out end);
+                List<Tuple<int, double>> ordered = moves.OrderBy(move => move.Item1).ToList();
+                // The nodes only have to stay in order: spacing as tight as the other side's is what the other side
+                // already has
+                double minGap = 1E-6 * (end - start);
+                bool valid = true;
+                double previous = start;
+                foreach (var move in ordered)
+                {
+                    if (move.Item2 - previous < minGap) { valid = false; break; }
+                    previous = move.Item2;
+                }
+                if (!valid || end - previous < minGap) continue;
+                // A node already where it should be is not set again, which would only move it by the error of
+                // measuring the curve
+                double tolerance = 0.05 * (end - start) / (ordered.Count + 1);
+                foreach (var move in ordered)
+                {
+                    if (Math.Abs(move.Item2 - side.GetFraction(move.Item1)) > tolerance) side.MoveNode(move.Item1, move.Item2);
+                }
+            }
+        }
+        /// <summary>
+        /// The edges split into the chains they form, the edges of one chain sharing their vertices.
+        /// </summary>
+        private static List<int[]> GetEdgeChains(int[] edgeIds)
+        {
+            int[] vertexIds;
+            Dictionary<int, int> parent = new Dictionary<int, int>();
+            foreach (var edgeId in edgeIds)
+            {
+                Find(parent, -edgeId);
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                foreach (var vertexId in vertexIds) Unite(parent, -edgeId, vertexId);
+            }
+            return edgeIds.GroupBy(id => Find(parent, -id)).Select(group => group.ToArray()).ToList();
         }
         /// <summary>
         /// The sweep blocks of the item, in gmsh numbering. An item saved before the blocks were recorded
