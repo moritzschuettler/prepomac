@@ -4011,6 +4011,17 @@ namespace CaeModel
             if (error == null)
             {
                 error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps);
+                if (error == null)
+                {
+                    HashSet<int> ringDirectionEdgeIds = new HashSet<int>();
+                    foreach (var group in GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds, sideSurfaceIds,
+                                                            layerSideSurfaceIds))
+                    {
+                        foreach (var edgeIds in group) ringDirectionEdgeIds.UnionWith(edgeIds);
+                    }
+                    error = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                               ringDirectionEdgeIds);
+                }
                 if (error == null) return null;
                 sideSurfaceIds = null;
                 targetSurfaceIds = null;
@@ -4424,6 +4435,8 @@ namespace CaeModel
             return string.Join(", ", edgeIds.OrderBy(id => id).Select(id => GetSweepEdgeName(part, id)));
         }
         private const double _sweepChainCosine = 0.9;
+        private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
+        private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
         private string ValidateSweepRings(GeometryPart part, HashSet<int> sourceSurfaceIds, SweepPartMaps maps,
                                           Dictionary<int, int> twinSurfaceIds,
@@ -4664,6 +4677,9 @@ namespace CaeModel
                 if (CountChainEnds(vis, directionEdgeIds) != 4 || numCrossEdges < 2)
                     return GetSweepSideFourSidesError(part, surfaceId);
             }
+            string wallChainsError = GetWallChainsError(part, sourceSurfaceIds, wallSurfaceIds.ToArray(),
+                                                        otherSurfaceIds.ToArray(), chainEdgeIdSet);
+            if (wallChainsError != null) return wallChainsError;
             //
             sideSurfaceIds = wallSurfaceIds.ToArray();
             targetSurfaceIds = otherSurfaceIds.ToArray();
@@ -4726,6 +4742,89 @@ namespace CaeModel
         /// The number of vertices at which an odd number of the given edges end: two for every chain the
         /// edges form, none for a closed loop.
         /// </summary>
+        /// <summary>
+        /// Refuses a block with a flat wall whose two chains along the sweep run different ways and are not as long
+        /// as each other. A source that reaches round to the far end of the part - the round at the end of a flat
+        /// plate, running on to the plane the other end lies in - starts a chain along that end, square to the
+        /// chain the rest of the wall follows, and the sweep folds the plate across its own outline. A plate bent
+        /// round a corner and swept through its thickness has the chains of its end walls square to each other
+        /// just as well, but each of them is the thickness of the plate: the sweep lines only turn with the bend.
+        /// </summary>
+        private string GetWallChainsError(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] wallSurfaceIds,
+                                          int[] targetSurfaceIds, HashSet<int> directionEdgeIds)
+        {
+            VisualizationData vis = part.Visualization;
+            if (vis.FaceTypes == null) return null;
+            //
+            foreach (var surfaceId in wallSurfaceIds)
+            {
+                if (surfaceId >= vis.FaceTypes.Length || vis.FaceTypes[surfaceId] != GeomFaceType.Plane) continue;
+                int[] wallDirectionEdgeIds = vis.FaceEdgeIds[surfaceId].Where(directionEdgeIds.Contains).ToArray();
+                if (CountChainEnds(vis, wallDirectionEdgeIds) != 4) continue;
+                if (AreWallChainsParallel(vis, wallDirectionEdgeIds)) continue;
+                //
+                return "The two sides of the sweep side " + GetSweepSurfaceName(part, surfaceId) + " that follow the " +
+                       "sweep direction from the source surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIds) +
+                       ") do not run the same way.";
+            }
+            return null;
+        }
+        /// <summary>
+        /// Whether the edges of a wall that follow the sweep form two chains whose ends lie along directions no
+        /// more than 45 degrees apart, or two chains of the same length.
+        /// </summary>
+        private bool AreWallChainsParallel(VisualizationData vis, int[] directionEdgeIds)
+        {
+            int[] endVertexIds;
+            int[] parent = Enumerable.Range(0, directionEdgeIds.Length).ToArray();
+            Func<int, int> find = i =>
+            {
+                while (parent[i] != i) i = parent[i];
+                return i;
+            };
+            Dictionary<int, List<int>> vertexIdEdgeIndices = new Dictionary<int, List<int>>();
+            for (int i = 0; i < directionEdgeIds.Length; i++)
+            {
+                foreach (var vertexId in vis.GetVertexNodeIdsForEdgeId(directionEdgeIds[i]))
+                {
+                    if (!vertexIdEdgeIndices.ContainsKey(vertexId)) vertexIdEdgeIndices.Add(vertexId, new List<int>());
+                    vertexIdEdgeIndices[vertexId].Add(i);
+                }
+            }
+            foreach (var indices in vertexIdEdgeIndices.Values)
+            {
+                for (int k = 1; k < indices.Count; k++)
+                {
+                    int a = find(indices[0]);
+                    int b = find(indices[k]);
+                    if (a != b) parent[b] = a;
+                }
+            }
+            List<Vec3D> chords = new List<Vec3D>();
+            List<double> lengths = new List<double>();
+            foreach (var chain in Enumerable.Range(0, directionEdgeIds.Length).GroupBy(find))
+            {
+                lengths.Add(chain.Sum(i => vis.EdgeLengths != null && directionEdgeIds[i] < vis.EdgeLengths.Length
+                                           ? vis.EdgeLengths[directionEdgeIds[i]] : 0));
+                Dictionary<int, int> vertexIdDegree = new Dictionary<int, int>();
+                foreach (var i in chain)
+                {
+                    endVertexIds = vis.GetVertexNodeIdsForEdgeId(directionEdgeIds[i]);
+                    foreach (var vertexId in endVertexIds)
+                    {
+                        if (vertexIdDegree.ContainsKey(vertexId)) vertexIdDegree[vertexId]++;
+                        else vertexIdDegree[vertexId] = 1;
+                    }
+                }
+                int[] ends = vertexIdDegree.Where(entry => entry.Value % 2 == 1).Select(entry => entry.Key).ToArray();
+                if (ends.Length != 2) return true;
+                chords.Add(new Vec3D(_geometry.Nodes[ends[1]].Coor) - new Vec3D(_geometry.Nodes[ends[0]].Coor));
+            }
+            if (chords.Count != 2 || chords[0].Len == 0 || chords[1].Len == 0) return true;
+            if (lengths[0] > 0 && lengths[1] > 0 &&
+                Math.Abs(lengths[0] - lengths[1]) <= _wallChainsLengthTolerance * Math.Max(lengths[0], lengths[1])) return true;
+            return Math.Abs(Vec3D.DotProduct(chords[0], chords[1])) >= _wallChainsCosine * chords[0].Len * chords[1].Len;
+        }
         private static int CountChainEnds(VisualizationData vis, IEnumerable<int> edgeIds)
         {
             int[] endVertexIds;
