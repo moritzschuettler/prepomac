@@ -68,6 +68,7 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("triangulation_mesher=" +
                               PythonValueFormatter.Text(quadWild.TriangulationMesher.ToString()));
                 arguments.Add("flow_profile=" + PythonValueFormatter.Text(quadWild.FlowProfile.ToString()));
+                arguments.Add("boundary_layer=" + PythonValueFormatter.Text(quadWild.BoundaryLayer.ToString()));
                 arguments.Add("keep_files_on_failure=" +
                               PythonValueFormatter.Format(quadWild.KeepFilesOnFailure));
                 arguments.Add("debug_visualization=" +
@@ -76,6 +77,12 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("old_algorithm=" + PythonValueFormatter.Format(quadWild.OldAlgorithm));
                 if (quadWild.PinEdgeNodes)
                     arguments.Add("pin_edge_nodes=" + PythonValueFormatter.Format(quadWild.PinEdgeNodes));
+                if (!quadWild.EdgeRotations)
+                    arguments.Add("edge_rotations=" + PythonValueFormatter.Format(quadWild.EdgeRotations));
+                if (quadWild.SingularityPosition > 0)
+                    arguments.Add("singularity_position=" + PythonValueFormatter.Number(quadWild.SingularityPosition));
+                if (quadWild.CountSearch > 0)
+                    arguments.Add("count_search=" + quadWild.CountSearch.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 return "shell_quad_wild";
             }
             if (item is ExtrudeMesh extrude)

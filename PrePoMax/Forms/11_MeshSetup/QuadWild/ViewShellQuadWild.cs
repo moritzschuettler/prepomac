@@ -67,6 +67,19 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(2, 10, "Boundary layer")]
+        [DescriptionAttribute("One ring of regular quads along the boundary, inserted before the smoothing so that " +
+                              "the elements at the boundary follow it. Holes puts the ring around every closed edge " +
+                              "loop without corners; All edges puts it along every model edge, which helps fine " +
+                              "meshes but can hurt coarse ones and shell compounds.")]
+        [Id(3, 5)]
+        public QuadWildBoundaryLayerEnum BoundaryLayer
+        {
+            get { return _shellQuadWild.BoundaryLayer; }
+            set { _shellQuadWild.BoundaryLayer = value; }
+        }
+        //
+        [CategoryAttribute("Quad generation")]
         [OrderedDisplayName(2, 10, "Alpha")]
         [DescriptionAttribute("Controls the final quadrangulation trade-off between regularity and isometry. " +
                               "Values near 0 favor regularity; larger values allow more singularities. This does " +
@@ -140,6 +153,48 @@ namespace PrePoMax.Forms
             get { return _shellQuadWild.PinEdgeNodes; }
             set { _shellQuadWild.PinEdgeNodes = value; }
         }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(4, 10, "Edge rotations")]
+        [DescriptionAttribute("On changes the connectivity where the quads are poor (worst corner below 0.8): the " +
+                              "edge shared by two quads is turned to another diagonal of the hexagon they form when " +
+                              "that makes the quads around it better. Off keeps the connectivity of the quad " +
+                              "generation, for comparison.")]
+        [Id(5, 6)]
+        public bool EdgeRotations
+        {
+            get { return _shellQuadWild.EdgeRotations; }
+            set { _shellQuadWild.EdgeRotations = value; }
+        }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(5, 10, "Singularity position")]
+        [DescriptionAttribute("Weight of placing the irregular node inside every patch with 3, 5 or 6 sides where " +
+                              "its separatrices fit the patch geometry, relative to the element size objective. " +
+                              "0 leaves the position to the element counts; 2 to 4 are worth testing. For " +
+                              "comparison.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        [Id(6, 6)]
+        public double SingularityPosition
+        {
+            get { return _shellQuadWild.SingularityPosition; }
+            set { _shellQuadWild.SingularityPosition = value; }
+        }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(6, 10, "Count search rounds")]
+        [DescriptionAttribute("Rounds of the search over the element counts of the patch sides: in every round the " +
+                              "three worst patches are found, every side of each is tried with one or two elements " +
+                              "more or fewer, and the change that improves the worst element most is kept. Every " +
+                              "trial costs a quantisation and a local smoothing, so the meshing takes longer. 0 " +
+                              "keeps the counts of the quantisation.")]
+        [TypeConverter(typeof(StringIntegerConverter))]
+        [Id(7, 6)]
+        public int CountSearch
+        {
+            get { return _shellQuadWild.CountSearch; }
+            set { _shellQuadWild.CountSearch = value; }
+        }
 
 
         // Constructors
@@ -157,6 +212,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(DebugVisualization));
             _dctd.RenameBooleanProperty(nameof(OldAlgorithm), "Old", "New");
             _dctd.RenameBooleanProperty(nameof(PinEdgeNodes), "Pinned", "Free");
+            _dctd.RenameBooleanPropertyToOnOff(nameof(EdgeRotations));
             //
             UpdateVisibility();
         }
@@ -171,6 +227,7 @@ namespace PrePoMax.Forms
         {
             bool visible = !_shellQuadWild.Preview;
             _dctd.GetProperty(nameof(FlowProfile)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(BoundaryLayer)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Alpha)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Smooth)).SetIsBrowsable(visible);
         }

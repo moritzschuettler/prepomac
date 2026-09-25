@@ -531,19 +531,23 @@ namespace APIs.Python.Model
                                "alpha: float = None, triangulation_mesher: str = None, " +
                                "flow_profile: str = None, " +
                                "keep_files_on_failure: bool = None, debug_visualization: bool = None, " +
-                               "old_algorithm: bool = None, pin_edge_nodes: bool = None",
+                               "old_algorithm: bool = None, pin_edge_nodes: bool = None, edge_rotations: bool = None, " +
+                               "singularity_position: float = None, count_search: int = None, " +
+                               "boundary_layer: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
                                                     object smooth = null, object alpha = null,
                                                     string triangulation_mesher = null, string flow_profile = null,
                                                     object keep_files_on_failure = null,
                                                     object debug_visualization = null, object old_algorithm = null,
-                                                    object pin_edge_nodes = null)
+                                                    object pin_edge_nodes = null, object edge_rotations = null,
+                                                    object singularity_position = null, object count_search = null,
+                                                    string boundary_layer = null)
         {
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
-                               pin_edge_nodes);
+                               pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -558,12 +562,14 @@ namespace APIs.Python.Model
                                                         object keep_files_on_failure = null,
                                                         object debug_visualization = null,
                                                         object old_algorithm = null,
-                                                        object pin_edge_nodes = null)
+                                                        object pin_edge_nodes = null, object edge_rotations = null,
+                                                    object singularity_position = null, object count_search = null,
+                                                    string boundary_layer = null)
         {
             ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
-                               pin_edge_nodes);
+                               pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer);
             return Replace(old_name, name, item, selection);
         }
         //
@@ -824,7 +830,8 @@ namespace APIs.Python.Model
                                                object alpha, string triangulationMesher,
                                                string flowProfile, object keepFilesOnFailure,
                                                object debugVisualization, object oldAlgorithm,
-                                               object pinEdgeNodes)
+                                               object pinEdgeNodes, object edgeRotations, object singularityPosition,
+                                               object countSearch, string boundaryLayer)
         {
             if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
             if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
@@ -844,6 +851,14 @@ namespace APIs.Python.Model
                 item.OldAlgorithm = PythonValueConverter.ToBool(oldAlgorithm, "old_algorithm");
             if (pinEdgeNodes != null)
                 item.PinEdgeNodes = PythonValueConverter.ToBool(pinEdgeNodes, "pin_edge_nodes");
+            if (edgeRotations != null)
+                item.EdgeRotations = PythonValueConverter.ToBool(edgeRotations, "edge_rotations");
+            if (singularityPosition != null)
+                item.SingularityPosition = PythonValueConverter.ToFiniteDouble(singularityPosition, "singularity_position");
+            if (countSearch != null)
+                item.CountSearch = PythonValueConverter.ToInt(countSearch, "count_search");
+            if (boundaryLayer != null)
+                item.BoundaryLayer = PythonValueConverter.ToEnum<QuadWildBoundaryLayerEnum>(boundaryLayer, "boundary_layer");
         }
         private static void ApplyAlgorithms(GmshSetupItem item, string algorithm2D, string algorithm3D)
         {

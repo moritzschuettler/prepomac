@@ -129,6 +129,7 @@ namespace APIs.Python
             types.Add("optimize_first_order_solid", typeof(GmshOptimizeFirstOrderSolidEnum));
             types.Add("triangulation_mesher", typeof(MesherTypeEnum));
             types.Add("flow_profile", typeof(QuadWildFlowProfileEnum));
+            types.Add("boundary_layer", typeof(QuadWildBoundaryLayerEnum));
             types.Add("add_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
             types.Add("replace_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
             types.Add("quad_wild_flow_profile", typeof(QuadWildFlowProfileEnum));

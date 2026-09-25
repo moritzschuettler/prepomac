@@ -199,15 +199,31 @@ namespace PrePoMax
                     RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure && preparationFailed
                 };
             }
+            List<string> flowOptions = new List<string>();
+            if (shellQuadWild.OldAlgorithm) flowOptions.AddRange(QuadWildRuntime.OldAlgorithmFlowOptions);
+            if (!shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm) flowOptions.Add("rotate_edges 0");
+            if (shellQuadWild.SingularityPosition > 0 && !shellQuadWild.OldAlgorithm)
+                flowOptions.Add("singularity_position " +
+                                shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture));
+            if (shellQuadWild.CountSearch > 0 && !shellQuadWild.OldAlgorithm)
+                flowOptions.Add("count_search " + shellQuadWild.CountSearch.ToString(CultureInfo.InvariantCulture));
+            // 0 none, 1 holes, 2 every loop; the old algorithm has none
+            flowOptions.Add("boundary_layer " + (shellQuadWild.OldAlgorithm ? 0 : (int)shellQuadWild.BoundaryLayer));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, shellQuadWild.FlowProfile,
-                                            shellQuadWild.Alpha,
-                                            shellQuadWild.OldAlgorithm ? QuadWildRuntime.OldAlgorithmFlowOptions : null);
+                                            shellQuadWild.Alpha, flowOptions);
             //
             _controller.Form.WriteDataToOutput("Running QuadWild quad generation (" +
                                                GetFlowProfileName(shellQuadWild.FlowProfile) +
                                                ", alpha " +
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +
+                                               (shellQuadWild.EdgeRotations ? "" : ", no edge rotations") +
+                                               (shellQuadWild.SingularityPosition > 0 ? ", singularity position " +
+                                                shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture) : "") +
+                                               (shellQuadWild.CountSearch > 0 ? ", count search " +
+                                                shellQuadWild.CountSearch.ToString(CultureInfo.InvariantCulture) + " rounds" : "") +
+                                               (shellQuadWild.BoundaryLayer != QuadWildBoundaryLayerEnum.None && !shellQuadWild.OldAlgorithm ?
+                                                ", boundary layer on " + (shellQuadWild.BoundaryLayer == QuadWildBoundaryLayerEnum.Holes ? "holes" : "all edges") : "") +
                                                ")...");
             argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             // Both files are required even when only one is imported, so that a stage that died part way

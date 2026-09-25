@@ -183,6 +183,7 @@
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeRecovery.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeRecoveryInfo.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildModelEdge.cs" />
+    <Compile Include="Meshing\QuadWild\Enums\QuadWildBoundaryLayerEnum.cs" />
     <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
     <Compile Include="Meshing\QuadWild\QuadWildRuntime.cs" />
     <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
