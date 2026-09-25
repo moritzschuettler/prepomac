@@ -20,6 +20,7 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private const string Extension = ".png";
+        private bool _saveToFile;
         private string _folder;
         private string _fileName;
         private bool _autoIncrement;
@@ -29,6 +30,7 @@ namespace PrePoMax
 
 
         // Properties                                                                                                             
+        public bool SaveToFile { get { return _saveToFile; } set { _saveToFile = value; } }
         public string Folder { get { return _folder; } set { _folder = value == null ? "" : value.Trim(); } }
         // The extension is not the user's to choose, so one typed into the name is taken off again
         public string FileName
@@ -66,6 +68,7 @@ namespace PrePoMax
         // Constructors                                                                                                             
         public CaptureViewportProperties(string folder, string fileName)
         {
+            _saveToFile = false;
             Folder = folder;
             FileName = fileName;
             _autoIncrement = true;

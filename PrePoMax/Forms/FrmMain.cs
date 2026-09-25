@@ -7834,8 +7834,8 @@ namespace PrePoMax
             }
         }
         // Takes the picture without asking anything, using the settings the capture form holds. Until
-        // the user changes them there, those are a numbered picture of the model with the background
-        // left out, in the work directory where the rest of the model's files are
+        // the user changes them there, those are a picture of the model with the background left out,
+        // copied to the clipboard
         private void tsmiCaptureViewport_Click(object sender, EventArgs e)
         {
             try
@@ -8044,30 +8044,44 @@ namespace PrePoMax
         // False means the user did not want the file replaced after all, and nothing was written
         private bool CaptureViewport(CaptureViewportProperties properties)
         {
-            string fileName = properties.GetFileName();
-            // A numbered name is free by the time it is returned, so this only ever asks about a name
-            // the user chose to keep as it is
-            if (File.Exists(fileName) &&
-                MessageBoxes.ShowWarningQuestionYesNo("The file '" + fileName + "' already exists. Replace it?") !=
-                DialogResult.Yes)
-                return false;
+            if (!properties.SaveToFile && !properties.CopyToClipboard)
+                throw new CaeException("Select to save the picture to a file, to copy it to the clipboard or both.");
             //
-            SaveAutomationScreenshot(fileName, properties.TransparentBackground, properties.Magnification);
-            if (!properties.CopyToClipboard)
+            string fileName;
+            if (properties.SaveToFile)
             {
-                WriteDataToOutput("Viewport captured into: " + fileName);
-                return true;
+                fileName = properties.GetFileName();
+                // A numbered name is free by the time it is returned, so this only ever asks about a name
+                // the user chose to keep as it is
+                if (File.Exists(fileName) &&
+                    MessageBoxes.ShowWarningQuestionYesNo("The file '" + fileName + "' already exists. Replace it?") !=
+                    DialogResult.Yes)
+                    return false;
             }
-            // The file is written by then, so a clipboard held open by another application costs only the copy
+            // Only the renderer writes the picture, and it writes it to a file
+            else fileName = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
+            //
             try
             {
-                CopyPngFileToClipboard(fileName);
-                WriteDataToOutput("Viewport captured into: " + fileName + " and copied to the clipboard.");
+                SaveAutomationScreenshot(fileName, properties.TransparentBackground, properties.Magnification);
+                if (properties.SaveToFile) WriteDataToOutput("Viewport captured into: " + fileName);
+                if (properties.CopyToClipboard)
+                {
+                    // A clipboard held open by another application costs only the copy
+                    try
+                    {
+                        CopyPngFileToClipboard(fileName);
+                        WriteDataToOutput("Viewport captured to the clipboard.");
+                    }
+                    catch (ExternalException ex)
+                    {
+                        WriteDataToOutput("The viewport capture could not be copied to the clipboard: " + ex.Message);
+                    }
+                }
             }
-            catch (ExternalException ex)
+            finally
             {
-                WriteDataToOutput("Viewport captured into: " + fileName);
-                WriteDataToOutput("The viewport capture could not be copied to the clipboard: " + ex.Message);
+                if (!properties.SaveToFile && File.Exists(fileName)) File.Delete(fileName);
             }
             return true;
         }
@@ -8092,14 +8106,14 @@ namespace PrePoMax
                 Clipboard.SetDataObject(dataObject, true, 5, 100);
             }
         }
-        // A numbered picture of the model, in the work directory where the rest of the model's files
-        // are, with the background left out. That is what the toolbar button writes without asking,
-        // and what the dialog starts from
+        // A picture of the model with the background left out, copied to the clipboard. That is what the
+        // toolbar button takes without asking, and what the dialog starts from. A picture saved to a file
+        // is proposed as a numbered one in the work directory, where the rest of the model's files are,
+        // and a work directory that does not exist is left for the user to replace before saving
         private CaptureViewportProperties GetDefaultCaptureViewportProperties()
         {
             string workDirectory = _controller.GetWorkDirectory();
-            if (workDirectory == null || workDirectory.Length == 0 || !Directory.Exists(workDirectory))
-                throw new CaeException("The work directory does not exist. Set it in Tools - Settings - Solver.");
+            if (workDirectory == null || !Directory.Exists(workDirectory)) workDirectory = "";
             //
             string openedFileName = _controller.OpenedFileName;
             string name = string.IsNullOrEmpty(openedFileName) ? Globals.ViewportImageBaseName
