@@ -462,12 +462,15 @@ namespace APIs.Python.Model
                    "the side surfaces and the layer edges are derived by the model from the selection. A part " +
                    "selection - a solid or a compound of solids - lets the model find the source surfaces " +
                    "itself. Either selection may span several parts that stand apart from each other, and " +
-                   "each of them is then swept on its own.",
+                   "each of them is then swept on its own. The 2D algorithm QuadWild meshes the source surfaces " +
+                   "with QuadWild, set up by the quad_wild arguments, and gmsh the side surfaces.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
                                ", transfinite_angle: float = None, optimize_first_order_shell: str = None, " +
-                               "elements_per_layer: list[int] = None, keep_imprint_edges: bool = False",
+                               "elements_per_layer: list[int] = None, keep_imprint_edges: bool = False, " +
+                               "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
+                               "quad_wild_smooth: bool = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_sweep_mesh(string name, SelectionAPI selection,
                                                int number_of_global_smooth_steps = 0, string algorithm_2d = null,
@@ -477,7 +480,9 @@ namespace APIs.Python.Model
                                                object transfinite_four_sided = null,
                                                object transfinite_angle = null,
                                                string optimize_first_order_shell = null,
-                                               object elements_per_layer = null, bool keep_imprint_edges = false)
+                                               object elements_per_layer = null, bool keep_imprint_edges = false,
+                                               string quad_wild_flow_profile = null, object quad_wild_alpha = null,
+                                               object quad_wild_smooth = null)
         {
             SweepMesh item = new SweepMesh(name);
             item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
@@ -485,6 +490,7 @@ namespace APIs.Python.Model
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
                            optimize_first_order_shell, elements_per_layer);
+            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -502,7 +508,9 @@ namespace APIs.Python.Model
                                                    object transfinite_four_sided = null,
                                                    object transfinite_angle = null,
                                                    string optimize_first_order_shell = null,
-                                                   object elements_per_layer = null, object keep_imprint_edges = null)
+                                                   object elements_per_layer = null, object keep_imprint_edges = null,
+                                                   string quad_wild_flow_profile = null, object quad_wild_alpha = null,
+                                                   object quad_wild_smooth = null)
         {
             SweepMesh item = (SweepMesh)_service.CloneItem(old_name);
             if (number_of_global_smooth_steps != null)
@@ -513,6 +521,7 @@ namespace APIs.Python.Model
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
                            optimize_first_order_shell, elements_per_layer);
+            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             return Replace(old_name, name, item, selection);
         }
 
@@ -792,12 +801,24 @@ namespace APIs.Python.Model
                                            object transfiniteAngle, string optimizeFirstOrderShell,
                                            object elementsPerLayer)
         {
-            ApplyAlgorithms(item, algorithm2D, algorithm3D);
+            // The 2D algorithm of a sweep may also be QuadWild, which meshes the source surfaces
+            if (algorithm2D != null)
+                item.SweepAlgorithmMesh2D = PythonValueConverter.ToEnum<SweepAlgorithmMesh2DEnum>(algorithm2D,
+                                                                                                   "algorithm_2d");
+            ApplyAlgorithms(item, null, algorithm3D);
             ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
                                transfiniteFourSided);
             ApplyTransfiniteAngle(item, transfiniteAngle);
             ApplyOptimizeFirstOrderShell(item, optimizeFirstOrderShell);
             ApplyElementsPerLayer(item, elementsPerLayer);
+        }
+        private static void ApplySweepQuadWild(SweepMesh item, string flowProfile, object alpha, object smooth)
+        {
+            if (flowProfile != null)
+                item.QuadWildFlowProfile = PythonValueConverter.ToEnum<QuadWildFlowProfileEnum>(flowProfile,
+                                                                                                 "quad_wild_flow_profile");
+            if (alpha != null) item.QuadWildAlpha = PythonValueConverter.ToFiniteDouble(alpha, "quad_wild_alpha");
+            if (smooth != null) item.QuadWildSmooth = PythonValueConverter.ToBool(smooth, "quad_wild_smooth");
         }
         private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object smooth,
                                                object alpha, string triangulationMesher,

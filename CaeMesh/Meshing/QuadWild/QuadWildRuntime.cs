@@ -1,0 +1,226 @@
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeGlobals;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+namespace CaeMesh
+{
+    /// <summary>
+    /// The files and the two executables of a QuadWild run, shared by the shell mesher, which runs the stages as
+    /// jobs of the application, and the sweep, which runs them from inside the gmsh process.
+    /// </summary>
+    public static class QuadWildRuntime
+    {
+        // Variables                                                                                                                
+        public const string MesherFileName = "quadwild.exe";
+        public const string PatchMesherFileName = "quad_from_patches.exe";
+        private const int _numOfReportedLines = 20;
+        // QuadWild options that switch off the patch layout (stage 1) and mesh quality (stage 2) improvements
+        public static readonly string[] OldAlgorithmPrepOptions = new string[]
+        {
+            "max_side_turning 0", "aligned_hole_corners 0", "thin_patch_ratio 0"
+        };
+        public static readonly string[] OldAlgorithmFlowOptions = new string[]
+        {
+            "input_line_count 0", "input_mesh_size 0", "graded_alpha 0", "field_smooth_sweeps 0",
+            "split_boundary_fans 0", "smooth_curves 0", "rotate_edges 0"
+        };
+
+
+        // Methods                                                                                                                  
+        public static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory)
+        {
+            if (!File.Exists(executable))
+                throw new CaeException("The QuadWild executable was not found: " + executable);
+            if (!File.Exists(patchExecutable))
+                throw new CaeException("The QuadWild patch executable was not found: " + patchExecutable);
+            if (String.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
+                throw new CaeException("The QuadWild runtime directory was not found.");
+        }
+        /// <summary>
+        /// The preparation configuration: the template with QuadWild's own remeshing switched off, since the
+        /// triangulation it is given is the one the nodes are meant to follow.
+        /// </summary>
+        public static void WritePrepConfig(string runtimeDirectory, string outputFileName, bool oldAlgorithm)
+        {
+            string templateFileName = Path.Combine(runtimeDirectory, "config", "prep_config", "basic_setup.txt");
+            WriteConfig(templateFileName, outputFileName, new Dictionary<string, string>() { { "do_remesh", "0" } },
+                        oldAlgorithm ? OldAlgorithmPrepOptions : null);
+        }
+        /// <summary>
+        /// The quad generation configuration of the flow profile, with the dependencies it names made absolute so
+        /// that the stage runs from any folder.
+        /// </summary>
+        public static void WriteFlowConfig(string runtimeDirectory, string outputFileName,
+                                           QuadWildFlowProfileEnum flowProfile, double alpha,
+                                           IEnumerable<string> extraLines)
+        {
+            string flowTemplateName;
+            if (flowProfile == QuadWildFlowProfileEnum.Aligned) flowTemplateName = "flow.txt";
+            else if (flowProfile == QuadWildFlowProfileEnum.NoAlignment) flowTemplateName = "flow_noalign.txt";
+            else throw new CaeException("The selected QuadWild flow profile is not supported.");
+            string mainConfigDirectory = Path.Combine(runtimeDirectory, "config", "main_config");
+            string flowDependencyFileName = Path.Combine(mainConfigDirectory, "flow_virtual_simple.json");
+            string satsumaDependencyFileName = Path.Combine(runtimeDirectory, "config", "satsuma", "default.json");
+            WriteConfig(Path.Combine(mainConfigDirectory, flowTemplateName), outputFileName,
+                        new Dictionary<string, string>()
+                        {
+                            { "alpha", alpha.ToString("R", System.Globalization.CultureInfo.InvariantCulture) },
+                            // The quad size follows the triangulation: its sizes and edge node counts
+                            { "scaleFact", "1" },
+                            { "flow_config_filename", QuoteQuadWildPath(flowDependencyFileName) },
+                            { "satsuma_config_filename", QuoteQuadWildPath(satsumaDependencyFileName) }
+                        },
+                        extraLines);
+        }
+        public static void WriteConfig(string templateFileName, string outputFileName,
+                                       Dictionary<string, string> replacements, IEnumerable<string> extraLines = null)
+        {
+            if (!File.Exists(templateFileName))
+                throw new CaeException("The QuadWild configuration file was not found: " + templateFileName);
+            string[] lines = File.ReadAllLines(templateFileName);
+            HashSet<string> replacedKeys = new HashSet<string>();
+            for (int i = 0; i < lines.Length; i++)
+            {
+                foreach (var replacement in replacements)
+                {
+                    if (lines[i].StartsWith(replacement.Key + " ", StringComparison.Ordinal))
+                    {
+                        lines[i] = replacement.Key + " " + replacement.Value;
+                        replacedKeys.Add(replacement.Key);
+                        break;
+                    }
+                }
+            }
+            string missingKey = replacements.Keys.FirstOrDefault(key => !replacedKeys.Contains(key));
+            if (missingKey != null)
+                throw new CaeException("The QuadWild configuration entry '" + missingKey + "' was not found in " +
+                                       templateFileName + ".");
+            // optional "key value" lines at the end, read by QuadWild's option parser
+            if (extraLines != null)
+                lines = lines.Concat(extraLines).ToArray();
+            File.WriteAllText(outputFileName, String.Join(Environment.NewLine, lines) + Environment.NewLine,
+                              new UTF8Encoding(false));
+        }
+        public static string Quote(string value)
+        {
+            if (value == null || value.Contains("\""))
+                throw new CaeException("A QuadWild file path is invalid.");
+            return "\"" + value + "\"";
+        }
+        public static string QuoteQuadWildPath(string value)
+        {
+            if (!File.Exists(value))
+                throw new CaeException("A QuadWild configuration dependency was not found: " + value);
+            return Quote(value.Replace('\\', '/'));
+        }
+        public static void DeleteIfExists(string fileName)
+        {
+            if (File.Exists(fileName)) File.Delete(fileName);
+        }
+        public static void EnsureFilesWritten(string stageName, params string[] fileNames)
+        {
+            foreach (string fileName in fileNames)
+            {
+                if (!File.Exists(fileName) || new FileInfo(fileName).Length == 0)
+                    throw new CaeException("QuadWild " + stageName + " did not create the expected file: " +
+                                           fileName);
+            }
+        }
+        public static bool AreFilesWritten(string[] fileNames)
+        {
+            return fileNames != null && fileNames.Length > 0 &&
+                   fileNames.All(fileName => File.Exists(fileName) && new FileInfo(fileName).Length > 0);
+        }
+        /// <summary>
+        /// The tracer deletes every patch it could not make disk-like and then reports success, so a model that lost
+        /// most of its surface still leaves a readable but almost empty traced mesh behind. Tracing splits triangles
+        /// and never removes them, so a drop in the triangle count means patches were erased.
+        /// </summary>
+        public static void EnsureNoPatchesErased(string preparedObjFileName, string tracedObjFileName, string advice)
+        {
+            if (!File.Exists(preparedObjFileName) || !File.Exists(tracedObjFileName)) return;
+            int preparedFaceCount = CountObjFaces(preparedObjFileName);
+            int tracedFaceCount = CountObjFaces(tracedObjFileName);
+            if (preparedFaceCount <= 0 || tracedFaceCount >= preparedFaceCount) return;
+            //
+            throw new CaeException("QuadWild patch tracing discarded " +
+                                   (preparedFaceCount - tracedFaceCount) + " of " + preparedFaceCount +
+                                   " triangles because it could not split the surface into disk-like patches. " +
+                                   "The remaining mesh would cover only a part of the model." +
+                                   (advice != null ? " " + advice : ""));
+        }
+        public static int CountObjFaces(string fileName)
+        {
+            int faceCount = 0;
+            using (StreamReader reader = new StreamReader(fileName))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.StartsWith("f ", StringComparison.Ordinal)) faceCount++;
+                }
+            }
+            return faceCount;
+        }
+        /// <summary>
+        /// Runs one stage in the given folder and waits for it. The exit codes of QuadWild do not tell success
+        /// from failure, so the stage is judged by the files it was expected to write; the last lines it printed
+        /// are kept for the error that names a stage that wrote nothing.
+        /// </summary>
+        public static void RunStage(string stageName, string executable, string argument, string workDirectory,
+                                    params string[] expectedFileNames)
+        {
+            foreach (var fileName in expectedFileNames) DeleteIfExists(fileName);
+            //
+            Queue<string> lastLines = new Queue<string>();
+            object lastLinesLock = new object();
+            DataReceivedEventHandler keepLine = (sender, e) =>
+            {
+                if (e.Data == null) return;
+                lock (lastLinesLock)
+                {
+                    lastLines.Enqueue(e.Data);
+                    if (lastLines.Count > _numOfReportedLines) lastLines.Dequeue();
+                }
+            };
+            ProcessStartInfo startInfo = new ProcessStartInfo(executable, argument)
+            {
+                WorkingDirectory = workDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using (Process process = new Process() { StartInfo = startInfo })
+            {
+                process.OutputDataReceived += keepLine;
+                process.ErrorDataReceived += keepLine;
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+            }
+            //
+            if (!AreFilesWritten(expectedFileNames))
+            {
+                string output;
+                lock (lastLinesLock) output = String.Join(Environment.NewLine, lastLines);
+                throw new CaeException("QuadWild " + stageName + " failed. Its last messages:" + Environment.NewLine +
+                                       output);
+            }
+        }
+    }
+}

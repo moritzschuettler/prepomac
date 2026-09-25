@@ -35,6 +35,9 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
+        private HashSet<int> _quadWildSourceIds = new HashSet<int>();
+        private List<SweepQuadWildGroup> _quadWildGroups;
+        private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
@@ -191,7 +194,7 @@ namespace CaeMesh
                     // Mesh size
                     SetMeshSizes(gsi);
                     // 2D meshing algorithm
-                    Gmsh.Option.SetNumber("Mesh.Algorithm", (int)gsi.AlgorithmMesh2D);
+                    Gmsh.Option.SetNumber("Mesh.Algorithm", (int)GetAlgorithmMesh2D(gsi));
                     // 3D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm3D", (int)gsi.AlgorithmMesh3D);
                     // Recombine algorithm
@@ -288,9 +291,22 @@ namespace CaeMesh
             Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature",
                                   2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf);
         }
+        /// <summary>
+        /// The algorithm the surfaces are meshed with. A sweep whose sources QuadWild meshes has gmsh mesh only its
+        /// walls, which are structured grids, the targets, which are thrown away, and the triangulation QuadWild
+        /// starts from, so the quasi-structured quad algorithm - which meshes the curves of the surfaces again with
+        /// sizes of its own - is replaced by the Frontal-Delaunay one.
+        /// </summary>
+        private static GmshAlgorithmMesh2DEnum GetAlgorithmMesh2D(GmshSetupItem gmshSetupItem)
+        {
+            if (gmshSetupItem is SweepMesh sweepMesh && sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild &&
+                sweepMesh.AlgorithmMesh2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
+                return GmshAlgorithmMesh2DEnum.FrontalDelaunay;
+            return gmshSetupItem.AlgorithmMesh2D;
+        }
         private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
-            GmshAlgorithmMesh2DEnum algorithm2D = gmshSetupItem.AlgorithmMesh2D;
+            GmshAlgorithmMesh2DEnum algorithm2D = GetAlgorithmMesh2D(gmshSetupItem);
             // Mesh size
             //Tuple<int, int>[] surfaceDimTags;
             //Gmsh.GetEntities(out surfaceDimTags, 2);
@@ -569,7 +585,10 @@ namespace CaeMesh
                 // Set source surfaces
                 if (recombine)
                 {
-                    foreach (var sourceSurfaceId in block.SourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                    foreach (var sourceSurfaceId in block.SourceSurfaceIds)
+                    {
+                        if (!_quadWildSourceIds.Contains(sourceSurfaceId)) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                    }
                 }
                 // Set side surfaces. A wall whose side is built from several edges - which is what a
                 // split source face produces - needs its four corners nominated by hand, and needs the
@@ -604,7 +623,7 @@ namespace CaeMesh
                 // than the next. Measured: neither meshing the sources first nor rebuilding the walls to its
                 // counts survives its final pass over every quad surface, so the source is meshed with the
                 // Frontal-Delaunay algorithm and recombined instead
-                if (sweepMesh.AlgorithmMesh2D != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) throw;
+                if (GetAlgorithmMesh2D(sweepMesh) != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) throw;
                 _writeOutput?.Invoke("Sweep: the side surfaces could not be meshed with the structured grid the sweep needs " +
                                      "under the quasi-structured quad algorithm. The source surfaces are meshed with the " +
                                      "Frontal-Delaunay algorithm and recombined instead.");
@@ -700,6 +719,16 @@ namespace CaeMesh
             // places, and the lines between them are pinned just the same
             foreach (var block in _sweepBlocks) PairImprintEdges(block, surfaceIdEdgeIds);
             if (round > 0) _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
+            // A source QuadWild meshes is triangulated free for it, once the fragmentation has given the faces their
+            // final tags. A source that is the target of another block is the cap that block's sweep leaves, and is
+            // read back from there; one that is a wall of another block is meshed as the structured grid of that wall
+            if (sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild)
+            {
+                foreach (var block in _sweepBlocks) _quadWildSourceIds.UnionWith(block.SourceSurfaceIds);
+                foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
+                foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
+                _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
+            }
         }
         private double[] GetPrismTranslation(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
         {
@@ -1489,16 +1518,23 @@ namespace CaeMesh
                                      Dictionary<int, int[]> surfaceIdEdgeIds, List<int> chainBlockIndices,
                                      bool preview, bool setTransfiniteWalls)
         {
-            // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
-            PrepareWallEdges(walls, chains, chainBlockIndices);
-            FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds,
-                                        sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
-            foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
-            // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
-            // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
-            // side check with node counts that are not the ones the constraints above set
-            GenerateMesh(1);
-            MatchOppositeSideSpacing(walls);
+            if (_quadWildSourceIds.Count > 0)
+            {
+                MeshQuadWildSourceEdges(sweepMesh, blocks, walls, chains, surfaceIdEdgeIds, chainBlockIndices);
+            }
+            else
+            {
+                // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
+                PrepareWallEdges(walls, chains, chainBlockIndices);
+                FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds,
+                                            sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
+                foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
+                // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
+                // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
+                // side check with node counts that are not the ones the constraints above set
+                GenerateMesh(1);
+                MatchOppositeSideSpacing(walls, null);
+            }
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
             // later attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
@@ -1536,6 +1572,11 @@ namespace CaeMesh
                 Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
                 Gmsh.Model.Mesh.Optimize(sweepMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
             }
+            // The QuadWild sources replace what gmsh meshed there, after the optimisation, which would move their nodes
+            if (_quadWildGroups != null)
+            {
+                foreach (var group in _quadWildGroups) SweepQuadWildMesher.AddSurfaceMesh(group);
+            }
             // Debug
             if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
@@ -1556,6 +1597,231 @@ namespace CaeMesh
             }
         }
         /// <summary>
+        /// Settles the counts of the walls and of the source edges QuadWild meshes, and leaves the curves meshed with
+        /// them and the nodes of the source edges where QuadWild put them.
+        ///
+        /// The counts go round in a loop. The walls are settled first, with every free edge of a QuadWild source
+        /// measured as gmsh sizes it; the sources are then triangulated and QuadWild meshes them, keeping the nodes
+        /// of the fixed edges and choosing the counts of the free ones; the walls are settled again with those
+        /// counts pinned. A run stays valid while every edge of its group carries the count it was meshed with. The
+        /// settling may change a fixed edge - the target side of a wall beside a free edge whose count moved - or
+        /// override the count of a free edge, and the group is then meshed again, with that free edge fixed at the
+        /// count the walls gave it. The loop ends on the first round in which every run is valid. Every round starts
+        /// from the pins the sweep was given and the counts QuadWild chose, since the counts a round settles would
+        /// otherwise stay behind as pins of the next.
+        /// </summary>
+        private void MeshQuadWildSourceEdges(SweepMesh sweepMesh, List<SweepBlock> blocks, List<SweepWall> walls,
+                                             List<SweepChain> chains, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                             List<int> chainBlockIndices)
+        {
+            if (_gmshData.QuadWildDirectory == null || !Directory.Exists(_gmshData.QuadWildDirectory))
+                throw new CaeException("The QuadWild folder was not found: " + _gmshData.QuadWildDirectory);
+            string workDirectory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(_gmshData.InpFileName)),
+                                                "SweepQuadWild");
+            Directory.CreateDirectory(workDirectory);
+            Action<string> writeOutput = message => _writeOutput?.Invoke(NameGmshEntities(message));
+            bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            //
+            Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
+            Dictionary<int, int> quadWildEdgeIdNumElements = new Dictionary<int, int>();
+            for (int round = 1; ; round++)
+            {
+                if (round > 1)
+                {
+                    _gmshData.EdgeIdNumElements.Clear();
+                    foreach (var entry in pinnedEdgeIdNumElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                    foreach (var entry in quadWildEdgeIdNumElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                    Gmsh.Model.Mesh.Clear();
+                    foreach (var entry in quadWildEdgeIdNumElements)
+                        Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+                }
+                PrepareWallEdges(walls, chains, chainBlockIndices);
+                if (round == 1)
+                {
+                    FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds, recombine);
+                    foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
+                }
+                GenerateMesh(1);
+                if (round == 1) _quadWildGroups = GetQuadWildGroups(blocks, walls, pinnedEdgeIdNumElements, recombine);
+                // A run whose counts still hold keeps its nodes, and the walls beside them are matched to them
+                HashSet<int> fixedNodeEdgeIds = new HashSet<int>();
+                foreach (var group in _quadWildGroups)
+                {
+                    if (group.Mesh == null) continue;
+                    //
+                    List<int> changedEdgeIds;
+                    if (SweepQuadWildMesher.ApplyEdgeNodes(group, out changedEdgeIds))
+                    {
+                        fixedNodeEdgeIds.UnionWith(group.EdgeIds);
+                        continue;
+                    }
+                    foreach (var edgeId in changedEdgeIds)
+                    {
+                        if (!quadWildEdgeIdNumElements.ContainsKey(edgeId)) continue;
+                        group.FixedEdgeIds.Add(edgeId);
+                        quadWildEdgeIdNumElements[edgeId] = SweepWallTopology.GetElementCount(edgeId);
+                    }
+                    writeOutput("Sweep: the side surfaces changed the element count of " +
+                                String.Join(", ", changedEdgeIds.Select(id => "Edge " + id)) + " of " +
+                                group.GetDescription() + ", which QuadWild meshes again.");
+                    group.Mesh = null;
+                }
+                MatchOppositeSideSpacing(walls, fixedNodeEdgeIds);
+                //
+                List<SweepQuadWildGroup> groupsToMesh = _quadWildGroups.Where(group => group.Mesh == null).ToList();
+                if (groupsToMesh.Count == 0) break;
+                if (round == _maxQuadWildRounds)
+                    throw new CaeException("The element counts of the sweep side surfaces and of the source surfaces " +
+                                           "QuadWild meshes did not settle in " + _maxQuadWildRounds + " rounds.");
+                // The triangulation QuadWild starts from
+                GenerateMesh(2);
+                foreach (var group in groupsToMesh)
+                {
+                    // A group QuadWild cannot mesh, or meshes without following its edges - a thin wedge between a
+                    // feature line and the boundary meeting at a small angle is one - is left to gmsh, as a source is
+                    // without QuadWild. Its surfaces touch no other group, so no other run depends on its edges
+                    try
+                    {
+                        group.Mesh = SweepQuadWildMesher.Mesh(group, sweepMesh, _gmshData.QuadWildDirectory,
+                                                              workDirectory, writeOutput);
+                    }
+                    catch (CaeException ex)
+                    {
+                        writeOutput("Sweep: " + ex.Message + " Gmsh meshes " + group.GetDescription() + " instead of " +
+                                    "QuadWild.");
+                        _quadWildGroups.Remove(group);
+                        _quadWildSourceIds.ExceptWith(group.SurfaceIds);
+                        foreach (var surfaceId in group.SurfaceIds)
+                        {
+                            if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
+                        }
+                        foreach (var edgeId in group.EdgeIds) quadWildEdgeIdNumElements.Remove(edgeId);
+                        continue;
+                    }
+                    foreach (var edgeId in group.FreeEdgeIds)
+                        quadWildEdgeIdNumElements[edgeId] = group.Mesh.GetNumOfElements(edgeId);
+                }
+            }
+        }
+        /// <summary>
+        /// The QuadWild sources in groups of surfaces that touch along an edge. An edge is fixed when the user pinned
+        /// its count, when it follows the sweep or lies on the target side of a wall, when it is one of a pair of
+        /// imprint edges, or when it bounds a surface that is neither a QuadWild source nor a wall - another part, a
+        /// target, or a source left to gmsh; every other edge is free. A surface whose every edge is fixed needs an
+        /// even number of elements around it, since every quadrilateral has four sides, so one with an odd number
+        /// is left to gmsh, as a source is without QuadWild, and the groups are formed again without it.
+        /// </summary>
+        private List<SweepQuadWildGroup> GetQuadWildGroups(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                           Dictionary<int, int> pinnedEdgeIdNumElements, bool recombine)
+        {
+            HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+            // Counts no wall derives from another: the pins, the layers and the imprint pairs. A wall's side is set by
+            // them when the other side is, so they spread over the walls; the sides no wall derives from them are
+            // derived from a source side, and are fixed for QuadWild as target sides, but not in turn
+            HashSet<int> setEdgeIds = new HashSet<int>(pinnedEdgeIdNumElements.Keys);
+            foreach (var wall in walls) setEdgeIds.UnionWith(wall.DirectionEdgeIds);
+            foreach (var block in blocks)
+            {
+                if (block.ImprintEdgeCopyIds == null) continue;
+                foreach (var entry in block.ImprintEdgeCopyIds)
+                {
+                    setEdgeIds.Add(entry.Key);
+                    setEdgeIds.Add(entry.Value);
+                }
+            }
+            bool added = true;
+            while (added)
+            {
+                added = false;
+                foreach (var wall in walls)
+                {
+                    if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                    if (wall.TargetEdgeIds.All(setEdgeIds.Contains))
+                        foreach (var edgeId in wall.SourceEdgeIds) added |= setEdgeIds.Add(edgeId);
+                    if (wall.SourceEdgeIds.All(setEdgeIds.Contains))
+                        foreach (var edgeId in wall.TargetEdgeIds) added |= setEdgeIds.Add(edgeId);
+                }
+            }
+            HashSet<int> alwaysFixedEdgeIds = new HashSet<int>(setEdgeIds);
+            foreach (var wall in walls) alwaysFixedEdgeIds.UnionWith(wall.TargetEdgeIds);
+            //
+            int[] edgeIds;
+            int[] faceIds;
+            int[] vertexIds;
+            while (true)
+            {
+                Dictionary<int, int[]> surfaceIdEdgeIds = new Dictionary<int, int[]>();
+                HashSet<int> fixedEdgeIds = new HashSet<int>();
+                foreach (var surfaceId in _quadWildSourceIds.OrderBy(id => id))
+                {
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                    surfaceIdEdgeIds[surfaceId] = edgeIds;
+                    foreach (var edgeId in edgeIds)
+                    {
+                        if (alwaysFixedEdgeIds.Contains(edgeId)) fixedEdgeIds.Add(edgeId);
+                        else
+                        {
+                            Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out _);
+                            if (faceIds.Any(id => !_quadWildSourceIds.Contains(id) && !wallSurfaceIds.Contains(id)))
+                                fixedEdgeIds.Add(edgeId);
+                        }
+                    }
+                }
+                //
+                int oddSurfaceId = 0;
+                int numOfElements = 0;
+                foreach (var entry in surfaceIdEdgeIds)
+                {
+                    if (!entry.Value.All(fixedEdgeIds.Contains)) continue;
+                    numOfElements = entry.Value.Sum(id => SweepWallTopology.GetElementCount(id));
+                    if (numOfElements % 2 == 0) continue;
+                    oddSurfaceId = entry.Key;
+                    break;
+                }
+                if (oddSurfaceId != 0)
+                {
+                    _quadWildSourceIds.Remove(oddSurfaceId);
+                    if (recombine) Gmsh.Model.Mesh.SetRecombine(2, oddSurfaceId);
+                    _writeOutput?.Invoke(NameGmshEntities("Sweep: every edge of Surface " + oddSurfaceId + " is fixed " +
+                                                          "and they carry " + numOfElements + " elements together, an " +
+                                                          "odd number no quadrilateral mesh can have, so the surface " +
+                                                          "is meshed with gmsh instead of QuadWild."));
+                    continue;
+                }
+                // Surfaces sharing an edge are meshed together
+                Dictionary<int, int> parent = new Dictionary<int, int>();
+                Dictionary<int, int> edgeIdSurfaceId = new Dictionary<int, int>();
+                foreach (var entry in surfaceIdEdgeIds)
+                {
+                    Find(parent, entry.Key);
+                    foreach (var edgeId in entry.Value)
+                    {
+                        int otherSurfaceId;
+                        if (edgeIdSurfaceId.TryGetValue(edgeId, out otherSurfaceId)) Unite(parent, entry.Key, otherSurfaceId);
+                        else edgeIdSurfaceId[edgeId] = entry.Key;
+                    }
+                }
+                List<SweepQuadWildGroup> groups = new List<SweepQuadWildGroup>();
+                foreach (var surfaceIds in surfaceIdEdgeIds.Keys.GroupBy(id => Find(parent, id))
+                                                                .Select(group => group.OrderBy(id => id).ToArray())
+                                                                .OrderBy(ids => ids[0]))
+                {
+                    SortedSet<int> groupEdgeIds = new SortedSet<int>();
+                    foreach (var surfaceId in surfaceIds) groupEdgeIds.UnionWith(surfaceIdEdgeIds[surfaceId]);
+                    SortedSet<int> groupVertexIds = new SortedSet<int>();
+                    foreach (var edgeId in groupEdgeIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                        groupVertexIds.UnionWith(vertexIds);
+                    }
+                    groups.Add(new SweepQuadWildGroup(groups.Count + 1, surfaceIds, groupEdgeIds.ToArray(),
+                                                      groupVertexIds.ToArray(),
+                                                      new HashSet<int>(groupEdgeIds.Where(fixedEdgeIds.Contains))));
+                }
+                return groups;
+            }
+        }
+        /// <summary>
         /// Places the nodes of the two opposite sides of every wall across from each other. A wall is meshed as a
         /// structured grid, which joins the k-th node of one side to the k-th node of the other, but the two
         /// sides are meshed as curves of their own: a side of several edges carries the density of each of them -
@@ -1568,7 +1834,7 @@ namespace CaeMesh
         /// such pairs. The source and target sides are matched, and so are the two sides along the sweep, but
         /// only on a wall whose one side is the other moved.
         /// </summary>
-        private void MatchOppositeSideSpacing(List<SweepWall> walls)
+        private void MatchOppositeSideSpacing(List<SweepWall> walls, HashSet<int> fixedEdgeIds)
         {
             int count;
             Dictionary<int, int> edgeIdNumOfUses = new Dictionary<int, int>();
@@ -1608,16 +1874,17 @@ namespace CaeMesh
             foreach (var wall in walls)
             {
                 if (wall.SourceEdgeIds.All(sourceEdgeIds.Contains) && wall.TargetEdgeIds.All(targetEdgeIds.Contains))
-                    MatchSideSpacing(wall.SourceEdgeIds, wall.TargetEdgeIds, true, edgeIdNumOfUses);
+                    MatchSideSpacing(wall.SourceEdgeIds, wall.TargetEdgeIds, true, edgeIdNumOfUses, fixedEdgeIds);
                 List<int[]> directionSides = GetEdgeChains(wall.DirectionEdgeIds);
                 if (directionSides.Count == 2)
-                    MatchSideSpacing(directionSides[0], directionSides[1], false, edgeIdNumOfUses);
+                    MatchSideSpacing(directionSides[0], directionSides[1], false, edgeIdNumOfUses, fixedEdgeIds);
             }
         }
         private static void MatchSideSpacing(int[] edgeIds1, int[] edgeIds2, bool firstIsSource,
-                                             Dictionary<int, int> edgeIdNumOfUses)
+                                             Dictionary<int, int> edgeIdNumOfUses, HashSet<int> fixedEdgeIds)
         {
-            if (!edgeIds1.Concat(edgeIds2).Any(id => edgeIdNumOfUses[id] == 1)) return;
+            Func<int, bool> isMovable = id => edgeIdNumOfUses[id] == 1 && (fixedEdgeIds == null || !fixedEdgeIds.Contains(id));
+            if (!edgeIds1.Concat(edgeIds2).Any(isMovable)) return;
             SweepSideNodes side1 = SweepSideNodes.Create(edgeIds1);
             SweepSideNodes side2 = SweepSideNodes.Create(edgeIds2);
             if (side1 == null || side2 == null || side1.NumOfNodes != side2.NumOfNodes) return;
@@ -1653,7 +1920,7 @@ namespace CaeMesh
             Func<SweepSideNodes, int, bool> isFixed = (side, k) =>
             {
                 int edgeId = side.GetEdgeId(k);
-                return edgeId == 0 || edgeIdNumOfUses[edgeId] != 1;
+                return edgeId == 0 || !isMovable(edgeId);
             };
             // The mismatch between the two sides is what a node that neither side can move leaves behind: a
             // vertex of one side opposite a node the other side shares with another wall. It is spread evenly
@@ -2359,7 +2626,7 @@ namespace CaeMesh
             // to one count and the sides resolved again from it
             Dictionary<int, int> crossEdgePins =
                 GetOppositeCrossEdgePins(walls, MergeEdgeElements(sourceEdgeIdNumOfElements,
-                                                                  targetEdgeIdNumOfElements));
+                                                                  targetEdgeIdNumOfElements), _quadWildSourceIds);
             crossEdgePins = MergeEdgeElements(crossEdgePins, seededEdgeIdNumOfElements);
             if (crossEdgePins.Count > seededEdgeIdNumOfElements.Count)
                 ResolveCrossEdgeElements(walls, null, crossEdgePins, seededEdgeIdNumOfElements, out sourceEdgeIdNumOfElements,
@@ -2776,10 +3043,11 @@ namespace CaeMesh
         /// it is broken. The pair takes the larger of the two counts, held down to what the side with the
         /// least to give can spare, since every other edge of a side keeps an element of its own. An edge
         /// that is the only one of its side carries its wall's whole total and is not free, so it is pinned
-        /// only at the count it already has.
+        /// only at the count it already has. A source QuadWild meshes is no grid, and its edges keep their counts.
         /// </summary>
         private static Dictionary<int, int> GetOppositeCrossEdgePins(List<SweepWall> walls,
-                                                                     Dictionary<int, int> edgeIdNumOfElements)
+                                                                     Dictionary<int, int> edgeIdNumOfElements,
+                                                                     HashSet<int> quadWildSourceIds)
         {
             HashSet<int> fixedEdgeIds = new HashSet<int>();
             HashSet<int> wallSurfaceIds = new HashSet<int>();
@@ -2804,7 +3072,7 @@ namespace CaeMesh
                 //
                 foreach (var faceId in faceIds)
                 {
-                    if (wallSurfaceIds.Contains(faceId)) continue;
+                    if (wallSurfaceIds.Contains(faceId) || quadWildSourceIds.Contains(faceId)) continue;
                     //
                     int oppositeEdgeId;
                     if (!TryGetOppositeEdgeId(entry.Key, faceId, vertexIds, out oppositeEdgeId)) continue;

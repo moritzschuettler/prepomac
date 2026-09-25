@@ -63,6 +63,10 @@ namespace PrePoMax
             }
             return partMeshSetupItems == null ? meshSetupItems : partMeshSetupItems;
         }
+        private static string GetQuadWildDirectory()
+        {
+            return Path.GetDirectoryName(Application.StartupPath + Globals.QuadWildMesher);
+        }
         public bool CanCreateMeshFromBrep(GeometryPart part)
         {
             return true;
@@ -162,6 +166,7 @@ namespace PrePoMax
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = GetSetupItemsForPart(part, gmshSetupItems);
             gmshData.Preview = true;
+            gmshData.QuadWildDirectory = GetQuadWildDirectory();
             _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
             _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
             gmshData.WriteToFile(gmshDataFileName);
@@ -525,6 +530,7 @@ namespace PrePoMax
                 gmshData.PartMeshingParameters = partMeshingParameters;
                 gmshData.GmshSetupItems = GetSetupItemsForPart(part, meshSetupItems);
                 gmshData.Preview = false;
+                gmshData.QuadWildDirectory = GetQuadWildDirectory();
                 _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
                 _controller.GetMeshItemSizes(part.Name, ref gmshData);
                 gmshData.WriteToFile(gmshDataFileName);

@@ -114,16 +114,16 @@ namespace PrePoMax
             // The output of a shell compound with its seam copies merged
             string mergedObjFileName = tracePrefix + "_merged.obj";
             //
-            DeleteIfExists(objFileName);
-            DeleteIfExists(sharpFileName);
-            DeleteIfExists(nodesFileName);
-            DeleteIfExists(prepConfigFileName);
-            DeleteIfExists(flowConfigFileName);
-            DeleteIfExists(preparedObjFileName);
-            foreach (string tracedFileName in tracedFileNames) DeleteIfExists(tracedFileName);
-            DeleteIfExists(smoothObjFileName);
-            DeleteIfExists(unsmoothedObjFileName);
-            DeleteIfExists(mergedObjFileName);
+            QuadWildRuntime.DeleteIfExists(objFileName);
+            QuadWildRuntime.DeleteIfExists(sharpFileName);
+            QuadWildRuntime.DeleteIfExists(nodesFileName);
+            QuadWildRuntime.DeleteIfExists(prepConfigFileName);
+            QuadWildRuntime.DeleteIfExists(flowConfigFileName);
+            QuadWildRuntime.DeleteIfExists(preparedObjFileName);
+            foreach (string tracedFileName in tracedFileNames) QuadWildRuntime.DeleteIfExists(tracedFileName);
+            QuadWildRuntime.DeleteIfExists(smoothObjFileName);
+            QuadWildRuntime.DeleteIfExists(unsmoothedObjFileName);
+            QuadWildRuntime.DeleteIfExists(mergedObjFileName);
             //
             FeMesh triangularMesh = CreateTriangularMesh(part, shellQuadWild, workDirectory, null);
             QuadWildInputFileInfo inputInfo = QuadWildInputWriter.Write(objFileName, sharpFileName, nodesFileName,
@@ -162,17 +162,10 @@ namespace PrePoMax
             string executable = Application.StartupPath + Globals.QuadWildMesher;
             string patchExecutable = Application.StartupPath + Globals.QuadWildPatchMesher;
             string runtimeDirectory = Path.GetDirectoryName(executable);
-            ValidateRuntime(executable, patchExecutable, runtimeDirectory);
-            //
-            string prepTemplateFileName = Path.Combine(runtimeDirectory, "config", "prep_config", "basic_setup.txt");
-            WriteConfig(prepTemplateFileName, prepConfigFileName,
-                        new Dictionary<string, string>()
-                        {
-                            // The triangulation mesher controls the input; QuadWild's remesher would move
-                            // the model vertices and prescribed nodes
-                            { "do_remesh", "0" }
-                        },
-                        shellQuadWild.OldAlgorithm ? OldAlgorithmPrepOptions : null);
+            QuadWildRuntime.ValidateRuntime(executable, patchExecutable, runtimeDirectory);
+            // The triangulation mesher controls the input; QuadWild's remesher would move the model vertices and
+            // prescribed nodes
+            QuadWildRuntime.WritePrepConfig(runtimeDirectory, prepConfigFileName, shellQuadWild.OldAlgorithm);
             if (shellQuadWild.PinEdgeNodes)
                 _controller.Form.WriteDataToOutput("QuadWild edge nodes: pinned, every node of the triangulation on " +
                                                    "the model edges is kept.");
@@ -181,10 +174,15 @@ namespace PrePoMax
                                                    "quality improvements.");
             //
             _controller.Form.WriteDataToOutput("Running QuadWild preparation and patch tracing...");
-            string argument = Quote(objFileName) + " 2 " + Quote(prepConfigFileName) + " " + Quote(sharpFileName);
+            string argument = QuadWildRuntime.Quote(objFileName) + " 2 " + QuadWildRuntime.Quote(prepConfigFileName) +
+                              " " + QuadWildRuntime.Quote(sharpFileName);
             bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
                                               workDirectory, tracedFileNames);
-            EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName, inputInfo.SeamEdgeCount > 0);
+            QuadWildRuntime.EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName,
+                                                  inputInfo.SeamEdgeCount > 0 ?
+                                                  "In a shell compound a sheet bounded only by short seams can " +
+                                                  "need more elements per seam: try a smaller maximum element size." :
+                                                  null);
             if (shellQuadWild.Preview)
             {
                 _controller.Form.WriteDataToOutput("QuadWild preview with debug visualization: importing the traced " +
@@ -201,25 +199,9 @@ namespace PrePoMax
                     RetainWorkDirectory = shellQuadWild.KeepFilesOnFailure && preparationFailed
                 };
             }
-            string flowTemplateName;
-            if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.Aligned) flowTemplateName = "flow.txt";
-            else if (shellQuadWild.FlowProfile == QuadWildFlowProfileEnum.NoAlignment)
-                flowTemplateName = "flow_noalign.txt";
-            else throw new CaeException("The selected QuadWild flow profile is not supported.");
-            string flowTemplateFileName = Path.Combine(runtimeDirectory, "config", "main_config", flowTemplateName);
-            string flowDependencyFileName = Path.Combine(runtimeDirectory, "config", "main_config",
-                                                          "flow_virtual_simple.json");
-            string satsumaDependencyFileName = Path.Combine(runtimeDirectory, "config", "satsuma", "default.json");
-            WriteConfig(flowTemplateFileName, flowConfigFileName,
-                        new Dictionary<string, string>()
-                        {
-                            { "alpha", shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) },
-                            // The quad size follows the triangulation: its sizes and edge node counts
-                            { "scaleFact", "1" },
-                            { "flow_config_filename", QuoteQuadWildPath(flowDependencyFileName) },
-                            { "satsuma_config_filename", QuoteQuadWildPath(satsumaDependencyFileName) }
-                        },
-                        shellQuadWild.OldAlgorithm ? OldAlgorithmFlowOptions : null);
+            QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, shellQuadWild.FlowProfile,
+                                            shellQuadWild.Alpha,
+                                            shellQuadWild.OldAlgorithm ? QuadWildRuntime.OldAlgorithmFlowOptions : null);
             //
             _controller.Form.WriteDataToOutput("Running QuadWild quad generation (" +
                                                GetFlowProfileName(shellQuadWild.FlowProfile) +
@@ -227,7 +209,7 @@ namespace PrePoMax
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +
                                                ")...");
-            argument = Quote(tracedObjFileName) + " 1 " + Quote(flowConfigFileName);
+            argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             // Both files are required even when only one is imported, so that a stage that died part way
             // through is still recognized by the freshly-written-output check.
             bool quadGenerationFailed = RunStage(part.Name, "quad generation", patchExecutable, argument,
@@ -353,129 +335,20 @@ namespace PrePoMax
                 if (jobStatus == JobStatus.Killed)
                     throw new CaeException("QuadWild " + stageName + " was canceled.");
                 else if ((jobStatus == JobStatus.Failed || jobStatus == JobStatus.FailedWithResults) &&
-                         AreFilesWritten(expectedFileNames))
+                         QuadWildRuntime.AreFilesWritten(expectedFileNames))
                     _controller.Form.WriteDataToOutput("QuadWild " + stageName + " returned " + jobStatus +
                                                        " after writing its output; validating the output...");
                 else
                     throw new CaeException("QuadWild " + stageName + " failed (" + jobStatus + ").");
             }
-            EnsureFilesWritten(stageName, expectedFileNames);
+            QuadWildRuntime.EnsureFilesWritten(stageName, expectedFileNames);
             return jobStatus != JobStatus.OK;
-        }
-        private static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory)
-        {
-            if (!File.Exists(executable))
-                throw new CaeException("The QuadWild executable was not found: " + executable);
-            if (!File.Exists(patchExecutable))
-                throw new CaeException("The QuadWild patch executable was not found: " + patchExecutable);
-            if (String.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
-                throw new CaeException("The QuadWild runtime directory was not found.");
-        }
-        // QuadWild options that switch off the patch layout (stage 1) and mesh quality (stage 2) improvements
-        private static readonly string[] OldAlgorithmPrepOptions = new string[]
-        {
-            "max_side_turning 0", "aligned_hole_corners 0", "thin_patch_ratio 0"
-        };
-        private static readonly string[] OldAlgorithmFlowOptions = new string[]
-        {
-            "input_line_count 0", "input_mesh_size 0", "graded_alpha 0", "field_smooth_sweeps 0",
-            "split_boundary_fans 0", "smooth_curves 0"
-        };
-        private static void WriteConfig(string templateFileName, string outputFileName,
-                                        Dictionary<string, string> replacements,
-                                        IEnumerable<string> extraLines = null)
-        {
-            if (!File.Exists(templateFileName))
-                throw new CaeException("The QuadWild configuration file was not found: " + templateFileName);
-            string[] lines = File.ReadAllLines(templateFileName);
-            HashSet<string> replacedKeys = new HashSet<string>();
-            for (int i = 0; i < lines.Length; i++)
-            {
-                foreach (var replacement in replacements)
-                {
-                    if (lines[i].StartsWith(replacement.Key + " ", StringComparison.Ordinal))
-                    {
-                        lines[i] = replacement.Key + " " + replacement.Value;
-                        replacedKeys.Add(replacement.Key);
-                        break;
-                    }
-                }
-            }
-            string missingKey = replacements.Keys.FirstOrDefault(key => !replacedKeys.Contains(key));
-            if (missingKey != null)
-                throw new CaeException("The QuadWild configuration entry '" + missingKey + "' was not found in " +
-                                       templateFileName + ".");
-            // optional "key value" lines at the end, read by QuadWild's option parser
-            if (extraLines != null)
-                lines = lines.Concat(extraLines).ToArray();
-            File.WriteAllText(outputFileName, String.Join(Environment.NewLine, lines) + Environment.NewLine,
-                              new UTF8Encoding(false));
-        }
-        private static string Quote(string value)
-        {
-            if (value == null || value.Contains("\""))
-                throw new CaeException("A QuadWild file path is invalid.");
-            return "\"" + value + "\"";
-        }
-        private static string QuoteQuadWildPath(string value)
-        {
-            if (!File.Exists(value))
-                throw new CaeException("A QuadWild configuration dependency was not found: " + value);
-            return Quote(value.Replace('\\', '/'));
         }
         private static string GetFlowProfileName(QuadWildFlowProfileEnum flowProfile)
         {
             if (flowProfile == QuadWildFlowProfileEnum.Aligned) return "aligned flow";
             else if (flowProfile == QuadWildFlowProfileEnum.NoAlignment) return "no alignment";
             else return flowProfile.ToString();
-        }
-        private static void DeleteIfExists(string fileName)
-        {
-            if (File.Exists(fileName)) File.Delete(fileName);
-        }
-        private static void EnsureFilesWritten(string stageName, params string[] fileNames)
-        {
-            foreach (string fileName in fileNames)
-            {
-                if (!File.Exists(fileName) || new FileInfo(fileName).Length == 0)
-                    throw new CaeException("QuadWild " + stageName + " did not create the expected file: " +
-                                           fileName);
-            }
-        }
-        private static bool AreFilesWritten(string[] fileNames)
-        {
-            return fileNames != null && fileNames.Length > 0 &&
-                   fileNames.All(fileName => File.Exists(fileName) && new FileInfo(fileName).Length > 0);
-        }
-        // The tracer deletes every patch it could not make disk-like and then reports success, so a model
-        // that lost most of its surface still leaves a readable but almost empty traced mesh behind. Tracing
-        // splits triangles and never removes them, so a drop in the triangle count means patches were erased.
-        private static void EnsureNoPatchesErased(string preparedObjFileName, string tracedObjFileName, bool hasSeams)
-        {
-            if (!File.Exists(preparedObjFileName) || !File.Exists(tracedObjFileName)) return;
-            int preparedFaceCount = CountObjFaces(preparedObjFileName);
-            int tracedFaceCount = CountObjFaces(tracedObjFileName);
-            if (preparedFaceCount <= 0 || tracedFaceCount >= preparedFaceCount) return;
-            //
-            throw new CaeException("QuadWild patch tracing discarded " +
-                                   (preparedFaceCount - tracedFaceCount) + " of " + preparedFaceCount +
-                                   " triangles because it could not split the surface into disk-like patches. " +
-                                   "The remaining mesh would cover only a part of the model." +
-                                   (hasSeams ? " In a shell compound a sheet bounded only by short seams can need " +
-                                               "more elements per seam: try a smaller maximum element size." : ""));
-        }
-        private static int CountObjFaces(string fileName)
-        {
-            int faceCount = 0;
-            using (StreamReader reader = new StreamReader(fileName))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (line.StartsWith("f ", StringComparison.Ordinal)) faceCount++;
-                }
-            }
-            return faceCount;
         }
         // Merges the output vertices that lie at the position of a split input node into one vertex and removes the
         // copies. The copies of a prescribed seam node are snapped to its input coordinates; QuadWild stores its quad

@@ -17,7 +17,7 @@ Upstream source: https://github.com/cgg-bern/quadwild-bimdf
 License: GPL-3.0. The distributable license and provenance notice are stored in
 Licenses/quadwild/ and copied beside the executables during the PrePoMax build.
 
-SHA-256 checksums of the binaries (modified build, 2026-09-24):
+SHA-256 checksums of the binaries (modified build, 2026-09-25):
 
     2BB3547DCF24F9F9B48DFC5D329A4A1F44E0C49F44C515826D01A4EC3499F89F  quadwild.exe
-    9F040FF2E9B729B728D17371A67A5B093285609A0ADB63647658F26ECFC48E30  quad_from_patches.exe
+    52F6426B93C3E9493FEAA8CC58401DFD9FB67D841A871A8D50E3333FFF7BAB81  quad_from_patches.exe

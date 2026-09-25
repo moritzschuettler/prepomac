@@ -44,6 +44,7 @@ namespace CaeMesh
         public Dictionary<int, int> EdgeIdNumElements;
         // Sweep
         public HashSet<int>[] EdgeIdsBySweepLayer;
+        public string QuadWildDirectory;
         // Normals
         public Dictionary<int, FeNode[]> FaceIdNodes;
         public Dictionary<int, List<Vec3D>> NodeIdNormals;

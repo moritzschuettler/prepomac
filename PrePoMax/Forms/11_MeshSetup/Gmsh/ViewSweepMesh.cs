@@ -50,6 +50,52 @@ namespace PrePoMax.Forms
             set { _sweepMesh.KeepImprintEdges = value; }
         }
         //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(1, 10, "2D meshing algorithm")]
+        [DescriptionAttribute("Select the algorithm for the surface meshing. QuadWild meshes the source surfaces with " +
+                              "quadrilaterals and chooses the number of elements on every source edge whose count is " +
+                              "not fixed by an edge mesh size, by the layers of another sweep block or by a " +
+                              "neighbouring part; gmsh meshes the side surfaces.")]
+        [Id(1, 3)]
+        public SweepAlgorithmMesh2DEnum SweepAlgorithmMesh2D
+        {
+            get { return _sweepMesh.SweepAlgorithmMesh2D; }
+            set { _sweepMesh.SweepAlgorithmMesh2D = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(7, 10, "Flow profile")]
+        [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
+        [Id(8, 3)]
+        public QuadWildFlowProfileEnum QuadWildFlowProfile
+        {
+            get { return _sweepMesh.QuadWildFlowProfile; }
+            set { _sweepMesh.QuadWildFlowProfile = value; }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(8, 10, "Alpha")]
+        [DescriptionAttribute("Controls the QuadWild trade-off between regularity and isometry. Values near 0 favor " +
+                              "regularity; larger values allow more singularities.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        [Id(9, 3)]
+        public double QuadWildAlpha
+        {
+            get { return _sweepMesh.QuadWildAlpha; }
+            set { _sweepMesh.QuadWildAlpha = value; }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(9, 10, "Smooth")]
+        [DescriptionAttribute("Use the smoothed QuadWild quadrangulation. Set to No to use the unsmoothed one, which " +
+                              "has the same topology.")]
+        [Id(10, 3)]
+        public bool QuadWildSmooth
+        {
+            get { return _sweepMesh.QuadWildSmooth; }
+            set { _sweepMesh.QuadWildSmooth = value; }
+        }
+        //
         [CategoryAttribute("Mesh smoothing")]
         [OrderedDisplayName(0, 10, "Global smooth steps")]
         [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing. " +
@@ -70,7 +116,9 @@ namespace PrePoMax.Forms
             SetBase(_sweepMesh);
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepImprintEdges));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(QuadWildSmooth));
             //
+            _dctd.GetProperty(nameof(AlgorithmMesh2D)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(AlgorithmMesh3D)).SetIsBrowsable(false);
             //
             _dctd.GetProperty(nameof(ElementSizeType)).SetIsBrowsable(false);
@@ -88,7 +136,24 @@ namespace PrePoMax.Forms
         // Methods
         public override void UpdateVisibility()
         {
+            // QuadWild takes the place of the gmsh options for the surfaces: the recombination, the transfinite faces
+            // and the optimisation
+            bool quadWild = _sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild;
+            _dctd.GetProperty(nameof(AlgorithmRecombine)).SetIsBrowsable(!quadWild);
+            _dctd.GetProperty(nameof(TransfiniteThreeSided)).SetIsBrowsable(!quadWild);
+            _dctd.GetProperty(nameof(TransfiniteFourSided)).SetIsBrowsable(!quadWild);
+            _dctd.GetProperty(nameof(OptimizeFirstOrderShell)).SetIsBrowsable(!quadWild);
+            //
             base.UpdateVisibility();
+            //
+            if (quadWild)
+            {
+                _dctd.GetProperty(nameof(RecombineMinQuality)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(false);
+            }
+            _dctd.GetProperty(nameof(QuadWildFlowProfile)).SetIsBrowsable(quadWild);
+            _dctd.GetProperty(nameof(QuadWildAlpha)).SetIsBrowsable(quadWild);
+            _dctd.GetProperty(nameof(QuadWildSmooth)).SetIsBrowsable(quadWild);
         }
         public override MeshSetupItem GetBase()
         {

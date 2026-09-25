@@ -153,6 +153,11 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepProjector.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuality.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSideNodes.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildGroup.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildInput.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildMesh.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildMesher.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildNode.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />
     <Compile Include="Meshing\Gmsh\Revolve\RevolveMethods.cs" />
@@ -170,6 +175,8 @@
     <Compile Include="Meshing\Gmsh\SetupItems\ExtrudeMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSourceTypeEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\SweepAlgorithmMesh2DEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\SweepSourceMesherEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeGrid.cs" />
@@ -177,6 +184,7 @@
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeRecoveryInfo.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildModelEdge.cs" />
     <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
+    <Compile Include="Meshing\QuadWild\QuadWildRuntime.cs" />
     <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
     <Compile Include="Meshing\Mmg\SetupItems\ShellMmg.cs" />
     <Compile Include="Meshing\Netgen\Enums\NetgenTransfiniteFacesEnum.cs" />

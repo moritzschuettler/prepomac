@@ -32,6 +32,10 @@ namespace CaeMesh
         private int[][][] _layerGroupEdgeIds;                           // ISerializable
         private double[][] _blockArrowStarts;                           // ISerializable
         private double[][] _blockArrowDirections;                       // ISerializable
+        private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
+        private double _quadWildAlpha;                                  // ISerializable
+        private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
+        private bool _quadWildSmooth;                                   // ISerializable
 
 
         // Properties                                                                                                               
@@ -52,6 +56,44 @@ namespace CaeMesh
         public int[][][] LayerGroupEdgeIds { get { return _layerGroupEdgeIds; } set { _layerGroupEdgeIds = value; } }
         public double[][] BlockArrowStarts { get { return _blockArrowStarts; } set { _blockArrowStarts = value; } }
         public double[][] BlockArrowDirections { get { return _blockArrowDirections; } set { _blockArrowDirections = value; } }
+        public SweepSourceMesherEnum SourceMesher { get { return _sourceMesher; } set { _sourceMesher = value; } }
+        /// <summary>
+        /// The 2D meshing algorithm as the user chooses it: QuadWild for a sweep whose sources QuadWild meshes, else
+        /// the gmsh algorithm. Choosing QuadWild keeps the gmsh algorithm, which still meshes the other surfaces.
+        /// </summary>
+        public SweepAlgorithmMesh2DEnum SweepAlgorithmMesh2D
+        {
+            get
+            {
+                if (_sourceMesher == SweepSourceMesherEnum.QuadWild) return SweepAlgorithmMesh2DEnum.QuadWild;
+                return (SweepAlgorithmMesh2DEnum)AlgorithmMesh2D;
+            }
+            set
+            {
+                if (value == SweepAlgorithmMesh2DEnum.QuadWild) _sourceMesher = SweepSourceMesherEnum.QuadWild;
+                else
+                {
+                    _sourceMesher = SweepSourceMesherEnum.Gmsh;
+                    AlgorithmMesh2D = (GmshAlgorithmMesh2DEnum)value;
+                }
+            }
+        }
+        public double QuadWildAlpha
+        {
+            get { return _quadWildAlpha; }
+            set
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1)
+                    throw new CaeException("The QuadWild alpha value must be a finite number from 0 to 1.");
+                _quadWildAlpha = value;
+            }
+        }
+        public QuadWildFlowProfileEnum QuadWildFlowProfile
+        {
+            get { return _quadWildFlowProfile; }
+            set { _quadWildFlowProfile = value; }
+        }
+        public bool QuadWildSmooth { get { return _quadWildSmooth; } set { _quadWildSmooth = value; } }
 
 
         // Constructors                                                                                                             
@@ -63,11 +105,14 @@ namespace CaeMesh
         public SweepMesh(ExtrudeMesh extrudeMesh)
             : base("tmpName")
         {
+            SetQuadWildDefaults();
             CopyFrom(extrudeMesh);
         }
         public SweepMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            // An item written before the source mesher could be chosen was meshed with gmsh
+            SetQuadWildDefaults();
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -103,6 +148,14 @@ namespace CaeMesh
                         _blockArrowStarts = (double[][])entry.Value; break;
                     case "_blockArrowDirections":
                         _blockArrowDirections = (double[][])entry.Value; break;
+                    case "_sourceMesher":
+                        _sourceMesher = (SweepSourceMesherEnum)entry.Value; break;
+                    case "_quadWildAlpha":
+                        _quadWildAlpha = (double)entry.Value; break;
+                    case "_quadWildFlowProfile":
+                        _quadWildFlowProfile = (QuadWildFlowProfileEnum)entry.Value; break;
+                    case "_quadWildSmooth":
+                        _quadWildSmooth = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -141,6 +194,14 @@ namespace CaeMesh
             _layerGroupEdgeIds = null;
             _blockArrowStarts = null;
             _blockArrowDirections = null;
+            SetQuadWildDefaults();
+        }
+        private void SetQuadWildDefaults()
+        {
+            _sourceMesher = SweepSourceMesherEnum.Gmsh;
+            _quadWildAlpha = 0.005;
+            _quadWildFlowProfile = QuadWildFlowProfileEnum.Aligned;
+            _quadWildSmooth = true;
         }
         public void CopyFrom(SweepMesh sweepMesh)
         {
@@ -154,6 +215,10 @@ namespace CaeMesh
             _blockTargetSurfaceIds = CopyBlockIds(sweepMesh._blockTargetSurfaceIds);
             _blockArrowStarts = CopyBlockCoors(sweepMesh._blockArrowStarts);
             _blockArrowDirections = CopyBlockCoors(sweepMesh._blockArrowDirections);
+            _sourceMesher = sweepMesh._sourceMesher;
+            _quadWildAlpha = sweepMesh._quadWildAlpha;
+            _quadWildFlowProfile = sweepMesh._quadWildFlowProfile;
+            _quadWildSmooth = sweepMesh._quadWildSmooth;
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -258,6 +323,10 @@ namespace CaeMesh
             info.AddValue("_layerGroupEdgeIds", _layerGroupEdgeIds, typeof(int[][][]));
             info.AddValue("_blockArrowStarts", _blockArrowStarts, typeof(double[][]));
             info.AddValue("_blockArrowDirections", _blockArrowDirections, typeof(double[][]));
+            info.AddValue("_sourceMesher", _sourceMesher, typeof(SweepSourceMesherEnum));
+            info.AddValue("_quadWildAlpha", _quadWildAlpha, typeof(double));
+            info.AddValue("_quadWildFlowProfile", _quadWildFlowProfile, typeof(QuadWildFlowProfileEnum));
+            info.AddValue("_quadWildSmooth", _quadWildSmooth, typeof(bool));
         }
     }
 }

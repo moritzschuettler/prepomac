@@ -103,10 +103,20 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("number_of_global_smooth_steps=" +
                               PythonValueFormatter.Format(sweep.NumberOfGlobalSmoothSteps));
                 AddSolidGmshValues(arguments, sweep);
+                // The 2D algorithm of a sweep may be QuadWild
+                arguments[arguments.FindIndex(argument => argument.StartsWith("algorithm_2d="))] =
+                    "algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString());
                 arguments.Add("optimize_first_order_shell=" +
                               PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
                 arguments.Add("elements_per_layer=" +
                               PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
+                if (sweep.SourceMesher == SweepSourceMesherEnum.QuadWild)
+                {
+                    arguments.Add("quad_wild_flow_profile=" +
+                                  PythonValueFormatter.Text(sweep.QuadWildFlowProfile.ToString()));
+                    arguments.Add("quad_wild_alpha=" + PythonValueFormatter.Number(sweep.QuadWildAlpha));
+                    arguments.Add("quad_wild_smooth=" + PythonValueFormatter.Format(sweep.QuadWildSmooth));
+                }
                 return "sweep_mesh";
             }
             if (item is TransfiniteMesh transfinite)
