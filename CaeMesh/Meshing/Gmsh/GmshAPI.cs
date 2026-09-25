@@ -1739,6 +1739,7 @@ namespace CaeMesh
             //
             Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
             Dictionary<int, int> quadWildEdgeIdNumElements = new Dictionary<int, int>();
+            Dictionary<int, int> directionEdgeIdNumOfElements = null;
             for (int round = 1; ; round++)
             {
                 if (round > 1)
@@ -1750,7 +1751,10 @@ namespace CaeMesh
                     foreach (var entry in quadWildEdgeIdNumElements)
                         Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
                 }
-                PrepareWallEdges(walls, chains, chainBlockIndices);
+                // QuadWild chooses no count along the sweep, so the layers of the first round hold for every round.
+                // Resolved again, from the 1D mesh the counts of the round before shaped, they came out larger each time
+                directionEdgeIdNumOfElements = PrepareWallEdges(walls, chains, chainBlockIndices,
+                                                                directionEdgeIdNumOfElements);
                 if (round == 1)
                 {
                     FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds, recombine);
@@ -1859,6 +1863,28 @@ namespace CaeMesh
             }
             HashSet<int> alwaysFixedEdgeIds = new HashSet<int>(setEdgeIds);
             foreach (var wall in walls) alwaysFixedEdgeIds.UnionWith(wall.TargetEdgeIds);
+            // A wall with one edge on each side carries one count across, so the walls join edges into runs that carry
+            // a single count. A run through two free edges of QuadWild sources - the ends of two cells meeting, over
+            // the walls of the cells between, on one edge of the part beside - would have QuadWild choose each of them
+            // on its own, and counts no wall can take both of. The edges of such a run keep the count the walls settle
+            Dictionary<int, int> runParent = new Dictionary<int, int>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 1 && wall.TargetEdgeIds.Length == 1)
+                    Unite(runParent, wall.SourceEdgeIds[0], wall.TargetEdgeIds[0]);
+            }
+            int[] surfaceEdgeIds;
+            HashSet<int> quadWildEdgeIds = new HashSet<int>();
+            foreach (var surfaceId in _quadWildSourceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out surfaceEdgeIds);
+                quadWildEdgeIds.UnionWith(surfaceEdgeIds);
+            }
+            foreach (var run in runParent.Keys.ToArray().GroupBy(id => Find(runParent, id)))
+            {
+                if (run.Count(id => quadWildEdgeIds.Contains(id) && !alwaysFixedEdgeIds.Contains(id)) > 1)
+                    alwaysFixedEdgeIds.UnionWith(run);
+            }
             //
             int[] edgeIds;
             int[] faceIds;
@@ -2696,7 +2722,9 @@ namespace CaeMesh
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft");
             }
         }
-        private void PrepareWallEdges(List<SweepWall> walls, List<SweepChain> chains, List<int> chainBlockIndices)
+        private Dictionary<int, int> PrepareWallEdges(List<SweepWall> walls, List<SweepChain> chains,
+                                                      List<int> chainBlockIndices,
+                                                      Dictionary<int, int> directionEdgeIdNumOfElements = null)
         {
             GenerateMesh(1);
             // How many elements each edge following the sweep direction gets, from the levels along the sweep
@@ -2707,18 +2735,21 @@ namespace CaeMesh
             List<int[]> tiedEdgeGroups = GetTransfiniteSourceTiedEdgeGroups(walls);
             List<int> crossSectionBlockIndices;
             List<int[]> crossSectionVertexIds = GetCrossSectionVertexIds(out crossSectionBlockIndices);
-            Dictionary<int, int> directionEdgeIdNumOfElements =
-                SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, crossSectionVertexIds,
-                                                               crossSectionBlockIndices, _gmshData.EdgeIdNumElements,
-                                                               chainBlockIndices, tiedEdgeGroups);
-            foreach (var wall in walls)
+            if (directionEdgeIdNumOfElements == null)
             {
-                foreach (var edgeId in wall.DirectionEdgeIds)
+                directionEdgeIdNumOfElements =
+                    SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, crossSectionVertexIds,
+                                                                   crossSectionBlockIndices, _gmshData.EdgeIdNumElements,
+                                                                   chainBlockIndices, tiedEdgeGroups);
+                foreach (var wall in walls)
                 {
-                    if (directionEdgeIdNumOfElements.ContainsKey(edgeId)) continue;
-                    if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
-                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
-                    directionEdgeIdNumOfElements[edgeId] = Math.Max(1, numOfElements);
+                    foreach (var edgeId in wall.DirectionEdgeIds)
+                    {
+                        if (directionEdgeIdNumOfElements.ContainsKey(edgeId)) continue;
+                        if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                            numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                        directionEdgeIdNumOfElements[edgeId] = Math.Max(1, numOfElements);
+                    }
                 }
             }
             // A four sided source the pass before the sweep made transfinite needs one count on its two opposite
@@ -2805,6 +2836,7 @@ namespace CaeMesh
             CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            return directionEdgeIdNumOfElements;
         }
         /// <summary>
         /// The element counts of the two cross-sweep sides of every wall, resolved from the source side to the
