@@ -8053,8 +8053,44 @@ namespace PrePoMax
                 return false;
             //
             SaveAutomationScreenshot(fileName, properties.TransparentBackground, properties.Magnification);
-            WriteDataToOutput("Viewport captured into: " + fileName);
+            if (!properties.CopyToClipboard)
+            {
+                WriteDataToOutput("Viewport captured into: " + fileName);
+                return true;
+            }
+            // The file is written by then, so a clipboard held open by another application costs only the copy
+            try
+            {
+                CopyPngFileToClipboard(fileName);
+                WriteDataToOutput("Viewport captured into: " + fileName + " and copied to the clipboard.");
+            }
+            catch (ExternalException ex)
+            {
+                WriteDataToOutput("Viewport captured into: " + fileName);
+                WriteDataToOutput("The viewport capture could not be copied to the clipboard: " + ex.Message);
+            }
             return true;
+        }
+        // The copy is offered twice. The PNG keeps the transparency for the applications that read it, and
+        // the bitmap, which has no alpha the pasting applications honor, is put on white as a page would be
+        private static void CopyPngFileToClipboard(string fileName)
+        {
+            byte[] pngBytes = File.ReadAllBytes(fileName);
+            using (MemoryStream imageStream = new MemoryStream(pngBytes))
+            using (Image image = Image.FromStream(imageStream))
+            using (Bitmap bitmap = new Bitmap(image.Width, image.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+            {
+                using (Graphics graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.Clear(Color.White);
+                    graphics.DrawImage(image, 0, 0, image.Width, image.Height);
+                }
+                //
+                DataObject dataObject = new DataObject();
+                dataObject.SetData("PNG", false, new MemoryStream(pngBytes));
+                dataObject.SetImage(bitmap);
+                Clipboard.SetDataObject(dataObject, true, 5, 100);
+            }
         }
         // A numbered picture of the model, in the work directory where the rest of the model's files
         // are, with the background left out. That is what the toolbar button writes without asking,

@@ -72,6 +72,18 @@ namespace PrePoMax.Forms
             get { return _properties.Magnification; }
             set { _properties.Magnification = value; }
         }
+        //
+        [CategoryAttribute("Picture")]
+        [OrderedDisplayName(2, 10, "Copy to clipboard")]
+        [DescriptionAttribute("Select yes to also copy the picture to the clipboard, so that it can be pasted " +
+                              "straight into a document. A transparent background is kept by the applications " +
+                              "that read PNG pictures from the clipboard and is white in the ones that do not.")]
+        [Id(3, 2)]
+        public bool CopyToClipboard
+        {
+            get { return _properties.CopyToClipboard; }
+            set { _properties.CopyToClipboard = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -83,6 +95,7 @@ namespace PrePoMax.Forms
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(AutoIncrement));
             _dctd.RenameBooleanPropertyToYesNo(nameof(TransparentBackground));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(CopyToClipboard));
         }
 
 

@@ -25,9 +25,10 @@ namespace PrePoMax
         private bool _autoIncrement;
         private bool _transparentBackground;
         private int _magnification;
+        private bool _copyToClipboard;
 
 
-        // Properties                                                                                                               
+        // Properties                                                                                                             
         public string Folder { get { return _folder; } set { _folder = value == null ? "" : value.Trim(); } }
         // The extension is not the user's to choose, so one typed into the name is taken off again
         public string FileName
@@ -59,6 +60,7 @@ namespace PrePoMax
                     _magnification = vtkControl.vtkControl.MaxImageMagnification;
             }
         }
+        public bool CopyToClipboard { get { return _copyToClipboard; } set { _copyToClipboard = value; } }
 
 
         // Constructors                                                                                                             
@@ -69,6 +71,7 @@ namespace PrePoMax
             _autoIncrement = true;
             _transparentBackground = true;
             _magnification = 1;
+            _copyToClipboard = true;
         }
 
 
