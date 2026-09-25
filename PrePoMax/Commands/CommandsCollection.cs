@@ -66,6 +66,15 @@ namespace PrePoMax.Commands
         public int Count { get { return _commands.Count(); } }
         public int CurrPositionIndex { get { return _currPositionIndex; } }
         public List<Command> Commands { get { return _commands; } }
+        // The last command the model was built by, which is the one an undo takes back
+        public Command LastExecutedCommand
+        {
+            get
+            {
+                if (_currPositionIndex < 0 || _currPositionIndex >= _commands.Count) return null;
+                return _commands[_currPositionIndex];
+            }
+        }
         public bool IsEnableDisableUndoRedoDefined { get { return EnableDisableUndoRedo != null; } }
         public List<string> Errors { get { return _errors; } }
 
@@ -785,6 +794,17 @@ namespace PrePoMax.Commands
                 //
                 OnEnableDisableUndoRedo();
             }
+        }
+        // The same step back as an undo, for a caller that has already put the model back to the state it had
+        // before the last command, so the history is not replayed. The command stays for a redo.
+        public void UndoWithoutRegeneration()
+        {
+            if (!IsUndoPossible) return;
+            //
+            _currPositionIndex--;
+            _controller.ModelChanged = true;
+            //
+            OnEnableDisableUndoRedo();
         }
         public void Redo()
         {

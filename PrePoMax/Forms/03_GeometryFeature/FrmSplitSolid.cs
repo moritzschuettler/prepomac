@@ -34,6 +34,7 @@ namespace PrePoMax.Forms
         private ToolTip ttText;
         private CheckBox cbAnnotateMeshTypes;
         private Button btnPreview;
+        private Button btnUndo;
 
 
         // Properties
@@ -66,6 +67,7 @@ namespace PrePoMax.Forms
             this.components = new System.ComponentModel.Container();
             this.cbAnnotateMeshTypes = new System.Windows.Forms.CheckBox();
             this.btnPreview = new System.Windows.Forms.Button();
+            this.btnUndo = new System.Windows.Forms.Button();
             this.ttText = new System.Windows.Forms.ToolTip(this.components);
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
@@ -125,6 +127,19 @@ namespace PrePoMax.Forms
             this.ttText.SetToolTip(this.btnPreview, "Preview the edges the split makes");
             this.btnPreview.UseVisualStyleBackColor = true;
             this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
+            //
+            // btnUndo
+            //
+            this.btnUndo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnUndo.Enabled = false;
+            this.btnUndo.Image = global::PrePoMax.Properties.Resources.Undo;
+            this.btnUndo.Location = new System.Drawing.Point(7, 436);
+            this.btnUndo.Name = "btnUndo";
+            this.btnUndo.Size = new System.Drawing.Size(28, 23);
+            this.btnUndo.TabIndex = 19;
+            this.ttText.SetToolTip(this.btnUndo, "Undo the last split made while this dialog is open");
+            this.btnUndo.UseVisualStyleBackColor = true;
+            this.btnUndo.Click += new System.EventHandler(this.btnUndo_Click);
             // 
             // FrmSplitSolid
             // 
@@ -132,6 +147,7 @@ namespace PrePoMax.Forms
             this.ClientSize = new System.Drawing.Size(364, 471);
             this.Controls.Add(this.cbAnnotateMeshTypes);
             this.Controls.Add(this.btnPreview);
+            this.Controls.Add(this.btnUndo);
             this.MinimumSize = new System.Drawing.Size(380, 510);
             this.Name = "FrmSplitSolid";
             this.Text = "Split Solid";
@@ -144,6 +160,7 @@ namespace PrePoMax.Forms
             this.Controls.SetChildIndex(this.gbType, 0);
             this.Controls.SetChildIndex(this.cbAnnotateMeshTypes, 0);
             this.Controls.SetChildIndex(this.btnPreview, 0);
+            this.Controls.SetChildIndex(this.btnUndo, 0);
             this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -196,6 +213,22 @@ namespace PrePoMax.Forms
             finally
             {
                 btnPreview.Enabled = true;
+            }
+        }
+        private void btnUndo_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _controller.UndoSplitGeometry();
+                HighlightGeometryFeature();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                UpdateUndoButton();
             }
         }
 
@@ -260,6 +293,7 @@ namespace PrePoMax.Forms
             finally
             {
                 _splitting = false;
+                UpdateUndoButton();
             }
             // The split has changed the geometry, so the picked ids and everything read from them are
             // stale - a part that was cut has been replaced by a compound of the pieces, and a part whose
@@ -283,6 +317,8 @@ namespace PrePoMax.Forms
         }
         protected override void OnHideOrClose()
         {
+            // The splits of this dialog can be undone only while it is open
+            _controller.EndSplitGeometryUndo();
             // Close the ItemSetSelectionForm
             ItemSetDataEditor.SelectionForm.Hide();
             //
@@ -299,6 +335,8 @@ namespace PrePoMax.Forms
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;
             _controller.ClearAllSelection();
+            _controller.BeginSplitGeometryUndo();
+            UpdateUndoButton();
             //
             PopulateListOfGeometryFeatures();
             lvTypes.Enabled = true;
@@ -319,6 +357,10 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        private void UpdateUndoButton()
+        {
+            btnUndo.Enabled = _controller.CanUndoSplitGeometry;
+        }
         private void ThrowIfGeometryFeatureCannotSplit(GeometryFeature geometryFeature)
         {
             if (geometryFeature == null) throw new CaeException("No geometry feature was selected.");

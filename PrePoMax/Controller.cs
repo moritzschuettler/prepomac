@@ -5051,9 +5051,22 @@ namespace PrePoMax
             // picked on one part does not cut another where it appears to. The operation is refused
             // rather than recorded, since what is recorded is replayed with no view at all
             ThrowIfSplitGeometryOffsetsDiffer(geometryFeature);
+            // While a split dialog keeps its undo, the geometry is copied as it stands before the split. A split
+            // changes the geometry parts and their mesh setup items, which the geometry holds, and the annotations
+            // of the parts it removes; the mesh and the rest of the model are left as they are.
+            FeMesh geometryBefore = null;
+            AnnotationContainer annotationsBefore = null;
+            if (_splitGeometryUndoStates != null)
+            {
+                geometryBefore = _model.Geometry.DeepCopy();
+                annotationsBefore = _annotations.DeepClone();
+            }
             //
             CSplitGeometry comm = new CSplitGeometry(geometryFeature);
             _commands.AddAndExecute(comm);
+            // Undoing the split steps the history back, so only a split that was recorded can be undone
+            if (geometryBefore != null && _splitGeometryUndoStates != null && _commands.LastExecutedCommand == comm)
+                _splitGeometryUndoStates.Push((comm, geometryBefore, annotationsBefore));
         }
         public void DefeatureCommand(GeometrySelection geometrySelection)
         {
@@ -5819,6 +5832,11 @@ namespace PrePoMax
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
         // A surface extraction preview is drawn on the selection layer, which is cleared only as a whole
         [NonSerialized] private bool _extractSurfacePreviewDrawn;
+        // While a split dialog is open, the geometry and the annotations as they were before each of its splits,
+        // with the command each split was recorded as, so that the splits can be undone without replaying the
+        // history. Null while no split dialog keeps an undo.
+        [NonSerialized] private Stack<(Command Command, FeMesh Geometry, AnnotationContainer Annotations)>
+                                _splitGeometryUndoStates;
         // The exploded view offset the symbols of the feature are drawn at. The symbols are computed
         // from the geometry metadata, which holds the coordinates of the part itself, and are moved
         // onto the drawn part as they are handed to the renderer - the metadata is never touched
@@ -5852,6 +5870,55 @@ namespace PrePoMax
             {
                 _form.SetStateReady(Globals.PreviewText);
             }
+        }
+        public bool CanUndoSplitGeometry
+        {
+            get { return _splitGeometryUndoStates != null && _splitGeometryUndoStates.Count > 0; }
+        }
+        // A split dialog keeps its undo from the moment it opens until it closes. OK - New prepares the dialog
+        // again without closing it, and the splits made before it stay undoable.
+        public void BeginSplitGeometryUndo()
+        {
+            if (_splitGeometryUndoStates == null)
+                _splitGeometryUndoStates = new Stack<(Command, FeMesh, AnnotationContainer)>();
+        }
+        public void EndSplitGeometryUndo()
+        {
+            _splitGeometryUndoStates = null;
+        }
+        // The geometry is put back as it was before the last split of the dialog and the history steps back past
+        // the split, as Edit - Undo would, but without replaying the history
+        public void UndoSplitGeometry()
+        {
+            if (!CanUndoSplitGeometry) return;
+            //
+            var state = _splitGeometryUndoStates.Peek();
+            // The history must still end with the split, or the model put back would not be the model the
+            // history builds
+            if (_commands.LastExecutedCommand != state.Command)
+            {
+                _splitGeometryUndoStates.Clear();
+                throw new CaeException("The command history changed after the split, so the split cannot be " +
+                                       "undone here. Use Edit - Undo instead.");
+            }
+            _splitGeometryUndoStates.Pop();
+            //
+            Dictionary<string, bool>[] treeState = _form.GetStableTreeExpandCollapseState();
+            _model.Geometry = state.Geometry;
+            _annotations = new AnnotationContainer(state.Annotations, this);
+            _commands.UndoWithoutRegeneration();
+            //
+            UpdateAfterPartsChanged();
+            UpdateExplodedView(false);
+            _currentView = ViewGeometryModelResults.Geometry;
+            _form.SetCurrentView(_currentView);
+            DrawGeometry(false);
+            _form.RegenerateTree();
+            _form.SetStableTreeExpandCollapseState(treeState);
+            //
+            _form.WriteDataToOutput(state.Command.Name + ": the split was undone.");
+            //
+            CheckAndUpdateModelValidity();
         }
         private void ThrowIfSplitGeometryOffsetsDiffer(GeometryFeature geometryFeature)
         {

@@ -64,7 +64,7 @@ namespace CaeModel
         // Properties                                                                                                               
         public string Name { get { return _name; } set { _name = value; } }
         public string HashName { get { return _hashName; } }
-        public FeMesh Geometry { get { return _geometry; } }
+        public FeMesh Geometry { get { return _geometry; } set { _geometry = value; } }
         public FeMesh Mesh { get { return _mesh; } }
         public OrderedDictionary<string, UserViewParameters> UserViews { get { return _userViews; } }
         public EquationParameterCollection Parameters { get { return _parameters; } }
