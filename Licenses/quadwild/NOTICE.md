@@ -8,7 +8,7 @@ processes:
 
 They are built from a local fork of QuadWild-BiMDF 0.0.2 with these changes: prescribed
 nodal positions on edges (optional <input>.cnodes constraint file), pillowing that does not cross a prescribed curve, size
-grading, field-aligned smoothing, quality optimisation and quality-driven edge rotations of the final mesh, an optional geometric target for the irregular node inside non-quadrilateral patches, an optional feedback search over the element counts of the patch sides, a boundary layer of quads around holes (pillowing), two elements across thin patches whose pattern degenerates, projection of the final nodes onto the
+grading, field-aligned smoothing, quality optimisation and quality-driven edge rotations of the final mesh, an optional geometric target for the irregular node inside non-quadrilateral patches, an optional feedback search over the element counts of the patch sides, a boundary layer of quads around holes (pillowing), two elements across thin patches whose pattern degenerates, one quad in corners where lines meet at a small angle, feature lines kept where they end on a hole with a boundary layer, projection of the final nodes onto the
 original input surface, stage-1 guards, patch corners on holes and curved lines (thin strips between holes merged), the target
 size and minimum element counts on lines taken from the input mesh, and a
 curvature-free fallback for the cross field on flat surfaces. The changes are described in
@@ -28,4 +28,4 @@ beside this notice and the deployed executables.
 SHA-256 checksums of the binaries (modified build, 2026-09-25):
 
     2BB3547DCF24F9F9B48DFC5D329A4A1F44E0C49F44C515826D01A4EC3499F89F  quadwild.exe
-    4F8ED67DB4F7A7E544B255FB85CA7F41D53A218883017F50CE9265129E4BA205  quad_from_patches.exe
+    96E933E0DE8E82CF4609FB89C085FB094C47D6B60659E009AC10417CA70E77EC  quad_from_patches.exe
