@@ -59,6 +59,7 @@ namespace CaeMesh
         private const int _parameterizationLineSubdivisionCount = 2;
         private const int _numStraightEdgeSamples = 9;
         private const int _numSurfaceParameterSamples = 16;
+        private const int _numLayerEdgeSamples = 256;
 
 
         // Properties                                                                                                               
@@ -678,9 +679,6 @@ namespace CaeMesh
             Dictionary<int, int[]> surfaceIdVertexIds;
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
             _sweepBlocks = GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
-            // A target surface is meshed only to be thrown away, and the counts on its edges are set for the
-            // walls, not for it: a structured grid on it would fail as often as not
-            foreach (var block in _sweepBlocks) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
             // The translation of every prism, and the faces every block started with
             Dictionary<SweepBlock, int[][]> blockOriginalSurfaceIds = new Dictionary<SweepBlock, int[][]>();
             foreach (var block in _sweepBlocks)
@@ -719,6 +717,11 @@ namespace CaeMesh
             // places, and the lines between them are pinned just the same
             foreach (var block in _sweepBlocks) PairImprintEdges(block, surfaceIdEdgeIds);
             if (round > 0) _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
+            // A target surface is meshed only to be thrown away, and the counts on its edges are set for the
+            // walls, not for it: a structured grid on it would fail as often as not. Taken once the fragmentation
+            // has given the faces their final tags - taken before it, the set named faces the renumbering had
+            // since given to others, and a target the carrying had renumbered was made a structured grid
+            foreach (var block in _sweepBlocks) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
             // A source QuadWild meshes is triangulated free for it, once the fragmentation has given the faces their
             // final tags. A source that is the target of another block is the cap that block's sweep leaves, and is
             // read back from there; one that is a wall of another block is meshed as the structured grid of that wall
@@ -908,6 +911,8 @@ namespace CaeMesh
             Dictionary<int, double[]> oldPointSignatures = GetEntitySignatures(0);
             Dictionary<int, double[]> oldEdgeSignatures = GetEntitySignatures(1);
             Dictionary<int, double[]> oldVolumeSignatures = GetEntitySignatures(3);
+            // The layer edges as polylines, so that one the operation splits can be told by its pieces
+            Dictionary<int, double[][]> layerEdgeIdSamples = GetLayerEdgeSamples();
             // A copy of every face, kept out of the operation, tells afterwards which face a piece came from
             int[] entityCounts = GetEntityCounts();
             Tuple<int, int>[] surfaceDimTags;
@@ -962,10 +967,6 @@ namespace CaeMesh
             Dictionary<int, int> pointIdMap = MatchEntitiesByGeometry(0, oldPointSignatures, diagonal);
             Dictionary<int, int> edgeIdMap = MatchEntitiesByGeometry(1, oldEdgeSignatures, diagonal);
             Dictionary<int, int> volumeIdMap = MatchEntitiesByGeometry(3, oldVolumeSignatures, diagonal);
-            // The messages name the entities by the tags they carry now
-            if (_gmshSurfaceIdTopologyId.Count > 0) _gmshSurfaceIdTopologyId = gmshSurfaceIdTopologyId;
-            _gmshCurveIdTopologyId = RemapEntityNames(_gmshCurveIdTopologyId, edgeIdMap);
-            _gmshPointIdTopologyId = RemapEntityNames(_gmshPointIdTopologyId, pointIdMap);
             //
             int originalId;
             Dictionary<int, int> newEdgeIdOriginalId = new Dictionary<int, int>();
@@ -979,10 +980,113 @@ namespace CaeMesh
             foreach (var block in _sweepBlocks)
             {
                 if (!volumeIdMap.TryGetValue(block.VolumeId, out newVolumeId))
-                    throw new CaeException("A sweep volume was lost while the splits of the sweep ends were carried across.");
+                    throw new CaeException("The volume of " + block.GetDescription() + " was lost while the splits of " +
+                                           "the sweep ends were carried across.");
                 block.VolumeId = newVolumeId;
             }
-            RemapGmshData(edgeIdMap, pointIdMap);
+            RemapGmshData(edgeIdMap, pointIdMap, GetSplitLayerEdgePieces(layerEdgeIdSamples, edgeIdMap, diagonal));
+            // The messages name the entities by the tags they carry now. An error above still names them by the
+            // tags they carried before, so the names follow only here
+            if (_gmshSurfaceIdTopologyId.Count > 0) _gmshSurfaceIdTopologyId = gmshSurfaceIdTopologyId;
+            _gmshCurveIdTopologyId = RemapEntityNames(_gmshCurveIdTopologyId, edgeIdMap);
+            _gmshPointIdTopologyId = RemapEntityNames(_gmshPointIdTopologyId, pointIdMap);
+        }
+        /// <summary>
+        /// Points along every layer edge of the sweep, taken before a fragmentation.
+        /// </summary>
+        private Dictionary<int, double[][]> GetLayerEdgeSamples()
+        {
+            Dictionary<int, double[][]> edgeIdSamples = new Dictionary<int, double[][]>();
+            if (_gmshData.EdgeIdsBySweepLayer == null) return edgeIdSamples;
+            //
+            double[] min;
+            double[] max;
+            double[] point;
+            foreach (var ring in _gmshData.EdgeIdsBySweepLayer)
+            {
+                foreach (var edgeId in ring)
+                {
+                    if (edgeIdSamples.ContainsKey(edgeId)) continue;
+                    Gmsh.Model.GetParametrizationBounds(1, edgeId, out min, out max);
+                    double[][] samples = new double[_numLayerEdgeSamples + 1][];
+                    for (int i = 0; i <= _numLayerEdgeSamples; i++)
+                    {
+                        Gmsh.Model.GetValue(1, edgeId, new double[] { min[0] + (max[0] - min[0]) * i / _numLayerEdgeSamples },
+                                            out point);
+                        samples[i] = point;
+                    }
+                    edgeIdSamples.Add(edgeId, samples);
+                }
+            }
+            return edgeIdSamples;
+        }
+        /// <summary>
+        /// The pieces of every layer edge a fragmentation split: the new edges whose two ends and middle lie on
+        /// the edge as it was. A curve carried onto the end of one block can end on a layer edge of another -
+        /// the end of a block swept along a plate lies in the face that a block swept through the plate has
+        /// its layer edges on - and the edge then goes on as two layer edges meeting at the end of the curve.
+        /// </summary>
+        private static Dictionary<int, List<int>> GetSplitLayerEdgePieces(Dictionary<int, double[][]> layerEdgeIdSamples,
+                                                                        Dictionary<int, int> edgeIdMap, double diagonal)
+        {
+            Dictionary<int, List<int>> edgeIdPieceIds = new Dictionary<int, List<int>>();
+            if (layerEdgeIdSamples.Keys.All(edgeIdMap.ContainsKey)) return edgeIdPieceIds;
+            //
+            double[] min;
+            double[] max;
+            double[] point;
+            Tuple<int, int>[] dimTags;
+            HashSet<int> matchedIds = new HashSet<int>(edgeIdMap.Values);
+            List<int> newEdgeIds = new List<int>();
+            List<double[][]> newEdgePoints = new List<double[][]>();
+            Gmsh.Model.GetEntities(out dimTags, 1);
+            foreach (var dimTag in dimTags)
+            {
+                if (matchedIds.Contains(dimTag.Item2)) continue;
+                Gmsh.Model.GetParametrizationBounds(1, dimTag.Item2, out min, out max);
+                double[][] points = new double[3][];
+                for (int i = 0; i < 3; i++)
+                {
+                    Gmsh.Model.GetValue(1, dimTag.Item2, new double[] { min[0] + (max[0] - min[0]) * i / 2.0 }, out point);
+                    points[i] = point;
+                }
+                newEdgeIds.Add(dimTag.Item2);
+                newEdgePoints.Add(points);
+            }
+            //
+            foreach (var entry in layerEdgeIdSamples)
+            {
+                if (edgeIdMap.ContainsKey(entry.Key)) continue;
+                //
+                double length = 0;
+                for (int i = 1; i < entry.Value.Length; i++) length += GetDistance(entry.Value[i - 1], entry.Value[i]);
+                double tolerance = Math.Max(1E-6 * diagonal, 1E-4 * length);
+                List<int> pieceIds = new List<int>();
+                for (int i = 0; i < newEdgeIds.Count; i++)
+                {
+                    if (newEdgePoints[i].All(p => GetDistanceToPolyline(p, entry.Value) <= tolerance))
+                        pieceIds.Add(newEdgeIds[i]);
+                }
+                if (pieceIds.Count > 1) edgeIdPieceIds.Add(entry.Key, pieceIds);
+            }
+            return edgeIdPieceIds;
+        }
+        private static double GetDistanceToPolyline(double[] point, double[][] polyline)
+        {
+            double distance = double.MaxValue;
+            for (int i = 1; i < polyline.Length; i++)
+            {
+                double[] a = polyline[i - 1];
+                double[] b = polyline[i];
+                double[] ab = new double[] { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                double lengthSquared = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+                double t = lengthSquared > 0 ? ((point[0] - a[0]) * ab[0] + (point[1] - a[1]) * ab[1] +
+                                                (point[2] - a[2]) * ab[2]) / lengthSquared : 0;
+                t = Math.Max(0, Math.Min(1, t));
+                double[] closest = new double[] { a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2] };
+                distance = Math.Min(distance, GetDistance(point, closest));
+            }
+            return distance;
         }
         /// <summary>
         /// Removes the surfaces kept aside, with their edges and vertices. OpenCASCADE warns about an unknown
@@ -1329,7 +1433,8 @@ namespace CaeMesh
             }
             return scaffoldEdgeIds;
         }
-        private void RemapGmshData(Dictionary<int, int> edgeIdMap, Dictionary<int, int> pointIdMap)
+        private void RemapGmshData(Dictionary<int, int> edgeIdMap, Dictionary<int, int> pointIdMap,
+                                   Dictionary<int, List<int>> splitLayerEdgeIdPieceIds)
         {
             int newId;
             // An edge that was split has no successor; its pinned count is lost with it
@@ -1342,7 +1447,9 @@ namespace CaeMesh
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;
             }
-            // A layer edge follows the sweep and is never split by a curve carried onto an end
+            // A layer edge follows the sweep. A curve carried onto the end of another block can still split it,
+            // and it is then followed on by its pieces
+            List<int> pieceIds;
             if (_gmshData.EdgeIdsBySweepLayer != null)
             {
                 foreach (var ring in _gmshData.EdgeIdsBySweepLayer)
@@ -1350,10 +1457,10 @@ namespace CaeMesh
                     List<int> remapped = new List<int>();
                     foreach (var edgeId in ring)
                     {
-                        if (!edgeIdMap.TryGetValue(edgeId, out newId))
-                            throw new CaeException("A layer edge of the sweep was lost while the splits of the sweep ends " +
-                                                   "were carried across.");
-                        remapped.Add(newId);
+                        if (edgeIdMap.TryGetValue(edgeId, out newId)) remapped.Add(newId);
+                        else if (splitLayerEdgeIdPieceIds.TryGetValue(edgeId, out pieceIds)) remapped.AddRange(pieceIds);
+                        else throw new CaeException("A layer edge of the sweep, edge " + edgeId + ", was lost while the " +
+                                                    "splits of the sweep ends were carried across.");
                     }
                     ring.Clear();
                     ring.UnionWith(remapped);
@@ -2227,14 +2334,16 @@ namespace CaeMesh
         /// The vertices of every source and target surface of the blocks, surface by surface: the vertices of
         /// one such surface lie on one level of the sweep.
         /// </summary>
-        private List<int[]> GetCrossSectionVertexIds()
+        private List<int[]> GetCrossSectionVertexIds(out List<int> groupBlockIndices)
         {
             int[] edgeIds;
             int[] vertexIds;
             List<int[]> groups = new List<int[]>();
+            groupBlockIndices = new List<int>();
             if (_sweepBlocks == null) return groups;
-            foreach (var block in _sweepBlocks)
+            for (int blockIndex = 0; blockIndex < _sweepBlocks.Count; blockIndex++)
             {
+                SweepBlock block = _sweepBlocks[blockIndex];
                 foreach (var surfaceId in block.SourceSurfaceIds.Concat(block.TargetSurfaceIds))
                 {
                     HashSet<int> group = new HashSet<int>();
@@ -2244,7 +2353,11 @@ namespace CaeMesh
                         Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
                         group.UnionWith(vertexIds);
                     }
-                    if (group.Count > 1) groups.Add(group.ToArray());
+                    if (group.Count > 1)
+                    {
+                        groups.Add(group.ToArray());
+                        groupBlockIndices.Add(blockIndex);
+                    }
                 }
             }
             return groups;
@@ -2591,10 +2704,12 @@ namespace CaeMesh
             // measured one. Measured while the 1D mesh from GenerateMesh(1) above is still there.
             int numOfElements;
             List<int[]> tiedEdgeGroups = GetTransfiniteSourceTiedEdgeGroups(walls);
+            List<int> crossSectionBlockIndices;
+            List<int[]> crossSectionVertexIds = GetCrossSectionVertexIds(out crossSectionBlockIndices);
             Dictionary<int, int> directionEdgeIdNumOfElements =
-                SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, GetCrossSectionVertexIds(),
-                                                               _gmshData.EdgeIdNumElements, chainBlockIndices,
-                                                               tiedEdgeGroups);
+                SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, crossSectionVertexIds,
+                                                               crossSectionBlockIndices, _gmshData.EdgeIdNumElements,
+                                                               chainBlockIndices, tiedEdgeGroups);
             foreach (var wall in walls)
             {
                 foreach (var edgeId in wall.DirectionEdgeIds)

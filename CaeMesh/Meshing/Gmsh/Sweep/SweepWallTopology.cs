@@ -470,6 +470,7 @@ namespace CaeMesh.Sweep
         /// </summary>
         public static Dictionary<int, int> ResolveDirectionEdgeElements(List<SweepChain> chains, List<SweepWall> walls,
                                                                         List<int[]> crossSectionVertexIds,
+                                                                        List<int> crossSectionBlockIndices,
                                                                         Dictionary<int, int> pinnedEdgeIdNumOfElements,
                                                                         List<int> chainBlockIndices,
                                                                         List<int[]> tiedEdgeGroups)
@@ -503,28 +504,65 @@ namespace CaeMesh.Sweep
                 }
                 Unite(parent, indices);
             }
-            // The vertices that lie on one level: the two of every cross edge of a wall, and those of every
-            // cross section face
+            // The vertices that lie on one level: those of every cross-sweep side of a wall, and those of every
+            // cross section face. A side is taken whole, not an edge at a time: a split carried across onto the
+            // end of a block cuts the side into several edges, and the vertex between them lies on no chain, so
+            // edge by edge the two ends of the side would no longer be tied to one level
+            // A cross section face is the end of one block and is a level only of that block's chains: the end of a
+            // block swept across a bar holds vertices of the bar's chains at different places along it, and
+            // with every chain of a compound in one family would tie them all to one level
             int[] vertexIds;
             List<int[]> levelVertexIds = new List<int[]>(crossSectionVertexIds);
+            List<int> levelGroupBlockIndices = new List<int>(crossSectionBlockIndices);
             foreach (var wall in walls)
             {
-                foreach (var edgeId in wall.SourceEdgeIds.Concat(wall.TargetEdgeIds))
+                foreach (var sideEdgeIds in new int[][] { wall.SourceEdgeIds, wall.TargetEdgeIds })
                 {
-                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
-                    if (vertexIds.Distinct().Count() == 2) levelVertexIds.Add(vertexIds.Distinct().ToArray());
+                    int[] runParent = null;
+                    Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
+                    List<int[]> edgeVertexIds = new List<int[]>();
+                    foreach (var edgeId in sideEdgeIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                        edgeVertexIds.Add(vertexIds);
+                        foreach (var vertexId in vertexIds)
+                        {
+                            if (!vertexIdIndex.ContainsKey(vertexId)) vertexIdIndex.Add(vertexId, vertexIdIndex.Count);
+                        }
+                    }
+                    runParent = Enumerable.Range(0, vertexIdIndex.Count).ToArray();
+                    foreach (var ids in edgeVertexIds) Unite(runParent, ids.Select(id => vertexIdIndex[id]).ToList());
+                    foreach (var run in vertexIdIndex.GroupBy(entry => Find(runParent, entry.Value)))
+                    {
+                        if (run.Count() < 2) continue;
+                        levelVertexIds.Add(run.Select(entry => entry.Key).ToArray());
+                        levelGroupBlockIndices.Add(-1);
+                    }
+                }
+                // The two sides of a wall along the sweep run in step, so a vertex partway along one of them and
+                // a vertex at the same fraction of the other are where one grid line of the wall crosses them.
+                // Splits carried across the neighbours of the wall put such vertices on both sides at one place
+                // with no edge between them - the two splits lie on the faces on either side of the wall - and
+                // only this ties them to one level
+                foreach (var pair in GetWallSideVertexPairs(wall, edgeIdChainIndices.ContainsKey))
+                {
+                    levelVertexIds.Add(pair);
+                    levelGroupBlockIndices.Add(-1);
                 }
             }
             //
             List<List<int>> families = Enumerable.Range(0, chains.Count).GroupBy(i => Find(parent, i))
                                                  .Select(group => group.ToList()).ToList();
+            Func<List<int>, List<int>> getChainBlocks = family =>
+                family.Select(i => chainBlockIndices != null && i < chainBlockIndices.Count ? chainBlockIndices[i] : -1)
+                      .ToList();
             int[] familyTotals = new int[families.Count];
             bool[] familySpansAllLevels = new bool[families.Count];
             for (int f = 0; f < families.Count; f++)
             {
-                ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
-                                      pinnedEdgeIdNumOfElements, edgeIdNumOfElements, 0, out familyTotals[f],
-                                      out familySpansAllLevels[f]);
+                ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), getChainBlocks(families[f]),
+                                      levelVertexIds, levelGroupBlockIndices, pinnedEdgeIdNumOfElements,
+                                      edgeIdNumOfElements, 0, out familyTotals[f], out familySpansAllLevels[f]);
             }
             // Every family of one block counts the same layers, the sweep walking one grid over all the walls
             // of a block, so the families of a block are made to add up to the same total. Left to itself a
@@ -562,8 +600,9 @@ namespace CaeMesh.Sweep
                 foreach (var f in familyGroup)
                 {
                     if (familyTotals[f] == forcedTotal || forcedTotal < 1) continue;
-                    ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
-                                          pinnedEdgeIdNumOfElements, edgeIdNumOfElements, forcedTotal, out _, out _);
+                    ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), getChainBlocks(families[f]),
+                                          levelVertexIds, levelGroupBlockIndices, pinnedEdgeIdNumOfElements,
+                                          edgeIdNumOfElements, forcedTotal, out _, out _);
                     familyTotals[f] = forcedTotal;
                 }
             }
@@ -615,7 +654,8 @@ namespace CaeMesh.Sweep
                         foreach (var f in familyGroup)
                         {
                             if (familyTotals[f] == forcedTotal || forcedTotal < 1) continue;
-                            ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), levelVertexIds,
+                            ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(),
+                                                  getChainBlocks(families[f]), levelVertexIds, levelGroupBlockIndices,
                                                   pinnedEdgeIdNumOfElements, edgeIdNumOfElements, forcedTotal,
                                                   out _, out _);
                             familyTotals[f] = forcedTotal;
@@ -625,12 +665,113 @@ namespace CaeMesh.Sweep
             }
             return edgeIdNumOfElements;
         }
-        private static void ResolveFamilyElements(List<SweepChain> chains, List<int[]> levelVertexIds,
+        /// <summary>
+        /// The vertices partway along two opposite sides of a wall that lie at the same fraction of the length of
+        /// their sides: the two sides that follow the sweep, measured from the source side of the wall, and the
+        /// source and the target side when both are layer edges of the family - the wall of a block swept across
+        /// the family, whose two cross sides the family's own sweep runs along.
+        /// </summary>
+        private static List<int[]> GetWallSideVertexPairs(SweepWall wall, Func<int, bool> isChainEdge)
+        {
+            List<int[]> pairs = new List<int[]>();
+            int[] vertexIds;
+            HashSet<int> sourceVertexIds = new HashSet<int>();
+            foreach (var edgeId in wall.SourceEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                sourceVertexIds.UnionWith(vertexIds);
+            }
+            // The two sides that follow the sweep, each from its vertex on the source side on
+            List<List<Tuple<int, double>>> sides = new List<List<Tuple<int, double>>>();
+            HashSet<int> usedEdgeIds = new HashSet<int>();
+            foreach (var edgeId in wall.DirectionEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                foreach (var vertexId in vertexIds.Where(sourceVertexIds.Contains))
+                {
+                    List<Tuple<int, double>> side = GetOrderedSideVertices(wall.DirectionEdgeIds, vertexId, usedEdgeIds);
+                    if (side != null) sides.Add(side);
+                }
+            }
+            if (sides.Count != 2) return pairs;
+            AddSideVertexPairs(sides[0], sides[1], pairs);
+            sides = sides.Select(side => side.Take(side.Count - 1).ToList()).ToList();
+            // The source and the target side, each from the end the first side along the sweep joins
+            if (wall.SourceEdgeIds.Concat(wall.TargetEdgeIds).All(isChainEdge))
+            {
+                List<Tuple<int, double>> source = GetOrderedSideVertices(wall.SourceEdgeIds, sides[0][0].Item1,
+                                                                         new HashSet<int>());
+                List<Tuple<int, double>> target = GetOrderedSideVertices(wall.TargetEdgeIds, sides[0].Last().Item1,
+                                                                         new HashSet<int>());
+                if (source != null && target != null) AddSideVertexPairs(source, target, pairs);
+            }
+            return pairs;
+        }
+        /// <summary>
+        /// The vertices a chain of edges passes from the given vertex on, with the fraction of the chain's length
+        /// each lies at. The edges walked are added to the used ones. Null when the vertex starts no chain.
+        /// </summary>
+        private static List<Tuple<int, double>> GetOrderedSideVertices(int[] edgeIds, int startVertexId,
+                                                                      HashSet<int> usedEdgeIds)
+        {
+            int[] vertexIds;
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                if (vertexIds.Length != 2) return null;
+                edgeIdVertexIds.Add(edgeId, vertexIds);
+            }
+            double length;
+            double position = 0;
+            int vertexId = startVertexId;
+            List<Tuple<int, double>> side = new List<Tuple<int, double>>() { new Tuple<int, double>(vertexId, 0) };
+            while (true)
+            {
+                int edgeId = edgeIdVertexIds.Keys.FirstOrDefault(id => !usedEdgeIds.Contains(id) &&
+                                                                       edgeIdVertexIds[id].Contains(vertexId));
+                if (edgeId == 0) break;
+                usedEdgeIds.Add(edgeId);
+                Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                position += length;
+                vertexId = edgeIdVertexIds[edgeId][0] == vertexId ? edgeIdVertexIds[edgeId][1] : edgeIdVertexIds[edgeId][0];
+                side.Add(new Tuple<int, double>(vertexId, position));
+            }
+            if (side.Count < 2 || position <= 0) return null;
+            // The last entry keeps the length of the side, for the pairing to compare
+            List<Tuple<int, double>> fractions = side.Select(entry => new Tuple<int, double>(entry.Item1,
+                                                                                         entry.Item2 / position)).ToList();
+            fractions.Add(new Tuple<int, double>(-1, position));
+            return fractions;
+        }
+        /// <summary>
+        /// Pairs the vertices partway along two sides of equal length that lie at the same fraction of them. Two
+        /// sides of different lengths are not in step, and the same fraction says nothing about them.
+        /// </summary>
+        private static void AddSideVertexPairs(List<Tuple<int, double>> side1, List<Tuple<int, double>> side2,
+                                               List<int[]> pairs)
+        {
+            const double tolerance = 1E-3;
+            double length1 = side1.Last().Item2;
+            double length2 = side2.Last().Item2;
+            if (Math.Abs(length1 - length2) > 1E-2 * Math.Max(length1, length2)) return;
+            for (int i = 1; i < side1.Count - 2; i++)
+            {
+                for (int j = 1; j < side2.Count - 2; j++)
+                {
+                    if (Math.Abs(side1[i].Item2 - side2[j].Item2) <= tolerance)
+                        pairs.Add(new int[] { side1[i].Item1, side2[j].Item1 });
+                }
+            }
+        }
+        private static void ResolveFamilyElements(List<SweepChain> chains, List<int> chainBlockIndices,
+                                                  List<int[]> levelVertexIds, List<int> levelGroupBlockIndices,
                                                   Dictionary<int, int> pinnedEdgeIdNumOfElements,
                                                   Dictionary<int, int> edgeIdNumOfElements, int forcedTotal,
                                                   out int total, out bool spansAllLevels)
         {
             chains = OrientChainsAlike(chains);
+            chains = OrientChainsByDirection(chains);
             // Every chain vertex, with the fraction of its chain's length it lies at
             double length;
             List<int> chainOfVertex = new List<int>();
@@ -665,13 +806,21 @@ namespace CaeMesh.Sweep
             // a cross edge or lying on one cross section face
             int[] levelOfPosition = Enumerable.Range(0, chainOfVertex.Count).ToArray();
             foreach (var positions in vertexIdPositions.Values) Unite(levelOfPosition, positions);
-            foreach (var group in levelVertexIds)
+            for (int g = 0; g < levelVertexIds.Count; g++)
             {
                 List<int> positions;
                 List<int> groupPositions = new List<int>();
-                foreach (var vertexId in group)
+                int groupBlockIndex = levelGroupBlockIndices[g];
+                foreach (var vertexId in levelVertexIds[g])
                 {
-                    if (vertexIdPositions.TryGetValue(vertexId, out positions)) groupPositions.Add(positions[0]);
+                    if (!vertexIdPositions.TryGetValue(vertexId, out positions)) continue;
+                    foreach (var position in positions)
+                    {
+                        if (groupBlockIndex >= 0 && chainBlockIndices[chainOfVertex[position]] >= 0 &&
+                            chainBlockIndices[chainOfVertex[position]] != groupBlockIndex) continue;
+                        groupPositions.Add(position);
+                        break;
+                    }
                 }
                 // A face holding two vertices of one chain crosses this family's sweep rather than cutting it -
                 // the end of a block swept the other way across a shared wall - and says nothing about levels
@@ -875,6 +1024,77 @@ namespace CaeMesh.Sweep
                 int[] edgeIds = chains[c].EdgeIds.Reverse().ToArray();
                 int[] vertexIds = chains[c].VertexIds.Reverse().ToArray();
                 orientedChains.Add(new SweepChain(edgeIds, vertexIds));
+            }
+            return orientedChains;
+        }
+        /// <summary>
+        /// The chains of a family turned so that parallel chains run the same way. Two blocks swept towards each
+        /// other build their chains from opposite ends, and chains that share no edge - the x-lines of a bar swept
+        /// one way and of the plates beside it swept the other - are left as they were by OrientChainsAlike; the
+        /// level order then comes out cyclic and the fractions decide it, which for chains of different extents
+        /// puts the far end of one chain between two levels of another. Chains whose ends lie along nearly the
+        /// same line of direction are read as parallel; a set of chains joined by shared edges is turned as a
+        /// whole, so what OrientChainsAlike settled stays settled, and a chain parallel to none is left alone.
+        /// </summary>
+        private static List<SweepChain> OrientChainsByDirection(List<SweepChain> chains)
+        {
+            const double parallelCosine = 0.95;
+            if (chains.Count < 2) return chains;
+            // The sets of chains joined by shared edges
+            int[] component = Enumerable.Range(0, chains.Count).ToArray();
+            Dictionary<int, List<int>> edgeIdChains = new Dictionary<int, List<int>>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                foreach (var edgeId in chains[c].EdgeIds)
+                {
+                    if (!edgeIdChains.ContainsKey(edgeId)) edgeIdChains.Add(edgeId, new List<int>());
+                    edgeIdChains[edgeId].Add(c);
+                }
+            }
+            foreach (var list in edgeIdChains.Values) Unite(component, list);
+            // The direction of every chain, from its first vertex to its last
+            double[] start;
+            double[] end;
+            double[][] directions = new double[chains.Count][];
+            for (int c = 0; c < chains.Count; c++)
+            {
+                Gmsh.Model.GetValue(0, chains[c].VertexIds[0], new double[0], out start);
+                Gmsh.Model.GetValue(0, chains[c].VertexIds[chains[c].VertexIds.Length - 1], new double[0], out end);
+                double[] direction = new double[] { end[0] - start[0], end[1] - start[1], end[2] - start[2] };
+                double length = GetLength(direction);
+                directions[c] = direction.Select(v => v / length).ToArray();
+            }
+            // Spread an orientation from set to set through chains that are parallel
+            Dictionary<int, bool> componentReversed = new Dictionary<int, bool>();
+            for (int first = 0; first < chains.Count; first++)
+            {
+                if (componentReversed.ContainsKey(Find(component, first))) continue;
+                componentReversed[Find(component, first)] = false;
+                Queue<int> pending = new Queue<int>();
+                for (int c = 0; c < chains.Count; c++) if (Find(component, c) == Find(component, first)) pending.Enqueue(c);
+                while (pending.Count > 0)
+                {
+                    int c = pending.Dequeue();
+                    double sign = componentReversed[Find(component, c)] ? -1 : 1;
+                    for (int d = 0; d < chains.Count; d++)
+                    {
+                        int componentD = Find(component, d);
+                        if (componentReversed.ContainsKey(componentD)) continue;
+                        double cosine = directions[c][0] * directions[d][0] + directions[c][1] * directions[d][1] +
+                                        directions[c][2] * directions[d][2];
+                        if (Math.Abs(cosine) < parallelCosine) continue;
+                        componentReversed[componentD] = sign * cosine < 0;
+                        for (int e = 0; e < chains.Count; e++) if (Find(component, e) == componentD) pending.Enqueue(e);
+                    }
+                }
+            }
+            //
+            List<SweepChain> orientedChains = new List<SweepChain>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                if (!componentReversed[Find(component, c)]) { orientedChains.Add(chains[c]); continue; }
+                orientedChains.Add(new SweepChain(chains[c].EdgeIds.Reverse().ToArray(),
+                                                  chains[c].VertexIds.Reverse().ToArray()));
             }
             return orientedChains;
         }
