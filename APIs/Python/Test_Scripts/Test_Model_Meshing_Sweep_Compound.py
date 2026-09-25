@@ -9,10 +9,11 @@
 #    and leaves a cap for the third, from either end of the stack.
 #  - sweep_stack_small.brep: a small box on a large one. Swept from the top, the large box takes the
 #    shared face plus its exposed rim as one source. Swept from the bottom the shared face ends inside
-#    the target of the large box; the box is a prism, so the split is carried to its bottom and the
-#    sweep lines under the imprint are pinned to it, and the small box is fed from the cap.
+#    the target of the large box, and no edge of its bottom is swept onto the imprint, so the sweep would
+#    lose it: that direction is refused.
 #  - sweep_split_target.brep: a single box whose top is split by an imprint into an inner face and a rim.
-#    The target may be split, and the cap has to land on both faces.
+#    The split top may be the source, and its split is carried to the bottom; the bottom may not, since a
+#    target split by an edge no source edge is swept onto would lose the edge.
 #  - sweep_rings.brep: a single box whose walls are split by two loops around it, so that the walls stand
 #    in three rings along the sweep and the middle ring touches neither the source nor the target.
 #  - sweep_half_loop.brep: a single box with one wall split by a line partway up and no loop around the
@@ -25,8 +26,8 @@
 #    sweeps them all, and the shared walls carry one layer count.
 #  - sweep_base_two.brep: two boxes side by side on a base. From the top of one block the other is found
 #    across the shared wall, and the base is fed by both caps before it is swept. From the base the line
-#    between the two blocks is an imprint inside the base's target, carried to the base's bottom and
-#    pinned, so both caps end on the nodes the shared upper wall starts from.
+#    between the two blocks is an imprint inside the base's target that no edge of its bottom is swept
+#    onto, so that direction is refused.
 #  - sweep_perpendicular.brep: two boxes sharing a wall, swept in perpendicular directions from two
 #    selected faces. The shared wall is one transfinite grid that each block walks along its own family
 #    of lines, and each block's layer count is the other's cross-edge count on that wall.
@@ -42,9 +43,9 @@
 #meshed in one call.
 #
 #sweep_plate_both.brep is a plate with a smaller block above and a different one below, footprints offset
-#and overlapping, so no orientation avoids an imprint inside a target: the plate carries both imprints to
-#its other end, where they cross, and every block is swept along pinned lines. sweep_plate_overhang.brep
-#has the upper block reaching past an edge of the plate. Both are swept from either end and automatically.
+#and overlapping, so no orientation avoids an imprint inside a target that nothing on the source is swept
+#onto. sweep_plate_overhang.brep has the upper block reaching past an edge of the plate. Neither is swept,
+#from either end or automatically: the plate has to be split before it can be.
 #
 #sweep_bent_plate.brep is a plate bent along a cylinder, with a bore through each of its two wings. Its
 #front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
@@ -58,9 +59,10 @@
 #sweep_spline_edges.brep is a lofted plate on a round post, which is how the same arrangement arrives from
 #an imported CAD file: the plate's vertical edges run straight but the kernel holds them as splines rather
 #than as lines, and the post's wall is one closed cylinder whose centre of mass lies on its axis and not on
-#the wall. Swept from the plate's top the post's footprint ends inside the plate's target, so the split has
-#to be carried to the source whatever type the edges carry, and every surface piece the carrying leaves has
-#to be traced back to the face it came from, the closed cylinder included.
+#the wall. Swept from the plate's bottom the plate takes the post's disc and the rim around it as one
+#source, so the split has to be carried to the plate's top whatever type the edges carry, and every surface
+#piece the carrying leaves has to be traced back to the face it came from, the closed cylinder included.
+#Swept from the plate's top the post's footprint ends inside the plate's target, which is refused.
 #
 #A block whose walls close a loop and reduce to four sides is not yet a block the sweep can mesh, so the
 #last tests cover the measurements that judge the geometry rather than the topology.
@@ -183,14 +185,14 @@ def test_chain_of_three():
 def test_small_block_on_large():
     solids, compound = import_geometry("sweep_stack_small.brep")
     check(compound is not None and len(solids) == 2, "the two fragmented boxes must import as a compound part")
-    # From the bottom the shared face ends inside the target of the large box. The block is a prism, so
-    # the split is carried to its source and the sweep lines are pinned along it: the cap follows the
-    # imprint and the small box is fed from it
+    # From the bottom the shared face ends inside the target of the large box, and no edge of the bottom
+    # is swept onto the imprint, so the sweep would lose it
     part, face_id = find_end_face(solids, top=False)
-    nodes_before = pmx.model.nodes.count
-    meshed = mesh_with_sweep(compound, solids, part, face_id)
-    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
-          "the small box fed through a pinned imprint does not share the interface nodes")
+    message = raised_message(lambda: pmx.model.mesh.setup_items.add_sweep_mesh(SWEEP_NAME,
+                                                                               face_selection(part, face_id)))
+    check(message is not None and "no edge of the sweep source" in message,
+          "the sweep from the bottom of the large box must be refused for the imprint in its target, got: " +
+          str(message))
     # From the top the small box is swept first, and the large box takes the shared face together with
     # its exposed rim as one source, so both conform along the imprint
     part, face_id = find_end_face(solids, top=True)
@@ -201,13 +203,19 @@ def test_split_target():
     solids, compound = import_geometry("sweep_split_target.brep")
     check(compound is None and len(solids) == 1, "the imprinted box must import as a single part")
     check(solids[0].get_face_data().count == 7, "the top of the box must be split into two faces")
-    part, face_id = find_end_face(solids, top=False)
+    part = solids[0]
+    items = pmx.model.mesh.setup_items
+    # The bottom is not a source: nothing on it is swept onto the imprint splitting the top
+    bottom_id = find_end_face(solids, top=False)[1]
+    message = raised_message(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, bottom_id)))
+    check(message is not None and "no edge of the sweep source" in message,
+          "the sweep from the bottom must be refused for the imprint in its target, got: " + str(message))
+    # The split top is. Its split is carried to the bottom to pin the sweep lines, but the carried edges are
+    # scaffolding: the mesh part has the faces of the geometry
+    part, face_id = find_end_face(solids, top=True)
     meshed = mesh_with_sweep(part, solids, part, face_id)
-    # The split is carried to the bottom to pin the sweep lines, but the carried edges are scaffolding:
-    # the mesh part has the faces of the geometry
     check(meshed[0].get_face_data().count == 7, "the carried imprint edges must not split the faces of the mesh")
     # Kept as edges of the mesh, they split the bottom face along the imprint
-    items = pmx.model.mesh.setup_items
     items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id), keep_imprint_edges=True)
     report = pmx.model.mesh.create(part.name)
     check(report[part.name] == "", "meshing with kept imprint edges reported: " + report[part.name])
@@ -269,34 +277,30 @@ def test_two_blocks_on_a_base():
     meshed = mesh_with_sweep(compound, solids, part, face_id)
     upper = [part for part in meshed if part.element_count == min(p.element_count for p in meshed)]
     check(len(upper) == 2, "the two blocks on the base must carry the same number of elements")
-    # From the base the line between the two blocks lies inside the base's target; it is carried to the
-    # base's bottom and pinned, so both caps end on the nodes the shared upper wall starts from
+    # From the base the line between the two blocks lies inside the base's target, and no edge of the base's
+    # bottom is swept onto it, so the sweep would lose it
     part, face_id = find_end_face(solids, top=False)
-    nodes_before = pmx.model.nodes.count
-    meshed = mesh_with_sweep(compound, solids, part, face_id)
-    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
-          "the blocks fed through a pinned imprint do not share the interface nodes")
+    message = raised_message(lambda: pmx.model.mesh.setup_items.add_sweep_mesh(SWEEP_NAME,
+                                                                               face_selection(part, face_id)))
+    check(message is not None and "no edge of the sweep source" in message,
+          "the sweep from the base must be refused for the line in its target, got: " + str(message))
 
 
 def test_plate_imprinted_on_both_sides():
     # A plate with a smaller block above and a different one below, footprints offset: no orientation
-    # avoids an imprint inside a target, so every sweep of it needs a pinned imprint. The overhanging
-    # variant has one block reaching past an edge of the plate.
+    # avoids an imprint inside a target that nothing on the source is swept onto, so the plate cannot be
+    # swept until it is split. The overhanging variant has one block reaching past an edge of the plate.
+    items = pmx.model.mesh.setup_items
     for file_name in ("sweep_plate_both.brep", "sweep_plate_overhang.brep"):
         solids, compound = import_geometry(file_name)
         check(compound is not None and len(solids) == 3, file_name + " must import as a compound of 3")
         for top in (False, True):
             part, face_id = find_end_face(solids, top=top)
-            nodes_before = pmx.model.nodes.count
-            meshed = mesh_with_sweep(compound, solids, part, face_id)
-            check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
-                  file_name + " swept through pinned imprints does not share the interface nodes")
-        items = pmx.model.mesh.setup_items
-        items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
-        check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
-        report = pmx.model.mesh.create(compound.name)
-        check(report[compound.name] == "", "the automatic sweep of " + file_name + " reported: " + report[compound.name])
-        items.remove([SWEEP_NAME])
+            check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id)),
+                         file_name + " must not be swept from the " + ("top" if top else "bottom"))
+        selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
+        check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
+                     "the automatic sweep of " + file_name + " must be refused")
 
 
 def test_bent_plate():
@@ -332,16 +336,18 @@ def test_bent_plate():
 def test_spline_edges_and_round_post():
     solids, compound = import_geometry("sweep_spline_edges.brep")
     check(compound is not None and len(solids) == 2, "the plate and the post must import as a compound of 2")
-    # From the top the plate is swept first and its cap has to follow the post's footprint; from the bottom
-    # the post goes first and the plate takes the shared disc together with the rim around it as one source
-    for top in (True, False):
-        part, face_id = find_end_face(solids, top=top)
-        nodes_before = pmx.model.nodes.count
-        meshed = mesh_with_sweep(compound, solids, part, face_id)
-        check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
-              "the plate and the post swept from the %s do not share the interface nodes" %
-              ("top" if top else "bottom"))
+    # From the bottom the post goes first and the plate takes the shared disc together with the rim around it
+    # as one source; from the top the plate's target is split by the post's footprint, which nothing on the
+    # plate's top is swept onto
+    part, face_id = find_end_face(solids, top=False)
+    nodes_before = pmx.model.nodes.count
+    meshed = mesh_with_sweep(compound, solids, part, face_id)
+    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+          "the plate and the post swept from the bottom do not share the interface nodes")
     items = pmx.model.mesh.setup_items
+    part, face_id = find_end_face(solids, top=True)
+    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id)),
+                 "sweep_spline_edges.brep must not be swept from the top of the plate")
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of sweep_spline_edges.brep is not valid")
     report = pmx.model.mesh.create(compound.name)

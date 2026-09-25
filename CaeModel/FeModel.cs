@@ -3915,6 +3915,15 @@ namespace CaeModel
         private bool IsPrismaticSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] sideSurfaceIds,
                                            int[] targetSurfaceIds)
         {
+            return IsPrismaticSweepBlock(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, out _);
+        }
+        /// <summary>
+        /// The same, also giving the translation that moves the source onto the target.
+        /// </summary>
+        private bool IsPrismaticSweepBlock(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] sideSurfaceIds,
+                                           int[] targetSurfaceIds, out Vec3D translation)
+        {
+            translation = null;
             VisualizationData vis = part.Visualization;
             Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
             foreach (var surfaceId in sourceSurfaceIds.Concat(targetSurfaceIds))
@@ -3953,6 +3962,7 @@ namespace CaeModel
                     else if ((vector - reference).Len > 1E-6 * reference.Len) return false;
                 }
             }
+            if (reference != null) translation = -1 * reference;
             return reference != null;
         }
         private bool IsStraightEdge(VisualizationData vis, int edgeId, int startNodeId, Vec3D chord)
@@ -4021,6 +4031,9 @@ namespace CaeModel
                     }
                     error = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                ringDirectionEdgeIds);
+                    if (error == null)
+                        error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                                            ringDirectionEdgeIds);
                 }
                 if (error == null) return null;
                 sideSurfaceIds = null;
@@ -4042,6 +4055,9 @@ namespace CaeModel
                                     out chainTargetSurfaceIds, out chainEdgeIds) != null) return error;
             error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
                                                chainSideSurfaceIds, maps);
+            if (error == null)
+                error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, chainSideSurfaceIds, chainTargetSurfaceIds,
+                                                    chainEdgeIds);
             if (error != null) return error;
             sideSurfaceIds = chainSideSurfaceIds;
             targetSurfaceIds = chainTargetSurfaceIds;
@@ -4061,6 +4077,156 @@ namespace CaeModel
                                               out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
                                               out directionEdgeIds);
             return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds, directionEdgeIds);
+        }
+        /// <summary>
+        /// Refuses a block whose target is divided into several surfaces along an edge the source does not carry.
+        /// The source is meshed on its own surfaces and the target is only projected onto, so an edge between two
+        /// target surfaces stays in the mesh only where a source edge is swept onto it: both its vertices are
+        /// reached from the source along the edges following the sweep direction, from the two vertices of one
+        /// source edge. The mesher also pins the sweep lines between an edge splitting the target and the edge
+        /// splitting the source it is a copy of, moved: on a prism edge by edge, by the translation of the prism,
+        /// and on any other block only when every edge splitting the target has such a copy of its own on the
+        /// source, one for one - the two tangency lines of a bent plate on its front and on its back. Such edges
+        /// need no edges at their ends. Any other edge between the target surfaces - one ending inside a side of
+        /// a wall, where no edge follows the sweep direction, or one no source edge runs beneath - is lost, and
+        /// the geometry with it.
+        /// </summary>
+        private string GetUnpairedTargetEdgesError(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                   int[] sideSurfaceIds, int[] targetSurfaceIds,
+                                                   IEnumerable<int> directionEdgeIds)
+        {
+            if (targetSurfaceIds.Length < 2) return null;
+            //
+            VisualizationData vis = part.Visualization;
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+            foreach (var surfaceId in targetSurfaceIds)
+            {
+                foreach (var edgeId in vis.FaceEdgeIds[surfaceId].Distinct())
+                {
+                    if (edgeIdCount.ContainsKey(edgeId)) edgeIdCount[edgeId]++;
+                    else edgeIdCount[edgeId] = 1;
+                }
+            }
+            int[] innerTargetEdgeIds = edgeIdCount.Where(entry => entry.Value > 1).Select(entry => entry.Key)
+                                                  .OrderBy(id => id).ToArray();
+            if (innerTargetEdgeIds.Length == 0) return null;
+            // The vertices joined by the edges following the sweep direction, each chain one group
+            int[] vertexIds;
+            Dictionary<int, int> vertexIdParentId = new Dictionary<int, int>();
+            Func<int, int> find = id =>
+            {
+                int parentId;
+                while (vertexIdParentId.TryGetValue(id, out parentId) && parentId != id) id = parentId;
+                return id;
+            };
+            foreach (var edgeId in directionEdgeIds)
+            {
+                vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                int rootId1 = find(vertexIds[0]);
+                int rootId2 = find(vertexIds[vertexIds.Length - 1]);
+                if (rootId1 != rootId2) vertexIdParentId[rootId2] = rootId1;
+            }
+            //
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            HashSet<Tuple<int, int>> sourceEdgeVertexPairs = new HashSet<Tuple<int, int>>();
+            Dictionary<int, List<int>> rootIdSourceVertexIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in sourceEdgeIds)
+            {
+                vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                int vertexId1 = vertexIds[0];
+                int vertexId2 = vertexIds[vertexIds.Length - 1];
+                sourceEdgeVertexPairs.Add(new Tuple<int, int>(Math.Min(vertexId1, vertexId2), Math.Max(vertexId1, vertexId2)));
+                foreach (var vertexId in vertexIds.Distinct())
+                {
+                    int rootId = find(vertexId);
+                    if (!rootIdSourceVertexIds.ContainsKey(rootId)) rootIdSourceVertexIds.Add(rootId, new List<int>());
+                    if (!rootIdSourceVertexIds[rootId].Contains(vertexId)) rootIdSourceVertexIds[rootId].Add(vertexId);
+                }
+            }
+            //
+            List<int> unpairedEdgeIds = new List<int>();
+            List<int> sourceVertexIds1;
+            List<int> sourceVertexIds2;
+            foreach (var edgeId in innerTargetEdgeIds)
+            {
+                vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                if (!rootIdSourceVertexIds.TryGetValue(find(vertexIds[0]), out sourceVertexIds1) ||
+                    !rootIdSourceVertexIds.TryGetValue(find(vertexIds[vertexIds.Length - 1]), out sourceVertexIds2) ||
+                    !sourceVertexIds1.Any(id1 => sourceVertexIds2.Any(id2 =>
+                        sourceEdgeVertexPairs.Contains(new Tuple<int, int>(Math.Min(id1, id2), Math.Max(id1, id2))))))
+                    unpairedEdgeIds.Add(edgeId);
+            }
+            if (unpairedEdgeIds.Count == 0) return null;
+            //
+            Vec3D translation;
+            Dictionary<int, int> sourceEdgeIdCount = new Dictionary<int, int>();
+            foreach (var surfaceId in sourceSurfaceIds)
+            {
+                foreach (var edgeId in vis.FaceEdgeIds[surfaceId].Distinct())
+                {
+                    if (sourceEdgeIdCount.ContainsKey(edgeId)) sourceEdgeIdCount[edgeId]++;
+                    else sourceEdgeIdCount[edgeId] = 1;
+                }
+            }
+            int[] innerSourceEdgeIds = sourceEdgeIdCount.Where(entry => entry.Value > 1).Select(entry => entry.Key)
+                                                        .OrderBy(id => id).ToArray();
+            if (IsPrismaticSweepBlock(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, out translation))
+            {
+                unpairedEdgeIds.RemoveAll(edgeId => innerSourceEdgeIds.Any(sourceEdgeId =>
+                {
+                    Vec3D edgeTranslation = GetEdgeTranslation(vis, edgeId, sourceEdgeId);
+                    return edgeTranslation != null &&
+                           (edgeTranslation - translation).Len <= 1E-5 * (translation.Len + vis.EdgeLengths[edgeId]);
+                }));
+            }
+            else if (innerSourceEdgeIds.Length == innerTargetEdgeIds.Length)
+            {
+                HashSet<int> usedSourceEdgeIds = new HashSet<int>();
+                foreach (var edgeId in innerTargetEdgeIds)
+                {
+                    foreach (var sourceEdgeId in innerSourceEdgeIds)
+                    {
+                        if (usedSourceEdgeIds.Contains(sourceEdgeId)) continue;
+                        if (GetEdgeTranslation(vis, edgeId, sourceEdgeId) == null) continue;
+                        usedSourceEdgeIds.Add(sourceEdgeId);
+                        break;
+                    }
+                }
+                if (usedSourceEdgeIds.Count == innerTargetEdgeIds.Length) unpairedEdgeIds.Clear();
+            }
+            if (unpairedEdgeIds.Count == 0) return null;
+            //
+            return "The sweep target surface/s (" + GetSweepSurfaceNames(part, targetSurfaceIds) + ") are divided by " +
+                   "the edge/s (" + GetSweepEdgeNames(part, unpairedEdgeIds) + ") that no edge of the sweep source " +
+                   "surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIds) + ") is swept onto, so the sweep would " +
+                   "lose them. Select the source surfaces by hand, or split the part so that each piece is swept on " +
+                   "its own.";
+        }
+        /// <summary>
+        /// The translation that moves a source edge onto a target edge, or null when the target edge is not the
+        /// source edge moved: its vertices are those of the source edge moved by one vector, and it is as long.
+        /// </summary>
+        private Vec3D GetEdgeTranslation(VisualizationData vis, int targetEdgeId, int sourceEdgeId)
+        {
+            if (vis.EdgeLengths == null) return null;
+            double targetLength = vis.EdgeLengths[targetEdgeId];
+            double sourceLength = vis.EdgeLengths[sourceEdgeId];
+            if (Math.Abs(targetLength - sourceLength) > 1E-3 * Math.Max(targetLength, sourceLength)) return null;
+            //
+            int[] targetVertexIds = vis.GetVertexNodeIdsForEdgeId(targetEdgeId);
+            int[] sourceVertexIds = vis.GetVertexNodeIdsForEdgeId(sourceEdgeId);
+            Vec3D targetStart = new Vec3D(_geometry.Nodes[targetVertexIds[0]].Coor);
+            Vec3D targetEnd = new Vec3D(_geometry.Nodes[targetVertexIds[targetVertexIds.Length - 1]].Coor);
+            Vec3D sourceStart = new Vec3D(_geometry.Nodes[sourceVertexIds[0]].Coor);
+            Vec3D sourceEnd = new Vec3D(_geometry.Nodes[sourceVertexIds[sourceVertexIds.Length - 1]].Coor);
+            //
+            Vec3D translation = targetStart - sourceStart;
+            double tolerance = 1E-5 * (translation.Len + targetLength);
+            if ((targetEnd - sourceEnd - translation).Len <= tolerance) return translation;
+            translation = targetStart - sourceEnd;
+            tolerance = 1E-5 * (translation.Len + targetLength);
+            if ((targetEnd - sourceStart - translation).Len <= tolerance) return translation;
+            return null;
         }
         /// <summary>
         /// Measures the sweep a block would make and refuses the ones the topology allows but the geometry
