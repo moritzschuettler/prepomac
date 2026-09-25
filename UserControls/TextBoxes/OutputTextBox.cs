@@ -9,6 +9,7 @@
 
 using FastColoredTextBoxNS;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -51,10 +52,38 @@ namespace UserControls
             ServiceLinesColor = Color.Transparent;
             ShowFoldingLines = false;
             AllowDrop = false;
+            SelectionHighlightingForLineBreaksEnabled = false;
+            HotkeysMapping = GetTextBoxHotkeys(HotkeysMapping);
         }
 
 
         // Methods
+        /// <summary>
+        /// Only the keys of a plain read only text box: moving the caret, selecting and copying.
+        /// </summary>
+        private static HotkeysMapping GetTextBoxHotkeys(HotkeysMapping defaultHotkeys)
+        {
+            HashSet<FCTBAction> textBoxActions = new HashSet<FCTBAction>
+            {
+                FCTBAction.GoLeft, FCTBAction.GoLeftWithSelection, FCTBAction.GoRight, FCTBAction.GoRightWithSelection,
+                FCTBAction.GoUp, FCTBAction.GoUpWithSelection, FCTBAction.GoDown, FCTBAction.GoDownWithSelection,
+                FCTBAction.GoHome, FCTBAction.GoHomeWithSelection, FCTBAction.GoEnd, FCTBAction.GoEndWithSelection,
+                FCTBAction.GoPageUp, FCTBAction.GoPageUpWithSelection,
+                FCTBAction.GoPageDown, FCTBAction.GoPageDownWithSelection,
+                FCTBAction.GoFirstLine, FCTBAction.GoFirstLineWithSelection,
+                FCTBAction.GoLastLine, FCTBAction.GoLastLineWithSelection,
+                FCTBAction.GoWordLeft, FCTBAction.GoWordLeftWithSelection,
+                FCTBAction.GoWordRight, FCTBAction.GoWordRightWithSelection,
+                FCTBAction.SelectAll, FCTBAction.Copy
+            };
+            HotkeysMapping hotkeys = new HotkeysMapping();
+            hotkeys.Clear();
+            foreach (var entry in defaultHotkeys)
+            {
+                if (textBoxActions.Contains(entry.Value)) hotkeys[entry.Key] = entry.Value;
+            }
+            return hotkeys;
+        }
         /// <summary>
         /// Replaces the text, appending only what is new when the text grew at its end. The view stays where the
         /// user left it - at the end when the end was in view - and so does the selection.
@@ -70,11 +99,9 @@ namespace UserControls
             int verticalScroll = VerticalScroll.Value;
             int selectionStart = PlaceToPosition(Selection.Start);
             int selectionEnd = PlaceToPosition(Selection.End);
-            bool readOnly = ReadOnly;
             BeginUpdate();
             try
             {
-                ReadOnly = false;
                 int firstChangedLine;
                 if (currentText.Length > 0 && text.Length > currentText.Length &&
                     text.StartsWith(currentText, StringComparison.Ordinal))
@@ -96,7 +123,6 @@ namespace UserControls
             }
             finally
             {
-                ReadOnly = readOnly;
                 EndUpdate();
             }
             //
@@ -169,6 +195,37 @@ namespace UserControls
             Place place;
             if (e.Button == MouseButtons.Left && Selection.IsEmpty && IsLinkUnderPoint(e.Location, out place))
                 LinkClicked?.Invoke(GetLineText(place.iLine), place.iChar);
+        }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            // No middle click scrolling mode
+            if (e.Button == MouseButtons.Middle) return;
+            base.OnMouseDown(e);
+        }
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            // No zooming
+            if ((ModifierKeys & Keys.Control) != 0)
+            {
+                if (e is HandledMouseEventArgs handledArgs) handledArgs.Handled = true;
+                return;
+            }
+            base.OnMouseWheel(e);
+        }
+        protected override void CheckAndChangeSelectionType()
+        {
+            Selection.ColumnSelectionMode = false;
+        }
+        public override void Copy()
+        {
+            // Without a selection the base copies the whole line
+            if (Selection.IsEmpty) return;
+            base.Copy();
+        }
+        protected override void OnCreateClipboardData(DataObject data)
+        {
+            // Text only, without the html and rtf copies that carry the font and the colors
+            data.SetData(DataFormats.UnicodeText, true, Selection.Text);
         }
     }
 }
