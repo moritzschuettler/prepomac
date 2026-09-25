@@ -103,7 +103,8 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Mesh settings")]
         [OrderedDisplayName(7, 10, "Transfinite threshold angle")]
-        [DescriptionAttribute("Quadrangular faces with a corner angle larger than the threshold angle are ignored.")]
+        [DescriptionAttribute("Faces with a corner angle larger than the threshold angle or smaller than 180° minus the " +
+                              "threshold angle are meshed without the transfinite constraint.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
         [Id(7, 3)]
         public double TransfiniteAngleDeg
@@ -285,7 +286,7 @@ namespace PrePoMax.Forms
             // Transfinite
             if (_dctd.GetProperty(nameof(TransfiniteFourSided)).IsBrowsable)
             {
-                _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(TransfiniteThreeSided || TransfiniteFourSided);
             }
             // Element size
             if (_dctd.GetProperty(nameof(ElementSizeType)).IsBrowsable)

@@ -21,6 +21,7 @@ namespace CaeMesh
         public int Id;
         public int[] VertexIds;
         public int[] EdgeIds;
+        private int[] _loopEdgeIds;
         private int[][] _edgeVertexIds;
         public bool ThreeSided;
         public bool FourSided;
@@ -69,6 +70,7 @@ namespace CaeMesh
                     _edgeVertexIds = fixedEdgeVertexIds;
                 }
             }
+            _loopEdgeIds = edgeIds;
             // Three-sided faces
             if (VertexIds.Length == 3 && edgeIds.Length == 3)
             {
@@ -180,18 +182,65 @@ namespace CaeMesh
             //
             if (firstVertexId == _edgeVertexIds[0].Intersect(_edgeVertexIds[1]).First())
             {
-                OppositeEdgesA = new int[2] { EdgeIds[0], EdgeIds[1] };
+                OppositeEdgesA = new int[2] { _loopEdgeIds[0], _loopEdgeIds[1] };
             }
             else if (firstVertexId == _edgeVertexIds[1].Intersect(_edgeVertexIds[2]).First())
             {
-                OppositeEdgesA = new int[2] { EdgeIds[1], EdgeIds[2] };
+                OppositeEdgesA = new int[2] { _loopEdgeIds[1], _loopEdgeIds[2] };
             }
             else if (firstVertexId == _edgeVertexIds[2].Intersect(_edgeVertexIds[0]).First())
             {
-                OppositeEdgesA = new int[2] { EdgeIds[2], EdgeIds[0] };
+                OppositeEdgesA = new int[2] { _loopEdgeIds[2], _loopEdgeIds[0] };
             }
             //
             OppositeEdgesB = null;
+        }
+        /// <summary>
+        /// The two edges of the face that meet at its corner vertex, or null when the vertex is not a corner of
+        /// two edges.
+        /// </summary>
+        public int[] GetCornerEdgeIds(int vertexId)
+        {
+            List<int> cornerEdgeIds = new List<int>();
+            for (int i = 0; i < _loopEdgeIds.Length; i++)
+            {
+                if (_edgeVertexIds[i][0] == _edgeVertexIds[i][1]) continue;
+                if (_edgeVertexIds[i].Contains(vertexId)) cornerEdgeIds.Add(_loopEdgeIds[i]);
+            }
+            return cornerEdgeIds.Count == 2 ? cornerEdgeIds.ToArray() : null;
+        }
+        /// <summary>
+        /// Withdraws the transfinite constraint when a corner of the face lies outside the range of angles. The
+        /// transfinite grid maps every corner to a right angle, so at a corner where a circle runs tangent into a
+        /// line its elements are squeezed to nothing. A three-sided face first moves its collapsed corner to its
+        /// sharpest one, where squeezed elements are what the collapsed corner makes anyway, and is withdrawn
+        /// only if one of the other two corners is outside the range as well.
+        /// </summary>
+        public bool WithdrawTransfiniteOnCornerAngles(Dictionary<int, double> vertexIdAngleDeg, double minAngleDeg,
+                                                      double maxAngleDeg)
+        {
+            if (!Transfinite) return false;
+            //
+            Func<int, bool> isOutOfRange = vertexId =>
+            {
+                double angleDeg;
+                return vertexIdAngleDeg.TryGetValue(vertexId, out angleDeg) &&
+                       (angleDeg < minAngleDeg || angleDeg > maxAngleDeg);
+            };
+            if (ThreeSided)
+            {
+                int sharpestVertexId = VertexIds.Where(vertexIdAngleDeg.ContainsKey)
+                                                .OrderBy(vertexId => vertexIdAngleDeg[vertexId])
+                                                .DefaultIfEmpty(VertexIds[0])
+                                                .First();
+                if (sharpestVertexId != VertexIds[0] && isOutOfRange(sharpestVertexId)) SetFirstVertexId(sharpestVertexId);
+                if (VertexIds.Skip(1).Any(isOutOfRange)) Transfinite = false;
+            }
+            else if (FourSided)
+            {
+                if (VertexIds.Any(isOutOfRange)) Transfinite = false;
+            }
+            return !Transfinite;
         }
         //
         public int CompareTo(GmshSurface other)

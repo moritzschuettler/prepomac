@@ -428,7 +428,7 @@ namespace CaeMesh.Sweep
         /// <summary>
         /// The direction an edge leaves one of its vertices in.
         /// </summary>
-        private static double[] GetEdgeTangent(int edgeId, int vertexId)
+        internal static double[] GetEdgeTangent(int edgeId, int vertexId)
         {
             double[] min;
             double[] max;

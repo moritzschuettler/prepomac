@@ -60,6 +60,7 @@ namespace CaeMesh
         private const int _numStraightEdgeSamples = 9;
         private const int _numSurfaceParameterSamples = 16;
         private const int _numLayerEdgeSamples = 256;
+        private const double _cornerAngleToleranceDeg = 0.1;
 
 
         // Properties                                                                                                               
@@ -211,7 +212,7 @@ namespace CaeMesh
                     if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
-                                               recombine, gsi.AlgorithmRecombine);
+                                               gsi.TransfiniteAngleDeg, recombine, gsi.AlgorithmRecombine);
                     // Optimization On/Off
                     int optimize = 1;
                     if (gsi.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None &&
@@ -3773,7 +3774,8 @@ namespace CaeMesh
             }
         }
         private void SetTransfiniteSurfaces(bool transfiniteThreeSided, bool transfiniteFourSided, bool transfiniteVolume,
-                                            bool recombine, GmshAlgorithmRecombineEnum recombineAlgorithm)
+                                            double transfiniteAngleDeg, bool recombine,
+                                            GmshAlgorithmRecombineEnum recombineAlgorithm)
         {
             int[] volumeIds;
             int[] edgeIds;
@@ -3918,6 +3920,9 @@ namespace CaeMesh
                     }
                 }
             }
+            // Corner angles
+            WithdrawTransfiniteOnCornerAngles(surfaceIdSurface, volumeIdVolume, transfiniteThreeSided, transfiniteFourSided,
+                                              transfiniteAngleDeg);
             // Edge graph
             Node<GmshEdge> edgeNode;
             Graph<GmshEdge> edgeGraph = new Graph<GmshEdge>();
@@ -4090,6 +4095,71 @@ namespace CaeMesh
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
             }
+        }
+        /// <summary>
+        /// Meshes free every face with a corner sharper than 180° minus the threshold angle or flatter than the
+        /// threshold angle. The faces of a transfinite volume keep their constraint, since the volume needs all
+        /// of them, and so do the side surfaces of a sweep, which carry the structured grid the sweep runs along.
+        /// </summary>
+        private void WithdrawTransfiniteOnCornerAngles(Dictionary<int, GmshSurface> surfaceIdSurface,
+                                                       Dictionary<int, GmshVolume> volumeIdVolume,
+                                                       bool transfiniteThreeSided, bool transfiniteFourSided,
+                                                       double transfiniteAngleDeg)
+        {
+            double minAngleDeg = 180 - transfiniteAngleDeg - _cornerAngleToleranceDeg;
+            double maxAngleDeg = transfiniteAngleDeg + _cornerAngleToleranceDeg;
+            if (minAngleDeg <= 0) return;
+            //
+            HashSet<int> keptSurfaceIds = new HashSet<int>(_freeMeshedSurfaceIds);
+            foreach (var entry in volumeIdVolume)
+            {
+                if (entry.Value.Transfinite) keptSurfaceIds.UnionWith(entry.Value.SurfaceIds);
+            }
+            if (_sweepBlocks != null)
+            {
+                foreach (var block in _sweepBlocks) keptSurfaceIds.UnionWith(block.WallSurfaceIds);
+            }
+            //
+            foreach (var entry in surfaceIdSurface)
+            {
+                GmshSurface surface = entry.Value;
+                if (!surface.Transfinite || keptSurfaceIds.Contains(surface.Id)) continue;
+                if (!(surface.ThreeSided && transfiniteThreeSided) && !(surface.FourSided && transfiniteFourSided)) continue;
+                //
+                Dictionary<int, double> vertexIdAngleDeg = GetCornerAnglesDeg(surface);
+                if (!surface.WithdrawTransfiniteOnCornerAngles(vertexIdAngleDeg, minAngleDeg, maxAngleDeg)) continue;
+                //
+                double worstAngleDeg = vertexIdAngleDeg.Values.OrderByDescending(a => Math.Abs(a - 90)).First();
+                _writeOutput?.Invoke(NameGmshEntities("Transfinite: Surface " + surface.Id + " is meshed without the " +
+                                                      "transfinite constraint - it has a corner of " +
+                                                      Math.Round(worstAngleDeg, 1) + " deg, outside the range from " +
+                                                      Math.Round(180 - transfiniteAngleDeg, 1) + " to " +
+                                                      Math.Round(transfiniteAngleDeg, 1) + " deg."));
+            }
+        }
+        /// <summary>
+        /// The angle between the two edges at each corner of the face, measured between the directions they leave
+        /// the corner in on the CAD curves.
+        /// </summary>
+        private static Dictionary<int, double> GetCornerAnglesDeg(GmshSurface surface)
+        {
+            Dictionary<int, double> vertexIdAngleDeg = new Dictionary<int, double>();
+            foreach (int vertexId in surface.VertexIds)
+            {
+                int[] cornerEdgeIds = surface.GetCornerEdgeIds(vertexId);
+                if (cornerEdgeIds == null) continue;
+                //
+                double[] tangent1 = SweepWallTopology.GetEdgeTangent(cornerEdgeIds[0], vertexId);
+                double[] tangent2 = SweepWallTopology.GetEdgeTangent(cornerEdgeIds[1], vertexId);
+                double length1 = Math.Sqrt(tangent1[0] * tangent1[0] + tangent1[1] * tangent1[1] + tangent1[2] * tangent1[2]);
+                double length2 = Math.Sqrt(tangent2[0] * tangent2[0] + tangent2[1] * tangent2[1] + tangent2[2] * tangent2[2]);
+                if (length1 == 0 || length2 == 0) continue;
+                //
+                double cos = (tangent1[0] * tangent2[0] + tangent1[1] * tangent2[1] + tangent1[2] * tangent2[2]) /
+                             (length1 * length2);
+                vertexIdAngleDeg[vertexId] = Math.Acos(Math.Max(-1, Math.Min(1, cos))) * 180 / Math.PI;
+            }
+            return vertexIdAngleDeg;
         }
         /// <summary>
         /// Whether a sweep layer holds a sweep line cut into several edges, which two of its edges meeting at
