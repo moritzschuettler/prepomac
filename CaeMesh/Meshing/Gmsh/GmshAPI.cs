@@ -1885,6 +1885,38 @@ namespace CaeMesh
                 if (run.Count(id => quadWildEdgeIds.Contains(id) && !alwaysFixedEdgeIds.Contains(id)) > 1)
                     alwaysFixedEdgeIds.UnionWith(run);
             }
+            // An edge splitting a target and the edge of the source below it that no pin and no wall gives a count take the
+            // count of the edge opposite them in their face, for the face to be a grid. Chosen by QuadWild, that edge
+            // moved the split every round, QuadWild chose it again for the split's new count, and the rounds never settled
+            HashSet<int> wallSideEdgeIds = new HashSet<int>();
+            foreach (var wall in walls)
+            {
+                wallSideEdgeIds.UnionWith(wall.SourceEdgeIds);
+                wallSideEdgeIds.UnionWith(wall.TargetEdgeIds);
+                wallSideEdgeIds.UnionWith(wall.DirectionEdgeIds);
+            }
+            int[] adjacentFaceIds;
+            int[] adjacentVertexIds;
+            foreach (var block in blocks)
+            {
+                if (block.ImprintEdgeCopyIds == null) continue;
+                foreach (var entry in block.ImprintEdgeCopyIds)
+                {
+                    int[] pairEdgeIds = new int[] { entry.Key, entry.Value };
+                    if (pairEdgeIds.Any(id => pinnedEdgeIdNumElements.ContainsKey(id) || wallSideEdgeIds.Contains(id)))
+                        continue;
+                    foreach (var pairEdgeId in pairEdgeIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, pairEdgeId, out adjacentFaceIds, out adjacentVertexIds);
+                        foreach (var faceId in adjacentFaceIds)
+                        {
+                            int oppositeEdgeId;
+                            if (TryGetOppositeEdgeId(pairEdgeId, faceId, adjacentVertexIds, out oppositeEdgeId))
+                                alwaysFixedEdgeIds.Add(oppositeEdgeId);
+                        }
+                    }
+                }
+            }
             //
             int[] edgeIds;
             int[] faceIds;

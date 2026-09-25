@@ -36,7 +36,8 @@ namespace CaeMesh.Sweep
         private const double _curveTolerance = 0.02;
         private const double _moveTolerance = 1E-10;
         private const int _numOfSurfaceSamples = 15;
-        private const double _minScaledJacobian = 0.15;
+        private const double _minQuality = 0.15;
+        private const double _sharpCornerQualityFraction = 0.9;
 
 
         // Methods                                                                                                                  
@@ -97,40 +98,126 @@ namespace CaeMesh.Sweep
             SweepQuadWildMesh mesh = MapOutput(group, input, nodeCoors, faces);
             //
             int numOfQuads = faces.Count(face => face.Length == 4);
-            double minScaledJacobian = GetMinScaledJacobian(faces, nodeCoors);
-            if (minScaledJacobian < _minScaledJacobian)
-                throw new CaeException("The QuadWild mesh of " + group.GetDescription() + " has a minimum scaled " +
-                                       "Jacobian of " + Math.Round(minScaledJacobian, 3) + ".");
+            double minQuality = GetMinQuality(faces, nodeCoors);
+            if (!IsAboveQualityLimit(faces, nodeCoors, mesh))
+                throw new CaeException("The QuadWild mesh of " + group.GetDescription() + " has a minimum quality of " +
+                                       Math.Round(minQuality, 3) + ".");
             writeOutput?.Invoke("Sweep: QuadWild meshed " + group.GetDescription() + " with " + numOfQuads +
                                 " quadrilaterals" + (numOfQuads < faces.Count ? " and " + (faces.Count - numOfQuads) +
-                                " triangles" : "") + ", minimum scaled Jacobian " + Math.Round(minScaledJacobian, 3) +
+                                " triangles" : "") + ", minimum quality " + Math.Round(minQuality, 3) +
                                 ". " + DescribeFreeEdges(group, mesh));
             return mesh;
         }
         /// <summary>
-        /// The smallest scaled Jacobian at a corner of the elements, measured against the normal of each element.
+        /// The lowest quality of the elements, which the messages report.
         /// </summary>
-        private static double GetMinScaledJacobian(List<int[]> faces, List<double[]> nodeCoors)
+        private static double GetMinQuality(List<int[]> faces, List<double[]> nodeCoors)
         {
             double min = 1;
-            foreach (var face in faces)
+            foreach (var face in faces) min = Math.Min(min, GetQuality(face, nodeCoors));
+            return min;
+        }
+        /// <summary>
+        /// Whether every element reaches the quality limit. A corner of a quadrilateral at a vertex where its surface has
+        /// a sharp corner - an edge meeting the boundary at a small angle - is held only to a fraction of the sine of
+        /// that angle: no quadrilateral filling the corner can do better, so the fixed limit would refuse every mesh of
+        /// it. The angle of the surface is the sum of the corners the elements of the surface have there, so a corner
+        /// shared by two elements, each with part of an already sharp angle, is still refused.
+        /// </summary>
+        private static bool IsAboveQualityLimit(List<int[]> faces, List<double[]> nodeCoors, SweepQuadWildMesh mesh)
+        {
+            double[] sines;
+            double[] angles;
+            List<double[]> faceSines = new List<double[]>();
+            Dictionary<(int, int), double> vertexSurfaceAngle = new Dictionary<(int, int), double>();
+            for (int f = 0; f < faces.Count; f++)
             {
-                int n = face.Length;
-                Vec3D normal = new Vec3D();
-                for (int k = 0; k < n; k++)
-                    normal = normal + Vec3D.CrossProduct(new Vec3D(nodeCoors[face[k]]), new Vec3D(nodeCoors[face[(k + 1) % n]]));
-                if (normal.Normalize() == 0) return -1;
-                for (int k = 0; k < n; k++)
+                if (!GetCorners(faces[f], nodeCoors, out sines, out angles)) return false;
+                faceSines.Add(sines);
+                for (int k = 0; k < faces[f].Length; k++)
                 {
-                    Vec3D corner = new Vec3D(nodeCoors[face[k]]);
-                    Vec3D next = new Vec3D(nodeCoors[face[(k + 1) % n]]) - corner;
-                    Vec3D previous = new Vec3D(nodeCoors[face[(k + n - 1) % n]]) - corner;
-                    double lengths = next.Len * previous.Len;
-                    if (lengths == 0) return -1;
-                    min = Math.Min(min, Vec3D.DotProduct(Vec3D.CrossProduct(next, previous), normal) / lengths);
+                    SweepQuadWildNode node = mesh.Elements[f][k];
+                    if (node.Dimension != 0) continue;
+                    (int, int) key = (node.Tag, mesh.ElementSurfaceIds[f]);
+                    double angle;
+                    vertexSurfaceAngle.TryGetValue(key, out angle);
+                    vertexSurfaceAngle[key] = angle + Math.Max(0, angles[k]);
                 }
             }
+            for (int f = 0; f < faces.Count; f++)
+            {
+                if (faces[f].Length != 4)
+                {
+                    if (GetQuality(faces[f], nodeCoors) < _minQuality) return false;
+                    continue;
+                }
+                for (int k = 0; k < 4; k++)
+                {
+                    double limit = _minQuality;
+                    SweepQuadWildNode node = mesh.Elements[f][k];
+                    if (node.Dimension == 0)
+                    {
+                        double angle = vertexSurfaceAngle[(node.Tag, mesh.ElementSurfaceIds[f])];
+                        if (angle < Math.PI / 2)
+                            limit = Math.Min(limit, _sharpCornerQualityFraction * Math.Sin(angle));
+                    }
+                    if (faceSines[f][k] < limit) return false;
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// The quality of an element, measured against its normal: the scaled Jacobian at the worst corner of a
+        /// quadrilateral, and the sine of the largest angle of an obtuse triangle. A triangle is judged by its largest
+        /// angle alone, since it is an angle close to 180 degrees that spoils it. A corner turned against the normal is
+        /// its negative sine in both.
+        /// </summary>
+        private static double GetQuality(int[] face, List<double[]> nodeCoors)
+        {
+            double[] sines;
+            double[] angles;
+            if (!GetCorners(face, nodeCoors, out sines, out angles)) return -1;
+            //
+            double min = 1;
+            double maxAngle = 0;
+            for (int k = 0; k < face.Length; k++)
+            {
+                if (face.Length == 4 || sines[k] <= 0) min = Math.Min(min, sines[k]);
+                else maxAngle = Math.Max(maxAngle, angles[k]);
+            }
+            if (maxAngle > Math.PI / 2) min = Math.Min(min, Math.Sin(maxAngle));
             return min;
+        }
+        /// <summary>
+        /// The sine and the angle of every corner of an element, signed against its normal; false for an element with
+        /// no area or with two nodes in one place.
+        /// </summary>
+        private static bool GetCorners(int[] face, List<double[]> nodeCoors, out double[] sines, out double[] angles)
+        {
+            int n = face.Length;
+            sines = new double[n];
+            angles = new double[n];
+            Vec3D normal = GetAreaVector(face, nodeCoors);
+            if (normal.Normalize() == 0) return false;
+            for (int k = 0; k < n; k++)
+            {
+                Vec3D corner = new Vec3D(nodeCoors[face[k]]);
+                Vec3D next = new Vec3D(nodeCoors[face[(k + 1) % n]]) - corner;
+                Vec3D previous = new Vec3D(nodeCoors[face[(k + n - 1) % n]]) - corner;
+                double lengths = next.Len * previous.Len;
+                if (lengths == 0) return false;
+                sines[k] = Vec3D.DotProduct(Vec3D.CrossProduct(next, previous), normal) / lengths;
+                angles[k] = Math.Atan2(sines[k], Vec3D.DotProduct(next, previous) / lengths);
+            }
+            return true;
+        }
+        private static Vec3D GetAreaVector(int[] face, List<double[]> nodeCoors)
+        {
+            Vec3D areaVector = new Vec3D();
+            for (int k = 0; k < face.Length; k++)
+                areaVector = areaVector + Vec3D.CrossProduct(new Vec3D(nodeCoors[face[k]]),
+                                                             new Vec3D(nodeCoors[face[(k + 1) % face.Length]]));
+            return areaVector;
         }
         private static string DescribeFreeEdges(SweepQuadWildGroup group, SweepQuadWildMesh mesh)
         {
