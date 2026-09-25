@@ -881,9 +881,16 @@ namespace CaeMesh
                 Gmsh.Model.OCC.Translate(outDimTags, back[0], back[1], back[2]);
                 copyDimTags.AddRange(outDimTags);
             }
-            _writeOutput?.Invoke("Sweep volume " + block.VolumeId + ": " + toSourceDimTags.Count + " edge/s splitting the " +
-                                 "target carried to the source, " + toTargetDimTags.Count + " edge/s splitting the source " +
-                                 "carried to the target.");
+            _writeOutput?.Invoke(NameGmshEntities("Sweep: " + block.GetDescription() + " - " +
+                                                  DescribeCarriedEdges(toSourceDimTags) + " splitting the target carried " +
+                                                  "to the source, " + DescribeCarriedEdges(toTargetDimTags) + " splitting " +
+                                                  "the source carried to the target."));
+        }
+        private static string DescribeCarriedEdges(List<Tuple<int, int>> edgeDimTags)
+        {
+            if (edgeDimTags.Count == 0) return "0 edge/s";
+            return edgeDimTags.Count + " edge/s (" + string.Join(", ", edgeDimTags.Select(dimTag => "edge " + dimTag.Item2)) +
+                   ")";
         }
         /// <summary>
         /// Fragments every volume with the carried curves, so that they become real edges of the faces they lie
