@@ -25751,7 +25751,6 @@ namespace PrePoMax
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             bool solidError;
-            bool shellError;
             HashSet<int> edgeCellIds = new HashSet<int>();
             HashSet<int> nodeIds = new HashSet<int>();
             List<int[]> edgeCells = new List<int[]>();
@@ -25763,21 +25762,13 @@ namespace PrePoMax
                     _form.HighlightActor(part.Name);
                     //
                     solidError = (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) && part.HasFreeEdges;
-                    shellError = part.PartType == PartType.Shell && part.HasErrors;
                     //
-                    if (solidError || shellError)
+                    if (solidError)
                     {
-                        // Error                                            
+                        // Error
                         edgeCellIds.Clear();
-                        if (solidError)
-                        {
-                            if (part.ErrorEdgeCellIds != null) edgeCellIds.UnionWith(part.ErrorEdgeCellIds);
-                            if (part.FreeEdgeCellIds != null) edgeCellIds.UnionWith(part.FreeEdgeCellIds);
-                        }
-                        else if (shellError)
-                        {
-                            if (part.ErrorEdgeCellIds != null) edgeCellIds.UnionWith(part.ErrorEdgeCellIds);
-                        }
+                        if (part.ErrorEdgeCellIds != null) edgeCellIds.UnionWith(part.ErrorEdgeCellIds);
+                        if (part.FreeEdgeCellIds != null) edgeCellIds.UnionWith(part.FreeEdgeCellIds);
                         //
                         edgeCells.Clear();
                         foreach (var elementId in edgeCellIds) edgeCells.Add(part.Visualization.EdgeCells[elementId]);
@@ -25799,47 +25790,9 @@ namespace PrePoMax
                         _form.Add3DCells(data);
                         // Nodes                
                         nodeIds.Clear();
-                        if (solidError)
-                        {
-                            if (part.ErrorNodeIds != null) nodeIds.UnionWith(part.ErrorNodeIds);
-                            if (part.FreeNodeIds != null) nodeIds.UnionWith(part.FreeNodeIds);
-                        }
-                        else if (shellError)
-                        {
-                            if (part.ErrorNodeIds != null) nodeIds.UnionWith(part.ErrorNodeIds);
-                        }
+                        if (part.ErrorNodeIds != null) nodeIds.UnionWith(part.ErrorNodeIds);
+                        if (part.FreeNodeIds != null) nodeIds.UnionWith(part.FreeNodeIds);
                         DrawNodes(part.Name, nodeIds.ToArray(), color, layer, out _, -1, false, true);
-                        // Free                                             
-                        if (shellError)
-                        {
-                            edgeCellIds.Clear();
-                            if (part.FreeEdgeCellIds != null) edgeCellIds.UnionWith(part.FreeEdgeCellIds);
-                            if (part.ErrorEdgeCellIds != null) edgeCellIds.ExceptWith(part.ErrorEdgeCellIds);
-                            //
-                            edgeCells.Clear();
-                            foreach (var elementId in edgeCellIds) edgeCells.Add(part.Visualization.EdgeCells[elementId]);
-                            //
-                            data = new vtkMaxActorData();
-                            DisplayedMesh.GetNodesAndCellsForEdges(edgeCells.ToArray(), out data.Geometry.Nodes.Ids,
-                                                                   out data.Geometry.Nodes.Coor,
-                                                                   out data.Geometry.Cells.CellNodeIds,
-                                                                   out data.Geometry.Cells.Types);
-                            // Data
-                            data.Name = part.Name + "_ErrorEdgeElements";
-                            data.Color = color;
-                            data.Layer = layer;
-                            data.CanHaveElementEdges = true;
-                            data.BackfaceCulling = true;
-                            data.UseSecondaryHighlightColor = true;
-                            //
-                            ApplyLighting(data);
-                            _form.Add3DCells(data);
-                            // Nodes                
-                            nodeIds.Clear();
-                            if (part.FreeNodeIds != null) nodeIds.UnionWith(part.FreeNodeIds);
-                            if (part.ErrorNodeIds != null) nodeIds.ExceptWith(part.ErrorNodeIds);
-                            DrawNodes(part.Name, nodeIds.ToArray(), color, layer, out _, -1, false, true);
-                        }
                     }
                     //else
                     {

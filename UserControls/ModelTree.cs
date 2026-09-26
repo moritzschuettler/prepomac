@@ -4296,8 +4296,6 @@ namespace UserControls
                             {
                                 if (gp.PartType == PartType.Solid || gp.PartType == PartType.SolidAsShell)
                                     warning = gp.HasFreeEdges;
-                                else if (gp.PartType == PartType.Shell)
-                                    warning = gp.HasErrors;
                                 else
                                     warning = false;
                                 //

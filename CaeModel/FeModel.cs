@@ -2644,6 +2644,9 @@ namespace CaeModel
                 GeometryPart part = _geometry.GetPartFromId(partId) as GeometryPart;
                 if (part == null || part.PartType != PartType.Shell || part.IsCADPart)
                     return "The shell MMG mesh setup item can only be defined on STL shell parts.";
+                if (part.HasErrors || part.Visualization.IsNonManifold())
+                    return "The shell MMG mesh setup item can only be defined on manifold shell parts. " +
+                           "Use the Netgen or Gmsh shell mesher for the part " + part.Name + ".";
             }
             return null;
         }
@@ -2680,6 +2683,10 @@ namespace CaeModel
                 //
                 if (part.PartType != PartType.Shell)
                     return "The shell QuadWild mesh setup item can only be defined on shell parts.";
+                if (shellQuadWild.TriangulationMesher == MesherTypeEnum.Mmg &&
+                    (part.HasErrors || part.Visualization.IsNonManifold()))
+                    return "The QuadWild MMG triangulation can only be used on manifold shell parts. " +
+                           "Use the Netgen or Gmsh triangulation for the part " + part.Name + ".";
             }
             return null;
         }
