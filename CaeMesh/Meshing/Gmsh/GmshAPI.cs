@@ -1782,8 +1782,8 @@ namespace CaeMesh
                         quadWildEdgeIdNumElements[edgeId] = SweepWallTopology.GetElementCount(edgeId);
                     }
                     writeOutput("Sweep: the side surfaces changed the element count of " +
-                                String.Join(", ", changedEdgeIds.Select(id => "Edge " + id)) + " of " +
-                                group.GetDescription() + ", which QuadWild meshes again.");
+                                String.Join(", ", changedEdgeIds.Select(id => "Edge " + id)) + ", so QuadWild meshes " +
+                                group.GetDescription() + " again.");
                     group.Mesh = null;
                 }
                 MatchOppositeSideSpacing(walls, fixedNodeEdgeIds);
@@ -1808,9 +1808,8 @@ namespace CaeMesh
                     catch (CaeException ex)
                     {
                         if (!sweepMesh.QuadWildFallbackToGmsh)
-                            throw new CaeException(NameGmshEntities("Sweep: " + ex.Message + " QuadWild failed to mesh " +
-                                                                    group.GetDescription() + " and the fallback to " +
-                                                                    "gmsh is turned off."));
+                            throw new CaeException("Sweep: " + ex.Message + " QuadWild failed to mesh " +
+                                                   group.GetDescription() + " and the fallback to gmsh is turned off.");
                         writeOutput("Sweep: " + ex.Message + " Gmsh meshes " + group.GetDescription() + " instead of " +
                                     "QuadWild.");
                         _quadWildGroups.Remove(group);
@@ -1988,10 +1987,9 @@ namespace CaeMesh
                 if (oddSurfaceId != 0)
                 {
                     if (!fallbackToGmsh)
-                        throw new CaeException(NameGmshEntities("Sweep: every edge of Surface " + oddSurfaceId + " is " +
-                                                                "fixed and they carry " + numOfElements + " elements " +
-                                                                "together, an odd number no quadrilateral mesh can " +
-                                                                "have, and the fallback to gmsh is turned off."));
+                        throw new CaeException("Sweep: every edge of Surface " + oddSurfaceId + " is fixed and they " +
+                                               "carry " + numOfElements + " elements together, an odd number no " +
+                                               "quadrilateral mesh can have, and the fallback to gmsh is turned off.");
                     _quadWildSourceIds.Remove(oddSurfaceId);
                     if (recombine) Gmsh.Model.Mesh.SetRecombine(2, oddSurfaceId);
                     _writeOutput?.Invoke(NameGmshEntities("Sweep: every edge of Surface " + oddSurfaceId + " is fixed " +

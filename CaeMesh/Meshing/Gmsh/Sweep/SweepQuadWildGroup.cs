@@ -58,9 +58,13 @@ namespace CaeMesh.Sweep
 
 
         // Methods                                                                                                                  
+        /// <summary>
+        /// The surfaces of the group one by one, by their gmsh tags, which a message of the gmsh interface renames
+        /// to the surfaces of the model on its way out.
+        /// </summary>
         public string GetDescription()
         {
-            return (_surfaceIds.Length == 1 ? "Surface " : "Surfaces ") + String.Join(", ", _surfaceIds);
+            return String.Join(", ", _surfaceIds.Select(id => "surface " + id));
         }
     }
 }
