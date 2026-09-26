@@ -133,6 +133,7 @@ namespace APIs.Python
             types.Add("add_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
             types.Add("replace_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
             types.Add("quad_wild_flow_profile", typeof(QuadWildFlowProfileEnum));
+            types.Add("symmetry", typeof(SweepSymmetryEnum));
             types.Add("nodes_to_keep", typeof(NodesToKeepEnum));
             // Analyses and results
             types.Add("fem_solver", typeof(FEMSolverEnum));

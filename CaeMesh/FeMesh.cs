@@ -11078,6 +11078,210 @@ namespace CaeMesh
             if (copy) return mirroredPartNames;
             else return null;
         }
+        /// <summary>
+        /// Fits the mesh of a part mirrored from another cell to the geometry part it now stands for: its model edges
+        /// are kept where they lie on an edge of the geometry part, which drops an edge the mirrored cell carried but
+        /// this one does not and joins the faces it divided, and its faces and edges are numbered as the geometry
+        /// part numbers them, so that a selection on the geometry reaches the same faces of the mesh.
+        /// </summary>
+        public void FitPartToGeometryPart(BasePart part, BasePart geometryPart, FeMesh geometry)
+        {
+            VisualizationData geometryVis = geometryPart.Visualization;
+            double tolerance = 2E-3 * geometryPart.BoundingBox.GetDiagonal();
+            // The edges and the faces of the geometry part
+            List<double[][][]> geometryEdges = new List<double[][][]>();
+            List<double> geometryEdgeTolerances = new List<double>();
+            List<double> geometryEdgeCurvatures = new List<double>();
+            for (int edgeId = 0; edgeId < geometryVis.EdgeCellIdsByEdge.Length; edgeId++)
+            {
+                int[][] edgeCells = geometryVis.EdgeCellIdsByEdge[edgeId].Select(id => geometryVis.EdgeCells[id]).ToArray();
+                geometryEdges.Add(edgeCells.Select(cell => new double[][] { geometry.Nodes[cell[0]].Coor,
+                                                                            geometry.Nodes[cell[1]].Coor })
+                                           .ToArray());
+                // A curved edge is drawn by chords, which sag off the curve by up to the curvature times the square
+                // of the chord length over 8
+                Dictionary<int, List<int[]>> nodeIdCells = new Dictionary<int, List<int[]>>();
+                foreach (var cell in edgeCells)
+                {
+                    foreach (var nodeId in cell)
+                    {
+                        List<int[]> cells;
+                        if (!nodeIdCells.TryGetValue(nodeId, out cells))
+                        {
+                            cells = new List<int[]>();
+                            nodeIdCells.Add(nodeId, cells);
+                        }
+                        cells.Add(cell);
+                    }
+                }
+                double curvature = 0;
+                double sag = 0;
+                foreach (var entry in nodeIdCells)
+                {
+                    if (entry.Value.Count != 2) continue;
+                    Vec3D node = new Vec3D(geometry.Nodes[entry.Key].Coor);
+                    Vec3D[] directions = entry.Value.Select(cell => new Vec3D(geometry.Nodes[cell[0] == entry.Key ?
+                                                                                              cell[1] : cell[0]].Coor) - node)
+                                                    .ToArray();
+                    double length0 = directions[0].Len;
+                    double length1 = directions[1].Len;
+                    if (length0 == 0 || length1 == 0) continue;
+                    double cos = Vec3D.DotProduct(directions[0], directions[1]) / (length0 * length1);
+                    double angle = Math.PI - Math.Acos(Math.Max(-1, Math.Min(1, cos)));
+                    double nodeCurvature = 2 * angle / (length0 + length1);
+                    curvature = Math.Max(curvature, nodeCurvature);
+                    sag = Math.Max(sag, nodeCurvature * Math.Pow(Math.Max(length0, length1), 2) / 8);
+                }
+                geometryEdgeTolerances.Add(tolerance + 2 * sag);
+                geometryEdgeCurvatures.Add(curvature);
+            }
+            List<double[][][]> geometryFaces = new List<double[][][]>();
+            for (int faceId = 0; faceId < geometryVis.CellIdsByFace.Length; faceId++)
+            {
+                geometryFaces.Add(geometryVis.CellIdsByFace[faceId]
+                                             .Select(id => geometryVis.Cells[id].Take(3)
+                                                                                .Select(nodeId => geometry.Nodes[nodeId].Coor)
+                                                                                .ToArray())
+                                             .ToArray());
+            }
+            // A mesh edge lies on a geometry edge when the end nodes of its cells lie on the curve and the middles of its
+            // cells, the midside nodes among them, no further off than a chord of that curve sags
+            Func<VisualizationData, int, int> getGeometryEdgeId = (edgeVis, edgeId) =>
+            {
+                int[][] edgeCells = edgeVis.EdgeCellIdsByEdge[edgeId].Select(id => edgeVis.EdgeCells[id]).ToArray();
+                int[] nodeIds = edgeCells.SelectMany(cell => cell.Take(2)).Distinct().ToArray();
+                int bestId = -1;
+                double bestDistance = double.MaxValue;
+                for (int i = 0; i < geometryEdges.Count; i++)
+                {
+                    double distance = 0;
+                    foreach (var nodeId in nodeIds)
+                    {
+                        distance = Math.Max(distance, SweepSymmetry.DistanceToSegments(_nodes[nodeId].Coor, geometryEdges[i]));
+                        if (distance > geometryEdgeTolerances[i]) break;
+                    }
+                    if (distance > geometryEdgeTolerances[i]) continue;
+                    //
+                    bool onEdge = true;
+                    foreach (var cell in edgeCells)
+                    {
+                        double length = (new Vec3D(_nodes[cell[1]].Coor) - new Vec3D(_nodes[cell[0]].Coor)).Len;
+                        double cellTolerance = geometryEdgeTolerances[i] + 0.2 * geometryEdgeCurvatures[i] * length * length;
+                        IEnumerable<double[]> middles = new double[][] { GetMidpoint(cell[0], cell[1]) }
+                                                        .Concat(cell.Skip(2).Select(nodeId => _nodes[nodeId].Coor));
+                        if (middles.Any(middle => SweepSymmetry.DistanceToSegments(middle, geometryEdges[i]) > cellTolerance))
+                        {
+                            onEdge = false;
+                            break;
+                        }
+                    }
+                    if (onEdge && distance < bestDistance) { bestDistance = distance; bestId = i; }
+                }
+                return bestId;
+            };
+            // The model edges of the mesh that lie on an edge of the geometry part
+            VisualizationData vis = part.Visualization;
+            List<FeElement1D> edgeElements = new List<FeElement1D>();
+            HashSet<int> vertexNodeIds = new HashSet<int>();
+            for (int edgeId = 0; edgeId < vis.EdgeCellIdsByEdge.Length; edgeId++)
+            {
+                int[] edgeCellIds = vis.EdgeCellIdsByEdge[edgeId];
+                if (edgeCellIds.Length == 0) continue;
+                if (getGeometryEdgeId(vis, edgeId) < 0) continue;
+                //
+                foreach (var edgeCellId in edgeCellIds)
+                    edgeElements.Add(new LinearBeamElement(edgeElements.Count, vis.EdgeCells[edgeCellId]));
+                vertexNodeIds.UnionWith(vis.GetVertexNodeIdsForEdgeId(edgeId));
+            }
+            ExtractPartVisualization(part, false, Globals.EdgeAngle);
+            ConvertLineFeElementsToEdges(edgeElements, new string[] { part.Name }, vertexNodeIds);
+            // The faces in the order of the geometry part
+            vis = part.Visualization;
+            Dictionary<int, HashSet<int>> faceIdNodeIds = vis.GetSurfaceIdNodeIds();
+            // A face is paired with the geometry face its nodes and the middles of its cells lie on best, the pairs being
+            // made one to one from the closest. The middle of a single cell of a coarse mesh on a curved face can lie
+            // nearer to a neighbouring face, so no one sample decides
+            List<Tuple<double, int, int>> pairs = new List<Tuple<double, int, int>>();
+            for (int faceId = 0; faceId < vis.CellIdsByFace.Length; faceId++)
+            {
+                int[] cellIds = vis.CellIdsByFace[faceId];
+                List<double[]> samples = new List<double[]>();
+                int step = Math.Max(1, cellIds.Length / 50);
+                for (int i = 0; i < cellIds.Length; i += step)
+                {
+                    int[] cell = vis.Cells[cellIds[i]];
+                    samples.Add(GetMidpoint(cell));
+                    samples.AddRange(cell.Select(nodeId => _nodes[nodeId].Coor));
+                }
+                for (int i = 0; i < geometryFaces.Count; i++)
+                {
+                    double sum = 0;
+                    foreach (var sample in samples)
+                    {
+                        double distance = double.MaxValue;
+                        foreach (var triangle in geometryFaces[i])
+                            distance = Math.Min(distance, SweepSymmetry.DistanceToTriangle(sample, triangle[0], triangle[1],
+                                                                                          triangle[2]));
+                        sum += distance;
+                    }
+                    pairs.Add(new Tuple<double, int, int>(sum / samples.Count, faceId, i));
+                }
+            }
+            Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>();
+            HashSet<int> pairedFaceIds = new HashSet<int>();
+            foreach (var pair in pairs.OrderBy(pair => pair.Item1))
+            {
+                if (pairedFaceIds.Contains(pair.Item2) || surfaceIdNodeIds.ContainsKey(pair.Item3)) continue;
+                pairedFaceIds.Add(pair.Item2);
+                surfaceIdNodeIds.Add(pair.Item3, new HashSet<int>(faceIdNodeIds[pair.Item2]));
+            }
+            if (surfaceIdNodeIds.Count != vis.CellIdsByFace.Length || surfaceIdNodeIds.Count != geometryFaces.Count)
+            {
+                // The faces of the part the mirrored mesh does not reach, named the way the interface names them
+                string missingSurfaces = string.Join(", ", Enumerable.Range(0, geometryFaces.Count)
+                                                                     .Where(id => !surfaceIdNodeIds.ContainsKey(id))
+                                                                     .Select(id => "surface " + (id + 1) + " of " +
+                                                                                   geometryPart.Name));
+                throw new CaeException("The mesh mirrored onto the part " + geometryPart.Name + " does not have the faces " +
+                                       "of the part: its " + vis.CellIdsByFace.Length + " faces lie on " +
+                                       surfaceIdNodeIds.Count + " of the " + geometryFaces.Count + " faces of the " +
+                                       "part" + (missingSurfaces.Length > 0 ? ", and it misses " + missingSurfaces : "") +
+                                       ". Set the symmetry of the sweep mesh setup item to Off.");
+            }
+            RenumberVisualizationSurfaces(part, surfaceIdNodeIds);
+            if (geometryVis.FaceKernelIds != null && geometryVis.FaceKernelIds.Length == vis.CellIdsByFace.Length)
+                vis.FaceKernelIds = geometryVis.FaceKernelIds.ToArray();
+            // The edges in the order of the geometry part
+            Dictionary<int, HashSet<int>> edgeIdNodeIds = new Dictionary<int, HashSet<int>>();
+            for (int edgeId = 0; edgeId < vis.EdgeCellIdsByEdge.Length; edgeId++)
+            {
+                int geometryEdgeId = getGeometryEdgeId(vis, edgeId);
+                if (geometryEdgeId < 0) continue;
+                HashSet<int> nodeIds;
+                if (!edgeIdNodeIds.TryGetValue(geometryEdgeId, out nodeIds))
+                {
+                    nodeIds = new HashSet<int>();
+                    edgeIdNodeIds.Add(geometryEdgeId, nodeIds);
+                }
+                nodeIds.UnionWith(vis.GetNodeIdsForEdgeId(edgeId));
+            }
+            RenumberPartVisualizationEdges(part, edgeIdNodeIds);
+            if (geometryVis.EdgeKernelIds != null && geometryVis.EdgeKernelIds.Length == vis.EdgeCellIdsByEdge.Length)
+                vis.EdgeKernelIds = geometryVis.EdgeKernelIds.ToArray();
+            //
+            ComputeEdgeLengths(part);
+            ComputeFaceAreas(part);
+        }
+        private double[] GetMidpoint(params int[] nodeIds)
+        {
+            double[] midpoint = new double[3];
+            foreach (var nodeId in nodeIds)
+            {
+                double[] coor = _nodes[nodeId].Coor;
+                for (int i = 0; i < 3; i++) midpoint[i] += coor[i] / nodeIds.Length;
+            }
+            return midpoint;
+        }
         public static void MirrorPoint(double[] point, double[] mirrorPoint, double[] mirrorDirection)
         {
             double[][] mirror = new double[][] { point };

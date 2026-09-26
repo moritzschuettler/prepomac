@@ -1,0 +1,643 @@
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using CaeGlobals;
+
+namespace CaeMesh
+{
+    /// <summary>
+    /// Finds the mirror symmetry of a compound part along the planes it is split on, so that one symmetric piece of
+    /// its cells is swept and the mesh mirrored onto the others. A plane is used only when every cell has a mirror
+    /// image across it, no cell crosses it, and every edge of an image lies on an edge of the mirrored cell it is
+    /// meshed from - a cell may carry more edges than its image, never fewer - and when every mesh setup item that
+    /// selects a part of the compound selects the images of what it selects as well.
+    /// </summary>
+    public class SweepSymmetry
+    {
+        // Variables
+        private readonly FeMesh _geometry;
+        private readonly GeometryPart[] _parts;
+        private readonly Dictionary<int, GeometryPart> _partIdPart;
+        private readonly Dictionary<int, CellShape> _partIdShape;
+        private readonly double _vertexTolerance;
+        private readonly double _curveTolerance;
+        private readonly double _signatureTolerance;
+
+
+        // Properties
+        /// <summary>The chosen planes, a point and a unit normal each: x, y, z, nx, ny, nz.</summary>
+        public double[][] Planes { get; private set; }
+        /// <summary>One row per mirrored cell: its part id, the part id of its swept cell, the planes as bits.</summary>
+        public int[][] PartIds { get; private set; }
+        /// <summary>The cells that are swept.</summary>
+        public GeometryPart[] MasterParts { get; private set; }
+        /// <summary>Why no symmetry is used, for the output window; null when one is.</summary>
+        public string Reason { get; private set; }
+
+
+        // Constructors
+        private SweepSymmetry(FeMesh geometry, GeometryPart[] parts)
+        {
+            _geometry = geometry;
+            _parts = parts;
+            _partIdPart = parts.ToDictionary(part => part.PartId);
+            _partIdShape = new Dictionary<int, CellShape>();
+            BoundingBox box = new BoundingBox();
+            foreach (var part in parts)
+            {
+                CellShape shape = new CellShape(part, geometry);
+                _partIdShape.Add(part.PartId, shape);
+                box.IncludeCoor(new double[] { shape.Box.MinX, shape.Box.MinY, shape.Box.MinZ });
+                box.IncludeCoor(new double[] { shape.Box.MaxX, shape.Box.MaxY, shape.Box.MaxZ });
+            }
+            double diagonal = box.GetDiagonal();
+            _vertexTolerance = 1E-5 * diagonal;
+            _curveTolerance = 2E-3 * diagonal;
+            _signatureTolerance = _curveTolerance;
+        }
+
+
+        // Methods
+        /// <summary>
+        /// The symmetry of the cells of a compound, or null when no plane can be used. The items are the other mesh
+        /// setup items of the model; the own selection is that of the sweep item when it names source surfaces.
+        /// </summary>
+        public static SweepSymmetry Find(FeMesh geometry, GeometryPart[] parts, IEnumerable<MeshSetupItem> items,
+                                         int[] ownSelectedGeometryIds, out string reason)
+        {
+            reason = null;
+            if (parts == null || parts.Length < 2) return null;
+            //
+            SweepSymmetry symmetry = new SweepSymmetry(geometry, parts);
+            if (!symmetry.Detect(items, ownSelectedGeometryIds))
+            {
+                reason = symmetry.Reason;
+                return null;
+            }
+            return symmetry;
+        }
+        private bool Detect(IEnumerable<MeshSetupItem> items, int[] ownSelectedGeometryIds)
+        {
+            // Every plane a planar face shared by two cells lies in, across which every cell has a mirror image
+            List<double[]> planes = new List<double[]>();
+            List<Dictionary<int, int>> planePartners = new List<Dictionary<int, int>>();
+            List<Dictionary<int, int>> planeSides = new List<Dictionary<int, int>>();
+            foreach (var plane in GetCandidatePlanes())
+            {
+                Dictionary<int, int> sides;
+                Dictionary<int, int> partners = PairCells(plane, out sides);
+                if (partners == null) continue;
+                // Mirror planes that are not perpendicular do not commute, and the images they give are not four
+                if (planes.Any(other => Math.Abs(Dot(Normal(other), Normal(plane))) > 1E-6)) continue;
+                planes.Add(plane);
+                planePartners.Add(partners);
+                planeSides.Add(sides);
+                if (planes.Count == 3) break;
+            }
+            if (planes.Count == 0)
+            {
+                Reason = "no plane the compound is split on is a mirror plane of all of its cells";
+                return false;
+            }
+            // The most planes that can be used together, and for each the side the swept cells lie on: the cells on
+            // it have to carry every edge of their images
+            string lastReason = null;
+            for (int count = planes.Count; count >= 1; count--)
+            {
+                foreach (var subset in GetSubsets(planes.Count, count))
+                {
+                    for (int sideBits = 0; sideBits < (1 << count); sideBits++)
+                    {
+                        if (TryAssign(subset, sideBits, planes, planePartners, planeSides, items, ownSelectedGeometryIds,
+                                      out lastReason)) return true;
+                    }
+                }
+            }
+            Reason = lastReason;
+            return false;
+        }
+        private bool TryAssign(int[] subset, int sideBits, List<double[]> planes, List<Dictionary<int, int>> planePartners,
+                               List<Dictionary<int, int>> planeSides, IEnumerable<MeshSetupItem> items,
+                               int[] ownSelectedGeometryIds, out string reason)
+        {
+            reason = null;
+            double[][] usedPlanes = subset.Select(index => planes[index]).ToArray();
+            // A cell is a master when it lies on the chosen side of every plane
+            HashSet<int> masterIds = new HashSet<int>();
+            foreach (var part in _parts)
+            {
+                bool master = true;
+                for (int i = 0; i < subset.Length && master; i++)
+                {
+                    int wantedSide = (sideBits & (1 << i)) != 0 ? -1 : 1;
+                    if (planeSides[subset[i]][part.PartId] != wantedSide) master = false;
+                }
+                if (master) masterIds.Add(part.PartId);
+            }
+            if (masterIds.Count == 0 || masterIds.Count == _parts.Length) return false;
+            // Every other cell reaches its master by the mirrors across the planes it lies beyond
+            List<int[]> rows = new List<int[]>();
+            Dictionary<int, Tuple<int, int>> partIdMasterBits = new Dictionary<int, Tuple<int, int>>();
+            foreach (var part in _parts)
+            {
+                if (masterIds.Contains(part.PartId)) continue;
+                //
+                int bits = 0;
+                int masterId = part.PartId;
+                for (int i = 0; i < subset.Length; i++)
+                {
+                    int wantedSide = (sideBits & (1 << i)) != 0 ? -1 : 1;
+                    if (planeSides[subset[i]][part.PartId] == wantedSide) continue;
+                    bits |= 1 << i;
+                    masterId = planePartners[subset[i]][masterId];
+                }
+                if (!masterIds.Contains(masterId)) return false;
+                // The master has to carry every edge of the cell its mesh is mirrored onto
+                if (!Covers(masterId, part.PartId, usedPlanes, bits))
+                {
+                    reason = "the part " + part.Name + " has an edge its mirror image " + _partIdPart[masterId].Name +
+                             " does not have, and the mesh mirrored onto it would not follow the edge";
+                    return false;
+                }
+                rows.Add(new int[] { part.PartId, masterId, bits });
+                partIdMasterBits.Add(part.PartId, new Tuple<int, int>(masterId, bits));
+            }
+            // The meshing inputs have to be as symmetric as the geometry
+            if (!AreSelectionsSymmetric(items, ownSelectedGeometryIds, usedPlanes, masterIds, partIdMasterBits,
+                                        out reason)) return false;
+            //
+            Planes = usedPlanes;
+            PartIds = rows.ToArray();
+            MasterParts = _parts.Where(part => masterIds.Contains(part.PartId)).ToArray();
+            return true;
+        }
+        private static IEnumerable<int[]> GetSubsets(int n, int count)
+        {
+            for (int mask = 0; mask < (1 << n); mask++)
+            {
+                int[] indices = Enumerable.Range(0, n).Where(i => (mask & (1 << i)) != 0).ToArray();
+                if (indices.Length == count) yield return indices;
+            }
+        }
+        // Planes
+        /// <summary>
+        /// The planes of the planar faces two cells share, each once, through which the bounding box of the compound
+        /// is symmetric.
+        /// </summary>
+        private List<double[]> GetCandidatePlanes()
+        {
+            List<double[]> planes = new List<double[]>();
+            BoundingBox box = new BoundingBox();
+            foreach (var shape in _partIdShape.Values)
+            {
+                box.IncludeCoor(new double[] { shape.Box.MinX, shape.Box.MinY, shape.Box.MinZ });
+                box.IncludeCoor(new double[] { shape.Box.MaxX, shape.Box.MaxY, shape.Box.MaxZ });
+            }
+            foreach (var entry in _geometry.GetSharedSurfaceIds(_parts))
+            {
+                int partId = FeMesh.GetPartIdFromGmshTopologyId(entry.Key);
+                int surfaceId = FeMesh.GetItemIdFromGmshTopologyId(entry.Key);
+                GeometryPart part;
+                if (!_partIdPart.TryGetValue(partId, out part)) continue;
+                VisualizationData vis = part.Visualization;
+                if (vis.FaceTypes == null || surfaceId >= vis.FaceTypes.Length ||
+                    vis.FaceTypes[surfaceId] != GeomFaceType.Plane) continue;
+                //
+                double[] plane = _partIdShape[partId].GetFacePlane(surfaceId);
+                if (plane == null) continue;
+                if (planes.Any(other => IsSamePlane(other, plane))) continue;
+                if (!IsBoxSymmetric(box, plane)) continue;
+                planes.Add(plane);
+            }
+            return planes;
+        }
+        private bool IsSamePlane(double[] plane1, double[] plane2)
+        {
+            if (Math.Abs(Math.Abs(Dot(Normal(plane1), Normal(plane2))) - 1) > 1E-6) return false;
+            return Math.Abs(SignedDistance(plane1, Point(plane2))) <= _vertexTolerance;
+        }
+        private bool IsBoxSymmetric(BoundingBox box, double[] plane)
+        {
+            BoundingBox mirrored = MirrorBox(box, plane);
+            return IsSameBox(box, mirrored, _signatureTolerance);
+        }
+        /// <summary>
+        /// The mirror image of every cell across the plane, or null when a cell crosses the plane or has no image.
+        /// The sides are +1 and -1 for the two sides of the plane.
+        /// </summary>
+        private Dictionary<int, int> PairCells(double[] plane, out Dictionary<int, int> sides)
+        {
+            sides = new Dictionary<int, int>();
+            foreach (var entry in _partIdShape)
+            {
+                double min = double.MaxValue;
+                double max = -double.MaxValue;
+                foreach (var coor in entry.Value.NodeCoors)
+                {
+                    double distance = SignedDistance(plane, coor);
+                    min = Math.Min(min, distance);
+                    max = Math.Max(max, distance);
+                }
+                if (min >= -_vertexTolerance) sides.Add(entry.Key, 1);
+                else if (max <= _vertexTolerance) sides.Add(entry.Key, -1);
+                else return null;
+            }
+            Dictionary<int, int> partners = new Dictionary<int, int>();
+            foreach (var entry in _partIdShape)
+            {
+                BoundingBox mirrored = MirrorBox(entry.Value.Box, plane);
+                int partnerId = -1;
+                double bestError = double.MaxValue;
+                foreach (var candidate in _partIdShape)
+                {
+                    if (sides[candidate.Key] == sides[entry.Key]) continue;
+                    // The two triangulate their curved faces apart, so their areas and volumes agree only as closely
+                    if (Math.Abs(candidate.Value.Volume - entry.Value.Volume) > 1E-3 * Math.Abs(entry.Value.Volume)) continue;
+                    if (Math.Abs(candidate.Value.Area - entry.Value.Area) > 1E-3 * entry.Value.Area) continue;
+                    double error = BoxError(mirrored, candidate.Value.Box);
+                    if (error > _signatureTolerance || error >= bestError) continue;
+                    bestError = error;
+                    partnerId = candidate.Key;
+                }
+                if (partnerId < 0) return null;
+                partners.Add(entry.Key, partnerId);
+            }
+            // The pairing has to be one to one
+            foreach (var entry in partners)
+            {
+                if (partners[entry.Value] != entry.Key) return null;
+            }
+            return partners;
+        }
+        // Edges
+        /// <summary>
+        /// Whether the master mirrored across the planes of the bits has the shape of the cell and carries every edge
+        /// of it: every vertex of the cell is a mirrored vertex of the master, every edge of the cell runs along
+        /// mirrored edges of the master, and every mirrored vertex of the master lies on the cell.
+        /// </summary>
+        private bool Covers(int masterId, int partId, double[][] planes, int bits)
+        {
+            CellShape master = _partIdShape[masterId];
+            CellShape cell = _partIdShape[partId];
+            List<double[]> masterVertices = master.VertexCoors.Select(coor => Transform(coor, planes, bits)).ToList();
+            List<double[][][]> masterEdges = master.EdgeSegments.Select(segments => TransformSegments(segments, planes, bits))
+                                                   .ToList();
+            foreach (var coor in cell.VertexCoors)
+            {
+                if (!masterVertices.Any(vertex => Distance(vertex, coor) <= _vertexTolerance)) return false;
+            }
+            foreach (var segments in cell.EdgeSegments)
+            {
+                foreach (var coor in segments.SelectMany(segment => segment))
+                {
+                    if (!masterEdges.Any(edge => DistanceToSegments(coor, edge) <= _curveTolerance)) return false;
+                }
+            }
+            foreach (var vertex in masterVertices)
+            {
+                if (cell.DistanceToSurface(vertex) > _curveTolerance) return false;
+            }
+            return true;
+        }
+        // Selections
+        /// <summary>
+        /// Whether every item selecting a part of the compound selects the images of what it selects, and the own
+        /// selection of the sweep item as well. A count on an edge, a size on a face or a setting on a cell that only
+        /// one side carries asks for a mesh that is not symmetric.
+        /// </summary>
+        private bool AreSelectionsSymmetric(IEnumerable<MeshSetupItem> items, int[] ownSelectedGeometryIds,
+                                            double[][] planes, HashSet<int> masterIds,
+                                            Dictionary<int, Tuple<int, int>> partIdMasterBits, out string reason)
+        {
+            reason = null;
+            List<Tuple<string, int[]>> selections = new List<Tuple<string, int[]>>();
+            if (items != null)
+            {
+                foreach (var item in items)
+                {
+                    if (item.CreationIds != null) selections.Add(new Tuple<string, int[]>(item.Name, item.CreationIds));
+                }
+            }
+            if (ownSelectedGeometryIds != null)
+                selections.Add(new Tuple<string, int[]>("the sweep item", ownSelectedGeometryIds));
+            //
+            foreach (var selection in selections)
+            {
+                HashSet<int> ids = new HashSet<int>(selection.Item2);
+                foreach (var geometryId in selection.Item2)
+                {
+                    int[] itemTypePart = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                    if (!_partIdPart.ContainsKey(itemTypePart[2])) continue;
+                    //
+                    foreach (var image in GetImages(geometryId, planes, masterIds, partIdMasterBits))
+                    {
+                        if (image < 0 || !ids.Contains(image))
+                        {
+                            reason = "the selection of " + selection.Item1 + " is not symmetric";
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// The geometry ids of the images of an entity in every other cell of its orbit, -1 where an image has no
+        /// entity of its own - an edge of a cell whose image does not carry it.
+        /// </summary>
+        private IEnumerable<int> GetImages(int geometryId, double[][] planes, HashSet<int> masterIds,
+                                           Dictionary<int, Tuple<int, int>> partIdMasterBits)
+        {
+            int[] itemTypePart = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+            int partId = itemTypePart[2];
+            // The master of the entity's cell and the bits taking the master to the cell
+            int masterId = partId;
+            int ownBits = 0;
+            Tuple<int, int> masterBits;
+            if (partIdMasterBits.TryGetValue(partId, out masterBits))
+            {
+                masterId = masterBits.Item1;
+                ownBits = masterBits.Item2;
+            }
+            // Every cell of the orbit: the master and the cells mirrored from it
+            List<Tuple<int, int>> orbit = new List<Tuple<int, int>> { new Tuple<int, int>(masterId, 0) };
+            foreach (var entry in partIdMasterBits)
+            {
+                if (entry.Value.Item1 == masterId) orbit.Add(new Tuple<int, int>(entry.Key, entry.Value.Item2));
+            }
+            foreach (var member in orbit)
+            {
+                if (member.Item1 == partId) continue;
+                // From the entity's cell back to the master, then on to the member
+                int bits = ownBits ^ member.Item2;
+                if (FeMesh.IsPartGeometryId(geometryId))
+                {
+                    // A bare part id, or one carrying the part type digit
+                    yield return FeMesh.GetTypeIdFromGeometryId(geometryId) == 0 ? member.Item1 :
+                                 FeMesh.GetGeometryId(0, (int)GeometryType.Part, member.Item1);
+                    continue;
+                }
+                int imageItemId = _partIdShape[member.Item1].FindImage(_partIdShape[partId], itemTypePart[0],
+                                                                       (GeometryType)itemTypePart[1], planes, bits,
+                                                                       _vertexTolerance, _curveTolerance);
+                yield return imageItemId < 0 ? -1 : FeMesh.GetGeometryId(imageItemId, itemTypePart[1], member.Item1);
+            }
+        }
+        // Geometry
+        public static double[] Transform(double[] coor, double[][] planes, int bits)
+        {
+            double[] result = coor.ToArray();
+            for (int i = 0; i < planes.Length; i++)
+            {
+                if ((bits & (1 << i)) != 0) result = Mirror(result, planes[i]);
+            }
+            return result;
+        }
+        public static double[] Mirror(double[] coor, double[] plane)
+        {
+            double distance = SignedDistance(plane, coor);
+            return new double[] { coor[0] - 2 * distance * plane[3], coor[1] - 2 * distance * plane[4],
+                                  coor[2] - 2 * distance * plane[5] };
+        }
+        public static double SignedDistance(double[] plane, double[] coor)
+        {
+            return (coor[0] - plane[0]) * plane[3] + (coor[1] - plane[1]) * plane[4] + (coor[2] - plane[2]) * plane[5];
+        }
+        private static double[] Point(double[] plane) { return new double[] { plane[0], plane[1], plane[2] }; }
+        private static double[] Normal(double[] plane) { return new double[] { plane[3], plane[4], plane[5] }; }
+        private static double Dot(double[] a, double[] b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+        private static double Distance(double[] a, double[] b)
+        {
+            return Math.Sqrt(Math.Pow(a[0] - b[0], 2) + Math.Pow(a[1] - b[1], 2) + Math.Pow(a[2] - b[2], 2));
+        }
+        private static BoundingBox MirrorBox(BoundingBox box, double[] plane)
+        {
+            BoundingBox mirrored = new BoundingBox();
+            foreach (var x in new double[] { box.MinX, box.MaxX })
+                foreach (var y in new double[] { box.MinY, box.MaxY })
+                    foreach (var z in new double[] { box.MinZ, box.MaxZ })
+                        mirrored.IncludeCoor(Mirror(new double[] { x, y, z }, plane));
+            return mirrored;
+        }
+        private static double BoxError(BoundingBox box1, BoundingBox box2)
+        {
+            return new double[] { box1.MinX - box2.MinX, box1.MinY - box2.MinY, box1.MinZ - box2.MinZ,
+                                  box1.MaxX - box2.MaxX, box1.MaxY - box2.MaxY, box1.MaxZ - box2.MaxZ }
+                   .Max(value => Math.Abs(value));
+        }
+        private static bool IsSameBox(BoundingBox box1, BoundingBox box2, double tolerance)
+        {
+            return BoxError(box1, box2) <= tolerance;
+        }
+        public static double DistanceToSegments(double[] coor, double[][][] segments)
+        {
+            double min = double.MaxValue;
+            foreach (var segment in segments) min = Math.Min(min, DistanceToSegment(coor, segment[0], segment[1]));
+            return min;
+        }
+        private static double[][][] TransformSegments(double[][][] segments, double[][] planes, int bits)
+        {
+            return segments.Select(segment => new double[][] { Transform(segment[0], planes, bits),
+                                                               Transform(segment[1], planes, bits) }).ToArray();
+        }
+        private static double DistanceToSegment(double[] p, double[] a, double[] b)
+        {
+            double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+            double[] ap = { p[0] - a[0], p[1] - a[1], p[2] - a[2] };
+            double length2 = Dot(ab, ab);
+            double t = length2 <= 0 ? 0 : Math.Max(0, Math.Min(1, Dot(ap, ab) / length2));
+            return Distance(p, new double[] { a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2] });
+        }
+        public static double DistanceToTriangle(double[] p, double[] a, double[] b, double[] c)
+        {
+            double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+            double[] ac = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+            double[] n = { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0] };
+            double area2 = Math.Sqrt(Dot(n, n));
+            if (area2 > 0)
+            {
+                double[] unit = { n[0] / area2, n[1] / area2, n[2] / area2 };
+                double height = Dot(new double[] { p[0] - a[0], p[1] - a[1], p[2] - a[2] }, unit);
+                double[] q = { p[0] - height * unit[0], p[1] - height * unit[1], p[2] - height * unit[2] };
+                // Barycentric test of the projection
+                double[] v0 = ab, v1 = ac, v2 = { q[0] - a[0], q[1] - a[1], q[2] - a[2] };
+                double d00 = Dot(v0, v0), d01 = Dot(v0, v1), d11 = Dot(v1, v1), d20 = Dot(v2, v0), d21 = Dot(v2, v1);
+                double denominator = d00 * d11 - d01 * d01;
+                if (denominator > 0)
+                {
+                    double v = (d11 * d20 - d01 * d21) / denominator;
+                    double w = (d00 * d21 - d01 * d20) / denominator;
+                    if (v >= 0 && w >= 0 && v + w <= 1) return Math.Abs(height);
+                }
+            }
+            return Math.Min(DistanceToSegment(p, a, b), Math.Min(DistanceToSegment(p, b, c), DistanceToSegment(p, c, a)));
+        }
+
+
+        // Nested
+        /// <summary>
+        /// The shape of one cell read from its visualization: its vertices, the polylines of its edges, the triangles
+        /// of its faces, its bounding box, area and volume.
+        /// </summary>
+        private class CellShape
+        {
+            public readonly BoundingBox Box = new BoundingBox();
+            public readonly List<double[]> NodeCoors = new List<double[]>();
+            public readonly List<double[]> VertexCoors = new List<double[]>();
+            public readonly List<double[][][]> EdgeSegments = new List<double[][][]>();
+            public readonly List<double[][]> EdgeEnds = new List<double[][]>();
+            public readonly List<List<double[][]>> FaceTriangles = new List<List<double[][]>>();
+            public readonly double Area;
+            public readonly double Volume;
+            //
+            public CellShape(GeometryPart part, FeMesh geometry)
+            {
+                VisualizationData vis = part.Visualization;
+                HashSet<int> nodeIds = new HashSet<int>();
+                foreach (var cell in vis.Cells) nodeIds.UnionWith(cell);
+                foreach (var nodeId in nodeIds)
+                {
+                    double[] coor = geometry.Nodes[nodeId].Coor;
+                    NodeCoors.Add(coor);
+                    Box.IncludeCoor(coor);
+                }
+                if (vis.VertexNodeIds != null)
+                {
+                    foreach (var nodeId in vis.VertexNodeIds) VertexCoors.Add(geometry.Nodes[nodeId].Coor);
+                }
+                if (vis.EdgeCellIdsByEdge != null)
+                {
+                    for (int edgeId = 0; edgeId < vis.EdgeCellIdsByEdge.Length; edgeId++)
+                    {
+                        List<double[][]> segments = new List<double[][]>();
+                        foreach (var edgeCellId in vis.EdgeCellIdsByEdge[edgeId])
+                        {
+                            int[] edgeCell = vis.EdgeCells[edgeCellId];
+                            segments.Add(new double[][] { geometry.Nodes[edgeCell[0]].Coor, geometry.Nodes[edgeCell[1]].Coor });
+                        }
+                        EdgeSegments.Add(segments.ToArray());
+                        EdgeEnds.Add(vis.GetVertexNodeIdsForEdgeId(edgeId).Select(nodeId => geometry.Nodes[nodeId].Coor)
+                                        .ToArray());
+                    }
+                }
+                double area = 0;
+                double volume = 0;
+                for (int faceId = 0; faceId < vis.CellIdsByFace.Length; faceId++)
+                {
+                    List<double[][]> triangles = new List<double[][]>();
+                    foreach (var cellId in vis.CellIdsByFace[faceId])
+                    {
+                        int[] cell = vis.Cells[cellId];
+                        double[] a = geometry.Nodes[cell[0]].Coor;
+                        double[] b = geometry.Nodes[cell[1]].Coor;
+                        double[] c = geometry.Nodes[cell[2]].Coor;
+                        triangles.Add(new double[][] { a, b, c });
+                        double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                        double[] ac = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                        double[] n = { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0] };
+                        area += 0.5 * Math.Sqrt(Dot(n, n));
+                        volume += Dot(a, new double[] { b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2],
+                                                        b[0] * c[1] - b[1] * c[0] }) / 6;
+                    }
+                    FaceTriangles.Add(triangles);
+                }
+                Area = area;
+                Volume = Math.Abs(volume);
+            }
+            public double[] GetFacePlane(int faceId)
+            {
+                foreach (var triangle in FaceTriangles[faceId])
+                {
+                    double[] a = triangle[0], b = triangle[1], c = triangle[2];
+                    double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                    double[] ac = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                    double[] n = { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0] };
+                    double length = Math.Sqrt(Dot(n, n));
+                    if (length <= 0) continue;
+                    n = new double[] { n[0] / length, n[1] / length, n[2] / length };
+                    // One orientation for every plane, the largest component positive
+                    int k = Math.Abs(n[0]) >= Math.Abs(n[1]) ? (Math.Abs(n[0]) >= Math.Abs(n[2]) ? 0 : 2)
+                                                             : (Math.Abs(n[1]) >= Math.Abs(n[2]) ? 1 : 2);
+                    if (n[k] < 0) n = new double[] { -n[0], -n[1], -n[2] };
+                    return new double[] { a[0], a[1], a[2], n[0], n[1], n[2] };
+                }
+                return null;
+            }
+            public double DistanceToSurface(double[] coor)
+            {
+                double min = double.MaxValue;
+                foreach (var triangles in FaceTriangles)
+                {
+                    foreach (var triangle in triangles)
+                        min = Math.Min(min, DistanceToTriangle(coor, triangle[0], triangle[1], triangle[2]));
+                }
+                return min;
+            }
+            /// <summary>
+            /// The entity of this cell that the given entity of another cell mirrors onto, or -1.
+            /// </summary>
+            public int FindImage(CellShape source, int itemId, GeometryType type, double[][] planes, int bits,
+                                 double vertexTolerance, double curveTolerance)
+            {
+                if (type == GeometryType.Vertex)
+                {
+                    // The vertex ids are the node ids of the cell's vertices, in the geometry's own numbering
+                    return -1;
+                }
+                if (type == GeometryType.Edge)
+                {
+                    if (itemId < 0 || itemId >= source.EdgeSegments.Count) return -1;
+                    double[][][] mirrored = TransformSegments(source.EdgeSegments[itemId], planes, bits);
+                    double[][] mirroredEnds = source.EdgeEnds[itemId].Select(coor => Transform(coor, planes, bits)).ToArray();
+                    for (int edgeId = 0; edgeId < EdgeSegments.Count; edgeId++)
+                    {
+                        if (EdgeEnds[edgeId].Length != mirroredEnds.Length) continue;
+                        if (!EdgeEnds[edgeId].All(end => mirroredEnds.Any(other => Distance(end, other) <= vertexTolerance)))
+                            continue;
+                        double[][][] segments = EdgeSegments[edgeId];
+                        if (mirrored.SelectMany(segment => segment).All(coor => DistanceToSegments(coor, segments) <= curveTolerance) &&
+                            segments.SelectMany(segment => segment).All(coor => DistanceToSegments(coor, mirrored) <= curveTolerance))
+                            return edgeId;
+                    }
+                    return -1;
+                }
+                if (type == GeometryType.SolidSurface)
+                {
+                    if (itemId < 0 || itemId >= source.FaceTriangles.Count) return -1;
+                    double sourceArea = source.FaceTriangles[itemId].Sum(triangle => TriangleArea(triangle));
+                    double[][] first = source.FaceTriangles[itemId][0];
+                    double[] sample = Transform(new double[] { (first[0][0] + first[1][0] + first[2][0]) / 3,
+                                                               (first[0][1] + first[1][1] + first[2][1]) / 3,
+                                                               (first[0][2] + first[1][2] + first[2][2]) / 3 }, planes, bits);
+                    for (int faceId = 0; faceId < FaceTriangles.Count; faceId++)
+                    {
+                        double area = FaceTriangles[faceId].Sum(triangle => TriangleArea(triangle));
+                        if (Math.Abs(area - sourceArea) > 1E-2 * sourceArea) continue;
+                        if (FaceTriangles[faceId].Any(triangle => DistanceToTriangle(sample, triangle[0], triangle[1],
+                                                                                     triangle[2]) <= curveTolerance))
+                            return faceId;
+                    }
+                    return -1;
+                }
+                return -1;
+            }
+            private static double TriangleArea(double[][] triangle)
+            {
+                double[] a = triangle[0], b = triangle[1], c = triangle[2];
+                double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                double[] ac = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                double[] n = { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0] };
+                return 0.5 * Math.Sqrt(Dot(n, n));
+            }
+        }
+    }
+}

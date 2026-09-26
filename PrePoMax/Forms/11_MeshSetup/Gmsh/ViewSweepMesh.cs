@@ -50,6 +50,20 @@ namespace PrePoMax.Forms
             set { _sweepMesh.KeepImprintEdges = value; }
         }
         //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(3, 10, "Symmetry")]
+        [DescriptionAttribute("Automatic sweeps one symmetric piece of a compound whose cells are mirror images across " +
+                              "the planes it is split on, and mirrors the mesh onto the other cells. It is used only " +
+                              "when every cell has a mirror image, every edge of an image is an edge of the cell it is " +
+                              "meshed from, and every other mesh setup item selects the images of what it selects. " +
+                              "Off sweeps every cell.")]
+        [Id(4, 1)]
+        public SweepSymmetryEnum Symmetry
+        {
+            get { return _sweepMesh.Symmetry; }
+            set { _sweepMesh.Symmetry = value; }
+        }
+        //
         [CategoryAttribute("Mesh settings")]
         [OrderedDisplayName(1, 10, "2D meshing algorithm")]
         [DescriptionAttribute("Select the algorithm for the surface meshing. QuadWild meshes the source surfaces with " +

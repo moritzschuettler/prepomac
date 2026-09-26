@@ -33,6 +33,8 @@ namespace CaeMesh
         private MeshTypeEnum _meshType;
         [NonSerialized]
         private SweepDetectionData _sweepDetection;
+        [NonSerialized]
+        private SweepDetectionData _symmetricSweepDetection;
 
 
         // Properties
@@ -88,10 +90,19 @@ namespace CaeMesh
         /// </summary>
         public MeshTypeEnum MeshType { get { return _meshType; } set { _meshType = value; } }
         /// <summary>
-        /// What the automatic sweep detection found for the group this part leads - a single solid part, or a
-        /// compound part standing for its sub-parts. A part inside a compound carries none of its own.
+        /// What the automatic sweep detection found for this part: for a single solid part or a cell of a compound,
+        /// the part taken alone; for a compound part, all its cells swept together.
         /// </summary>
         public SweepDetectionData SweepDetection { get { return _sweepDetection; } set { _sweepDetection = value; } }
+        /// <summary>
+        /// What the automatic sweep detection found for the symmetric piece of the compound part this part stands
+        /// for - the cells the sweep meshes before the mesh is mirrored onto the others - or null.
+        /// </summary>
+        public SweepDetectionData SymmetricSweepDetection
+        {
+            get { return _symmetricSweepDetection; }
+            set { _symmetricSweepDetection = value; }
+        }
 
 
         // Constructors
@@ -107,6 +118,7 @@ namespace CaeMesh
             _cadFileData = null;
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
+            _symmetricSweepDetection = null;
         }
         public GeometryPart(BasePart part)
             : base(part)
@@ -120,6 +132,7 @@ namespace CaeMesh
             _cadFileData = null;
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
+            _symmetricSweepDetection = null;
         }
         public GeometryPart(GeometryPart part)
             : base((BasePart)part)
@@ -133,6 +146,7 @@ namespace CaeMesh
             _cadFileData = part._cadFileData != null ? part._cadFileData : null;
             _meshType = part._meshType;
             _sweepDetection = part._sweepDetection;
+            _symmetricSweepDetection = part._symmetricSweepDetection;
         }
 
 

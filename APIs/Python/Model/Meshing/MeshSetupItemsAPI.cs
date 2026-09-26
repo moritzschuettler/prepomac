@@ -463,14 +463,17 @@ namespace APIs.Python.Model
                    "selection - a solid or a compound of solids - lets the model find the source surfaces " +
                    "itself. Either selection may span several parts that stand apart from each other, and " +
                    "each of them is then swept on its own. The 2D algorithm QuadWild meshes the source surfaces " +
-                   "with QuadWild, set up by the quad_wild arguments, and gmsh the side surfaces.",
+                   "with QuadWild, set up by the quad_wild arguments, and gmsh the side surfaces. With the " +
+                   "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
+                   "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +
+                   "cells; Off sweeps every cell.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
                                ", transfinite_angle: float = None, optimize_first_order_shell: str = None, " +
                                "elements_per_layer: list[int] = None, keep_imprint_edges: bool = False, " +
                                "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
-                               "quad_wild_smooth: bool = None",
+                               "quad_wild_smooth: bool = None, symmetry: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_sweep_mesh(string name, SelectionAPI selection,
                                                int number_of_global_smooth_steps = 0, string algorithm_2d = null,
@@ -482,9 +485,10 @@ namespace APIs.Python.Model
                                                string optimize_first_order_shell = null,
                                                object elements_per_layer = null, bool keep_imprint_edges = false,
                                                string quad_wild_flow_profile = null, object quad_wild_alpha = null,
-                                               object quad_wild_smooth = null)
+                                               object quad_wild_smooth = null, string symmetry = null)
         {
             SweepMesh item = new SweepMesh(name);
+            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
             item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
             item.KeepImprintEdges = keep_imprint_edges;
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
@@ -510,9 +514,10 @@ namespace APIs.Python.Model
                                                    string optimize_first_order_shell = null,
                                                    object elements_per_layer = null, object keep_imprint_edges = null,
                                                    string quad_wild_flow_profile = null, object quad_wild_alpha = null,
-                                                   object quad_wild_smooth = null)
+                                                   object quad_wild_smooth = null, string symmetry = null)
         {
             SweepMesh item = (SweepMesh)_service.CloneItem(old_name);
+            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
             if (number_of_global_smooth_steps != null)
                 item.NumberOfGlobalSmoothSteps =
                     PythonValueConverter.ToInt(number_of_global_smooth_steps, "number_of_global_smooth_steps");

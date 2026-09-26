@@ -1847,7 +1847,8 @@ namespace CaeModel
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                        bool splitCompoundMesh, bool mergeCompoundParts,
                                                        RevolveMesh revolveMesh,
-                                                       out Dictionary<int, string> elementIdMaterialName)
+                                                       out Dictionary<int, string> elementIdMaterialName,
+                                                       SweepMesh symmetricSweep = null)
         {
             elementIdMaterialName = null;
             ElementsToImport elementsToImport;
@@ -1897,6 +1898,9 @@ namespace CaeModel
             if (elementsToImport == ElementsToImport.Solid &&
                 !mesh.Elements.Values.Any(element => element is FeElement3D))
                 throw new CaeException("The generated mesh file contains no solid elements: " + fileName);
+            // A symmetric sweep meshed only the cells of one symmetric piece, and the others take their mirror images
+            if (symmetricSweep != null && symmetricSweep.HasSymmetry && part is CompoundGeometryPart symmetricCompound)
+                CreateMirroredCellMeshes(mesh, symmetricCompound, symmetricSweep);
             // Split compound mesh
             if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
             // Merge parts if only one part is expected
@@ -1947,6 +1951,160 @@ namespace CaeModel
             mesh.DetectEdgeTypes(false);
             //
             return mesh;
+        }
+        /// <summary>
+        /// Completes the mesh of a compound a symmetric sweep meshed one symmetric piece of. The imported parts are the
+        /// swept cells, each recognized by the box it fills; each mirror image of them the other cells need is
+        /// made by mirroring copies across the planes one at a time, the nodes the images share on the planes are
+        /// merged, and every image is fitted to the faces and edges of the cell it stands for. The parts end in the
+        /// order of the sub-parts, as an ordinary compound mesh does.
+        /// </summary>
+        private void CreateMirroredCellMeshes(FeMesh mesh, CompoundGeometryPart compoundPart, SweepMesh sweepMesh)
+        {
+            Dictionary<int, string> partIdName = new Dictionary<int, string>();
+            foreach (var subPartName in compoundPart.SubPartNames) partIdName.Add(_geometry.Parts[subPartName].PartId, subPartName);
+            // An item may sweep several compounds; only the rows of this one count
+            int[][] rows = sweepMesh.SymmetryPartIds.Where(row => partIdName.ContainsKey(row[0]) &&
+                                                                  partIdName.ContainsKey(row[1])).ToArray();
+            if (rows.Length == 0) return;
+            HashSet<int> mirroredPartIds = new HashSet<int>(rows.Select(row => row[0]));
+            string[] masterNames = compoundPart.SubPartNames.Where(name => !mirroredPartIds.Contains(_geometry.Parts[name].PartId))
+                                                            .ToArray();
+            if (mesh.Parts.Count != masterNames.Length)
+                throw new CaeException("The symmetric sweep mesh of the part " + compoundPart.Name + " has " + mesh.Parts.Count +
+                                       " cells instead of the " + masterNames.Length + " that are swept.");
+            // The imported cells are the swept ones, but gmsh renumbers the volumes left when the mirrored cells are
+            // removed, so each is named after the swept cell whose box it fills
+            BasePart[] importedParts = mesh.Parts.Values.ToArray();
+            string[] importedMasterNames = GetMasterNamesByBox(mesh, importedParts, masterNames);
+            if (importedMasterNames == null)
+                throw new CaeException("The cells of the symmetric sweep mesh of the part " + compoundPart.Name +
+                                       " do not fill the swept cells.");
+            mesh.Parts.Clear();
+            for (int i = 0; i < importedParts.Length; i++)
+            {
+                importedParts[i].Name = importedMasterNames[i];
+                mesh.Parts.Add(importedMasterNames[i], importedParts[i]);
+            }
+            // The images, made plane by plane from the images before them, only those some cell needs
+            List<Tuple<string, int>> needed = rows.Select(row => new Tuple<string, int>(partIdName[row[1]], row[2])).ToList();
+            Dictionary<Tuple<string, int>, string> images = masterNames.ToDictionary(name => new Tuple<string, int>(name, 0),
+                                                                                     name => name);
+            HashSet<string> reservedNames = new HashSet<string>(_geometry.Parts.Keys.Concat(mesh.Parts.Keys));
+            HashSet<int> reservedIds = new HashSet<int>(_geometry.Parts.Values.Select(item => item.PartId)
+                                                                         .Concat(mesh.Parts.Values.Select(item => item.PartId)));
+            for (int p = 0; p < sweepMesh.SymmetryPlanes.Length; p++)
+            {
+                int mask = (1 << (p + 1)) - 1;
+                List<KeyValuePair<Tuple<string, int>, string>> toMirror = images
+                    .Where(entry => needed.Any(image => image.Item1 == entry.Key.Item1 &&
+                                                        (image.Item2 & mask) == (entry.Key.Item2 | (1 << p))))
+                    .ToList();
+                if (toMirror.Count == 0) continue;
+                //
+                double[] plane = sweepMesh.SymmetryPlanes[p];
+                string[] copyNames = mesh.MirrorParts(toMirror.Select(entry => entry.Value).ToArray(),
+                                                      new double[] { plane[0], plane[1], plane[2] },
+                                                      new double[] { plane[3], plane[4], plane[5] }, true,
+                                                      reservedNames, reservedIds);
+                for (int i = 0; i < copyNames.Length; i++)
+                {
+                    images[new Tuple<string, int>(toMirror[i].Key.Item1, toMirror[i].Key.Item2 | (1 << p))] = copyNames[i];
+                    reservedNames.Add(copyNames[i]);
+                    reservedIds.Add(mesh.Parts[copyNames[i]].PartId);
+                }
+            }
+            // Every image takes the name of the cell it stands for
+            List<string> mirroredNames = new List<string>();
+            foreach (var row in rows)
+            {
+                string imageName;
+                if (!images.TryGetValue(new Tuple<string, int>(partIdName[row[1]], row[2]), out imageName))
+                    throw new CaeException("The mirror image of the part " + partIdName[row[1]] + " for the part " +
+                                           partIdName[row[0]] + " could not be made.");
+                BasePart image = mesh.Parts[imageName];
+                mesh.Parts.Remove(imageName);
+                image.Name = partIdName[row[0]];
+                mesh.Parts.Add(image.Name, image);
+                mirroredNames.Add(image.Name);
+            }
+            // The images share their nodes on the planes with the cells beside them
+            string nodeSetName = mesh.NodeSets.GetNextNumberedKey(Globals.InternalSelectionName + "_" +
+                                                                  Globals.MergedCoincidentNodes);
+            FeNodeSet nodeSet = new FeNodeSet(nodeSetName, mesh.GetNodeIdsFromParts(mesh.Parts.Keys.ToArray()));
+            nodeSet.Internal = true;
+            mesh.NodeSets.Add(nodeSetName, nodeSet);
+            try
+            {
+                MergeCoincidentNodes mergeCoincidentNodes = new MergeCoincidentNodes();
+                mergeCoincidentNodes.Tolerance = Math.Max(1E-12, 1E-6 * mesh.BoundingBox.GetDiagonal());
+                mergeCoincidentNodes.NodesToKeep = NodesToKeepEnum.SmallerID;
+                mesh.MergeCoincidentNodes(nodeSetName, mergeCoincidentNodes);
+            }
+            finally
+            {
+                mesh.NodeSets.Remove(nodeSetName);
+            }
+            // Each image has the faces and edges of the cell it stands for
+            foreach (var mirroredName in mirroredNames)
+                mesh.FitPartToGeometryPart(mesh.Parts[mirroredName], _geometry.Parts[mirroredName], _geometry);
+            // The parts in the order of the sub-parts
+            BasePart[] orderedParts = compoundPart.SubPartNames.Select(name => mesh.Parts[name]).ToArray();
+            mesh.Parts.Clear();
+            foreach (var orderedPart in orderedParts) mesh.Parts.Add(orderedPart.Name, orderedPart);
+        }
+        /// <summary>
+        /// The name of the geometry part every mesh part fills, matched by their boxes one to one, or null when a mesh
+        /// part fills none of them. The geometry box is taken without the offset an exploded view puts on the part,
+        /// since the mesh is generated without it.
+        /// </summary>
+        private string[] GetMasterNamesByBox(FeMesh mesh, BasePart[] meshParts, string[] geometryPartNames)
+        {
+            double[][] geometryBoxes = geometryPartNames.Select(name =>
+            {
+                BasePart geometryPart = _geometry.Parts[name];
+                BoundingBox bb = geometryPart.BoundingBox;
+                double[] offset = geometryPart.Offset != null ? geometryPart.Offset : new double[3];
+                return new double[] { bb.MinX - offset[0], bb.MinY - offset[1], bb.MinZ - offset[2],
+                                      bb.MaxX - offset[0], bb.MaxY - offset[1], bb.MaxZ - offset[2] };
+            }).ToArray();
+            double[][] meshBoxes = meshParts.Select(meshPart =>
+            {
+                double[] box = new double[] { double.MaxValue, double.MaxValue, double.MaxValue,
+                                              -double.MaxValue, -double.MaxValue, -double.MaxValue };
+                foreach (var nodeId in meshPart.NodeLabels)
+                {
+                    double[] coor = mesh.Nodes[nodeId].Coor;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        box[i] = Math.Min(box[i], coor[i]);
+                        box[i + 3] = Math.Max(box[i + 3], coor[i]);
+                    }
+                }
+                return box;
+            }).ToArray();
+            // The closest pairs first, each part taken once. A coarse mesh cuts the chords of curved faces, so its box
+            // may fall short of the part's by the sag of a chord
+            List<Tuple<double, int, int>> pairs = new List<Tuple<double, int, int>>();
+            for (int i = 0; i < meshBoxes.Length; i++)
+            {
+                for (int j = 0; j < geometryBoxes.Length; j++)
+                {
+                    double distance = 0;
+                    for (int k = 0; k < 6; k++) distance = Math.Max(distance, Math.Abs(meshBoxes[i][k] - geometryBoxes[j][k]));
+                    double size = Math.Sqrt(Enumerable.Range(0, 3).Sum(k => Math.Pow(geometryBoxes[j][k + 3] - geometryBoxes[j][k], 2)));
+                    if (distance <= 0.1 * size) pairs.Add(new Tuple<double, int, int>(distance, i, j));
+                }
+            }
+            string[] names = new string[meshParts.Length];
+            HashSet<int> takenGeometryIds = new HashSet<int>();
+            foreach (var pair in pairs.OrderBy(pair => pair.Item1))
+            {
+                if (names[pair.Item2] != null || takenGeometryIds.Contains(pair.Item3)) continue;
+                names[pair.Item2] = geometryPartNames[pair.Item3];
+                takenGeometryIds.Add(pair.Item3);
+            }
+            return names.Contains(null) ? null : names;
         }
         private void MergeSplitCellMeshParts(FeMesh mesh, CompoundGeometryPart splitCompoundPart)
         {
@@ -2449,9 +2607,10 @@ namespace CaeModel
         /// <summary>
         /// Recognizes the most structured mesh every geometry part supports and keeps it on the part. What a
         /// part supports follows from its geometry alone, so the recognition survives until the geometry
-        /// changes; the sweep detection behind it is kept per group and reused by the sweep setup item.
-        /// A sub-part of a compound is recognized on its own even though the compound is swept as a whole,
-        /// since a sub-part the sweep cannot reach is the one that has to be split.
+        /// changes. Every cell of a compound is recognized alone, without its neighbours, so that a cell shown
+        /// as tetrahedral is one that has to be split. Whether the sweeps of the cells fit together is decided
+        /// only when the compound is meshed: a compound with a tetrahedral cell is meshed by tetrahedra, and one
+        /// whose cells can all be swept but not together fails to mesh.
         /// </summary>
         public void DetectMeshTypes()
         {
@@ -2480,27 +2639,32 @@ namespace CaeModel
                 solidPartIds.Add(part.PartId);
             }
             if (solidPartIds.Count == 0) return;
-            // The groups swept independently of each other, which the geometry decides and not the selection.
-            // A transfinite part takes part in the detection of its group all the same, since the sub-parts of
-            // a compound are swept as a chain and the ones after it read the mesh it leaves
-            GeometryPart[][] sweptPartGroups;
-            GetSweptPartGroups(solidPartIds, out sweptPartGroups);
-            if (sweptPartGroups == null) return;
             //
-            Parallel.ForEach(sweptPartGroups, sweptParts => { GetSweepDetection(sweptParts); });
-            //
-            SweepDetectionData detection;
-            foreach (var sweptParts in sweptPartGroups)
+            GeometryPart[] tetrahedralParts = solidPartIds.Select(id => (GeometryPart)_geometry.GetPartFromId(id))
+                                                          .Where(solidPart => solidPart.MeshType == MeshTypeEnum.Tetrahedral)
+                                                          .ToArray();
+            Parallel.ForEach(tetrahedralParts, tetrahedralPart =>
             {
-                detection = GetSweepGroupPart(sweptParts).SweepDetection;
-                if (detection == null) continue;
-                //
-                foreach (var sweptPart in sweptParts)
-                {
-                    if (sweptPart.MeshType != MeshTypeEnum.Tetrahedral) continue;
-                    if (detection.SweepablePartIds.Contains(sweptPart.PartId)) sweptPart.MeshType = MeshTypeEnum.Sweep;
-                }
-            }
+                if (GetCellSweepDetection(tetrahedralPart).Error == null) tetrahedralPart.MeshType = MeshTypeEnum.Sweep;
+            });
+        }
+        /// <summary>
+        /// What the automatic detection finds for one part alone - a single part, or one cell of a compound taken
+        /// without its neighbours - detected the first time it is asked for and kept on the part until its
+        /// geometry changes. For a single part it is the detection its sweep uses.
+        /// </summary>
+        private SweepDetectionData GetCellSweepDetection(GeometryPart part)
+        {
+            GeometryPart[] cell = new GeometryPart[] { part };
+            string stamp = SweepDetectionData.GetStamp(cell);
+            //
+            SweepDetectionData detection = part.SweepDetection;
+            if (detection != null && detection.Stamp == stamp) return detection;
+            //
+            detection = DetectSweepSources(cell, stamp);
+            part.SweepDetection = detection;
+            //
+            return detection;
         }
         /// <summary>
         /// Whether the mesh types kept on the parts were recognized from the geometry the parts have now. An
@@ -2536,18 +2700,14 @@ namespace CaeModel
             return sb.ToString();
         }
         /// <summary>
-        /// Why a solid part cannot be swept, or null when it can be or when the sweep was never tried on it.
+        /// Why a solid part - a cell of a compound taken alone - cannot be swept, or null when it can be or when the
+        /// sweep was never tried on it.
         /// </summary>
         public string GetMeshTypeReason(GeometryPart part)
         {
-            if (part == null) return null;
+            if (part == null || part.SweepDetection == null) return null;
             //
-            CompoundGeometryPart compoundPart = GetCompoundPartOfSubPart(part.Name);
-            GeometryPart groupPart = compoundPart != null ? (GeometryPart)compoundPart : part;
-            SweepDetectionData detection = groupPart.SweepDetection;
-            if (detection == null || detection.SweepablePartIds.Contains(part.PartId)) return null;
-            //
-            return detection.Error;
+            return part.SweepDetection.Error;
         }
         public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)
         {
@@ -2960,6 +3120,8 @@ namespace CaeModel
             sweepMesh.LayerGroupEdgeIds = null;
             sweepMesh.BlockArrowStarts = null;
             sweepMesh.BlockArrowDirections = null;
+            sweepMesh.SymmetryPlanes = null;
+            sweepMesh.SymmetryPartIds = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
@@ -3091,33 +3253,35 @@ namespace CaeModel
             string lastError = null;
             bool namePart;
             SweepBlocks blocks;
-            SweepDetectionData detection;
-            HashSet<int> surfaceIds;
-            Dictionary<int, HashSet<int>> groupSelectedSurfaceIds;
+            SweepSymmetry symmetry;
+            List<double[]> symmetryPlanes = new List<double[]>();
+            List<int[]> symmetryPartIds = new List<int[]>();
             List<SweepBlocks> sweptGroupBlocks = new List<SweepBlocks>();
             foreach (var sweptParts in sweptPartGroups)
             {
                 namePart = sweptPartGroups.Length > 1 || sweptParts.Length > 1;
-                if (partIdSelectedSurfaceIds == null)
+                // A compound whose cells are mirror images across the planes it is split on sweeps one symmetric
+                // piece of its cells, and the mesh is mirrored onto the others. The piece is swept on its own, the
+                // faces on the planes being its outer faces, which lets two blocks meet on a plane: each is the
+                // mirror image of the other, so their nodes on it coincide. A piece that cannot be swept on its own
+                // leaves the compound to be swept whole, as without the symmetry
+                symmetry = null;
+                blocks = null;
+                error = null;
+                errorPartName = null;
+                if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && sweptParts.Length > 1)
                 {
-                    // The sources a group is swept from depend on the geometry alone, so they are detected
-                    // once and kept on the part leading the group
-                    detection = GetSweepDetection(sweptParts);
-                    blocks = detection.Blocks;
-                    error = detection.Error;
-                    errorPartName = detection.ErrorPartName;
-                }
-                else
-                {
-                    groupSelectedSurfaceIds = new Dictionary<int, HashSet<int>>();
-                    foreach (var sweptPart in sweptParts)
+                    symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
+                    if (symmetry != null)
                     {
-                        if (partIdSelectedSurfaceIds.TryGetValue(sweptPart.PartId, out surfaceIds))
-                            groupSelectedSurfaceIds.Add(sweptPart.PartId, surfaceIds);
+                        blocks = CreateSweepBlocksForGroup(symmetry.MasterParts, partIdSelectedSurfaceIds, true,
+                                                           out error, out errorPartName);
+                        if (error != null) symmetry = null;
                     }
-                    blocks = CreateSweepBlocks(sweptParts, groupSelectedSurfaceIds, null, null, new SweepPartMaps(),
-                                               out error, out errorPartName, out _, out _);
                 }
+                if (symmetry == null)
+                    blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, out error,
+                                                       out errorPartName);
                 // A group that cannot be swept is left out the way a part that cannot be swept is, so that
                 // the groups that can be swept still are. Only an item that sweeps nothing at all is refused
                 if (error != null)
@@ -3126,27 +3290,80 @@ namespace CaeModel
                     continue;
                 }
                 sweptGroupBlocks.Add(blocks);
+                // The planes of every group in one table, the bits of a group shifted past the planes before it
+                if (symmetry != null)
+                {
+                    int offset = symmetryPlanes.Count;
+                    symmetryPlanes.AddRange(symmetry.Planes);
+                    foreach (var row in symmetry.PartIds)
+                        symmetryPartIds.Add(new int[] { row[0], row[1], row[2] << offset });
+                }
             }
             if (sweptGroupBlocks.Count == 0) return lastError;
             //
             SweepBlocks.Merge(sweptGroupBlocks).CopyToSweepMesh(sweepMesh);
+            if (symmetryPlanes.Count > 0)
+            {
+                sweepMesh.SymmetryPlanes = symmetryPlanes.ToArray();
+                sweepMesh.SymmetryPartIds = symmetryPartIds.ToArray();
+            }
             //
             return null;
         }
+        private SweepBlocks CreateSweepBlocksForGroup(GeometryPart[] sweptParts,
+                                                      Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                                      bool symmetric, out string error, out string errorPartName)
+        {
+            if (partIdSelectedSurfaceIds == null)
+            {
+                // The sources a group is swept from depend on the geometry alone, so they are detected
+                // once and kept on the part leading the group
+                SweepDetectionData detection = GetSweepDetection(sweptParts, symmetric);
+                error = detection.Error;
+                errorPartName = detection.ErrorPartName;
+                return detection.Blocks;
+            }
+            HashSet<int> surfaceIds;
+            Dictionary<int, HashSet<int>> groupSelectedSurfaceIds = new Dictionary<int, HashSet<int>>();
+            foreach (var sweptPart in sweptParts)
+            {
+                if (partIdSelectedSurfaceIds.TryGetValue(sweptPart.PartId, out surfaceIds))
+                    groupSelectedSurfaceIds.Add(sweptPart.PartId, surfaceIds);
+            }
+            return CreateSweepBlocks(sweptParts, groupSelectedSurfaceIds, null, null, new SweepPartMaps(),
+                                     out error, out errorPartName, out _, out _);
+        }
+        /// <summary>
+        /// The mirror symmetry of a compound's cells the sweep can use, or null. Every other active mesh setup item
+        /// has to select symmetrically, and so has the item itself when it names its source surfaces.
+        /// </summary>
+        private SweepSymmetry FindSweepSymmetry(SweepMesh sweepMesh, GeometryPart[] sweptParts,
+                                                Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
+        {
+            List<MeshSetupItem> items = new List<MeshSetupItem>();
+            foreach (var entry in _geometry.MeshSetupItems)
+            {
+                if (entry.Value.Active && entry.Value.Name != sweepMesh.Name) items.Add(entry.Value);
+            }
+            int[] ownSelection = partIdSelectedSurfaceIds != null ? sweepMesh.CreationIds : null;
+            return SweepSymmetry.Find(_geometry, sweptParts, items, ownSelection, out _);
+        }
         /// <summary>
         /// What the automatic detection finds for one group of parts, detected the first time it is asked for
-        /// and reused until the geometry of the group changes.
+        /// and reused until the geometry of the group changes. The symmetric piece of a compound is kept apart
+        /// from the whole compound, so that asking for one does not throw the other away.
         /// </summary>
-        private SweepDetectionData GetSweepDetection(GeometryPart[] sweptParts)
+        private SweepDetectionData GetSweepDetection(GeometryPart[] sweptParts, bool symmetric = false)
         {
             GeometryPart groupPart = GetSweepGroupPart(sweptParts);
             string stamp = SweepDetectionData.GetStamp(sweptParts);
             //
-            SweepDetectionData detection = groupPart.SweepDetection;
+            SweepDetectionData detection = symmetric ? groupPart.SymmetricSweepDetection : groupPart.SweepDetection;
             if (detection != null && detection.Stamp == stamp) return detection;
             //
             detection = DetectSweepSources(sweptParts, stamp);
-            groupPart.SweepDetection = detection;
+            if (symmetric) groupPart.SymmetricSweepDetection = detection;
+            else groupPart.SweepDetection = detection;
             //
             return detection;
         }

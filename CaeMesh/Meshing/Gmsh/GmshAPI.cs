@@ -190,6 +190,7 @@ namespace CaeMesh
                     Synchronize(); // must be here
                     // Renumber Gmsh items
                     RenumberGmshDataByCoor();
+                    if (gsi is SweepMesh symmetricSweep && symmetricSweep.HasSymmetry) RemoveMirroredCells(symmetricSweep);
                     // PrepareData
                     PrepareData(gsi);
                     if (gsi is SweepMesh sweepSetupItem) PrepareSweepBlocks(sweepSetupItem);
@@ -4668,6 +4669,58 @@ namespace CaeMesh
                     }
                 }
             }
+        }
+        /// <summary>
+        /// Removes the cells a symmetric sweep mirrors instead of meshing them: every volume no block lies in. The
+        /// volume of a block is the one all of its surfaces bound. A surface a removed cell shares with a swept one
+        /// stays, as an outer surface of the swept piece, and the counts and sizes of what is removed are dropped.
+        /// </summary>
+        private void RemoveMirroredCells(SweepMesh sweepMesh)
+        {
+            int[] volumeIds;
+            HashSet<int> keptVolumeIds = new HashSet<int>();
+            for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
+            {
+                HashSet<int> candidateIds = null;
+                foreach (var surfaceId in sweepMesh.BlockSourceSurfaceIds[i].Concat(sweepMesh.BlockSideSurfaceIds[i])
+                                                                          .Concat(sweepMesh.BlockTargetSurfaceIds[i]))
+                {
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
+                    if (candidateIds == null) candidateIds = new HashSet<int>(volumeIds);
+                    else candidateIds.IntersectWith(volumeIds);
+                }
+                if (candidateIds != null && candidateIds.Count == 1) keptVolumeIds.Add(candidateIds.First());
+            }
+            Tuple<int, int>[] volumeDimTags;
+            Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            Tuple<int, int>[] removedDimTags = volumeDimTags.Where(dimTag => !keptVolumeIds.Contains(dimTag.Item2)).ToArray();
+            if (keptVolumeIds.Count == 0 || removedDimTags.Length == 0) return;
+            //
+            Gmsh.Model.OCC.Remove(removedDimTags, true);
+            Synchronize();
+            //
+            Tuple<int, int>[] dimTags;
+            Gmsh.Model.GetEntities(out dimTags, 0);
+            HashSet<int> pointIds = new HashSet<int>(dimTags.Select(dimTag => dimTag.Item2));
+            Gmsh.Model.GetEntities(out dimTags, 1);
+            HashSet<int> curveIds = new HashSet<int>(dimTags.Select(dimTag => dimTag.Item2));
+            Gmsh.Model.GetEntities(out dimTags, 2);
+            HashSet<int> surfaceIds = new HashSet<int>(dimTags.Select(dimTag => dimTag.Item2));
+            if (_gmshData.VertexNodeIdMeshSize != null)
+                _gmshData.VertexNodeIdMeshSize = _gmshData.VertexNodeIdMeshSize.Where(entry => pointIds.Contains(entry.Key))
+                                                                               .ToDictionary(entry => entry.Key,
+                                                                                             entry => entry.Value);
+            if (_gmshData.EdgeIdNumElements != null)
+                _gmshData.EdgeIdNumElements = _gmshData.EdgeIdNumElements.Where(entry => curveIds.Contains(entry.Key))
+                                                                         .ToDictionary(entry => entry.Key,
+                                                                                       entry => entry.Value);
+            if (_gmshData.FaceIdNodes != null)
+                _gmshData.FaceIdNodes = _gmshData.FaceIdNodes.Where(entry => surfaceIds.Contains(entry.Key))
+                                                             .ToDictionary(entry => entry.Key, entry => entry.Value);
+            //
+            _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
+                                 " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
+                                 "swept and the mesh is mirrored onto the other " + removedDimTags.Length + ".");
         }
         private static void RenumberSurfaceIds(int[][] surfaceIds, Dictionary<int, int> netgenFaceIdGmshFaceId)
         {

@@ -37,6 +37,9 @@ namespace CaeMesh
         private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
         private bool _quadWildSmooth;                                   // ISerializable
         private bool _quadWildFallbackToGmsh;                           // ISerializable
+        private SweepSymmetryEnum _symmetry;                            // ISerializable
+        private double[][] _symmetryPlanes;                             // ISerializable
+        private int[][] _symmetryPartIds;                               // ISerializable
 
 
         // Properties                                                                                                               
@@ -100,6 +103,25 @@ namespace CaeMesh
             get { return _quadWildFallbackToGmsh; }
             set { _quadWildFallbackToGmsh = value; }
         }
+        /// <summary>
+        /// Whether a compound whose cells are mirror images across the planes it is split on is meshed one symmetric
+        /// piece at a time: the cells of one piece are swept and their mesh mirrored onto the cells of the others.
+        /// </summary>
+        public SweepSymmetryEnum Symmetry { get { return _symmetry; } set { _symmetry = value; } }
+        /// <summary>
+        /// The mirror planes the detection chose, a point and a unit normal each: x, y, z, nx, ny, nz.
+        /// </summary>
+        public double[][] SymmetryPlanes { get { return _symmetryPlanes; } set { _symmetryPlanes = value; } }
+        /// <summary>
+        /// One row per cell that is not swept but mirrored: its part id, the part id of the swept cell it mirrors, and
+        /// the planes it is mirrored across as bits of the indices into SymmetryPlanes.
+        /// </summary>
+        public int[][] SymmetryPartIds { get { return _symmetryPartIds; } set { _symmetryPartIds = value; } }
+        public bool HasSymmetry
+        {
+            get { return _symmetryPlanes != null && _symmetryPlanes.Length > 0 && _symmetryPartIds != null &&
+                         _symmetryPartIds.Length > 0; }
+        }
 
 
         // Constructors                                                                                                             
@@ -119,6 +141,8 @@ namespace CaeMesh
         {
             // An item written before the source mesher could be chosen was meshed with gmsh
             SetQuadWildDefaults();
+            // An item written before the symmetry could be used meshed every cell, and keeps doing so
+            _symmetry = SweepSymmetryEnum.Off;
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -164,6 +188,12 @@ namespace CaeMesh
                         _quadWildSmooth = (bool)entry.Value; break;
                     case "_quadWildFallbackToGmsh":
                         _quadWildFallbackToGmsh = (bool)entry.Value; break;
+                    case "_symmetry":
+                        _symmetry = (SweepSymmetryEnum)entry.Value; break;
+                    case "_symmetryPlanes":
+                        _symmetryPlanes = (double[][])entry.Value; break;
+                    case "_symmetryPartIds":
+                        _symmetryPartIds = (int[][])entry.Value; break;
                     default:
                         break;
                 }
@@ -203,6 +233,9 @@ namespace CaeMesh
             _blockArrowStarts = null;
             _blockArrowDirections = null;
             SetQuadWildDefaults();
+            _symmetry = SweepSymmetryEnum.Automatic;
+            _symmetryPlanes = null;
+            _symmetryPartIds = null;
         }
         private void SetQuadWildDefaults()
         {
@@ -229,6 +262,9 @@ namespace CaeMesh
             _quadWildFlowProfile = sweepMesh._quadWildFlowProfile;
             _quadWildSmooth = sweepMesh._quadWildSmooth;
             _quadWildFallbackToGmsh = sweepMesh._quadWildFallbackToGmsh;
+            _symmetry = sweepMesh._symmetry;
+            _symmetryPlanes = CopyBlockCoors(sweepMesh._symmetryPlanes);
+            _symmetryPartIds = CopyBlockIds(sweepMesh._symmetryPartIds);
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -338,6 +374,9 @@ namespace CaeMesh
             info.AddValue("_quadWildFlowProfile", _quadWildFlowProfile, typeof(QuadWildFlowProfileEnum));
             info.AddValue("_quadWildSmooth", _quadWildSmooth, typeof(bool));
             info.AddValue("_quadWildFallbackToGmsh", _quadWildFallbackToGmsh, typeof(bool));
+            info.AddValue("_symmetry", _symmetry, typeof(SweepSymmetryEnum));
+            info.AddValue("_symmetryPlanes", _symmetryPlanes, typeof(double[][]));
+            info.AddValue("_symmetryPartIds", _symmetryPartIds, typeof(int[][]));
         }
     }
 }

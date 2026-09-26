@@ -8970,7 +8970,8 @@ namespace PrePoMax
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
-                                                                          revolveMesh, out elementIdMaterialName);
+                                                                          revolveMesh, out elementIdMaterialName,
+                                                                          GetSymmetricSweepMesh(part.Name));
             if (convertToSecondOrder) _form.WriteDataToOutput("Done.");
             generatedMesh.ElementIdMaterialName = elementIdMaterialName;
             //
@@ -9049,6 +9050,17 @@ namespace PrePoMax
                 // The visualization only helps inspecting the mesh, so it never rejects it
                 _form.WriteDataToOutput("Warning: the QuadWild debug visualization could not be created. " + ex.Message);
             }
+        }
+        /// <summary>
+        /// The sweep mesh setup item that meshes the part, when it meshed only one symmetric piece of the part's cells
+        /// and the others take mirror images of it.
+        /// </summary>
+        private SweepMesh GetSymmetricSweepMesh(string partName)
+        {
+            MeshSetupItem[] meshSetupItems = GetActiveValidMesherSetupItems(partName);
+            if (meshSetupItems.Length > 0 && meshSetupItems[0] is SweepMesh sweepMesh && sweepMesh.HasSymmetry)
+                return sweepMesh;
+            else return null;
         }
         private RevolveMesh GetFull360RevolveMesh(string partName)
         {
@@ -9793,8 +9805,17 @@ namespace PrePoMax
             //
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
             mesherSetupItem.CreationIds = _model.Geometry.GetPartIdsFomPartNames(meshablePartNames);
-            // The sweep finds its blocks here, so the item is not only checked but also completed
-            if (_model.IsMeshSetupItemProperlyDefined(mesherSetupItem) != null) return null;
+            // The sweep finds its blocks here, so the item is not only checked but also completed. Every cell can
+            // be swept on its own, so a part whose cells do not fit together is not meshed by tetrahedra instead:
+            // its cells have to be split further or its sources selected by hand
+            string error = _model.IsMeshSetupItemProperlyDefined(mesherSetupItem);
+            if (error != null)
+            {
+                throw new CaeException("Every cell of the part " + partName + " can be meshed by a " +
+                                       (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" : "sweep") +
+                                       " on its own, but not together with the others: " + error +
+                                       " Split the cells further or define a mesh setup item for the part.");
+            }
             //
             return mesherSetupItem;
         }

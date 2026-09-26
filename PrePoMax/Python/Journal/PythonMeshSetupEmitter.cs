@@ -117,6 +117,9 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
                 arguments.Add("elements_per_layer=" +
                               PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
+                // An item read from an older file sweeps every cell, a new one uses the symmetry, so the value
+                // is always written
+                arguments.Add("symmetry=" + PythonValueFormatter.Text(sweep.Symmetry.ToString()));
                 if (sweep.SourceMesher == SweepSourceMesherEnum.QuadWild)
                 {
                     arguments.Add("quad_wild_flow_profile=" +
