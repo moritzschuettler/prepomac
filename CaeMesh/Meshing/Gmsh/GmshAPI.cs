@@ -1866,12 +1866,42 @@ namespace CaeMesh
             // A wall with one edge on each side carries one count across, so the walls join edges into runs that carry
             // a single count. A run through two free edges of QuadWild sources - the ends of two cells meeting, over
             // the walls of the cells between, on one edge of the part beside - would have QuadWild choose each of them
-            // on its own, and counts no wall can take both of. The edges of such a run keep the count the walls settle
+            // on its own, and counts no wall can take both of. The edges of such a run keep the count the walls settle.
+            // A wall whose two sides are split at corresponding places carries each piece's count to the piece
+            // opposite it, and two opposite edges of a source or a target face, both on the sides of walls, are brought
+            // to one count as well, so both join the runs too. Left out, a wall split in two on both sides was fed from
+            // two QuadWild sources through the face at its far end: QuadWild chose them apart, the face then held the
+            // far piece to the other source's count, and every grid line of the wall leaned from one split to the other
+            int[] orderedSourceEdgeIds;
+            int[] orderedTargetEdgeIds;
+            HashSet<int> crossSideEdgeIds = new HashSet<int>();
             Dictionary<int, int> runParent = new Dictionary<int, int>();
             foreach (var wall in walls)
             {
+                crossSideEdgeIds.UnionWith(wall.SourceEdgeIds);
+                crossSideEdgeIds.UnionWith(wall.TargetEdgeIds);
                 if (wall.SourceEdgeIds.Length == 1 && wall.TargetEdgeIds.Length == 1)
                     Unite(runParent, wall.SourceEdgeIds[0], wall.TargetEdgeIds[0]);
+                else if (wall.SourceEdgeIds.Length > 1 &&
+                         SweepWallTopology.OrderWallSides(wall, out orderedSourceEdgeIds, out orderedTargetEdgeIds))
+                {
+                    for (int i = 0; i < orderedSourceEdgeIds.Length; i++)
+                        Unite(runParent, orderedSourceEdgeIds[i], orderedTargetEdgeIds[i]);
+                }
+            }
+            int[] adjacentFaceIds;
+            int[] adjacentVertexIds;
+            foreach (var edgeId in crossSideEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out adjacentFaceIds, out adjacentVertexIds);
+                foreach (var faceId in adjacentFaceIds)
+                {
+                    int oppositeEdgeId;
+                    if (wallSurfaceIds.Contains(faceId) || _quadWildSourceIds.Contains(faceId)) continue;
+                    if (TryGetOppositeEdgeId(edgeId, faceId, adjacentVertexIds, out oppositeEdgeId) &&
+                        crossSideEdgeIds.Contains(oppositeEdgeId))
+                        Unite(runParent, edgeId, oppositeEdgeId);
+                }
             }
             int[] surfaceEdgeIds;
             HashSet<int> quadWildEdgeIds = new HashSet<int>();
@@ -1895,8 +1925,6 @@ namespace CaeMesh
                 wallSideEdgeIds.UnionWith(wall.TargetEdgeIds);
                 wallSideEdgeIds.UnionWith(wall.DirectionEdgeIds);
             }
-            int[] adjacentFaceIds;
-            int[] adjacentVertexIds;
             foreach (var block in blocks)
             {
                 if (block.ImprintEdgeCopyIds == null) continue;
