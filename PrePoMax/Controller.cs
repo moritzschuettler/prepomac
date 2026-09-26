@@ -2225,14 +2225,29 @@ namespace PrePoMax
                                             Guid? targetGroupId, out string compoundPartName,
                                             out string[] importedPartNames)
         {
-            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
-                _model.Geometry.Parts, targetGroupId);
-            compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
             // A part written out of a compound has its closed faces divided, and the compound has to
             // carry the same division: the compound is what the mesher is given, and a face of a part
             // that the compound does not hold is a surface id the mesher cannot be asked for. The
             // division is therefore made once, on the whole shape, and the parts are taken from that
             string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+            try
+            {
+                ImportDividedBrepCompoundPart(dividedBrepFileName, createdFromPartNames, targetGroupId,
+                                              out compoundPartName, out importedPartNames);
+            }
+            finally
+            {
+                if (dividedBrepFileName != brepFileName && File.Exists(dividedBrepFileName))
+                    File.Delete(dividedBrepFileName);
+            }
+        }
+        private void ImportDividedBrepCompoundPart(string dividedBrepFileName, string[] createdFromPartNames,
+                                                   Guid? targetGroupId, out string compoundPartName,
+                                                   out string[] importedPartNames)
+        {
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Geometry.Parts, targetGroupId);
+            compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
             importedPartNames = ImportCADAssemblyFile(dividedBrepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS", 1);
             //
             bool shellParts = true;
@@ -5978,13 +5993,19 @@ namespace PrePoMax
             if (extent == null) throw new CaeException("The size of the parts to split could not be determined.");
             //
             Dictionary<int, string> sourceBrepFileNames = WriteSplitGeometrySourceBreps(geometryFeature);
-            //
-            if (preview)
+            try
             {
-                PreviewSplitGeometryParts(geometryFeature, partNames, extent, sourceBrepFileNames);
-                return;
+                if (preview) PreviewSplitGeometryParts(geometryFeature, partNames, extent, sourceBrepFileNames);
+                else SplitGeometryParts(geometryFeature, partNames, extent, sourceBrepFileNames, numOfSkippedParts);
             }
-            //
+            finally
+            {
+                DeleteSplitGeometrySourceBreps(sourceBrepFileNames);
+            }
+        }
+        private void SplitGeometryParts(GeometryFeature geometryFeature, string[] partNames, double[] extent,
+                                        Dictionary<int, string> sourceBrepFileNames, int numOfSkippedParts)
+        {
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> failedPartNames = new List<string>();
             List<string> refusedPartNames = new List<string>();
@@ -6575,7 +6596,14 @@ namespace PrePoMax
             //
             string brepFileName = Path.Combine(workDirectory, "splitBodies.brep");
             File.WriteAllText(brepFileName, part.CADFileData);
-            return TryGetSplitGeometryBodyCounts(brepFileName, out numOfSolids, out numOfShells);
+            try
+            {
+                return TryGetSplitGeometryBodyCounts(brepFileName, out numOfSolids, out numOfShells);
+            }
+            finally
+            {
+                if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            }
         }
         private int GetNumberOfSplitGeometrySolids(string brepFileName)
         {
@@ -6927,6 +6955,13 @@ namespace PrePoMax
                 sourceBrepFileNames.Add(partId, sourceBrepFileName);
             }
             return sourceBrepFileNames;
+        }
+        private void DeleteSplitGeometrySourceBreps(Dictionary<int, string> sourceBrepFileNames)
+        {
+            foreach (string sourceBrepFileName in sourceBrepFileNames.Values)
+            {
+                if (File.Exists(sourceBrepFileName)) File.Delete(sourceBrepFileName);
+            }
         }
         // Every part of the region is split as the operation would split it, and the edges each split made
         // are drawn together. Nothing of the result is taken in, so the model and the picks stay as they are.
