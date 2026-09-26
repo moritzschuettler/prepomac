@@ -55,17 +55,24 @@ namespace CaeMesh
         /// Sweeps an ordered list of blocks. A one-to-one sweep is the single block case; a
         /// many-to-one sweep passes the blocks in the order they stack along the sweep direction.
         /// </summary>
+        /// <summary>
+        /// The blocks of a ring are swept one after another, each from the cap the one before it left, so every
+        /// cap is a copy of the source the ring started from. The node every interior cap node was copied from is
+        /// kept, back to the meshed source, and the block closing the ring ends its sweep lines on those nodes.
+        /// </summary>
         public static void CreateSweepMesh(IList<SweepBlock> blocks, int numGlobalSmoothSteps,
                                            Dictionary<int, int[]> surfaceIdEdgeIds, Action<string> writeOutput)
         {
+            Dictionary<IntPtr, IntPtr> capNodeOrigins = new Dictionary<IntPtr, IntPtr>();
             for (int i = 0; i < blocks.Count; i++)
             {
                 if (blocks.Count > 1) writeOutput?.Invoke("Sweep block " + (i + 1) + " of " + blocks.Count + ".");
-                CreateBlockMesh(blocks[i], numGlobalSmoothSteps, surfaceIdEdgeIds, writeOutput);
+                CreateBlockMesh(blocks[i], numGlobalSmoothSteps, surfaceIdEdgeIds, capNodeOrigins, writeOutput);
             }
         }
         private static void CreateBlockMesh(SweepBlock block, int numGlobalSmoothSteps,
-                                            Dictionary<int, int[]> surfaceIdEdgeIds, Action<string> writeOutput)
+                                            Dictionary<int, int[]> surfaceIdEdgeIds,
+                                            Dictionary<IntPtr, IntPtr> capNodeOrigins, Action<string> writeOutput)
         {
             // Source mesh, wall grid and the sweep line table
             SweepMeshData data = SweepMeshData.Create(block, surfaceIdEdgeIds);
@@ -73,13 +80,23 @@ namespace CaeMesh
             // Interior of every layer
             SweepLaplacian laplacian = SweepLaplacian.Create(data);
             SweepLayerMorph.MorphLayers(data, laplacian, _maxSolverIterations, _solverTolerance);
-            // Target layer onto the geometry, correction spread back along the sweep lines
-            TargetProjection projection = SweepProjector.ProjectTargetLayer(data, block.TargetSurfaceIds);
+            // Target layer onto the geometry, correction spread back along the sweep lines. A block closing a ring
+            // ends on the meshed source the ring started from, node for node, and leaves no cap of its own
+            double maxDistance;
+            TargetProjection projection = null;
+            if (block.ClosesRing)
+            {
+                maxDistance = SweepProjector.CloseOnMeshedTarget(data, block, capNodeOrigins);
+            }
+            else
+            {
+                projection = SweepProjector.ProjectTargetLayer(data, block.TargetSurfaceIds);
+                maxDistance = projection.MaxDistance;
+            }
             double edgeLength = data.GetAverageSourceEdgeLength();
             if (edgeLength > 0)
             {
-                writeOutput?.Invoke("Largest target surface correction: " +
-                                    Math.Round(projection.MaxDistance / edgeLength, 3) +
+                writeOutput?.Invoke("Largest target surface correction: " + Math.Round(maxDistance / edgeLength, 3) +
                                     " average source element edges.");
             }
             // Orientation is measured, not assumed
@@ -105,6 +122,20 @@ namespace CaeMesh
             }
             //
             LayeredMeshBuilder.Build(data, block, projection, flip);
+            //
+            if (!block.ClosesRing) KeepCapNodeOrigins(data, capNodeOrigins);
+        }
+        private static void KeepCapNodeOrigins(SweepMeshData data, Dictionary<IntPtr, IntPtr> capNodeOrigins)
+        {
+            IntPtr origin;
+            IntPtr sourceTag;
+            int targetLayer = data.NumLayers - 1;
+            foreach (var node in data.InteriorNodes)
+            {
+                sourceTag = data.NodeTags[data.Index(0, node)];
+                if (!capNodeOrigins.TryGetValue(sourceTag, out origin)) origin = sourceTag;
+                capNodeOrigins[data.NodeTags[data.Index(targetLayer, node)]] = origin;
+            }
         }
     }
 }

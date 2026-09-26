@@ -84,6 +84,58 @@ namespace CaeMesh.Sweep
             };
         }
         /// <summary>
+        /// Ends the interior sweep lines of a block closing a ring on the nodes of its meshed target. Every cap of
+        /// the ring is a copy of the source the ring started from, and that source is this block's target, so the
+        /// source node of every line is traced back through the caps to the node it was copied from, and the line
+        /// ends there. The correction from where the morph left the target layer is spread along the lines the way
+        /// a projection's is. Returns the largest correction.
+        /// </summary>
+        public static double CloseOnMeshedTarget(SweepMeshData data, SweepBlock block,
+                                                 Dictionary<IntPtr, IntPtr> capNodeOrigins)
+        {
+            IntPtr[] tags;
+            double[] allCoor;
+            double[] coor;
+            Dictionary<IntPtr, double[]> targetTagCoor = new Dictionary<IntPtr, double[]>();
+            foreach (var surfaceId in block.TargetSurfaceIds)
+            {
+                Gmsh.Model.Mesh.GetNodes(out tags, out allCoor, 2, surfaceId, true, false);
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    coor = new double[3];
+                    Array.Copy(allCoor, 3 * i, coor, 0, 3);
+                    targetTagCoor[tags[i]] = coor;
+                }
+            }
+            //
+            IntPtr origin;
+            int layer = data.NumLayers - 1;
+            int[] interior = data.InteriorNodes;
+            double[] coords = data.Coords;
+            double[] targetCoor = new double[3 * interior.Length];
+            HashSet<IntPtr> usedTags = new HashSet<IntPtr>();
+            double maxDistance = 0;
+            for (int k = 0; k < interior.Length; k++)
+            {
+                IntPtr sourceTag = data.NodeTags[data.Index(0, interior[k])];
+                if (!capNodeOrigins.TryGetValue(sourceTag, out origin) || !targetTagCoor.TryGetValue(origin, out coor) ||
+                    !usedTags.Add(origin))
+                {
+                    throw new CaeException("The ring of sweep blocks cannot be closed by " + block.GetDescription() +
+                                           ": its source mesh is not a copy of the mesh on its target.");
+                }
+                int index = data.Index(layer, interior[k]);
+                data.NodeTags[index] = origin;
+                Array.Copy(coor, 0, targetCoor, 3 * k, 3);
+                maxDistance = Math.Max(maxDistance, Math.Sqrt(Math.Pow(coor[0] - coords[3 * index], 2) +
+                                                              Math.Pow(coor[1] - coords[3 * index + 1], 2) +
+                                                              Math.Pow(coor[2] - coords[3 * index + 2], 2)));
+            }
+            SpreadCorrection(data, interior, targetCoor);
+            //
+            return maxDistance;
+        }
+        /// <summary>
         /// Projects every point onto each of the surfaces, one batched projection per surface, and
         /// keeps the nearest hit for each point. gmsh measures the distance to the unbounded underlying
         /// surface, so two faces lying in one plane report the same distance for every point, and the

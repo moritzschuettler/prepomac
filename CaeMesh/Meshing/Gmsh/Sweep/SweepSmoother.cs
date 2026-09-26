@@ -62,9 +62,10 @@ namespace CaeMesh.Sweep
             int[] interior = data.InteriorNodes;
             SweepQualityBuffers buffers = new SweepQualityBuffers();
             double[] candidate = new double[3];
-            // Target layer nodes grouped by the surface they were projected onto
+            // Target layer nodes grouped by the surface they were projected onto. A block without a projection
+            // ends on nodes that exist already, and its target layer is not moved
             Dictionary<int, List<int>> surfaceGroups = new Dictionary<int, List<int>>();
-            for (int k = 0; k < interior.Length; k++)
+            for (int k = 0; k < interior.Length && projection != null; k++)
             {
                 List<int> group;
                 int surfaceId = projection.SurfaceIds[k];
@@ -89,7 +90,7 @@ namespace CaeMesh.Sweep
                     }
                 }
                 // Target layer, relaxed as one batch so it can be projected in one call per surface
-                SmoothTargetLayer(data, projection, surfaceGroups, buffers, flip, relaxation);
+                if (projection != null) SmoothTargetLayer(data, projection, surfaceGroups, buffers, flip, relaxation);
             }
         }
         private static void SmoothTargetLayer(SweepMeshData data, TargetProjection projection,

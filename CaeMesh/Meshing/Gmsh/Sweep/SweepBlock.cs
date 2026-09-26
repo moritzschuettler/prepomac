@@ -50,6 +50,11 @@ namespace CaeMesh.Sweep
         /// prism.
         /// </summary>
         public double[] ImprintTranslation { get; set; }
+        /// <summary>
+        /// Whether the block closes a ring of blocks: its targets are the sources of blocks swept before it, so they
+        /// are meshed already, and the block is swept between two meshed caps rather than onto its target.
+        /// </summary>
+        public bool ClosesRing { get; set; }
 
 
         // Constructors                                                                                                             

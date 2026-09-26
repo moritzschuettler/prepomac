@@ -576,6 +576,7 @@ namespace CaeMesh
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
             // One block per swept volume, in the order in which the blocks feed each other
             List<SweepBlock> blocks = _sweepBlocks ?? GetSweepBlocks(sweepMesh, surfaceIdVertexIds.Keys);
+            MarkRingClosingBlocks(blocks);
             //
             List<SweepWall> walls = new List<SweepWall>();
             List<SweepChain> chains = new List<SweepChain>();
@@ -605,7 +606,7 @@ namespace CaeMesh
                 {
                     if (wallSurfaceIds.Add(wall.SurfaceId)) walls.Add(wall);
                 }
-                targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
+                if (!block.ClosesRing) targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
             // Whether the walls came out of the 2D pass as the structured grid the sweep needs shows only
             // when that grid is walked, so the whole pass is one attempt that either builds the sweep or
@@ -722,16 +723,37 @@ namespace CaeMesh
             // walls, not for it: a structured grid on it would fail as often as not. Taken once the fragmentation
             // has given the faces their final tags - taken before it, the set named faces the renumbering had
             // since given to others, and a target the carrying had renumbered was made a structured grid
-            foreach (var block in _sweepBlocks) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
+            // The target of a block closing a ring is the source the ring started from, and is meshed for real
+            MarkRingClosingBlocks(_sweepBlocks);
+            foreach (var block in _sweepBlocks)
+            {
+                if (!block.ClosesRing) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
+            }
             // A source QuadWild meshes is triangulated free for it, once the fragmentation has given the faces their
             // final tags. A source that is the target of another block is the cap that block's sweep leaves, and is
             // read back from there; one that is a wall of another block is meshed as the structured grid of that wall
             if (sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild)
             {
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.UnionWith(block.SourceSurfaceIds);
-                foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
+                foreach (var block in _sweepBlocks)
+                {
+                    if (!block.ClosesRing) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
+                }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
+            }
+        }
+        /// <summary>
+        /// Marks the blocks that close a ring: every target of such a block is the source of a block swept before
+        /// it, so the target is meshed before the block is swept and has to be kept, not rebuilt by the sweep.
+        /// </summary>
+        private static void MarkRingClosingBlocks(List<SweepBlock> blocks)
+        {
+            HashSet<int> earlierSourceIds = new HashSet<int>();
+            foreach (var block in blocks)
+            {
+                block.ClosesRing = block.TargetSurfaceIds.Count > 0 && block.TargetSurfaceIds.IsSubsetOf(earlierSourceIds);
+                earlierSourceIds.UnionWith(block.SourceSurfaceIds);
             }
         }
         private double[] GetPrismTranslation(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)

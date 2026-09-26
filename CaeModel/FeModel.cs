@@ -3543,6 +3543,14 @@ namespace CaeModel
         /// cap is shared with a bar that leans along a chamfer and can only be swept across it - the neighbour
         /// is set aside and the trial repeated without it. It is then left unreached, for a source of its own,
         /// the way a neighbour that cannot be swept alongside at all is left.
+        ///
+        /// A closed ring of sub-parts, each of which can only be swept from one of its neighbours to the next,
+        /// fails that way: a source shared by two of them sends one sweep each way around the ring, and the two
+        /// meet in the sub-part opposite, which would need a source at both ends. Such a trial is repeated with
+        /// the sweep sent one way round - the neighbours of a selected source are not swept away from it - and
+        /// the ring is closed on it: the last block of the ring ends on the selected source, which is already
+        /// meshed, and the mesher sweeps that block between two meshed caps. The repeated trial is kept only
+        /// when it did close a ring.
         /// </summary>
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
@@ -3550,13 +3558,42 @@ namespace CaeModel
                                               SweepPartMaps maps, out string error, out string errorPartName,
                                               out HashSet<int> sweptPartIds, out bool onlyUnreached)
         {
+            SweepBlocks blocks = CreateSweepBlocks(sweptParts, partIdSelectedSurfaceIds, twinSurfaceIds, twinEdgeIds, maps,
+                                                   false, out error, out errorPartName, out sweptPartIds,
+                                                   out onlyUnreached, out _);
+            if (error == null || onlyUnreached) return blocks;
+            //
+            bool closedRing;
+            bool ringOnlyUnreached;
+            string ringError;
+            string ringErrorPartName;
+            HashSet<int> ringSweptPartIds;
+            SweepBlocks ringBlocks = CreateSweepBlocks(sweptParts, partIdSelectedSurfaceIds, twinSurfaceIds, twinEdgeIds,
+                                                       maps, true, out ringError, out ringErrorPartName,
+                                                       out ringSweptPartIds, out ringOnlyUnreached, out closedRing);
+            if (!closedRing || (ringError != null && !ringOnlyUnreached)) return blocks;
+            //
+            error = ringError;
+            errorPartName = ringErrorPartName;
+            sweptPartIds = ringSweptPartIds;
+            onlyUnreached = ringOnlyUnreached;
+            return ringBlocks;
+        }
+        private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
+                                              Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                              Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
+                                              SweepPartMaps maps, bool sweepRingsOneWay, out string error,
+                                              out string errorPartName, out HashSet<int> sweptPartIds,
+                                              out bool onlyUnreached, out bool closedRing)
+        {
             int failedSideNeighbourId;
             HashSet<int> setAsidePartIds = new HashSet<int>();
             while (true)
             {
                 SweepBlocks blocks = CreateSweepBlocks(sweptParts, partIdSelectedSurfaceIds, twinSurfaceIds, twinEdgeIds,
-                                                       maps, setAsidePartIds, out error, out errorPartName,
-                                                       out sweptPartIds, out onlyUnreached, out failedSideNeighbourId);
+                                                       maps, setAsidePartIds, sweepRingsOneWay, out error, out errorPartName,
+                                                       out sweptPartIds, out onlyUnreached, out failedSideNeighbourId,
+                                                       out closedRing);
                 if (error == null || onlyUnreached || failedSideNeighbourId < 0 ||
                     !setAsidePartIds.Add(failedSideNeighbourId)) return blocks;
             }
@@ -3564,11 +3601,12 @@ namespace CaeModel
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
                                               Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> twinEdgeIds,
-                                              SweepPartMaps maps, HashSet<int> setAsidePartIds, out string error,
-                                              out string errorPartName, out HashSet<int> sweptPartIds,
-                                              out bool onlyUnreached, out int failedSideNeighbourId)
+                                              SweepPartMaps maps, HashSet<int> setAsidePartIds, bool sweepRingsOneWay,
+                                              out string error, out string errorPartName, out HashSet<int> sweptPartIds,
+                                              out bool onlyUnreached, out int failedSideNeighbourId, out bool closedRing)
         {
             failedSideNeighbourId = -1;
+            closedRing = false;
             sweptPartIds = new HashSet<int>();
             onlyUnreached = false;
             error = null;
@@ -3657,9 +3695,11 @@ namespace CaeModel
                 if (!partIdSelectedSurfaceIds.ContainsKey(partId))
                     ExtendDerivedSourceOverLeaningSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
                 // A neighbour sharing a source surface is swept away from the same meshed surface - unless it
-                // is one of the blocks feeding this one, whose target the shared surface is
+                // is one of the blocks feeding this one, whose target the shared surface is, or the sweep is
+                // sent one way around a ring, which the neighbour then closes on the selected source
                 foreach (var surfaceId in sourceSurfaceIds.ToArray())
                 {
+                    if (sweepRingsOneWay && partIdSelectedSurfaceIds.ContainsKey(partId)) break;
                     if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, partId), out twinId)) continue;
                     //
                     neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
@@ -3724,12 +3764,19 @@ namespace CaeModel
                     if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(targetSurfaceId, partId), out twinId)) continue;
                     //
                     neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
+                    bool closesRing = false;
                     if (sweptPartIds.Contains(neighbourPartId) || partIdSelectedSurfaceIds.ContainsKey(neighbourPartId))
                     {
-                        error = "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two " +
-                                "sides, the second time across " + GetSweepSurfaceName(part, targetSurfaceId) + ".";
-                        if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
-                        return null;
+                        closesRing = sweepRingsOneWay &&
+                                     ClosesSweepRing(partId, targetSurfaceIds, neighbourPartId, twinSurfaceIds,
+                                                     partIdSelectedSurfaceIds, partIdSourceSurfaceIds, sweptPartIds);
+                        if (!closesRing)
+                        {
+                            error = "The part " + partIdPart[neighbourPartId].Name + " is reached by the sweep from two " +
+                                    "sides, the second time across " + GetSweepSurfaceName(part, targetSurfaceId) + ".";
+                            if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
+                            return null;
+                        }
                     }
                     foreach (var edgeId in part.Visualization.FaceEdgeIds[targetSurfaceId])
                     {
@@ -3742,6 +3789,11 @@ namespace CaeModel
                                 "the source instead, so that both parts are swept away from it.";
                         if (partIdSideNeighbourId.TryGetValue(partId, out rootId)) failedSideNeighbourId = rootId;
                         return null;
+                    }
+                    if (closesRing)
+                    {
+                        closedRing = true;
+                        continue;
                     }
                     if (refusedPartIds.Remove(neighbourPartId)) sideDerivedPartIds.Remove(neighbourPartId);
                     AddSourceSurface(neighbourPartId, FeMesh.GetItemIdFromGmshTopologyId(twinId), partIdSourceSurfaceIds,
@@ -3873,6 +3925,30 @@ namespace CaeModel
                 else pendingPartIds.Add(partId);
             }
             sourceSurfaceIds.Add(surfaceId);
+        }
+        /// <summary>
+        /// Whether a block closes a ring on a neighbour: the neighbour is a selected source block that is already
+        /// swept, and the targets of this block are the whole of its source and nothing else, so that the cap this
+        /// block would leave is the mesh already on the neighbour's source.
+        /// </summary>
+        private static bool ClosesSweepRing(int partId, int[] targetSurfaceIds, int neighbourPartId,
+                                            Dictionary<int, int> twinSurfaceIds,
+                                            Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                            Dictionary<int, HashSet<int>> partIdSourceSurfaceIds, HashSet<int> sweptPartIds)
+        {
+            int twinId;
+            HashSet<int> neighbourSourceIds;
+            if (!sweptPartIds.Contains(neighbourPartId) || !partIdSelectedSurfaceIds.ContainsKey(neighbourPartId)) return false;
+            if (!partIdSourceSurfaceIds.TryGetValue(neighbourPartId, out neighbourSourceIds)) return false;
+            //
+            HashSet<int> sharedIds = new HashSet<int>();
+            foreach (var targetSurfaceId in targetSurfaceIds)
+            {
+                if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(targetSurfaceId, partId), out twinId)) return false;
+                if (FeMesh.GetPartIdFromGmshTopologyId(twinId) != neighbourPartId) return false;
+                sharedIds.Add(FeMesh.GetItemIdFromGmshTopologyId(twinId));
+            }
+            return sharedIds.SetEquals(neighbourSourceIds);
         }
         /// <summary>
         /// Gives a neighbour across a shared wall the source that continues this block's source over the

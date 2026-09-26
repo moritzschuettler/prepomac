@@ -65,7 +65,8 @@ namespace CaeMesh.Sweep
             }
             // The target layer belongs to the target surfaces, and carries the parametric
             // coordinates of the projection so that second order midside nodes can be placed on the
-            // geometry
+            // geometry. A block closing a ring has no projection: it ends on the nodes of its meshed target
+            if (projection == null) return;
             int targetLayer = numLayers - 1;
             Dictionary<int, List<int>> surfaceGroups = new Dictionary<int, List<int>>();
             for (int k = 0; k < interior.Length; k++)
@@ -134,7 +135,8 @@ namespace CaeMesh.Sweep
             }
             AddElementsOfOneType(3, block.VolumeId, (int)GmshElementType.LinearWedge, wedgeTags, wedgeNodes);
             AddElementsOfOneType(3, block.VolumeId, (int)GmshElementType.LinearHexa, hexaTags, hexaNodes);
-            // Cap elements on the target surfaces
+            // Cap elements on the target surfaces, which a block closing a ring finds meshed already
+            if (projection == null) return;
             int[] elementSurfaceIds = AssignCapSurfaces(data, block, projection);
             Dictionary<int, List<IntPtr>> triangleTags = new Dictionary<int, List<IntPtr>>();
             Dictionary<int, List<IntPtr>> triangleNodes = new Dictionary<int, List<IntPtr>>();
