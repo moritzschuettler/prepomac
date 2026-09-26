@@ -107,6 +107,17 @@ namespace PrePoMax.Forms
             get { return _sweepMesh.NumberOfGlobalSmoothSteps; }
             set { _sweepMesh.NumberOfGlobalSmoothSteps = value; }
         }
+        //
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(0, 10, "Fallback to gmsh")]
+        [DescriptionAttribute("Mesh a source surface with gmsh when QuadWild cannot mesh it. Set to No to have the " +
+                              "meshing fail instead, so that the surfaces QuadWild cannot mesh are found.")]
+        [Id(1, 11)]
+        public bool QuadWildFallbackToGmsh
+        {
+            get { return _sweepMesh.QuadWildFallbackToGmsh; }
+            set { _sweepMesh.QuadWildFallbackToGmsh = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -117,6 +128,7 @@ namespace PrePoMax.Forms
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(KeepImprintEdges));
             _dctd.RenameBooleanPropertyToYesNo(nameof(QuadWildSmooth));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(QuadWildFallbackToGmsh));
             //
             _dctd.GetProperty(nameof(AlgorithmMesh2D)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(AlgorithmMesh3D)).SetIsBrowsable(false);
@@ -154,6 +166,7 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(QuadWildFlowProfile)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildAlpha)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildSmooth)).SetIsBrowsable(quadWild);
+            _dctd.GetProperty(nameof(QuadWildFallbackToGmsh)).SetIsBrowsable(quadWild);
         }
         public override MeshSetupItem GetBase()
         {

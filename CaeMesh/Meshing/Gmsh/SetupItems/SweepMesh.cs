@@ -36,6 +36,7 @@ namespace CaeMesh
         private double _quadWildAlpha;                                  // ISerializable
         private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
         private bool _quadWildSmooth;                                   // ISerializable
+        private bool _quadWildFallbackToGmsh;                           // ISerializable
 
 
         // Properties                                                                                                               
@@ -94,6 +95,11 @@ namespace CaeMesh
             set { _quadWildFlowProfile = value; }
         }
         public bool QuadWildSmooth { get { return _quadWildSmooth; } set { _quadWildSmooth = value; } }
+        public bool QuadWildFallbackToGmsh
+        {
+            get { return _quadWildFallbackToGmsh; }
+            set { _quadWildFallbackToGmsh = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -156,6 +162,8 @@ namespace CaeMesh
                         _quadWildFlowProfile = (QuadWildFlowProfileEnum)entry.Value; break;
                     case "_quadWildSmooth":
                         _quadWildSmooth = (bool)entry.Value; break;
+                    case "_quadWildFallbackToGmsh":
+                        _quadWildFallbackToGmsh = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -202,6 +210,7 @@ namespace CaeMesh
             _quadWildAlpha = 0.005;
             _quadWildFlowProfile = QuadWildFlowProfileEnum.Aligned;
             _quadWildSmooth = true;
+            _quadWildFallbackToGmsh = true;
         }
         public void CopyFrom(SweepMesh sweepMesh)
         {
@@ -219,6 +228,7 @@ namespace CaeMesh
             _quadWildAlpha = sweepMesh._quadWildAlpha;
             _quadWildFlowProfile = sweepMesh._quadWildFlowProfile;
             _quadWildSmooth = sweepMesh._quadWildSmooth;
+            _quadWildFallbackToGmsh = sweepMesh._quadWildFallbackToGmsh;
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -327,6 +337,7 @@ namespace CaeMesh
             info.AddValue("_quadWildAlpha", _quadWildAlpha, typeof(double));
             info.AddValue("_quadWildFlowProfile", _quadWildFlowProfile, typeof(QuadWildFlowProfileEnum));
             info.AddValue("_quadWildSmooth", _quadWildSmooth, typeof(bool));
+            info.AddValue("_quadWildFallbackToGmsh", _quadWildFallbackToGmsh, typeof(bool));
         }
     }
 }

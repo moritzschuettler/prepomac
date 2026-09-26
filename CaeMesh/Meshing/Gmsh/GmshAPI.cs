@@ -1761,7 +1761,8 @@ namespace CaeMesh
                     foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 }
                 GenerateMesh(1);
-                if (round == 1) _quadWildGroups = GetQuadWildGroups(blocks, walls, pinnedEdgeIdNumElements, recombine);
+                if (round == 1) _quadWildGroups = GetQuadWildGroups(blocks, walls, pinnedEdgeIdNumElements, recombine,
+                                                                    sweepMesh.QuadWildFallbackToGmsh);
                 // A run whose counts still hold keeps its nodes, and the walls beside them are matched to them
                 HashSet<int> fixedNodeEdgeIds = new HashSet<int>();
                 foreach (var group in _quadWildGroups)
@@ -1806,6 +1807,10 @@ namespace CaeMesh
                     }
                     catch (CaeException ex)
                     {
+                        if (!sweepMesh.QuadWildFallbackToGmsh)
+                            throw new CaeException(NameGmshEntities("Sweep: " + ex.Message + " QuadWild failed to mesh " +
+                                                                    group.GetDescription() + " and the fallback to " +
+                                                                    "gmsh is turned off."));
                         writeOutput("Sweep: " + ex.Message + " Gmsh meshes " + group.GetDescription() + " instead of " +
                                     "QuadWild.");
                         _quadWildGroups.Remove(group);
@@ -1831,7 +1836,8 @@ namespace CaeMesh
         /// is left to gmsh, as a source is without QuadWild, and the groups are formed again without it.
         /// </summary>
         private List<SweepQuadWildGroup> GetQuadWildGroups(List<SweepBlock> blocks, List<SweepWall> walls,
-                                                           Dictionary<int, int> pinnedEdgeIdNumElements, bool recombine)
+                                                           Dictionary<int, int> pinnedEdgeIdNumElements, bool recombine,
+                                                           bool fallbackToGmsh)
         {
             HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
             // Counts no wall derives from another: the pins, the layers and the imprint pairs. A wall's side is set by
@@ -1981,6 +1987,11 @@ namespace CaeMesh
                 }
                 if (oddSurfaceId != 0)
                 {
+                    if (!fallbackToGmsh)
+                        throw new CaeException(NameGmshEntities("Sweep: every edge of Surface " + oddSurfaceId + " is " +
+                                                                "fixed and they carry " + numOfElements + " elements " +
+                                                                "together, an odd number no quadrilateral mesh can " +
+                                                                "have, and the fallback to gmsh is turned off."));
                     _quadWildSourceIds.Remove(oddSurfaceId);
                     if (recombine) Gmsh.Model.Mesh.SetRecombine(2, oddSurfaceId);
                     _writeOutput?.Invoke(NameGmshEntities("Sweep: every edge of Surface " + oddSurfaceId + " is fixed " +
