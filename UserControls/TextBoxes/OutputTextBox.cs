@@ -27,9 +27,10 @@ namespace UserControls
 
         // Properties
         /// <summary>
-        /// The links of a line of text, each one as its start and its length, or null when the line has none.
+        /// The links of a line, given its index and its text, each one as its start and its length, or null when the
+        /// line has none.
         /// </summary>
-        public Func<string, int[][]> LinkFinder { get; set; }
+        public Func<int, string, int[][]> LinkFinder { get; set; }
 
 
         // Events
@@ -144,7 +145,7 @@ namespace UserControls
             //
             for (int i = firstLine; i < LinesCount; i++)
             {
-                int[][] links = LinkFinder(GetLineText(i));
+                int[][] links = LinkFinder(i, GetLineText(i));
                 if (links == null) continue;
                 //
                 foreach (var link in links)

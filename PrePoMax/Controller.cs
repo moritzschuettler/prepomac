@@ -8883,7 +8883,7 @@ namespace PrePoMax
             if (errors.Count > 0)
             {
                 _form.WriteDataToOutput("");
-                foreach (string error in errors) _form.WriteDataToOutput(error);
+                foreach (string error in errors) _form.WriteErrorToOutput(error);
             }
             //
             return generatedMeshes.Count > 0;

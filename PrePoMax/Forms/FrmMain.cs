@@ -73,6 +73,8 @@ namespace PrePoMax
         private const int _numOfOutputDateChars = 20;
         private const int _numOfOutputLines = 500;
         private List<string> _outputLines = new List<string>();
+        // Whether each output line is an error or a warning, which are the lines whose geometry names are links
+        private List<bool> _outputLineIsMessage = new List<bool>();
         private SidePanel _visibleSidePanel;
         private SplitContainer _sidePanelHost;
         private PythonPanel _pythonPanel;
@@ -470,7 +472,7 @@ namespace PrePoMax
                 _vtk.Form_BoxZoomEnded = BoxZoomEnded;
                 // Output
                 tbOutput.Dock = DockStyle.Fill;
-                tbOutput.LinkFinder = _controller.GetGeometryNameRanges;
+                tbOutput.LinkFinder = FindOutputLinks;
                 // Forms
                 _formLocation = new Point(100, 100);
                 _allForms = new List<Form>();
@@ -11377,6 +11379,7 @@ namespace PrePoMax
                 _vtk.RemoveAllArrowWidgets();
                 _modelTree.Clear();
                 _outputLines.Clear();
+                _outputLineIsMessage.Clear();
                 tbOutput.Text = "";
                 ClearResults();
                 ClearAnnotationStatus();
@@ -12396,9 +12399,22 @@ namespace PrePoMax
         private void tsmiClearOutputTextbox_Click(object sender, EventArgs e)
         {
             _outputLines.Clear();
+            _outputLineIsMessage.Clear();
             tbOutput.Clear();
         }
         public void WriteDataToOutput(string data)
+        {
+            WriteDataToOutput(data, false);
+        }
+        /// <summary>
+        /// Writes an error, whose surfaces and edges become links to the geometry. A line of ordinary output
+        /// names geometry too, but a link on every one of them buries the ones worth following.
+        /// </summary>
+        public void WriteErrorToOutput(string data)
+        {
+            WriteDataToOutput(data, true);
+        }
+        private void WriteDataToOutput(string data, bool isError)
         {
             if (data == null) return;
             // An empty line contains only the date
@@ -12413,7 +12429,7 @@ namespace PrePoMax
                 //
                 foreach (var line in lines)
                 {
-                    WriteLineToOutputWithDate(line);
+                    WriteLineToOutputWithDate(line, isError);
                     //
                     Console.WriteLine(line);
                 }
@@ -12421,12 +12437,30 @@ namespace PrePoMax
                 timerOutput.Start();
             });
         }
-        private void WriteLineToOutputWithDate(string data)
+        private void WriteLineToOutputWithDate(string data, bool isError)
         {
             _outputLines.Add(DateTime.Now.ToString("MM/dd/yy HH:mm:ss").PadRight(_numOfOutputDateChars) + data);
+            _outputLineIsMessage.Add(isError || IsWarningOrErrorLine(data));
             //
             if (_outputLines.Count > _numOfOutputLines)
+            {
                 _outputLines.RemoveRange(0, _outputLines.Count - _numOfOutputLines);
+                _outputLineIsMessage.RemoveRange(0, _outputLineIsMessage.Count - _numOfOutputLines);
+            }
+        }
+        /// <summary>
+        /// A warning or an error written as ordinary output, the way the meshers and gmsh write them.
+        /// </summary>
+        private static bool IsWarningOrErrorLine(string data)
+        {
+            string text = data.TrimStart();
+            return text.StartsWith("Warning", StringComparison.OrdinalIgnoreCase) ||
+                   text.StartsWith("Error", StringComparison.OrdinalIgnoreCase);
+        }
+        private int[][] FindOutputLinks(int line, string text)
+        {
+            if (line < 0 || line >= _outputLineIsMessage.Count || !_outputLineIsMessage[line]) return null;
+            return _controller.GetGeometryNameRanges(text);
         }
         private void UpdateOutputTextBox()
         {
