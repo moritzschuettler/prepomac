@@ -201,7 +201,8 @@ namespace PrePoMax
             }
             List<string> flowOptions = new List<string>();
             if (shellQuadWild.OldAlgorithm) flowOptions.AddRange(QuadWildRuntime.OldAlgorithmFlowOptions);
-            if (!shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm) flowOptions.Add("rotate_edges 0");
+            // Edge rotations are off in the mesher unless a gain is given
+            if (shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm) flowOptions.Add("rotate_edges 0.05");
             if (shellQuadWild.SingularityPosition > 0 && !shellQuadWild.OldAlgorithm)
                 flowOptions.Add("singularity_position " +
                                 shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture));
@@ -217,7 +218,7 @@ namespace PrePoMax
                                                ", alpha " +
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +
-                                               (shellQuadWild.EdgeRotations ? "" : ", no edge rotations") +
+                                               (shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm ? ", edge rotations" : "") +
                                                (shellQuadWild.SingularityPosition > 0 ? ", singularity position " +
                                                 shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture) : "") +
                                                (shellQuadWild.CountSearch > 0 ? ", count search " +

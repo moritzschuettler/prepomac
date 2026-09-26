@@ -158,8 +158,8 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(4, 10, "Edge rotations")]
         [DescriptionAttribute("On changes the connectivity where the quads are poor (worst corner below 0.8): the " +
                               "edge shared by two quads is turned to another diagonal of the hexagon they form when " +
-                              "that makes the quads around it better. Off keeps the connectivity of the quad " +
-                              "generation, for comparison.")]
+                              "that makes the quads around it better. Off (default) keeps the connectivity of the " +
+                              "quad generation.")]
         [Id(5, 6)]
         public bool EdgeRotations
         {

@@ -130,12 +130,12 @@ namespace CaeMesh
             _smooth = true;
             _alpha = 0.005;
             _flowProfile = QuadWildFlowProfileEnum.Aligned;
-            _boundaryLayer = QuadWildBoundaryLayerEnum.Holes;
+            _boundaryLayer = QuadWildBoundaryLayerEnum.None;
             _keepFilesOnFailure = false;
             _debugVisualization = false;
             _oldAlgorithm = false;
             _pinEdgeNodes = false;
-            _edgeRotations = true;
+            _edgeRotations = false;
             _singularityPosition = 0;
             _countSearch = 0;
         }

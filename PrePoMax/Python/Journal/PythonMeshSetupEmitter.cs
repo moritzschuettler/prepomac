@@ -77,7 +77,7 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("old_algorithm=" + PythonValueFormatter.Format(quadWild.OldAlgorithm));
                 if (quadWild.PinEdgeNodes)
                     arguments.Add("pin_edge_nodes=" + PythonValueFormatter.Format(quadWild.PinEdgeNodes));
-                if (!quadWild.EdgeRotations)
+                if (quadWild.EdgeRotations)
                     arguments.Add("edge_rotations=" + PythonValueFormatter.Format(quadWild.EdgeRotations));
                 if (quadWild.SingularityPosition > 0)
                     arguments.Add("singularity_position=" + PythonValueFormatter.Number(quadWild.SingularityPosition));

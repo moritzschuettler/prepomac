@@ -36,7 +36,8 @@ namespace CaeMesh
         {
             "input_line_count 0", "input_mesh_size 0", "graded_alpha 0", "field_smooth_sweeps 0",
             "split_boundary_fans 0", "smooth_curves 0", "rotate_edges 0", "boundary_layer 0", "nonquad_min_side 1",
-            "thin_corner_merge 0"
+            "thin_corner_merge 0", "thin_corner_pattern 0",
+            "strip_equal_sides 0", "bend_corners 0"
         };
 
 
