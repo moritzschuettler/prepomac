@@ -6525,12 +6525,14 @@ namespace PrePoMax
                 //
                 return true;
             }
-            // A part that is not a compound is one body, and the same one has to come back: a shell that
-            // came apart, or faces that are no longer a shell, would be parts the split invented
-            if (numOfShells != 1) return false;
-            if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
-            { if (numOfSolids != 1) return false; }
-            else if (numOfSolids != 0) return false;
+            // A part that is not a compound has to come back as the bodies it was: a shell that came apart,
+            // or faces that are no longer a shell, would be parts the split invented. It is not always one
+            // shell - a merge of shell parts holds one shell for each of them, and a solid with a cavity
+            // holds two - so the result is compared with the part and not with one shell
+            int numOfSolidsBefore;
+            int numOfShellsBefore;
+            if (!TryGetSplitGeometryPartBodyCounts(part, out numOfSolidsBefore, out numOfShellsBefore)) return false;
+            if (numOfSolids != numOfSolidsBefore || numOfShells != numOfShellsBefore) return false;
             //
             ReplacePartGeometryFromFile(part, brepFileName, true);
             //
@@ -6561,6 +6563,19 @@ namespace PrePoMax
                 if (solidsRead && shellsRead) return true;
             }
             return false;
+        }
+        // The bodies of the part as it is, counted the way the result of its split is counted
+        private bool TryGetSplitGeometryPartBodyCounts(GeometryPart part, out int numOfSolids, out int numOfShells)
+        {
+            numOfSolids = 0;
+            numOfShells = 0;
+            //
+            string workDirectory = _settings.GetWorkDirectory();
+            if (part.CADFileData == null || workDirectory == null || !Directory.Exists(workDirectory)) return false;
+            //
+            string brepFileName = Path.Combine(workDirectory, "splitBodies.brep");
+            File.WriteAllText(brepFileName, part.CADFileData);
+            return TryGetSplitGeometryBodyCounts(brepFileName, out numOfSolids, out numOfShells);
         }
         private int GetNumberOfSplitGeometrySolids(string brepFileName)
         {
