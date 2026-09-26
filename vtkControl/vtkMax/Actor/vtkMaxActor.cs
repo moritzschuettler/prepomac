@@ -34,6 +34,7 @@ namespace vtkControl
         protected vtkActor _elementEdges;
         protected vtkActor _modelEdges;
         protected vtkPolyData _modelEdgesForHighlight;
+        protected string _drawnModelEdgesKey;
         protected vtkActor _nodes;
         //
         protected vtkProperty _geometryProperty;
@@ -592,6 +593,7 @@ namespace vtkControl
                     _modelEdgesForHighlight = vtkPolyData.New();
                     _modelEdgesForHighlight.DeepCopy(sourceActor.ModelEdgesForHighlight);
                 }
+                _drawnModelEdgesKey = sourceActor._drawnModelEdgesKey;
             }
             // Section view
             _sectionViewActor = copyDataSets ? sourceActor.SectionViewActor : null;
@@ -1051,7 +1053,9 @@ namespace vtkControl
                     _modelEdgesForHighlight = polyData;
                     AddNodeAndCellDataToPoly(data.ModelEdgesToDraw, out polyActor, out _, out _, false);
                     polyData = polyActor;
+                    _drawnModelEdgesKey = GetModelEdgesKey(data.ModelEdgesToDraw);
                 }
+                else _drawnModelEdgesKey = GetModelEdgesKey(data.ModelEdges);
                 // Mapper
                 mapper = vtkDataSetMapper.New();
                 mapper.SetInput(polyData);
@@ -1977,7 +1981,8 @@ namespace vtkControl
             if (mapper == null) return;
             //
             vtkDataSet drawnData = mapper.GetInput();
-            if (drawnData != null && drawnData.GetNumberOfCells() == GetPolyCellCount(modelEdgesToDraw)) return;
+            string modelEdgesKey = GetModelEdgesKey(modelEdgesToDraw);
+            if (drawnData != null && modelEdgesKey == _drawnModelEdgesKey) return;
             // The edges the part holds on its own are the ones it is highlighted by
             if (_modelEdgesForHighlight == null && drawnData != null)
             {
@@ -1991,24 +1996,31 @@ namespace vtkControl
             // graphics resources when the garbage collector finalizes it, on a thread that holds no
             // rendering context, and the rendering window answers that with a failed wglMakeCurrent
             mapper.SetInput(polyActor);
+            _drawnModelEdgesKey = modelEdgesKey;
             //
             InvalidateAnimationInputs();
         }
         /// <summary>
-        /// The number of cells the given edges are drawn by: a quadratic edge is drawn as two lines, and
-        /// every other edge cell as one cell of its own
+        /// The edges given by the nodes of their cells. Two sets of edges with the same number of cells are
+        /// still different edges when a sub part of a compound hands a shared edge to another sub part and
+        /// takes over a different one in its place
         /// </summary>
-        private static int GetPolyCellCount(PartExchangeData modelEdges)
+        private static string GetModelEdgesKey(PartExchangeData modelEdges)
         {
-            if (modelEdges.Cells.Types == null) return 0;
+            if (modelEdges == null || modelEdges.Nodes.Ids == null || modelEdges.Cells.CellNodeIds == null) return null;
             //
-            int cellCount = 0;
-            int quadraticEdgeType = (int)vtkCellType.VTK_QUADRATIC_EDGE;
-            for (int i = 0; i < modelEdges.Cells.Types.Length; i++)
+            StringBuilder key = new StringBuilder();
+            int[] nodeIds = modelEdges.Nodes.Ids;
+            foreach (int[] cellNodeIds in modelEdges.Cells.CellNodeIds)
             {
-                cellCount += modelEdges.Cells.Types[i] == quadraticEdgeType ? 2 : 1;
+                foreach (int cellNodeId in cellNodeIds)
+                {
+                    key.Append(cellNodeId >= 0 && cellNodeId < nodeIds.Length ? nodeIds[cellNodeId] : -1);
+                    key.Append(',');
+                }
+                key.Append(';');
             }
-            return cellCount;
+            return key.ToString();
         }
         public void Highlight()
         {
