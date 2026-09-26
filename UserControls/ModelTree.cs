@@ -2985,9 +2985,21 @@ namespace UserControls
                 string parentName;
                 List<string> parentNames = new List<string>();
                 //
+                HashSet<NamedClass> addedItems = new HashSet<NamedClass>();
                 foreach (TreeNode selectedNode in selectedNodes)
                 {
+                    if (_splitSubPartNodes.ContainsKey(selectedNode))
+                    {
+                        foreach (NamedClass cell in GetSplitSubPartCellItems(selectedNode))
+                        {
+                            if (!addedItems.Add(cell)) continue;
+                            items.Add(cell);
+                            parentNames.Add(null);
+                        }
+                        continue;
+                    }
                     if (selectedNode.Tag == null) continue;
+                    if (!addedItems.Add((NamedClass)selectedNode.Tag)) continue;
                     //
                     items.Add((NamedClass)selectedNode.Tag);
                     parentName = GetStepNameFromNode(selectedNode);
