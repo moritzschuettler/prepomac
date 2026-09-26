@@ -12302,9 +12302,16 @@ namespace PrePoMax
         public void SelectBaseParts(string[] partNames)
         {
             MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0);
-            InvokeIfRequired(SelectBaseParts, e, Keys.None, partNames);
+            InvokeIfRequired(SelectBaseParts, e, Keys.None, partNames, false);
         }
         public void SelectBaseParts(MouseEventArgs e, Keys modifierKeys, string[] partNames)
+        {
+            SelectBaseParts(e, modifierKeys, partNames, true);
+        }
+        // A pick in the viewport selects the whole compound of a picked sub-part, while parts named in a list are
+        // selected as named, so a single sub-part can be chosen
+        private void SelectBaseParts(MouseEventArgs e, Keys modifierKeys, string[] partNames,
+                                     bool selectCompoundOfSubParts)
         {
             if ((partNames != null && partNames.Length == 0) || 
                 (partNames != null && partNames.Length > 0 && partNames[0] == null))
@@ -12326,7 +12333,10 @@ namespace PrePoMax
                     int numOfSelectedTreeNodes = 0;
                     //
                     if (GetCurrentView() == ViewGeometryModelResults.Geometry)
-                        parts = _controller.GetGeometryPartsForSelection(partNames);
+                    {
+                        if (selectCompoundOfSubParts) parts = _controller.GetGeometryPartsForSelection(partNames);
+                        else parts = _controller.GetGeometryParts(partNames).Where(p => p != null).ToArray();
+                    }
                     else if (GetCurrentView() == ViewGeometryModelResults.Model)
                         parts = _controller.GetModelParts(partNames);
                     else if (GetCurrentView() == ViewGeometryModelResults.Results)
