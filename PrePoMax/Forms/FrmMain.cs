@@ -1172,7 +1172,8 @@ namespace PrePoMax
                         if (form.Visible) return;
                     }
                 }
-                _controller.HighlightGeometryNamedAt(line, position);
+                if (!_controller.HighlightGeometryNamedAt(line, position))
+                    _controller.HighlightInvertedElementsNamedAt(line, position);
             }
             catch (Exception ex)
             {
@@ -4691,6 +4692,7 @@ namespace PrePoMax
                 //
                 _controller.UpdateExplodedView(true);
                 //
+                string[] invertedPartNames = _controller.LastInvertedElementPartNames;
                 if (errors.Count > 0)
                 {
                     string message = "Errors occurred during meshing. Please check the output window.";
@@ -4700,7 +4702,18 @@ namespace PrePoMax
                     else if (_controller.GetLastMeshingErrorGeometryIds().Length > 0)
                         message += " Click a surface or an edge the errors name in the output window to show it in the " +
                                    "geometry.";
+                    if (invertedPartNames.Length > 0)
+                        message += " The mesh of " + string.Join(", ", invertedPartNames) + " has inverted or " +
+                                   "degenerate elements; click its warning in the output window to show them.";
                     MessageBoxes.ShowError(message);
+                }
+                else if (invertedPartNames.Length > 0)
+                {
+                    _controller.ClearAllSelection();
+                    _controller.HighlightInvertedElements(invertedPartNames);
+                    MessageBoxes.ShowWarning("The mesh of " + string.Join(", ", invertedPartNames) + " has inverted " +
+                                             "or degenerate elements, which are highlighted. Click a warning in the " +
+                                             "output window to show the elements of that part alone.");
                 }
             }
             catch (Exception ex)
@@ -12470,7 +12483,11 @@ namespace PrePoMax
         private int[][] FindOutputLinks(int line, string text)
         {
             if (line < 0 || line >= _outputLineIsMessage.Count || !_outputLineIsMessage[line]) return null;
-            return _controller.GetGeometryNameRanges(text);
+            int[][] geometryRanges = _controller.GetGeometryNameRanges(text);
+            int[][] invertedElementRanges = _controller.GetInvertedElementReferenceRanges(text);
+            if (geometryRanges == null) return invertedElementRanges;
+            if (invertedElementRanges == null) return geometryRanges;
+            return geometryRanges.Concat(invertedElementRanges).ToArray();
         }
         private void UpdateOutputTextBox()
         {

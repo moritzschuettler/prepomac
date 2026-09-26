@@ -871,6 +871,12 @@ part supports whatever the mesh setup items ask for: `Transfinite`, `Sweep`, `Te
 for a part that is not a CAD solid. A compound part reports the most restrictive type of its sub-parts.
 The recognition depends on the geometry alone, so an exploded view does not change it.
 
+`ModelPart` adds `get_inverted_element_ids()`, the IDs of the inverted or degenerate solid elements
+of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such
+elements rather than refusing the mesh: it writes `<part> has <n> inverted or degenerate elements`
+to the output window, where the line is a link that highlights them, and highlights them once
+meshing ends. `mesh.create` reports such a part as meshed, so a script finds the elements here.
+
 #### `FaceData`, `EdgeData` and `VertexData`
 
 The topology of one part, read off the visualization the application keeps for picking. It is how a

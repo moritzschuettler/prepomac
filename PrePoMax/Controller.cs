@@ -103,6 +103,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshedPartNames;
         [NonSerialized] protected string[] _lastMeshedModelPartNames;
         [NonSerialized] protected string[] _lastMeshingErrors;
+        [NonSerialized] protected string[] _lastInvertedElementPartNames;
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
         [NonSerialized] protected string[] _lastExtractedSurfacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
@@ -218,6 +219,10 @@ namespace PrePoMax
         public string[] LastMeshingErrors
         {
             get { return _lastMeshingErrors == null ? new string[0] : _lastMeshingErrors; }
+        }
+        public string[] LastInvertedElementPartNames
+        {
+            get { return _lastInvertedElementPartNames == null ? new string[0] : _lastInvertedElementPartNames; }
         }
         // The CAD solid parts the last defeaturing was asked to work on, which is the set a caller has to
         // compare face counts over: a part it was not asked about tells nothing about what was removed
@@ -8804,6 +8809,7 @@ namespace PrePoMax
             _lastMeshedPartNames = new string[0];
             _lastMeshedModelPartNames = new string[0];
             _lastMeshingErrors = new string[0];
+            _lastInvertedElementPartNames = new string[0];
             successfulPartNames = new string[0];
             //
             string workDirectory = _settings.GetWorkDirectory();
@@ -9156,6 +9162,7 @@ namespace PrePoMax
             //
             bool renumbered = false;
             int numOfMeshedParts = 0;
+            List<string> invertedPartNames = new List<string>();
             phaseWatch.Restart();
             foreach (GeneratedMeshData generatedMesh in generatedMeshes)
             {
@@ -9169,6 +9176,12 @@ namespace PrePoMax
                         numOfMeshedParts++;
                         _form.WriteDataToOutput(partName + ": " + meshPart.NodeLabels.Length + " nodes, " +
                                                 meshPart.Labels.Length + " elements");
+                        int numOfInvertedElements = InvertedElements.GetElementIds(_model.Mesh, meshPart).Length;
+                        if (numOfInvertedElements > 0)
+                        {
+                            _form.WriteDataToOutput(MessageInvertedElements.GetMessage(partName, numOfInvertedElements));
+                            invertedPartNames.Add(partName);
+                        }
                         //
                         GeometryPart geometryPart = GetGeometryPartOfMeshPart(partName);
                         if (geometryPart != null)
@@ -9219,6 +9232,7 @@ namespace PrePoMax
             if (renumbered) UpdateGeometryBasedItems(false, true);
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
             _form.RegenerateTree(true);
+            _lastInvertedElementPartNames = invertedPartNames.ToArray();
             phaseWatch.Stop();
             performance.Finalization += phaseWatch.Elapsed.TotalSeconds;
         }
@@ -26022,6 +26036,46 @@ namespace PrePoMax
             ClearAllSelection();
             HighlightItemsByGeometryIds(new int[] { geometryId }, false, false, true);
             return true;
+        }
+        /// <summary>
+        /// Every report of the inverted elements of a part of the model mesh in a line of text, as its start and
+        /// its length, so that the output window can draw the reports as links.
+        /// </summary>
+        public int[][] GetInvertedElementReferenceRanges(string text)
+        {
+            return MessageInvertedElements.GetReferenceRanges(text, _model == null ? null : _model.Mesh);
+        }
+        /// <summary>
+        /// Highlights the inverted elements of the part reported at the given position of a line of text, found
+        /// again on the mesh the part has now.
+        /// </summary>
+        public bool HighlightInvertedElementsNamedAt(string text, int position)
+        {
+            string partName = MessageInvertedElements.GetPartNameAt(text, position, _model.Mesh);
+            if (partName == null) return false;
+            //
+            CurrentView = ViewGeometryModelResults.Model;
+            ClearAllSelection();
+            if (HighlightInvertedElements(new string[] { partName }) == 0)
+                _form.WriteDataToOutput(partName + " has no inverted or degenerate elements.");
+            return true;
+        }
+        public int HighlightInvertedElements(string[] partNames)
+        {
+            BasePart part;
+            List<int> elementIds = new List<int>();
+            foreach (string partName in partNames)
+            {
+                if (_model.Mesh.Parts.TryGetValue(partName, out part))
+                    elementIds.AddRange(InvertedElements.GetElementIds(_model.Mesh, part));
+            }
+            if (elementIds.Count == 0) return 0;
+            //
+            HashSet<int> nodeIds = new HashSet<int>();
+            foreach (int elementId in elementIds) nodeIds.UnionWith(_model.Mesh.Elements[elementId].NodeIds);
+            HighlightElements(elementIds.ToArray());
+            DrawNodes("Highlight", nodeIds.ToArray(), Color.Red, vtkRendererLayer.Selection, out _);
+            return elementIds.Count;
         }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)
         {

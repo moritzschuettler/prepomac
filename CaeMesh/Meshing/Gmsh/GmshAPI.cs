@@ -3814,10 +3814,8 @@ namespace CaeMesh
         /// Reports the quality of the finished mesh, whatever produced it.
         ///
         /// The measure is gmsh's own minSICN, the signed inverse condition number: 1 for an ideal
-        /// element, 0 for a degenerate one and negative for an inverted one. The sweep additionally
-        /// refuses to emit inverted elements, because it builds those elements itself; a mesh that
-        /// came out of gmsh is only reported on, since rejecting it would throw away a mesh the
-        /// mesher considers acceptable.
+        /// element, 0 for a degenerate one and negative for an inverted one. The mesh is only
+        /// reported on, whatever produced it, so that the inverted elements can be shown on it.
         /// </summary>
         private void ReportMeshQuality()
         {

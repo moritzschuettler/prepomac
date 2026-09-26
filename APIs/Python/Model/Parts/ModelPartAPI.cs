@@ -27,6 +27,15 @@ namespace APIs.Python.Model
 
 
         // Methods
+        [PythonAPI("Returns the IDs of the inverted or degenerate solid elements of the part: those with a " +
+                   "scaled Jacobian at a corner that is zero or negative. Meshing keeps such elements, reports " +
+                   "them in the output window and highlights them, so a script finds them here.",
+                   Returns = "IntList",
+                   Example = "bad = pmx.model.parts['Solid_part-1'].get_inverted_element_ids()")]
+        public IntListAPI get_inverted_element_ids()
+        {
+            return new IntListAPI(InvertedElements.GetElementIds(ResolveMesh(), ResolvePart()));
+        }
         protected override BasePart ResolvePart()
         {
             return _service.ResolvePart(_partName);

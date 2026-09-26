@@ -112,13 +112,13 @@ namespace CaeMesh
             SweepQuality.GetQualityRange(data, flip, out minimum, out maximum, out numInverted);
             writeOutput?.Invoke("Scaled Jacobian: min " + Math.Round(minimum, 4) + ", max " + Math.Round(maximum, 4) +
                                 ".");
+            // The mesh is kept, so that the inverted elements can be shown on it
             if (numInverted > 0)
             {
-                writeOutput?.Invoke("Inverted elements: " + numInverted + ".");
-                throw new CaeException("Sweeping " + block.GetDescription() + " produced " + numInverted +
-                                       " inverted element/s. Try a coarser or more regular source surface mesh, " +
-                                       "fewer element layers, or split the volume so that each part is swept " +
-                                       "separately.");
+                writeOutput?.Invoke("Sweeping " + block.GetDescription() + " produced " + numInverted +
+                                    " inverted or degenerate element/s. Try a coarser or more regular source " +
+                                    "surface mesh, fewer element layers, or split the volume so that each part is " +
+                                    "swept separately.");
             }
             //
             LayeredMeshBuilder.Build(data, block, projection, flip);

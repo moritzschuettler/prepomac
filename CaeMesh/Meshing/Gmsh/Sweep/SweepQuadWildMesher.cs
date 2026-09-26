@@ -99,9 +99,14 @@ namespace CaeMesh.Sweep
             //
             int numOfQuads = faces.Count(face => face.Length == 4);
             double minQuality = GetMinQuality(faces, nodeCoors);
+            // Without the fallback the mesh is kept, so that the elements swept from the bad ones can be shown on it
             if (!IsAboveQualityLimit(faces, nodeCoors, mesh, input))
-                throw new CaeException("The QuadWild mesh of " + group.GetDescription() + " has a minimum quality of " +
-                                       Math.Round(minQuality, 3) + ".");
+            {
+                string message = "The QuadWild mesh of " + group.GetDescription() + " has a minimum quality of " +
+                                 Math.Round(minQuality, 3) + ".";
+                if (sweepMesh.QuadWildFallbackToGmsh) throw new CaeException(message);
+                writeOutput?.Invoke("Sweep: " + message + " The fallback to gmsh is turned off, so the mesh is kept.");
+            }
             writeOutput?.Invoke("Sweep: QuadWild meshed " + group.GetDescription() + " with " + numOfQuads +
                                 " quadrilaterals" + (numOfQuads < faces.Count ? " and " + (faces.Count - numOfQuads) +
                                 " triangles" : "") + ", minimum quality " + Math.Round(minQuality, 3) +
