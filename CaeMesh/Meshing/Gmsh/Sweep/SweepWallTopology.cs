@@ -663,7 +663,66 @@ namespace CaeMesh.Sweep
                     }
                 }
             }
+            // A layer edge of one block can be the whole cross side of a wall of another, whose other side is cut
+            // into more edges than the layers the family counted there - a coarse mesh gives the family a single
+            // layer, and the side across from it is two edges. Every edge carries one element at least, so the
+            // wall could never be a grid; the family is given one layer more until it can, and so are the families
+            // of its block, which count the same layers
+            int[] familyOfChainIndex = new int[chains.Count];
+            for (int f = 0; f < families.Count; f++)
+            {
+                foreach (var i in families[f]) familyOfChainIndex[i] = f;
+            }
+            for (int round = 0; round < 100; round++)
+            {
+                int raisedFamily = GetFamilyUnderCrossSide(walls, edgeIdChainIndices, familyOfChainIndex,
+                                                           edgeIdNumOfElements);
+                if (raisedFamily < 0) break;
+                //
+                int raisedTotal = familyTotals[raisedFamily] + 1;
+                foreach (var f in Enumerable.Range(0, families.Count))
+                {
+                    if (f != raisedFamily && !(familySpansAllLevels[f] && familySpansAllLevels[raisedFamily] &&
+                                               Find(familyParent, f) == Find(familyParent, raisedFamily))) continue;
+                    ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), getChainBlocks(families[f]),
+                                          levelVertexIds, levelGroupBlockIndices, pinnedEdgeIdNumOfElements,
+                                          edgeIdNumOfElements, raisedTotal, out _, out _);
+                    familyTotals[f] = raisedTotal;
+                }
+            }
             return edgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The family of a layer side of a wall that carries fewer elements than the edges its other side is cut
+        /// into, or -1 when there is none. A layer side is a cross side of the wall made only of layer edges, the
+        /// other side made of none.
+        /// </summary>
+        private static int GetFamilyUnderCrossSide(List<SweepWall> walls, Dictionary<int, List<int>> edgeIdChainIndices,
+                                                   int[] familyOfChainIndex, Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int numOfElements;
+            foreach (var wall in walls)
+            {
+                foreach (var sides in new int[][][] { new int[][] { wall.SourceEdgeIds, wall.TargetEdgeIds },
+                                                      new int[][] { wall.TargetEdgeIds, wall.SourceEdgeIds } })
+                {
+                    int[] layerSide = sides[0];
+                    int[] otherSide = sides[1];
+                    if (layerSide.Length == 0 || otherSide.Length <= 1) continue;
+                    if (!layerSide.All(edgeIdChainIndices.ContainsKey) || otherSide.Any(edgeIdChainIndices.ContainsKey))
+                        continue;
+                    //
+                    int count = 0;
+                    foreach (var edgeId in layerSide)
+                    {
+                        if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements)) count += numOfElements;
+                    }
+                    if (count >= otherSide.Length) continue;
+                    //
+                    return familyOfChainIndex[edgeIdChainIndices[layerSide[0]][0]];
+                }
+            }
+            return -1;
         }
         /// <summary>
         /// The vertices partway along two opposite sides of a wall that lie at the same fraction of the length of
