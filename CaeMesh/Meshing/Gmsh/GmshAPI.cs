@@ -36,6 +36,7 @@ namespace CaeMesh
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
+        private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
         private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
@@ -611,7 +612,7 @@ namespace CaeMesh
             }
             int[] tetrahedralVolumeIds = GetTetrahedralVolumeIds(blocks);
             if (GetAlgorithmMesh2D(sweepMesh) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-                MeshTetrahedralSurfacesByTriangles(tetrahedralVolumeIds, blocks);
+                MeshTetrahedralSurfacesByTriangles();
             // Whether the walls came out of the 2D pass as the structured grid the sweep needs shows only
             // when that grid is walked, so the whole pass is one attempt that either builds the sweep or
             // fails. The counts the item itself carries are kept, since a second attempt has to resolve its
@@ -702,32 +703,29 @@ namespace CaeMesh
             return volumeDimTags.Select(dimTag => dimTag.Item2).Where(id => !blockVolumeIds.Contains(id)).ToArray();
         }
         /// <summary>
+        /// The surfaces that belong to no sweep block and so bound only the cells left to tetrahedra.
+        /// </summary>
+        private static HashSet<int> GetTetrahedralSurfaceIds(List<SweepBlock> blocks)
+        {
+            Tuple<int, int>[] surfaceDimTags;
+            Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+            HashSet<int> surfaceIds = new HashSet<int>(surfaceDimTags.Select(dimTag => dimTag.Item2));
+            foreach (var block in blocks)
+            {
+                surfaceIds.ExceptWith(block.SourceSurfaceIds);
+                surfaceIds.ExceptWith(block.WallSurfaceIds);
+                surfaceIds.ExceptWith(block.TargetSurfaceIds);
+            }
+            return surfaceIds;
+        }
+        /// <summary>
         /// The quasi-structured quad algorithm meshes every surface it reaches by quadrilaterals, and Netgen would stand
         /// a pyramid on each of them, so the surfaces that bound only tetrahedral cells are meshed by triangles.
         /// </summary>
-        private static void MeshTetrahedralSurfacesByTriangles(int[] tetrahedralVolumeIds, List<SweepBlock> blocks)
+        private void MeshTetrahedralSurfacesByTriangles()
         {
-            if (tetrahedralVolumeIds.Length == 0) return;
-            //
-            HashSet<int> blockSurfaceIds = new HashSet<int>();
-            foreach (var block in blocks)
-            {
-                blockSurfaceIds.UnionWith(block.SourceSurfaceIds);
-                blockSurfaceIds.UnionWith(block.WallSurfaceIds);
-                blockSurfaceIds.UnionWith(block.TargetSurfaceIds);
-            }
-            Tuple<int, int>[] surfaceDimTags;
-            foreach (var volumeId in tetrahedralVolumeIds)
-            {
-                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(3, volumeId) }, out surfaceDimTags,
-                                       false, false, false);
-                foreach (var surfaceDimTag in surfaceDimTags)
-                {
-                    int surfaceId = Math.Abs(surfaceDimTag.Item2);
-                    if (!blockSurfaceIds.Contains(surfaceId))
-                        Gmsh.Model.Mesh.SetAlgorithm(2, surfaceId, (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
-                }
-            }
+            foreach (var surfaceId in _tetrahedralSurfaceIds)
+                Gmsh.Model.Mesh.SetAlgorithm(2, surfaceId, (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
         }
         /// <summary>
         /// Builds the blocks of a sweep item before the mesh sizes are set, and carries the imprints that split
@@ -804,6 +802,10 @@ namespace CaeMesh
             {
                 if (!block.ClosesRing) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
+            // A surface of no block bounds only the cells left to tetrahedra, which need no structured grid on it;
+            // made one, it would be held to the counts the sweep set on its edges, which its opposite sides need not
+            // share, and it would tie the counts of the walls to its own
+            _tetrahedralSurfaceIds = GetTetrahedralSurfaceIds(_sweepBlocks);
             // A source QuadWild meshes is triangulated free for it, once the fragmentation has given the faces their
             // final tags. A source that is the target of another block is the cap that block's sweep leaves, and is
             // read back from there; one that is a wall of another block is meshed as the structured grid of that wall
@@ -4052,7 +4054,8 @@ namespace CaeMesh
                 }
                 //
                 surface = new GmshSurface(surfaceId, surfaceVertexIds.ToArray(), edgeIds, edgeLengths, edgeVertexIds);
-                if (surfaceIdsWithInternalCurves.Contains(surfaceId)) surface.Transfinite = false;
+                if (surfaceIdsWithInternalCurves.Contains(surfaceId) || _tetrahedralSurfaceIds.Contains(surfaceId))
+                    surface.Transfinite = false;
                 surfaceIdSurface.Add(surface.Id, surface);
             }
             // Check if a volume is a transfinite volume                                                                            
