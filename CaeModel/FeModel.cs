@@ -3271,9 +3271,10 @@ namespace CaeModel
                 // A compound whose cells are mirror images across the planes it is split on sweeps one symmetric
                 // piece of its cells, and the mesh is mirrored onto the others. The piece is swept on its own, the
                 // faces on the planes being its outer faces, which lets two blocks meet on a plane: each is the
-                // mirror image of the other, so their nodes on it coincide. A piece that cannot be swept on its own
-                // leaves the compound to be swept whole, as without the symmetry, and so does a piece that sweeps
-                // only some of its cells, since the mesh of the others is not mirrored
+                // mirror image of the other, so their nodes on it coincide. A cell of the piece the sweep does not
+                // reach is meshed by tetrahedra and mirrored as a swept one is, so the images of a cell are meshed
+                // alike whichever way it is meshed. A piece that cannot be swept on its own leaves the compound to be
+                // swept whole, as without the symmetry
                 symmetry = null;
                 blocks = null;
                 error = null;
@@ -3283,32 +3284,17 @@ namespace CaeModel
                     symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
                     if (symmetry != null)
                     {
-                        blocks = CreateSweepBlocksForGroup(symmetry.MasterParts, partIdSelectedSurfaceIds, true, false,
-                                                           out error, out errorPartName);
+                        blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
+                                                           out errorPartName);
                         if (error != null) symmetry = null;
                     }
                 }
                 if (symmetry == null)
-                    blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, isCompound,
-                                                       out error, out errorPartName);
-                // A compound whose cells cannot all be swept together is swept once more without the cells that
-                // cannot be swept even on their own, which then stand in the way of none of the others
-                if (error != null && isCompound)
                 {
-                    GeometryPart[] cellsToSweep = GetCellsToSweep(sweptParts, partIdSelectedSurfaceIds);
-                    if (cellsToSweep.Length > 0 && cellsToSweep.Length < sweptParts.Length)
-                    {
-                        string cellsError;
-                        string cellsErrorPartName;
-                        SweepBlocks cellBlocks = CreateSweepBlocksForGroup(cellsToSweep, partIdSelectedSurfaceIds, false,
-                                                                           true, out cellsError, out cellsErrorPartName);
-                        if (cellsError == null)
-                        {
-                            blocks = cellBlocks;
-                            error = null;
-                            errorPartName = null;
-                        }
-                    }
+                    if (isCompound) blocks = CreateSweepBlocksForCells(sweptParts, partIdSelectedSurfaceIds, out error,
+                                                                       out errorPartName);
+                    else blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, out error,
+                                                            out errorPartName);
                 }
                 // A group that cannot be swept is left out the way a part that cannot be swept is, so that
                 // the groups that can be swept still are. Only an item that sweeps nothing at all is refused
@@ -3339,20 +3325,45 @@ namespace CaeModel
             return null;
         }
         /// <summary>
+        /// The blocks of cells of one compound - all its cells, or the symmetric piece of them - leaving the cells the
+        /// sweep does not reach to tetrahedra. Cells that cannot all be swept together are swept once more without
+        /// the ones that cannot be swept even on their own, which then stand in the way of none of the others.
+        /// </summary>
+        private SweepBlocks CreateSweepBlocksForCells(GeometryPart[] cells,
+                                                      Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                                      out string error, out string errorPartName)
+        {
+            SweepBlocks blocks = CreateSweepBlocksForGroup(cells, partIdSelectedSurfaceIds, true, out error,
+                                                           out errorPartName);
+            if (error == null) return blocks;
+            //
+            GeometryPart[] cellsToSweep = GetCellsToSweep(cells, partIdSelectedSurfaceIds);
+            if (cellsToSweep.Length == 0 || cellsToSweep.Length == cells.Length) return blocks;
+            //
+            string cellsError;
+            string cellsErrorPartName;
+            SweepBlocks cellBlocks = CreateSweepBlocksForGroup(cellsToSweep, partIdSelectedSurfaceIds, true,
+                                                               out cellsError, out cellsErrorPartName);
+            if (cellsError != null) return blocks;
+            //
+            error = null;
+            errorPartName = null;
+            return cellBlocks;
+        }
+        /// <summary>
         /// The blocks of one group. With cellsMayBeLeftOut the cells of a compound the sweep does not reach are left
         /// out of it rather than refusing the group, which is the only failure that leaves them out: every other
         /// refusal still refuses the group.
         /// </summary>
         private SweepBlocks CreateSweepBlocksForGroup(GeometryPart[] sweptParts,
                                                       Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
-                                                      bool symmetric, bool cellsMayBeLeftOut, out string error,
-                                                      out string errorPartName)
+                                                      bool cellsMayBeLeftOut, out string error, out string errorPartName)
         {
             if (partIdSelectedSurfaceIds == null)
             {
                 // The sources a group is swept from depend on the geometry alone, so they are detected
                 // once and kept on the part leading the group
-                SweepDetectionData detection = GetSweepDetection(sweptParts, symmetric);
+                SweepDetectionData detection = GetSweepDetection(sweptParts);
                 error = detection.Error;
                 errorPartName = detection.ErrorPartName;
                 if (error != null && cellsMayBeLeftOut && detection.PartialBlocks != null)
@@ -3417,26 +3428,30 @@ namespace CaeModel
         }
         /// <summary>
         /// What the automatic detection finds for one group of parts, detected the first time it is asked for
-        /// and reused until the geometry of the group changes. The symmetric piece of a compound and the cells of
-        /// it that can be swept on their own are kept apart from the whole compound, so that asking for one does
-        /// not throw another away.
+        /// and reused until the geometry of the group changes. What is found depends on the parts swept and nothing
+        /// else, so a single part and a whole compound keep it on the part, and a compound keeps what it finds for
+        /// some of its cells - its symmetric piece, the cells it sweeps without the others - by the parts they are,
+        /// so that asking for one does not throw another away.
         /// </summary>
-        private SweepDetectionData GetSweepDetection(GeometryPart[] sweptParts, bool symmetric = false)
+        private SweepDetectionData GetSweepDetection(GeometryPart[] sweptParts)
         {
             GeometryPart groupPart = GetSweepGroupPart(sweptParts);
-            bool someCells = !symmetric && groupPart is CompoundGeometryPart compoundPart &&
+            bool someCells = groupPart is CompoundGeometryPart compoundPart &&
                              sweptParts.Length < compoundPart.SubPartNames.Length;
             string stamp = SweepDetectionData.GetStamp(sweptParts);
             //
             SweepDetectionData detection;
-            if (symmetric) detection = groupPart.SymmetricSweepDetection;
-            else if (someCells) detection = groupPart.SweepableCellsSweepDetection;
+            if (someCells) groupPart.CellsSweepDetections.TryGetValue(stamp, out detection);
             else detection = groupPart.SweepDetection;
             if (detection != null && detection.Stamp == stamp) return detection;
             //
             detection = DetectSweepSources(sweptParts, stamp);
-            if (symmetric) groupPart.SymmetricSweepDetection = detection;
-            else if (someCells) groupPart.SweepableCellsSweepDetection = detection;
+            if (someCells)
+            {
+                // A changed geometry changes the stamps, so what was found for the geometry before is let go
+                if (groupPart.CellsSweepDetections.Count >= 16) groupPart.CellsSweepDetections.Clear();
+                groupPart.CellsSweepDetections[stamp] = detection;
+            }
             else groupPart.SweepDetection = detection;
             //
             return detection;

@@ -37,6 +37,8 @@
 #are the case a wall with a hole must be refused on: side by side each box is swept along its own bore
 #across their shared wall; stacked, the upper box has no sweepable direction at all, and is meshed by
 #tetrahedra with a pyramid on every quadrilateral the swept lower box leaves on the face they share.
+#sweep_holes_stacked_mirrored.brep is the stacked pair and its mirror image across the side face they share:
+#the symmetric sweep meshes one pair, the lower box swept and the upper one by tetrahedra, and mirrors both.
 #
 #One item may also sweep parts that share nothing at all. sweep_two_apart.brep holds two boxes standing
 #apart, which import as two separate parts rather than as a compound; they are two groups of blocks in
@@ -525,6 +527,20 @@ def test_perpendicular_bores():
     items.add_sweep_mesh(SWEEP_NAME, selection)
     check(items[SWEEP_NAME].valid, "the automatic sweep of the stacked bored boxes is not valid")
     mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of the stacked bored boxes")
+    items.remove([SWEEP_NAME])
+    # The stacked boxes and their mirror image across the side face they share, which is the plane the compound
+    # is split on. One lower box is swept and one upper box meshed by tetrahedra, and both are mirrored, so the
+    # two upper boxes carry the same tetrahedra and pyramids and the two lower ones the same swept elements
+    solids, compound = import_geometry("sweep_holes_stacked_mirrored.brep")
+    check(compound is not None and len(solids) == 4, "the mirrored stacked boxes must import as a compound of 4")
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the mirrored stacked bored boxes is not valid")
+    mesh_with_tetrahedral_cells(solids, compound, 2, "the symmetric sweep of the mirrored stacked bored boxes")
+    names = set(solid.name for solid in solids)
+    kinds = sorted(sorted(element_kinds(part).items()) for part in pmx.model.parts if part.name in names)
+    check(kinds[0] == kinds[1] and kinds[2] == kinds[3],
+          "the mirrored cells must be meshed alike, swept or tetrahedral: " + str(kinds))
     items.remove([SWEEP_NAME])
 
 

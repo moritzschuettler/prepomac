@@ -673,9 +673,20 @@ namespace CaeMesh
         /// </summary>
         private string GetVolumePartName(int volumeId)
         {
+            string partName;
+            int partId = GetVolumePartId(volumeId);
+            if (partId >= 0 && _gmshData.PartIdPartName != null && _gmshData.PartIdPartName.TryGetValue(partId, out partName))
+                return partName;
+            return "the cell of gmsh volume " + volumeId;
+        }
+        /// <summary>
+        /// The id of the part a volume of a compound was written out of, read off a boundary surface no other volume
+        /// shares - a surface two cells share is named after one of them only - or -1 for a volume without one.
+        /// </summary>
+        private int GetVolumePartId(int volumeId)
+        {
             int[] volumeIds;
             int topologyId;
-            string partName;
             Tuple<int, int>[] surfaceDimTags;
             Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(3, volumeId) }, out surfaceDimTags,
                                    false, false, false);
@@ -683,13 +694,10 @@ namespace CaeMesh
             {
                 int surfaceId = Math.Abs(surfaceDimTag.Item2);
                 Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
-                if (volumeIds.Length != 1 || !_gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId)) continue;
-                //
-                int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
-                if (_gmshData.PartIdPartName != null && _gmshData.PartIdPartName.TryGetValue(partId, out partName))
-                    return partName;
+                if (volumeIds.Length == 1 && _gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId))
+                    return FeMesh.GetPartIdFromGmshTopologyId(topologyId);
             }
-            return "the cell of gmsh volume " + volumeId;
+            return -1;
         }
         /// <summary>
         /// The volumes of a compound that no sweep block covers: the cells that cannot be swept, which the model side
@@ -4748,14 +4756,23 @@ namespace CaeMesh
             }
         }
         /// <summary>
-        /// Removes the cells a symmetric sweep mirrors instead of meshing them: every volume no block lies in. The
-        /// volume of a block is the one all of its surfaces bound. A surface a removed cell shares with a swept one
-        /// stays, as an outer surface of the swept piece, and the counts and sizes of what is removed are dropped.
+        /// Removes the cells a symmetric sweep mirrors instead of meshing them. The piece that is meshed is the volumes
+        /// of its blocks - the volume of a block is the one all of its surfaces bound - and the cells of the piece the
+        /// sweep leaves to tetrahedra, which are the cells not named as mirrored. A surface a removed cell shares with
+        /// a kept one stays, as an outer surface of the piece, and the counts and sizes of what is removed are dropped.
         /// </summary>
         private void RemoveMirroredCells(SweepMesh sweepMesh)
         {
             int[] volumeIds;
             HashSet<int> keptVolumeIds = new HashSet<int>();
+            HashSet<int> mirroredPartIds = new HashSet<int>(sweepMesh.SymmetryPartIds.Select(row => row[0]));
+            Tuple<int, int>[] cellDimTags;
+            Gmsh.Model.GetEntities(out cellDimTags, 3);
+            foreach (var cellDimTag in cellDimTags)
+            {
+                int partId = GetVolumePartId(cellDimTag.Item2);
+                if (partId >= 0 && !mirroredPartIds.Contains(partId)) keptVolumeIds.Add(cellDimTag.Item2);
+            }
             for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
             {
                 HashSet<int> candidateIds = null;

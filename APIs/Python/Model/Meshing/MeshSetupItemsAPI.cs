@@ -468,7 +468,8 @@ namespace APIs.Python.Model
                    "with QuadWild, set up by the quad_wild arguments, and gmsh the side surfaces. With the " +
                    "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
                    "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +
-                   "cells; Off sweeps every cell.",
+                   "cells, a cell of the piece the sweep cannot reach meshed by tetrahedra and mirrored alike; Off sweeps " +
+                   "every cell.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +

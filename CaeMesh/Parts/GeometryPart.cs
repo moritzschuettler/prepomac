@@ -34,9 +34,7 @@ namespace CaeMesh
         [NonSerialized]
         private SweepDetectionData _sweepDetection;
         [NonSerialized]
-        private SweepDetectionData _symmetricSweepDetection;
-        [NonSerialized]
-        private SweepDetectionData _sweepableCellsSweepDetection;
+        private Dictionary<string, SweepDetectionData> _cellsSweepDetections;
 
 
         // Properties
@@ -97,22 +95,17 @@ namespace CaeMesh
         /// </summary>
         public SweepDetectionData SweepDetection { get { return _sweepDetection; } set { _sweepDetection = value; } }
         /// <summary>
-        /// What the automatic sweep detection found for the symmetric piece of the compound part this part stands
-        /// for - the cells the sweep meshes before the mesh is mirrored onto the others - or null.
+        /// What the automatic sweep detection found for some of the cells of the compound part this part stands for -
+        /// its symmetric piece, the cells it sweeps without the others - keyed by the stamp of the cells, which names
+        /// them and the geometry they were found on.
         /// </summary>
-        public SweepDetectionData SymmetricSweepDetection
+        public Dictionary<string, SweepDetectionData> CellsSweepDetections
         {
-            get { return _symmetricSweepDetection; }
-            set { _symmetricSweepDetection = value; }
-        }
-        /// <summary>
-        /// What the automatic sweep detection found for the cells of the compound part this part stands for that
-        /// can be swept on their own, swept together without the others, which are left to tetrahedra - or null.
-        /// </summary>
-        public SweepDetectionData SweepableCellsSweepDetection
-        {
-            get { return _sweepableCellsSweepDetection; }
-            set { _sweepableCellsSweepDetection = value; }
+            get
+            {
+                if (_cellsSweepDetections == null) _cellsSweepDetections = new Dictionary<string, SweepDetectionData>();
+                return _cellsSweepDetections;
+            }
         }
 
 
@@ -129,8 +122,7 @@ namespace CaeMesh
             _cadFileData = null;
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
-            _symmetricSweepDetection = null;
-            _sweepableCellsSweepDetection = null;
+            _cellsSweepDetections = null;
         }
         public GeometryPart(BasePart part)
             : base(part)
@@ -144,8 +136,7 @@ namespace CaeMesh
             _cadFileData = null;
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
-            _symmetricSweepDetection = null;
-            _sweepableCellsSweepDetection = null;
+            _cellsSweepDetections = null;
         }
         public GeometryPart(GeometryPart part)
             : base((BasePart)part)
@@ -159,8 +150,7 @@ namespace CaeMesh
             _cadFileData = part._cadFileData != null ? part._cadFileData : null;
             _meshType = part._meshType;
             _sweepDetection = part._sweepDetection;
-            _symmetricSweepDetection = part._symmetricSweepDetection;
-            _sweepableCellsSweepDetection = part._sweepableCellsSweepDetection;
+            _cellsSweepDetections = part._cellsSweepDetections;
         }
 
 
