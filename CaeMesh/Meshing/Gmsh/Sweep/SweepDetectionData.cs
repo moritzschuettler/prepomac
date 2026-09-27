@@ -24,6 +24,7 @@ namespace CaeMesh
     {
         // Variables
         private SweepBlocks _blocks;
+        private SweepBlocks _partialBlocks;
         private string _error;
         private string _errorPartName;
         private HashSet<int> _sweepablePartIds;
@@ -36,6 +37,12 @@ namespace CaeMesh
         /// </summary>
         public SweepBlocks Blocks { get { return _blocks; } }
         /// <summary>
+        /// The blocks of the parts the detection did sweep, when the only thing that stops the group from being
+        /// swept as a whole is that some of its parts are not reached; null otherwise. A compound sweeps these and
+        /// leaves the parts that were not reached to tetrahedra.
+        /// </summary>
+        public SweepBlocks PartialBlocks { get { return _partialBlocks; } }
+        /// <summary>
         /// Why the group cannot be swept as a whole, or null when it can.
         /// </summary>
         public string Error { get { return _error; } }
@@ -44,9 +51,9 @@ namespace CaeMesh
         /// </summary>
         public string ErrorPartName { get { return _errorPartName; } }
         /// <summary>
-        /// The parts the detection did sweep. A compound is meshed as a whole, so a group in which one
-        /// sub-part cannot be reached is refused - but the sub-parts that were reached are still swept by
-        /// the trial that reached them, and are the ones that need no splitting.
+        /// The parts the detection did sweep. A group in which one sub-part cannot be reached cannot be swept
+        /// as a whole - but the sub-parts that were reached are still swept by the trial that reached them,
+        /// and are the ones that need no splitting.
         /// </summary>
         public HashSet<int> SweepablePartIds { get { return _sweepablePartIds; } }
         public string Stamp { get { return _stamp; } }
@@ -54,9 +61,10 @@ namespace CaeMesh
 
         // Constructors
         public SweepDetectionData(SweepBlocks blocks, string error, string errorPartName,
-                                  HashSet<int> sweepablePartIds, string stamp)
+                                  HashSet<int> sweepablePartIds, string stamp, SweepBlocks partialBlocks = null)
         {
             _blocks = blocks;
+            _partialBlocks = partialBlocks;
             _error = error;
             _errorPartName = errorPartName;
             _sweepablePartIds = sweepablePartIds != null ? sweepablePartIds : new HashSet<int>();

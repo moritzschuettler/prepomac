@@ -531,6 +531,15 @@ namespace PrePoMax
                 gmshData.GmshSetupItems = GetSetupItemsForPart(part, meshSetupItems);
                 gmshData.Preview = false;
                 gmshData.QuadWildDirectory = GetQuadWildDirectory();
+                // The cells of a compound the sweep does not reach are meshed by Netgen with the part's parameters
+                if (meshSetupItems != null && meshSetupItems.Any(item => item is SweepMesh))
+                {
+                    string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+                    partMeshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
+                                                      _controller.Settings.Meshing.ParallelMeshingThreads);
+                    gmshData.NetgenMesherFileName = Application.StartupPath + Globals.NetGenMesher;
+                    gmshData.NetgenMeshParametersFileName = meshParametersFileName;
+                }
                 _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
                 _controller.GetMeshItemSizes(part.Name, ref gmshData);
                 gmshData.WriteToFile(gmshDataFileName);

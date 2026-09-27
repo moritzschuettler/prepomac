@@ -9805,15 +9805,16 @@ namespace PrePoMax
             //
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
             mesherSetupItem.CreationIds = _model.Geometry.GetPartIdsFomPartNames(meshablePartNames);
-            // The sweep finds its blocks here, so the item is not only checked but also completed. Every cell can
-            // be swept on its own, so a part whose cells do not fit together is not meshed by tetrahedra instead:
-            // its cells have to be split further or its sources selected by hand
+            // The sweep finds its blocks here, so the item is not only checked but also completed. The cells it
+            // cannot reach are meshed by tetrahedra, so what is left is a part whose cells can be swept but not
+            // in a way that fits together; it is not meshed by tetrahedra instead: its cells have to be split
+            // further or its sources selected by hand
             string error = _model.IsMeshSetupItemProperlyDefined(mesherSetupItem);
             if (error != null)
             {
-                throw new CaeException("Every cell of the part " + partName + " can be meshed by a " +
+                throw new CaeException("The cells of the part " + partName + " can be meshed by a " +
                                        (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" : "sweep") +
-                                       " on its own, but not together with the others: " + error +
+                                       " on their own, but not together: " + error +
                                        " Split the cells further or define a mesh setup item for the part.");
             }
             //
@@ -9822,7 +9823,8 @@ namespace PrePoMax
         /// <summary>
         /// The most structured mesh the parts that are meshed together support, which is the least structured
         /// of theirs: the sub-parts of a compound part are meshed as one, and a mesh the compound cannot carry
-        /// as a whole is used for none of them.
+        /// as a whole is used for none of them. The exception is a compound of solids in which some cells can be
+        /// swept and others cannot, which is swept: the sweep leaves the cells it cannot reach to tetrahedra.
         /// </summary>
         private MeshTypeEnum GetMeshTypeOfMeshedPart(string partName)
         {
@@ -9831,6 +9833,7 @@ namespace PrePoMax
             //
             BasePart part;
             GeometryPart geometryPart;
+            bool anyStructured = false;
             MeshTypeEnum meshType = MeshTypeEnum.Unknown;
             foreach (var meshablePartName in meshablePartNames)
             {
@@ -9838,7 +9841,10 @@ namespace PrePoMax
                 geometryPart = part as GeometryPart;
                 if (geometryPart == null || geometryPart.MeshType == MeshTypeEnum.Unknown) return MeshTypeEnum.Unknown;
                 if (geometryPart.MeshType > meshType) meshType = geometryPart.MeshType;
+                if (geometryPart.MeshType == MeshTypeEnum.Transfinite || geometryPart.MeshType == MeshTypeEnum.Sweep)
+                    anyStructured = true;
             }
+            if (meshType == MeshTypeEnum.Tetrahedral && anyStructured) meshType = MeshTypeEnum.Sweep;
             return meshType;
         }
         private MeshSetupItem[] GetActiveValidMeshSetupItems<T>(string partName,
@@ -10108,7 +10114,8 @@ namespace PrePoMax
         }
         /// <summary>
         /// The most structured mesh the recognition finds a geometry part supports, regardless of the mesh
-        /// setup items. A compound part reports the most restrictive type of its sub-parts.
+        /// setup items. A compound part reports the most restrictive type of its sub-parts, except that one in
+        /// which some cells sweep and others do not reports a sweep, which meshes the others by tetrahedra.
         /// </summary>
         public MeshTypeEnum GetRecognizedMeshType(string partName)
         {

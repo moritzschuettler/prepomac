@@ -35,7 +35,8 @@
 #A sweep item given a part selection finds its source surfaces itself. The last tests sweep each of the
 #compounds above and a single imprinted box that way. Two boxes with a bore each, the bores perpendicular,
 #are the case a wall with a hole must be refused on: side by side each box is swept along its own bore
-#across their shared wall; stacked, the upper box has no sweepable direction at all.
+#across their shared wall; stacked, the upper box has no sweepable direction at all, and is meshed by
+#tetrahedra with a pyramid on every quadrilateral the swept lower box leaves on the face they share.
 #
 #One item may also sweep parts that share nothing at all. sweep_two_apart.brep holds two boxes standing
 #apart, which import as two separate parts rather than as a compound; they are two groups of blocks in
@@ -44,8 +45,9 @@
 #
 #sweep_plate_both.brep is a plate with a smaller block above and a different one below, footprints offset
 #and overlapping, so no orientation avoids an imprint inside a target that nothing on the source is swept
-#onto. sweep_plate_overhang.brep has the upper block reaching past an edge of the plate. Neither is swept,
-#from either end or automatically: the plate has to be split before it can be.
+#onto. sweep_plate_overhang.brep has the upper block reaching past an edge of the plate. The plate of neither
+#is swept - it has to be split before it can be - so the automatic sweep sweeps the blocks and meshes the
+#plate by tetrahedra.
 #
 #sweep_bent_plate.brep is a plate bent along a cylinder, with a bore through each of its two wings. Its
 #front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
@@ -286,21 +288,57 @@ def test_two_blocks_on_a_base():
           "the sweep from the base must be refused for the line in its target, got: " + str(message))
 
 
+def element_kinds(part):
+    """The kinds of the elements of a mesh part, told apart by their node counts at either order."""
+    data = pmx.model.elements.get_data()
+    node_counts = dict(zip([int(i) for i in data.ids], [int(n) for n in data.node_counts]))
+    names = {4: "tetrahedron", 10: "tetrahedron", 5: "pyramid", 13: "pyramid", 6: "wedge", 15: "wedge",
+             8: "hexahedron", 20: "hexahedron"}
+    kinds = {}
+    for element_id in part.get_element_ids():
+        kind = names.get(node_counts[int(element_id)], str(node_counts[int(element_id)]))
+        kinds[kind] = kinds.get(kind, 0) + 1
+    return kinds
+
+
+def mesh_with_tetrahedral_cells(solids, compound, tetrahedral_count, what):
+    """Meshes a compound with the sweep item and checks that the swept cells carry hexahedra or wedges and
+    the others tetrahedra with a pyramid on the quadrilaterals of the faces they share with a swept cell,
+    all of them joined through their interface nodes."""
+    nodes_before = pmx.model.nodes.count
+    report = pmx.model.mesh.create(compound.name)
+    check(report[compound.name] == "", what + " reported: " + report[compound.name])
+    names = set(solid.name for solid in solids)
+    meshed = [part for part in pmx.model.parts if part.name in names]
+    check(len(meshed) == len(solids), "%s gave %d mesh parts instead of %d" % (what, len(meshed), len(solids)))
+    kinds = dict((part.name, element_kinds(part)) for part in meshed)
+    tetrahedral = [name for name in kinds if "tetrahedron" in kinds[name]]
+    check(len(tetrahedral) == tetrahedral_count,
+          "%s must leave %d cell/s to tetrahedra: %s" % (what, tetrahedral_count, str(kinds)))
+    for name in kinds:
+        allowed = ("tetrahedron", "pyramid") if name in tetrahedral else ("hexahedron", "wedge")
+        check(all(kind in allowed for kind in kinds[name]), what + " meshed " + name + " with " + str(kinds[name]))
+    check(all("pyramid" in kinds[name] for name in tetrahedral),
+          what + " stood no pyramid on the swept quadrilaterals: " + str(kinds))
+    check(pmx.model.nodes.count - nodes_before < sum(part.node_count for part in meshed),
+          what + " does not join the tetrahedral and the swept cells through their interface nodes")
+    print("mixed:", what, kinds)
+
+
 def test_plate_imprinted_on_both_sides():
     # A plate with a smaller block above and a different one below, footprints offset: no orientation
     # avoids an imprint inside a target that nothing on the source is swept onto, so the plate cannot be
     # swept until it is split. The overhanging variant has one block reaching past an edge of the plate.
+    # The blocks are swept all the same, and the plate is meshed by tetrahedra
     items = pmx.model.mesh.setup_items
     for file_name in ("sweep_plate_both.brep", "sweep_plate_overhang.brep"):
         solids, compound = import_geometry(file_name)
         check(compound is not None and len(solids) == 3, file_name + " must import as a compound of 3")
-        for top in (False, True):
-            part, face_id = find_end_face(solids, top=top)
-            check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id)),
-                         file_name + " must not be swept from the " + ("top" if top else "bottom"))
         selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
-        check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
-                     "the automatic sweep of " + file_name + " must be refused")
+        items.add_sweep_mesh(SWEEP_NAME, selection)
+        check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
+        mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of " + file_name)
+        items.remove([SWEEP_NAME])
 
 
 def test_bent_plate():
@@ -480,12 +518,14 @@ def test_perpendicular_bores():
     print("automatic:", "sweep_holes_side.brep", [(part.name, part.element_count) for part in meshed])
     items.remove([SWEEP_NAME])
     # Stacked: the upper box is bored across every direction the lower box hands on, so no wall of it is
-    # free of a hole, and the item is refused rather than recorded and failed by gmsh
+    # free of a hole. The lower box is swept, and the upper one is left to tetrahedra rather than refusing
+    # the compound or letting gmsh fail on it
     solids, compound = import_geometry("sweep_holes_stacked.brep")
     selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
-    check_raises(lambda: items.add_sweep_mesh(SWEEP_NAME, selection),
-                 "a sweep whose only walls carry a bore must be refused")
-    check(not items.contains(SWEEP_NAME), "a refused automatic sweep item was recorded")
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    check(items[SWEEP_NAME].valid, "the automatic sweep of the stacked bored boxes is not valid")
+    mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of the stacked bored boxes")
+    items.remove([SWEEP_NAME])
 
 
 def test_two_parts_apart():

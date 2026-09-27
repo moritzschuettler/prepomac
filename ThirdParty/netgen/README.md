@@ -45,7 +45,13 @@ as structured triangle grids - none, size checked (only where the grid is not mu
 size) or all; the edge meshing balances the segment counts of opposite sides - each
 one edge or several - across neighbouring faces, so that most of them match. Its `BREP_EXTRACT_FACES`
 writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
-that share no edge to separate files.
+that share no edge to separate files. Its `VOL_VOLUME_MESH` meshes a given boundary - triangles and
+quadrilaterals in a `.vol` file, one domain per cell - by tetrahedra, standing a pyramid on every
+quadrilateral, and keeps the boundary points fixed and first in its output. The sweep meshes the cells
+of a compound it cannot reach with it. The pyramids need two changes to Netgen 5.3.1 in `nglib.dll`:
+its pyramid rules asked for the sides of a quadrilateral to be identified point pairs, which only a
+boundary layer has, and the rules that give a pyramid an apex of its own carried a quality no
+quadrilateral ever reached; a mesh without identified pairs now takes those rules.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.

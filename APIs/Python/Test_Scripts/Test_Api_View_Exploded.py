@@ -5,7 +5,8 @@
 #sweep_plate_both.brep is a plate with a block above and one below, sharing their contact faces, which
 #imports as a compound part of two transfinite blocks and a tetrahedral plate, beside the cube the model
 #opens with. The plate does not sweep: both its ends are split by a footprint that nothing on the other end
-#is swept onto. A compound moves as one body, so its sub-parts keep touching and every one of them is moved by the
+#is swept onto. The compound is swept all the same, the sweep leaving the plate to tetrahedra, so it reads
+#as a sweep. A compound moves as one body, so its sub-parts keep touching and every one of them is moved by the
 #same offset. The sweep detection finds the faces two sub-parts share by their coordinates, which is why a
 #compound must never be pulled apart: in the Tests/Sweep model sweep_19_1 a recognition made on separated
 #sub-parts turned a sub-part the compound cannot sweep into a swept one. The mesh types must read the
@@ -79,7 +80,8 @@ def test_mesh_types_do_not_follow_the_exploded_view(compound, sub_parts):
     pmx.view.current = "geometry"
     check(not pmx.view.exploded_view_active, "no exploded view is applied after the import")
     types = mesh_types()
-    check(types[compound.name] == "Tetrahedral", "the plate and its blocks do not sweep as a compound: " + str(types))
+    check(types[compound.name] == "Sweep",
+          "the blocks sweep and leave the plate to tetrahedra, so the compound is swept: " + str(types))
     check(sorted(types[part.name] for part in sub_parts) == ["Tetrahedral", "Transfinite", "Transfinite"],
           "the plate is tetrahedral and the blocks are transfinite: " + str(types))
     unexploded = boxes(sub_parts)

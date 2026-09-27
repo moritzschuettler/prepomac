@@ -35,6 +35,8 @@ namespace CaeMesh
         private SweepDetectionData _sweepDetection;
         [NonSerialized]
         private SweepDetectionData _symmetricSweepDetection;
+        [NonSerialized]
+        private SweepDetectionData _sweepableCellsSweepDetection;
 
 
         // Properties
@@ -103,6 +105,15 @@ namespace CaeMesh
             get { return _symmetricSweepDetection; }
             set { _symmetricSweepDetection = value; }
         }
+        /// <summary>
+        /// What the automatic sweep detection found for the cells of the compound part this part stands for that
+        /// can be swept on their own, swept together without the others, which are left to tetrahedra - or null.
+        /// </summary>
+        public SweepDetectionData SweepableCellsSweepDetection
+        {
+            get { return _sweepableCellsSweepDetection; }
+            set { _sweepableCellsSweepDetection = value; }
+        }
 
 
         // Constructors
@@ -119,6 +130,7 @@ namespace CaeMesh
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
             _symmetricSweepDetection = null;
+            _sweepableCellsSweepDetection = null;
         }
         public GeometryPart(BasePart part)
             : base(part)
@@ -133,6 +145,7 @@ namespace CaeMesh
             _meshType = MeshTypeEnum.Unknown;
             _sweepDetection = null;
             _symmetricSweepDetection = null;
+            _sweepableCellsSweepDetection = null;
         }
         public GeometryPart(GeometryPart part)
             : base((BasePart)part)
@@ -147,6 +160,7 @@ namespace CaeMesh
             _meshType = part._meshType;
             _sweepDetection = part._sweepDetection;
             _symmetricSweepDetection = part._symmetricSweepDetection;
+            _sweepableCellsSweepDetection = part._sweepableCellsSweepDetection;
         }
 
 

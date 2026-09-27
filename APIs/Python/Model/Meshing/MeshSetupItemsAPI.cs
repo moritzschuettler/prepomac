@@ -462,7 +462,9 @@ namespace APIs.Python.Model
                    "the side surfaces and the layer edges are derived by the model from the selection. A part " +
                    "selection - a solid or a compound of solids - lets the model find the source surfaces " +
                    "itself. Either selection may span several parts that stand apart from each other, and " +
-                   "each of them is then swept on its own. The 2D algorithm QuadWild meshes the source surfaces " +
+                   "each of them is then swept on its own. A cell of a compound the sweep cannot reach is " +
+                   "meshed by tetrahedra, with a pyramid on every quadrilateral a swept cell leaves on the face " +
+                   "they share. The 2D algorithm QuadWild meshes the source surfaces " +
                    "with QuadWild, set up by the quad_wild arguments, and gmsh the side surfaces. With the " +
                    "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
                    "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +

@@ -3244,6 +3244,12 @@ namespace CaeModel
         /// <summary>
         /// Sweeps every group of parts on its own and keeps the blocks of all the groups on the item. Every
         /// id of a block carries the part it lies on, so the arrays of the groups are simply concatenated.
+        ///
+        /// The cells of a compound that cannot be swept are left to tetrahedra rather than refusing the compound:
+        /// a cell the sweep of the others does not reach is left out of it, and a compound that cannot be swept
+        /// with all its cells is swept without the ones that cannot be swept even on their own. The mesher meshes
+        /// those cells by tetrahedra, with a pyramid on every quadrilateral a swept block leaves on the face they
+        /// share. A compound all of whose cells are swept is swept exactly as before.
         /// </summary>
         private string CreateSweepBlocksForGroups(SweepMesh sweepMesh, GeometryPart[][] sweptPartGroups,
                                                   Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
@@ -3252,6 +3258,7 @@ namespace CaeModel
             string errorPartName;
             string lastError = null;
             bool namePart;
+            bool isCompound;
             SweepBlocks blocks;
             SweepSymmetry symmetry;
             List<double[]> symmetryPlanes = new List<double[]>();
@@ -3260,28 +3267,49 @@ namespace CaeModel
             foreach (var sweptParts in sweptPartGroups)
             {
                 namePart = sweptPartGroups.Length > 1 || sweptParts.Length > 1;
+                isCompound = sweptParts.Length > 1;
                 // A compound whose cells are mirror images across the planes it is split on sweeps one symmetric
                 // piece of its cells, and the mesh is mirrored onto the others. The piece is swept on its own, the
                 // faces on the planes being its outer faces, which lets two blocks meet on a plane: each is the
                 // mirror image of the other, so their nodes on it coincide. A piece that cannot be swept on its own
-                // leaves the compound to be swept whole, as without the symmetry
+                // leaves the compound to be swept whole, as without the symmetry, and so does a piece that sweeps
+                // only some of its cells, since the mesh of the others is not mirrored
                 symmetry = null;
                 blocks = null;
                 error = null;
                 errorPartName = null;
-                if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && sweptParts.Length > 1)
+                if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && isCompound)
                 {
                     symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
                     if (symmetry != null)
                     {
-                        blocks = CreateSweepBlocksForGroup(symmetry.MasterParts, partIdSelectedSurfaceIds, true,
+                        blocks = CreateSweepBlocksForGroup(symmetry.MasterParts, partIdSelectedSurfaceIds, true, false,
                                                            out error, out errorPartName);
                         if (error != null) symmetry = null;
                     }
                 }
                 if (symmetry == null)
-                    blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, out error,
-                                                       out errorPartName);
+                    blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, isCompound,
+                                                       out error, out errorPartName);
+                // A compound whose cells cannot all be swept together is swept once more without the cells that
+                // cannot be swept even on their own, which then stand in the way of none of the others
+                if (error != null && isCompound)
+                {
+                    GeometryPart[] cellsToSweep = GetCellsToSweep(sweptParts, partIdSelectedSurfaceIds);
+                    if (cellsToSweep.Length > 0 && cellsToSweep.Length < sweptParts.Length)
+                    {
+                        string cellsError;
+                        string cellsErrorPartName;
+                        SweepBlocks cellBlocks = CreateSweepBlocksForGroup(cellsToSweep, partIdSelectedSurfaceIds, false,
+                                                                           true, out cellsError, out cellsErrorPartName);
+                        if (cellsError == null)
+                        {
+                            blocks = cellBlocks;
+                            error = null;
+                            errorPartName = null;
+                        }
+                    }
+                }
                 // A group that cannot be swept is left out the way a part that cannot be swept is, so that
                 // the groups that can be swept still are. Only an item that sweeps nothing at all is refused
                 if (error != null)
@@ -3310,9 +3338,15 @@ namespace CaeModel
             //
             return null;
         }
+        /// <summary>
+        /// The blocks of one group. With cellsMayBeLeftOut the cells of a compound the sweep does not reach are left
+        /// out of it rather than refusing the group, which is the only failure that leaves them out: every other
+        /// refusal still refuses the group.
+        /// </summary>
         private SweepBlocks CreateSweepBlocksForGroup(GeometryPart[] sweptParts,
                                                       Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
-                                                      bool symmetric, out string error, out string errorPartName)
+                                                      bool symmetric, bool cellsMayBeLeftOut, out string error,
+                                                      out string errorPartName)
         {
             if (partIdSelectedSurfaceIds == null)
             {
@@ -3321,6 +3355,12 @@ namespace CaeModel
                 SweepDetectionData detection = GetSweepDetection(sweptParts, symmetric);
                 error = detection.Error;
                 errorPartName = detection.ErrorPartName;
+                if (error != null && cellsMayBeLeftOut && detection.PartialBlocks != null)
+                {
+                    error = null;
+                    errorPartName = null;
+                    return detection.PartialBlocks;
+                }
                 return detection.Blocks;
             }
             HashSet<int> surfaceIds;
@@ -3330,8 +3370,35 @@ namespace CaeModel
                 if (partIdSelectedSurfaceIds.TryGetValue(sweptPart.PartId, out surfaceIds))
                     groupSelectedSurfaceIds.Add(sweptPart.PartId, surfaceIds);
             }
-            return CreateSweepBlocks(sweptParts, groupSelectedSurfaceIds, null, null, new SweepPartMaps(),
-                                     out error, out errorPartName, out _, out _);
+            bool onlyUnreached;
+            HashSet<int> sweptPartIds;
+            SweepBlocks blocks = CreateSweepBlocks(sweptParts, groupSelectedSurfaceIds, null, null, new SweepPartMaps(),
+                                                   out error, out errorPartName, out sweptPartIds, out onlyUnreached);
+            if (error != null && cellsMayBeLeftOut && onlyUnreached && blocks != null && sweptPartIds.Count > 0)
+            {
+                error = null;
+                errorPartName = null;
+            }
+            return blocks;
+        }
+        /// <summary>
+        /// The cells of a compound that can be swept on their own - or that carry a selected source surface - which
+        /// are the ones tried when the compound cannot be swept with all of its cells. A single part is tried
+        /// whatever it is.
+        /// </summary>
+        private GeometryPart[] GetCellsToSweep(GeometryPart[] groupParts,
+                                               Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
+        {
+            if (groupParts.Length == 1) return groupParts;
+            //
+            List<GeometryPart> cells = new List<GeometryPart>();
+            foreach (var part in groupParts)
+            {
+                if ((partIdSelectedSurfaceIds != null && partIdSelectedSurfaceIds.ContainsKey(part.PartId)) ||
+                    IsPartTransfinite(part, false) == null || GetCellSweepDetection(part).Error == null)
+                    cells.Add(part);
+            }
+            return cells.ToArray();
         }
         /// <summary>
         /// The mirror symmetry of a compound's cells the sweep can use, or null. Every other active mesh setup item
@@ -3350,19 +3417,26 @@ namespace CaeModel
         }
         /// <summary>
         /// What the automatic detection finds for one group of parts, detected the first time it is asked for
-        /// and reused until the geometry of the group changes. The symmetric piece of a compound is kept apart
-        /// from the whole compound, so that asking for one does not throw the other away.
+        /// and reused until the geometry of the group changes. The symmetric piece of a compound and the cells of
+        /// it that can be swept on their own are kept apart from the whole compound, so that asking for one does
+        /// not throw another away.
         /// </summary>
         private SweepDetectionData GetSweepDetection(GeometryPart[] sweptParts, bool symmetric = false)
         {
             GeometryPart groupPart = GetSweepGroupPart(sweptParts);
+            bool someCells = !symmetric && groupPart is CompoundGeometryPart compoundPart &&
+                             sweptParts.Length < compoundPart.SubPartNames.Length;
             string stamp = SweepDetectionData.GetStamp(sweptParts);
             //
-            SweepDetectionData detection = symmetric ? groupPart.SymmetricSweepDetection : groupPart.SweepDetection;
+            SweepDetectionData detection;
+            if (symmetric) detection = groupPart.SymmetricSweepDetection;
+            else if (someCells) detection = groupPart.SweepableCellsSweepDetection;
+            else detection = groupPart.SweepDetection;
             if (detection != null && detection.Stamp == stamp) return detection;
             //
             detection = DetectSweepSources(sweptParts, stamp);
             if (symmetric) groupPart.SymmetricSweepDetection = detection;
+            else if (someCells) groupPart.SweepableCellsSweepDetection = detection;
             else groupPart.SweepDetection = detection;
             //
             return detection;
@@ -3477,11 +3551,18 @@ namespace CaeModel
                         if (!reachedPartIds.Contains(part.PartId))
                         {
                             // The parts that were reached are swept by the trial that reached them; it is the
-                            // ones left over that have to be selected by hand, or split
+                            // ones left over that have to be selected by hand, or split, or meshed by tetrahedra
+                            SweepBlocks partialBlocks = null;
+                            if (reachedPartIds.Count > 0)
+                            {
+                                partialBlocks = CreateSweepBlocks(sweptParts, selection, twinSurfaceIds, twinEdgeIds,
+                                                                  maps, out _, out _, out _, out onlyUnreached);
+                                if (!onlyUnreached) partialBlocks = null;
+                            }
                             return new SweepDetectionData(null, "No sweep source surface could be found " +
                                                           "automatically for the part " + part.Name +
                                                           ". Select the source surfaces by hand.", null,
-                                                          reachedPartIds, stamp);
+                                                          reachedPartIds, stamp, partialBlocks);
                         }
                     }
                 }

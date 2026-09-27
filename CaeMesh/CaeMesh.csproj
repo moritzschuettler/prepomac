@@ -160,6 +160,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildMesh.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildMesher.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSymmetry.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepTetrahedralFill.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepQuadWildNode.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />

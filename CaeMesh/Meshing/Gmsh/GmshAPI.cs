@@ -609,6 +609,9 @@ namespace CaeMesh
                 }
                 if (!block.ClosesRing) targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
             }
+            int[] tetrahedralVolumeIds = GetTetrahedralVolumeIds(blocks);
+            if (GetAlgorithmMesh2D(sweepMesh) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
+                MeshTetrahedralSurfacesByTriangles(tetrahedralVolumeIds, blocks);
             // Whether the walls came out of the 2D pass as the structured grid the sweep needs shows only
             // when that grid is walked, so the whole pass is one attempt that either builds the sweep or
             // fails. The counts the item itself carries are kept, since a second attempt has to resolve its
@@ -653,6 +656,77 @@ namespace CaeMesh
             if (_scaffoldEdgeIds != null && !sweepMesh.KeepImprintEdges)
             {
                 foreach (var edgeId in _scaffoldEdgeIds) Gmsh.Model.Mesh.RemoveElements(1, edgeId);
+            }
+            // The cells no block covers are meshed by tetrahedra on what the sweep left on their boundaries
+            if (!preview && tetrahedralVolumeIds.Length > 0)
+            {
+                string workDirectory = Path.GetDirectoryName(Path.GetFullPath(_gmshData.InpFileName));
+                string[] cellNames = tetrahedralVolumeIds.Select(GetVolumePartName).ToArray();
+                SweepTetrahedralFill.Fill(tetrahedralVolumeIds, cellNames, _gmshData.NetgenMesherFileName,
+                                          _gmshData.NetgenMeshParametersFileName, workDirectory,
+                                          message => _writeOutput?.Invoke(NameGmshEntities(message)));
+            }
+        }
+        /// <summary>
+        /// The part a volume of a compound was written out of, read off a boundary surface no other volume shares.
+        /// </summary>
+        private string GetVolumePartName(int volumeId)
+        {
+            int[] volumeIds;
+            int topologyId;
+            string partName;
+            Tuple<int, int>[] surfaceDimTags;
+            Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(3, volumeId) }, out surfaceDimTags,
+                                   false, false, false);
+            foreach (var surfaceDimTag in surfaceDimTags)
+            {
+                int surfaceId = Math.Abs(surfaceDimTag.Item2);
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
+                if (volumeIds.Length != 1 || !_gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId)) continue;
+                //
+                int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+                if (_gmshData.PartIdPartName != null && _gmshData.PartIdPartName.TryGetValue(partId, out partName))
+                    return partName;
+            }
+            return "the cell of gmsh volume " + volumeId;
+        }
+        /// <summary>
+        /// The volumes of a compound that no sweep block covers: the cells that cannot be swept, which the model side
+        /// leaves to tetrahedra rather than refusing the compound.
+        /// </summary>
+        private static int[] GetTetrahedralVolumeIds(List<SweepBlock> blocks)
+        {
+            Tuple<int, int>[] volumeDimTags;
+            Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            HashSet<int> blockVolumeIds = new HashSet<int>(blocks.Select(block => block.VolumeId));
+            return volumeDimTags.Select(dimTag => dimTag.Item2).Where(id => !blockVolumeIds.Contains(id)).ToArray();
+        }
+        /// <summary>
+        /// The quasi-structured quad algorithm meshes every surface it reaches by quadrilaterals, and Netgen would stand
+        /// a pyramid on each of them, so the surfaces that bound only tetrahedral cells are meshed by triangles.
+        /// </summary>
+        private static void MeshTetrahedralSurfacesByTriangles(int[] tetrahedralVolumeIds, List<SweepBlock> blocks)
+        {
+            if (tetrahedralVolumeIds.Length == 0) return;
+            //
+            HashSet<int> blockSurfaceIds = new HashSet<int>();
+            foreach (var block in blocks)
+            {
+                blockSurfaceIds.UnionWith(block.SourceSurfaceIds);
+                blockSurfaceIds.UnionWith(block.WallSurfaceIds);
+                blockSurfaceIds.UnionWith(block.TargetSurfaceIds);
+            }
+            Tuple<int, int>[] surfaceDimTags;
+            foreach (var volumeId in tetrahedralVolumeIds)
+            {
+                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(3, volumeId) }, out surfaceDimTags,
+                                       false, false, false);
+                foreach (var surfaceDimTag in surfaceDimTags)
+                {
+                    int surfaceId = Math.Abs(surfaceDimTag.Item2);
+                    if (!blockSurfaceIds.Contains(surfaceId))
+                        Gmsh.Model.Mesh.SetAlgorithm(2, surfaceId, (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
+                }
             }
         }
         /// <summary>
