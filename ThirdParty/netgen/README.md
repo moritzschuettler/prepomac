@@ -51,7 +51,8 @@ quadrilateral, and keeps the boundary points fixed and first in its output. The 
 of a compound it cannot reach with it. The pyramids need two changes to Netgen 5.3.1 in `nglib.dll`:
 its pyramid rules asked for the sides of a quadrilateral to be identified point pairs, which only a
 boundary layer has, and the rules that give a pyramid an apex of its own carried a quality no
-quadrilateral ever reached; a mesh without identified pairs now takes those rules.
+quadrilateral ever reached; a mesh without identified pairs now takes those rules. The volume
+optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.
