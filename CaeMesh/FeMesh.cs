@@ -9983,8 +9983,7 @@ namespace CaeMesh
             //
             foreach (var entry in _elements)
             {
-                cells[i] = entry.Value.GetVtkNodeIds();
-                cellTypes[i] = entry.Value.GetVtkCellType();
+                GetVtkCell(entry.Value, out cells[i], out cellTypes[i]);
                 i++;
             }
             //
@@ -10005,8 +10004,7 @@ namespace CaeMesh
                 {
                     element = _elements[elemId];
                     // Copy the array because it will be renumbered
-                    cells[i] = element.GetVtkNodeIds();
-                    cellTypes[i] = element.GetVtkCellType();
+                    GetVtkCell(element, out cells[i], out cellTypes[i]);
                     i++;
                 }
             }
@@ -10017,11 +10015,25 @@ namespace CaeMesh
                 {
                     // Copy the array because it will be renumbered
                     element = _elements[cellIds[i]];
-                    cells[i] = element.GetVtkNodeIds();
-                    cellTypes[i] = element.GetVtkCellType();
+                    GetVtkCell(element, out cells[i], out cellTypes[i]);
                 }
             }
             nodeIds = GetRenumberedNodesAndCells(out nodeCoor, ref cells);
+        }
+        /// <summary>
+        /// The cell an element is drawn as. The solver takes a pyramid as a wedge or a hexahedron collapsed onto its
+        /// apex, and the results bring it back in that form; drawn so, its side faces repeat a node and match none of
+        /// the triangles of the tetrahedra beside it, and every face between them counts as an outer face of the
+        /// part. It is drawn as the pyramid it stands for.
+        /// </summary>
+        private static void GetVtkCell(FeElement element, out int[] cell, out int cellType)
+        {
+            FeElement3D pyramid = LinearPyramidElement.FromCollapsedElement(element);
+            if (pyramid == null) pyramid = ParabolicPyramidElement.FromCollapsedElement(element);
+            FeElement drawnElement = pyramid != null ? pyramid : element;
+            //
+            cell = drawnElement.GetVtkNodeIds();
+            cellType = drawnElement.GetVtkCellType();
         }
         public void GetVisualizationNodesAndCells(BasePart part, out int[] nodeIds, out double[][] nodeCoor, out int[] cellIds,
                                                   out int[][] cells, out int[] cellTypes)

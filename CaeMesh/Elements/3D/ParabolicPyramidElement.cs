@@ -494,6 +494,28 @@ namespace CaeMesh
             //
             return new ParabolicHexaElement(Id, nodeIds);
         }
+        /// <summary>
+        /// The pyramid a wedge made by ConvertToWedge or a hexahedron made by ConvertToHex stands for, or null for any
+        /// other element.
+        /// </summary>
+        public static ParabolicPyramidElement FromCollapsedElement(FeElement element)
+        {
+            int[] n = element.NodeIds;
+            if (element is ParabolicHexaElement && n[4] == n[5] && n[4] == n[6] && n[4] == n[7] && n[4] == n[12] &&
+                n[4] == n[13] && n[4] == n[14] && n[4] == n[15])
+            {
+                return new ParabolicPyramidElement(element.Id, element.PartId,
+                                                   new int[] { n[0], n[1], n[2], n[3], n[4], n[8], n[9], n[10], n[11],
+                                                               n[16], n[17], n[18], n[19] });
+            }
+            else if (element is ParabolicWedgeElement && n[1] == n[4] && n[1] == n[13])
+            {
+                return new ParabolicPyramidElement(element.Id, element.PartId,
+                                                   new int[] { n[0], n[2], n[5], n[3], n[1], n[8], n[14], n[11], n[12],
+                                                               n[6], n[7], n[10], n[9] });
+            }
+            else return null;
+        }
     }
 }
 

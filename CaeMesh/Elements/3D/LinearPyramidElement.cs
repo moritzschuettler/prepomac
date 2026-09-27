@@ -387,6 +387,19 @@ namespace CaeMesh
             //
             return new LinearHexaElement(Id, nodeIds);
         }
+        /// <summary>
+        /// The pyramid a wedge made by ConvertToWedge or a hexahedron made by ConvertToHex stands for, or null for any
+        /// other element.
+        /// </summary>
+        public static LinearPyramidElement FromCollapsedElement(FeElement element)
+        {
+            int[] n = element.NodeIds;
+            if (element is LinearHexaElement && n[4] == n[5] && n[4] == n[6] && n[4] == n[7])
+                return new LinearPyramidElement(element.Id, element.PartId, new int[] { n[0], n[1], n[2], n[3], n[4] });
+            else if (element is LinearWedgeElement && n[1] == n[4])
+                return new LinearPyramidElement(element.Id, element.PartId, new int[] { n[0], n[2], n[5], n[3], n[1] });
+            else return null;
+        }
     }
 }
 
