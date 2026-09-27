@@ -107,7 +107,7 @@ namespace PrePoMax.Commands
             if (commandsCollection != null)
             {
                 _currPositionIndex = commandsCollection._currPositionIndex;
-                _commands = commandsCollection._commands;
+                _commands = new List<Command>(commandsCollection._commands);
                 _previousView = commandsCollection._previousView;
             }
             //
@@ -228,8 +228,17 @@ namespace PrePoMax.Commands
             //
             _commands.RemoveAt(index);
             if (index <= _currPositionIndex) _currPositionIndex--;
+            InvalidateSaveCommands(index);
             //
             return true;
+        }
+        // A saved file is a state the history builds only while the commands before its save stay as they were
+        private void InvalidateSaveCommands(int firstChangedIndex)
+        {
+            for (int i = Math.Max(firstChangedIndex, 0); i < _commands.Count; i++)
+            {
+                if (_commands[i] is CSaveToPmx saveToPmx) saveToPmx.Invalidate();
+            }
         }
         private void CheckModelChanged(Command command)
         {
@@ -249,6 +258,8 @@ namespace PrePoMax.Commands
                 //
                 _currPositionIndex++;
             }
+            // The edited commands are not compared with the ones the files were saved by
+            InvalidateSaveCommands(0);
             // Write to file
             WriteToFile();
             //
@@ -520,7 +531,7 @@ namespace PrePoMax.Commands
                     if (command is SaveCommand)
                     {
                         if (lastSave != null && command == lastSave) lastSave = null;
-                        else continue;
+                        continue;
                     }
                     // Skip command before writing to form
                     if ((regenerateType == RegenerateTypeEnum.PreProcess && !(command is PreprocessCommand)) ||
@@ -573,13 +584,24 @@ namespace PrePoMax.Commands
             //
             OnEnableDisableUndoRedo();
         }
-        public CSaveToPmx GetLastSaveCommand()
+        // The last save the history up to the current position can be replayed from: its file is unchanged and holds
+        // what the replay would build, which for all commands includes the results
+        public CSaveToPmx GetLastSaveCommand(RegenerateTypeEnum regenerateType)
         {
-            Command[] reversed = _commands.ToArray().Reverse().ToArray();   // must be like this
+            int lastCommandIndex = Math.Min(_currPositionIndex, _commands.Count - 1);
+            HashSet<string> checkedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             //
-            for (int i = 0; i < reversed.Length; i++)
+            for (int i = lastCommandIndex; i >= 0; i--)
             {
-                if (reversed[i] is CSaveToPmx cstp && cstp.IsFileHashUnchanged()) return cstp;
+                if (_commands[i] is CSaveToPmx saveToPmx)
+                {
+                    if (regenerateType != RegenerateTypeEnum.PreProcess && !saveToPmx.ResultsSaved &&
+                        ContainsNonPreprocessCommands(i))
+                        continue;
+                    // Only the last save of a file can match it
+                    if (!checkedFileNames.Add(Tools.GetGlobalPath(saveToPmx.FileName))) continue;
+                    if (saveToPmx.IsFileHashUnchanged()) return saveToPmx;
+                }
             }
             //
             return null;
@@ -782,18 +804,16 @@ namespace PrePoMax.Commands
             }
         }
         // Undo / Redo
-        public void Undo(RegenerateTypeEnum regenerateType)
+        // The step back of an undo, after which the caller replays the history up to the new position
+        public bool MoveBackForUndo(ref RegenerateTypeEnum regenerateType)
         {
-            if (IsUndoPossible)
-            {
-                if (IsGeneralCommandAffected()) regenerateType = RegenerateTypeEnum.All;
-                //
-                _currPositionIndex--;
-                //
-                ExecuteAllCommands(false, false, regenerateType);   // also rewrites history
-                //
-                OnEnableDisableUndoRedo();
-            }
+            if (!IsUndoPossible) return false;
+            //
+            if (IsGeneralCommandAffected()) regenerateType = RegenerateTypeEnum.All;
+            //
+            _currPositionIndex--;
+            //
+            return true;
         }
         // The same step back as an undo, for a caller that has already put the model back to the state it had
         // before the last command, so the history is not replayed. The command stays for a redo.

@@ -890,7 +890,7 @@ namespace PrePoMax
         {
             string extension = Path.GetExtension(fileName).ToLower();
             //
-            if (extension == ".pmx") OpenPmx(fileName);
+            if (extension == ".pmx") OpenPmx(fileName, parameters);
             else if (extension == ".pmh") OpenPmh(fileName, parameters);
             else if (extension == ".frd") OpenFrd(fileName, parameters);
             else if (extension == ".dat") OpenDat(fileName, parameters);
@@ -907,10 +907,11 @@ namespace PrePoMax
             //
             UpdateExplodedView(false);
             // Settings
-            if (parameters != null && parameters.Contains(Globals.FromMonitorForm)) { }
+            if (parameters != null && (parameters.Contains(Globals.FromMonitorForm) ||
+                                       parameters.Contains(Globals.FromLastSave))) { }
             else AddFileNameToRecentFiles(fileName);
         }
-        private void OpenPmx(string fileName)
+        private void OpenPmx(string fileName, string parameters = null)
         {
             Clear();
             // The 3D scene is empty after the clear and the current view must say so, or a selection
@@ -969,8 +970,11 @@ namespace PrePoMax
             // Set tree states
             if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
             // Set pending side panels state; FrmMain restores it after the first draw
-            SidePanelsState sidePanelsState = data.Length > 3 ? data[3] as SidePanelsState : null;
-            _form.SetPendingSidePanelsState(sidePanelsState);
+            if (parameters == null || !parameters.Contains(Globals.FromLastSave))
+            {
+                SidePanelsState sidePanelsState = data.Length > 3 ? data[3] as SidePanelsState : null;
+                _form.SetPendingSidePanelsState(sidePanelsState);
+            }
             // Set user views
             _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
         }
@@ -1221,24 +1225,46 @@ namespace PrePoMax
                 regenerateType = RegenerateTypeEnum.All;
             else regenerateType = RegenerateTypeEnum.PreProcess;
             //
-            CSaveToPmx lastSave = _commands.GetLastSaveCommand();
-            if (lastSave != null)
-            {
-                CommandsCollection prevCommands = new CommandsCollection(this, _commands);
-                _form.Open(lastSave.FileName, Open, true);    // form open redraws the scene
-                //
-                InitializeNewCommands(prevCommands);
-                //
-                _commands.ExecuteAllCommandsFromLastSave(regenerateType, lastSave);
-            }
-            else
-            {
-                _commands.ExecuteAllCommands(false, false, regenerateType);
-            }
+            ExecuteCommandsFromLastSave(regenerateType, false);
             //
             _commands.OnEnableDisableUndoRedo();
             // Model changed
             _modelChanged = true;
+        }
+        // Replays the history up to the current position, starting from the last saved file that holds the state the
+        // commands before it build
+        private bool ExecuteCommandsFromLastSave(RegenerateTypeEnum regenerateType, bool keepSessionState)
+        {
+            CSaveToPmx lastSave = _commands.GetLastSaveCommand(regenerateType);
+            if (lastSave != null)
+            {
+                string fileName = Tools.GetGlobalPath(lastSave.FileName);
+                string parameters = keepSessionState ? Globals.FromLastSave : null;
+                CommandsCollection prevCommands = new CommandsCollection(this, _commands);
+                bool opened = false;
+                try
+                {
+                    // Form open redraws the scene
+                    _form.Open(fileName, Open, !keepSessionState, parameters);
+                    opened = true;
+                }
+                catch (Exception ex)
+                {
+                    _form.WriteDataToOutput("The saved file " + fileName + " could not be opened, so the whole " +
+                                            "history is replayed: " + ex.Message);
+                }
+                //
+                InitializeNewCommands(prevCommands);
+                //
+                if (opened)
+                {
+                    _commands.ExecuteAllCommandsFromLastSave(regenerateType, lastSave);
+                    return true;
+                }
+            }
+            //
+            _commands.ExecuteAllCommands(false, false, regenerateType);
+            return false;
         }
         private void OpenFrd(string fileName, string parameters)
         {
@@ -3132,11 +3158,22 @@ namespace PrePoMax
         //******************************************************************************************
         public void UndoHistory(RegenerateTypeEnum regenerateType)
         {
+            if (!_commands.MoveBackForUndo(ref regenerateType)) return;
+            //
+            ViewGeometryModelResults prevView = _currentView;
             Dictionary<string, bool>[] treeState = _form.GetStableTreeExpandCollapseState();
             string lastFileName = OpenedFileName;
-            _commands.Undo(regenerateType);
+            //
+            bool fromLastSave = ExecuteCommandsFromLastSave(regenerateType, true);
+            _commands.OnEnableDisableUndoRedo();
+            //
             OpenedFileName = lastFileName;
+            // Opening the saved file chooses its own view
+            if (fromLastSave && (prevView != ViewGeometryModelResults.Results || ResultsInitialized))
+                CurrentView = prevView;
             _form.SetStableTreeExpandCollapseState(treeState);
+            //
+            _modelChanged = true;
         }
         public void RedoHistory()
         {

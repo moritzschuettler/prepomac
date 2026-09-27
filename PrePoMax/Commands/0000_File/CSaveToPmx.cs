@@ -18,6 +18,7 @@ using CaeMesh;
 using CaeGlobals;
 using PrePoMax.Python.Journal;
 using System.IO;
+using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
@@ -27,11 +28,14 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         private string _fileName;
         private byte[] _hash;
+        [OptionalField] private bool _resultsSaved;
 
 
-        // Properties                                                                                                               
+        // Properties
         public string FileName { get { return _fileName; } set { _fileName = value; } }
         public byte[] Hash { get { return _hash; } set { _hash = value; } }
+        // The file holds every result the session had when it was saved
+        public bool ResultsSaved { get { return _resultsSaved; } }
 
 
         // Constructor                                                                                                              
@@ -40,6 +44,7 @@ namespace PrePoMax.Commands
         {
             _fileName = Tools.GetLocalPath(fileName);
             _hash = null;
+            _resultsSaved = false;
         }
 
 
@@ -66,8 +71,14 @@ namespace PrePoMax.Commands
             if (hash == null || _hash == null) return false;
             else return hash.SequenceEqual(_hash);
         }
+        // The history before the save no longer builds what the file holds
+        public void Invalidate()
+        {
+            _hash = null;
+        }
         public override bool Execute(Controller receiver)
         {
+            _resultsSaved = receiver.Settings.General.SaveResultsInPmx || receiver.AllResults.Count == 0;
             receiver.SaveToPmx(Tools.GetGlobalPath(_fileName));
             //
             _hash = GetHash();

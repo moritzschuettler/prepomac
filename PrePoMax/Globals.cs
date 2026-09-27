@@ -126,6 +126,7 @@ namespace PrePoMax
         public static string RegenerateAll = "RegenerateAll";
         public static string FromFileOpenMenu = "FromFileOpenMenu";
         public static string FromMonitorForm = "FromMonitorForm";
+        public static string FromLastSave = "FromLastSave";
         public static string OpenRunningJobResults = "OpenRunningJobResults";
         public static string FromAbaqus = "FromAbaqus";
         // Graphics
