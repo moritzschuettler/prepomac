@@ -552,6 +552,17 @@ namespace CaeMesh
                 }
                 Area = area;
                 Volume = Math.Abs(volume);
+                // The triangles of a curved face are placed by its tessellation, which two mirror images do not share:
+                // they sum to volumes a quarter of a percent apart on a cell whose CAD volumes agree to a hundredth.
+                // The measurements of the CAD part are used where the part has them - its inertia is only ever read
+                // from the CAD, and is dropped whenever the measurements are taken from the nodes again
+                PartMassProperties massProperties = part.MassProperties;
+                if (part.IsCADPart && massProperties.InertiaMatrixCG != null && massProperties.Volume > 0 &&
+                    massProperties.Area > 0)
+                {
+                    Area = massProperties.Area;
+                    Volume = massProperties.Volume;
+                }
             }
             public double[] GetFacePlane(int faceId)
             {

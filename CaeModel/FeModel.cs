@@ -2056,17 +2056,28 @@ namespace CaeModel
         /// <summary>
         /// The name of the geometry part every mesh part fills, matched by their boxes one to one, or null when a mesh
         /// part fills none of them. The geometry box is taken without the offset an exploded view puts on the part,
-        /// since the mesh is generated without it.
+        /// since the mesh is generated without it, and from the nodes of the part as the mesh box is: the bounds of the
+        /// CAD part are loose round a curved face, and a small cell's reached 2.86 past a side it ends on, more than
+        /// the tenth of its size the boxes may differ by.
         /// </summary>
         private string[] GetMasterNamesByBox(FeMesh mesh, BasePart[] meshParts, string[] geometryPartNames)
         {
             double[][] geometryBoxes = geometryPartNames.Select(name =>
             {
                 BasePart geometryPart = _geometry.Parts[name];
-                BoundingBox bb = geometryPart.BoundingBox;
                 double[] offset = geometryPart.Offset != null ? geometryPart.Offset : new double[3];
-                return new double[] { bb.MinX - offset[0], bb.MinY - offset[1], bb.MinZ - offset[2],
-                                      bb.MaxX - offset[0], bb.MaxY - offset[1], bb.MaxZ - offset[2] };
+                double[] box = new double[] { double.MaxValue, double.MaxValue, double.MaxValue,
+                                              -double.MaxValue, -double.MaxValue, -double.MaxValue };
+                foreach (var nodeId in geometryPart.NodeLabels)
+                {
+                    double[] coor = _geometry.Nodes[nodeId].Coor;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        box[i] = Math.Min(box[i], coor[i] - offset[i]);
+                        box[i + 3] = Math.Max(box[i + 3], coor[i] - offset[i]);
+                    }
+                }
+                return box;
             }).ToArray();
             double[][] meshBoxes = meshParts.Select(meshPart =>
             {
