@@ -10199,6 +10199,14 @@ namespace PrePoMax
         }
         public void SelectionChanged(int[] ids = null)
         {
+            // A command that runs on a background thread changes the selection as well, and the dialogs told
+            // about it are controls of the user interface thread
+            if (InvokeRequired)
+            {
+                InvokeIfRequired(() => SelectionChanged(ids));
+                return;
+            }
+            //
             if (ids == null) ids = _controller.GetSelectionIds();
             //
             if (_frmMeshSetupItem != null && _frmMeshSetupItem.Visible) _frmMeshSetupItem.SelectionChanged(ids);

@@ -86,11 +86,11 @@ namespace UserControls
         {
             if (!Visible) HideOrClose();
         }
-        private void btnOK_Click(object sender, EventArgs e)
+        private async void btnOK_Click(object sender, EventArgs e)
         {
             try
             {
-                OnApply(false);
+                await OnApplyAsync(false);
                 //
                 if (_hideOnClose) HideOrClose();
                 else Close();
@@ -101,11 +101,11 @@ namespace UserControls
                 else ExceptionTools.Show(this, ex);
             }
         }
-        private void btnOKAddNew_Click(object sender, EventArgs e)
+        private async void btnOKAddNew_Click(object sender, EventArgs e)
         {
             try
             {
-                OnApply(true);
+                await OnApplyAsync(true);
                 //
                 if (_addNew) PrepareForm(_stepName, null);
             }
@@ -187,6 +187,13 @@ namespace UserControls
         }
         protected virtual void OnEnabledChanged() { }
         protected virtual void OnApply(bool onOkAddNew) { }
+        // A dialog whose operation runs long enough to show progress runs it without holding the user
+        // interface thread; the dialog is closed or prepared again only once the operation has finished
+        protected virtual Task OnApplyAsync(bool onOkAddNew)
+        {
+            OnApply(onOkAddNew);
+            return Task.FromResult(true);
+        }
         //
         public static void CheckName(string nameToEdit, string newName, ICollection<string> existingNames, string messageName)
         {

@@ -51,6 +51,12 @@ namespace PrePoMax.Forms
 
 
         // Constructors
+        // The designer opens a form derived from this one on an instance of this one, which it can only
+        // create without arguments
+        public FrmSplitSolid()
+            : this(null)
+        {
+        }
         public FrmSplitSolid(Controller controller)
             : base(1.72)
         {
@@ -171,6 +177,9 @@ namespace PrePoMax.Forms
         // Event handlers
         private void FrmSplitSolid_VisibleChanged(object sender, EventArgs e)
         {
+            // Only the designer makes the form without a controller, and there is no model to show it on
+            if (_controller == null) return;
+            //
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
             else
             {
@@ -180,6 +189,7 @@ namespace PrePoMax.Forms
         }
         private void FrmSplitSolid_Activated(object sender, EventArgs e)
         {
+            if (_controller == null) return;
             // The color annotation can also be changed from the main window while this form is open
             UpdateAnnotateMeshTypesButton();
         }
@@ -278,21 +288,24 @@ namespace PrePoMax.Forms
             //
             base.OnPropertyGridPropertyValueChanged();
         }
-        protected override void OnApply(bool onOkAddNew)
+        protected override async Task OnApplyAsync(bool onOkAddNew)
         {
             _viewGeometryFeature = (ViewGeometryFeature)propertyGrid.SelectedObject;
             //
             GeometryFeature geometryFeature = GeometryFeature;
             ThrowIfGeometryFeatureCannotSplit(geometryFeature);
-            //
+            // The split runs while the application keeps answering, and the dialog is held until it ends,
+            // since its picks name the geometry the split is replacing
             try
             {
                 _splitting = true;
-                _controller.SplitGeometryCommand(geometryFeature.DeepClone());
+                Enabled = false;
+                await _controller.SplitGeometryCommandAsync(geometryFeature.DeepClone());
             }
             finally
             {
                 _splitting = false;
+                Enabled = true;
                 UpdateUndoButton();
             }
             // The split has changed the geometry, so the picked ids and everything read from them are
@@ -317,6 +330,11 @@ namespace PrePoMax.Forms
         }
         protected override void OnHideOrClose()
         {
+            if (_controller == null)
+            {
+                base.OnHideOrClose();
+                return;
+            }
             // The splits of this dialog can be undone only while it is open
             _controller.EndSplitGeometryUndo();
             // Close the ItemSetSelectionForm
@@ -347,9 +365,12 @@ namespace PrePoMax.Forms
             UpdateAnnotateMeshTypesButton();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
-            // After OK - New the operation that was just used comes back selected
+            // After OK - New the operation that was just used comes back selected, and otherwise the first one
+            // is, so that the parts picked in the view are the region from the start
             if (_repeatTypeIndex >= 0 && _repeatTypeIndex < lvTypes.Items.Count)
                 lvTypes.Items[_repeatTypeIndex].Selected = true;
+            else if (lvTypes.Items.Count > 0)
+                lvTypes.Items[0].Selected = true;
             _repeatTypeIndex = -1;
             //
             return true;

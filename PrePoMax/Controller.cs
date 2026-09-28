@@ -5942,6 +5942,20 @@ namespace PrePoMax
                 _form.SetStateReady(Globals.PreviewText);
             }
         }
+        // The split a dialog asks for, run without holding the user interface thread, so that the progress
+        // shows and the application answers while the modelling kernel works
+        public async Task SplitGeometryCommandAsync(GeometryFeature geometryFeature)
+        {
+            bool stateSet = _form.SetStateWorking(Globals.SplittingGeometryText);
+            try
+            {
+                await Task.Run(() => SplitGeometryCommand(geometryFeature));
+            }
+            finally
+            {
+                if (stateSet) _form.SetStateReady(Globals.SplittingGeometryText);
+            }
+        }
         public bool CanUndoSplitGeometry
         {
             get { return _splitGeometryUndoStates != null && _splitGeometryUndoStates.Count > 0; }
