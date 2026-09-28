@@ -396,6 +396,7 @@ namespace PrePoMax
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.RenameSplitSubPartEvent += ModelTree_RenameSplitSubPartEvent;
                 _modelTree.GroupSplitCellsEvent += ModelTree_GroupSplitCellsEvent;
+                _modelTree.FuseSplitCellsEvent += ModelTree_FuseSplitCellsEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
@@ -1324,6 +1325,10 @@ namespace PrePoMax
         private void ModelTree_GroupSplitCellsEvent(string compoundPartName, string[] cellNames)
         {
             GroupSplitCellsAndSelect(compoundPartName, cellNames);
+        }
+        private void ModelTree_FuseSplitCellsEvent(string compoundPartName, string[] cellNames)
+        {
+            FuseSplitCellsAndSelect(compoundPartName, cellNames);
         }
         private void ModelTree_QueryEvent()
         {
@@ -3919,6 +3924,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiFuseSplitCells_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Cells", _controller.GetSplitCells(), FuseSplitCells, 2);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSwapGeometryPartGeometries_Click(object sender, EventArgs e)
         {
             try
@@ -4150,6 +4166,60 @@ namespace PrePoMax
             if (compoundPartNames.Length != 1)
                 MessageBoxes.ShowError("Only the cells of one compound part can be grouped.");
             else GroupSplitCellsAndSelect(compoundPartNames[0], cellNames);
+        }
+        private void FuseSplitCells(string[] cellNames)
+        {
+            string[] compoundPartNames = cellNames.Select(_controller.GetSplitCompoundPartNameOfCell).Distinct().ToArray();
+            if (compoundPartNames.Length != 1)
+                MessageBoxes.ShowError("Only the cells of one compound part can be fused.");
+            else FuseSplitCellsAndSelect(compoundPartNames[0], cellNames);
+        }
+        // The fused cell is shown in its sub part, and a part that is whole again is selected itself. The fuse
+        // replaces the compound, clears the selection and highlights the result, each of which would draw the
+        // scene, so the tree and the view are both held until the result is selected and drawn once.
+        // A fuse also imports the parts it replaces, and the import switches the view, the menus and the tool
+        // strips, so the whole window is held, not only the tree
+        private void FuseSplitCellsAndSelect(string compoundPartName, string[] cellNames)
+        {
+            bool rendering = _vtk.RenderingOn;
+            _vtk.RenderingOn = false;
+            SuspendWindowDrawing();
+            _modelTree.BeginGeometryTreeUpdate();
+            try
+            {
+                string fusedName = _controller.FuseSplitCellsCommand(compoundPartName, cellNames);
+                string fusedCompoundPartName = _controller.GetSplitCompoundPartNameOfCell(fusedName);
+                if (fusedCompoundPartName != null)
+                    _modelTree.SelectSplitSubPart(fusedCompoundPartName,
+                                                  _controller.GetSplitSubPartNameOfCell(fusedName));
+                else if (fusedName != null) SelectBaseParts(new string[] { fusedName });
+            }
+            finally
+            {
+                _modelTree.EndGeometryTreeUpdate();
+                ResumeWindowDrawing();
+                _vtk.RenderingOn = rendering;
+            }
+        }
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
+        private const int WM_SETREDRAW = 0x000B;
+        private const uint RDW_INVALIDATE = 0x0001;
+        private const uint RDW_ERASE = 0x0004;
+        private const uint RDW_ALLCHILDREN = 0x0080;
+        private const uint RDW_FRAME = 0x0400;
+        // The window and every control in it stop painting until drawing is resumed, when all of them are
+        // painted once
+        private void SuspendWindowDrawing()
+        {
+            SendMessage(Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+        }
+        private void ResumeWindowDrawing()
+        {
+            SendMessage(Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
+            RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
         }
         // The grouping rebuilds the tree, which is painted once, with the sub part the cells went to already
         // selected and expanded, instead of first with the cells that were selected before

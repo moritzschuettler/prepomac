@@ -46,7 +46,10 @@ triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfi
 of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
 as structured triangle grids - none, size checked (only where the grid is not much finer than the mesh
 size) or all; the edge meshing balances the segment counts of opposite sides - each
-one edge or several - across neighbouring faces, so that most of them match. Its `BREP_EXTRACT_FACES`
+one edge or several - across neighbouring faces, so that most of them match. Its `BREP_MERGE_SOLIDS`
+makes one solid of the named solids of a compound, leaving out the faces they share and healing the edges
+the removed faces leave on the outside, and writes every other solid as it was, which is what Fuse Cells
+runs. Its `BREP_EXTRACT_FACES`
 writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
 that share no edge to separate files. Its `VOL_VOLUME_MESH` meshes a given boundary - triangles and
 quadrilaterals in a `.vol` file, one domain per cell - by tetrahedra, standing a pyramid on every

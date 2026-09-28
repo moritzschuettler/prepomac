@@ -107,6 +107,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
         [NonSerialized] protected string[] _lastExtractedSurfacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
+        [NonSerialized] protected string _lastFusedSplitCellName;
         [NonSerialized] private Dictionary<string, MeshTypeEnum> _effectiveMeshTypes;
         [NonSerialized] private int _openedPmxVersion;
         [NonSerialized] private bool _defaultMeshTypesDisabled;
@@ -3968,6 +3969,14 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
             return subPartName;
         }
+        // Returns the cell the cells became, or the part when they were all the cells of the compound
+        public string FuseSplitCellsCommand(string compoundPartName, string[] cellNames)
+        {
+            CheckFuseSplitCells(compoundPartName, cellNames);
+            CFuseSplitCells comm = new CFuseSplitCells(compoundPartName, cellNames);
+            _commands.AddAndExecute(comm);
+            return _lastFusedSplitCellName;
+        }
         // Transform
         public void ScaleGeometryPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
@@ -4478,6 +4487,164 @@ namespace PrePoMax
                                            wholeSubPartNames[0] + " of the compound part " + compoundPartName +
                                            ". Rename the sub-part instead.");
             }
+            return subPartName;
+        }
+        /// <summary>
+        /// Makes one solid of the named cells of a split compound, which takes out the faces they share and heals
+        /// the edges the cut left on their outside, so the cells come back as the solid the splits cut them from.
+        /// The compound keeps its name, its part id and the ids of its sub parts. Fusing all the cells of a
+        /// compound of one sub part gives back a plain part carrying the name and the id of that sub part.
+        /// </summary>
+        public void FuseSplitCells(string compoundPartName, string[] cellNames)
+        {
+            CheckFuseSplitCells(compoundPartName, cellNames);
+            CompoundGeometryPart compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[compoundPartName];
+            //
+            int[] solidIds = cellNames.Select(name => Array.IndexOf(compoundPart.SubPartNames, name) + 1)
+                                      .Distinct().OrderBy(id => id).ToArray();
+            string brepFileName = MergeCompoundGeometrySolids(compoundPart, solidIds);
+            if (brepFileName == null)
+                throw new CaeException("Fuse cells: the cells " + string.Join(", ", cellNames) + " of the compound part " +
+                                       compoundPartName + " could not be fused. The cells must touch over faces.");
+            //
+            _lastFusedSplitCellName = null;
+            int numOfSolids = GetNumberOfSplitGeometrySolids(brepFileName);
+            // One cell belongs to one sub part, so cells of several are grouped under one before the compound is
+            // replaced. The kernel has fused them by then, so a fuse it refuses leaves the sub parts as they were.
+            string[] fusedSubPartNames = cellNames
+                .Select(cellName => compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, cellName)])
+                .Distinct().ToArray();
+            if (fusedSubPartNames.Length > 1)
+                GroupSplitCells(compoundPartName, cellNames, GetFuseSplitCellsSubPartName(compoundPart, cellNames));
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                if (numOfSolids > 1)
+                {
+                    // The fused cell takes the place of the first of them and every other cell keeps its own, which
+                    // is what a split reads to carry the sub parts and colors over to the pieces
+                    List<string> origins = new List<string>();
+                    for (int i = 1; i <= compoundPart.SubPartNames.Length; i++)
+                    {
+                        if (i == solidIds[0] || !solidIds.Contains(i)) origins.Add(i.ToString());
+                    }
+                    if (origins.Count != numOfSolids)
+                        throw new CaeException("Fuse cells: the modelling kernel returned " + numOfSolids +
+                                               " solids for the compound part " + compoundPartName + " instead of " +
+                                               origins.Count + ".");
+                    File.WriteAllLines(GetSplitGeometryOriginsFileName(brepFileName), origins);
+                    //
+                    string resultPartName = ReplaceSplitGeometryPart(compoundPart, brepFileName);
+                    if (resultPartName == null || !(_model.Geometry.Parts[resultPartName] is CompoundGeometryPart result))
+                        throw new CaeException("Fuse cells: the compound part " + compoundPartName +
+                                               " could not be replaced.");
+                    _lastFusedSplitCellName = result.SubPartNames[solidIds[0] - 1];
+                }
+                else _lastFusedSplitCellName = ReplaceSplitCompoundWithPart(compoundPart, brepFileName);
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
+            }
+            //
+            _form.WriteDataToOutput("Fuse cells: " + cellNames.Length + " cells of the compound part " + compoundPartName +
+                                    " were fused into " + _lastFusedSplitCellName + ".");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
+        }
+        public void CheckFuseSplitCells(string compoundPartName, string[] cellNames)
+        {
+            BasePart part;
+            if (compoundPartName == null || !_model.Geometry.Parts.TryGetValue(compoundPartName, out part) ||
+                !(part is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit)
+                throw new CaeException("The part " + compoundPartName + " is not a compound part made by a split.");
+            if (cellNames == null || cellNames.Distinct().Count() < 2)
+                throw new CaeException("Fuse cells: at least two cells of the compound part " + compoundPartName +
+                                       " must be selected.");
+            //
+            foreach (string cellName in cellNames)
+            {
+                int index = Array.IndexOf(compoundPart.SubPartNames, cellName);
+                if (index < 0 || compoundPart.CellSubPartNames[index] == null)
+                    throw new CaeException("Fuse cells: " + cellName + " is not a cell of the compound part " +
+                                           compoundPartName + ".");
+            }
+        }
+        /// <summary>
+        /// The sub part a fused cell belongs to when the cells come from several: the largest of them whose cells
+        /// are all fused, as a grouping chooses it, and otherwise the sub part of the first cell.
+        /// </summary>
+        private string GetFuseSplitCellsSubPartName(CompoundGeometryPart compoundPart, string[] cellNames)
+        {
+            HashSet<string> fusedCellNames = new HashSet<string>(cellNames);
+            string[] cellSubPartNames = cellNames
+                .Select(cellName => compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, cellName)])
+                .Distinct().ToArray();
+            string[] wholeSubPartNames = cellSubPartNames
+                .Where(name => compoundPart.GetCellNames(name).All(cellName => fusedCellNames.Contains(cellName)))
+                .OrderByDescending(name => compoundPart.GetCellNames(name).Length)
+                .ToArray();
+            return wholeSubPartNames.Length > 0 ? wholeSubPartNames[0] : cellSubPartNames[0];
+        }
+        /// <summary>
+        /// The one solid left when every cell of a compound of one sub part was fused is no longer a compound, so
+        /// it becomes a plain part again, with the name, the part id and the color of that sub part, and what was
+        /// defined on the whole of the sub part is defined on it.
+        /// </summary>
+        private string ReplaceSplitCompoundWithPart(CompoundGeometryPart compoundPart, string brepFileName)
+        {
+            string subPartName = compoundPart.GetSplitSubPartNames()[0];
+            int subPartId = GetSplitSubPartId(compoundPart, subPartName);
+            Color color = _model.Geometry.Parts[compoundPart.SubPartNames[0]].Color;
+            Dictionary<MeshSetupItem, string[]> coveredSubPartNames;
+            Dictionary<MeshSetupItem, int[]> meshSetupItems = GetMeshSetupItemsCoveringCompound(compoundPart,
+                                                                  out coveredSubPartNames);
+            //
+            string[] importedPartNames;
+            _model.HoldPartIds(new int[] { subPartId });
+            try
+            {
+                RemoveGeometryParts(new string[] { compoundPart.Name }, false, false);
+                importedPartNames = ImportBrepPartFile(brepFileName);
+            }
+            finally
+            {
+                _model.ReleaseHeldPartIds();
+            }
+            if (importedPartNames == null || importedPartNames.Length != 1)
+                throw new CaeException("Fuse cells: the fused cells of the compound part " + compoundPart.Name +
+                                       " could not be imported as one part.");
+            //
+            string partName = importedPartNames[0];
+            if (subPartId > 0 && !_model.GetReservedPartIds().Contains(subPartId))
+                _model.Geometry.ChangePartId(partName, subPartId);
+            // The part takes the name the sub part held, which only the mesh part meshed from it may still hold, as a
+            // compound that replaces one keeps its name; it is not drawn yet, so nothing else carries its name
+            BasePart importedPart = _model.Geometry.Parts[partName];
+            importedPart.Name = subPartName;
+            importedPart.Color = color;
+            _model.Geometry.Parts.Replace(partName, subPartName, importedPart);
+            //
+            int partId = _model.Geometry.Parts[subPartName].PartId;
+            foreach (var entry in meshSetupItems)
+            {
+                MeshSetupItem meshSetupItem = entry.Key;
+                meshSetupItem.CreationIds = entry.Value.Where(id => FeMesh.GetPartIdFromGeometryId(id) != compoundPart.PartId)
+                                                       .Concat(new int[] { partId }).ToArray();
+                meshSetupItem.CreationData.Nodes.Clear();
+                meshSetupItem.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false,
+                                                                    meshSetupItem.CreationIds));
+                meshSetupItem.Valid = true;
+            }
+            // A part imported from a file is only added to the model, and a compound import draws its parts
+            // itself, so the part that takes the place of the compound is drawn here, under its final name
+            UpdateAfterImport(".brep");
             return subPartName;
         }
         // Transform
@@ -5026,6 +5193,40 @@ namespace PrePoMax
             //
             compoundPart.CADFileDataFromFile(brepFileName);
             return true;
+        }
+        /// <summary>
+        /// Has the mesher write the brep of the compound with the named solids made one, and returns the file it
+        /// wrote, or null when the solids could not be merged. The solids that are not named are written out as
+        /// they are.
+        /// </summary>
+        private string MergeCompoundGeometrySolids(CompoundGeometryPart compoundPart, int[] solidIds)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string originsFileName = GetSplitGeometryOriginsFileName(brepFileName);
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            if (File.Exists(originsFileName)) File.Delete(originsFileName);
+            File.WriteAllText(brepFileName, compoundPart.CADFileData);
+            //
+            StringBuilder ids = new StringBuilder();
+            foreach (int solidId in solidIds) ids.Append(" " + solidId);
+            //
+            string argument = "BREP_MERGE_SOLIDS " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\"" + ids.ToString();
+            //
+            JobStatus jobStatus = _jobRunner.Run(compoundPart.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            return jobStatus == JobStatus.OK ? brepFileName : null;
         }
         /// <summary>
         /// The volume and the center of mass of a compound are those of its sub parts together. The
@@ -9610,7 +9811,7 @@ namespace PrePoMax
             int subPartId = splitCompoundPart == null ? -1 : GetSplitSubPartId(splitCompoundPart, meshPartName);
             return subPartId > 0 ? subPartId : geometryPart.PartId;
         }
-        private string GetSplitSubPartNameOfCell(string cellName)
+        public string GetSplitSubPartNameOfCell(string cellName)
         {
             foreach (var entry in _model.Geometry.Parts)
             {

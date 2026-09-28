@@ -134,6 +134,7 @@ namespace UserControls
             this.tsmiCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSwapPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGroupSplitCells = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFuseSplitCells = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceMesh = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiPreviewEdgeMesh = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateMesh = new System.Windows.Forms.ToolStripMenuItem();
@@ -216,6 +217,7 @@ namespace UserControls
             this.tsmiSpaceCompoundPart,
             this.tsmiCompoundPart,
             this.tsmiGroupSplitCells,
+            this.tsmiFuseSplitCells,
             this.tsmiSwapPartGeometries,
             this.tsmiSpaceMesh,
             this.tsmiPreviewEdgeMesh,
@@ -336,6 +338,13 @@ namespace UserControls
             this.tsmiGroupSplitCells.Size = new System.Drawing.Size(211, 22);
             this.tsmiGroupSplitCells.Text = "Group Cells";
             this.tsmiGroupSplitCells.Click += new System.EventHandler(this.tsmiGroupSplitCells_Click);
+            // 
+            // tsmiFuseSplitCells
+            // 
+            this.tsmiFuseSplitCells.Name = "tsmiFuseSplitCells";
+            this.tsmiFuseSplitCells.Size = new System.Drawing.Size(211, 22);
+            this.tsmiFuseSplitCells.Text = "Fuse Cells";
+            this.tsmiFuseSplitCells.Click += new System.EventHandler(this.tsmiFuseSplitCells_Click);
             // 
             // tsmiSpaceMesh
             // 
@@ -1220,6 +1229,7 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagate;
         private System.Windows.Forms.ToolStripMenuItem tsmiSwapPartGeometries;
         private System.Windows.Forms.ToolStripMenuItem tsmiGroupSplitCells;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFuseSplitCells;
         private System.Windows.Forms.TabPage tpGeometry;
         private SearchTextBox stbGeometrySearch;
         private CodersLabTreeView cltvGeometry;

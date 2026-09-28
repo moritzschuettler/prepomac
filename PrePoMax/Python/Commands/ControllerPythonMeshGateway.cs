@@ -279,6 +279,21 @@ namespace PrePoMax.Python
             }
             return _controller.GroupSplitCellsCommand(compoundPartName, cellNames, subPartName);
         }
+        public string FuseSplitCells(string compoundPartName, string[] cellNames)
+        {
+            // The cells are checked as the command checks them, so a refusal is raised before anything is
+            // recorded; cells the modelling kernel cannot fuse are refused by the command, which then records
+            // nothing either
+            try
+            {
+                _controller.CheckFuseSplitCells(compoundPartName, cellNames);
+                return _controller.FuseSplitCellsCommand(compoundPartName, cellNames);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+        }
         // A value that was not typed is taken from the picks, or for the point from the center of the
         // region, where the dialog puts a plane before anything is picked. A typed value the picks
         // would replace with a different one is refused rather than dropped.

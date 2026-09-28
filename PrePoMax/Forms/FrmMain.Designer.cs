@@ -258,6 +258,7 @@ namespace PrePoMax
             this.tsmiCreateAndImportCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRegenerateCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGroupSplitCells = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFuseSplitCells = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSwapGeometryPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerGeometry2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiGeometryAnalyze = new System.Windows.Forms.ToolStripMenuItem();
@@ -2236,6 +2237,7 @@ namespace PrePoMax
             this.tsmiCreateAndImportCompoundPart,
             this.tsmiRegenerateCompoundPart,
             this.tsmiGroupSplitCells,
+            this.tsmiFuseSplitCells,
             this.tsmiSwapGeometryPartGeometries,
             this.tsmiDividerGeometry2,
             this.tsmiGeometryAnalyze});
@@ -2523,6 +2525,13 @@ namespace PrePoMax
             this.tsmiGroupSplitCells.Size = new System.Drawing.Size(221, 22);
             this.tsmiGroupSplitCells.Text = "Group Cells";
             this.tsmiGroupSplitCells.Click += new System.EventHandler(this.tsmiGroupSplitCells_Click);
+            // 
+            // tsmiFuseSplitCells
+            // 
+            this.tsmiFuseSplitCells.Name = "tsmiFuseSplitCells";
+            this.tsmiFuseSplitCells.Size = new System.Drawing.Size(221, 22);
+            this.tsmiFuseSplitCells.Text = "Fuse Cells";
+            this.tsmiFuseSplitCells.Click += new System.EventHandler(this.tsmiFuseSplitCells_Click);
             // 
             // tsmiSwapGeometryPartGeometries
             // 
@@ -5717,6 +5726,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiSmoothStlPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateCompoundPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiGroupSplitCells;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFuseSplitCells;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultFieldOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteResultFieldOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultHistoryOutput;

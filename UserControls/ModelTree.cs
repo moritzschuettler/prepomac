@@ -322,6 +322,7 @@ namespace UserControls
         public event Action<NamedClass, string, string> RenameEvent;
         public event Action<string, string, string> RenameSplitSubPartEvent;
         public event Action<string, string[]> GroupSplitCellsEvent;
+        public event Action<string, string[]> FuseSplitCellsEvent;
         //
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
@@ -609,6 +610,38 @@ namespace UserControls
             if (node?.Parent == null) return false;
             return node.Parent.Tag is CompoundGeometryPart || _splitSubPartNodes.ContainsKey(node.Parent);
         }
+        // Two or more cells of one split compound, which can be made one solid
+        private bool TryGetSplitCellsToFuse(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
+        {
+            CompoundGeometryPart compoundPart;
+            if (!TryGetSplitCells(nodes, out compoundPart, out cellNames) || cellNames.Length < 2)
+            {
+                compoundPartName = null;
+                return false;
+            }
+            compoundPartName = compoundPart.Name;
+            return true;
+        }
+        private bool TryGetSplitCells(TreeNode[] nodes, out CompoundGeometryPart compoundPart, out string[] cellNames)
+        {
+            compoundPart = null;
+            cellNames = null;
+            if (nodes.Length == 0) return false;
+            //
+            List<string> names = new List<string>();
+            foreach (TreeNode node in nodes)
+            {
+                if (!(node.Tag is GeometryPart cell) || !IsCompoundGeometrySubPartNode(node)) return false;
+                TreeNode compoundNode = _splitSubPartNodes.ContainsKey(node.Parent) ? node.Parent.Parent : node.Parent;
+                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart) || !nodeCompoundPart.CreatedBySplit)
+                    return false;
+                if (compoundPart == null) compoundPart = nodeCompoundPart;
+                else if (compoundPart != nodeCompoundPart) return false;
+                names.Add(cell.Name);
+            }
+            cellNames = names.ToArray();
+            return true;
+        }
         // The cells of one split compound, which can be put under one sub part unless they already are the whole
         // of a single sub part
         private bool TryGetSplitCellsToGroup(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
@@ -639,6 +672,13 @@ namespace UserControls
             compoundPartName = compoundPart.Name;
             cellNames = names.ToArray();
             return true;
+        }
+        // The compound a sub part node hangs under, read from the tree, since the compound can be renamed without
+        // the tree being rebuilt
+        private string GetSplitSubPartCompoundName(TreeNode subPartNode)
+        {
+            if (subPartNode.Parent?.Tag is CompoundGeometryPart compoundPart) return compoundPart.Name;
+            return _splitSubPartNodes[subPartNode];
         }
         private NamedClass[] GetSplitSubPartCellItems(TreeNode subPartNode)
         {
@@ -1660,6 +1700,8 @@ namespace UserControls
             tsmiSwapPartGeometries.Visible = visible;
             visible = TryGetSplitCellsToGroup(actionNodes, out _, out _);
             tsmiGroupSplitCells.Visible = visible;
+            visible = TryGetSplitCellsToFuse(actionNodes, out _, out _);
+            tsmiFuseSplitCells.Visible = visible;
             oneAboveVisible |= visible;
             // Mesh                                                 
             visible = hasActionNodes && menuFields.MeshingParameters == n;
@@ -2155,19 +2197,23 @@ namespace UserControls
                         }
                     }));
                 }
-                else if (_splitSubPartNodes.TryGetValue(selectedNode, out string compoundPartName))
+                else if (_splitSubPartNodes.ContainsKey(selectedNode))
                 {
+                    string compoundPartName = GetSplitSubPartCompoundName(selectedNode);
                     string oldSubPartName = selectedNode.Name;
                     // Renaming the sub part renames its cells and rebuilds the tree, which has to wait until
-                    // the native label-edit message has completed
+                    // the native label-edit message has completed. The rebuild keeps the expanded nodes by their
+                    // names, so the node carries its new name into it and stays as it was.
                     BeginInvoke((MethodInvoker)(() =>
                     {
                         try
                         {
+                            selectedNode.Name = newName;
                             RenameSplitSubPartEvent?.Invoke(compoundPartName, oldSubPartName, newName);
                         }
                         catch (Exception ex)
                         {
+                            selectedNode.Name = oldSubPartName;
                             ExceptionTools.Show(this, ex);
                         }
                     }));
@@ -2725,6 +2771,21 @@ namespace UserControls
                 if (TryGetSplitCellsToGroup(GetSelectedNodesIncludingGroupItems(cltvGeometry), out compoundPartName,
                                             out cellNames))
                     GroupSplitCellsEvent?.Invoke(compoundPartName, cellNames);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiFuseSplitCells_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string compoundPartName;
+                string[] cellNames;
+                if (TryGetSplitCellsToFuse(GetSelectedNodesIncludingGroupItems(cltvGeometry), out compoundPartName,
+                                           out cellNames))
+                    FuseSplitCellsEvent?.Invoke(compoundPartName, cellNames);
             }
             catch (Exception ex)
             {
@@ -3442,7 +3503,8 @@ namespace UserControls
                 TreeNode subPartNode = null;
                 foreach (var entry in _splitSubPartNodes)
                 {
-                    if (entry.Value == compoundPartName && entry.Key.Name == subPartName && entry.Key.TreeView != null)
+                    if (entry.Key.TreeView != null && entry.Key.Name == subPartName &&
+                        GetSplitSubPartCompoundName(entry.Key) == compoundPartName)
                     {
                         subPartNode = entry.Key;
                         break;

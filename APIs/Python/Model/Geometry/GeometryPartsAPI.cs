@@ -143,6 +143,23 @@ namespace APIs.Python.Model
             return _service.GroupSplitCells(part_name, cell_names, sub_part_name);
         }
 
+        [PythonAPI("Makes one solid of the named cells of a compound part made by split_solid, the way Fuse " +
+                   "Cells in the tree does. The faces the cells share are taken out, and the edges the cut left " +
+                   "on their outside are healed where the faces on both sides lie on one surface, so the cells " +
+                   "come back as the solid the splits cut them from. The cells must touch over faces. Cells " +
+                   "of several sub-parts are first grouped under one - the largest of them whose cells are all " +
+                   "named, or else the one of the first cell - and a sub-part left without cells is gone. The " +
+                   "compound keeps its name and id; fusing all the cells of a compound gives back a plain part " +
+                   "with the name and id of the sub-part they end in. Returns the name of the fused cell, or of " +
+                   "that part.",
+                   Arguments = "part_name: str, cell_names: list[str]", Returns = "str",
+                   Example = "cells = compound.get_split_cell_names('Solid_part-1')\n" +
+                             "pmx.model.geometry.parts.fuse_split_cells(compound.name, cells[:2])")]
+        public string fuse_split_cells(string part_name, object cell_names)
+        {
+            return _service.FuseSplitCells(part_name, cell_names);
+        }
+
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
                    "'geometry' view and target. Returns the number of faces each selected part actually " +
                    "lost, so a feature the modelling kernel could not close is visible: it reports zero. " +
