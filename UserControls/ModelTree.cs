@@ -2204,11 +2204,17 @@ namespace UserControls
             // an item could be highlighted both from the selection and from the hover).
             List<NamedClass> focusItems = new List<NamedClass>();
             foreach (TreeNode selectedNode in tree.SelectedNodes)
-                if (selectedNode.Tag is NamedClass selectedItem) focusItems.Add(selectedItem);
+            {
+                if (_splitSubPartNodes.ContainsKey(selectedNode))
+                    focusItems.AddRange(GetSplitSubPartCellItems(selectedNode));
+                else if (selectedNode.Tag is NamedClass selectedItem) focusItems.Add(selectedItem);
+            }
             if (focusItems.Count == 0)
             {
                 TreeNode overNode = tree.MouseOverNode;
-                if (overNode != null && overNode.Tag is NamedClass overItem) focusItems.Add(overItem);
+                if (overNode != null && _splitSubPartNodes.ContainsKey(overNode))
+                    focusItems.AddRange(GetSplitSubPartCellItems(overNode));
+                else if (overNode != null && overNode.Tag is NamedClass overItem) focusItems.Add(overItem);
             }
             //
             if (focusItems.Count == 0)
@@ -2229,7 +2235,13 @@ namespace UserControls
             {
                 TreeNode[] found = cltvGeometry.Nodes.Find(name, true);
                 foreach (TreeNode node in found)
-                    if (node.Tag is NamedClass) relatedNodes.Add(node);
+                {
+                    if (!(node.Tag is NamedClass)) continue;
+                    //
+                    relatedNodes.Add(node);
+                    if (node.Parent != null && _splitSubPartNodes.ContainsKey(node.Parent))
+                        relatedNodes.Add(node.Parent);
+                }
             }
             tree.SetRelatedNodes(relatedNodes);
         }
@@ -4046,6 +4058,8 @@ namespace UserControls
                 tree.EndUpdate();
                 tree.ResumeLayout();
             }
+            //
+            UpdateRelatedNodesHighlight();
         }
         private void AddObjectsToNode<TKey, TVal>(string initialNodeName, TreeNode node, IDictionary<TKey, TVal> dictionary,
                                                   bool countNodes = true, string parentName = null)
