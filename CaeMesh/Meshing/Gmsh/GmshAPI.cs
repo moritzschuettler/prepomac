@@ -1006,9 +1006,9 @@ namespace CaeMesh
         /// <summary>
         /// Fragments every volume with the carried curves, so that they become real edges of the faces they lie
         /// on. Every volume goes in, so that a face shared by two blocks stays one face. The operation renumbers
-        /// the entities it touches, and OpenCASCADE reports the new tags only for the inputs: the faces are
-        /// matched by lying inside a copy of the face they came from, kept aside during the operation, and the
-        /// volumes, the vertices and the unsplit edges by their centre of mass and size. The two maps are
+        /// the entities it touches, and OpenCASCADE reports the new tags only for the inputs, which the volumes
+        /// are: the faces are matched by lying inside a copy of the face they came from, kept aside during the
+        /// operation, and the vertices and the unsplit edges by their centre of mass and size. The two maps are
         /// rewritten to lead from the new tags to the original ones; an edge the fragmentation made has no
         /// entry.
         /// </summary>
@@ -1018,7 +1018,6 @@ namespace CaeMesh
             double diagonal = GetModelDiagonal();
             Dictionary<int, double[]> oldPointSignatures = GetEntitySignatures(0);
             Dictionary<int, double[]> oldEdgeSignatures = GetEntitySignatures(1);
-            Dictionary<int, double[]> oldVolumeSignatures = GetEntitySignatures(3);
             // The layer edges as polylines, so that one the operation splits can be told by its pieces
             Dictionary<int, double[][]> layerEdgeIdSamples = GetLayerEdgeSamples();
             // A copy of every face, kept out of the operation, tells afterwards which face a piece came from
@@ -1074,7 +1073,16 @@ namespace CaeMesh
             //
             Dictionary<int, int> pointIdMap = MatchEntitiesByGeometry(0, oldPointSignatures, diagonal);
             Dictionary<int, int> edgeIdMap = MatchEntitiesByGeometry(1, oldEdgeSignatures, diagonal);
-            Dictionary<int, int> volumeIdMap = MatchEntitiesByGeometry(3, oldVolumeSignatures, diagonal);
+            // The volumes are inputs of the operation, so their new tags are the ones it reports. Matched by centre and
+            // size instead, a volume whose face a carried edge split comes out of the integration a few millionths
+            // smaller and is lost, although the edge lies exactly on the face
+            Dictionary<int, int> volumeIdMap = new Dictionary<int, int>();
+            for (int i = 0; i < volumeDimTags.Length && i < outDimTagsMap.Length; i++)
+            {
+                int[] newVolumeIds = outDimTagsMap[i].Where(dimTag => dimTag.Item1 == 3).Select(dimTag => dimTag.Item2)
+                                                    .ToArray();
+                if (newVolumeIds.Length == 1) volumeIdMap[volumeDimTags[i].Item2] = newVolumeIds[0];
+            }
             //
             int originalId;
             Dictionary<int, int> newEdgeIdOriginalId = new Dictionary<int, int>();
