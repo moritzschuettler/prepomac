@@ -840,6 +840,7 @@ namespace vtkControl
         public void ResetRotationCenter()
         {
             _rotationCenterWorld = null;
+            _rotationCenterDisplay = null;
         }
         private static bool AreBoundsInitialized(double[] bounds)
         {
@@ -883,7 +884,11 @@ namespace vtkControl
             {
                 // For the first time use the center of the bounding box
                 double[] bounds = ComputeVisiblePropBounds(renderer);
-                if (bounds == null) return;
+                if (bounds == null)
+                {
+                    _rotationCenterDisplay = null;
+                    return;
+                }
                 _rotationCenterWorld = GetBoundsCenter(bounds);
             }
             // Must update since zoom can also change
@@ -1201,22 +1206,26 @@ namespace vtkControl
             if (elevationAngle != 0) camera.Elevation(elevationAngle);
             if (rollAngle != 0) camera.Roll(rollAngle);
             camera.OrthogonalizeViewUp();
-            // Move the cameras focal point back to the display position of the first click - the opposite direction!
-            double[] wpa = DisplayToWorld(renderer, _rotationCenterDisplay);
-            double[] n = camera.GetViewPlaneNormal();
-            // Compute a plane through rotationWorldCenter and project the rotationDisplayCenter on it
-            double[] v = new double[3];                         // vector from rotationWorldCenter to DisplayToWorld point
-            double[] rotCenter = _rotationCenterWorld;
-            if (rotCenter == null) rotCenter = new double[3];
-            v[0] = wpa[0] - rotCenter[0];
-            v[1] = wpa[1] - rotCenter[1];
-            v[2] = wpa[2] - rotCenter[2];
-            double d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; // distance of DisplayToWorld point from plane
-            wpa[0] -= n[0] * d;
-            wpa[1] -= n[1] * d;
-            wpa[2] -= n[2] * d;
             //
-            PanCamera(camera, wpa, rotCenter);   // calls AdjustCameraDistanceAndClipping()
+            if (_rotationCenterWorld != null && _rotationCenterDisplay != null)
+            {
+                // Move the cameras focal point back to the display position of the first click - the opposite direction!
+                double[] wpa = DisplayToWorld(renderer, _rotationCenterDisplay);
+                double[] n = camera.GetViewPlaneNormal();
+                // Compute a plane through rotationWorldCenter and project the rotationDisplayCenter on it
+                double[] v = new double[3];                         // vector from rotationWorldCenter to DisplayToWorld point
+                double[] rotCenter = _rotationCenterWorld;
+                v[0] = wpa[0] - rotCenter[0];
+                v[1] = wpa[1] - rotCenter[1];
+                v[2] = wpa[2] - rotCenter[2];
+                double d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; // distance of DisplayToWorld point from plane
+                wpa[0] -= n[0] * d;
+                wpa[1] -= n[1] * d;
+                wpa[2] -= n[2] * d;
+                //
+                PanCamera(camera, wpa, rotCenter);   // calls AdjustCameraDistanceAndClipping()
+            }
+            else if (this.GetAutoAdjustCameraClippingRange() == 1) ResetClippingRange();
             // Adjust the lights
             if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
             // Widgets - Rotate
