@@ -29,6 +29,7 @@ namespace CaeMesh
         protected int[] _splitterIds;                       //ISerializable
         protected Selection _splitterData;                  //ISerializable
         protected double _fuzzyValue;                       //ISerializable
+        protected SplitToolSymbol _toolSymbol;              //ISerializable
 
 
         // Properties
@@ -52,6 +53,7 @@ namespace CaeMesh
                 if (_fuzzyValue < 0) _fuzzyValue = 0;
             }
         }
+        public SplitToolSymbol ToolSymbol { get { return _toolSymbol; } set { _toolSymbol = value; } }
         public abstract SplitGeometryToolTypeEnum ToolType { get; }
         public abstract string DisplayName { get; }
 
@@ -67,6 +69,7 @@ namespace CaeMesh
             _splitterIds = null;
             _splitterData = null;
             _fuzzyValue = 0;
+            _toolSymbol = null;
         }
         public GeometryFeature(SerializationInfo info, StreamingContext context)
         {
@@ -90,6 +93,8 @@ namespace CaeMesh
                         _splitterData = (Selection)entry.Value; break;
                     case "_fuzzyValue":
                         _fuzzyValue = (double)entry.Value; break;
+                    case "_toolSymbol":
+                        _toolSymbol = (SplitToolSymbol)entry.Value; break;
                     default:
                         break;
                 }
@@ -137,6 +142,7 @@ namespace CaeMesh
             info.AddValue("_splitterIds", _splitterIds, typeof(int[]));
             info.AddValue("_splitterData", _splitterData, typeof(Selection));
             info.AddValue("_fuzzyValue", _fuzzyValue, typeof(double));
+            info.AddValue("_toolSymbol", _toolSymbol, typeof(SplitToolSymbol));
         }
     }
 }

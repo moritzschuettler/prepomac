@@ -42,6 +42,8 @@ namespace PrePoMax.Forms
         private FrmViewObjectProperties _frmViewCommandProperties;
         private int[] _pythonCommandFirstLines;
         private bool _pythonScriptOutdated;
+        private List<Command> _preparedCommands;
+        private bool _symbolsDrawn;
 
 
         // Properties                                                                                                               
@@ -172,6 +174,7 @@ namespace PrePoMax.Forms
         private void dgvCommands_SelectionChanged(object sender, EventArgs e)
         {
             HighlightSelectedCommandInPythonScript();
+            DrawSelectedCommandSymbols();
         }
         private void Binding_ListChanged(object sender, ListChangedEventArgs e)
         {
@@ -300,22 +303,46 @@ namespace PrePoMax.Forms
         {
             try
             {
+                if (!_modified)
+                {
+                    Hide();
+                    return;
+                }
+                // The dialog does not block the main window, so the history can grow while it is open, and
+                // applying the copy shown here would throw the new commands away
+                if (IsHistoryChangedSincePrepare())
+                {
+                    MessageBoxes.ShowWarning("The history was changed while this dialog was open. Press Reset " +
+                                             "to load the current history before editing it.");
+                    return;
+                }
+                //
                 string message = "The history was modified. Changing the history might break the model regeneration." +
                                  " OK to confirm changes?";
-                if (_modified && MessageBoxes.ShowWarningQuestionOKCancel(message) == DialogResult.OK)
+                if (MessageBoxes.ShowWarningQuestionOKCancel(message) == DialogResult.OK)
                 {
-                    DialogResult = DialogResult.OK;
+                    List<Command> commands = Commands;
                     Hide();
-                }
-                else if (!_modified)
-                {
-                    DialogResult = DialogResult.Cancel;
-                    Hide();
+                    _controller.SetCommands(commands);
                 }
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+            Hide();
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            // The form is created once and shown again, so closing it only hides it
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                Hide();
             }
         }
 
@@ -333,10 +360,22 @@ namespace PrePoMax.Forms
         public void PrepareForm()
         {
             List<Command> commands = _controller.GetCommands();
+            _preparedCommands = new List<Command>(commands);
             //
             SetCommands(commands);
             //
             _modified = false;
+        }
+        private bool IsHistoryChangedSincePrepare()
+        {
+            List<Command> commands = _controller.GetCommands();
+            if (_preparedCommands == null || commands.Count != _preparedCommands.Count) return true;
+            //
+            for (int i = 0; i < commands.Count; i++)
+            {
+                if (!ReferenceEquals(commands[i], _preparedCommands[i])) return true;
+            }
+            return false;
         }
         private void OpenPmh(string fileName)
         {
@@ -466,6 +505,42 @@ namespace PrePoMax.Forms
             if (rowIndex + 1 < _pythonCommandFirstLines.Length) lastLine = _pythonCommandFirstLines[rowIndex + 1] - 1;
             //
             petbPython.SelectLines(firstLine, lastLine);
+        }
+        private void DrawSelectedCommandSymbols()
+        {
+            try
+            {
+                if (!Visible || _viewCommands == null) return;
+                //
+                CSplitGeometry splitGeometry = null;
+                int rowIndex = dgvCommands.CurrentRow != null ? dgvCommands.CurrentRow.Index : -1;
+                if (rowIndex >= 0 && rowIndex < _viewCommands.Count)
+                    splitGeometry = _viewCommands[rowIndex].Command as CSplitGeometry;
+                //
+                SplitToolSymbol toolSymbol = splitGeometry?.ToolSymbol;
+                if (toolSymbol != null || _symbolsDrawn) _controller.DrawSplitGeometryCommandSymbols(toolSymbol);
+                //
+                _symbolsDrawn = toolSymbol != null;
+            }
+            catch { }
+        }
+        private void ClearCommandSymbols()
+        {
+            if (!_symbolsDrawn) return;
+            //
+            _symbolsDrawn = false;
+            try
+            {
+                _controller.DrawSplitGeometryCommandSymbols(null);
+            }
+            catch { }
+        }
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            //
+            if (Visible) DrawSelectedCommandSymbols();
+            else ClearCommandSymbols();
         }
 
         private void dgvCommands_CellMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)

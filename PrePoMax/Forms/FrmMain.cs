@@ -2630,10 +2630,7 @@ namespace PrePoMax
                 _frmEditCommands.PrepareForm();
                 //
                 SetFormLocation(_frmEditCommands);
-                if (_frmEditCommands.ShowDialog(this) ==  DialogResult.OK)
-                {
-                    _controller.SetCommands(_frmEditCommands.Commands);
-                }
+                _frmEditCommands.Show(this);
             }
             catch (Exception ex)
             {

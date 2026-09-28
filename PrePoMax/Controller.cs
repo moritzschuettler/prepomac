@@ -5919,6 +5919,7 @@ namespace PrePoMax
         // own - so every name that actually reached the renderer is collected and those are the names
         // that get removed, rather than the names the symbols were asked to use
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
+        [NonSerialized] private SplitToolSymbol _splitToolSymbolRecorder;
         // A surface extraction preview is drawn on the selection layer, which is cleared only as a whole
         [NonSerialized] private bool _extractSurfacePreviewDrawn;
         // While a split dialog is open, the geometry and the annotations as they were before each of its splits,
@@ -6079,6 +6080,9 @@ namespace PrePoMax
             // parts here. A tool sized inside the mesher would come out different for each part.
             double[] extent = GetSplitGeometryRegionExtent(partNames);
             if (extent == null) throw new CaeException("The size of the parts to split could not be determined.");
+            // The picks name the geometry they were made on only until the parts are replaced, so the
+            // symbol the history shows is made now, and made again by every regenerate
+            if (!preview) geometryFeature.ToolSymbol = GetSplitGeometryToolSymbol(geometryFeature, extent);
             //
             Dictionary<int, string> sourceBrepFileNames = WriteSplitGeometrySourceBreps(geometryFeature);
             try
@@ -6296,7 +6300,8 @@ namespace PrePoMax
             pointAndNormal.Point = new double[] { 0.5 * (extent[0] + extent[1]), 0.5 * (extent[2] + extent[3]),
                                                   0.5 * (extent[4] + extent[5]) };
         }
-        public void DrawSplitGeometrySymbols(GeometryFeature geometryFeature, bool regionIsArmed)
+        public void DrawSplitGeometrySymbols(GeometryFeature geometryFeature, bool regionIsArmed,
+                                             bool fadeOutsideRegion = true)
         {
             // Where the parts of the operation do not share one offset there is no one place the tool
             // can be drawn at, so it is drawn where the modelling kernel will use it, and the operation
@@ -6319,7 +6324,8 @@ namespace PrePoMax
             // While the region is being picked it is shown by the ordinary selection highlight. Once the
             // picker moves on, that highlight belongs to the splitter geometry, so the region is shown by
             // fading everything that is not part of it instead.
-            SetGeometryFeatureRegionFade(GetSplitGeometryPickedPartNames(geometryFeature), !regionIsArmed);
+            SetGeometryFeatureRegionFade(GetSplitGeometryPickedPartNames(geometryFeature),
+                                         !regionIsArmed && fadeOutsideRegion);
             // Arming a picker cleared what was drawn, and installing its selection does not draw it, so
             // the selection of whichever target is armed is highlighted here. An entity that was taken as
             // a point is left out: the point marker is what stands for it, and highlighting the edge as
@@ -6330,6 +6336,12 @@ namespace PrePoMax
             double[] extent = GetSplitGeometryRegionExtent(partNames);
             if (extent == null) return;
             //
+            DrawSplitGeometryTool(geometryFeature, extent, regionIsArmed);
+            //
+            _form.UpdateScalarsAndRedraw();
+        }
+        private void DrawSplitGeometryTool(GeometryFeature geometryFeature, double[] extent, bool regionIsArmed)
+        {
             // The tool is a large surface that lies between the mouse and the parts it is to cut, so it
             // is shown only once the region has been picked and the picker has moved on to the splitter
             if (geometryFeature is SplitByPlaneThreePoints threePoints)
@@ -6357,8 +6369,30 @@ namespace PrePoMax
                 DrawSplitGeometryExtendedFaceSymbol(extendedFace, extent);
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges && !regionIsArmed)
                 DrawSplitGeometryExtrusionSymbol(extrudedEdges, extent);
-            //
-            _form.UpdateScalarsAndRedraw();
+        }
+        /// <summary>
+        /// The symbol the tool is drawn with, collected instead of drawn and held in the coordinates of the
+        /// parts themselves, so that the exploded view does not end up in it.
+        /// </summary>
+        private SplitToolSymbol GetSplitGeometryToolSymbol(GeometryFeature geometryFeature, double[] extent)
+        {
+            double[] symbolOffset = _geometryFeatureSymbolOffset;
+            _geometryFeatureSymbolOffset = null;
+            _splitToolSymbolRecorder = new SplitToolSymbol();
+            try
+            {
+                DrawSplitGeometryTool(geometryFeature, extent, false);
+                return _splitToolSymbolRecorder.IsEmpty ? null : _splitToolSymbolRecorder;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                _splitToolSymbolRecorder = null;
+                _geometryFeatureSymbolOffset = symbolOffset;
+            }
         }
         //
         /// <summary>
@@ -6898,6 +6932,30 @@ namespace PrePoMax
                 _geometryFeatureSymbolActorNames.Clear();
             }
             SetGeometryFeatureRegionFade(new string[0], false);
+        }
+        /// <summary>
+        /// Draws the symbol a split stored when it was applied, or clears it when there is none. A split from
+        /// a file saved before the symbol was stored shows nothing until the history is regenerated.
+        /// </summary>
+        public void DrawSplitGeometryCommandSymbols(SplitToolSymbol toolSymbol)
+        {
+            ClearGeometryFeatureSymbols();
+            // The tool and its points are drawn on the selection layer, which removing the symbols by name
+            // does not reach
+            HighlightSelection();
+            if (toolSymbol != null && _currentView == ViewGeometryModelResults.Geometry)
+            {
+                for (int i = 0; i < toolSymbol.SurfaceNodeCoor.Count; i++)
+                    DrawSplitGeometryToolSurface("splitGeometryCommandSurface" + i, toolSymbol.SurfaceNodeCoor[i],
+                                                 toolSymbol.SurfaceCells[i]);
+                for (int i = 0; i < toolSymbol.BorderNodeCoor.Count; i++)
+                    DrawSplitGeometryToolBorder("splitGeometryCommandBorder" + i, toolSymbol.BorderNodeCoor[i],
+                                                toolSymbol.BorderCells[i]);
+                if (toolSymbol.Points.Count > 0)
+                    DrawNodes("splitGeometryPoints", toolSymbol.Points.ToArray(), _settings.Pre.PrimaryHighlightColor,
+                              vtkRendererLayer.Selection, _settings.Pre.NodeSymbolSize);
+            }
+            _form.UpdateScalarsAndRedraw();
         }
         /// <summary>
         /// The part a region id names. A region of parts names a part, a region of surfaces names one of
@@ -7726,9 +7784,14 @@ namespace PrePoMax
                 //
                 // The marker stands where the point is drawn, not where the modelling kernel holds it
                 double[] point;
-                if (TryGetSplitGeometryDisplayPoint(geometryId, out point)) coor.Add(point);
+                if (_splitToolSymbolRecorder != null)
+                {
+                    if (TryGetSplitGeometryPoint(geometryId, out point)) coor.Add(point);
+                }
+                else if (TryGetSplitGeometryDisplayPoint(geometryId, out point)) coor.Add(point);
             }
             if (coor.Count == 0) return;
+            if (_splitToolSymbolRecorder != null) { _splitToolSymbolRecorder.AddPoints(coor.ToArray()); return; }
             //
             // A point that has been taken is part of the selection, so it is drawn on the selection layer:
             // that gives it the primary highlight color and the same two point sizes the hovered one gets,
@@ -7777,10 +7840,13 @@ namespace PrePoMax
         }
         /// <summary>
         /// The way a positive offset moves the tool, drawn from points on it whether an offset is given or not,
-        /// so that the sign is known before one is typed.
+        /// so that the sign is known before one is typed. It is a guide for the dialog and not part of the tool,
+        /// so a recorded symbol leaves it out.
         /// </summary>
         private void DrawSplitGeometryOffsetArrows(string name, double[][] points, double[][] directions)
         {
+            if (_splitToolSymbolRecorder != null) return;
+            //
             List<double[]> arrowPoints = new List<double[]>();
             List<double[]> arrowNormals = new List<double[]>();
             for (int i = 0; i < points.Length; i++)
@@ -8329,6 +8395,8 @@ namespace PrePoMax
         }
         private void DrawSplitGeometryToolSurface(string name, double[][] nodeCoor, int[][] cells)
         {
+            if (_splitToolSymbolRecorder != null) { _splitToolSymbolRecorder.AddSurface(nodeCoor, cells); return; }
+            //
             int[] cellTypes = new int[cells.Length];
             LinearQuadrilateralElement element = new LinearQuadrilateralElement(0, null);
             for (int i = 0; i < cells.Length; i++) cellTypes[i] = element.GetVtkCellType();
@@ -8353,6 +8421,8 @@ namespace PrePoMax
         }
         private void DrawSplitGeometryToolBorder(string name, double[][] nodeCoor, int[][] cells)
         {
+            if (_splitToolSymbolRecorder != null) { _splitToolSymbolRecorder.AddBorder(nodeCoor, cells); return; }
+            //
             int[] cellTypes = new int[cells.Length];
             LinearBeamElement element = new LinearBeamElement(0, null);
             for (int i = 0; i < cells.Length; i++) cellTypes[i] = element.GetVtkCellType();

@@ -28,6 +28,10 @@ namespace PrePoMax.Commands
         private GeometryFeature _geometryFeature;
 
 
+        // Properties
+        public SplitToolSymbol ToolSymbol { get { return _geometryFeature.ToolSymbol; } }
+
+
         // Constructor                                                                                                              
         public CSplitGeometry(GeometryFeature geometryFeature)
             : base(geometryFeature.SplitType == SplitTypeEnum.Shell ?
@@ -40,7 +44,18 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.SplitGeometry(_geometryFeature.DeepClone());
+            // The symbol is made from the geometry this execution meets, so a regenerate replaces it and a
+            // split that fails before making it leaves none
+            GeometryFeature geometryFeature = _geometryFeature.DeepClone();
+            geometryFeature.ToolSymbol = null;
+            try
+            {
+                receiver.SplitGeometry(geometryFeature);
+            }
+            finally
+            {
+                _geometryFeature.ToolSymbol = geometryFeature.ToolSymbol;
+            }
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
