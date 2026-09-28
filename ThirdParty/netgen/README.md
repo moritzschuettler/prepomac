@@ -38,7 +38,10 @@ what the split dialogs preview. Its `BREP_VISUALIZATION` metadata reports circul
 swept angle, and classifies solid cylindrical faces as convex or concave by their material side. It
 recomputes the SameParameter and SameRange flags after the
 periodic-face split driven by *Split periodic faces*, without which the written brep is invalid
-and BRepMesh silently drops whole faces, and it warns on stdout about every face it could not
+and BRepMesh silently drops whole faces. It divides a copy in which every face has a surface of its
+own, because faces a split cut from one face share its surface and the pcurves of the edges between
+them, and dividing one of them left the other without pcurves on those edges. It warns on stdout about
+every face it could not
 triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfinite_angle` entries
 of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
 as structured triangle grids - none, size checked (only where the grid is not much finer than the mesh
