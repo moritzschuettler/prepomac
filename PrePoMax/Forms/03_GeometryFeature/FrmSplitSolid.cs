@@ -27,6 +27,8 @@ namespace PrePoMax.Forms
         // OK - New rebuilds the form, and the operation that was just used comes back selected
         private int _repeatTypeIndex;
         private bool _suppressAnnotateMeshTypesChanged;
+        // The color annotation the view had before the dialog opened, which it gets back when the dialog closes
+        private AnnotateWithColorEnum? _annotateWithColorBeforeForm;
         // The split redraws the view while it replaces the parts, and the picks still name the old ones
         private bool _splitting;
         //
@@ -341,6 +343,11 @@ namespace PrePoMax.Forms
             ItemSetDataEditor.SelectionForm.Hide();
             //
             base.OnHideOrClose();
+            //
+            if (_annotateWithColorBeforeForm.HasValue &&
+                _controller.AnnotateWithColor != _annotateWithColorBeforeForm.Value)
+                _controller.SetAnnotateWithColor(_annotateWithColorBeforeForm.Value);
+            _annotateWithColorBeforeForm = null;
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -355,6 +362,8 @@ namespace PrePoMax.Forms
             _controller.ClearAllSelection();
             _controller.BeginSplitGeometryUndo();
             UpdateUndoButton();
+            // OK - New prepares the form again without closing it, and the view to return to stays the first one
+            if (!_annotateWithColorBeforeForm.HasValue) _annotateWithColorBeforeForm = _controller.AnnotateWithColor;
             //
             PopulateListOfGeometryFeatures();
             lvTypes.Enabled = true;
