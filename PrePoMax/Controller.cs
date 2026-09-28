@@ -19511,6 +19511,7 @@ namespace PrePoMax
             // In order for a picked selection to work the selection must be performed
             _selection = selection.DeepCopy(true, false);
             int[] ids = GetSelectionIds();
+            CopyResolvedPickPartIds(_selection, selection);
             _selection.Clear();
             //
             return ids;
@@ -19712,6 +19713,10 @@ namespace PrePoMax
                 // Are node ids already recorded in this session - speed optimization
                 if (_selection.TryGetNodeIds(selectionNodeMouse, out ids))
                 { }
+                else if (!TryResolvePickedPart(selectionNodeMouse))
+                {
+                    ids = new int[0];
+                }
                 else if (selectionNodeMouse.IsGeometryBased)
                 {
                     ids = GetIdsAtPointFromGeometrySelection(selectionNodeMouse);
@@ -19744,6 +19749,8 @@ namespace PrePoMax
             else
             {
                 string[] partNames = DisplayedMesh.GetPartNamesFromPartIds(selectionNodeMouse.PartIds);
+                if (partNames != null && partNames.Length < selectionNodeMouse.PartIds.Length)
+                    WriteMissingAreaPickPartsToOutput(selectionNodeMouse);
                 if (offsets == null || allZero)
                 {
                     ids = GetIdsFromSelectionInArea(selectionNodeMouse, partNames);
@@ -19767,6 +19774,119 @@ namespace PrePoMax
             Selection.AddToCache(selectionNodeMouse, ids);
             //
             return ids;
+        }
+        /// <summary>
+        /// Keeps the part a point pick was recorded on while that part still carries the picked point. A part id
+        /// can name another part after a regeneration, so a pick its recorded part no longer carries is resolved
+        /// on the nearest active part, whatever the visibility, and among the parts within the pick precision of
+        /// the nearest one a part facing the view wins. The resolved part id is written into the pick. Returns
+        /// false if no active part is left to carry the pick.
+        /// </summary>
+        private bool TryResolvePickedPart(SelectionNodeMouse selectionNodeMouse)
+        {
+            if (selectionNodeMouse.PickedPoint == null || selectionNodeMouse.PartIds == null ||
+                selectionNodeMouse.PartIds.Length != 1) return true;
+            //
+            FeMesh mesh = DisplayedMesh;
+            if (selectionNodeMouse.Precision == -1) selectionNodeMouse.Precision = _form.GetSelectionPrecision();
+            double tolerance = selectionNodeMouse.Precision;
+            double[] pickedPoint = selectionNodeMouse.PickedPoint;
+            int recordedPartId = selectionNodeMouse.PartIds[0];
+            BasePart recordedPart = mesh.GetPartFromId(recordedPartId);
+            double[] distances;
+            double[][] normals;
+            //
+            if (recordedPart != null)
+            {
+                _form.GetClosestCellsOnParts(pickedPoint, new string[] { recordedPart.Name }, out distances, out _);
+                if (distances[0] >= 0 && distances[0] <= tolerance) return true;
+            }
+            //
+            List<BasePart> activeParts = new List<BasePart>();
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value.Active) activeParts.Add(entry.Value);
+            }
+            string[] activePartNames = new string[activeParts.Count];
+            for (int i = 0; i < activeParts.Count; i++) activePartNames[i] = activeParts[i].Name;
+            _form.GetClosestCellsOnParts(pickedPoint, activePartNames, out distances, out normals);
+            //
+            double minDistance = double.MaxValue;
+            for (int i = 0; i < distances.Length; i++)
+            {
+                if (distances[i] >= 0 && distances[i] < minDistance) minDistance = distances[i];
+            }
+            //
+            bool frontFacing;
+            bool resolvedFrontFacing = false;
+            double resolvedDistance = 0;
+            BasePart resolvedPart = null;
+            for (int i = 0; i < activeParts.Count; i++)
+            {
+                if (distances[i] < 0 || distances[i] > minDistance + tolerance) continue;
+                //
+                frontFacing = activeParts[i].PartType == PartType.Shell || normals[i] == null ||
+                              selectionNodeMouse.SelectionDirection == null ||
+                              Vec3D.DotProduct(new Vec3D(normals[i]),
+                                               new Vec3D(selectionNodeMouse.SelectionDirection)) < 0;
+                if (resolvedPart == null ||
+                    (frontFacing && !resolvedFrontFacing) ||
+                    (frontFacing == resolvedFrontFacing &&
+                     (distances[i] < resolvedDistance ||
+                      (distances[i] == resolvedDistance && activeParts[i].PartId < resolvedPart.PartId))))
+                {
+                    resolvedPart = activeParts[i];
+                    resolvedFrontFacing = frontFacing;
+                    resolvedDistance = distances[i];
+                }
+            }
+            //
+            string pickedPointText = string.Join(", ", pickedPoint.Select(coor =>
+                                                 coor.ToString("G6", System.Globalization.CultureInfo.InvariantCulture)));
+            string pickDescription = "Selection: the pick at (" + pickedPointText + ") recorded on the part " +
+                                     (recordedPart != null ? recordedPart.Name + " (id " + recordedPartId + ")" :
+                                                             "id " + recordedPartId + ", which no longer exists,");
+            if (resolvedPart == null)
+            {
+                _form.WriteDataToOutput(pickDescription + " is carried by no active part and is skipped.");
+                return false;
+            }
+            else if (resolvedPart.PartId != recordedPartId)
+            {
+                double[] partOffset = selectionNodeMouse.PartOffsets == null ? null : selectionNodeMouse.PartOffsets[0];
+                selectionNodeMouse.SetSinglePartSelection(resolvedPart.PartId, partOffset);
+                _form.WriteDataToOutput(pickDescription + " was resolved on the part " + resolvedPart.Name +
+                                        " (id " + resolvedPart.PartId + ").");
+            }
+            return true;
+        }
+        private void WriteMissingAreaPickPartsToOutput(SelectionNodeMouse selectionNodeMouse)
+        {
+            FeMesh mesh = DisplayedMesh;
+            List<int> missingPartIds = new List<int>();
+            foreach (var partId in selectionNodeMouse.PartIds)
+            {
+                if (mesh.GetPartFromId(partId) == null) missingPartIds.Add(partId);
+            }
+            _form.WriteDataToOutput("Selection: the area pick recorded on the part ids " +
+                                    string.Join(", ", selectionNodeMouse.PartIds) + " skips the part ids " +
+                                    string.Join(", ", missingPartIds) + ", which no longer exist.");
+        }
+        private static void CopyResolvedPickPartIds(Selection resolvedSelection, Selection selection)
+        {
+            if (resolvedSelection.Nodes.Count != selection.Nodes.Count) return;
+            //
+            for (int i = 0; i < selection.Nodes.Count; i++)
+            {
+                if (resolvedSelection.Nodes[i] is SelectionNodeMouse resolvedNode &&
+                    selection.Nodes[i] is SelectionNodeMouse node &&
+                    resolvedNode.PickedPoint != null && resolvedNode.PartIds != null && resolvedNode.PartIds.Length == 1 &&
+                    node.PartIds != null && node.PartIds.Length == 1 && node.PartIds[0] != resolvedNode.PartIds[0])
+                {
+                    double[] partOffset = node.PartOffsets == null ? null : node.PartOffsets[0];
+                    node.SetSinglePartSelection(resolvedNode.PartIds[0], partOffset);
+                }
+            }
         }
         private int[] GetIdsFromSelectionInArea(SelectionNodeMouse selectionNodeMouse, string[] partNames)
         {

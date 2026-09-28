@@ -10273,6 +10273,11 @@ namespace PrePoMax
                 if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(null);
             }
         }
+        public void GetClosestCellsOnParts(double[] point, string[] partNames, out double[] distances,
+                                           out double[][] normals)
+        {
+            _vtk.GetClosestCellsOnActors(point, partNames, out distances, out normals);
+        }
         public double GetSelectionPrecision()
         {
             return _vtk.GetSelectionPrecision();

@@ -188,7 +188,7 @@ namespace PrePoMax.Python.Journal
             //
             return "completely_inside=True";
         }
-        // The application takes the precision from the current view the first time a geometry pick is
+        // The application takes the precision from the current view the first time a point pick is
         // resolved, so a recorded one is emitted to keep the pick independent of the view it replays in
         private static string GetPrecision(SelectionNodeMouse node)
         {

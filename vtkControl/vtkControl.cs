@@ -2105,6 +2105,76 @@ namespace vtkControl
             }
             return coor;
         }
+        private double[] GetCellNormal(vtkCell cell)
+        {
+            vtkPoints points = cell.GetPoints();
+            if (points == null || points.GetNumberOfPoints() < 3) return null;
+            //
+            double[] p0 = points.GetPoint(0);
+            double[] p1 = points.GetPoint(1);
+            double[] p2 = points.GetPoint(2);
+            double[] a = new double[] { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+            double[] b = new double[] { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
+            double[] normal = new double[] { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
+            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (length == 0) return null;
+            //
+            return new double[] { normal[0] / length, normal[1] / length, normal[2] / length };
+        }
+        /// <summary>
+        /// The distance from the point to the closest cell of each named actor and the normal of that cell, whether
+        /// the actor is visible or not. The distance is -1 for a name no actor carries.
+        /// </summary>
+        public void GetClosestCellsOnActors(double[] point, string[] actorNames, out double[] distances,
+                                            out double[][] normals)
+        {
+            distances = new double[actorNames.Length];
+            normals = new double[actorNames.Length][];
+            Dictionary<string, int> actorNameIndices = new Dictionary<string, int>();
+            for (int i = 0; i < actorNames.Length; i++)
+            {
+                distances[i] = -1;
+                actorNameIndices[actorNames[i]] = i;
+            }
+            //
+            IntPtr x = Marshal.AllocHGlobal(3 * 8);
+            Marshal.Copy(point, 0, x, 3);
+            IntPtr closestPoint = Marshal.AllocHGlobal(3 * 8);
+            try
+            {
+                int index;
+                long localCellId;
+                int subId;
+                double distance2;
+                double distance;
+                vtkCellLocator locator;
+                foreach (var entry in _actors)
+                {
+                    if (!actorNameIndices.TryGetValue(GetSelectableActorName(entry.Value), out index)) continue;
+                    locator = entry.Value.CellLocator;
+                    if (locator == null) continue;
+                    //
+                    localCellId = -1;
+                    subId = -1;
+                    distance2 = -1;
+                    locator.FindClosestPoint(x, closestPoint, ref localCellId, ref subId, ref distance2);
+                    // Error: distance2 can be -1 if something in locator is not properly defined
+                    if (distance2 < 0 || localCellId < 0) continue;
+                    //
+                    distance = Math.Sqrt(distance2);
+                    if (distances[index] < 0 || distance < distances[index])
+                    {
+                        distances[index] = distance;
+                        normals[index] = GetCellNormal(locator.GetDataSet().GetCell(localCellId));
+                    }
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(x);
+                Marshal.FreeHGlobal(closestPoint);
+            }
+        }
         public void GetGeometryPickProperties(double[] point, out int elementId, out int[] edgeNodeIds, out int[] cellFaceNodeIds)
         {
             // Turn rendering off in order to 
