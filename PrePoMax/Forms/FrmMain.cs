@@ -4208,53 +4208,6 @@ namespace PrePoMax
                 SetStateReady(Globals.FlippingNormalsText);
             }
         }
-        private async void tsmiSplitAFaceUsingTwoPoints_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    GeometrySelection surfaceSelection;
-                    GeometrySelection verticesSelection;
-                    while (true)
-                    {
-                        // Get a surface to split
-                        _frmSelectGeometry.MaxNumberOfGeometryIds = 1;
-                        _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                        //
-                        InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select a face to split", null); });
-                        while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                        //
-                        if (_frmSelectGeometry.DialogResult == DialogResult.OK)
-                        {
-                            surfaceSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
-                            // Get two vertices to split the surface
-                            _frmSelectGeometry.MaxNumberOfGeometryIds = 2;
-                            _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Vertex;
-                            //
-                            InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select splitting vertices", null); });
-                            while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                            //
-                            if (_frmSelectGeometry.DialogResult == DialogResult.OK)
-                            {
-                                verticesSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
-                                SplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
-                            }
-                            else break;
-                        }
-                        else break;
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.SplittingFacesText);
-            }
-        }
         private void tsmiSplitSolid_Click(object sender, EventArgs e)
         {
             try
@@ -4356,22 +4309,6 @@ namespace PrePoMax
             finally
             {
                 SetStateReady(Globals.FlippingNormalsText);
-            }
-        }
-        private void SplitAFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
-        {
-            try
-            {
-                SetStateWorking(Globals.SplittingFacesText);
-                _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-            finally
-            {
-                SetStateReady(Globals.SplittingFacesText);
             }
         }
         private void Defeature(GeometrySelection geometrySelection)

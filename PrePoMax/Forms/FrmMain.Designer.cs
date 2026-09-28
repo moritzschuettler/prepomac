@@ -242,7 +242,6 @@ namespace PrePoMax
             this.tsmiConvertSolidToShellCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitSolid = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitShell = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExtractSurface = new System.Windows.Forms.ToolStripMenuItem();
@@ -2372,7 +2371,6 @@ namespace PrePoMax
             this.tsmiConvertSolidToShellCAD,
             this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
-            this.tsmiSplitAFaceUsingTwoPoints,
             this.tsmiSplitSolid,
             this.tsmiSplitShell,
             this.tsmiExtractSurface,
@@ -2408,13 +2406,6 @@ namespace PrePoMax
             this.tsmiFlipFaceNormalCAD.Text = "Flip Face Normal";
             this.tsmiFlipFaceNormalCAD.Click += new System.EventHandler(this.tsmiFlipFaceNormalCAD_Click);
             // 
-            // tsmiSplitAFaceUsingTwoPoints
-            // 
-            this.tsmiSplitAFaceUsingTwoPoints.Name = "tsmiSplitAFaceUsingTwoPoints";
-            this.tsmiSplitAFaceUsingTwoPoints.Size = new System.Drawing.Size(227, 22);
-            this.tsmiSplitAFaceUsingTwoPoints.Text = "Split a Face Using Two Points";
-            this.tsmiSplitAFaceUsingTwoPoints.Click += new System.EventHandler(this.tsmiSplitAFaceUsingTwoPoints_Click);
-            //
             // tsmiSplitSolid
             //
             this.tsmiSplitSolid.Name = "tsmiSplitSolid";
@@ -5656,7 +5647,6 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateFaceOrientations;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerGeometry2;
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;
-        private System.Windows.Forms.ToolStripMenuItem tsmiSplitAFaceUsingTwoPoints;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitSolid;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitShell;
         private System.Windows.Forms.ToolStripMenuItem tsmiExtractSurface;

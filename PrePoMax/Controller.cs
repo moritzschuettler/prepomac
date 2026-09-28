@@ -5128,11 +5128,6 @@ namespace PrePoMax
             CFlipFaceOrientations comm = new CFlipFaceOrientations(geometrySelection);
             _commands.AddAndExecute(comm);
         }
-        public void SplitAFaceUsingTwoPointsCommand(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
-        {
-            CSplitAFaceUsingTwoPoints comm = new CSplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
-            _commands.AddAndExecute(comm);
-        }
         public void SplitGeometryCommand(GeometryFeature geometryFeature)
         {
             // A point is brought back onto the part it was picked on, so picks spread over parts the

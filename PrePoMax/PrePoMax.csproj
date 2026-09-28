@@ -178,6 +178,7 @@
     <Compile Include="Commands\0000_File\CExportResultHistoryOutputToCsv.cs" />
     <Compile Include="Commands\0000_File\CExportTo3mf.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportToStl.cs" />
+    <Compile Include="Commands\_Compatibility\v2.6.3\CSplitAFaceUsingTwoPoints.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportCADGeometryPartsAsBrep.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportPartsAsMmgMesh.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportCADGeometryPartsAsStep.cs" />
@@ -216,7 +217,6 @@
     <Compile Include="Commands\0030_Geometry\01_Part\CReplaceGeometryPartProperties.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CShowGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFindEdgesByAngleForGeometryParts.cs" />
-    <Compile Include="Commands\0030_Geometry\CSplitAFaceUsingTwoPoints.cs" />
     <Compile Include="Commands\0030_Geometry\CSplitGeometry.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipFaceOrientations.cs" />
     <Compile Include="Commands\0040_Meshing\CAddMeshSetupItem.cs" />

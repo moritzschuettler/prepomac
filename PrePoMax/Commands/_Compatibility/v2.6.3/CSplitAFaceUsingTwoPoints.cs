@@ -46,8 +46,8 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Unsupported(this, "the command is superseded by the geometry splitting operations, " +
-                                     "which are not yet available in the Python API");
+            writer.Comment("Split a face using two points has no Python form. Its successor is split_shell " +
+                           "with pmx.create.split_tool_line_by_two_points.");
         }
         public override string GetCommandString()
         {
