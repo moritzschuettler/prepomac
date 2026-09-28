@@ -482,6 +482,7 @@ namespace UserControls
             // 
             this.tsmiHide.Image = global::UserControls.Properties.Resources.Hide;
             this.tsmiHide.Name = "tsmiHide";
+            this.tsmiHide.ShortcutKeyDisplayString = "Space";
             this.tsmiHide.Size = new System.Drawing.Size(208, 22);
             this.tsmiHide.Text = "Hide";
             this.tsmiHide.Click += new System.EventHandler(this.tsmiHideShow_Click);
@@ -490,6 +491,7 @@ namespace UserControls
             // 
             this.tsmiShow.Image = global::UserControls.Properties.Resources.Show;
             this.tsmiShow.Name = "tsmiShow";
+            this.tsmiShow.ShortcutKeyDisplayString = "Space";
             this.tsmiShow.Size = new System.Drawing.Size(208, 22);
             this.tsmiShow.Text = "Show";
             this.tsmiShow.Click += new System.EventHandler(this.tsmiHideShow_Click);
@@ -600,6 +602,7 @@ namespace UserControls
             // 
             this.tsmiActivate.Image = global::UserControls.Properties.Resources.Active;
             this.tsmiActivate.Name = "tsmiActivate";
+            this.tsmiActivate.ShortcutKeyDisplayString = "Space";
             this.tsmiActivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiActivate.Text = "Activate";
             this.tsmiActivate.Click += new System.EventHandler(this.ActivateDeactivate_Click);
@@ -608,6 +611,7 @@ namespace UserControls
             // 
             this.tsmiDeactivate.Image = global::UserControls.Properties.Resources.Unactive;
             this.tsmiDeactivate.Name = "tsmiDeactivate";
+            this.tsmiDeactivate.ShortcutKeyDisplayString = "Space";
             this.tsmiDeactivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiDeactivate.Text = "Deactivate";
             this.tsmiDeactivate.Click += new System.EventHandler(this.ActivateDeactivate_Click);

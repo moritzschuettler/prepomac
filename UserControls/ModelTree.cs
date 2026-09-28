@@ -1674,6 +1674,8 @@ namespace UserControls
             tsmiHide.Visible = visible;
             tsmiShow.Visible = visible;
             tsmiShowOnly.Visible = visible;
+            tsmiActivate.ShowShortcutKeys = !visible;
+            tsmiDeactivate.ShowShortcutKeys = !visible;
             oneAboveVisible |= visible;
             // Color                                                
             visible = hasActionNodes && menuFields.ColorTransparency == n;
@@ -2049,7 +2051,7 @@ namespace UserControls
                 }
                 else if (e.KeyCode == Keys.Space)
                 {
-                    tsmiInvertHideShow_Click(null, null);
+                    InvertHideShowOrActivateDeactivate();
                 }
                 else if (e.KeyCode == Keys.Enter)
                 {
@@ -2464,13 +2466,15 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiInvertHideShow_Click(object sender, EventArgs e)
+        private void InvertHideShowOrActivateDeactivate()
         {
             try
             {
                 List<NamedClass> items = new List<NamedClass>();
                 string stepName;
                 List<string> stepNames = new List<string>();
+                List<NamedClass> activeItems = new List<NamedClass>();
+                List<string> activeStepNames = new List<string>();
 
                 foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
@@ -2482,9 +2486,15 @@ namespace UserControls
                         stepName = GetStepNameFromNode(selectedNode);
                         stepNames.Add(stepName);
                     }
+                    else if (CanDeactivate(selectedNode))
+                    {
+                        activeItems.Add((NamedClass)selectedNode.Tag);
+                        stepName = GetStepNameFromNode(selectedNode);
+                        activeStepNames.Add(stepName);
+                    }
                 }
 
-                if (items.Count > 0)
+                if (items.Count > 0 || activeItems.Count > 0)
                 {
                     RenderingOff?.Invoke();
                     List<NamedClass> toShow = new List<NamedClass>();
@@ -2510,6 +2520,30 @@ namespace UserControls
                         HideShowEvent?.Invoke(toShow.ToArray(), HideShowOperation.Show, toShowStepNames.ToArray());
                     if (toHide.Count > 0)
                         HideShowEvent?.Invoke(toHide.ToArray(), HideShowOperation.Hide, toHideStepNames.ToArray());
+
+                    List<NamedClass> toActivate = new List<NamedClass>();
+                    List<NamedClass> toDeactivate = new List<NamedClass>();
+                    List<string> toActivateStepNames = new List<string>();
+                    List<string> toDeactivateStepNames = new List<string>();
+
+                    for (int i = 0; i < activeItems.Count; i++)
+                    {
+                        if (activeItems[i].Active)
+                        {
+                            toDeactivate.Add(activeItems[i]);
+                            toDeactivateStepNames.Add(activeStepNames[i]);
+                        }
+                        else
+                        {
+                            toActivate.Add(activeItems[i]);
+                            toActivateStepNames.Add(activeStepNames[i]);
+                        }
+                    }
+
+                    if (toActivate.Count > 0)
+                        ActivateDeactivateEvent?.Invoke(toActivate.ToArray(), true, toActivateStepNames.ToArray());
+                    if (toDeactivate.Count > 0)
+                        ActivateDeactivateEvent?.Invoke(toDeactivate.ToArray(), false, toDeactivateStepNames.ToArray());
                     RenderingOn?.Invoke();
                 }
             }
