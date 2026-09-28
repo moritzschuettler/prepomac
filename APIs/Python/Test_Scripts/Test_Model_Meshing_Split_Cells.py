@@ -12,6 +12,8 @@
 #  - split_compound_mesh separates only the sub-parts when the cells are merged: the wall between the boxes
 #    is split, the cut inside each box is not.
 #  - split_compound_mesh with merge_cells=False separates every cell.
+#  - Splitting the compound again replaces its cells only: the compound keeps its name and id, and the mesh
+#    parts of the sub-parts and of the merged compound come back with the ids they had.
 #
 #  PrePoMax.com -f sweep_side2.brep -u MM_TON_S_C --script Test_Model_Meshing_Split_Cells.py -g No -x Yes -w <dir>
 #
@@ -87,7 +89,42 @@ def main():
     split_cells = mesh(compound, cell_names, merge_cells=False, split_compound_mesh=True)
     for pair in itertools.combinations(cell_names, 2):
         check(shared(split_cells, *pair) == 0, "the split cells " + str(pair) + " must not share nodes")
+    #
+    check_split_again(compound, sub_part_names)
     print("TEST PASSED")
+
+
+def mesh_part_ids():
+    return dict((part.name, part.id) for part in pmx.model.parts)
+
+
+def check_split_again(compound, sub_part_names):
+    mesh(compound, sub_part_names, merge_cells=True, split_compound_mesh=False)
+    sub_part_ids = mesh_part_ids()
+    mesh(compound, [compound.name], merge_compound_parts=True)
+    compound_ids = mesh_part_ids()
+    check(compound_ids[compound.name] == compound.id,
+          "the merged compound mesh must take the id of the compound: " + str(compound_ids))
+    #
+    parts = pmx.model.geometry.parts
+    parts.split_solid(part_region([compound]), pmx.create.split_tool_plane_by_point_and_normal(normal=[0, 1, 0]))
+    compounds = [part for part in parts if part.part_type == "Compound"]
+    check(len(compounds) == 1 and compounds[0].name == compound.name and compounds[0].id == compound.id,
+          "a compound split again must keep its name and id: " + str([(c.name, c.id) for c in compounds]))
+    compound = compounds[0]
+    check(sorted(compound.split_sub_part_names) == sorted(sub_part_names),
+          "a compound split again must keep its sub-parts: " + str(list(compound.split_sub_part_names)))
+    cell_ids = [part.id for part in parts if part.part_type != "Compound"]
+    check(len(cell_ids) == 8, "each box must now be cut into four cells: %d cells" % len(cell_ids))
+    check(not set(cell_ids) & set(sub_part_ids.values()) and compound.id not in cell_ids,
+          "no cell may take the id of a sub-part or of the compound: " + str(cell_ids))
+    #
+    mesh(compound, [compound.name], merge_compound_parts=True)
+    check(mesh_part_ids() == compound_ids,
+          "the compound meshed again must keep its mesh part and id: " + str(mesh_part_ids()))
+    mesh(compound, sub_part_names, merge_compound_parts=False, merge_cells=True)
+    check(mesh_part_ids() == sub_part_ids,
+          "the sub-parts meshed again must keep their ids: %s instead of %s" % (mesh_part_ids(), sub_part_ids))
 
 
 main()

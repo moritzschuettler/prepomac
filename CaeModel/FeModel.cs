@@ -59,6 +59,7 @@ namespace CaeModel
         [NonSerialized] private int[] _unAssignedElementIds;
         [NonSerialized] private object[] _sectionAssignmentsState;
         [NonSerialized] private string _meshTypesStamp;
+        [NonSerialized] private HashSet<int> _heldPartIds;
 
 
         // Properties                                                                                                               
@@ -2592,9 +2593,30 @@ namespace CaeModel
         public HashSet<int> GetReservedPartIds()
         {
             HashSet<int> reservedPartIds = new HashSet<int>();
-            if (_geometry != null && _geometry.Parts != null) reservedPartIds.UnionWith(_geometry.GetAllPartIds());
+            if (_geometry != null && _geometry.Parts != null)
+            {
+                reservedPartIds.UnionWith(_geometry.GetAllPartIds());
+                foreach (var entry in _geometry.Parts)
+                {
+                    if (entry.Value is CompoundGeometryPart compoundPart)
+                        reservedPartIds.UnionWith(compoundPart.GetSplitSubPartIds());
+                }
+            }
             if (_mesh != null && _mesh.Parts != null) reservedPartIds.UnionWith(_mesh.GetAllPartIds());
+            if (_heldPartIds != null) reservedPartIds.UnionWith(_heldPartIds);
             return reservedPartIds;
+        }
+        /// <summary>
+        /// Keeps the part ids reserved while the parts that held them are removed and their replacements are
+        /// imported, so that the replacements can take them back instead of a part imported in between.
+        /// </summary>
+        public void HoldPartIds(IEnumerable<int> partIds)
+        {
+            _heldPartIds = new HashSet<int>(partIds.Where(id => id > 0));
+        }
+        public void ReleaseHeldPartIds()
+        {
+            _heldPartIds = null;
         }
         public int GetNumberOfUnsuppresedUserKeywords()
         {

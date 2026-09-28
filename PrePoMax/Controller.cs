@@ -2254,7 +2254,8 @@ namespace PrePoMax
         }
         private void ImportBrepCompoundPart(string brepFileName, string[] createdFromPartNames,
                                             Guid? targetGroupId, out string compoundPartName,
-                                            out string[] importedPartNames)
+                                            out string[] importedPartNames, string keptCompoundPartName = null,
+                                            int keptCompoundPartId = -1)
         {
             // A part written out of a compound has its closed faces divided, and the compound has to
             // carry the same division: the compound is what the mesher is given, and a face of a part
@@ -2264,7 +2265,8 @@ namespace PrePoMax
             try
             {
                 ImportDividedBrepCompoundPart(dividedBrepFileName, createdFromPartNames, targetGroupId,
-                                              out compoundPartName, out importedPartNames);
+                                              out compoundPartName, out importedPartNames, keptCompoundPartName,
+                                              keptCompoundPartId);
             }
             finally
             {
@@ -2274,11 +2276,15 @@ namespace PrePoMax
         }
         private void ImportDividedBrepCompoundPart(string dividedBrepFileName, string[] createdFromPartNames,
                                                    Guid? targetGroupId, out string compoundPartName,
-                                                   out string[] importedPartNames)
+                                                   out string[] importedPartNames, string keptCompoundPartName,
+                                                   int keptCompoundPartId)
         {
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
-            compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
+            // A compound that replaces one keeps its name, which only the mesh part meshed from it may still hold
+            if (keptCompoundPartName != null && !_model.Geometry.Parts.ContainsKey(keptCompoundPartName))
+                compoundPartName = keptCompoundPartName;
+            else compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
             importedPartNames = ImportCADAssemblyFile(dividedBrepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS", 1);
             //
             bool shellParts = true;
@@ -2332,7 +2338,14 @@ namespace PrePoMax
                 compPart.MassProperties = massProperties;
                 //
                 compPart.CADFileDataFromFile(dividedBrepFileName);
-                compPart.PartId = _model.Geometry.GetMaxPartId() + 1;
+                HashSet<int> reservedPartIds = _model.GetReservedPartIds();
+                if (keptCompoundPartId > 0 && !_model.Geometry.GetAllPartIds().Contains(keptCompoundPartId))
+                    compPart.PartId = keptCompoundPartId;
+                else
+                {
+                    compPart.PartId = _model.Geometry.GetMaxPartId() + 1;
+                    while (reservedPartIds.Contains(compPart.PartId)) compPart.PartId++;
+                }
                 _model.Geometry.SetPartColorFromColorTable(compPart);
                 _model.Geometry.Parts.Add(compoundPartName, compPart);
             }
@@ -4967,6 +4980,7 @@ namespace PrePoMax
             importedCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
             importedSubParts = GetSubParts(newCompoundPartName);
             importedCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
+            importedCompoundPart.CellSubPartIds = compoundPart.CellSubPartIds?.ToArray();
             if (subParts.Length != importedSubParts.Length)
                 throw new CaeException("The regenerated compound part has a different number of sub-parts " +
                                        "than before the regeneration.");
@@ -6340,8 +6354,9 @@ namespace PrePoMax
             // Every cell keeps the sub part and the color of the solid it was cut from, which the mesher
             // names by its place in the part, the same place its sub part has in the compound
             string[] sourceSubPartNames;
+            int[] sourceSubPartIds;
             Color[] sourceColors;
-            GetSplitGeometrySourceSolids(part, out sourceSubPartNames, out sourceColors);
+            GetSplitGeometrySourceSolids(part, out sourceSubPartNames, out sourceSubPartIds, out sourceColors);
             int[] origins = ReadSplitGeometryOrigins(brepFileName, numOfSolids, sourceSubPartNames.Length);
             if (origins == null) return null;
             // The pieces are imported from a brep file, so nothing of the part is needed once it is
@@ -6351,11 +6366,23 @@ namespace PrePoMax
             // for a replacement would land on whichever cell took its id
             Color partColor = part.Color;
             Dictionary<MeshSetupItem, int[]> compoundMeshSetupItems = GetMeshSetupItemsCoveringCompound(part);
-            RemoveGeometryParts(new string[] { partName }, false, false);
-            //
+            // The parts the split cut and a compound that is cut again are still there to the user, so they keep
+            // their part ids: the mesh parts meshed from them keep the ids that the selections made on them hold
+            string keptCompoundPartName = part is CompoundGeometryPart ? partName : null;
+            int keptCompoundPartId = part is CompoundGeometryPart ? part.PartId : -1;
             string compoundPartName;
             string[] importedPartNames;
-            ImportBrepCompoundPart(brepFileName, null, null, out compoundPartName, out importedPartNames);
+            _model.HoldPartIds(sourceSubPartIds.Concat(new int[] { keptCompoundPartId }));
+            try
+            {
+                RemoveGeometryParts(new string[] { partName }, false, false);
+                ImportBrepCompoundPart(brepFileName, null, null, out compoundPartName, out importedPartNames,
+                                       keptCompoundPartName, keptCompoundPartId);
+            }
+            finally
+            {
+                _model.ReleaseHeldPartIds();
+            }
             //
             BasePart basePart;
             if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out basePart) ||
@@ -6370,16 +6397,19 @@ namespace PrePoMax
             }
             //
             string[] cellSubPartNames = new string[origins.Length];
+            int[] cellSubPartIds = new int[origins.Length];
             _effectiveMeshTypes = null;
             for (int i = 0; i < origins.Length; i++)
             {
                 cellSubPartNames[i] = sourceSubPartNames[origins[i] - 1];
+                cellSubPartIds[i] = sourceSubPartIds[origins[i] - 1];
                 //
                 BasePart cell = _model.Geometry.Parts[compoundPart.SubPartNames[i]];
                 cell.Color = sourceColors[origins[i] - 1];
                 _form.UpdateActor(cell.Name, cell.Name, GetDrawnGeometryPartColor(cell));
             }
             compoundPart.CellSubPartNames = cellSubPartNames;
+            compoundPart.CellSubPartIds = cellSubPartIds;
             RenameSplitCells(compoundPart);
             // A compound that is split again is still the same body, so what was defined on the whole of it
             // is defined on the whole of what it became
@@ -6424,24 +6454,45 @@ namespace PrePoMax
             }
             return meshSetupItems;
         }
-        private void GetSplitGeometrySourceSolids(GeometryPart part, out string[] subPartNames, out Color[] colors)
+        private void GetSplitGeometrySourceSolids(GeometryPart part, out string[] subPartNames, out int[] subPartIds,
+                                                  out Color[] colors)
         {
             if (part is CompoundGeometryPart compoundPart)
             {
                 GeometryPart[] subParts = GetSubParts(compoundPart.Name);
                 subPartNames = new string[subParts.Length];
+                subPartIds = new int[subParts.Length];
                 colors = new Color[subParts.Length];
                 for (int i = 0; i < subParts.Length; i++)
                 {
-                    subPartNames[i] = compoundPart.CellSubPartNames?[i] ?? subParts[i].Name;
+                    string cellSubPartName = compoundPart.CellSubPartNames?[i];
+                    subPartNames[i] = cellSubPartName ?? subParts[i].Name;
+                    subPartIds[i] = cellSubPartName == null ? subParts[i].PartId :
+                                                              GetSplitSubPartId(compoundPart, cellSubPartName);
                     colors[i] = subParts[i].Color;
                 }
             }
             else
             {
                 subPartNames = new string[] { part.Name };
+                subPartIds = new int[] { part.PartId };
                 colors = new Color[] { part.Color };
             }
+        }
+        /// <summary>
+        /// The part id of a sub part of a split compound. A compound saved before the sub parts held ids of their
+        /// own is meshed with the id of the first cell of each, and that id is what the sub part then keeps.
+        /// </summary>
+        private int GetSplitSubPartId(CompoundGeometryPart compoundPart, string subPartName)
+        {
+            int subPartId = compoundPart.GetSplitSubPartId(subPartName);
+            if (subPartId > 0) return subPartId;
+            //
+            string firstCellName = compoundPart.GetCellNames(subPartName).FirstOrDefault();
+            BasePart firstCell;
+            if (firstCellName != null && _model.Geometry.Parts.TryGetValue(firstCellName, out firstCell))
+                return firstCell.PartId;
+            return -1;
         }
         private static string GetSplitGeometryOriginsFileName(string brepFileName)
         {
@@ -9139,7 +9190,7 @@ namespace PrePoMax
         /// <summary>
         /// The geometry part a mesh part was meshed from. A sub part of a split compound is meshed from its
         /// cells and has no geometry part of its own, so its first cell stands for it: the mesh part takes
-        /// that cell's part id, which stays the same on every regenerate, and its color and element types.
+        /// that cell's color and element types, and the part id of the sub part.
         /// </summary>
         private GeometryPart GetGeometryPartOfMeshPart(string meshPartName)
         {
@@ -9151,6 +9202,13 @@ namespace PrePoMax
             //
             string firstCellName = splitCompoundPart.GetCellNames(meshPartName).FirstOrDefault();
             return firstCellName == null ? null : GetGeometryPart(firstCellName);
+        }
+        private int GetPartIdOfMeshPart(string meshPartName, GeometryPart geometryPart)
+        {
+            // The only cell of a sub part is named after it, and is meshed as the sub part
+            CompoundGeometryPart splitCompoundPart = GetSplitCompoundOfSubPart(meshPartName);
+            int subPartId = splitCompoundPart == null ? -1 : GetSplitSubPartId(splitCompoundPart, meshPartName);
+            return subPartId > 0 ? subPartId : geometryPart.PartId;
         }
         private string GetSplitSubPartNameOfCell(string cellName)
         {
@@ -9235,7 +9293,7 @@ namespace PrePoMax
                         GeometryPart geometryPart = GetGeometryPartOfMeshPart(partName);
                         if (geometryPart != null)
                         {
-                            _model.Mesh.ChangePartId(partName, geometryPart.PartId);
+                            _model.Mesh.ChangePartId(partName, GetPartIdOfMeshPart(partName, geometryPart));
                             renumbered = true;
                             if (geometryPart.Name != partName) meshPart.Color = geometryPart.Color;
                         }
@@ -16245,7 +16303,7 @@ namespace PrePoMax
         /// <summary>
         /// The part id whose place in the color table colors a geometry part. The cells of a sub part of a
         /// split compound are one part to the user, and are meshed into one mesh part that carries the part
-        /// id of the first of them, so they all take the color of that first cell.
+        /// id of the sub part, so they all take the color of that id.
         /// </summary>
         private int GetColorTablePartId(BasePart part)
         {
@@ -16256,9 +16314,8 @@ namespace PrePoMax
                 int index = Array.IndexOf(compoundPart.SubPartNames, part.Name);
                 if (index < 0 || compoundPart.CellSubPartNames[index] == null) continue;
                 //
-                string firstCellName = compoundPart.GetCellNames(compoundPart.CellSubPartNames[index])[0];
-                BasePart firstCell;
-                if (_model.Geometry.Parts.TryGetValue(firstCellName, out firstCell)) return firstCell.PartId;
+                int subPartId = GetSplitSubPartId(compoundPart, compoundPart.CellSubPartNames[index]);
+                if (subPartId > 0) return subPartId;
             }
             return part.PartId;
         }

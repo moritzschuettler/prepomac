@@ -26,6 +26,8 @@ namespace CaeMesh
         private Guid _linkedGroupId;
         [OptionalField]
         private string[] _cellSubPartNames;
+        [OptionalField]
+        private int[] _cellSubPartIds;
         [NonSerialized] private CompoundSharedEdges _sharedEdges;
 
 
@@ -36,7 +38,8 @@ namespace CaeMesh
             get { return _subPartNames; }
             set
             {
-                if (_cellSubPartNames != null) _cellSubPartNames = GetCellSubPartNames(value);
+                if (_cellSubPartNames != null) _cellSubPartNames = GetCellValues(_cellSubPartNames, value);
+                if (_cellSubPartIds != null) _cellSubPartIds = GetCellValues(_cellSubPartIds, value);
                 _subPartNames = value;
             }
         }
@@ -47,6 +50,13 @@ namespace CaeMesh
         /// so the cells are gathered under it. A compound that was not made by splitting has none.
         /// </summary>
         public string[] CellSubPartNames { get { return _cellSubPartNames; } set { _cellSubPartNames = value; } }
+        /// <summary>
+        /// The part id of the sub part each cell of a split compound belongs to, parallel to CellSubPartNames.
+        /// A sub part is not a geometry part, but it is what is meshed into one mesh part, so it holds a part
+        /// id of its own that no other part may take. The cells are replaced whenever the compound is split
+        /// again, and the id of the sub part is what stays. A compound saved before the ids existed has none.
+        /// </summary>
+        public int[] CellSubPartIds { get { return _cellSubPartIds; } set { _cellSubPartIds = value; } }
         public bool CreatedBySplit { get { return _cellSubPartNames != null; } }
 
 
@@ -65,6 +75,7 @@ namespace CaeMesh
         {
             _linkedGroupId = part._linkedGroupId;
             _cellSubPartNames = part._cellSubPartNames?.ToArray();
+            _cellSubPartIds = part._cellSubPartIds?.ToArray();
         }
 
 
@@ -98,16 +109,34 @@ namespace CaeMesh
             }
             return cellNames.ToArray();
         }
-        private string[] GetCellSubPartNames(string[] subPartNames)
+        /// <summary>
+        /// The part id of a sub part of a split compound, or -1 if the compound does not hold one for it.
+        /// </summary>
+        public int GetSplitSubPartId(string subPartName)
         {
-            Dictionary<string, string> cellSubPartNames = new Dictionary<string, string>();
-            for (int i = 0; i < _subPartNames.Length && i < _cellSubPartNames.Length; i++)
-                cellSubPartNames[_subPartNames[i]] = _cellSubPartNames[i];
+            if (_cellSubPartNames == null || _cellSubPartIds == null) return -1;
             //
-            string[] names = new string[subPartNames.Length];
+            for (int i = 0; i < _cellSubPartNames.Length && i < _cellSubPartIds.Length; i++)
+            {
+                if (_cellSubPartNames[i] == subPartName && _cellSubPartIds[i] > 0) return _cellSubPartIds[i];
+            }
+            return -1;
+        }
+        public int[] GetSplitSubPartIds()
+        {
+            if (_cellSubPartIds == null) return new int[0];
+            return _cellSubPartIds.Where(id => id > 0).Distinct().ToArray();
+        }
+        private T[] GetCellValues<T>(T[] cellValues, string[] subPartNames)
+        {
+            Dictionary<string, T> cellValuesByName = new Dictionary<string, T>();
+            for (int i = 0; i < _subPartNames.Length && i < cellValues.Length; i++)
+                cellValuesByName[_subPartNames[i]] = cellValues[i];
+            //
+            T[] values = new T[subPartNames.Length];
             for (int i = 0; i < subPartNames.Length; i++)
-                cellSubPartNames.TryGetValue(subPartNames[i], out names[i]);
-            return names;
+                cellValuesByName.TryGetValue(subPartNames[i], out values[i]);
+            return values;
         }
         public CompoundSharedEdges GetSharedEdges(FeMesh mesh)
         {
