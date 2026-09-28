@@ -5152,11 +5152,18 @@ namespace CaeMesh
                             Array.Sort(locationDiff, locationIdDiff);
                             Array.Sort(sizeDiff, sizeIdDiff);
                             // If different surfaces are found select by the smallest normalized criteria. Faces of
-                            // the same size - the two halves of a cylinder split by its seam - leave the size
-                            // criterion nothing to decide on, and normalizing by its zero spread would compare
-                            // against NaN and let it win regardless; the location decides alone then
-                            if (sizeDiff[sizeDiff.Length - 1] <= 1E-6 * Math.Max(Math.Abs(faceDataEntry.Size), 1E-30))
-                                gmshFaceId = locationIdDiff[0];
+                            // the same size - the two halves of a cylinder split by its seam, or two mirror images -
+                            // leave the size criterion nothing to decide between them: the sort puts either first,
+                            // and its normalized difference of zero would beat any location. The location decides
+                            // among the faces sharing the best size then
+                            double sizeTolerance = 1E-6 * Math.Max(Math.Abs(faceDataEntry.Size), 1E-30);
+                            HashSet<int> bestSizeIds = new HashSet<int>();
+                            for (int i = 0; i < sizeDiff.Length; i++)
+                            {
+                                if (sizeDiff[i] - sizeDiff[0] <= sizeTolerance) bestSizeIds.Add(sizeIdDiff[i]);
+                            }
+                            if (bestSizeIds.Count > 1)
+                                gmshFaceId = locationIdDiff.First(id => bestSizeIds.Contains(id));
                             else if (locationIdDiff[0] != sizeIdDiff[0])
                             {
                                 // Normalize differences
