@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeMesh;
 using System.Collections.Generic;
 
 namespace APIs.Python.Model
@@ -78,6 +79,52 @@ namespace APIs.Python.Model
             return _service.FlipFaceOrientations(selection);
         }
 
+        [PythonAPI("Splits the selected CAD parts with a splitting tool made by pmx.create.split_tool_*, the way " +
+                   "the Split Solid dialog does. The selection uses the 'geometry' view and the 'parts' target; " +
+                   "one sub-part of a compound names that solid only, and the compound names all of them. A " +
+                   "part the tool cuts in two is replaced by a compound part of the pieces, so its name " +
+                   "changes. Returns the number of faces every selected part gained, which is zero for a part " +
+                   "the tool missed. The fuzzy tolerance is how far apart the modelling kernel still takes " +
+                   "geometry as coincident; leave it at zero unless an imported geometry is too inaccurate to " +
+                   "be split.",
+                   Arguments = "selection: Selection, tool: SplitTool, fuzzy_tolerance: float = 0",
+                   Returns = "dict[str, int]",
+                   Example = "tool = pmx.create.split_tool_plane_by_point_and_normal([30, 20, 10], [0, 0, 1])\n" +
+                             "added = pmx.model.geometry.parts.split_solid(selection, tool)")]
+        public Dictionary<string, int> split_solid(SelectionAPI selection, SplitToolAPI tool,
+                                                   object fuzzy_tolerance = null)
+        {
+            return _service.SplitGeometry(selection, tool, fuzzy_tolerance, SplitTypeEnum.Solid);
+        }
+
+        [PythonAPI("Splits the selected surfaces of CAD parts with a splitting tool made by " +
+                   "pmx.create.split_tool_*, the way the Split Shell dialog does. The selection uses the " +
+                   "'geometry' view and the 'geometry_surfaces' target. Only the selected surfaces are " +
+                   "divided; the part keeps its name and stays the kind of body it is, and a part whose " +
+                   "divided surfaces would not give back the same body is left as it was. Returns the number " +
+                   "of faces every part of the selection gained, which is zero for a part that was not split. " +
+                   "The fuzzy tolerance is as for split_solid.",
+                   Arguments = "selection: Selection, tool: SplitTool, fuzzy_tolerance: float = 0",
+                   Returns = "dict[str, int]",
+                   Example = "tool = pmx.create.split_tool_line_by_two_points(splitter=vertices)\n" +
+                             "added = pmx.model.geometry.parts.split_shell(surfaces, tool)")]
+        public Dictionary<string, int> split_shell(SelectionAPI selection, SplitToolAPI tool,
+                                                   object fuzzy_tolerance = null)
+        {
+            return _service.SplitGeometry(selection, tool, fuzzy_tolerance, SplitTypeEnum.Shell);
+        }
+
+        [PythonAPI("Renames a sub-part of a compound part made by split_solid, the way renaming it in the " +
+                   "tree does. The sub-part is the solid the cells were cut from, which the part lists in " +
+                   "split_sub_part_names; its cells are renamed after it, and so is the mesh part it was " +
+                   "meshed into.",
+                   Arguments = "part_name: str, old_name: str, new_name: str", Returns = "None",
+                   Example = "pmx.model.geometry.parts.rename_split_sub_part('Compound_part-1', 'Solid_part-1', 'Web')")]
+        public void rename_split_sub_part(string part_name, string old_name, string new_name)
+        {
+            _service.RenameSplitSubPart(part_name, old_name, new_name);
+        }
+
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
                    "'geometry' view and target. Returns the number of faces each selected part actually " +
                    "lost, so a feature the modelling kernel could not close is visible: it reports zero. " +
@@ -104,16 +151,6 @@ namespace APIs.Python.Model
         public string[] extract_surface(SelectionAPI selection, object offset = null)
         {
             return _service.ExtractSurface(selection, offset);
-        }
-
-        [PythonAPI("Splits a face using two vertices. Both selections use the 'geometry' view and target. " +
-                   "Returns the number of faces the part gained, which is zero when the modelling kernel " +
-                   "could not make the cut. Only a face of a CAD part can be split.",
-                   Arguments = "surface_selection: Selection, vertices_selection: Selection",
-                   Returns = "dict[str, int]")]
-        public Dictionary<string, int> split_face(SelectionAPI surface_selection, SelectionAPI vertices_selection)
-        {
-            return _service.SplitFace(surface_selection, vertices_selection);
         }
 
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",

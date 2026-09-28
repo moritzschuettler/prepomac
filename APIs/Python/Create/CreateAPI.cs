@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeJob;
+using CaeMesh;
 using CaeModel;
 
 namespace APIs.Python
@@ -236,6 +237,124 @@ namespace APIs.Python
             return new RegionAPI(PythonValueConverter.ToEnum<RegionTypeEnum>(region_type, "region_type"), name);
         }
 
+        [PythonAPI("Creates the splitting tool of a line drawn on the surfaces through two points, which only " +
+                   "split_shell takes. Give the points, or a 'geometry' selection in the 'geometry' view that " +
+                   "gives them: a vertex gives its own position and a circular edge its center. The line " +
+                   "follows the surface and is continued to its boundary.",
+                   Arguments = "points: list[list[float]] = None, splitter: Selection = None",
+                   Returns = "SplitTool",
+                   Example = "pmx.create.split_tool_line_by_two_points([[0, 0, 20], [60, 40, 20]])")]
+        public SplitToolAPI split_tool_line_by_two_points(object points = null, SelectionAPI splitter = null)
+        {
+            SplitByLineTwoPoints splitByLineTwoPoints = new SplitByLineTwoPoints();
+            SetSplitToolPoints(splitByLineTwoPoints.Points, points, splitter);
+            if (points != null) splitByLineTwoPoints.NumberOfPoints = 2;
+            //
+            return new SplitToolAPI(splitByLineTwoPoints, splitter, "splitter", null);
+        }
+
+        [PythonAPI("Creates the splitting tool of a plane through three points. Give the points, or a " +
+                   "'geometry' selection in the 'geometry' view that gives them: a vertex gives its own " +
+                   "position and a circular edge its center. The offset moves the plane along its normal.",
+                   Arguments = "points: list[list[float]] = None, splitter: Selection = None, offset: float = 0",
+                   Returns = "SplitTool",
+                   Example = "pmx.create.split_tool_plane_by_three_points([[0, 0, 10], [1, 0, 10], [0, 1, 10]])")]
+        public SplitToolAPI split_tool_plane_by_three_points(object points = null, SelectionAPI splitter = null,
+                                                             object offset = null)
+        {
+            SplitByPlaneThreePoints splitByPlaneThreePoints = new SplitByPlaneThreePoints();
+            SetSplitToolPoints(splitByPlaneThreePoints.Points, points, splitter);
+            if (points != null) splitByPlaneThreePoints.NumberOfPoints = 3;
+            splitByPlaneThreePoints.Offset = ToSplitToolOffset(offset);
+            //
+            return new SplitToolAPI(splitByPlaneThreePoints, splitter, "splitter", null);
+        }
+
+        [PythonAPI("Creates the splitting tool of a plane given by a point and a normal. Give them, or a " +
+                   "'geometry' selection in the 'geometry' view that gives them: a vertex gives the point, " +
+                   "a straight edge or a planar, cylindrical or conical face gives the normal, and a circular " +
+                   "edge gives its center. A value the selection does not give is taken from the argument, " +
+                   "and one given both ways must agree. A point that is not given at all is put at the center " +
+                   "of the parts being split, the way the dialog places it. The offset moves the plane along " +
+                   "its normal.",
+                   Arguments = "point: list[float] = None, normal: list[float] = None, splitter: Selection = None, " +
+                               "offset: float = 0",
+                   Returns = "SplitTool",
+                   Example = "pmx.create.split_tool_plane_by_point_and_normal([30, 20, 10], [0, 0, 1])")]
+        public SplitToolAPI split_tool_plane_by_point_and_normal(object point = null, object normal = null,
+                                                                 SelectionAPI splitter = null, object offset = null)
+        {
+            if (normal == null && splitter == null)
+                throw new PythonAPIException("Give the argument 'normal' or a 'splitter' selection that gives it.");
+            //
+            SplitByPointAndNormal splitByPointAndNormal = new SplitByPointAndNormal();
+            // A value that is not given is left empty, so that what the selection gives can be told apart
+            // from what was typed when the tool is applied
+            splitByPointAndNormal.Point = point == null ? null : ToSplitToolVector(point, "point", false);
+            splitByPointAndNormal.Normal = normal == null ? null : ToSplitToolVector(normal, "normal", true);
+            splitByPointAndNormal.Offset = ToSplitToolOffset(offset);
+            //
+            return new SplitToolAPI(splitByPointAndNormal, splitter, "splitter", null);
+        }
+
+        [PythonAPI("Creates the splitting tool of the surfaces of the selected faces, continued past their " +
+                   "boundaries. The faces are a 'geometry' or 'geometry_surfaces' selection in the 'geometry' " +
+                   "view and may lie on a part that is not being split. Only a plane, a cylinder, a cone, a " +
+                   "sphere and a torus continue past the face boundary; a face on a spline patch is left out. " +
+                   "The offset moves every continued surface along its own normal, and a positive value grows " +
+                   "the radius of a curved one.",
+                   Arguments = "faces: Selection, offset: float = 0", Returns = "SplitTool",
+                   Example = "pmx.create.split_tool_extend_face(faces)")]
+        public SplitToolAPI split_tool_extend_face(SelectionAPI faces, object offset = null)
+        {
+            if (faces == null) throw new PythonAPIException("The argument 'faces' must not be None.");
+            //
+            SplitByExtendedFace splitByExtendedFace = new SplitByExtendedFace();
+            splitByExtendedFace.Offset = ToSplitToolOffset(offset);
+            //
+            return new SplitToolAPI(splitByExtendedFace, faces, "faces", null);
+        }
+
+        [PythonAPI("Creates the splitting tool of the selected edges swept along a direction. The edges are " +
+                   "a 'geometry' selection in the 'geometry' view. Give the direction as a vector, or as a " +
+                   "'geometry' selection: one straight edge gives the way it runs, a planar face its normal, " +
+                   "a cylindrical or conical face its axis, and a planar face together with a straight edge " +
+                   "the direction that lies in the face and crosses the edge. A length that is not given " +
+                   "sweeps the edges through the whole region being split.",
+                   Arguments = "edges: Selection, direction: list[float] = None, " +
+                               "direction_selection: Selection = None, length: float = None, " +
+                               "both_directions: bool = True",
+                   Returns = "SplitTool",
+                   Example = "pmx.create.split_tool_extrude_edges(edges, direction=[0, 0, 1])")]
+        public SplitToolAPI split_tool_extrude_edges(SelectionAPI edges, object direction = null,
+                                                     SelectionAPI direction_selection = null, object length = null,
+                                                     bool both_directions = true)
+        {
+            if (edges == null) throw new PythonAPIException("The argument 'edges' must not be None.");
+            if ((direction == null) == (direction_selection == null))
+                throw new PythonAPIException("Give either the argument 'direction' or 'direction_selection'.");
+            //
+            SplitByExtrudedEdges splitByExtrudedEdges = new SplitByExtrudedEdges();
+            if (direction != null)
+            {
+                splitByExtrudedEdges.DirectionType = SplitExtrusionDirectionTypeEnum.Vector;
+                splitByExtrudedEdges.Direction = ToSplitToolVector(direction, "direction", true);
+            }
+            else splitByExtrudedEdges.DirectionType = SplitExtrusionDirectionTypeEnum.Selected;
+            //
+            if (length != null)
+            {
+                double lengthValue = PythonValueConverter.ToFiniteDouble(length, "length");
+                if (lengthValue <= 0) throw new PythonAPIException("The argument 'length' must be larger than zero.");
+                splitByExtrudedEdges.LengthType = SplitExtrusionLengthTypeEnum.Value;
+                splitByExtrudedEdges.Length = lengthValue;
+            }
+            else splitByExtrudedEdges.LengthType = SplitExtrusionLengthTypeEnum.ThroughRegion;
+            splitByExtrudedEdges.BothDirections = both_directions;
+            //
+            return new SplitToolAPI(splitByExtrudedEdges, edges, "edges", direction_selection);
+        }
+
         [PythonAPI("Creates a Rayleigh damping part for a dynamic step. Possible damping_type values are " +
                    "Off and Rayleigh.",
                    Arguments = "damping_type: str = None, alpha: float = None, beta: float = None",
@@ -325,6 +444,40 @@ namespace APIs.Python
         public override string ToString()
         {
             return "Create()";
+        }
+        //
+        private static void SetSplitToolPoints(double[][] toolPoints, object points, SelectionAPI splitter)
+        {
+            // The selection gives the points again whenever the split is applied, so points given as
+            // well would be replaced rather than used
+            if ((points == null) == (splitter == null))
+                throw new PythonAPIException("Give either the argument 'points' or a 'splitter' selection.");
+            if (points == null) return;
+            //
+            double[][] values = PythonDoubleListConverter.ToDoubleArray2D(points, "points");
+            if (values.Length != toolPoints.Length)
+                throw new PythonAPIException("The argument 'points' must contain " + toolPoints.Length + " points.");
+            for (int i = 0; i < values.Length; i++)
+                toolPoints[i] = ToSplitToolVector(values[i], "points", false);
+        }
+        private static double[] ToSplitToolVector(object value, string argumentName, bool isDirection)
+        {
+            double[] vector = value as double[] ?? PythonDoubleListConverter.ToDoubleArray(value, argumentName);
+            if (vector.Length != 3)
+                throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
+            foreach (double component in vector)
+            {
+                if (double.IsNaN(component) || double.IsInfinity(component))
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be finite.");
+            }
+            if (isDirection && vector[0] == 0 && vector[1] == 0 && vector[2] == 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be a zero vector.");
+            //
+            return vector;
+        }
+        private static double ToSplitToolOffset(object offset)
+        {
+            return offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");
         }
     }
 }

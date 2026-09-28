@@ -691,7 +691,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_extrude_mesh(name, selection, ...)` | A Gmsh extrude mesh item. |
 | `add_revolve_mesh(name, selection, create_full_360_model=None, ...)` | A Gmsh revolve mesh item. |
 | `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. A cell of a compound the sweep cannot reach is meshed by tetrahedra, by Netgen, with a pyramid on every quadrilateral a swept cell leaves on the face they share, rather than refusing the compound; a compound all of whose cells sweep is swept as before. `symmetry` is `Automatic` (the default for a new item) or `Off`: with `Automatic`, a compound whose cells are mirror images across the planes it is split on sweeps one symmetric piece of its cells and mirrors the mesh onto the others; a cell of the piece the sweep cannot reach is meshed by tetrahedra and mirrored the same way. The symmetry is used only when every cell has a mirror image, every edge of an image is an edge of the cell it is meshed from, and every other mesh setup item selects the images of what it selects; otherwise the compound is swept whole. An item read from a file written before the argument existed has `Off`. |
-| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, count_search=None, boundary_layer=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `count_search` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `Holes` (default: one ring of regular quads around every closed edge loop without corners), `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds) or `None`. Every value that is not given keeps the application default. |
+| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, count_search=None, boundary_layer=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `count_search` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `None` (default), `Holes` (one ring of regular quads around every closed edge loop without corners) or `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds). Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_netgen_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_extrude_mesh`, `replace_revolve_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
 An item the model cannot honour is **refused rather than recorded**, on an add and on a replace that
@@ -801,19 +801,55 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`defeature`, `split_face`, `extract_surface`, `flip_stl_normals` and `delete_stl_faces`. The five
-selection based methods take a selection built in the `geometry` view with the `geometry` target.
+`split_solid`, `split_shell`, `rename_split_sub_part`, `defeature`, `extract_surface`,
+`flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the `geometry` view, with
+the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
+`split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
 
-Each of `defeature`, `flip_face_orientations`, `split_face` and `delete_stl_faces` reports what it
-did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
-zero. They all act on one kind of part only - defeaturing and splitting on a CAD solid, flipping on
-a CAD shell, deleting on an STL part - and a selection that names any other kind is not refused, it
-simply leaves that part alone, which is what the zero says.
+Each of `defeature`, `flip_face_orientations` and `delete_stl_faces` reports what it did to every
+part it was asked about, as a `dict[str, int]`, and a part it could not touch reports zero. They all
+act on one kind of part only - defeaturing on a CAD solid, flipping on a CAD shell, deleting on an
+STL part - and a selection that names any other kind is not refused, it simply leaves that part
+alone, which is what the zero says.
 
 `defeature` returns the number of faces every selected part actually lost.
 The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`
 is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
 well as its wall.
+
+`split_solid(selection, tool, fuzzy_tolerance=0)` and `split_shell(selection, tool,
+fuzzy_tolerance=0)` are the Split Solid and Split Shell dialogs. The tool is made by one of the
+`pmx.create.split_tool_*` methods, and both return the number of faces every part of the selection
+gained, as a `dict[str, int]`, so a part the tool missed reports zero. A solid split names parts: one
+sub-part of a compound names that solid only and the compound names all of them, and a part the tool
+cuts in two is replaced by a compound part of the pieces, which does not keep its name. A shell split
+names surfaces: only those are divided, the part keeps its name and stays the kind of body it is, and
+a part whose divided surfaces would not give back the same body is left as it was. The line through
+two points is drawn on a surface, so only `split_shell` takes it. The fuzzy tolerance is how far apart
+the modelling kernel still takes geometry as coincident; leave it at zero unless an imported geometry
+is too inaccurate to be split. A split whose parts the exploded view holds at different offsets is
+refused, because the tool would not cut where it appears to.
+
+```python
+region = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+tool = pmx.create.split_tool_plane_by_point_and_normal([30, 20, 10], [0, 0, 1])
+added = pmx.model.geometry.parts.split_solid(region, tool)   # {'Solid-1': 1}
+
+top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [3]})
+line = pmx.create.split_tool_line_by_two_points([[0, 0, 20], [60, 40, 20]])
+pmx.model.geometry.parts.split_shell(top, line)
+```
+
+A compound part made by a solid split gathers its cells under the solids they were cut from, and
+those are the sub-parts the tree shows. `part.split_sub_part_names` lists them, empty for any other
+part, and `rename_split_sub_part(part_name, old_name, new_name)` renames one the way renaming it in
+the tree does: its cells are renamed after it, and so is the mesh part it was meshed into. A name
+another part already uses is refused, compared regardless of case as the tree compares it.
+
+```python
+compound = [part for part in pmx.model.geometry.parts if part.split_sub_part_names][0]
+pmx.model.geometry.parts.rename_split_sub_part(compound.name, compound.split_sub_part_names[0], 'Web')
+```
 
 `extract_surface(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
 are lifted out of the parts that carry them and become new shell parts, named after the part they
@@ -874,6 +910,8 @@ for a part that is not a CAD solid. A compound part reports the most restrictive
 except that one in which some cells sweep and others do not reports `Sweep`: the sweep meshes the cells it
 cannot reach by tetrahedra.
 The recognition depends on the geometry alone, so an exploded view does not change it.
+It also adds `split_sub_part_names`, the sub-parts of a compound part made by `split_solid`,
+which `rename_split_sub_part` renames; it is empty for any other part.
 
 `ModelPart` adds `get_inverted_element_ids()`, the IDs of the inverted or degenerate solid elements
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such
@@ -1634,6 +1672,11 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `thermal_expansion(thermal_expansion, zero_temperature=None)` | Thermal expansion, same shape. `zero_temperature` is the temperature the expansion starts from and defaults to 20 in model units. |
 | `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
 | `region(region_type, name)` | Names an existing region of the model. |
+| `split_tool_line_by_two_points(points=None, splitter=None)` | A line drawn on the surfaces through two points, for `split_shell` only. |
+| `split_tool_plane_by_three_points(points=None, splitter=None, offset=0)` | A plane through three points. |
+| `split_tool_plane_by_point_and_normal(point=None, normal=None, splitter=None, offset=0)` | A plane given by a point and a normal. |
+| `split_tool_extend_face(faces, offset=0)` | The surfaces of the selected faces, continued past their boundaries. |
+| `split_tool_extrude_edges(edges, direction=None, direction_selection=None, length=None, both_directions=True)` | The selected edges swept along a direction. |
 | `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step. |
 | `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step. |
 | `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type. |
@@ -1651,6 +1694,31 @@ that are given override the solver defaults - `time_incrementation_control` take
 `ic`, `il`, `ig`, `is_value`, `ia`, `ij`, `it`, `df`, `dc`, `db`, `da`, `ds`, `dh`, `dd` and `wg`;
 `field_control` takes `rna`, `cna`, `q0a`, `qua`, `rpa`, `ea`, `cea` and `rla`; `contact_control`
 takes `delcon`, `alea`, `kscalemax` and `itf2f`.
+
+### `SplitTool`
+
+Created by a `pmx.create.split_tool_*` method and taken by `split_solid` and `split_shell`. Its only
+member is `tool_type`, the operation as the split dialogs name it. A tool is a detached description:
+its selections are built in the `geometry` view and resolved only when a split applies it, so one
+tool can be used on several regions, and a pick is read again when the history is regenerated.
+
+- The points of the two point line and of the three point plane are given as coordinates or as a
+  `geometry` selection, never both, because the selection would replace them. A vertex gives its own
+  position and a circular edge its center.
+- The point and normal plane takes both ways at once: a vertex gives the point, a straight edge or a
+  planar, cylindrical or conical face the normal, and what the selection does not give is taken from
+  the argument. A value given both ways must agree, or the split is refused. A point not given at all
+  is put at the center of the parts being split, where the dialog puts the plane before anything is
+  picked. `normal` is required unless the selection is given.
+- The faces of `split_tool_extend_face` are a `geometry` or `geometry_surfaces` selection and may lie
+  on a part that is not being split. Only a plane, a cylinder, a cone, a sphere and a torus continue
+  past the face boundary; a face on a spline patch is left out, and a tool left with none is refused.
+- `split_tool_extrude_edges` takes the direction as a vector or as a selection, exactly one of them:
+  one straight edge gives the way it runs, a planar face its normal, a cylindrical or conical face its
+  axis, and a planar face with a straight edge the direction that lies in the face and crosses the
+  edge. A `length` that is not given sweeps the edges through the whole region.
+- `offset` moves a plane along its normal, and every continued surface of an extended face along its
+  own normal, a positive value growing the radius of a curved one.
 
 ### `Region`
 
@@ -1775,11 +1843,11 @@ moved the view should put it back itself rather than expecting replay to.
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
 | `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
-| `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
-
 | `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, direction='XYZ', step_by_step=False, tolerance=0, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, which needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `direction` limits the movement to `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`. A compound part moves as one body. `step_by_step` and `tolerance`, where 0 means one thousandth of the assembly diagonal, belong to `Disassembly`. A value out of range is refused, not clamped. |
 | `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
 | `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
+| `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
+
 Part visibility is not here: `hide` and `show` on the part collections are model changes and go
 through the command history like any other. An exploded view is view state like the camera: each of
 the three views keeps its own, and meshing always runs without it.

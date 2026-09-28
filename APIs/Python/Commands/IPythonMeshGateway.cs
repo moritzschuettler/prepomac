@@ -64,11 +64,13 @@ namespace APIs.Python
         void ConvertShellToSolid(string[] partNames);
         void ConvertSolidToShell(string[] partNames);
         void FindEdgesByAngleForGeometryParts(string[] partNames, double edgeAngle);
-        // Each returns what it did to every part it was asked about, zero included, for the same reason
+        // Returns what it did to every part it was asked about, zero included, for the same reason
         // Defeature does: the modelling kernel answers whether or not it changed anything
         Dictionary<string, int> FlipFaceOrientations(GeometrySelection geometrySelection);
-        Dictionary<string, int> SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection,
-                                                        GeometrySelection verticesSelection);
+        // Returns the number of faces every part of the region gained, zero included, because a tool that
+        // misses a part leaves it as it was without refusing the operation
+        Dictionary<string, int> SplitGeometry(GeometryFeature geometryFeature);
+        void RenameSplitSubPart(string compoundPartName, string oldSubPartName, string newSubPartName);
         // Returns the number of faces each selected part lost, zero included, because a defeaturing that
         // removed nothing reports success just as loudly as one that worked
         Dictionary<string, int> Defeature(GeometrySelection geometrySelection);

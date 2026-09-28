@@ -38,6 +38,12 @@ namespace APIs.Python.Model
         {
             get { return _service.GetRecognizedMeshType(_partName); }
         }
+        [PythonAPI("The sub-parts of a compound part made by split_solid: the solids its cells were cut from, " +
+                   "which rename_split_sub_part renames. Empty for any other part.", Returns = "list[str]")]
+        public string[] split_sub_part_names
+        {
+            get { return _service.GetSplitSubPartNames(_partName); }
+        }
 
 
         // Constructors

@@ -13,6 +13,7 @@ using CaeMesh;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace PrePoMax.Python
 {
@@ -246,11 +247,67 @@ namespace PrePoMax.Python
             _controller.FlipFaceOrientationsCommand(geometrySelection);
             return _controller.LastGeometryOperationCounts;
         }
-        public Dictionary<string, int> SplitFaceUsingTwoPoints(GeometrySelection surfaceSelection,
-                                                               GeometrySelection verticesSelection)
+        // The dialog reads the tool out of the picks as they are made and refuses an OK it cannot apply,
+        // so the same is done here before anything is recorded
+        public Dictionary<string, int> SplitGeometry(GeometryFeature geometryFeature)
         {
-            _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
+            if (geometryFeature is SplitByPointAndNormal pointAndNormal) ResolvePointAndNormal(pointAndNormal);
+            else _controller.UpdateSplitGeometryFromSplitterSelection(geometryFeature);
+            _controller.UpdateSplitGeometryFromDirectionSelection(geometryFeature);
+            //
+            string error = geometryFeature.CheckValidity();
+            if (error != null) throw new PythonAPIException(error);
+            //
+            _controller.SplitGeometryCommand(geometryFeature);
             return _controller.LastGeometryOperationCounts;
+        }
+        public void RenameSplitSubPart(string compoundPartName, string oldSubPartName, string newSubPartName)
+        {
+            _controller.RenameSplitSubPartCommand(compoundPartName, oldSubPartName, newSubPartName);
+        }
+        // A value that was not typed is taken from the picks, or for the point from the center of the
+        // region, where the dialog puts a plane before anything is picked. A typed value the picks
+        // would replace with a different one is refused rather than dropped.
+        private void ResolvePointAndNormal(SplitByPointAndNormal pointAndNormal)
+        {
+            double[] typedPoint = pointAndNormal.Point;
+            double[] typedNormal = pointAndNormal.Normal;
+            int[] splitterIds = pointAndNormal.SplitterIds;
+            //
+            pointAndNormal.Point = new double[3];
+            pointAndNormal.Normal = new double[3];
+            pointAndNormal.SplitterIds = null;
+            _controller.SetSplitGeometryDefaultPlanePoint(pointAndNormal);
+            pointAndNormal.SplitterIds = splitterIds;
+            if (typedPoint != null) pointAndNormal.Point = typedPoint.ToArray();
+            if (typedNormal != null) pointAndNormal.Normal = typedNormal.ToArray();
+            //
+            _controller.UpdateSplitGeometryFromSplitterSelection(pointAndNormal);
+            //
+            if (typedPoint != null && !AreSamePoint(typedPoint, pointAndNormal.Point))
+                throw new PythonAPIException("The argument 'point' differs from the point the 'splitter' " +
+                                             "selection gives. Give one of them.");
+            if (typedNormal != null && !AreSameDirection(typedNormal, pointAndNormal.Normal))
+                throw new PythonAPIException("The argument 'normal' differs from the normal the 'splitter' " +
+                                             "selection gives. Give one of them.");
+        }
+        private static bool AreSamePoint(double[] first, double[] second)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                if (Math.Abs(first[i] - second[i]) > 1E-9 * (1 + Math.Abs(first[i]))) return false;
+            }
+            return true;
+        }
+        private static bool AreSameDirection(double[] first, double[] second)
+        {
+            double firstLength = Math.Sqrt(first[0] * first[0] + first[1] * first[1] + first[2] * first[2]);
+            double secondLength = Math.Sqrt(second[0] * second[0] + second[1] * second[1] + second[2] * second[2]);
+            if (firstLength <= 0 || secondLength <= 0) return false;
+            //
+            double cosine = (first[0] * second[0] + first[1] * second[1] + first[2] * second[2]) /
+                            (firstLength * secondLength);
+            return cosine > 1 - 1E-9;
         }
         // The faces a part lost are counted around the command rather than reported by it, so the count is
         // the one the model ended up with and not the one the operation believed it had made

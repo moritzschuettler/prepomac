@@ -6,8 +6,8 @@
 #written to the output window, and the call used to return as if it had worked. It now reports the
 #number of faces every selected part actually lost, so a miss is visible to the caller.
 #
-#Its three siblings - flipping a face orientation, splitting a face and deleting an STL face -
-#each act on one kind of part only and leave every other kind alone, so they report the same way.
+#Its two siblings - flipping a face orientation and deleting an STL face - each act on one kind of
+#part only and leave every other kind alone, so they report the same way.
 #
 #blind_holes.brep is a 60 x 40 x 20 box with two blind holes drilled from the top face and one hole
 #that goes all the way through.

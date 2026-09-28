@@ -233,10 +233,15 @@ namespace APIs.Python.Model
         //
         public GeometrySelection BuildGeometrySelection(SelectionAPI selection, string argumentName)
         {
+            return BuildGeometrySelection(selection, argumentName, "geometry");
+        }
+        public GeometrySelection BuildGeometrySelection(SelectionAPI selection, string argumentName,
+                                                        params string[] targets)
+        {
             if (selection == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
             //
-            SelectionCompilation compilation = _selectionService.CompileForView(selection, ViewName, "geometry");
+            SelectionCompilation compilation = _selectionService.CompileForView(selection, ViewName, targets);
             return new GeometrySelection("Selection", compilation.Ids, compilation.Selection);
         }
         public double[] ToVector(object value, string argumentName)

@@ -91,6 +91,7 @@
     <Compile Include="Python\Common\PythonObjectListConverter.cs" />
     <Compile Include="Python\Create\StepPartFactory.cs" />
     <Compile Include="Python\Create\RegionAPI.cs" />
+    <Compile Include="Python\Create\SplitToolAPI.cs" />
     <Compile Include="Python\Create\SurfaceInteractionPropertyFactory.cs" />
     <Compile Include="Python\Common\PythonTableConverter.cs" />
     <Compile Include="Python\Model\Common\MasterSlaveRegionApplier.cs" />

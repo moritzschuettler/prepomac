@@ -48,7 +48,10 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Comment("Renaming a sub-part of a split compound is not yet available in the Python API.");
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "rename_split_sub_part",
+                                         writer.Value(_compoundPartName), writer.Value(_oldSubPartName),
+                                         writer.Value(_newSubPartName)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

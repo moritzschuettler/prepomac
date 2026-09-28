@@ -7,8 +7,10 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeMesh;
 using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 
 namespace APIs.Python.Model
@@ -72,6 +74,78 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.FlipFaceOrientations(geometrySelection);
         }
+        public Dictionary<string, int> SplitGeometry(SelectionAPI selection, SplitToolAPI tool, object fuzzyTolerance,
+                                                     SplitTypeEnum splitType)
+        {
+            if (tool == null) throw new PythonAPIException("The argument 'tool' must not be None.");
+            if (splitType == SplitTypeEnum.Solid && tool.GeometryFeature is SplitByLineTwoPoints)
+                throw new PythonAPIException("A line drawn on the surfaces only splits a shell. Use split_shell " +
+                                             "with the surfaces the line is drawn on.");
+            // The tool can be used again, so what is resolved for this split goes on a copy of it
+            GeometryFeature geometryFeature = tool.GeometryFeature.DeepClone();
+            geometryFeature.SplitType = splitType;
+            // A solid is split part by part, and a shell by the surfaces that are divided, which is what the
+            // two dialogs pick
+            GeometrySelection region = BuildGeometrySelection(selection, "selection",
+                                                              splitType == SplitTypeEnum.Solid ? "parts" :
+                                                                                                 "geometry_surfaces");
+            geometryFeature.CreationIds = region.GeometryIds;
+            geometryFeature.CreationData = region.CreationData;
+            //
+            if (tool.Splitter != null)
+            {
+                string[] targets = geometryFeature is SplitByExtendedFace ?
+                                   new string[] { "geometry", "geometry_surfaces" } : new string[] { "geometry" };
+                GeometrySelection splitter = BuildGeometrySelection(tool.Splitter, tool.SplitterArgumentName, targets);
+                geometryFeature.SplitterIds = splitter.GeometryIds;
+                geometryFeature.SplitterData = splitter.CreationData;
+            }
+            if (tool.DirectionSelection != null && geometryFeature is SplitByExtrudedEdges splitByExtrudedEdges)
+            {
+                GeometrySelection direction = BuildGeometrySelection(tool.DirectionSelection, "direction_selection",
+                                                                     "geometry");
+                splitByExtrudedEdges.DirectionIds = direction.GeometryIds;
+                splitByExtrudedEdges.DirectionData = direction.CreationData;
+            }
+            //
+            double fuzzyValue = fuzzyTolerance == null ? 0 :
+                                PythonValueConverter.ToFiniteDouble(fuzzyTolerance, "fuzzy_tolerance");
+            if (fuzzyValue < 0) throw new PythonAPIException("The argument 'fuzzy_tolerance' must not be negative.");
+            geometryFeature.FuzzyValue = fuzzyValue;
+            //
+            EnsureCommandsAvailable();
+            return MeshGateway.SplitGeometry(geometryFeature);
+        }
+        // A split compound gathers its cells under the solids they were cut from, and those are the names
+        // the tree shows and a rename changes; the cells themselves are named after them
+        public string[] GetSplitSubPartNames(string partName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null || !compoundPart.CreatedBySplit) return new string[0];
+            //
+            return compoundPart.GetSplitSubPartNames();
+        }
+        public void RenameSplitSubPart(string partName, string oldName, string newName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null || !compoundPart.CreatedBySplit)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            if (!compoundPart.GetSplitSubPartNames().Contains(oldName))
+                throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
+                                             oldName + "'.");
+            if (newName == null || newName.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'new_name' must not be empty.");
+            string error = NamedClass.CheckNameError(newName, null);
+            if (error != null) throw new PythonAPIException("The argument 'new_name' is not valid: " + error);
+            // The names are compared the way the tree compares them, so two that differ in case only clash
+            HashSet<string> reservedNames = ModelResolver.GetModel().GetReservedPartNames();
+            if (!string.Equals(newName, oldName, System.StringComparison.OrdinalIgnoreCase) &&
+                reservedNames.Contains(newName))
+                throw new PythonAPIException("The name '" + newName + "' is already used by another part.");
+            //
+            EnsureCommandsAvailable();
+            MeshGateway.RenameSplitSubPart(partName, oldName, newName);
+        }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
@@ -84,13 +158,6 @@ namespace APIs.Python.Model
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset");
             EnsureCommandsAvailable();
             return MeshGateway.ExtractSurface(geometrySelection, offsetValue);
-        }
-        public Dictionary<string, int> SplitFace(SelectionAPI surfaceSelection, SelectionAPI verticesSelection)
-        {
-            GeometrySelection surfaces = BuildGeometrySelection(surfaceSelection, "surface_selection");
-            GeometrySelection vertices = BuildGeometrySelection(verticesSelection, "vertices_selection");
-            EnsureCommandsAvailable();
-            return MeshGateway.SplitFaceUsingTwoPoints(surfaces, vertices);
         }
         public void FlipStlNormals(string[] partNames)
         {
