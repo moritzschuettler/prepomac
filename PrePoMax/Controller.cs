@@ -4695,24 +4695,21 @@ namespace PrePoMax
                 }
             }
         }
+        /// <summary>
+        /// Whether the sub parts of a compound part were hidden or shown. The edges are read again for any
+        /// change at all: what a sub part draws is what it was given the last time it was visible, which is
+        /// not what the sub parts visible now would be given, so hiding them one by one and showing the
+        /// compound part again would leave every one of them drawing the edges it shares.
+        /// </summary>
         private bool IsSharedModelEdgeOwnerChanged(bool[] previousVisibilities, bool[] visibilities)
         {
             if (previousVisibilities.Length != visibilities.Length) return true;
             //
-            bool changed = false;
             for (int i = 0; i < visibilities.Length; i++)
             {
-                if (previousVisibilities[i] != visibilities[i]) { changed = true; break; }
+                if (previousVisibilities[i] != visibilities[i]) return true;
             }
-            if (!changed) return false;
-            // All sub parts visible and none of them visible leave each shared edge to the same sub part
-            return !(IsAllOrNoneVisible(previousVisibilities) && IsAllOrNoneVisible(visibilities));
-        }
-        private bool IsAllOrNoneVisible(bool[] visibilities)
-        {
-            int visibleCount = 0;
-            for (int i = 0; i < visibilities.Length; i++) { if (visibilities[i]) visibleCount++; }
-            return visibleCount == 0 || visibleCount == visibilities.Length;
+            return false;
         }
         public void HideGeometryParts(string[] partNames)
         {
