@@ -78,6 +78,17 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(10, 10, "Fallback to Gmsh")]
+        [DescriptionAttribute("Mesh a source surface with gmsh when QuadWild cannot mesh it. Set to No to have the " +
+                              "meshing fail instead, so that the surfaces QuadWild cannot mesh are found.")]
+        [Id(11, 3)]
+        public bool QuadWildFallbackToGmsh
+        {
+            get { return _sweepMesh.QuadWildFallbackToGmsh; }
+            set { _sweepMesh.QuadWildFallbackToGmsh = value; }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
         [OrderedDisplayName(7, 10, "Flow profile")]
         [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
         [Id(8, 3)]
@@ -120,17 +131,6 @@ namespace PrePoMax.Forms
         {
             get { return _sweepMesh.NumberOfGlobalSmoothSteps; }
             set { _sweepMesh.NumberOfGlobalSmoothSteps = value; }
-        }
-        //
-        [CategoryAttribute("Debugging")]
-        [OrderedDisplayName(0, 10, "Fallback to gmsh")]
-        [DescriptionAttribute("Mesh a source surface with gmsh when QuadWild cannot mesh it. Set to No to have the " +
-                              "meshing fail instead, so that the surfaces QuadWild cannot mesh are found.")]
-        [Id(1, 11)]
-        public bool QuadWildFallbackToGmsh
-        {
-            get { return _sweepMesh.QuadWildFallbackToGmsh; }
-            set { _sweepMesh.QuadWildFallbackToGmsh = value; }
         }
 
 
@@ -188,4 +188,3 @@ namespace PrePoMax.Forms
         }
     }
 }
-

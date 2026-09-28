@@ -186,7 +186,11 @@ namespace PrePoMax.Forms
             {
                 MeshSetupItem.Reset();
                 if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
-                if (_viewMeshSetupItem is ViewSweepMesh vsw) SetSelectItem();
+                if (_viewMeshSetupItem is ViewSweepMesh vsw)
+                {
+                    vsw.UpdateVisibility();
+                    SetSelectItem();
+                }
             }
             //
             _propertyItemChanged = true;
