@@ -236,6 +236,7 @@ namespace PrePoMax.Python.Journal
             arguments.Add("split_compound_mesh=" + PythonValueFormatter.Format(parameters.SplitCompoundMesh));
             arguments.Add("merge_compound_parts=" +
                           PythonValueFormatter.Format(parameters.MergeCompoundParts));
+            arguments.Add("merge_cells=" + PythonValueFormatter.Format(parameters.MergeCells));
         }
         private static void AddShellMmgValues(List<string> arguments, ShellMmg shellMmg)
         {

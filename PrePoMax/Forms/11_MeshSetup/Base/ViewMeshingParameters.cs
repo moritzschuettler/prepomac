@@ -159,6 +159,17 @@ namespace PrePoMax.Forms
             get { return _parameters.MergeCompoundParts; }
             set { _parameters.MergeCompoundParts = value; }
         }
+        //
+        [Category("Mesh operations")]
+        [OrderedDisplayName(2, 10, "Merge cells")]
+        [Description("Merge the cell meshes of each part cut by a split to a single mesh part. Keep the cells " +
+                     "as separate mesh parts to assign them different sections.")]
+        [Id(3, 6)]
+        public bool MergeCells
+        {
+            get { return _parameters.MergeCells; }
+            set { _parameters.MergeCells = value; }
+        }
         // Constructors                                                                                                             
         protected ViewMeshingParameters()
         {
@@ -204,6 +215,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(MidsideNodesOnGeometry));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SplitCompoundMesh));
             _dctd.RenameBooleanPropertyToYesNo(nameof(MergeCompoundParts));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(MergeCells));
             //
             UpdateVisibility();
         }
@@ -230,6 +242,7 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(MidsideNodesOnGeometry)).SetIsBrowsable(_parameters.SecondOrder && advanced);
             _dctd.GetProperty(nameof(SplitCompoundMesh)).SetIsBrowsable(advanced);
             _dctd.GetProperty(nameof(MergeCompoundParts)).SetIsBrowsable(advanced);
+            _dctd.GetProperty(nameof(MergeCells)).SetIsBrowsable(advanced);
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
         }
     }

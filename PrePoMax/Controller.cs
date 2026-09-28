@@ -9007,7 +9007,7 @@ namespace PrePoMax
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
-                                                                          revolveMesh, out elementIdMaterialName,
+                                                                          meshingParameters.MergeCells, revolveMesh, out elementIdMaterialName,
                                                                           GetSymmetricSweepMesh(part.Name));
             if (convertToSecondOrder) _form.WriteDataToOutput("Done.");
             generatedMesh.ElementIdMaterialName = elementIdMaterialName;

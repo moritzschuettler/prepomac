@@ -51,6 +51,7 @@ namespace CaeMesh
         private int _optimizeSteps3D;               //ISerializable
         private bool _splitCompoundMesh;            //ISerializable
         private bool _mergeCompoundParts;           //ISerializable
+        private bool _mergeCells;                   //ISerializable
 
 
         // Properties                                                                                                               
@@ -194,6 +195,7 @@ namespace CaeMesh
                 if (_mergeCompoundParts) _splitCompoundMesh = false;
             }
         }
+        public bool MergeCells { get { return _mergeCells; } set { _mergeCells = value; } }
 
 
         // Constructors                                                                                                             
@@ -210,6 +212,7 @@ namespace CaeMesh
         public MeshingParameters(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            _mergeCells = true;
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -258,6 +261,8 @@ namespace CaeMesh
                         _splitCompoundMesh = (bool)entry.Value; break;
                     case "_mergeCompoundParts":
                         _mergeCompoundParts = (bool)entry.Value; break;
+                    case "_mergeCells":
+                        _mergeCells = (bool)entry.Value; break;
                     // Compatibility for version v2.6.2: _useMmg, _factorHausdorff, _hausdorff and
                     // _keepModelEdges belong to ShellMmg and are intentionally dropped, so a model
                     // that selected MMG through the meshing parameters loads and uses Netgen
@@ -293,6 +298,7 @@ namespace CaeMesh
             _midsideNodesOnGeometry = false;
             _splitCompoundMesh = false;
             _mergeCompoundParts = false;
+            _mergeCells = true;
         }
         public void SetCheckName(bool checkName)
         {
@@ -399,6 +405,7 @@ namespace CaeMesh
             _midsideNodesOnGeometry = meshingParameters.MidsideNodesOnGeometry;
             _splitCompoundMesh = meshingParameters.SplitCompoundMesh;
             _mergeCompoundParts = meshingParameters.MergeCompoundParts;
+            _mergeCells = meshingParameters.MergeCells;
         }
         public MeshingParameters DeepCopy()
         {
@@ -431,6 +438,7 @@ namespace CaeMesh
             if (meshingParameters1._midsideNodesOnGeometry != meshingParameters2._midsideNodesOnGeometry) return false;
             if (meshingParameters1._splitCompoundMesh != meshingParameters2._splitCompoundMesh) return false;
             if (meshingParameters1._mergeCompoundParts != meshingParameters2._mergeCompoundParts) return false;
+            if (meshingParameters1._mergeCells != meshingParameters2._mergeCells) return false;
             return true;
         }
         // ISerialization
@@ -460,6 +468,7 @@ namespace CaeMesh
             info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
             info.AddValue("_splitCompoundMesh", _splitCompoundMesh, typeof(bool));
             info.AddValue("_mergeCompoundParts", _mergeCompoundParts, typeof(bool));
+            info.AddValue("_mergeCells", _mergeCells, typeof(bool));
         }
     }
 }

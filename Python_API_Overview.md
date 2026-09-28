@@ -704,7 +704,9 @@ carries, not by the verdict of the item it replaces.
 
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`,
 `min_size`, `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `second_order`,
-`midside_nodes_on_geometry`, `split_compound_mesh` and `merge_compound_parts`. The Netgen settings
+`midside_nodes_on_geometry`, `split_compound_mesh`, `merge_compound_parts` and `merge_cells`.
+`merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
+cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_faces` and
 `transfinite_angle` belong to `add_netgen_mesh`. `transfinite_faces` is `'None'`, `'SizeChecked'` or
 `'All'`: which 4-sided faces are meshed as structured triangle grids, `'SizeChecked'` leaving a face

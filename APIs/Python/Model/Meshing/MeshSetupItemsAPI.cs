@@ -21,7 +21,7 @@ namespace APIs.Python.Model
             "max_size: float = None, min_size: float = None, fineness: float = None, grading: float = None, " +
             "elements_per_edge: float = None, elements_per_curve: float = None, second_order: bool = None, " +
             "midside_nodes_on_geometry: bool = None, split_compound_mesh: bool = None, " +
-            "merge_compound_parts: bool = None";
+            "merge_compound_parts: bool = None, merge_cells: bool = None";
         private const string NetgenMeshArguments =
             "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
             "transfinite_faces: str = None, transfinite_angle: float = None";
@@ -60,7 +60,8 @@ namespace APIs.Python.Model
                                                        object relative_size = null, object factor_max = null,
                                                        object factor_min = null,
                                                        object split_compound_mesh = null,
-                                                       object merge_compound_parts = null)
+                                                       object merge_compound_parts = null,
+                                                       object merge_cells = null)
         {
             MeshingParameters item = _service.CreateDefaultMeshingParameters(name);
             _service.PrepareItem(item, name, selection);
@@ -68,7 +69,7 @@ namespace APIs.Python.Model
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
-                                   merge_compound_parts);
+                                   merge_compound_parts, merge_cells);
             _service.AddPreparedItem(item);
             return this[name];
         }
@@ -87,17 +88,18 @@ namespace APIs.Python.Model
                                                            object relative_size = null, object factor_max = null,
                                                            object factor_min = null,
                                                            object split_compound_mesh = null,
-                                                           object merge_compound_parts = null)
+                                                           object merge_compound_parts = null,
+                                                           object merge_cells = null)
         {
             MeshingParameters item = (MeshingParameters)_service.CloneItem(old_name);
             bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
                                           elements_per_curve, second_order, midside_nodes_on_geometry,
                                           relative_size, factor_max, factor_min, split_compound_mesh,
-                                          merge_compound_parts);
+                                          merge_compound_parts, merge_cells);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
-                                   merge_compound_parts);
+                                   merge_compound_parts, merge_cells);
             return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
@@ -671,7 +673,7 @@ namespace APIs.Python.Model
                                                    object elementsPerCurve, object secondOrder,
                                                    object midsideNodesOnGeometry, object relativeSize,
                                                    object factorMax, object factorMin, object splitCompoundMesh,
-                                                   object mergeCompoundParts)
+                                                   object mergeCompoundParts, object mergeCells)
         {
             if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
             if (factorMax != null) item.FactorMax = PythonValueConverter.ToFiniteDouble(factorMax, "factor_max");
@@ -693,6 +695,7 @@ namespace APIs.Python.Model
                 item.SplitCompoundMesh = PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh");
             if (mergeCompoundParts != null)
                 item.MergeCompoundParts = PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts");
+            if (mergeCells != null) item.MergeCells = PythonValueConverter.ToBool(mergeCells, "merge_cells");
         }
         private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
                                             object quadDominated, string transfiniteFaces,

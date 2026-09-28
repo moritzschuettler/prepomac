@@ -1842,11 +1842,11 @@ namespace CaeModel
                                                        RevolveMesh revolveMesh = null)
         {
             return PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
-                                                    mergeCompoundParts, revolveMesh, out _);
+                                                    mergeCompoundParts, true, revolveMesh, out _);
         }
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                        bool splitCompoundMesh, bool mergeCompoundParts,
-                                                       RevolveMesh revolveMesh,
+                                                       bool mergeCells, RevolveMesh revolveMesh,
                                                        out Dictionary<int, string> elementIdMaterialName,
                                                        SweepMesh symmetricSweep = null)
         {
@@ -1901,8 +1901,6 @@ namespace CaeModel
             // A symmetric sweep meshed only the cells of one symmetric piece, and the others take their mirror images
             if (symmetricSweep != null && symmetricSweep.HasSymmetry && part is CompoundGeometryPart symmetricCompound)
                 CreateMirroredCellMeshes(mesh, symmetricCompound, symmetricSweep);
-            // Split compound mesh
-            if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
             // Merge parts if only one part is expected
             string[] partNames = mesh.Parts.Keys.ToArray();
             if (prevPartNames.Length != partNames.Length)
@@ -1941,10 +1939,12 @@ namespace CaeModel
             mesh.Parts.Clear();
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
             // The cells of a split compound are meshed together, so their meshes share the faces between them,
-            // and each part the split cut becomes one mesh part again
+            // and each part the split cut becomes one mesh part again unless its cells are kept apart
             if (part is CompoundGeometryPart splitCompoundPart && splitCompoundPart.CreatedBySplit &&
-                !mergeCompoundParts && !splitCompoundMesh)
+                !mergeCompoundParts && mergeCells)
                 MergeSplitCellMeshParts(mesh, splitCompoundPart);
+            // Split compound mesh - after the cells are merged, so only the parts the split cut are separated
+            if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
             // Splitting, merging and revolving the mesh redefines the visualization faces and edges of the
             // affected parts - recognize the types of the parts which lost them
             mesh.DetectFaceTypes(false);
