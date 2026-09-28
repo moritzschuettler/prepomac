@@ -624,8 +624,7 @@ namespace PrePoMax.Forms
             }
             else if (constraint is RigidBody rb && rb.CreationData != null)
             {
-                if (!_controller.Model.IsConstraintRegionValid(rb) || // do not use BoundaryCondition.Valid
-                   !_controller.Model.RegionValid(rb))
+                if (!_controller.Model.RegionValid(rb))
                 {
                     // Region invalid
                     rb.CreationData = null;
@@ -636,8 +635,7 @@ namespace PrePoMax.Forms
             }
             else if (constraint is KinematicCoupling kc && kc.CreationData != null)
             {
-                if (!_controller.Model.IsConstraintRegionValid(kc) || // do not use BoundaryCondition.Valid
-                    !_controller.Model.RegionValid(kc))
+                if (!_controller.Model.RegionValid(kc))
                 {
                     // Region invalid
                     kc.CreationData = null;
@@ -648,8 +646,7 @@ namespace PrePoMax.Forms
             }
             else if (constraint is DistributingCoupling dc && dc.CreationData != null)
             {
-                if (!_controller.Model.IsConstraintRegionValid(dc) || // do not use BoundaryCondition.Valid
-                    !_controller.Model.RegionValid(dc))
+                if (!_controller.Model.RegionValid(dc))
                 {
                     // Region invalid
                     dc.CreationData = null;

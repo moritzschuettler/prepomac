@@ -22577,8 +22577,8 @@ namespace PrePoMax
                     // Only draw reference point during highlight
                     if (layer == vtkRendererLayer.Selection)
                     {
-                        if (!_model.Mesh.ReferencePoints.ContainsKey(rb.ReferencePointName)) return;
-                        else DrawReferencePoint(_model.Mesh.ReferencePoints[rb.ReferencePointName], masterColor, layer);
+                        if (_model.Mesh.ReferencePoints.ContainsKey(rb.ReferencePointName))
+                            DrawReferencePoint(_model.Mesh.ReferencePoints[rb.ReferencePointName], masterColor, layer);
                     }
                     // Slave
                     if (rb.RegionType == RegionTypeEnum.NodeSetName)
@@ -22603,8 +22603,8 @@ namespace PrePoMax
                     // Only draw reference point during highlight
                     if (layer == vtkRendererLayer.Selection)
                     {
-                        if (!_model.Mesh.ReferencePoints.ContainsKey(coupling.ReferencePointName)) return;
-                        else DrawReferencePoint(_model.Mesh.ReferencePoints[coupling.ReferencePointName], masterColor, layer);
+                        if (_model.Mesh.ReferencePoints.ContainsKey(coupling.ReferencePointName))
+                            DrawReferencePoint(_model.Mesh.ReferencePoints[coupling.ReferencePointName], masterColor, layer);
                     }
                     // Slave
                     if (coupling.RegionType == RegionTypeEnum.NodeSetName)
