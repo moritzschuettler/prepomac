@@ -6812,7 +6812,7 @@ namespace PrePoMax
             // before: a redraw - switching a color annotation on is one - draws them with their own
             // color again, and a fade that only looked at what had changed would take the remembered
             // names for faded parts and leave them opaque
-            int alpha = 64;
+            int alpha = 100;
             foreach (string partName in namesToFade)
             {
                 Color drawnColor;

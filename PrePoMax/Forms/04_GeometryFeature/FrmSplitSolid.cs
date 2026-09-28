@@ -83,40 +83,41 @@ namespace PrePoMax.Forms
             // 
             // gbType
             // 
-            this.gbType.Size = new System.Drawing.Size(340, 108);
+            this.gbType.Size = new System.Drawing.Size(350, 108);
             this.gbType.Text = "Operation";
             // 
             // lvTypes
             // 
-            this.lvTypes.Size = new System.Drawing.Size(328, 73);
+            this.lvTypes.Size = new System.Drawing.Size(338, 73);
             // 
             // gbProperties
             // 
             this.gbProperties.Location = new System.Drawing.Point(12, 126);
-            this.gbProperties.Size = new System.Drawing.Size(340, 304);
+            this.gbProperties.Size = new System.Drawing.Size(350, 304);
             // 
             // propertyGrid
             // 
-            this.propertyGrid.Size = new System.Drawing.Size(328, 282);
+            this.propertyGrid.Location = new System.Drawing.Point(6, 16);
+            this.propertyGrid.Size = new System.Drawing.Size(338, 282);
             // 
             // btnOK
             // 
-            this.btnOK.Location = new System.Drawing.Point(190, 436);
+            this.btnOK.Location = new System.Drawing.Point(200, 436);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(271, 436);
+            this.btnCancel.Location = new System.Drawing.Point(281, 436);
             // 
             // btnOkAddNew
             // 
-            this.btnOkAddNew.Location = new System.Drawing.Point(109, 436);
+            this.btnOkAddNew.Location = new System.Drawing.Point(119, 436);
             // 
             // cbAnnotateMeshTypes
             // 
             this.cbAnnotateMeshTypes.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.cbAnnotateMeshTypes.Appearance = System.Windows.Forms.Appearance.Button;
             this.cbAnnotateMeshTypes.Image = global::PrePoMax.Properties.Resources.Color_palette;
-            this.cbAnnotateMeshTypes.Location = new System.Drawing.Point(75, 436);
+            this.cbAnnotateMeshTypes.Location = new System.Drawing.Point(85, 436);
             this.cbAnnotateMeshTypes.Name = "cbAnnotateMeshTypes";
             this.cbAnnotateMeshTypes.Size = new System.Drawing.Size(28, 23);
             this.cbAnnotateMeshTypes.TabIndex = 17;
@@ -128,20 +129,20 @@ namespace PrePoMax.Forms
             // 
             this.btnPreview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnPreview.Image = global::PrePoMax.Properties.Resources.Show;
-            this.btnPreview.Location = new System.Drawing.Point(41, 436);
+            this.btnPreview.Location = new System.Drawing.Point(51, 436);
             this.btnPreview.Name = "btnPreview";
             this.btnPreview.Size = new System.Drawing.Size(28, 23);
             this.btnPreview.TabIndex = 18;
             this.ttText.SetToolTip(this.btnPreview, "Preview the edges the split makes");
             this.btnPreview.UseVisualStyleBackColor = true;
             this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
-            //
+            // 
             // btnUndo
-            //
+            // 
             this.btnUndo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnUndo.Enabled = false;
             this.btnUndo.Image = global::PrePoMax.Properties.Resources.Undo;
-            this.btnUndo.Location = new System.Drawing.Point(7, 436);
+            this.btnUndo.Location = new System.Drawing.Point(17, 436);
             this.btnUndo.Name = "btnUndo";
             this.btnUndo.Size = new System.Drawing.Size(28, 23);
             this.btnUndo.TabIndex = 19;
@@ -152,11 +153,11 @@ namespace PrePoMax.Forms
             // FrmSplitSolid
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.ClientSize = new System.Drawing.Size(364, 471);
-            this.Controls.Add(this.cbAnnotateMeshTypes);
-            this.Controls.Add(this.btnPreview);
+            this.ClientSize = new System.Drawing.Size(374, 471);
             this.Controls.Add(this.btnUndo);
-            this.MinimumSize = new System.Drawing.Size(380, 510);
+            this.Controls.Add(this.btnPreview);
+            this.Controls.Add(this.cbAnnotateMeshTypes);
+            this.MinimumSize = new System.Drawing.Size(390, 510);
             this.Name = "FrmSplitSolid";
             this.Text = "Split Solid";
             this.Activated += new System.EventHandler(this.FrmSplitSolid_Activated);
