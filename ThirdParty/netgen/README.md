@@ -29,7 +29,9 @@ Only `NetGenMesher.exe` (~80 KB) and `nglib.dll` (~2 MB) normally change between
 the OpenCASCADE and runtime dlls change when their corresponding dependencies are upgraded.
 Deploy `NetGenMesher.exe` and `nglib.dll` as a matched pair. The current pair supports
 `STL_SURFACE_MESH` for open STL shells and open-boundary `STL_EDGE_MESH`; optional refinement and
-edge-node files may be omitted. Its `BREP_SPLIT` takes `Split target: Shell` with `Target solid`
+edge-node files may be omitted. `BREP_DEFEATURE` removes selected 1-based face IDs from a CAD solid
+with OpenCASCADE 8.0.1 and checks that the result is still a valid solid. Its `BREP_SPLIT` takes
+`Split target: Shell` with `Target solid`
 and `Target face ids`, which divides only the named faces and leaves the body they belong to whole, and
 `Tool type: TwoPointLine`, which divides them along the line between two points drawn in the parameter space
 of the surface. `BREP_SPLIT_PREVIEW` runs the same split and writes only the edges it made, as

@@ -8889,8 +8889,8 @@ namespace PrePoMax
                 if (part != null && part is GeometryPart gp1 && gp1.IsCADPart &&
                     (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
                 {
-                    // Gmsh numbering
-                    faceId = FeMesh.GmshTopologyId(itemTypePartIds[0], partId);
+                    // One-based CAD face numbering
+                    faceId = itemTypePartIds[0] + 1;
                     if (partIdFaceIds.TryGetValue(partId, out faceIds)) faceIds.Add(faceId);
                     else partIdFaceIds.Add(partId, new HashSet<int>() { faceId });
                 }
@@ -8909,7 +8909,7 @@ namespace PrePoMax
                 faceCountsBefore[gp.Name] = gp.Visualization == null ? 0 : gp.Visualization.FaceCount;
                 defeaturedPartNames.Add(gp.Name);
                 //
-                brepFileName = _gmshRunner.Defeature(gp, entry.Value.ToArray());
+                brepFileName = _netgenRunner.Defeature(gp, entry.Value.ToArray());
                 //
                 if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
                 else ClearAllSelection();

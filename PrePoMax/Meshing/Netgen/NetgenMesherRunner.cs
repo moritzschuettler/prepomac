@@ -47,6 +47,40 @@ namespace PrePoMax
             return part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
                    part.PartType == PartType.Shell;
         }
+        public string Defeature(GeometryPart part, int[] surfaceIds)
+        {
+            _controller.Form.WriteDataToOutput("");
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            _controller.SuppressExplodedView(new string[] { part.Name });
+            try
+            {
+                File.WriteAllText(brepFileName, part.CADFileData);
+            }
+            finally
+            {
+                _controller.ResumeExplodedViews(false);
+            }
+            //
+            int[] sortedSurfaceIds = (int[])surfaceIds.Clone();
+            Array.Sort(sortedSurfaceIds);
+            string argument = "BREP_DEFEATURE " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              string.Join(" ", sortedSurfaceIds);
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                           _controller.Form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK)
+                throw new CaeException("Defeaturing failed for part '" + part.Name + "'.");
+            return brepFileName;
+        }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
