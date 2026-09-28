@@ -1962,12 +1962,13 @@ namespace FileInOut.Output
                 }
                 if (fixedNodeId != 0)
                 {
-                    for (int dof = 1; dof <= 2; dof++)
-                    {
-                        parameters.Add(fixedNodeId);
-                        parameters.Add(dof);
-                        parameters.Add(1);
-                    }
+                    // The two perpendicular equations need different fixed terms or Calculix can crash during MPC setup.
+                    parameters.Add(fixedNodeId);
+                    parameters.Add(1);
+                    parameters.Add(1);
+                    parameters.Add(fixedNodeId);
+                    parameters.Add(usedDependentDofs.Count + 1);
+                    parameters.Add(1);
                 }
                 equationParameters.Add(parameters.ToArray());
             }

@@ -4613,9 +4613,9 @@ namespace vtkControl
             }
             else if (symbol == vtkJointSymbolEnum.Slider)
             {
-                // A rail and a block on it
-                AddCube(append, 0, 0, -0.075, 2.4, 0.9, 0.15);
-                AddCube(append, 0, 0, 0.175, 0.9, 0.6, 0.35);
+                // A square shaft through a hollow guide allows sliding without rotation
+                AddCube(append, 0, 0, 0, 2.4, 0.24, 0.24);
+                AddSquareSleeveAlongX(append, 0.9, 0.7, 0.34);
             }
             else if (symbol == vtkJointSymbolEnum.Ball)
             {
@@ -4755,6 +4755,44 @@ namespace vtkControl
             cube.SetZLength(lengthZ);
             //
             append.AddInput(cube.GetOutput());
+        }
+        private static void AddSquareSleeveAlongX(vtkAppendPolyData append, double length, double outerWidth,
+                                                   double innerWidth)
+        {
+            vtkPoints points = vtkPoints.New();
+            double[] widths = { outerWidth, innerWidth };
+            int[] ySigns = { -1, 1, 1, -1 };
+            int[] zSigns = { -1, -1, 1, 1 };
+            for (int shell = 0; shell < 2; shell++)
+            {
+                for (int end = 0; end < 2; end++)
+                {
+                    for (int corner = 0; corner < 4; corner++)
+                        points.InsertNextPoint((end == 0 ? -1 : 1) * length / 2,
+                                               ySigns[corner] * widths[shell] / 2,
+                                               zSigns[corner] * widths[shell] / 2);
+                }
+            }
+            //
+            // Shared corners make one closed sleeve, without feature edges where separate wall blocks would meet.
+            vtkCellArray polygons = vtkCellArray.New();
+            for (int corner = 0; corner < 4; corner++)
+            {
+                int next = (corner + 1) % 4;
+                int[][] faces = { new int[] { corner, next, 4 + next, 4 + corner },
+                                  new int[] { 8 + corner, 12 + corner, 12 + next, 8 + next },
+                                  new int[] { 4 + corner, 4 + next, 12 + next, 12 + corner },
+                                  new int[] { corner, 8 + corner, 8 + next, next } };
+                foreach (int[] face in faces)
+                {
+                    polygons.InsertNextCell(4);
+                    foreach (int pointId in face) polygons.InsertCellPoint(pointId);
+                }
+            }
+            vtkPolyData sleeve = vtkPolyData.New();
+            sleeve.SetPoints(points);
+            sleeve.SetPolys(polygons);
+            append.AddInput(sleeve);
         }
         private static void AddWeldFillet(vtkAppendPolyData append, int side)
         {
