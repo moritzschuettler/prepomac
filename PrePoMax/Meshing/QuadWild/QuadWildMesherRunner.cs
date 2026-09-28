@@ -58,7 +58,8 @@ namespace PrePoMax
             return part != null && part.PartType == PartType.Shell;
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            bool previewSweepSourceMesh)
         {
             return PreviewEdgeNodes(part, mesherSetupItems, meshSetupItems);
         }

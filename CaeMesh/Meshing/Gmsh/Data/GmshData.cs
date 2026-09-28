@@ -34,6 +34,7 @@ namespace CaeMesh
         public MeshingParameters PartMeshingParameters;
         public MeshSetupItem[] GmshSetupItems;
         public bool Preview;
+        public bool PreviewSweepSourceMesh;
         // Topology
         public Dictionary<int, string> PartIdPartName;
         public Dictionary<int, FeNode> VertexNodes;

@@ -8955,10 +8955,10 @@ namespace PrePoMax
             {
                 MeshSetupItem[] quadWildSetupItems = new MeshSetupItem[] { meshSetupItem };
                 if (part.IsCADPart)
-                    result = _quadWildRunner.PreviewEdgeMeshFromBrep(part, quadWildSetupItems, meshSetupItemsDict);
+                    result = _quadWildRunner.PreviewEdgeMeshFromBrep(part, quadWildSetupItems, meshSetupItemsDict, false);
                 else result = _quadWildRunner.PreviewEdgeMeshFromStl(part, quadWildSetupItems, meshSetupItemsDict);
             }
-            else if (part.IsCADPart) result = PreviewEdgeMeshFromBrep(part, meshSetupItemsDict);
+            else if (part.IsCADPart) result = PreviewEdgeMeshFromBrep(part, meshSetupItemsDict, meshSetupItem is SweepMesh);
             else
             {
                 MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name, meshSetupItemsDict);
@@ -8978,12 +8978,13 @@ namespace PrePoMax
             }
             return result;
         }
-        public bool PreviewEdgeMeshFromBrep(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        public bool PreviewEdgeMeshFromBrep(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            bool previewSweepSourceMesh)
         {
             MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name, meshSetupItems);
             //
             return _mesherRegistry.GetBrepRunner(part, mesherSetupItems)
-                                  .PreviewEdgeMeshFromBrep(part, mesherSetupItems, meshSetupItems);
+                                  .PreviewEdgeMeshFromBrep(part, mesherSetupItems, meshSetupItems, previewSweepSourceMesh);
         }
         public void ImportGeneratedNodeMesh(string fileName, GeometryPart part, bool resetCamera)
         {
@@ -10111,14 +10112,27 @@ namespace PrePoMax
             FeMesh geometry = _model?.Geometry;
             if (geometry == null) return null;
             //
+            List<MeshSetupItem> meshSetupItems = new List<MeshSetupItem>();
+            foreach (string meshSetupItemName in meshSetupItemNames)
+            {
+                if (geometry.MeshSetupItems.TryGetValue(meshSetupItemName, out MeshSetupItem meshSetupItem))
+                    meshSetupItems.Add(meshSetupItem);
+            }
+            return GetPartNamesToMeshFromMeshSetupItems(meshSetupItems.ToArray());
+        }
+        public string[] GetPartNamesToMeshFromMeshSetupItems(MeshSetupItem[] meshSetupItems)
+        {
+            if (meshSetupItems == null) return null;
+            FeMesh geometry = _model?.Geometry;
+            if (geometry == null) return null;
+            //
             Dictionary<string, string> subPartNameCompoundPartName = GetCompoundPartNamesBySubPartName();
             //
             List<string> partNamesToMesh = new List<string>();
             HashSet<string> addedPartNames = new HashSet<string>();
             //
-            foreach (string meshSetupItemName in meshSetupItemNames)
+            foreach (MeshSetupItem meshSetupItem in meshSetupItems)
             {
-                if (!geometry.MeshSetupItems.TryGetValue(meshSetupItemName, out MeshSetupItem meshSetupItem)) continue;
                 if (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0) continue;
                 //
                 int[] partIds = FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds);

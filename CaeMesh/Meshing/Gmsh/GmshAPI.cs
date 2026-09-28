@@ -1802,7 +1802,7 @@ namespace CaeMesh
             // Debug
             if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
-            if (preview)
+            if (preview && _gmshData.PreviewSweepSourceMesh)
             {
                 // Remove the side surface mesh
                 toRemoveDimTags = new List<Tuple<int, int>>();
@@ -1812,6 +1812,14 @@ namespace CaeMesh
                 }
                 //
                 Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
+            }
+            else if (preview)
+            {
+                // The preview shows the edge nodes as every constraint of the sweep left them, so the 2D pass that
+                // settles them runs and all the surface meshes are then removed
+                Tuple<int, int>[] surfaceDimTags;
+                Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+                Gmsh.Model.Mesh.Clear(surfaceDimTags);
             }
             else
             {

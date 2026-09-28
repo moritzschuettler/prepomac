@@ -200,20 +200,7 @@ namespace PrePoMax.Forms
                 Enabled = false;
                 ItemSetDataEditor.SelectionForm.Enabled = false;
                 //
-                string[] partNames;
-                if (MeshSetupItem is MeshingParameters || MeshSetupItem is ShellMmg ||
-                    MeshSetupItem is NetgenMesh || MeshSetupItem is TetrahedralGmsh ||
-                    MeshSetupItem is TransfiniteMesh)
-                {
-                    partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
-                }
-                else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ShellQuadWild ||
-                         MeshSetupItem is ThickenShellMesh || MeshSetupItem is LocalMeshSize ||
-                         MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh || MeshSetupItem is RevolveMesh)
-                {
-                    partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(MeshSetupItem.CreationIds);
-                }
-                else throw new NotSupportedException("MeshSetupItemTypeException");
+                string[] partNames = _controller.GetPartNamesToMeshFromMeshSetupItems(new MeshSetupItem[] { MeshSetupItem });
                 //
                 if (partNames != null && partNames.Length > 0)
                 {

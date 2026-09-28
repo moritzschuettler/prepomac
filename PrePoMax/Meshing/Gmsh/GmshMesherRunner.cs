@@ -138,7 +138,8 @@ namespace PrePoMax
             }
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] gmshSetupItems,
-                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                                bool previewSweepSourceMesh)
         {
             string workDirectory = _controller.Settings.GetWorkDirectory();
             //
@@ -148,6 +149,7 @@ namespace PrePoMax
                 return false;
             }
             //
+            previewSweepSourceMesh &= gmshSetupItems.Length == 1 && gmshSetupItems[0] is SweepMesh;
             string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
@@ -166,6 +168,7 @@ namespace PrePoMax
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = GetSetupItemsForPart(part, gmshSetupItems);
             gmshData.Preview = true;
+            gmshData.PreviewSweepSourceMesh = previewSweepSourceMesh;
             gmshData.QuadWildDirectory = GetQuadWildDirectory();
             _controller.Model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
             _controller.GetMeshItemSizes(part.Name, ref gmshData, meshSetupItems);
@@ -200,9 +203,8 @@ namespace PrePoMax
                 double[][] line;
                 //
                 FileInOut.Input.ElementsToImport elementsToImport;
-                bool importEdges = gmshSetupItems.Length == 1 &&
-                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is SweepMesh ||
-                     gmshSetupItems[0] is RevolveMesh);
+                bool importEdges = previewSweepSourceMesh || gmshSetupItems.Length == 1 &&
+                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is RevolveMesh);
                 if (importEdges) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
                 else elementsToImport = FileInOut.Input.ElementsToImport.Beam;
                 // Mesh

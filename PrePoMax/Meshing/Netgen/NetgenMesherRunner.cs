@@ -100,7 +100,8 @@ namespace PrePoMax
             else throw new CaeException("Netgen could not create the STL edge mesh for part '" + part.Name + "'.");
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            bool previewSweepSourceMesh)
         {
             string workDirectory = _controller.Settings.GetWorkDirectory();
             //
@@ -149,7 +150,7 @@ namespace PrePoMax
                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             MeshSetupItem[] setupItems = new MeshSetupItem[0];
-            if (part.IsCADPart) return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems);
+            if (part.IsCADPart) return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems, false);
             else return PreviewEdgeMeshFromStl(part, setupItems, meshSetupItems);
         }
         public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,

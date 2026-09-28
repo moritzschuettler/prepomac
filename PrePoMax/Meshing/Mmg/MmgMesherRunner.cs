@@ -52,7 +52,8 @@ namespace PrePoMax
             throw new NotSupportedException("MesherTypeException");
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            bool previewSweepSourceMesh)
         {
             throw new NotSupportedException("MesherTypeException");
         }

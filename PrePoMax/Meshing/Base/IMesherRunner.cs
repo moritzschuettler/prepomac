@@ -20,7 +20,7 @@ namespace PrePoMax
         GeneratedMeshData CreateMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems, string workDirectory);
         GeneratedMeshData CreateMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems, string workDirectory);
         bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                     OrderedDictionary<string, MeshSetupItem> meshSetupItems);
+                                     OrderedDictionary<string, MeshSetupItem> meshSetupItems, bool previewSweepSourceMesh);
         bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
                                     OrderedDictionary<string, MeshSetupItem> meshSetupItems);
     }
