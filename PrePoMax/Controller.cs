@@ -8911,7 +8911,21 @@ namespace PrePoMax
                 //
                 brepFileName = _netgenRunner.Defeature(gp, entry.Value.ToArray());
                 //
-                if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                if (brepFileName != null)
+                {
+                    string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+                    if (_settings.General.NumOfSplitFaces > 1 && dividedBrepFileName == brepFileName)
+                        throw new CaeException("Defeaturing failed to split periodic faces on part '" + gp.Name + "'.");
+                    try
+                    {
+                        ReplacePartGeometryFromFile(gp, dividedBrepFileName, true);
+                    }
+                    finally
+                    {
+                        if (dividedBrepFileName != brepFileName && File.Exists(dividedBrepFileName))
+                            File.Delete(dividedBrepFileName);
+                    }
+                }
                 else ClearAllSelection();
                 //
                 numOfSolidParts++;
