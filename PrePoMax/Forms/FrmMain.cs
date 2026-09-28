@@ -808,11 +808,18 @@ namespace PrePoMax
                         {
                             fileName = _controller.GetHistoryFileNameBin();
                             //
-                            DialogResult dialogResult = MessageBoxes.ShowWarningQuestionYesNoCancel("Regenerate All",
-                                "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
-                                "All commands can be regenerated later using Edit -> Regenerate All.");
-                            if (dialogResult == DialogResult.Yes) parameters = Globals.RegenerateAll;
-                            else if (dialogResult == DialogResult.Cancel) fileName = null;
+                            bool regenerateTypeUsed;
+                            try { regenerateTypeUsed = _controller.IsRegenerateTypeUsedByHistoryFile(fileName); }
+                            catch { regenerateTypeUsed = true; }
+                            //
+                            if (regenerateTypeUsed)
+                            {
+                                DialogResult dialogResult = MessageBoxes.ShowWarningQuestionYesNoCancel("Regenerate All",
+                                    "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
+                                    "All commands can be regenerated later using Edit -> Regenerate All.");
+                                if (dialogResult == DialogResult.Yes) parameters = Globals.RegenerateAll;
+                                else if (dialogResult == DialogResult.Cancel) fileName = null;
+                            }
                         }
                     }
                     if (fileName == null)

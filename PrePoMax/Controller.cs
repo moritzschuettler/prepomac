@@ -489,6 +489,10 @@ namespace PrePoMax
         {
             return _commands.IsRegenerateTypeUsedByUndo();
         }
+        public bool IsRegenerateTypeUsedByHistoryFile(string fileName)
+        {
+            return CommandsCollection.IsRegenerateTypeUsedByFile(fileName);
+        }
         // Setters                                                                                                                  
         public void SetQuerySelection(bool querySelection)
         {

@@ -629,13 +629,23 @@ namespace PrePoMax.Commands
         {
             return IsUndoPossible && !IsGeneralCommandAffected() && ContainsNonPreprocessCommands(_currPositionIndex - 1);
         }
+        public static bool IsRegenerateTypeUsedByFile(string fileName)
+        {
+            List<Command> commands;
+            ReadFromFile(fileName, out commands);
+            return ContainsNonPreprocessCommands(commands, commands.Count - 1);
+        }
         private bool ContainsNonPreprocessCommands(int lastCommandIndex)
         {
-            if (lastCommandIndex > _commands.Count - 1) lastCommandIndex = _commands.Count - 1;
+            return ContainsNonPreprocessCommands(_commands, lastCommandIndex);
+        }
+        private static bool ContainsNonPreprocessCommands(List<Command> commands, int lastCommandIndex)
+        {
+            if (lastCommandIndex > commands.Count - 1) lastCommandIndex = commands.Count - 1;
             //
             for (int i = 0; i <= lastCommandIndex; i++)
             {
-                if (!(_commands[i] is PreprocessCommand) && !(_commands[i] is SaveCommand)) return true;
+                if (!(commands[i] is PreprocessCommand) && !(commands[i] is SaveCommand)) return true;
             }
             return false;
         }
