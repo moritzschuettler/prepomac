@@ -40,14 +40,6 @@ namespace PrePoMax.Forms
             get { return SelectionToString(GetBase().CreationIds, "part"); }
             set { }
         }
-        //
-        [CategoryAttribute("Options")]
-        [OrderedDisplayName(0, 10, "Fuzzy tolerance")]
-        [DescriptionAttribute("Enter the tolerance the modelling kernel uses to recognize coincident geometry. " +
-                              "Leave it at zero unless an imported geometry is too inaccurate to be split.")]
-        [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 9)]
-        public double FuzzyValue { get { return GetBase().FuzzyValue; } set { GetBase().FuzzyValue = value; } }
 
 
         // Methods

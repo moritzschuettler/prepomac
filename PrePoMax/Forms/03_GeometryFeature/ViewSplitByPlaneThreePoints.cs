@@ -142,7 +142,9 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Plane")]
         [OrderedDisplayName(0, 10, "Offset")]
-        [DescriptionAttribute("Enter the distance the splitting plane is moved along its normal.")]
+        [DescriptionAttribute("Enter the distance the splitting plane is moved along its normal. A positive " +
+                              "value moves it the way the arrow on the plane points, a negative value the " +
+                              "other way.")]
         [TypeConverter(typeof(StringLengthConverter))]
         [Id(1, 6)]
         public double Offset

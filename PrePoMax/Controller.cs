@@ -7748,6 +7748,63 @@ namespace PrePoMax
             DrawSplitGeometryToolBorder("splitGeometryPlaneBorder" + symbolIndex, nodeCoor,
                                         new int[][] { new int[] { 0, 1 }, new int[] { 1, 2 },
                                                       new int[] { 2, 3 }, new int[] { 3, 0 } });
+            //
+            double uCenter = 0.5 * (uMin + uMax);
+            double vCenter = 0.5 * (vMin + vMax);
+            double[] center = new double[] { origin[0] + uCenter * first[0] + vCenter * second[0],
+                                             origin[1] + uCenter * first[1] + vCenter * second[1],
+                                             origin[2] + uCenter * first[2] + vCenter * second[2] };
+            DrawSplitGeometryOffsetArrows("splitGeometryPlaneArrow" + symbolIndex, new double[][] { center },
+                                          new double[][] { normal });
+        }
+        /// <summary>
+        /// The way a positive offset moves the tool, drawn from points on it whether an offset is given or not,
+        /// so that the sign is known before one is typed.
+        /// </summary>
+        private void DrawSplitGeometryOffsetArrows(string name, double[][] points, double[][] directions)
+        {
+            List<double[]> arrowPoints = new List<double[]>();
+            List<double[]> arrowNormals = new List<double[]>();
+            for (int i = 0; i < points.Length; i++)
+            {
+                double[] normal = NormalizeSplitGeometryDirection(directions[i]);
+                if (points[i] == null || normal == null) continue;
+                arrowPoints.Add(points[i]);
+                arrowNormals.Add(normal);
+            }
+            if (arrowPoints.Count == 0) return;
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = name;
+            data.Color = _settings.Pre.SplitToolSymbolColor;
+            data.Layer = vtkRendererLayer.Selection;
+            data.KeepOwnColor = true;
+            data.Pickable = false;
+            data.Geometry.Nodes.Coor = GetSplitGeometrySymbolCoor(arrowPoints.ToArray());
+            data.Geometry.Nodes.Normals = arrowNormals.ToArray();
+            ApplyLighting(data);
+            _form.AddOrientedArrowsActor(data, _settings.Pre.SymbolSize);
+            RememberGeometryFeatureSymbolActor(data);
+        }
+        // A positive offset grows the radius of a surface turned around an axis. One arrow on a round surface
+        // points nowhere in particular from most views, while four spread around a circle, each pointing away
+        // from the axis, read as the surface growing from any side
+        private void DrawSplitGeometryRadialOffsetArrows(string name, double[] center, double[] axis,
+                                                         double[] first, double[] second, double distance,
+                                                         double radius)
+        {
+            const int numOfArrows = 4;
+            double[][] points = new double[numOfArrows][];
+            double[][] directions = new double[numOfArrows][];
+            for (int i = 0; i < numOfArrows; i++)
+            {
+                double angle = 2 * Math.PI * i / numOfArrows;
+                points[i] = GetSplitGeometryRevolvedPoint(center, axis, first, second, distance, radius, angle);
+                directions[i] = new double[] { Math.Cos(angle) * first[0] + Math.Sin(angle) * second[0],
+                                               Math.Cos(angle) * first[1] + Math.Sin(angle) * second[1],
+                                               Math.Cos(angle) * first[2] + Math.Sin(angle) * second[2] };
+            }
+            DrawSplitGeometryOffsetArrows(name, points, directions);
         }
         /// <summary>
         /// The tool an extended face makes is the whole surface the face lies on, carried past the
@@ -7893,6 +7950,12 @@ namespace PrePoMax
             //
             DrawSplitGeometryToolSurface("splitGeometryTube" + symbolIndex, nodeCoor, cells);
             DrawSplitGeometryToolBorder("splitGeometryTubeBorder" + symbolIndex, nodeCoor, borderCells);
+            // The arrows stand halfway along the part of the axis the tube is drawn over
+            double middle = 0.5 * (tMin + tMax);
+            double middleRadius = referenceRadius + middle * slope;
+            if (middleRadius > 0)
+                DrawSplitGeometryRadialOffsetArrows("splitGeometryTubeArrow" + symbolIndex, origin, axis, first,
+                                                    second, middle, middleRadius);
         }
         /// <summary>
         /// The whole sphere, which is what a spherical face closes into when it is carried past its
@@ -7944,6 +8007,8 @@ namespace PrePoMax
             //
             DrawSplitGeometryToolSurface("splitGeometrySphere" + symbolIndex, nodeCoor, cells);
             DrawSplitGeometryToolBorder("splitGeometrySphereBorder" + symbolIndex, nodeCoor, borderCells);
+            DrawSplitGeometryRadialOffsetArrows("splitGeometrySphereArrow" + symbolIndex, center, axis, first,
+                                                second, 0, radius);
         }
         /// <summary>
         /// The whole torus, which is what a toroidal face closes into when it is carried past its
@@ -7994,6 +8059,9 @@ namespace PrePoMax
             //
             DrawSplitGeometryToolSurface("splitGeometryTorus" + symbolIndex, nodeCoor, cells);
             DrawSplitGeometryToolBorder("splitGeometryTorusBorder" + symbolIndex, nodeCoor, borderCells);
+            // A positive offset grows the tube of the torus, and on its outer circle that is away from the axis
+            DrawSplitGeometryRadialOffsetArrows("splitGeometryTorusArrow" + symbolIndex, center, axis, first,
+                                                second, 0, majorRadius + minorRadius);
         }
         private static double[] GetSplitGeometryRevolvedPoint(double[] origin, double[] axis, double[] first,
                                                               double[] second, double distance, double radius,
