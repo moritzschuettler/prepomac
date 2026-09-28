@@ -66,7 +66,8 @@ namespace PrePoMax.Forms
             // 
             // groupBox1
             // 
-            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.groupBox1.Controls.Add(this.hsbPosition);
             this.groupBox1.Controls.Add(this.panel1);
             this.groupBox1.Location = new System.Drawing.Point(6, 265);
@@ -78,6 +79,8 @@ namespace PrePoMax.Forms
             // 
             // hsbPosition
             // 
+            this.hsbPosition.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.hsbPosition.LargeChange = 1;
             this.hsbPosition.Location = new System.Drawing.Point(7, 23);
             this.hsbPosition.Maximum = 1000;
@@ -100,6 +103,7 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.propertyGrid.DisabledItemForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
+            this.propertyGrid.FocusOnSelectedObjectChanged = true;
             this.propertyGrid.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.propertyGrid.LineColor = System.Drawing.SystemColors.Control;
             this.propertyGrid.Location = new System.Drawing.Point(6, 22);
@@ -157,13 +161,11 @@ namespace PrePoMax.Forms
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.groupBox3);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.MinimumSize = new System.Drawing.Size(350, 350);
             this.Name = "FrmExplodedView";
             this.ShowInTaskbar = false;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Exploded View";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmExplodedView_FormClosing);
             this.VisibleChanged += new System.EventHandler(this.FrmExplodedView_VisibleChanged);
