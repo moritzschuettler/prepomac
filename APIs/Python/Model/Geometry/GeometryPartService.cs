@@ -146,6 +146,47 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             MeshGateway.RenameSplitSubPart(partName, oldName, newName);
         }
+        public string[] GetSplitCellNames(string partName, string subPartName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null || !compoundPart.CreatedBySplit)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            if (!compoundPart.GetSplitSubPartNames().Contains(subPartName))
+                throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
+                                             subPartName + "'.");
+            //
+            return compoundPart.GetCellNames(subPartName);
+        }
+        public string GroupSplitCells(string partName, object cellNames, string subPartName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null || !compoundPart.CreatedBySplit)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(cellNames, "cell_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'cell_names' must name at least one cell.");
+            foreach (string name in names)
+            {
+                if (!compoundPart.SubPartNames.Contains(name))
+                    throw new PythonAPIException("The argument 'cell_names' names '" + name + "', which is not a " +
+                                                 "cell of the compound part '" + partName + "'.");
+            }
+            if (names.Distinct().Count() != names.Length)
+                throw new PythonAPIException("The argument 'cell_names' names a cell more than once.");
+            if (subPartName != null)
+            {
+                if (subPartName.Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'sub_part_name' must not be empty.");
+                string error = NamedClass.CheckNameError(subPartName, null);
+                if (error != null) throw new PythonAPIException("The argument 'sub_part_name' is not valid: " + error);
+                if (!compoundPart.GetSplitSubPartNames().Contains(subPartName) &&
+                    ModelResolver.GetModel().GetReservedPartNames().Contains(subPartName))
+                    throw new PythonAPIException("The name '" + subPartName + "' is already used by another part.");
+            }
+            //
+            EnsureCommandsAvailable();
+            return MeshGateway.GroupSplitCells(partName, names, subPartName);
+        }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");

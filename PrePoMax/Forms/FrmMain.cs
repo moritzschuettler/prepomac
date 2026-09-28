@@ -395,6 +395,7 @@ namespace PrePoMax
                 _modelTree.EditEvent += ModelTree_EditEvent;
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.RenameSplitSubPartEvent += ModelTree_RenameSplitSubPartEvent;
+                _modelTree.GroupSplitCellsEvent += ModelTree_GroupSplitCellsEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
@@ -1319,6 +1320,10 @@ namespace PrePoMax
                                                        string newSubPartName)
         {
             _controller.RenameSplitSubPartCommand(compoundPartName, oldSubPartName, newSubPartName);
+        }
+        private void ModelTree_GroupSplitCellsEvent(string compoundPartName, string[] cellNames)
+        {
+            GroupSplitCellsAndSelect(compoundPartName, cellNames);
         }
         private void ModelTree_QueryEvent()
         {
@@ -3903,6 +3908,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiGroupSplitCells_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Cells", _controller.GetSplitCells(), GroupSplitCells);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSwapGeometryPartGeometries_Click(object sender, EventArgs e)
         {
             try
@@ -4126,6 +4142,28 @@ namespace PrePoMax
             finally
             {
                 SetStateReady(Globals.RegeneratingCompoundText);
+            }
+        }
+        private void GroupSplitCells(string[] cellNames)
+        {
+            string[] compoundPartNames = cellNames.Select(_controller.GetSplitCompoundPartNameOfCell).Distinct().ToArray();
+            if (compoundPartNames.Length != 1)
+                MessageBoxes.ShowError("Only the cells of one compound part can be grouped.");
+            else GroupSplitCellsAndSelect(compoundPartNames[0], cellNames);
+        }
+        // The grouping rebuilds the tree, which is painted once, with the sub part the cells went to already
+        // selected and expanded, instead of first with the cells that were selected before
+        private void GroupSplitCellsAndSelect(string compoundPartName, string[] cellNames)
+        {
+            _modelTree.BeginGeometryTreeUpdate();
+            try
+            {
+                string subPartName = _controller.GroupSplitCellsCommand(compoundPartName, cellNames, null);
+                _modelTree.SelectSplitSubPart(compoundPartName, subPartName);
+            }
+            finally
+            {
+                _modelTree.EndGeometryTreeUpdate();
             }
         }
         private void SwapPartGeometries(string[] partNames)

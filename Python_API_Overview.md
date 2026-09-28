@@ -801,7 +801,7 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`split_solid`, `split_shell`, `rename_split_sub_part`, `defeature`, `extract_surface`,
+`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `defeature`, `extract_surface`,
 `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the `geometry` view, with
 the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
 `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
@@ -849,6 +849,24 @@ another part already uses is refused, compared regardless of case as the tree co
 ```python
 compound = [part for part in pmx.model.geometry.parts if part.split_sub_part_names][0]
 pmx.model.geometry.parts.rename_split_sub_part(compound.name, compound.split_sub_part_names[0], 'Web')
+```
+
+`group_split_cells(part_name, cell_names, sub_part_name=None)` is Group Cells in the tree: it puts the
+named cells under one sub-part without changing the geometry, so that with the cells merged, the
+default, they are meshed into one mesh part. That is how the regions of one solid cut for different
+materials are gathered as the materials need them. The sub-part is the one named, joined if the
+compound has it and created with a part id of its own otherwise, listed after the sub-parts the
+compound already has. Without a name it is the largest sub-part whose cells are all among the named
+ones, so a sub-part given whole together with further cells takes them in, and otherwise a new
+sub-part named after the one the first cell belongs to. The
+cells that join a sub-part take its color, a sub-part left without cells is gone, and the method
+returns the name of the sub-part. A grouping that would change nothing is refused, and so is putting
+all the cells of one sub-part under a new name, which is what `rename_split_sub_part` does.
+`part.get_split_cell_names(sub_part_name)` lists the cells of a sub-part.
+
+```python
+steel = compound.get_split_cell_names('Web')[:2]
+pmx.model.geometry.parts.group_split_cells(compound.name, steel, 'Steel')
 ```
 
 `extract_surface(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
@@ -911,7 +929,8 @@ except that one in which some cells sweep and others do not reports `Sweep`: the
 cannot reach by tetrahedra.
 The recognition depends on the geometry alone, so an exploded view does not change it.
 It also adds `split_sub_part_names`, the sub-parts of a compound part made by `split_solid`,
-which `rename_split_sub_part` renames; it is empty for any other part.
+which `rename_split_sub_part` renames; it is empty for any other part. `get_split_cell_names(sub_part_name)`
+lists the cells of one of them, which `group_split_cells` takes.
 
 `ModelPart` adds `get_inverted_element_ids()`, the IDs of the inverted or degenerate solid elements
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such

@@ -265,6 +265,20 @@ namespace PrePoMax.Python
         {
             _controller.RenameSplitSubPartCommand(compoundPartName, oldSubPartName, newSubPartName);
         }
+        public string GroupSplitCells(string compoundPartName, string[] cellNames, string subPartName)
+        {
+            // The grouping is resolved as the command would resolve it, so a refusal is raised before anything
+            // is recorded and names what the script asked for
+            try
+            {
+                _controller.GetGroupSplitCellsSubPartName(compoundPartName, cellNames, subPartName);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+            return _controller.GroupSplitCellsCommand(compoundPartName, cellNames, subPartName);
+        }
         // A value that was not typed is taken from the picks, or for the point from the center of the
         // region, where the dialog puts a plane before anything is picked. A typed value the picks
         // would replace with a different one is refused rather than dropped.

@@ -71,6 +71,8 @@ namespace APIs.Python
         // misses a part leaves it as it was without refusing the operation
         Dictionary<string, int> SplitGeometry(GeometryFeature geometryFeature);
         void RenameSplitSubPart(string compoundPartName, string oldSubPartName, string newSubPartName);
+        // Returns the sub-part the cells were put under, which the application names when no name is given
+        string GroupSplitCells(string compoundPartName, string[] cellNames, string subPartName);
         // Returns the number of faces each selected part lost, zero included, because a defeaturing that
         // removed nothing reports success just as loudly as one that worked
         Dictionary<string, int> Defeature(GeometrySelection geometrySelection);

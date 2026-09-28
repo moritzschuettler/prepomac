@@ -125,6 +125,24 @@ namespace APIs.Python.Model
             _service.RenameSplitSubPart(part_name, old_name, new_name);
         }
 
+        [PythonAPI("Puts the named cells of a compound part made by split_solid under one sub-part, the way " +
+                   "Group Cells in the tree does, so that they are meshed into one mesh part when the cells are " +
+                   "merged, which is the default. The geometry is not changed. The sub-part is the one named, " +
+                   "joined if the compound has it and created otherwise, and a new one is listed last; " +
+                   "without a name it is the largest sub-part whose cells are all among the named ones, or " +
+                   "else a new sub-part named after the one the first cell belongs to. A sub-part left " +
+                   "without cells is gone. Grouping cells that " +
+                   "already belong to that sub-part, or all the cells of one sub-part under a new name, is " +
+                   "refused - rename_split_sub_part renames. Returns the name of the sub-part.",
+                   Arguments = "part_name: str, cell_names: list[str] or str, sub_part_name: str = None",
+                   Returns = "str",
+                   Example = "cells = compound.get_split_cell_names('Solid_part-1')\n" +
+                             "pmx.model.geometry.parts.group_split_cells(compound.name, cells[:2], 'Steel')")]
+        public string group_split_cells(string part_name, object cell_names, string sub_part_name = null)
+        {
+            return _service.GroupSplitCells(part_name, cell_names, sub_part_name);
+        }
+
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
                    "'geometry' view and target. Returns the number of faces each selected part actually " +
                    "lost, so a feature the modelling kernel could not close is visible: it reports zero. " +

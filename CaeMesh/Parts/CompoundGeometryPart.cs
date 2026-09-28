@@ -28,6 +28,8 @@ namespace CaeMesh
         private string[] _cellSubPartNames;
         [OptionalField]
         private int[] _cellSubPartIds;
+        [OptionalField]
+        private string[] _splitSubPartOrder;
         [NonSerialized] private CompoundSharedEdges _sharedEdges;
 
 
@@ -57,6 +59,12 @@ namespace CaeMesh
         /// again, and the id of the sub part is what stays. A compound saved before the ids existed has none.
         /// </summary>
         public int[] CellSubPartIds { get { return _cellSubPartIds; } set { _cellSubPartIds = value; } }
+        /// <summary>
+        /// The order the sub parts of a split compound are listed in. The cells keep the order of the solids they
+        /// are written out as, so a sub part made later by grouping cells would otherwise be listed wherever its
+        /// first cell is. A sub part it does not name is listed after the ones it does, in the order of its cells.
+        /// </summary>
+        public string[] SplitSubPartOrder { get { return _splitSubPartOrder; } set { _splitSubPartOrder = value; } }
         public bool CreatedBySplit { get { return _cellSubPartNames != null; } }
 
 
@@ -76,6 +84,7 @@ namespace CaeMesh
             _linkedGroupId = part._linkedGroupId;
             _cellSubPartNames = part._cellSubPartNames?.ToArray();
             _cellSubPartIds = part._cellSubPartIds?.ToArray();
+            _splitSubPartOrder = part._splitSubPartOrder?.ToArray();
         }
 
 
@@ -96,7 +105,11 @@ namespace CaeMesh
         public string[] GetSplitSubPartNames()
         {
             if (_cellSubPartNames == null) return new string[0];
-            return _cellSubPartNames.Where(name => name != null).Distinct().ToArray();
+            string[] subPartNames = _cellSubPartNames.Where(name => name != null).Distinct().ToArray();
+            if (_splitSubPartOrder == null) return subPartNames;
+            //
+            return _splitSubPartOrder.Where(name => subPartNames.Contains(name))
+                                     .Concat(subPartNames.Where(name => !_splitSubPartOrder.Contains(name))).ToArray();
         }
         public string[] GetCellNames(string subPartName)
         {

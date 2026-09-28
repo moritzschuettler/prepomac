@@ -321,6 +321,7 @@ namespace UserControls
         public event Action<NamedClass, string> EditEvent;
         public event Action<NamedClass, string, string> RenameEvent;
         public event Action<string, string, string> RenameSplitSubPartEvent;
+        public event Action<string, string[]> GroupSplitCellsEvent;
         //
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
@@ -607,6 +608,37 @@ namespace UserControls
         {
             if (node?.Parent == null) return false;
             return node.Parent.Tag is CompoundGeometryPart || _splitSubPartNodes.ContainsKey(node.Parent);
+        }
+        // The cells of one split compound, which can be put under one sub part unless they already are the whole
+        // of a single sub part
+        private bool TryGetSplitCellsToGroup(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
+        {
+            compoundPartName = null;
+            cellNames = null;
+            if (nodes.Length == 0) return false;
+            //
+            CompoundGeometryPart compoundPart = null;
+            List<string> names = new List<string>();
+            foreach (TreeNode node in nodes)
+            {
+                if (!(node.Tag is GeometryPart cell) || !IsCompoundGeometrySubPartNode(node)) return false;
+                TreeNode compoundNode = _splitSubPartNodes.ContainsKey(node.Parent) ? node.Parent.Parent : node.Parent;
+                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart) || !nodeCompoundPart.CreatedBySplit)
+                    return false;
+                if (compoundPart == null) compoundPart = nodeCompoundPart;
+                else if (compoundPart != nodeCompoundPart) return false;
+                names.Add(cell.Name);
+            }
+            //
+            HashSet<string> subPartNames = new HashSet<string>();
+            foreach (string name in names)
+                subPartNames.Add(compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, name)]);
+            if (subPartNames.Count == 1 && compoundPart.GetCellNames(subPartNames.First()).Length == names.Count)
+                return false;
+            //
+            compoundPartName = compoundPart.Name;
+            cellNames = names.ToArray();
+            return true;
         }
         private NamedClass[] GetSplitSubPartCellItems(TreeNode subPartNode)
         {
@@ -1626,6 +1658,8 @@ namespace UserControls
             tsmiCompoundPart.Visible = visible;
             visible = menuFields.SwapParts == n && n == 2;
             tsmiSwapPartGeometries.Visible = visible;
+            visible = TryGetSplitCellsToGroup(actionNodes, out _, out _);
+            tsmiGroupSplitCells.Visible = visible;
             oneAboveVisible |= visible;
             // Mesh                                                 
             visible = hasActionNodes && menuFields.MeshingParameters == n;
@@ -2682,6 +2716,21 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiGroupSplitCells_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string compoundPartName;
+                string[] cellNames;
+                if (TryGetSplitCellsToGroup(GetSelectedNodesIncludingGroupItems(cltvGeometry), out compoundPartName,
+                                            out cellNames))
+                    GroupSplitCellsEvent?.Invoke(compoundPartName, cellNames);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSwapPartGeometries_Click(object sender, EventArgs e)
         {
             try
@@ -3371,6 +3420,59 @@ namespace UserControls
             }
             catch { return -1; }
             finally { _disableSelectionsChanged = false; }
+        }
+        // Holds the painting of the geometry tree, so that a change that rebuilds the tree and then selects in it
+        // is painted once. The holds nest, so the rebuild's own hold does not end this one.
+        public void BeginGeometryTreeUpdate()
+        {
+            cltvGeometry.BeginUpdate();
+        }
+        public void EndGeometryTreeUpdate()
+        {
+            cltvGeometry.EndUpdate();
+        }
+        // A sub part of a split compound with several cells is a node of its own, and one with a single cell is
+        // shown as that cell
+        public void SelectSplitSubPart(string compoundPartName, string subPartName)
+        {
+            try
+            {
+                _disableSelectionsChanged = true;
+                //
+                TreeNode subPartNode = null;
+                foreach (var entry in _splitSubPartNodes)
+                {
+                    if (entry.Value == compoundPartName && entry.Key.Name == subPartName && entry.Key.TreeView != null)
+                    {
+                        subPartNode = entry.Key;
+                        break;
+                    }
+                }
+                if (subPartNode == null)
+                {
+                    foreach (TreeNode node in cltvGeometry.Nodes[0].Nodes.Find(subPartName, true))
+                    {
+                        if (node.Tag is GeometryPart && node.Parent?.Tag is CompoundGeometryPart compoundPart &&
+                            compoundPart.Name == compoundPartName)
+                        {
+                            subPartNode = node;
+                            break;
+                        }
+                    }
+                }
+                if (subPartNode == null) return;
+                //
+                for (TreeNode parent = subPartNode.Parent; parent != null; parent = parent.Parent) parent.Expand();
+                subPartNode.Expand();
+                cltvGeometry.SelectedNodes.Clear();
+                cltvGeometry.SelectedNodes.Add(subPartNode);
+                subPartNode.EnsureVisible();
+            }
+            finally
+            {
+                _disableSelectionsChanged = false;
+            }
+            UpdateHighlight();
         }
         public void EditSelectedPart()
         {
@@ -4143,19 +4245,23 @@ namespace UserControls
                     {
                         // The cells of a split compound are gathered under the part each of them was cut
                         // from, and those parts start collapsed, since a part may be cut into many cells.
-                        // A part the split did not cut is its only cell and is shown as that cell
-                        Dictionary<string, TreeNode> splitSubPartNodes = new Dictionary<string, TreeNode>();
+                        // A part the split did not cut is its only cell and is shown as that cell. The parts are
+                        // listed in the order the compound keeps for them, so one made by grouping cells comes last
+                        List<int> cellIndices = new List<int>();
                         foreach (string splitSubPartName in compoundPart.GetSplitSubPartNames())
                         {
-                            if (compoundPart.GetCellNames(splitSubPartName).Length < 2) continue;
-                            //
-                            TreeNode splitSubPartNode = itemNode.Nodes.Add(splitSubPartName);
-                            splitSubPartNode.Name = splitSubPartNode.Text;
-                            _splitSubPartNodes[splitSubPartNode] = compoundPart.Name;
-                            splitSubPartNodes[splitSubPartName] = splitSubPartNode;
+                            for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                            {
+                                if (compoundPart.CellSubPartNames[i] == splitSubPartName) cellIndices.Add(i);
+                            }
+                        }
+                        for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                        {
+                            if (compoundPart.CellSubPartNames?[i] == null) cellIndices.Add(i);
                         }
                         //
-                        for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                        Dictionary<string, TreeNode> splitSubPartNodes = new Dictionary<string, TreeNode>();
+                        foreach (int i in cellIndices)
                         {
                             string subPartName = compoundPart.SubPartNames[i];
                             TKey subPartKey = (TKey)(object)subPartName;
@@ -4164,8 +4270,16 @@ namespace UserControls
                             //
                             TreeNode parentOfSubPartNode = itemNode;
                             string splitSubPartName = compoundPart.CellSubPartNames?[i];
-                            if (splitSubPartName != null && splitSubPartNodes.ContainsKey(splitSubPartName))
-                                parentOfSubPartNode = splitSubPartNodes[splitSubPartName];
+                            if (splitSubPartName != null && compoundPart.GetCellNames(splitSubPartName).Length > 1)
+                            {
+                                if (!splitSubPartNodes.TryGetValue(splitSubPartName, out parentOfSubPartNode))
+                                {
+                                    parentOfSubPartNode = itemNode.Nodes.Add(splitSubPartName);
+                                    parentOfSubPartNode.Name = parentOfSubPartNode.Text;
+                                    _splitSubPartNodes[parentOfSubPartNode] = compoundPart.Name;
+                                    splitSubPartNodes[splitSubPartName] = parentOfSubPartNode;
+                                }
+                            }
                             //
                             TreeNode subPartNode = parentOfSubPartNode.Nodes.Add(subPartName);
                             subPartNode.Name = subPartNode.Text;
