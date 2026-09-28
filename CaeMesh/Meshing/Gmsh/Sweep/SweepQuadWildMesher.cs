@@ -51,7 +51,10 @@ namespace CaeMesh.Sweep
             string patchExecutable = Path.Combine(runtimeDirectory, QuadWildRuntime.PatchMesherFileName);
             QuadWildRuntime.ValidateRuntime(executable, patchExecutable, runtimeDirectory);
             //
-            string directory = Path.Combine(workDirectory, "Group_" + group.Index);
+            // The files of the group are read and written through the prefixed path too: the application is not long
+            // path aware either
+            string directory = QuadWildRuntime.GetExtendedLengthPath(Path.Combine(workDirectory,
+                                                                                  "Group_" + group.Index));
             Directory.CreateDirectory(directory);
             string objFileName = Path.Combine(directory, "input.obj");
             string sharpFileName = Path.Combine(directory, "input.sharp");
@@ -77,7 +80,7 @@ namespace CaeMesh.Sweep
                               " " + QuadWildRuntime.Quote(sharpFileName);
             QuadWildRuntime.DeleteIfExists(preparedObjFileName);
             QuadWildRuntime.RunStage("preparation and patch tracing of " + group.GetDescription(), executable,
-                                     argument, directory, tracedFileNames);
+                                     argument, tracedFileNames);
             QuadWildRuntime.EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName, null);
             // The count of a free edge is QuadWild's to choose, not bounded below by the triangulation. The nodes are
             // not moved onto smooth curves through the input nodes: the nodes of the edges are placed on the edges and
@@ -92,7 +95,7 @@ namespace CaeMesh.Sweep
                                                            "boundary_layer 0" });
             argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             QuadWildRuntime.RunStage("quad generation of " + group.GetDescription(), patchExecutable, argument,
-                                     directory, unsmoothedObjFileName, smoothObjFileName);
+                                     unsmoothedObjFileName, smoothObjFileName);
             //
             List<double[]> nodeCoors;
             List<int[]> faces;

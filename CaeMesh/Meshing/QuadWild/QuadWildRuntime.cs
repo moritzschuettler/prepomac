@@ -118,17 +118,38 @@ namespace CaeMesh
             File.WriteAllText(outputFileName, String.Join(Environment.NewLine, lines) + Environment.NewLine,
                               new UTF8Encoding(false));
         }
-        public static string Quote(string value)
+        /// <summary>
+        /// A file path for the command line of a stage, in its extended-length form.
+        /// </summary>
+        public static string Quote(string fileName)
         {
-            if (value == null || value.Contains("\""))
-                throw new CaeException("A QuadWild file path is invalid.");
-            return "\"" + value + "\"";
+            return QuoteText(fileName == null ? null : GetExtendedLengthPath(fileName));
         }
         public static string QuoteQuadWildPath(string value)
         {
             if (!File.Exists(value))
                 throw new CaeException("A QuadWild configuration dependency was not found: " + value);
-            return Quote(value.Replace('\\', '/'));
+            return QuoteText(value.Replace('\\', '/'));
+        }
+        private static string QuoteText(string value)
+        {
+            if (value == null || value.Contains("\""))
+                throw new CaeException("A QuadWild file path is invalid.");
+            return "\"" + value + "\"";
+        }
+        /// <summary>
+        /// The path with the \\?\ prefix, which lifts the MAX_PATH limit of 259 characters. Neither QuadWild executable
+        /// is long path aware, and quad_from_patches does not report a file it cannot open: from a work directory long
+        /// enough that the path of its smoothed mesh reached the limit, it wrote the unsmoothed mesh only, and the stage
+        /// failed with a timing table for its last messages. The executables open prefixed paths, and give the files
+        /// they derive from them - the patches, the prescribed nodes, the meshes - the same prefix.
+        /// </summary>
+        public static string GetExtendedLengthPath(string path)
+        {
+            if (path.StartsWith(@"\\?\", StringComparison.Ordinal)) return path;
+            string fullPath = Path.GetFullPath(path);
+            if (fullPath.StartsWith(@"\\", StringComparison.Ordinal)) return @"\\?\UNC\" + fullPath.Substring(2);
+            return @"\\?\" + fullPath;
         }
         public static void DeleteIfExists(string fileName)
         {
@@ -180,11 +201,12 @@ namespace CaeMesh
             return faceCount;
         }
         /// <summary>
-        /// Runs one stage in the given folder and waits for it. The exit codes of QuadWild do not tell success
-        /// from failure, so the stage is judged by the files it was expected to write; the last lines it printed
-        /// are kept for the error that names a stage that wrote nothing.
+        /// Runs one stage and waits for it. The exit codes of QuadWild do not tell success from failure, so the
+        /// stage is judged by the files it was expected to write; the last lines it printed are kept for the error
+        /// that names a stage that wrote nothing. The stage is given its files by full paths and runs in its own
+        /// folder, since a process cannot be started in a work folder of MAX_PATH characters or more.
         /// </summary>
-        public static void RunStage(string stageName, string executable, string argument, string workDirectory,
+        public static void RunStage(string stageName, string executable, string argument,
                                     params string[] expectedFileNames)
         {
             foreach (var fileName in expectedFileNames) DeleteIfExists(fileName);
@@ -202,7 +224,7 @@ namespace CaeMesh
             };
             ProcessStartInfo startInfo = new ProcessStartInfo(executable, argument)
             {
-                WorkingDirectory = workDirectory,
+                WorkingDirectory = Path.GetDirectoryName(executable),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
