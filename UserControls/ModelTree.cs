@@ -1924,6 +1924,27 @@ namespace UserControls
                         cmsTree.Show(tree, e.Location);
                     }
                 }
+                else if (e.Button == MouseButtons.Left && ModifierKeys == Keys.None)
+                {
+                    TreeViewHitTestInfo hit = tree.HitTest(e.Location);
+                    if (hit.Location == TreeViewHitTestLocations.Image && hit.Node != null &&
+                        hit.Node.Tag is NamedClass item)
+                    {
+                        string[] stepNames = new string[] { GetStepNameFromNode(hit.Node) };
+                        if (!item.Active && CanDeactivate(hit.Node))
+                        {
+                            RenderingOff?.Invoke();
+                            ActivateDeactivateEvent?.Invoke(new NamedClass[] { item }, true, stepNames);
+                            RenderingOn?.Invoke();
+                        }
+                        else if (item.Active && !item.Visible && CanHide(item))
+                        {
+                            RenderingOff?.Invoke();
+                            HideShowEvent?.Invoke(new NamedClass[] { item }, HideShowOperation.Show, stepNames);
+                            RenderingOn?.Invoke();
+                        }
+                    }
+                }
             }
             catch
             { }
