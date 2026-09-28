@@ -62,6 +62,7 @@
     <Compile Include="Elements\1D\LinearSpringElement.cs" />
     <Compile Include="Elements\3D\LinearPyramidElement.cs" />
     <Compile Include="Elements\3D\ParabolicPyramidElement.cs" />
+    <Compile Include="Elements\ElementTypeCount.cs" />
     <Compile Include="Elements\VtkCellType.cs" />
     <Compile Include="Enums\ConvertPyramidsToEnum.cs" />
     <Compile Include="Enums\GeomCurveType.cs" />

@@ -467,6 +467,7 @@ namespace PrePoMax.Forms
             }
             data = string.Format("{0} {1}", elementsName, part.Labels.Length);
             Form_WriteDataToOutput(data);
+            OutputElementTypeCounts(mesh, new BasePart[] { part });
             data = string.Format("{0} {1}", nodesName, part.NodeLabels.Length);
             Form_WriteDataToOutput(data);
             //
@@ -506,12 +507,26 @@ namespace PrePoMax.Forms
             }
             data = string.Format("{0} {1}", elementsName, mesh.Elements.Count);
             Form_WriteDataToOutput(data);
+            OutputElementTypeCounts(mesh, mesh.Parts.Values);
             data = string.Format("{0} {1}", nodesName, mesh.Nodes.Count);
             Form_WriteDataToOutput(data);
             Form_WriteDataToOutput("");
             //
             if (massComputed) return centerOfMass;
             else return null;
+        }
+        private void OutputElementTypeCounts(FeMesh mesh, IEnumerable<BasePart> parts)
+        {
+            // All facets of the geometry are triangles
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry) return;
+            //
+            string data;
+            foreach (ElementTypeCount elementTypeCount in ElementTypeCount.CountElementTypes(mesh, parts))
+            {
+                data = string.Format("    {0}{1}{2,10}", elementTypeCount.ShapeName.PadRight(24),
+                                     elementTypeCount.Keyword.PadRight(10), elementTypeCount.Count);
+                Form_WriteDataToOutput(data);
+            }
         }
         private void OutputMassData(bool massComputed, double mass, double[] centerOfMass, string[] warnings)
         {

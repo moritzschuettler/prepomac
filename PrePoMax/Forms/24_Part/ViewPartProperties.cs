@@ -25,6 +25,7 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                
         private PartProperties _partProperties;
+        private ElementTypeCount[] _elementTypeCounts;
         private DynamicCustomTypeDescriptor _dctd = null;
 
 
@@ -48,27 +49,153 @@ namespace PrePoMax.Forms
         public string GeometryType { get { return _partProperties.IsCADPart ? "CAD" : "STL"; } }
         //
         [Category("Mesh")]
-        [OrderedDisplayName(0, 10, "Number of elements")]
+        [OrderedDisplayName(0, 16, "Number of elements")]
         [Description("Number of elements.")]
         [Id(1, 2)]
         public int NumberOfElements { get { return _partProperties.NumberOfElements; } }
         //
         [Category("Mesh")]
-        [OrderedDisplayName(0, 10, "Number of facets")]
+        [OrderedDisplayName(0, 16, "Number of facets")]
         [Description("Number of facets.")]
         [Id(1, 2)]
         public int NumberOfFacets { get { return _partProperties.NumberOfElements; } }
         //
         [Category("Mesh")]
-        [OrderedDisplayName(1, 10, "Number of nodes")]
-        [Description("Number of nodes.")]
+        [OrderedDisplayName(1, 16, "Linear beams")]
+        [Description("Number of linear beam elements.")]
         [Id(2, 2)]
+        public int NumberOfLinearBeamElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearBeamElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(2, 16, "Parabolic beams")]
+        [Description("Number of parabolic beam elements.")]
+        [Id(3, 2)]
+        public int NumberOfParabolicBeamElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicBeamElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(3, 16, "Linear triangles")]
+        [Description("Number of linear triangular elements.")]
+        [Id(4, 2)]
+        public int NumberOfLinearTriaElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearTriangleElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(4, 16, "Parabolic triangles")]
+        [Description("Number of parabolic triangular elements.")]
+        [Id(5, 2)]
+        public int NumberOfParabolicTriaElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicTriangleElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(5, 16, "Linear quadrilaterals")]
+        [Description("Number of linear quadrilateral elements.")]
+        [Id(6, 2)]
+        public int NumberOfLinearQuadElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearQuadrilateralElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(6, 16, "Parabolic quadrilaterals")]
+        [Description("Number of parabolic quadrilateral elements.")]
+        [Id(7, 2)]
+        public int NumberOfParabolicQuadElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicQuadrilateralElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(7, 16, "Linear tetrahedra")]
+        [Description("Number of linear tetrahedron elements.")]
+        [Id(8, 2)]
+        public int NumberOfLinearTetraElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearTetraElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(8, 16, "Parabolic tetrahedra")]
+        [Description("Number of parabolic tetrahedron elements.")]
+        [Id(9, 2)]
+        public int NumberOfParabolicTetraElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicTetraElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(9, 16, "Linear pyramids")]
+        [Description("Number of linear pyramid elements.")]
+        [Id(10, 2)]
+        public int NumberOfLinearPyramidElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearPyramidElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(10, 16, "Parabolic pyramids")]
+        [Description("Number of parabolic pyramid elements.")]
+        [Id(11, 2)]
+        public int NumberOfParabolicPyramidElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicPyramidElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(11, 16, "Linear wedges")]
+        [Description("Number of linear wedge elements.")]
+        [Id(12, 2)]
+        public int NumberOfLinearWedgeElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearWedgeElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(12, 16, "Parabolic wedges")]
+        [Description("Number of parabolic wedge elements.")]
+        [Id(13, 2)]
+        public int NumberOfParabolicWedgeElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicWedgeElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(13, 16, "Linear hexahedra")]
+        [Description("Number of linear hexahedron elements.")]
+        [Id(14, 2)]
+        public int NumberOfLinearHexaElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(LinearHexaElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(14, 16, "Parabolic hexahedra")]
+        [Description("Number of parabolic hexahedron elements.")]
+        [Id(15, 2)]
+        public int NumberOfParabolicHexaElements
+        {
+            get { return ElementTypeCount.GetCount(_elementTypeCounts, typeof(ParabolicHexaElement)); }
+        }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(15, 16, "Number of nodes")]
+        [Description("Number of nodes.")]
+        [Id(16, 2)]
         public int NumberOfNodes { get { return _partProperties.NumberOfNodes; } }
         //
         [Category("Mesh")]
-        [OrderedDisplayName(1, 10, "Number of vertices")]
+        [OrderedDisplayName(15, 16, "Number of vertices")]
         [Description("Number of vertices.")]
-        [Id(2, 2)]
+        [Id(16, 2)]
         public int NumberOfVertices { get { return _partProperties.NumberOfNodes; } }
         //
         [Category("Element type")]
@@ -311,10 +438,12 @@ namespace PrePoMax.Forms
 
 
         // Constructors                                                                                                             
-        public ViewPartProperties(PartProperties properties, ViewGeometryModelResults currentView,
+        public ViewPartProperties(PartProperties properties, ElementTypeCount[] elementTypeCounts,
+                                  ViewGeometryModelResults currentView,
                                   Dictionary<Type, HashSet<string>> elementTypeNamesToRemove)
         {
             _partProperties = properties;
+            _elementTypeCounts = elementTypeCounts;
             _dctd = ProviderInstaller.Install(this);
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
@@ -336,6 +465,22 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(X)).SetIsBrowsable(!double.IsNaN(X));
             _dctd.GetProperty(nameof(Y)).SetIsBrowsable(!double.IsNaN(Y));
             _dctd.GetProperty(nameof(Z)).SetIsBrowsable(!double.IsNaN(Z));
+            //
+            bool mesh = currentView != ViewGeometryModelResults.Geometry;
+            _dctd.GetProperty(nameof(NumberOfLinearBeamElements)).SetIsBrowsable(mesh && NumberOfLinearBeamElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicBeamElements)).SetIsBrowsable(mesh && NumberOfParabolicBeamElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearTriaElements)).SetIsBrowsable(mesh && NumberOfLinearTriaElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicTriaElements)).SetIsBrowsable(mesh && NumberOfParabolicTriaElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearQuadElements)).SetIsBrowsable(mesh && NumberOfLinearQuadElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicQuadElements)).SetIsBrowsable(mesh && NumberOfParabolicQuadElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearTetraElements)).SetIsBrowsable(mesh && NumberOfLinearTetraElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicTetraElements)).SetIsBrowsable(mesh && NumberOfParabolicTetraElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearPyramidElements)).SetIsBrowsable(mesh && NumberOfLinearPyramidElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicPyramidElements)).SetIsBrowsable(mesh && NumberOfParabolicPyramidElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearWedgeElements)).SetIsBrowsable(mesh && NumberOfLinearWedgeElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicWedgeElements)).SetIsBrowsable(mesh && NumberOfParabolicWedgeElements > 0);
+            _dctd.GetProperty(nameof(NumberOfLinearHexaElements)).SetIsBrowsable(mesh && NumberOfLinearHexaElements > 0);
+            _dctd.GetProperty(nameof(NumberOfParabolicHexaElements)).SetIsBrowsable(mesh && NumberOfParabolicHexaElements > 0);
             //
             bool visible;
             if (currentView == ViewGeometryModelResults.Geometry)

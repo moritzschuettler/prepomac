@@ -32,7 +32,7 @@ namespace PrePoMax.Forms
             get { return _viewPartProperties.GetBase(); }
             set
             {
-                _viewPartProperties = new ViewPartProperties(value, _currentView,
+                _viewPartProperties = new ViewPartProperties(value, GetElementTypeCounts(), _currentView,
                     _controller.Model.Properties.ModelSpace.GetUnavailableElementTypeNames());
             }
         }
@@ -159,6 +159,19 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
+        private CaeMesh.ElementTypeCount[] GetElementTypeCounts()
+        {
+            CaeMesh.FeMesh mesh;
+            if (_currentView == ViewGeometryModelResults.Model) mesh = _controller.Model.Mesh;
+            else if (_currentView == ViewGeometryModelResults.Results) mesh = _controller.CurrentResult?.Mesh;
+            else mesh = null;
+            //
+            CaeMesh.BasePart part;
+            if (mesh == null || _partToEditName == null || !mesh.Parts.TryGetValue(_partToEditName, out part))
+                return null;
+            //
+            return CaeMesh.ElementTypeCount.CountElementTypes(mesh, new CaeMesh.BasePart[] { part });
+        }
        
 
         
