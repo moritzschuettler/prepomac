@@ -8738,7 +8738,7 @@ namespace PrePoMax
             string[] meshAblePartNames = GetMeshablePartNames(new string[] { partName });
             int[] meshAblePartIds = _model.Geometry.GetPartIdsFomPartNames(meshAblePartNames);
             // The sizes the dialog would show for the same selection: a compound is meshed as a whole but
-            // its size follows its sub-parts, and the box around all of them is far larger than any of them
+            // its size follows its original parts, even when splitting has turned them into cells.
             MeshingParameters meshingParameters = GetPartDefaultMeshingParameters(meshAblePartNames);
             if (meshingParameters == null) meshingParameters = GetPartDefaultMeshingParameters(partName);
             //
@@ -8784,12 +8784,35 @@ namespace PrePoMax
             MeshingParameters defaultMeshingParameters = GetDefaultMeshingParameters("Default");
             double factorMax = defaultMeshingParameters.FactorMax;
             double factorMin = defaultMeshingParameters.FactorMin;
-            double diagonal = part.BoundingBox.GetDiagonal();
+            BoundingBox boundingBox = part.BoundingBox;
+            string[] sizePartNames = GetMeshingSizePartNames(partName);
+            if (sizePartNames.Length > 1)
+            {
+                boundingBox = new BoundingBox();
+                foreach (string sizePartName in sizePartNames)
+                    boundingBox.IncludeBox(_model.Geometry.Parts[sizePartName].BoundingBox);
+            }
+            double diagonal = boundingBox.GetDiagonal();
             //
             defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(diagonal * factorMax, 2);
             defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(diagonal * factorMin, 2);
             //
             return defaultMeshingParameters;
+        }
+        private string[] GetMeshingSizePartNames(string partName)
+        {
+            // A split part is represented by cells, but its default size follows their combined bounds.
+            if (_model.Geometry != null)
+            {
+                foreach (var entry in _model.Geometry.Parts)
+                {
+                    if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                    int cellIndex = Array.IndexOf(compoundPart.SubPartNames, partName);
+                    if (cellIndex >= 0 && compoundPart.CellSubPartNames[cellIndex] != null)
+                        return compoundPart.GetCellNames(compoundPart.CellSubPartNames[cellIndex]);
+                }
+            }
+            return new string[] { partName };
         }
         public ShellMmg GetPartDefaultShellMmg(string partName)
         {
@@ -8821,8 +8844,12 @@ namespace PrePoMax
             double sumMax = 0;
             double sumMin = 0;
             MeshingParameters defaultMeshingParameters = null;
+            HashSet<string> sizedSplitPartNames = new HashSet<string>();
+            int sizePartCount = 0;
             foreach (var partName in partNames)
             {
+                string[] sizePartNames = GetMeshingSizePartNames(partName);
+                if (sizePartNames.Length > 1 && !sizedSplitPartNames.Add(sizePartNames[0])) continue;
                 // Default parameters
                 defaultMeshingParameters = GetPartDefaultMeshingParameters(partName);
                 // If part is not found return null
@@ -8830,13 +8857,14 @@ namespace PrePoMax
                 {
                     sumMax += defaultMeshingParameters.MaxH;
                     sumMin += defaultMeshingParameters.MinH;
+                    sizePartCount++;
                 }
                 // Part was not found
                 else return null;
             }
             //
-            defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(sumMax / partNames.Length, 2);
-            defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(sumMin / partNames.Length, 2);
+            defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(sumMax / sizePartCount, 2);
+            defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(sumMin / sizePartCount, 2);
             return defaultMeshingParameters;
         }
         //
