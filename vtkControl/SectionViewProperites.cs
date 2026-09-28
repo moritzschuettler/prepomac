@@ -25,6 +25,9 @@ namespace vtkControl
         public bool LightenColors;
         public Color SectionColor;
         public bool ElementWise;
+        public bool Hatch;
+        public double HatchSpacing;
+        public Dictionary<string, int> HatchIndices;
         public HashSet<int> KeptElementIds;
 
 
@@ -44,6 +47,9 @@ namespace vtkControl
             LightenColors = sectionViewData.LightenColors;
             SectionColor = sectionViewData.SectionColor;
             ElementWise = sectionViewData.ElementWise;
+            Hatch = sectionViewData.Hatch;
+            HatchSpacing = sectionViewData.HatchSpacing;
+            HatchIndices = null;
             KeptElementIds = null;
         }
 
@@ -56,6 +62,9 @@ namespace vtkControl
             LightenColors = true;
             SectionColor = Color.Empty;
             ElementWise = false;
+            Hatch = false;
+            HatchSpacing = 0;
+            HatchIndices = null;
             KeptElementIds = null;
         }
         public SectionViewData DeepCopy()

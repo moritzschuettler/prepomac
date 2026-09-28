@@ -144,19 +144,9 @@ namespace vtkControl
         private static double[][] GetPlanePoints(vtkPolyData cut, vtkPlane plane)
         {
             double[] origin = plane.GetOrigin();
-            double[] normal = plane.GetNormal();
-            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            normal = new double[] { normal[0] / length, normal[1] / length, normal[2] / length };
-            // The first axis is any direction in the plane; the second one completes a right handed system with the normal
-            double[] firstAxis = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
-            double projection = firstAxis[0] * normal[0] + firstAxis[1] * normal[1] + firstAxis[2] * normal[2];
-            firstAxis = new double[] { firstAxis[0] - projection * normal[0], firstAxis[1] - projection * normal[1],
-                                       firstAxis[2] - projection * normal[2] };
-            length = Math.Sqrt(firstAxis[0] * firstAxis[0] + firstAxis[1] * firstAxis[1] + firstAxis[2] * firstAxis[2]);
-            firstAxis = new double[] { firstAxis[0] / length, firstAxis[1] / length, firstAxis[2] / length };
-            double[] secondAxis = new double[] { normal[1] * firstAxis[2] - normal[2] * firstAxis[1],
-                                                 normal[2] * firstAxis[0] - normal[0] * firstAxis[2],
-                                                 normal[0] * firstAxis[1] - normal[1] * firstAxis[0] };
+            double[] firstAxis;
+            double[] secondAxis;
+            GetPlaneAxes(plane, out firstAxis, out secondAxis);
             //
             int numOfPoints = (int)cut.GetNumberOfPoints();
             double[][] planePoints = new double[numOfPoints][];
@@ -173,6 +163,22 @@ namespace vtkControl
                 };
             }
             return planePoints;
+        }
+        public static void GetPlaneAxes(vtkPlane plane, out double[] firstAxis, out double[] secondAxis)
+        {
+            double[] normal = plane.GetNormal();
+            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            normal = new double[] { normal[0] / length, normal[1] / length, normal[2] / length };
+            // The first axis is any direction in the plane; the second one completes a right handed system with the normal
+            firstAxis = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double projection = firstAxis[0] * normal[0] + firstAxis[1] * normal[1] + firstAxis[2] * normal[2];
+            firstAxis = new double[] { firstAxis[0] - projection * normal[0], firstAxis[1] - projection * normal[1],
+                                       firstAxis[2] - projection * normal[2] };
+            length = Math.Sqrt(firstAxis[0] * firstAxis[0] + firstAxis[1] * firstAxis[1] + firstAxis[2] * firstAxis[2]);
+            firstAxis = new double[] { firstAxis[0] / length, firstAxis[1] / length, firstAxis[2] / length };
+            secondAxis = new double[] { normal[1] * firstAxis[2] - normal[2] * firstAxis[1],
+                                        normal[2] * firstAxis[0] - normal[0] * firstAxis[2],
+                                        normal[0] * firstAxis[1] - normal[1] * firstAxis[0] };
         }
         private static int[] GetTrianglesInsideTheCut(int[][] triangles, HashSet<long> loopEdges)
         {

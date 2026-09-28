@@ -34,6 +34,7 @@ namespace PrePoMax.Forms
         private bool _useSingleColor = false;
         private Color _sectionColor = Color.LightGreen;
         private bool _elementWise = false;
+        private bool _hatch = false;
 
 
         // Properties                                                                                                               
@@ -154,6 +155,13 @@ namespace PrePoMax.Forms
             set { _sectionColor = value; }
         }
         //
+        [Category("Appearance")]
+        [OrderedDisplayName(3, 10, "Hatch pattern")]
+        [Description("Select Yes to draw a hatch pattern on the section as on a technical drawing. The direction of the " +
+                     "lines alternates between the parts.")]
+        [Id(4, 3)]
+        public bool Hatch { get { return _hatch; } set { _hatch = value; } }
+        //
         //
         [Category("Section type")]
         [OrderedDisplayName(0, 10, "Element-wise section")]
@@ -186,6 +194,7 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanPropertyToYesNo(nameof(LightenColors));
             _dctd.RenameBooleanPropertyToYesNo(nameof(UseSingleColor));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ElementWise));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(Hatch));
             //
             UpdateVisibility();
         }

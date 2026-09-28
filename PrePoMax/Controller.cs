@@ -3324,31 +3324,45 @@ namespace PrePoMax
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
             if (plane != null) CreateSectionView(plane.Point.Coor, plane.Normal.Coor,
                                                 _sectionViews.LightenColors, _sectionViews.SectionColor,
-                                                _sectionViews.ElementWise);
+                                                _sectionViews.ElementWise, _sectionViews.Hatch);
         }
         public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
         {
             _sectionViews.SetCurrentSectionViewPlane(point, normal);
             _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
             _sectionViews.ElementWise = elementWise;
-            _form.CreateSectionView(point, normal, lightenColors, sectionColor, elementWise);
+            _sectionViews.Hatch = hatch;
+            _form.CreateSectionView(point, normal, lightenColors, sectionColor, elementWise, hatch);
         }
         public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
         {
             _sectionViews.SetCurrentPointAndNormal(point, normal);
             _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
             _sectionViews.ElementWise = elementWise;
-            _form.UpdateSectionView(point, normal, lightenColors, sectionColor, elementWise);
+            _sectionViews.Hatch = hatch;
+            _form.UpdateSectionView(point, normal, lightenColors, sectionColor, elementWise, hatch);
+        }
+        public string GetSectionViewHatchGroup(string partName)
+        {
+            if (_currentView != ViewGeometryModelResults.Geometry) return null;
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                int index = Array.IndexOf(compoundPart.SubPartNames, partName);
+                if (index >= 0) return compoundPart.Name + ":" + compoundPart.CellSubPartNames[index];
+            }
+            return null;
         }
         public void TurnSectionViewOnOff()
         {
             if (_sectionViews.IsSectionViewActive()) RemoveSectionView();
             else CreateSectionView(GetSectionViewBBCenter().Coor, GetDefaultSectionViewNormal(),
-                                   _sectionViews.LightenColors, _sectionViews.SectionColor, _sectionViews.ElementWise);
+                                   _sectionViews.LightenColors, _sectionViews.SectionColor, _sectionViews.ElementWise,
+                                   _sectionViews.Hatch);
         }
         public void ResetSectionView()
         {
@@ -3721,7 +3735,7 @@ namespace PrePoMax
             // Resume section view
             if (sectionViewPlane != null) CreateSectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor,
                                                            _sectionViews.LightenColors, _sectionViews.SectionColor,
-                                                           _sectionViews.ElementWise);
+                                                           _sectionViews.ElementWise, _sectionViews.Hatch);
             // Resume undeformed results view
             if (_currentView == ViewGeometryModelResults.Results)
             {

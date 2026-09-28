@@ -327,6 +327,7 @@ namespace vtkControl
 
         // Callbacks                                                                                                                
         public Func<string, string> Controller_GetAnnotationText;
+        public Func<string, string> Controller_GetSectionViewHatchGroup;
         public Action<int, bool> Controller_AnimationFrameChanged;
         public Func<string, int, NodesExchangeData> Controller_GetAnimationLocatorNodes;
         public Func<string, int, PartExchangeData> Controller_GetVolumeGridData;
@@ -5689,7 +5690,12 @@ namespace vtkControl
 
         #region Section view  ######################################################################################################
         public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
+        {
+            CreateSectionView(point, normal, lightenColors, sectionColor, elementWise, hatch, GetDefaultHatchSpacing());
+        }
+        private void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
+                                       bool elementWise, bool hatch, double hatchSpacing)
         {
             lock (myLock)
             {
@@ -5703,6 +5709,8 @@ namespace vtkControl
                     _sectionViewData.LightenColors = lightenColors;
                     _sectionViewData.SectionColor = sectionColor;
                     _sectionViewData.ElementWise = elementWise;
+                    _sectionViewData.Hatch = hatch;
+                    _sectionViewData.HatchSpacing = hatchSpacing;
                     //
                     foreach (var entry in _actors)
                     {
@@ -5710,6 +5718,7 @@ namespace vtkControl
                     }
                     // Add new section cut actors
                     _sectionViewData.KeptElementIds = new HashSet<int>();
+                    _sectionViewData.HatchIndices = new Dictionary<string, int>();
                     foreach (var actor in _actors.Values.ToArray())     // must be copied to array
                     {
                         if (actor.SectionViewPossible) AddSectionViewActors(actor);
@@ -5724,7 +5733,7 @@ namespace vtkControl
             }
         }
         public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
         {
             lock (myLock)
             {
@@ -5738,8 +5747,10 @@ namespace vtkControl
                     _sectionViewData.LightenColors = lightenColors;
                     _sectionViewData.SectionColor = sectionColor;
                     _sectionViewData.ElementWise = elementWise;
+                    _sectionViewData.Hatch = hatch;
                     // Add new section cut actors
                     _sectionViewData.KeptElementIds = new HashSet<int>();
+                    _sectionViewData.HatchIndices = new Dictionary<string, int>();
                     foreach (var actor in _actors.Values.ToArray())     // must be copied to array
                     {
                         if (actor.SectionViewPossible) AddSectionViewActors(actor);
@@ -5801,9 +5812,11 @@ namespace vtkControl
         }
         private void RemoveSectionViewActor(vtkMaxActor sectionViewActor)
         {
+            ReleaseActorGraphicsResources(sectionViewActor);
             _renderer.RemoveActor(sectionViewActor.Geometry);
             if (sectionViewActor.ElementEdges != null) _renderer.RemoveActor(sectionViewActor.ElementEdges);
             if (sectionViewActor.ModelEdges != null) _renderer.RemoveActor(sectionViewActor.ModelEdges);
+            if (sectionViewActor.SectionViewHatch != null) _renderer.RemoveActor(sectionViewActor.SectionViewHatch);
             if (sectionViewActor.Geometry.GetPickable() == 1)
             {
                 if (sectionViewActor.CellLocator != null) _cellPicker.RemoveLocator(sectionViewActor.CellLocator);
@@ -5830,6 +5843,9 @@ namespace vtkControl
                 //
                 AddActor(sectionViewActor, vtkRendererLayer.Base);
                 actor.SectionViewActor = sectionViewActor;
+                //
+                bool elementWiseSection = skinActor != null;
+                if (_sectionViewData.Hatch && !elementWiseSection) AddSectionViewHatch(actor, sectionViewActor);
             }
             // The element-wise section draws the remaining part surface itself, so the part geometry is hidden
             if (skinActor != null)
@@ -5840,6 +5856,35 @@ namespace vtkControl
                 actor.GeometryHiddenBySectionView = true;
                 ApplySectionViewVisibility(actor);
             }
+        }
+        private void AddSectionViewHatch(vtkMaxActor actor, vtkMaxActor sectionViewActor)
+        {
+            string hatchGroup = Controller_GetSectionViewHatchGroup?.Invoke(actor.Name) ?? actor.Name;
+            int hatchIndex;
+            if (!_sectionViewData.HatchIndices.TryGetValue(hatchGroup, out hatchIndex))
+            {
+                hatchIndex = _sectionViewData.HatchIndices.Count;
+                _sectionViewData.HatchIndices.Add(hatchGroup, hatchIndex);
+            }
+            //
+            vtkPolyData hatch = SectionViewHatch.GetHatch(sectionViewActor.GeometryMapper.GetInput(), _sectionViewData.Plane,
+                                                          _sectionViewData.HatchSpacing, hatchIndex);
+            if (hatch == null) return;
+            //
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(hatch);
+            mapper.ScalarVisibilityOff();
+            //
+            vtkActor hatchActor = vtkActor.New();
+            hatchActor.SetMapper(mapper);
+            hatchActor.PickableOff();
+            //
+            sectionViewActor.SectionViewHatch = hatchActor;
+            _renderer.AddActor(hatchActor);
+        }
+        private double GetDefaultHatchSpacing()
+        {
+            return GetBoundingBoxDiagonal() / 100;
         }
         private vtkMaxActor GetSectionViewActor(vtkMaxActor actor, out vtkMaxActor skinActor)
         {
@@ -8702,7 +8747,8 @@ namespace vtkControl
             //
             if (applySectionView) CreateSectionView(sectionViewData.Plane.GetOrigin(), sectionViewData.Plane.GetNormal(),
                                                    sectionViewData.LightenColors, sectionViewData.SectionColor,
-                                                   sectionViewData.ElementWise);
+                                                   sectionViewData.ElementWise, sectionViewData.Hatch,
+                                                   sectionViewData.HatchSpacing);
             //
             UpdateScalarFormatting();
             //
@@ -9408,6 +9454,7 @@ namespace vtkControl
             if (actor.ElementEdges != null) actor.ElementEdges.ReleaseGraphicsResources(_renderWindow);
             if (actor.ModelEdges != null) actor.ModelEdges.ReleaseGraphicsResources(_renderWindow);
             if (actor.Nodes != null) actor.Nodes.ReleaseGraphicsResources(_renderWindow);
+            if (actor.SectionViewHatch != null) actor.SectionViewHatch.ReleaseGraphicsResources(_renderWindow);
         }
         #endregion #################################################################################################################
 

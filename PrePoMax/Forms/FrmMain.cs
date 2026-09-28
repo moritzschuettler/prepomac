@@ -446,6 +446,7 @@ namespace PrePoMax
                 _vtk.OnMouseLeftButtonUpSelection += _vtk_SelectPointOrArea;
                 _vtk.RotationPointChanged += _vtk_RotationPointChanged;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
+                _vtk.Controller_GetSectionViewHatchGroup = _controller.GetSectionViewHatchGroup;
                 _vtk.Controller_AnimationFrameChanged = _controller.AnimationFrameChanged;
                 _vtk.Controller_GetAnimationLocatorNodes = _controller.GetAnimationLocatorNodes;
                 _vtk.Controller_GetVolumeGridData = _controller.GetVolumeGridData;
@@ -11580,15 +11581,15 @@ namespace PrePoMax
 
         // Section view
         public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
         {
-            InvokeIfRequired(_vtk.CreateSectionView, point, normal, lightenColors, sectionColor, elementWise);
+            InvokeIfRequired(() => _vtk.CreateSectionView(point, normal, lightenColors, sectionColor, elementWise, hatch));
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
         public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor,
-                                      bool elementWise)
+                                      bool elementWise, bool hatch)
         {
-            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, lightenColors, sectionColor, elementWise);
+            InvokeIfRequired(() => _vtk.UpdateSectionView(point, normal, lightenColors, sectionColor, elementWise, hatch));
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
         public void RemoveSectionView(bool releaseVolumeGrids = false)

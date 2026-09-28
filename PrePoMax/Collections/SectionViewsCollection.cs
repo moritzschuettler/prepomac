@@ -27,6 +27,7 @@ namespace PrePoMax
         private bool _lightenColors;
         private Color _sectionColor;
         private bool _elementWise;
+        private bool _hatch;
 
 
         // Properties                                                                                                               
@@ -34,6 +35,7 @@ namespace PrePoMax
         public bool LightenColors { get { return _lightenColors; } set { _lightenColors = value; } }
         public Color SectionColor { get { return _sectionColor; } set { _sectionColor = value; } }
         public bool ElementWise { get { return _elementWise; } set { _elementWise = value; } }
+        public bool Hatch { get { return _hatch; } set { _hatch = value; } }
 
 
         // Constructors                                                                                                             
@@ -45,6 +47,7 @@ namespace PrePoMax
             _lightenColors = true;
             _sectionColor = Color.Empty;
             _elementWise = false;
+            _hatch = false;
         }
 
 

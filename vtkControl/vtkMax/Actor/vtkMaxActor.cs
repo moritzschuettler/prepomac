@@ -36,6 +36,7 @@ namespace vtkControl
         protected vtkPolyData _modelEdgesForHighlight;
         protected string _drawnModelEdgesKey;
         protected vtkActor _nodes;
+        protected vtkActor _sectionViewHatch;
         //
         protected vtkProperty _geometryProperty;
         protected vtkProperty _elementEdgesProperty;
@@ -163,6 +164,16 @@ namespace vtkControl
             get { return _modelEdgesForHighlight; }
             set { _modelEdgesForHighlight = value; }
         }
+        public vtkActor SectionViewHatch
+        {
+            get { return _sectionViewHatch; }
+            set
+            {
+                _sectionViewHatch = value;
+                if (_sectionViewHatch != null) _sectionViewHatch.SetVisibility(_visible ? 1 : 0);
+                UpdateColor();
+            }
+        }
         public vtkActor Nodes
         {
             get { return _nodes; }
@@ -234,6 +245,7 @@ namespace vtkControl
             {
                 _visible = value;
                 if (_geometry != null) _geometry.SetVisibility(_visible ? 1 : 0);    // to base vtkActor
+                if (_sectionViewHatch != null) _sectionViewHatch.SetVisibility(_visible ? 1 : 0);
             }
         }
         public bool BackfaceCulling { get { return _backfaceCulling; } set { _backfaceCulling = value; } }
@@ -1932,6 +1944,14 @@ namespace vtkControl
                 _modelEdgesProperty.SetLighting(false);
                 _modelEdgesProperty.SetLineWidth(0.8f);
                 _modelEdgesProperty.SetOpacity(opacity * 0.7);
+            }
+            if (_sectionViewHatch != null)
+            {
+                vtkProperty sectionViewHatchProperty = _sectionViewHatch.GetProperty();
+                sectionViewHatchProperty.SetColor(0, 0, 0);
+                sectionViewHatchProperty.SetLighting(false);
+                sectionViewHatchProperty.SetLineWidth(0.8f);
+                sectionViewHatchProperty.SetOpacity(opacity * 0.7);
             }
             //if (opacity < 1) opacity = Math.Min(0.2, opacity);
             if (_elementEdges != null)

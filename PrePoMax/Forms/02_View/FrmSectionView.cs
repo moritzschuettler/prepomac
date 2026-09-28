@@ -82,7 +82,7 @@ namespace PrePoMax.Forms
                     //
                     _controller.CreateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
                                                   _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor,
-                                                  _sectionViewParameters.ElementWise);
+                                                  _sectionViewParameters.ElementWise, _sectionViewParameters.Hatch);
                     //
                     this.Enabled = true;
                 }
@@ -330,7 +330,7 @@ namespace PrePoMax.Forms
                 //
                 _controller.UpdateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
                                               _sectionViewParameters.LightenColors, _sectionViewParameters.SectionColor,
-                                              _sectionViewParameters.ElementWise);
+                                              _sectionViewParameters.ElementWise, _sectionViewParameters.Hatch);
                 //
                 //System.Diagnostics.Debug.WriteLine("Section cut time: " + DateTime.Now.ToLongTimeString() + "   Duration: " + watch.ElapsedMilliseconds);
             }
