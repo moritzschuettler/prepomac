@@ -6365,7 +6365,9 @@ namespace PrePoMax
             // ids go to the cells, so what was defined on it is let go as for a deleted part: a pick kept
             // for a replacement would land on whichever cell took its id
             Color partColor = part.Color;
-            Dictionary<MeshSetupItem, int[]> compoundMeshSetupItems = GetMeshSetupItemsCoveringCompound(part);
+            Dictionary<MeshSetupItem, string[]> coveredSubPartNames;
+            Dictionary<MeshSetupItem, int[]> compoundMeshSetupItems = GetMeshSetupItemsCoveringCompound(part,
+                                                                          out coveredSubPartNames);
             // The parts the split cut and a compound that is cut again are still there to the user, so they keep
             // their part ids: the mesh parts meshed from them keep the ids that the selections made on them hold
             string keptCompoundPartName = part is CompoundGeometryPart ? partName : null;
@@ -6411,12 +6413,14 @@ namespace PrePoMax
             compoundPart.CellSubPartNames = cellSubPartNames;
             compoundPart.CellSubPartIds = cellSubPartIds;
             RenameSplitCells(compoundPart);
-            // A compound that is split again is still the same body, so what was defined on the whole of it
-            // is defined on the whole of what it became
-            int[] cellPartIds = GetSubParts(compoundPartName).Select(cell => cell.PartId).ToArray();
+            // A compound that is split again is still the same body, so what was defined on the whole of a sub
+            // part is defined on the whole of what it became
             foreach (var entry in compoundMeshSetupItems)
             {
                 MeshSetupItem meshSetupItem = entry.Key;
+                int[] cellPartIds = coveredSubPartNames[meshSetupItem]
+                    .SelectMany(subPartName => compoundPart.GetCellNames(subPartName))
+                    .Select(cellName => _model.Geometry.Parts[cellName].PartId).ToArray();
                 meshSetupItem.CreationIds = entry.Value.Concat(cellPartIds).ToArray();
                 meshSetupItem.CreationData.Nodes.Clear();
                 meshSetupItem.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false,
@@ -6427,30 +6431,56 @@ namespace PrePoMax
             return compoundPartName;
         }
         /// <summary>
-        /// The mesh setup items that mesh the whole of a compound part, each with the ids it holds of the
-        /// parts that are not the compound. Only an item defined on parts can follow a compound into the
-        /// cells of a split; one defined on its surfaces or edges names faces the split has redrawn.
+        /// The mesh setup items that mesh the whole of one or more sub parts of a compound part, each with the
+        /// ids it holds of the parts that are not the cells of the compound, and the sub parts it covers. Only
+        /// an item defined on parts can follow a compound into the cells of a split, which includes a sweep
+        /// that finds its source surfaces automatically; one defined on surfaces or edges names faces the
+        /// split has redrawn.
         /// </summary>
-        private Dictionary<MeshSetupItem, int[]> GetMeshSetupItemsCoveringCompound(GeometryPart part)
+        private Dictionary<MeshSetupItem, int[]> GetMeshSetupItemsCoveringCompound(GeometryPart part,
+            out Dictionary<MeshSetupItem, string[]> coveredSubPartNames)
         {
             Dictionary<MeshSetupItem, int[]> meshSetupItems = new Dictionary<MeshSetupItem, int[]>();
+            coveredSubPartNames = new Dictionary<MeshSetupItem, string[]>();
             if (!(part is CompoundGeometryPart compoundPart)) return meshSetupItems;
             //
-            HashSet<int> subPartIds = new HashSet<int>(GetSubParts(compoundPart.Name).Select(p => p.PartId));
+            GeometryPart[] cells = GetSubParts(compoundPart.Name);
+            Dictionary<string, HashSet<int>> subPartCellIds = new Dictionary<string, HashSet<int>>();
+            for (int i = 0; i < cells.Length; i++)
+            {
+                string subPartName = compoundPart.CellSubPartNames?[i] ?? cells[i].Name;
+                HashSet<int> cellIds;
+                if (!subPartCellIds.TryGetValue(subPartName, out cellIds))
+                {
+                    cellIds = new HashSet<int>();
+                    subPartCellIds.Add(subPartName, cellIds);
+                }
+                cellIds.Add(cells[i].PartId);
+            }
+            HashSet<int> allCellIds = new HashSet<int>(cells.Select(cell => cell.PartId));
+            //
             foreach (var entry in _model.Geometry.MeshSetupItems)
             {
                 MeshSetupItem meshSetupItem = entry.Value;
                 if (!(meshSetupItem is MeshingParameters || meshSetupItem is ShellMmg ||
                       meshSetupItem is ShellGmsh || meshSetupItem is ShellQuadWild ||
                       meshSetupItem is ThickenShellMesh || meshSetupItem is NetgenMesh ||
-                      meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)) continue;
+                      meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh ||
+                      (meshSetupItem is SweepMesh sweepMesh &&
+                       sweepMesh.SourceType == SweepSourceTypeEnum.Automatic))) continue;
                 if (meshSetupItem.CreationIds == null || meshSetupItem.CreationData == null) continue;
+                if (!meshSetupItem.CreationIds.All(id => FeMesh.IsPartGeometryId(id))) continue;
                 //
                 HashSet<int> partIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds));
-                if (!subPartIds.IsSubsetOf(partIds)) continue;
+                bool wholeCompound = partIds.Contains(compoundPart.PartId);
+                string[] subPartNames = subPartCellIds
+                    .Where(subPart => wholeCompound || subPart.Value.IsSubsetOf(partIds))
+                    .Select(subPart => subPart.Key).ToArray();
+                if (subPartNames.Length == 0) continue;
                 //
                 meshSetupItems[meshSetupItem] = meshSetupItem.CreationIds
-                    .Where(id => !subPartIds.Contains(FeMesh.GetPartIdFromGeometryId(id))).ToArray();
+                    .Where(id => !allCellIds.Contains(FeMesh.GetPartIdFromGeometryId(id))).ToArray();
+                coveredSubPartNames[meshSetupItem] = subPartNames;
             }
             return meshSetupItems;
         }

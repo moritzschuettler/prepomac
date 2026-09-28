@@ -13,7 +13,8 @@
 #    is split, the cut inside each box is not.
 #  - split_compound_mesh with merge_cells=False separates every cell.
 #  - Splitting the compound again replaces its cells only: the compound keeps its name and id, and the mesh
-#    parts of the sub-parts and of the merged compound come back with the ids they had.
+#    parts of the sub-parts and of the merged compound come back with the ids they had. Meshing parameters
+#    and an automatic sweep defined on one sub-part follow it onto its new cells.
 #
 #  PrePoMax.com -f sweep_side2.brep -u MM_TON_S_C --script Test_Model_Meshing_Split_Cells.py -g No -x Yes -w <dir>
 #
@@ -22,6 +23,8 @@
 import itertools
 
 MESHING_PARAMETERS_NAME = "Meshing_parameters-Split_cells"
+SUB_PART_MESHING_PARAMETERS_NAME = "Meshing_parameters-Sub_part"
+SUB_PART_SWEEP_NAME = "Sweep_mesh-Sub_part"
 
 
 def check(condition, message):
@@ -94,6 +97,11 @@ def main():
     print("TEST PASSED")
 
 
+def cells_of(sub_part_name):
+    return [part for part in pmx.model.geometry.parts
+            if part.part_type != "Compound" and part.name.startswith(sub_part_name + "_cell-")]
+
+
 def mesh_part_ids():
     return dict((part.name, part.id) for part in pmx.model.parts)
 
@@ -107,7 +115,16 @@ def check_split_again(compound, sub_part_names):
           "the merged compound mesh must take the id of the compound: " + str(compound_ids))
     #
     parts = pmx.model.geometry.parts
+    items = pmx.model.mesh.setup_items
+    items.add_meshing_parameters(SUB_PART_MESHING_PARAMETERS_NAME, part_region(cells_of(sub_part_names[0])))
+    items.add_sweep_mesh(SUB_PART_SWEEP_NAME, part_region(cells_of(sub_part_names[0])))
     parts.split_solid(part_region([compound]), pmx.create.split_tool_plane_by_point_and_normal(normal=[0, 1, 0]))
+    new_cell_ids = sorted(part.id for part in cells_of(sub_part_names[0]))
+    for name in [SUB_PART_MESHING_PARAMETERS_NAME, SUB_PART_SWEEP_NAME]:
+        check(items[name].valid and sorted(items[name].get_geometry_ids()) == new_cell_ids,
+              "%s on %s must follow it onto its new cells %s: valid %s, ids %s" %
+              (name, sub_part_names[0], new_cell_ids, items[name].valid, sorted(items[name].get_geometry_ids())))
+    items.remove([SUB_PART_MESHING_PARAMETERS_NAME, SUB_PART_SWEEP_NAME])
     compounds = [part for part in parts if part.part_type == "Compound"]
     check(len(compounds) == 1 and compounds[0].name == compound.name and compounds[0].id == compound.id,
           "a compound split again must keep its name and id: " + str([(c.name, c.id) for c in compounds]))
