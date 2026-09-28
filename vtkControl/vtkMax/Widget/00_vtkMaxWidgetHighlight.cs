@@ -14,10 +14,15 @@ using Kitware.VTK;
 
 namespace vtkControl
 {
-    class vtkMaxWidgetHighlight
+    public class vtkMaxWidgetHighlight
     {
         public const double WidgetFillOpacity = 0.05;
         public const double WidgetBorderOpacity = 0.5;
+        public const float WidgetBorderLineWidth = 2.0f;
+        public const double SurfaceFillOpacity = 0.15;
+        //
+        public static Color BorderColor { get { return SystemColors.Highlight; } }
+        public static Color FillColor { get { return Color.LightSkyBlue; } }
         //
         private const int NumOfCorners = 4;
         //
@@ -55,10 +60,10 @@ namespace vtkControl
             _borderMapper.SetInput(_borderPolyData);
             //
             vtkProperty2D borderProperty = vtkProperty2D.New();
-            Color borderColor = SystemColors.Highlight;
+            Color borderColor = BorderColor;
             borderProperty.SetColor(borderColor.R / 255.0, borderColor.G / 255.0, borderColor.B / 255.0);
             borderProperty.SetOpacity(WidgetBorderOpacity);
-            borderProperty.SetLineWidth(2.0f);
+            borderProperty.SetLineWidth(WidgetBorderLineWidth);
             //
             _borderActor = vtkActor2D.New();
             _borderActor.SetMapper(_borderMapper);
@@ -77,7 +82,7 @@ namespace vtkControl
             _fillMapper.SetInput(_fillPolyData);
             //
             vtkProperty2D fillProperty = vtkProperty2D.New();
-            Color fillColor = Color.LightSkyBlue;
+            Color fillColor = FillColor;
             fillProperty.SetColor(fillColor.R / 255.0, fillColor.G / 255.0, fillColor.B / 255.0);
             fillProperty.SetOpacity(WidgetFillOpacity);
             //

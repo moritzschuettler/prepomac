@@ -8236,7 +8236,8 @@ namespace PrePoMax
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
             nodeCoor = GetSplitGeometrySymbolCoor(nodeCoor);
-            data.Color = Color.FromArgb(70, _settings.Pre.SplitToolSymbolColor);
+            data.Color = Color.FromArgb((int)Math.Round(255 * vtkMaxWidgetHighlight.SurfaceFillOpacity),
+                                        vtkMaxWidgetHighlight.FillColor);
             data.Layer = vtkRendererLayer.Selection;
             data.DrawOnGeometry = true;
             data.KeepOwnColor = true;
@@ -8259,18 +8260,22 @@ namespace PrePoMax
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
             nodeCoor = GetSplitGeometrySymbolCoor(nodeCoor);
-            data.Color = _settings.Pre.SplitToolSymbolColor;
+            data.Color = Color.FromArgb((int)Math.Round(255 * vtkMaxWidgetHighlight.WidgetBorderOpacity),
+                                        _settings.Pre.SplitToolSymbolColor);
             data.Layer = vtkRendererLayer.Selection;
             data.DrawOnGeometry = true;
             data.KeepOwnColor = true;
             data.CanHaveElementEdges = false;
             data.Pickable = false;
-            data.LineWidth = 2;
+            data.LineWidth = vtkMaxWidgetHighlight.WidgetBorderLineWidth;
             data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
             data.Geometry.Nodes.Coor = nodeCoor;
             data.Geometry.Cells.CellNodeIds = cells;
             data.Geometry.Cells.Types = cellTypes;
-            ApplyLighting(data);
+            data.Lighting = false;
+            data.UseGlobalLighting = false;
+            data.Ambient = 0;
+            data.Diffuse = 1;
             _form.Add3DCells(data);
             RememberGeometryFeatureSymbolActor(data);
         }

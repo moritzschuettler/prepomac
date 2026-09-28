@@ -1275,8 +1275,7 @@ namespace vtkControl
             }
             else
             {
-                _selectionBorderActor.GetProperty().SetColor(0.3, 0.3, 1.0);
-                _selectionBackgroundActor.GetProperty().SetColor(0.2, 0.5, 1);
+                SetSelectionBoxDefaultColors();
                 //_selectionBorderActor.GetProperty().SetLineStipplePattern(0xffff);
             }
             //
@@ -1545,9 +1544,8 @@ namespace vtkControl
 
             _selectionBackgroundActor = vtkActor2D.New();
             _selectionBackgroundActor.SetMapper(_selectionBackgroundMapper);
-            _selectionBackgroundActor.GetProperty().SetOpacity(0.2);
+            _selectionBackgroundActor.GetProperty().SetOpacity(vtkMaxWidgetHighlight.SurfaceFillOpacity);
             _selectionBackgroundActor.VisibilityOff();
-            _selectionBackgroundActor.GetProperty().SetColor(0.2, 0.5, 1);
             _selectionRenderer.AddActor(_selectionBackgroundActor);
 
             vtkCellArray borderPolygon = vtkCellArray.New();
@@ -1567,10 +1565,22 @@ namespace vtkControl
 
             _selectionBorderActor = vtkActor2D.New();
             _selectionBorderActor.SetMapper(borderMapper);
-            _selectionBorderActor.GetProperty().SetColor(0.3, 0.3, 1.0);
+            _selectionBorderActor.GetProperty().SetOpacity(vtkMaxWidgetHighlight.WidgetBorderOpacity);
+            _selectionBorderActor.GetProperty().SetLineWidth(vtkMaxWidgetHighlight.WidgetBorderLineWidth);
             _selectionBorderActor.VisibilityOff();
 
             _selectionRenderer.AddActor(_selectionBorderActor);
+            //
+            SetSelectionBoxDefaultColors();
+        }
+        private void SetSelectionBoxDefaultColors()
+        {
+            System.Drawing.Color borderColor = vtkMaxWidgetHighlight.BorderColor;
+            _selectionBorderActor.GetProperty().SetColor(borderColor.R / 255.0, borderColor.G / 255.0,
+                                                         borderColor.B / 255.0);
+            System.Drawing.Color fillColor = vtkMaxWidgetHighlight.FillColor;
+            _selectionBackgroundActor.GetProperty().SetColor(fillColor.R / 255.0, fillColor.G / 255.0,
+                                                             fillColor.B / 255.0);
         }
 
         private void DrawSphereOnLeft(vtkObject sender, vtkObjectEventArgs e)
