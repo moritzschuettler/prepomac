@@ -84,10 +84,12 @@ namespace CaeMesh.Sweep
             // the nodes inside on the surfaces when the mesh is added, and the move, which takes every node close to an
             // input line for a node of it, pinned the nodes of a folded quad to a boundary and kept it folded. The edge
             // rotations of a later QuadWild are off as well: over the sweep test models they lowered the minimum
-            // quality of the swept elements on ten of them and raised it on none
+            // quality of the swept elements on ten of them and raised it on none. No boundary layer is added around the
+            // holes of a source
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, sweepMesh.QuadWildFlowProfile,
                                             sweepMesh.QuadWildAlpha,
-                                            new string[] { "input_line_count 0", "smooth_curves 0", "rotate_edges 0" });
+                                            new string[] { "input_line_count 0", "smooth_curves 0", "rotate_edges 0",
+                                                           "boundary_layer 0" });
             argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             QuadWildRuntime.RunStage("quad generation of " + group.GetDescription(), patchExecutable, argument,
                                      directory, unsmoothedObjFileName, smoothObjFileName);
