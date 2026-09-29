@@ -36,6 +36,8 @@ namespace CaeMesh
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
+        private Dictionary<int, int> _parityRaisedEdgeIdNumOfElements = new Dictionary<int, int>();
+        private HashSet<int> _userPinnedEdgeIds;
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
@@ -1862,6 +1864,7 @@ namespace CaeMesh
             bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
             //
             Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
+            _userPinnedEdgeIds = new HashSet<int>(pinnedEdgeIdNumElements.Keys);
             Dictionary<int, int> quadWildEdgeIdNumElements = new Dictionary<int, int>();
             Dictionary<int, int> directionEdgeIdNumOfElements = null;
             for (int round = 1; ; round++)
@@ -1879,6 +1882,9 @@ namespace CaeMesh
                 // Resolved again, from the 1D mesh the counts of the round before shaped, they came out larger each time
                 directionEdgeIdNumOfElements = PrepareWallEdges(walls, chains, chainBlockIndices,
                                                                 directionEdgeIdNumOfElements);
+                // An edge given one element more to even out a source keeps it: chosen by QuadWild, it went back to
+                // the count QuadWild liked, and the source was odd again in the next round
+                foreach (var entry in _parityRaisedEdgeIdNumOfElements) pinnedEdgeIdNumElements[entry.Key] = entry.Value;
                 if (round == 1)
                 {
                     FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds, recombine);
@@ -1951,16 +1957,13 @@ namespace CaeMesh
             }
         }
         /// <summary>
-        /// The QuadWild sources in groups of surfaces that touch along an edge. An edge is fixed when the user pinned
-        /// its count, when it follows the sweep or lies on the target side of a wall, when it is one of a pair of
-        /// imprint edges, or when it bounds a surface that is neither a QuadWild source nor a wall - another part, a
-        /// target, or a source left to gmsh; every other edge is free. A surface whose every edge is fixed needs an
-        /// even number of elements around it, since every quadrilateral has four sides, so one with an odd number
-        /// is left to gmsh, as a source is without QuadWild, and the groups are formed again without it.
+        /// The edges of the QuadWild sources whose counts QuadWild may not choose, whatever the surfaces around them:
+        /// the pins, the layer edges, the imprint pairs and every wall side they set, the target sides of the walls,
+        /// and the runs the walls join through more than one free edge. An edge that bounds a surface which is neither
+        /// a QuadWild source nor a wall is fixed as well, which IsQuadWildEdgeFixed adds.
         /// </summary>
-        private List<SweepQuadWildGroup> GetQuadWildGroups(List<SweepBlock> blocks, List<SweepWall> walls,
-                                                           Dictionary<int, int> pinnedEdgeIdNumElements, bool recombine,
-                                                           bool fallbackToGmsh)
+        private HashSet<int> GetAlwaysFixedQuadWildEdgeIds(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                           Dictionary<int, int> pinnedEdgeIdNumElements)
         {
             HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
             // Counts no wall derives from another: the pins, the layers and the imprint pairs. A wall's side is set by
@@ -2074,6 +2077,72 @@ namespace CaeMesh
                     }
                 }
             }
+            // A free edge a source whose every edge is fixed is fed from - through the walls of the blocks between, or
+            // across a transfinite source - would have QuadWild choose a count that runs on to that source: QuadWild
+            // chose 26 where the walls had measured 3, and the source the counts had been evened out for was odd again
+            // in the next round. Such an edge keeps the count the walls settle, and the sources it fixes in turn are
+            // followed back as well
+            HashSet<int> quadWildEdgeIdsOfSources = new HashSet<int>();
+            Dictionary<int, int[]> quadWildSourceEdgeIds = new Dictionary<int, int[]>();
+            foreach (var surfaceId in _quadWildSourceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out surfaceEdgeIds);
+                quadWildSourceEdgeIds[surfaceId] = surfaceEdgeIds.Select(id => Math.Abs(id)).ToArray();
+                quadWildEdgeIdsOfSources.UnionWith(quadWildSourceEdgeIds[surfaceId]);
+            }
+            HashSet<int> targetEdgeIdsOfWalls;
+            Dictionary<int, HashSet<int>> edgeIdFeedingEdgeIds =
+                GetFeedingEdgeIds(walls, GetTransfiniteSourceTiedEdgeGroups(walls), out targetEdgeIdsOfWalls);
+            HashSet<int> followedSourceIds = new HashSet<int>();
+            bool fixedMore = true;
+            while (fixedMore)
+            {
+                fixedMore = false;
+                foreach (var entry in quadWildSourceEdgeIds)
+                {
+                    if (followedSourceIds.Contains(entry.Key)) continue;
+                    if (!entry.Value.All(id => IsQuadWildEdgeFixed(id, alwaysFixedEdgeIds, wallSurfaceIds))) continue;
+                    followedSourceIds.Add(entry.Key);
+                    //
+                    HashSet<int> feeding;
+                    HashSet<int> visited = new HashSet<int>(entry.Value);
+                    Queue<int> queue = new Queue<int>(entry.Value);
+                    while (queue.Count > 0)
+                    {
+                        int edgeId = queue.Dequeue();
+                        if (quadWildEdgeIdsOfSources.Contains(edgeId) && alwaysFixedEdgeIds.Add(edgeId)) fixedMore = true;
+                        if (!edgeIdFeedingEdgeIds.TryGetValue(edgeId, out feeding)) continue;
+                        foreach (var feedingEdgeId in feeding)
+                        {
+                            if (visited.Add(feedingEdgeId)) queue.Enqueue(feedingEdgeId);
+                        }
+                    }
+                }
+            }
+            return alwaysFixedEdgeIds;
+        }
+        private bool IsQuadWildEdgeFixed(int edgeId, HashSet<int> alwaysFixedEdgeIds, HashSet<int> wallSurfaceIds)
+        {
+            if (alwaysFixedEdgeIds.Contains(edgeId)) return true;
+            //
+            int[] faceIds;
+            Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out _);
+            return faceIds.Any(id => !_quadWildSourceIds.Contains(id) && !wallSurfaceIds.Contains(id));
+        }
+        /// <summary>
+        /// The QuadWild sources in groups of surfaces that touch along an edge. An edge is fixed when the user pinned
+        /// its count, when it follows the sweep or lies on the target side of a wall, when it is one of a pair of
+        /// imprint edges, or when it bounds a surface that is neither a QuadWild source nor a wall - another part, a
+        /// target, or a source left to gmsh; every other edge is free. A surface whose every edge is fixed needs an
+        /// even number of elements around it, since every quadrilateral has four sides, so one with an odd number
+        /// is left to gmsh, as a source is without QuadWild, and the groups are formed again without it.
+        /// </summary>
+        private List<SweepQuadWildGroup> GetQuadWildGroups(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                           Dictionary<int, int> pinnedEdgeIdNumElements, bool recombine,
+                                                           bool fallbackToGmsh)
+        {
+            HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+            HashSet<int> alwaysFixedEdgeIds = GetAlwaysFixedQuadWildEdgeIds(blocks, walls, pinnedEdgeIdNumElements);
             //
             int[] edgeIds;
             int[] faceIds;
@@ -2088,13 +2157,7 @@ namespace CaeMesh
                     surfaceIdEdgeIds[surfaceId] = edgeIds;
                     foreach (var edgeId in edgeIds)
                     {
-                        if (alwaysFixedEdgeIds.Contains(edgeId)) fixedEdgeIds.Add(edgeId);
-                        else
-                        {
-                            Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out _);
-                            if (faceIds.Any(id => !_quadWildSourceIds.Contains(id) && !wallSurfaceIds.Contains(id)))
-                                fixedEdgeIds.Add(edgeId);
-                        }
+                        if (IsQuadWildEdgeFixed(edgeId, alwaysFixedEdgeIds, wallSurfaceIds)) fixedEdgeIds.Add(edgeId);
                     }
                 }
                 //
@@ -2678,6 +2741,9 @@ namespace CaeMesh
                 foreach (var edgeId in classEdgeIds)
                 {
                     if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count)) continue;
+                    // A count QuadWild chose in an earlier round is held no lower than the fewest the walls need
+                    if (_userPinnedEdgeIds != null && !_userPinnedEdgeIds.Contains(edgeId))
+                        count = Math.Max(count, GetMeasuredCrossEdgeElements(edgeId));
                     if (fixedCount < 0) { fixedCount = count; origin = "the count the user set"; }
                     else if (fixedCount != count) conflict = true;
                 }
@@ -2949,6 +3015,27 @@ namespace CaeMesh
                     }
                 }
             }
+            Dictionary<int, int> pinnedEdgeIdNumOfElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
+            Dictionary<int, int> edgeIdNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups, directionEdgeIdNumOfElements);
+            edgeIdNumOfElements = EvenOutQuadWildSources(walls, tiedEdgeGroups, directionEdgeIdNumOfElements,
+                                                         pinnedEdgeIdNumOfElements, edgeIdNumOfElements);
+            foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+            //
+            CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
+            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
+            foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            return directionEdgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The counts of every edge of the walls, from the layer counts and the counts measured on the 1D mesh, which
+        /// has to be there still: the opposite sides of the transfinite sources brought to one count, the cross-sweep
+        /// sides of the walls resolved from source to target, the imprint pairs, and the cuts of one closed curve gmsh
+        /// counted differently. The fewest elements an edge can carry are the ones _crossEdgeMinimums holds.
+        /// </summary>
+        private Dictionary<int, int> ResolveWallCounts(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                       Dictionary<int, int> directionEdgeIdNumOfElements)
+        {
+            int numOfElements;
             // A four sided source the pass before the sweep made transfinite needs one count on its two opposite
             // sides, while the counts on its edges are settled wall by wall - an edge it shares with a
             // neighbouring block is a layer edge of that block and carries its layer count. So every pair of
@@ -3028,12 +3115,213 @@ namespace CaeMesh
                 edgeIdNumOfElements = MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                                         targetEdgeIdNumOfElements, imprintEdgeIdNumOfElements);
             }
-            foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+            return edgeIdNumOfElements;
+        }
+        /// <summary>
+        /// A QuadWild source whose every edge is fixed by the sweep needs an even number of elements around it, since
+        /// every quadrilateral has four sides, and the counts of its edges come from far away: from the source at the
+        /// head of every chain of walls ending on it, and through the opposite sides of the transfinite sources on the
+        /// way. So the parity is settled here, where the counts are, rather than found out once QuadWild is asked.
+        ///
+        /// The walls make a graph: every edge of a wall's target side is reached from the edges of its source side,
+        /// and every edge a transfinite source ties from the others of its class. Walking it back from an odd source
+        /// ends at the heads - counts measured on the mesh, pinned by no one and no layer count - and one element more
+        /// on a head is carried down every chain it feeds by the fewest-elements bound, which keeps every wall a grid.
+        /// The nearest heads are tried first, the longest edge first among them, since an element more there changes
+        /// the spacing least; a head is kept when fewer sources are left odd, no more walls are refused and no layer
+        /// count has to move, and the walk starts again until no source is odd or no head helps. What is left odd is
+        /// reported by the grouping of the QuadWild sources as before.
+        /// </summary>
+        private Dictionary<int, int> EvenOutQuadWildSources(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                            Dictionary<int, int> directionEdgeIdNumOfElements,
+                                                            Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                                            Dictionary<int, int> edgeIdNumOfElements)
+        {
+            if (_quadWildSourceIds.Count == 0 || _sweepBlocks == null) return edgeIdNumOfElements;
+            // A count QuadWild chose in an earlier round is pinned for the walls but not the user's, and may be raised:
+            // the group it belongs to is meshed again with the edge fixed at the new count. The sources fixed are the
+            // ones the pins that stay fix - the user's and the ones set here - since QuadWild chooses the free edges of
+            // a group anew whenever it meshes it again
+            HashSet<int> userPinnedEdgeIds = _userPinnedEdgeIds ?? new HashSet<int>(pinnedEdgeIdNumOfElements.Keys);
+            Dictionary<int, int> stayingPins = pinnedEdgeIdNumOfElements.Where(entry => userPinnedEdgeIds.Contains(entry.Key) ||
+                                                                                        _parityRaisedEdgeIdNumOfElements.ContainsKey(entry.Key))
+                                                                        .ToDictionary(entry => entry.Key, entry => entry.Value);
+            // The sources whose every edge is fixed, with their edges
+            int[] edgeIds;
+            HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+            HashSet<int> alwaysFixedEdgeIds = GetAlwaysFixedQuadWildEdgeIds(_sweepBlocks, walls, stayingPins);
+            Dictionary<int, int[]> fixedSourceEdgeIds = new Dictionary<int, int[]>();
+            foreach (var surfaceId in _quadWildSourceIds.OrderBy(id => id))
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                edgeIds = edgeIds.Select(id => Math.Abs(id)).ToArray();
+                if (edgeIds.All(id => IsQuadWildEdgeFixed(id, alwaysFixedEdgeIds, wallSurfaceIds)))
+                    fixedSourceEdgeIds.Add(surfaceId, edgeIds);
+            }
+            if (fixedSourceEdgeIds.Count == 0) return edgeIdNumOfElements;
+            // The graph, walked back
+            HashSet<int> targetEdgeIds;
+            Dictionary<int, HashSet<int>> edgeIdFeedingEdgeIds = GetFeedingEdgeIds(walls, tiedEdgeGroups, out targetEdgeIds);
+            Func<int, bool> isHead = edgeId => !targetEdgeIds.Contains(edgeId) &&
+                                               !userPinnedEdgeIds.Contains(edgeId) &&
+                                               !directionEdgeIdNumOfElements.ContainsKey(edgeId) &&
+                                               _crossEdgeMinimums.ContainsKey(edgeId);
             //
-            CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
-            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
-            foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
-            return directionEdgeIdNumOfElements;
+            Dictionary<int, int> raisedMinimums = new Dictionary<int, int>();
+            List<int> oddSourceIds = GetOddQuadWildSources(fixedSourceEdgeIds, edgeIdNumOfElements);
+            int numOfRefusedWalls = GetWallsRefusedAcrossSweep(walls, edgeIdNumOfElements).Count;
+            bool trialsRun = false;
+            Action<string> writeOutput = _writeOutput;
+            try
+            {
+                for (int round = 0; round < 50 && oddSourceIds.Count > 0; round++)
+                {
+                    bool evened = false;
+                    foreach (var headEdgeId in GetNearestHeads(fixedSourceEdgeIds[oddSourceIds[0]], edgeIdFeedingEdgeIds,
+                                                               isHead))
+                    {
+                        Dictionary<int, int> trialMinimums = new Dictionary<int, int>(raisedMinimums);
+                        trialMinimums[headEdgeId] = edgeIdNumOfElements[headEdgeId] + 1;
+                        Dictionary<int, int> minimums = GetCrossEdgeMinimums(walls, tiedEdgeGroups, trialMinimums);
+                        // A layer count stays: moved, it would move the layers of every wall of its block
+                        if (minimums.Any(entry => directionEdgeIdNumOfElements.TryGetValue(entry.Key, out int layers) &&
+                                                  entry.Value > layers)) continue;
+                        //
+                        trialsRun = true;
+                        Dictionary<int, int> previousMinimums = _crossEdgeMinimums;
+                        _crossEdgeMinimums = minimums;
+                        _writeOutput = null;
+                        Dictionary<int, int> trialNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups,
+                                                                                    directionEdgeIdNumOfElements);
+                        _writeOutput = writeOutput;
+                        List<int> trialOddSourceIds = GetOddQuadWildSources(fixedSourceEdgeIds, trialNumOfElements);
+                        int trialNumOfRefusedWalls = GetWallsRefusedAcrossSweep(walls, trialNumOfElements).Count;
+                        if (trialOddSourceIds.Count >= oddSourceIds.Count || trialNumOfRefusedWalls > numOfRefusedWalls)
+                        {
+                            _crossEdgeMinimums = previousMinimums;
+                            continue;
+                        }
+                        //
+                        _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + oddSourceIds[0] + " carried an odd " +
+                                                              "number of elements around it, which no quadrilateral mesh " +
+                                                              "can have, so Edge " + headEdgeId + ", which feeds it, is " +
+                                                              "given " + trialMinimums[headEdgeId] + " elements instead of " +
+                                                              edgeIdNumOfElements[headEdgeId] + "."));
+                        raisedMinimums = trialMinimums;
+                        edgeIdNumOfElements = trialNumOfElements;
+                        oddSourceIds = trialOddSourceIds;
+                        numOfRefusedWalls = trialNumOfRefusedWalls;
+                        evened = true;
+                        break;
+                    }
+                    if (!evened) break;
+                }
+            }
+            finally
+            {
+                _writeOutput = writeOutput;
+            }
+            foreach (var edgeId in raisedMinimums.Keys) _parityRaisedEdgeIdNumOfElements[edgeId] = edgeIdNumOfElements[edgeId];
+            // A trial that was not kept left its pins behind, so the counts that were kept are resolved once more
+            if (trialsRun)
+            {
+                _crossEdgeMinimums = GetCrossEdgeMinimums(walls, tiedEdgeGroups, raisedMinimums);
+                _writeOutput = null;
+                try
+                {
+                    edgeIdNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups, directionEdgeIdNumOfElements);
+                }
+                finally
+                {
+                    _writeOutput = writeOutput;
+                }
+            }
+            return edgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The graph of the counts, walked back: the edges of the source sides every edge of a wall's target side is
+        /// reached from, and the edges a transfinite source ties to an edge. The target edges are returned as well.
+        /// </summary>
+        private static Dictionary<int, HashSet<int>> GetFeedingEdgeIds(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                                       out HashSet<int> targetEdgeIds)
+        {
+            HashSet<int> feeding;
+            HashSet<int> targets = new HashSet<int>();
+            Dictionary<int, HashSet<int>> edgeIdFeedingEdgeIds = new Dictionary<int, HashSet<int>>();
+            Action<int, IEnumerable<int>> addFeeding = (edgeId, feedingEdgeIds) =>
+            {
+                if (!edgeIdFeedingEdgeIds.TryGetValue(edgeId, out feeding))
+                    edgeIdFeedingEdgeIds.Add(edgeId, feeding = new HashSet<int>());
+                feeding.UnionWith(feedingEdgeIds.Where(id => id != edgeId));
+            };
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                targets.UnionWith(wall.TargetEdgeIds);
+                foreach (var edgeId in wall.TargetEdgeIds) addFeeding(edgeId, wall.SourceEdgeIds);
+            }
+            if (tiedEdgeGroups != null)
+            {
+                foreach (var group in tiedEdgeGroups)
+                {
+                    foreach (var edgeId in group) addFeeding(edgeId, group);
+                }
+            }
+            targetEdgeIds = targets;
+            return edgeIdFeedingEdgeIds;
+        }
+        /// <summary>
+        /// The sources whose edges carry an odd number of elements together, a count the walls did not settle being
+        /// the one measured on the 1D mesh.
+        /// </summary>
+        private static List<int> GetOddQuadWildSources(Dictionary<int, int[]> fixedSourceEdgeIds,
+                                                       Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int numOfElements;
+            List<int> oddSourceIds = new List<int>();
+            foreach (var entry in fixedSourceEdgeIds)
+            {
+                int sum = 0;
+                foreach (var edgeId in entry.Value)
+                {
+                    if (!edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
+                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                    sum += numOfElements;
+                }
+                if (sum % 2 != 0) oddSourceIds.Add(entry.Key);
+            }
+            return oddSourceIds;
+        }
+        /// <summary>
+        /// The heads the edges of a source are fed from, nearest first and the longest edge first among the heads as
+        /// near: the edges themselves when they are heads, then the ones a step back, and so on.
+        /// </summary>
+        private static List<int> GetNearestHeads(int[] sourceEdgeIds, Dictionary<int, HashSet<int>> edgeIdFeedingEdgeIds,
+                                                 Func<int, bool> isHead)
+        {
+            List<int> heads = new List<int>();
+            HashSet<int> visited = new HashSet<int>(sourceEdgeIds);
+            List<int> front = sourceEdgeIds.ToList();
+            while (front.Count > 0)
+            {
+                int[] frontHeads = front.Where(isHead).ToArray();
+                double[] lengths = SweepWallTopology.GetEdgeLengths(frontHeads);
+                heads.AddRange(Enumerable.Range(0, frontHeads.Length).OrderByDescending(i => lengths[i])
+                                         .Select(i => frontHeads[i]));
+                //
+                List<int> next = new List<int>();
+                HashSet<int> feeding;
+                foreach (var edgeId in front)
+                {
+                    if (!edgeIdFeedingEdgeIds.TryGetValue(edgeId, out feeding)) continue;
+                    foreach (var feedingEdgeId in feeding)
+                    {
+                        if (visited.Add(feedingEdgeId)) next.Add(feedingEdgeId);
+                    }
+                }
+                front = next;
+            }
+            return heads;
         }
         /// <summary>
         /// The element counts of the two cross-sweep sides of every wall, resolved from the source side to the
@@ -3132,7 +3420,8 @@ namespace CaeMesh
         /// measured on an edge is raised to it, so that a wall far down a chain of blocks, whose target is cut into
         /// more edges than its source, is not left with a count the source at the head of the chain never had.
         /// </summary>
-        private static Dictionary<int, int> GetCrossEdgeMinimums(List<SweepWall> walls, List<int[]> tiedEdgeGroups)
+        private static Dictionary<int, int> GetCrossEdgeMinimums(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                                 Dictionary<int, int> raisedMinimums = null)
         {
             Dictionary<int, int> minimums = new Dictionary<int, int>();
             Dictionary<int, double> lengths = new Dictionary<int, double>();
@@ -3146,6 +3435,13 @@ namespace CaeMesh
                         minimums[edgeIds[i]] = 1;
                         lengths[edgeIds[i]] = edgeLengths[i];
                     }
+                }
+            }
+            if (raisedMinimums != null)
+            {
+                foreach (var entry in raisedMinimums)
+                {
+                    if (minimums.ContainsKey(entry.Key)) minimums[entry.Key] = Math.Max(minimums[entry.Key], entry.Value);
                 }
             }
             bool raised = true;
