@@ -60,7 +60,8 @@ of a compound it cannot reach with it. The pyramids need two changes to Netgen 5
 its pyramid rules asked for the sides of a quadrilateral to be identified point pairs, which only a
 boundary layer has, and the rules that give a pyramid an apex of its own carried a quality no
 quadrilateral ever reached; a mesh without identified pairs now takes those rules. The volume
-optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base.
+optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base. Its smoothing weighs a
+pyramid as the four tetrahedra its points span, which keeps the apex from being moved through the base.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.
