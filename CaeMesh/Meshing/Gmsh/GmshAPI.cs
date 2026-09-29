@@ -35,6 +35,7 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
+        private Dictionary<int, int> _crossEdgeMinimums;
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
@@ -2692,10 +2693,13 @@ namespace CaeMesh
                 if (conflict) continue;
                 bool hasLayerEdge = classEdgeIds.Any(id => directionEdgeIdNumOfElements.ContainsKey(id));
                 int[] measured = classEdgeIds.Select(id => SweepWallTopology.GetElementCount(id)).ToArray();
-                if (fixedCount < 0) { fixedCount = measured.Min(); origin = "the smallest of them"; }
+                // No fewer than a wall needs, whose other side is cut into more edges
+                int[] bounded = classEdgeIds.Select(id => GetMeasuredCrossEdgeElements(id)).ToArray();
+                if (fixedCount < 0) { fixedCount = bounded.Min(); origin = "the smallest of them"; }
                 // A class whose edges already carry one count has nothing to enforce, and is left to the walls -
                 // unless one of them is a layer edge, which the walls no longer move off its layer count, so that
-                // the edges opposite it have to be held to that count as well
+                // the edges opposite it have to be held to that count as well, or the count is raised above the one
+                // measured, which the walls would only carry to the edges of the class they reach
                 if (measured.All(m => m == fixedCount) && !hasLayerEdge) continue;
                 foreach (var edgeId in classEdgeIds) pins[edgeId] = fixedCount;
                 //
@@ -2925,6 +2929,7 @@ namespace CaeMesh
             // measured one. Measured while the 1D mesh from GenerateMesh(1) above is still there.
             int numOfElements;
             List<int[]> tiedEdgeGroups = GetTransfiniteSourceTiedEdgeGroups(walls);
+            _crossEdgeMinimums = GetCrossEdgeMinimums(walls, tiedEdgeGroups);
             List<int> crossSectionBlockIndices;
             List<int[]> crossSectionVertexIds = GetCrossSectionVertexIds(out crossSectionBlockIndices);
             if (directionEdgeIdNumOfElements == null)
@@ -2932,7 +2937,7 @@ namespace CaeMesh
                 directionEdgeIdNumOfElements =
                     SweepWallTopology.ResolveDirectionEdgeElements(chains, walls, crossSectionVertexIds,
                                                                    crossSectionBlockIndices, _gmshData.EdgeIdNumElements,
-                                                                   chainBlockIndices, tiedEdgeGroups);
+                                                                   chainBlockIndices, tiedEdgeGroups, _crossEdgeMinimums);
                 foreach (var wall in walls)
                 {
                     foreach (var edgeId in wall.DirectionEdgeIds)
@@ -3118,6 +3123,70 @@ namespace CaeMesh
             sourceEdgeIdNumOfElements = sourceTable;
             targetEdgeIdNumOfElements = assignedTable;
         }
+        /// <summary>
+        /// The fewest elements every cross edge of the walls can carry. Every edge carries one at least, and the two
+        /// sides of a wall carry the same number, so a side of one edge across from a side of two needs two - and so
+        /// does the side of the wall before it that this one is fed from, and the one before that. The bound is
+        /// carried along the walls both ways until it settles, the longest edge of a side taking what the side lacks,
+        /// and across the opposite sides of the four sided sources a transfinite mesh ties to one count. A count
+        /// measured on an edge is raised to it, so that a wall far down a chain of blocks, whose target is cut into
+        /// more edges than its source, is not left with a count the source at the head of the chain never had.
+        /// </summary>
+        private static Dictionary<int, int> GetCrossEdgeMinimums(List<SweepWall> walls, List<int[]> tiedEdgeGroups)
+        {
+            Dictionary<int, int> minimums = new Dictionary<int, int>();
+            Dictionary<int, double> lengths = new Dictionary<int, double>();
+            foreach (var wall in walls)
+            {
+                foreach (var edgeIds in new int[][] { wall.SourceEdgeIds, wall.TargetEdgeIds })
+                {
+                    double[] edgeLengths = SweepWallTopology.GetEdgeLengths(edgeIds);
+                    for (int i = 0; i < edgeIds.Length; i++)
+                    {
+                        minimums[edgeIds[i]] = 1;
+                        lengths[edgeIds[i]] = edgeLengths[i];
+                    }
+                }
+            }
+            bool raised = true;
+            for (int round = 0; round < 1000 && raised; round++)
+            {
+                raised = false;
+                foreach (var wall in walls)
+                {
+                    if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                    int sourceMinimum = wall.SourceEdgeIds.Sum(id => minimums[id]);
+                    int targetMinimum = wall.TargetEdgeIds.Sum(id => minimums[id]);
+                    if (sourceMinimum == targetMinimum) continue;
+                    //
+                    int[] shortSide = sourceMinimum < targetMinimum ? wall.SourceEdgeIds : wall.TargetEdgeIds;
+                    int longestEdgeId = shortSide.OrderByDescending(id => lengths[id]).First();
+                    minimums[longestEdgeId] += Math.Abs(targetMinimum - sourceMinimum);
+                    raised = true;
+                }
+                if (tiedEdgeGroups == null) continue;
+                foreach (var group in tiedEdgeGroups)
+                {
+                    int groupMinimum = group.Max(id => minimums.TryGetValue(id, out int minimum) ? minimum : 1);
+                    foreach (var edgeId in group)
+                    {
+                        if (minimums.TryGetValue(edgeId, out int minimum) && minimum >= groupMinimum) continue;
+                        minimums[edgeId] = groupMinimum;
+                        if (!lengths.ContainsKey(edgeId)) lengths[edgeId] = SweepWallTopology.GetEdgeLengths(new int[] { edgeId })[0];
+                        raised = true;
+                    }
+                }
+            }
+            return minimums;
+        }
+        private int GetMeasuredCrossEdgeElements(int edgeId)
+        {
+            int minimum;
+            int numOfElements = SweepWallTopology.GetElementCount(edgeId);
+            if (_crossEdgeMinimums != null && _crossEdgeMinimums.TryGetValue(edgeId, out minimum))
+                numOfElements = Math.Max(numOfElements, minimum);
+            return numOfElements;
+        }
         private static bool HasUnassignedEdge(int[] edgeIds, HashSet<int> recountedEdgeIds,
                                               Dictionary<int, int> assignedEdgeIdNumOfElements)
         {
@@ -3180,7 +3249,7 @@ namespace CaeMesh
                     !pinnedEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
                 {
                     if (!targetEdgeIdNumOfElements.TryGetValue(edgeId, out numOfElements))
-                        numOfElements = SweepWallTopology.GetElementCount(edgeId);
+                        numOfElements = GetMeasuredCrossEdgeElements(edgeId);
                 }
                 sourceEdgeIdNumOfElements[edgeId] = numOfElements;
                 sourceElements += numOfElements;

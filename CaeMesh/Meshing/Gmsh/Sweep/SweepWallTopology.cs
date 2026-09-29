@@ -473,7 +473,8 @@ namespace CaeMesh.Sweep
                                                                         List<int> crossSectionBlockIndices,
                                                                         Dictionary<int, int> pinnedEdgeIdNumOfElements,
                                                                         List<int> chainBlockIndices,
-                                                                        List<int[]> tiedEdgeGroups)
+                                                                        List<int[]> tiedEdgeGroups,
+                                                                        Dictionary<int, int> minimumEdgeIdNumOfElements = null)
         {
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
             if (chains.Count == 0) return edgeIdNumOfElements;
@@ -606,6 +607,51 @@ namespace CaeMesh.Sweep
                     familyTotals[f] = forcedTotal;
                 }
             }
+            // A block can also hold chains of a family that runs on through a neighbouring block - the edges of a
+            // hole in a plate that continue as the edges of the post standing in it - and such a family counts the
+            // layers of both, which the reconciliation above leaves alone. Where the chains of the block in such
+            // families agree on its own part of the count, the families that run only through the block are made
+            // to count the same layers; left alone, the walls of one block came out with 4 layers on its outline
+            // and 1 on its hole, and the sweep could not walk them
+            if (chainBlockIndices != null)
+            {
+                int[] familyOfChain = new int[chains.Count];
+                for (int f = 0; f < families.Count; f++)
+                {
+                    foreach (var i in families[f]) familyOfChain[i] = f;
+                }
+                int numOfElements;
+                foreach (var block in Enumerable.Range(0, Math.Min(chains.Count, chainBlockIndices.Count))
+                                                .GroupBy(i => chainBlockIndices[i]))
+                {
+                    HashSet<int> partCounts = new HashSet<int>();
+                    HashSet<int> blockFamilies = new HashSet<int>();
+                    foreach (var i in block)
+                    {
+                        int f = familyOfChain[i];
+                        if (familySpansAllLevels[f] && families[f].All(j => j < chainBlockIndices.Count &&
+                                                                            chainBlockIndices[j] == block.Key))
+                        {
+                            blockFamilies.Add(f);
+                            continue;
+                        }
+                        if (chains[i].EdgeIds.Length != 1) continue;
+                        if (edgeIdNumOfElements.TryGetValue(chains[i].EdgeIds[0], out numOfElements))
+                            partCounts.Add(numOfElements);
+                    }
+                    if (partCounts.Count != 1 || blockFamilies.Count == 0) continue;
+                    //
+                    int partCount = partCounts.First();
+                    foreach (var f in blockFamilies)
+                    {
+                        if (familyTotals[f] == partCount || partCount < 1) continue;
+                        ResolveFamilyElements(families[f].Select(i => chains[i]).ToList(), getChainBlocks(families[f]),
+                                              levelVertexIds, levelGroupBlockIndices, pinnedEdgeIdNumOfElements,
+                                              edgeIdNumOfElements, partCount, out _, out _);
+                        familyTotals[f] = partCount;
+                    }
+                }
+            }
             // A layer edge of one block can be tied to a layer edge of another through the cross edges of a
             // third - a cell swept sideways between two plates swept through their thickness, whose four sided
             // source has one side running along a wall onto each plate. The two edges then need one count, and
@@ -665,9 +711,10 @@ namespace CaeMesh.Sweep
             }
             // A layer edge of one block can be the whole cross side of a wall of another, whose other side is cut
             // into more edges than the layers the family counted there - a coarse mesh gives the family a single
-            // layer, and the side across from it is two edges. Every edge carries one element at least, so the
-            // wall could never be a grid; the family is given one layer more until it can, and so are the families
-            // of its block, which count the same layers
+            // layer, and the side across from it is two edges - or it can be tied, through the opposite sides of a
+            // transfinite source, to such a side further on, which the minimums carry to it. Every edge carries one
+            // element at least, so the wall could never be a grid; the family is given one layer more until it can,
+            // and so are the families of its block, which count the same layers
             int[] familyOfChainIndex = new int[chains.Count];
             for (int f = 0; f < families.Count; f++)
             {
@@ -677,6 +724,9 @@ namespace CaeMesh.Sweep
             {
                 int raisedFamily = GetFamilyUnderCrossSide(walls, edgeIdChainIndices, familyOfChainIndex,
                                                            edgeIdNumOfElements);
+                if (raisedFamily < 0)
+                    raisedFamily = GetFamilyUnderMinimum(minimumEdgeIdNumOfElements, edgeIdChainIndices, familyOfChainIndex,
+                                                         edgeIdNumOfElements);
                 if (raisedFamily < 0) break;
                 //
                 int raisedTotal = familyTotals[raisedFamily] + 1;
@@ -691,6 +741,26 @@ namespace CaeMesh.Sweep
                 }
             }
             return edgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The family of a layer edge carrying fewer elements than the fewest the walls it crosses need, or -1 when
+        /// there is none.
+        /// </summary>
+        private static int GetFamilyUnderMinimum(Dictionary<int, int> minimumEdgeIdNumOfElements,
+                                                 Dictionary<int, List<int>> edgeIdChainIndices, int[] familyOfChainIndex,
+                                                 Dictionary<int, int> edgeIdNumOfElements)
+        {
+            if (minimumEdgeIdNumOfElements == null) return -1;
+            //
+            int numOfElements;
+            List<int> chainIndices;
+            foreach (var entry in minimumEdgeIdNumOfElements)
+            {
+                if (!edgeIdChainIndices.TryGetValue(entry.Key, out chainIndices)) continue;
+                if (!edgeIdNumOfElements.TryGetValue(entry.Key, out numOfElements) || numOfElements >= entry.Value) continue;
+                return familyOfChainIndex[chainIndices[0]];
+            }
+            return -1;
         }
         /// <summary>
         /// The family of a layer side of a wall that carries fewer elements than the edges its other side is cut
