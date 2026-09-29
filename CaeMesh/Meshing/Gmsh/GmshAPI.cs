@@ -39,6 +39,7 @@ namespace CaeMesh
         private Dictionary<int, int> _parityRaisedEdgeIdNumOfElements = new Dictionary<int, int>();
         private HashSet<int> _userPinnedEdgeIds;
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
+        private HashSet<int> _fullQuadSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
         private const int _maxQuadWildRounds = 4;
@@ -363,6 +364,7 @@ namespace CaeMesh
                     }
                 }
             }
+            MakeFullQuadEdgeCountsEven(GetFullQuadRecombinedSurfaceIds(gmshSetupItem), edgeIdNumberOfElements);
             // Overwrite all edge sizes
             int numOfNodes;
             foreach (var entry in edgeIdNumberOfElements)
@@ -377,6 +379,176 @@ namespace CaeMesh
             }
             //
             Synchronize(); // must be here for mesh refinement
+        }
+        /// <summary>
+        /// Full-quad recombination meshes a surface on every second node of its curves and subdivides the result.
+        /// So gmsh refuses a curve with an odd number of elements ("1D mesh cannot be divided by 2"), and a boundary
+        /// loop that halves to fewer than 3 segments no longer bounds anything: measured on the hole of
+        /// sweep_holes_side, a hole of 2 or 4 elements is left out of the mesh and one of 6 is kept. gmsh sees to both
+        /// on the curves it meshes itself, but not on those whose count is pinned, so a pinned odd count on a curve of
+        /// a recombined surface is lowered to the even count below it, and to 2 at least, and a loop pinned on all its
+        /// curves to fewer than 6 elements is given 2 more on its longest curve until it has 6. The curves changed are
+        /// returned. A surface pinned that coarse can still fold, since gmsh puts the nodes it dropped back on their
+        /// curves after the subdivision: blind_holes with 2 elements on every edge fails as "overlapping facets" with
+        /// its holes at 6 or at 8, and meshes at 4 on every edge. That depends on the surface as a whole rather than on
+        /// any one count, so it is left to gmsh to report.
+        /// </summary>
+        private List<int> MakeFullQuadEdgeCountsEven(IEnumerable<int> recombinedSurfaceIds,
+                                                     Dictionary<int, int> edgeIdNumberOfElements)
+        {
+            List<int> changedEdgeIds = new List<int>();
+            if (recombinedSurfaceIds == null) return changedEdgeIds;
+            //
+            int numOfElements;
+            Dictionary<int, int> edgeIdSetNumOfElements = new Dictionary<int, int>();
+            Dictionary<int, int> edgeIdLoopSurfaceId = new Dictionary<int, int>();
+            List<Tuple<int, List<int>>> loops = new List<Tuple<int, List<int>>>();
+            foreach (var surfaceId in recombinedSurfaceIds.Distinct().OrderBy(id => id))
+            {
+                foreach (var loop in GetBoundaryLoops(surfaceId)) loops.Add(new Tuple<int, List<int>>(surfaceId, loop));
+            }
+            HashSet<int> recombinedEdgeIds = new HashSet<int>(loops.SelectMany(loop => loop.Item2));
+            foreach (var edgeId in edgeIdNumberOfElements.Keys.OrderBy(id => id).ToArray())
+            {
+                numOfElements = edgeIdNumberOfElements[edgeId];
+                if (numOfElements % 2 == 0 || !recombinedEdgeIds.Contains(edgeId)) continue;
+                //
+                edgeIdSetNumOfElements[edgeId] = numOfElements;
+                edgeIdNumberOfElements[edgeId] = Math.Max(2, numOfElements - 1);
+            }
+            //
+            foreach (var loop in loops)
+            {
+                if (!loop.Item2.All(edgeIdNumberOfElements.ContainsKey)) continue;
+                int[] edgeIds = loop.Item2.ToArray();
+                double[] lengths = SweepWallTopology.GetEdgeLengths(edgeIds);
+                int longestEdgeId = edgeIds[Array.IndexOf(lengths, lengths.Max())];
+                while (edgeIds.Sum(id => edgeIdNumberOfElements[id]) < 6)
+                {
+                    if (!edgeIdSetNumOfElements.ContainsKey(longestEdgeId))
+                        edgeIdSetNumOfElements[longestEdgeId] = edgeIdNumberOfElements[longestEdgeId];
+                    edgeIdLoopSurfaceId[longestEdgeId] = loop.Item1;
+                    edgeIdNumberOfElements[longestEdgeId] += 2;
+                }
+            }
+            //
+            int loopSurfaceId;
+            foreach (var entry in edgeIdSetNumOfElements.OrderBy(entry => entry.Key))
+            {
+                numOfElements = edgeIdNumberOfElements[entry.Key];
+                if (numOfElements == entry.Value) continue;
+                changedEdgeIds.Add(entry.Key);
+                string need = edgeIdLoopSurfaceId.TryGetValue(entry.Key, out loopSurfaceId) ?
+                              "an even number and at least 6 around each boundary loop of Surface " + loopSurfaceId :
+                              "an even number";
+                _writeOutput?.Invoke(NameGmshEntities("Warning: Edge " + entry.Key + " has " + entry.Value +
+                                                      " elements set, but full-quad recombination needs " + need + ". " +
+                                                      numOfElements + " elements are used."));
+            }
+            return changedEdgeIds;
+        }
+        /// <summary>
+        /// The boundary curves of a surface, one list for each loop they close: the curves joined through the
+        /// vertices they share.
+        /// </summary>
+        private static List<List<int>> GetBoundaryLoops(int surfaceId)
+        {
+            int[] edgeIds;
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+            Dictionary<int, int> parent = new Dictionary<int, int>();
+            Dictionary<int, int> edgeIdVertexId = new Dictionary<int, int>();
+            foreach (var edgeId in edgeIds.Select(id => Math.Abs(id)).Distinct())
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                int first = vertexIds.Length > 0 ? vertexIds[0] : -edgeId;
+                if (!parent.ContainsKey(first)) parent[first] = first;
+                foreach (var vertexId in vertexIds)
+                {
+                    if (!parent.ContainsKey(vertexId)) parent[vertexId] = vertexId;
+                    Unite(parent, first, vertexId);
+                }
+                edgeIdVertexId[edgeId] = first;
+            }
+            return edgeIdVertexId.GroupBy(entry => Find(parent, entry.Value))
+                                 .Select(group => group.Select(entry => entry.Key).ToList()).ToList();
+        }
+        private static bool IsFullQuad(GmshAlgorithmRecombineEnum algorithmRecombine)
+        {
+            return algorithmRecombine == GmshAlgorithmRecombineEnum.SimpleFullQuad ||
+                   algorithmRecombine == GmshAlgorithmRecombineEnum.BlossomFullQuad;
+        }
+        /// <summary>
+        /// The sweep sources gmsh meshes free with a full-quad recombination: the recombined sources QuadWild does
+        /// not mesh, other than a four sided one meshed as a structured grid, which is not halved. A four sided
+        /// source whose opposite sides were given different counts is freed later, and counts among them.
+        /// </summary>
+        private List<int> GetFreeFullQuadSourceIds(Dictionary<int, int> edgeIdNumOfElements)
+        {
+            List<int> surfaceIds = new List<int>();
+            foreach (var surfaceId in _fullQuadSourceIds.OrderBy(id => id))
+            {
+                if (!_transfiniteSurfaceIds.Contains(surfaceId) || HasUnequalOppositeSides(surfaceId, edgeIdNumOfElements))
+                    surfaceIds.Add(surfaceId);
+            }
+            return surfaceIds;
+        }
+        private static bool HasUnequalOppositeSides(int surfaceId, Dictionary<int, int> edgeIdNumOfElements)
+        {
+            int[] edgeIds;
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+            if (edgeIds.Length != 4) return false;
+            //
+            int[] counts = new int[4];
+            int[][] edgeVertexIds = new int[4][];
+            for (int i = 0; i < 4; i++)
+            {
+                edgeIds[i] = Math.Abs(edgeIds[i]);
+                if (!edgeIdNumOfElements.TryGetValue(edgeIds[i], out counts[i])) return false;
+                Gmsh.Model.GetAdjacencies(1, edgeIds[i], out _, out vertexIds);
+                edgeVertexIds[i] = vertexIds;
+            }
+            int opposite = Enumerable.Range(1, 3).FirstOrDefault(i => !edgeVertexIds[0].Intersect(edgeVertexIds[i]).Any());
+            if (opposite == 0) return false;
+            int[] others = Enumerable.Range(1, 3).Where(i => i != opposite).ToArray();
+            return counts[0] != counts[opposite] || counts[others[0]] != counts[others[1]];
+        }
+        private static HashSet<int> GetSurfaceEdgeIds(IEnumerable<int> surfaceIds)
+        {
+            int[] edgeIds;
+            HashSet<int> surfaceEdgeIds = new HashSet<int>();
+            foreach (var surfaceId in surfaceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                foreach (var edgeId in edgeIds) surfaceEdgeIds.Add(Math.Abs(edgeId));
+            }
+            return surfaceEdgeIds;
+        }
+        /// <summary>
+        /// The surfaces a full-quad recombination recombines: every surface for a shell or a tetrahedral mesh, which
+        /// recombine all of them, and the source surfaces for an extrude or a revolve mesh. Null when no full-quad
+        /// recombination is made. A sweep and a transfinite mesh are left out, since their curves are counted by the
+        /// structured grids they build; the sweep evens out its sources itself.
+        /// </summary>
+        private List<int> GetFullQuadRecombinedSurfaceIds(GmshSetupItem gmshSetupItem)
+        {
+            if (!IsFullQuad(gmshSetupItem.AlgorithmRecombine)) return null;
+            //
+            if (gmshSetupItem is ShellGmsh || gmshSetupItem is TetrahedralGmsh)
+            {
+                Tuple<int, int>[] dimTags;
+                Gmsh.Model.GetEntities(out dimTags, 2);
+                return dimTags.Select(dimTag => dimTag.Item2).ToList();
+            }
+            //
+            int[] creationIds;
+            if (gmshSetupItem is ExtrudeMesh extrudeMesh) creationIds = extrudeMesh.CreationIds;
+            else if (gmshSetupItem is RevolveMesh revolveMesh) creationIds = revolveMesh.CreationIds;
+            else return null;
+            if (creationIds == null) return null;
+            //
+            return creationIds.Select(id => FeMesh.GetItemIdFromGeometryId(id) + 1).ToList();
         }
         //
         private void ShellGmsh(GmshSetupItem gmshSetupItem, bool preview)
@@ -595,7 +767,9 @@ namespace CaeMesh
                 {
                     foreach (var sourceSurfaceId in block.SourceSurfaceIds)
                     {
-                        if (!_quadWildSourceIds.Contains(sourceSurfaceId)) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                        if (_quadWildSourceIds.Contains(sourceSurfaceId)) continue;
+                        Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                        if (IsFullQuad(sweepMesh.AlgorithmRecombine)) _fullQuadSourceIds.Add(sourceSurfaceId);
                     }
                 }
                 // Set side surfaces. A wall whose side is built from several edges - which is what a
@@ -616,6 +790,11 @@ namespace CaeMesh
             int[] tetrahedralVolumeIds = GetTetrahedralVolumeIds(blocks);
             if (GetAlgorithmMesh2D(sweepMesh) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
                 MeshTetrahedralSurfacesByTriangles();
+            // A count the user pinned on an edge of a source gmsh halves is evened out before the walls are resolved
+            // from it; the counts the walls carry to the sources are evened out where they are resolved
+            foreach (var edgeId in MakeFullQuadEdgeCountsEven(GetFreeFullQuadSourceIds(_gmshData.EdgeIdNumElements),
+                                                              _gmshData.EdgeIdNumElements))
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, _gmshData.EdgeIdNumElements[edgeId] + 1);
             // Whether the walls came out of the 2D pass as the structured grid the sweep needs shows only
             // when that grid is walked, so the whole pass is one attempt that either builds the sweep or
             // fails. The counts the item itself carries are kept, since a second attempt has to resolve its
@@ -642,7 +821,11 @@ namespace CaeMesh
                 SetGlobalMeshSizes(GmshAlgorithmMesh2DEnum.FrontalDelaunay);
                 foreach (var block in blocks)
                 {
-                    foreach (var sourceSurfaceId in block.SourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                    foreach (var sourceSurfaceId in block.SourceSurfaceIds)
+                    {
+                        Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+                        if (IsFullQuad(sweepMesh.AlgorithmRecombine)) _fullQuadSourceIds.Add(sourceSurfaceId);
+                    }
                 }
                 // The second attempt measures the edges as the other algorithm meshes them. The counts of the
                 // first attempt would reach it twice - through the table it wrote and through the transfinite
@@ -3017,8 +3200,8 @@ namespace CaeMesh
             }
             Dictionary<int, int> pinnedEdgeIdNumOfElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
             Dictionary<int, int> edgeIdNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups, directionEdgeIdNumOfElements);
-            edgeIdNumOfElements = EvenOutQuadWildSources(walls, tiedEdgeGroups, directionEdgeIdNumOfElements,
-                                                         pinnedEdgeIdNumOfElements, edgeIdNumOfElements);
+            edgeIdNumOfElements = EvenOutSourceParity(walls, tiedEdgeGroups, directionEdgeIdNumOfElements,
+                                                      pinnedEdgeIdNumOfElements, edgeIdNumOfElements);
             foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
             //
             CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
@@ -3165,34 +3348,44 @@ namespace CaeMesh
         /// the spacing least; a head is kept when fewer sources are left odd, no more walls are refused and no layer
         /// count has to move, and the walk starts again until no source is odd or no head helps. What is left odd is
         /// reported by the grouping of the QuadWild sources as before.
+        ///
+        /// A source gmsh meshes free with a full-quad recombination is stricter: it drops every second node of every
+        /// edge, so each edge the walls fixed needs an even count of its own. Only those sources are held to it, and the
+        /// walk for one of them starts from the odd edge alone, since it is the head behind that edge that has to move.
         /// </summary>
-        private Dictionary<int, int> EvenOutQuadWildSources(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
-                                                            Dictionary<int, int> directionEdgeIdNumOfElements,
-                                                            Dictionary<int, int> pinnedEdgeIdNumOfElements,
-                                                            Dictionary<int, int> edgeIdNumOfElements)
+        private Dictionary<int, int> EvenOutSourceParity(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                         Dictionary<int, int> directionEdgeIdNumOfElements,
+                                                         Dictionary<int, int> pinnedEdgeIdNumOfElements,
+                                                         Dictionary<int, int> edgeIdNumOfElements)
         {
-            if (_quadWildSourceIds.Count == 0 || _sweepBlocks == null) return edgeIdNumOfElements;
+            bool quadWild = _quadWildSourceIds.Count > 0 && _sweepBlocks != null;
+            if (!quadWild && _fullQuadSourceIds.Count == 0) return edgeIdNumOfElements;
             // A count QuadWild chose in an earlier round is pinned for the walls but not the user's, and may be raised:
             // the group it belongs to is meshed again with the edge fixed at the new count. The sources fixed are the
             // ones the pins that stay fix - the user's and the ones set here - since QuadWild chooses the free edges of
             // a group anew whenever it meshes it again
             HashSet<int> userPinnedEdgeIds = _userPinnedEdgeIds ?? new HashSet<int>(pinnedEdgeIdNumOfElements.Keys);
-            Dictionary<int, int> stayingPins = pinnedEdgeIdNumOfElements.Where(entry => userPinnedEdgeIds.Contains(entry.Key) ||
-                                                                                        _parityRaisedEdgeIdNumOfElements.ContainsKey(entry.Key))
-                                                                        .ToDictionary(entry => entry.Key, entry => entry.Value);
-            // The sources whose every edge is fixed, with their edges
-            int[] edgeIds;
-            HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
-            HashSet<int> alwaysFixedEdgeIds = GetAlwaysFixedQuadWildEdgeIds(_sweepBlocks, walls, stayingPins);
+            // The QuadWild sources whose every edge is fixed, with their edges
             Dictionary<int, int[]> fixedSourceEdgeIds = new Dictionary<int, int[]>();
-            foreach (var surfaceId in _quadWildSourceIds.OrderBy(id => id))
+            if (quadWild)
             {
-                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
-                edgeIds = edgeIds.Select(id => Math.Abs(id)).ToArray();
-                if (edgeIds.All(id => IsQuadWildEdgeFixed(id, alwaysFixedEdgeIds, wallSurfaceIds)))
-                    fixedSourceEdgeIds.Add(surfaceId, edgeIds);
+                Dictionary<int, int> stayingPins =
+                    pinnedEdgeIdNumOfElements.Where(entry => userPinnedEdgeIds.Contains(entry.Key) ||
+                                                             _parityRaisedEdgeIdNumOfElements.ContainsKey(entry.Key))
+                                             .ToDictionary(entry => entry.Key, entry => entry.Value);
+                int[] edgeIds;
+                HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+                HashSet<int> alwaysFixedEdgeIds = GetAlwaysFixedQuadWildEdgeIds(_sweepBlocks, walls, stayingPins);
+                foreach (var surfaceId in _quadWildSourceIds.OrderBy(id => id))
+                {
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                    edgeIds = edgeIds.Select(id => Math.Abs(id)).ToArray();
+                    if (edgeIds.All(id => IsQuadWildEdgeFixed(id, alwaysFixedEdgeIds, wallSurfaceIds)))
+                        fixedSourceEdgeIds.Add(surfaceId, edgeIds);
+                }
             }
-            if (fixedSourceEdgeIds.Count == 0) return edgeIdNumOfElements;
+            List<Tuple<int, int[]>> violations = GetParityViolations(fixedSourceEdgeIds, edgeIdNumOfElements);
+            if (violations.Count == 0) return edgeIdNumOfElements;
             // The graph, walked back
             HashSet<int> targetEdgeIds;
             Dictionary<int, HashSet<int>> edgeIdFeedingEdgeIds = GetFeedingEdgeIds(walls, tiedEdgeGroups, out targetEdgeIds);
@@ -3202,17 +3395,15 @@ namespace CaeMesh
                                                _crossEdgeMinimums.ContainsKey(edgeId);
             //
             Dictionary<int, int> raisedMinimums = new Dictionary<int, int>();
-            List<int> oddSourceIds = GetOddQuadWildSources(fixedSourceEdgeIds, edgeIdNumOfElements);
             int numOfRefusedWalls = GetWallsRefusedAcrossSweep(walls, edgeIdNumOfElements).Count;
             bool trialsRun = false;
             Action<string> writeOutput = _writeOutput;
             try
             {
-                for (int round = 0; round < 50 && oddSourceIds.Count > 0; round++)
+                for (int round = 0; round < 50 && violations.Count > 0; round++)
                 {
                     bool evened = false;
-                    foreach (var headEdgeId in GetNearestHeads(fixedSourceEdgeIds[oddSourceIds[0]], edgeIdFeedingEdgeIds,
-                                                               isHead))
+                    foreach (var headEdgeId in GetNearestHeads(violations[0].Item2, edgeIdFeedingEdgeIds, isHead))
                     {
                         Dictionary<int, int> trialMinimums = new Dictionary<int, int>(raisedMinimums);
                         trialMinimums[headEdgeId] = edgeIdNumOfElements[headEdgeId] + 1;
@@ -3228,22 +3419,27 @@ namespace CaeMesh
                         Dictionary<int, int> trialNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups,
                                                                                     directionEdgeIdNumOfElements);
                         _writeOutput = writeOutput;
-                        List<int> trialOddSourceIds = GetOddQuadWildSources(fixedSourceEdgeIds, trialNumOfElements);
+                        List<Tuple<int, int[]>> trialViolations = GetParityViolations(fixedSourceEdgeIds, trialNumOfElements);
                         int trialNumOfRefusedWalls = GetWallsRefusedAcrossSweep(walls, trialNumOfElements).Count;
-                        if (trialOddSourceIds.Count >= oddSourceIds.Count || trialNumOfRefusedWalls > numOfRefusedWalls)
+                        if (trialViolations.Count >= violations.Count || trialNumOfRefusedWalls > numOfRefusedWalls)
                         {
                             _crossEdgeMinimums = previousMinimums;
                             continue;
                         }
                         //
-                        _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + oddSourceIds[0] + " carried an odd " +
-                                                              "number of elements around it, which no quadrilateral mesh " +
-                                                              "can have, so Edge " + headEdgeId + ", which feeds it, is " +
-                                                              "given " + trialMinimums[headEdgeId] + " elements instead of " +
-                                                              edgeIdNumOfElements[headEdgeId] + "."));
+                        string oddItem;
+                        if (fixedSourceEdgeIds.ContainsKey(violations[0].Item1))
+                            oddItem = "Surface " + violations[0].Item1 + " carried an odd number of elements around it, " +
+                                      "which no quadrilateral mesh can have";
+                        else
+                            oddItem = "Edge " + violations[0].Item2[0] + ", on the source Surface " + violations[0].Item1 +
+                                      ", carried an odd number of elements, which full-quad recombination cannot halve";
+                        _writeOutput?.Invoke(NameGmshEntities("Sweep: " + oddItem + ", so Edge " + headEdgeId +
+                                                              ", which feeds it, is given " + trialMinimums[headEdgeId] +
+                                                              " elements instead of " + edgeIdNumOfElements[headEdgeId] + "."));
                         raisedMinimums = trialMinimums;
                         edgeIdNumOfElements = trialNumOfElements;
-                        oddSourceIds = trialOddSourceIds;
+                        violations = trialViolations;
                         numOfRefusedWalls = trialNumOfRefusedWalls;
                         evened = true;
                         break;
@@ -3305,14 +3501,17 @@ namespace CaeMesh
             return edgeIdFeedingEdgeIds;
         }
         /// <summary>
-        /// The sources whose edges carry an odd number of elements together, a count the walls did not settle being
-        /// the one measured on the 1D mesh.
+        /// The parity the counts break, each as a source and the edges the walk back starts from: a fixed QuadWild
+        /// source whose edges carry an odd number of elements together, a count the walls did not settle being the one
+        /// measured on the 1D mesh, with all its edges; and every edge the walls fixed on a source gmsh meshes free with
+        /// a full-quad recombination that carries an odd number of elements, on its own. An edge gmsh sizes itself it
+        /// evens out itself.
         /// </summary>
-        private static List<int> GetOddQuadWildSources(Dictionary<int, int[]> fixedSourceEdgeIds,
-                                                       Dictionary<int, int> edgeIdNumOfElements)
+        private List<Tuple<int, int[]>> GetParityViolations(Dictionary<int, int[]> fixedSourceEdgeIds,
+                                                            Dictionary<int, int> edgeIdNumOfElements)
         {
             int numOfElements;
-            List<int> oddSourceIds = new List<int>();
+            List<Tuple<int, int[]>> violations = new List<Tuple<int, int[]>>();
             foreach (var entry in fixedSourceEdgeIds)
             {
                 int sum = 0;
@@ -3322,9 +3521,20 @@ namespace CaeMesh
                         numOfElements = SweepWallTopology.GetElementCount(edgeId);
                     sum += numOfElements;
                 }
-                if (sum % 2 != 0) oddSourceIds.Add(entry.Key);
+                if (sum % 2 != 0) violations.Add(new Tuple<int, int[]>(entry.Key, entry.Value));
             }
-            return oddSourceIds;
+            //
+            HashSet<int> oddEdgeIds = new HashSet<int>();
+            foreach (var surfaceId in GetFreeFullQuadSourceIds(edgeIdNumOfElements))
+            {
+                foreach (var edgeId in GetSurfaceEdgeIds(new int[] { surfaceId }).OrderBy(id => id))
+                {
+                    if (edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements) && numOfElements % 2 != 0 &&
+                        oddEdgeIds.Add(edgeId))
+                        violations.Add(new Tuple<int, int[]>(surfaceId, new int[] { edgeId }));
+                }
+            }
+            return violations;
         }
         /// <summary>
         /// The heads the edges of a source are fed from, nearest first and the longest edge first among the heads as
