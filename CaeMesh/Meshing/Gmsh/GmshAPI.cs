@@ -3083,21 +3083,55 @@ namespace CaeMesh
                 Dictionary<int, int> settledEdgeIdNumOfElements =
                     MergeEdgeElements(directionEdgeIdNumOfElements, sourceEdgeIdNumOfElements,
                                       targetEdgeIdNumOfElements);
+                // A split carried across one block and on across the next is a chain of pairs - the copy on the
+                // target of the first is the source edge of the second - and the whole chain carries one count.
+                // Settled pair by pair, the second pair gave the shared copy a count of its own and left the first
+                // pair apart, 1 element on the copy against 2 on the source edge below it. The count of a chain is
+                // the one the user set on any of its edges, else the one pinned on the edge it starts from, else
+                // the one pinned on any of them, else the one the walls settled, else the measured one
+                Dictionary<int, int> parent = new Dictionary<int, int>();
+                HashSet<int> copyEdgeIds = new HashSet<int>();
+                List<int> chainEdgeIds = new List<int>();
                 foreach (var block in _sweepBlocks)
                 {
                     if (block.ImprintEdgeCopyIds == null) continue;
                     foreach (var entry in block.ImprintEdgeCopyIds)
                     {
-                        if (!_gmshData.EdgeIdNumElements.TryGetValue(entry.Key, out numOfElements) &&
-                            !_gmshData.EdgeIdNumElements.TryGetValue(entry.Value, out numOfElements) &&
-                            !settledEdgeIdNumOfElements.TryGetValue(entry.Key, out numOfElements) &&
-                            !settledEdgeIdNumOfElements.TryGetValue(entry.Value, out numOfElements) &&
-                            !TryGetOppositeEdgeElements(entry.Key, settledEdgeIdNumOfElements, out numOfElements) &&
-                            !TryGetOppositeEdgeElements(entry.Value, settledEdgeIdNumOfElements, out numOfElements))
-                            numOfElements = SweepWallTopology.GetElementCount(entry.Key);
-                        imprintEdgeIdNumOfElements[entry.Key] = numOfElements;
-                        imprintEdgeIdNumOfElements[entry.Value] = numOfElements;
+                        Unite(parent, entry.Key, entry.Value);
+                        copyEdgeIds.Add(entry.Key);
+                        if (!chainEdgeIds.Contains(entry.Value)) chainEdgeIds.Add(entry.Value);
+                        if (!chainEdgeIds.Contains(entry.Key)) chainEdgeIds.Add(entry.Key);
                     }
+                }
+                foreach (var chain in chainEdgeIds.GroupBy(id => Find(parent, id)))
+                {
+                    int[] edgeIds = chain.ToArray();
+                    int[] startEdgeIds = edgeIds.Where(id => !copyEdgeIds.Contains(id)).ToArray();
+                    Func<IEnumerable<int>, Dictionary<int, int>, int> getCount = (ids, table) =>
+                    {
+                        int count;
+                        foreach (var id in ids)
+                        {
+                            if (table.TryGetValue(id, out count)) return count;
+                        }
+                        return -1;
+                    };
+                    numOfElements = -1;
+                    if (_userPinnedEdgeIds != null)
+                        numOfElements = getCount(edgeIds.Where(_userPinnedEdgeIds.Contains), _gmshData.EdgeIdNumElements);
+                    if (numOfElements < 0) numOfElements = getCount(startEdgeIds, _gmshData.EdgeIdNumElements);
+                    if (numOfElements < 0) numOfElements = getCount(edgeIds, _gmshData.EdgeIdNumElements);
+                    if (numOfElements < 0) numOfElements = getCount(edgeIds, settledEdgeIdNumOfElements);
+                    if (numOfElements < 0)
+                    {
+                        foreach (var edgeId in edgeIds)
+                        {
+                            if (TryGetOppositeEdgeElements(edgeId, settledEdgeIdNumOfElements, out numOfElements)) break;
+                            numOfElements = -1;
+                        }
+                    }
+                    if (numOfElements < 0) numOfElements = SweepWallTopology.GetElementCount(edgeIds[0]);
+                    foreach (var edgeId in edgeIds) imprintEdgeIdNumOfElements[edgeId] = numOfElements;
                 }
             }
             // Every count in one table, the later ones overriding the earlier
