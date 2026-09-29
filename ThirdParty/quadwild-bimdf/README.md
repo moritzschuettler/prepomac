@@ -20,4 +20,4 @@ Licenses/quadwild/ and copied beside the executables during the PrePoMax build.
 SHA-256 checksums of the binaries (modified build, 2026-09-25):
 
     C7D7D412DE7CDC58D3B07FB645C8DC141ECE1AAF76A15C1153E7C19FE2659B9B  quadwild.exe
-    C2D74FA5A37803C6FCDB04BD1D967D32F86E4F0E1C324AE23DB9FB9CE84C1D94  quad_from_patches.exe
+    00B4A2B9E40DBC1B5298A064AE3B47CD4FDD0832FC35EE250024D278F9FA77EF  quad_from_patches.exe
