@@ -388,10 +388,14 @@ namespace CaeMesh
         /// on the curves it meshes itself, but not on those whose count is pinned, so a pinned odd count on a curve of
         /// a recombined surface is lowered to the even count below it, and to 2 at least, and a loop pinned on all its
         /// curves to fewer than 6 elements is given 2 more on its longest curve until it has 6. The curves changed are
-        /// returned. A surface pinned that coarse can still fold, since gmsh puts the nodes it dropped back on their
-        /// curves after the subdivision: blind_holes with 2 elements on every edge fails as "overlapping facets" with
-        /// its holes at 6 or at 8, and meshes at 4 on every edge. That depends on the surface as a whole rather than on
-        /// any one count, so it is left to gmsh to report.
+        /// returned.
+        ///
+        /// A curved curve halves to chords, and gmsh puts the node it dropped from the middle of each chord back on the
+        /// curve after the subdivision. On a chord that turns too far the node lands past the elements beside it and the
+        /// surface folds: on blind_holes a half circle of 2 elements halves to its diameter, the node goes back a whole
+        /// radius and the tetrahedra refuse the surface as "overlapping facets", whatever the 2D algorithm and however
+        /// fine the rest of the surface; with the half circles at 4 it meshes. So a pinned curve is given 2 elements for
+        /// every 90° it turns, which halves it to chords turning 90° at most.
         /// </summary>
         private List<int> MakeFullQuadEdgeCountsEven(IEnumerable<int> recombinedSurfaceIds,
                                                      Dictionary<int, int> edgeIdNumberOfElements)
@@ -417,6 +421,20 @@ namespace CaeMesh
                 edgeIdNumberOfElements[edgeId] = Math.Max(2, numOfElements - 1);
             }
             //
+            int minNumOfElements;
+            Dictionary<int, double> edgeIdTurningDeg = new Dictionary<int, double>();
+            foreach (var edgeId in edgeIdNumberOfElements.Keys.OrderBy(id => id).ToArray())
+            {
+                if (!recombinedEdgeIds.Contains(edgeId)) continue;
+                double turningDeg = GetTurningAngleDeg(edgeId);
+                minNumOfElements = 2 * (int)Math.Ceiling(turningDeg / 90 - 1E-3);
+                if (edgeIdNumberOfElements[edgeId] >= minNumOfElements) continue;
+                //
+                if (!edgeIdSetNumOfElements.ContainsKey(edgeId)) edgeIdSetNumOfElements[edgeId] = edgeIdNumberOfElements[edgeId];
+                edgeIdTurningDeg[edgeId] = turningDeg;
+                edgeIdNumberOfElements[edgeId] = minNumOfElements;
+            }
+            //
             foreach (var loop in loops)
             {
                 if (!loop.Item2.All(edgeIdNumberOfElements.ContainsKey)) continue;
@@ -433,19 +451,58 @@ namespace CaeMesh
             }
             //
             int loopSurfaceId;
+            double edgeTurningDeg;
             foreach (var entry in edgeIdSetNumOfElements.OrderBy(entry => entry.Key))
             {
                 numOfElements = edgeIdNumberOfElements[entry.Key];
                 if (numOfElements == entry.Value) continue;
                 changedEdgeIds.Add(entry.Key);
-                string need = edgeIdLoopSurfaceId.TryGetValue(entry.Key, out loopSurfaceId) ?
-                              "an even number and at least 6 around each boundary loop of Surface " + loopSurfaceId :
-                              "an even number";
+                string need = "an even number";
+                if (edgeIdTurningDeg.TryGetValue(entry.Key, out edgeTurningDeg))
+                    need += " and at least 2 for every 90° the edge turns, which is " + Math.Round(edgeTurningDeg) + "°";
+                if (edgeIdLoopSurfaceId.TryGetValue(entry.Key, out loopSurfaceId))
+                    need += " and at least 6 around each boundary loop of Surface " + loopSurfaceId;
                 _writeOutput?.Invoke(NameGmshEntities("Warning: Edge " + entry.Key + " has " + entry.Value +
                                                       " elements set, but full-quad recombination needs " + need + ". " +
                                                       numOfElements + " elements are used."));
             }
             return changedEdgeIds;
+        }
+        /// <summary>
+        /// How far a curve turns from end to end, in degrees: the angles between the chords of points sampled along it,
+        /// added up. A straight curve turns 0°, a half circle 180°. The chords of a circle turn by one chord less than
+        /// the arc, so the sum is scaled by the number of chords over the number of angles between them.
+        /// </summary>
+        private static double GetTurningAngleDeg(int edgeId)
+        {
+            double[] minimum;
+            double[] maximum;
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out minimum, out maximum);
+            if (minimum.Length < 1 || maximum.Length < 1) return 0;
+            //
+            int numOfSamples = 49;
+            double[] parametricCoor = new double[numOfSamples];
+            for (int i = 0; i < numOfSamples; i++)
+                parametricCoor[i] = minimum[0] + (maximum[0] - minimum[0]) * i / (numOfSamples - 1.0);
+            double[] coor;
+            Gmsh.Model.GetValue(1, edgeId, parametricCoor, out coor);
+            //
+            double turningDeg = 0;
+            int numOfChords = 0;
+            Vec3D previous = null;
+            for (int i = 1; i < numOfSamples; i++)
+            {
+                Vec3D chord = new Vec3D(coor[3 * i] - coor[3 * i - 3], coor[3 * i + 1] - coor[3 * i - 2],
+                                        coor[3 * i + 2] - coor[3 * i - 1]);
+                if (chord.Len2 < 1E-24) continue;
+                if (previous != null)
+                    turningDeg += Math.Acos(Math.Max(-1, Math.Min(1, Vec3D.DotProduct(previous, chord) /
+                                                                   (previous.Len * chord.Len)))) * 180 / Math.PI;
+                previous = chord;
+                numOfChords++;
+            }
+            if (numOfChords < 2) return 0;
+            return turningDeg * numOfChords / (numOfChords - 1);
         }
         /// <summary>
         /// The boundary curves of a surface, one list for each loop they close: the curves joined through the
