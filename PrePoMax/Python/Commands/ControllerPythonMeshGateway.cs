@@ -380,6 +380,11 @@ namespace PrePoMax.Python
             _controller.OffsetFaceCommand(faceOffset);
             return _controller.LastOffsetFacePartNames;
         }
+        public Dictionary<string, int> DeleteCadPartFaces(GeometrySelection geometrySelection)
+        {
+            _controller.DeleteCadPartFacesCommand(geometrySelection);
+            return _controller.LastGeometryOperationCounts;
+        }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)
         {

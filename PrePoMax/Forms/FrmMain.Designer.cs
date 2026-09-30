@@ -250,6 +250,7 @@ namespace PrePoMax
             this.tsmiOffsetFace = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDeleteFacesCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFindStlEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFlipStlPartFaceNormal = new System.Windows.Forms.ToolStripMenuItem();
@@ -2406,7 +2407,8 @@ namespace PrePoMax
             this.tsmiSplitShell,
             this.tsmiOffsetFace,
             this.tsmiDividerCAD2,
-            this.tsmiDefeature});
+            this.tsmiDefeature,
+            this.tsmiDeleteFacesCAD});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
             this.cADPartToolStripMenuItem.Size = new System.Drawing.Size(221, 22);
             this.cADPartToolStripMenuItem.Text = "CAD Part";
@@ -2469,7 +2471,15 @@ namespace PrePoMax
             this.tsmiDefeature.Size = new System.Drawing.Size(227, 22);
             this.tsmiDefeature.Text = "Defeature";
             this.tsmiDefeature.Click += new System.EventHandler(this.tsmiDefeature_Click);
-            // 
+            //
+            // tsmiDeleteFacesCAD
+            //
+            this.tsmiDeleteFacesCAD.Image = global::PrePoMax.Properties.Resources.Delete;
+            this.tsmiDeleteFacesCAD.Name = "tsmiDeleteFacesCAD";
+            this.tsmiDeleteFacesCAD.Size = new System.Drawing.Size(227, 22);
+            this.tsmiDeleteFacesCAD.Text = "Delete Faces";
+            this.tsmiDeleteFacesCAD.Click += new System.EventHandler(this.tsmiDeleteFacesCAD_Click);
+            //
             // tsmiStlPart
             // 
             this.tsmiStlPart.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -5907,6 +5917,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiResetColorForResultParts;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultPart4;
         private System.Windows.Forms.ToolStripMenuItem tsmiDefeature;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteFacesCAD;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateInitialConditions;
         private System.Windows.Forms.ToolStripMenuItem tsmiHideInitialCondition;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowInitialCondition;

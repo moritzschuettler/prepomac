@@ -204,6 +204,7 @@
     <Compile Include="Commands\0030_Geometry\CConvertSolidToShell.cs" />
     <Compile Include="Commands\0030_Geometry\CDeleteStlPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\CDefeature.cs" />
+    <Compile Include="Commands\0030_Geometry\CDeleteCadPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\COffsetFace.cs" />
     <Compile Include="Commands\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />

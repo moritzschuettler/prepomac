@@ -221,6 +221,12 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.OffsetFace(geometrySelection, offsetValue);
         }
+        public Dictionary<string, int> DeleteCadFaces(SelectionAPI selection)
+        {
+            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            EnsureCommandsAvailable();
+            return MeshGateway.DeleteCadPartFaces(geometrySelection);
+        }
         public void FlipStlNormals(string[] partNames)
         {
             EnsureCommandsAvailable();

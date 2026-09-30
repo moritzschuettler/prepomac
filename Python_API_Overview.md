@@ -805,15 +805,20 @@ Every `part_names` argument accepts a single name or a list of names.
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
 `split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
-`flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the `geometry` view, with
-the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
+`delete_cad_faces`, `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the
+`geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
 `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
 
-Each of `defeature`, `flip_face_orientations` and `delete_stl_faces` reports what it did to every
-part it was asked about, as a `dict[str, int]`, and a part it could not touch reports zero. They all
-act on one kind of part only - defeaturing on a CAD solid, flipping on a CAD shell, deleting on an
-STL part - and a selection that names any other kind is not refused, it simply leaves that part
-alone, which is what the zero says.
+Each of `defeature`, `flip_face_orientations`, `delete_cad_faces` and `delete_stl_faces` reports what
+it did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
+zero. They all act on one kind of part only - defeaturing on a CAD solid, flipping on a CAD shell,
+deleting faces on a CAD solid or shell, deleting on an STL part - and a selection that names any other
+kind is not refused, it simply leaves that part alone, which is what the zero says.
+
+`delete_cad_faces` takes the faces out and leaves the gap open, where `defeature` closes it. A solid
+that loses a face is no longer closed and becomes a shell part, keeping its name and part id. A part
+is left as it was when the faces it would keep fall apart into more separate pieces than it had, or
+when no face would be left, and the faces of a compound sub-part are not deleted.
 
 `defeature` returns the number of faces every selected part actually lost.
 The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`

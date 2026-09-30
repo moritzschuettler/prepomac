@@ -4477,6 +4477,29 @@ namespace PrePoMax
                 SetStateReady(Globals.DefeaturingText);
             }
         }
+        private async void tsmiDeleteFacesCAD_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    _frmSelectGeometry.HideFormOnOK = false;
+                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                    _frmSelectGeometry.OnOKCallback = DeleteCadPartFaces;
+                    //
+                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
+                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.DeletingFacesText);
+            }
+        }
         //
         private void ConvertShellToSolid(string[] partNames)
         {
@@ -4516,6 +4539,18 @@ namespace PrePoMax
             finally
             {
                 SetStateReady(Globals.DefeaturingText);
+            }
+        }
+        private void DeleteCadPartFaces(GeometrySelection geometrySelection)
+        {
+            try
+            {
+                SetStateWorking(Globals.DeletingFacesText);
+                _controller.DeleteCadPartFacesCommand(geometrySelection);
+            }
+            finally
+            {
+                SetStateReady(Globals.DeletingFacesText);
             }
         }
 

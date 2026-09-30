@@ -85,6 +85,7 @@ namespace APIs.Python
         // Returns the names of the shell parts the face offset created, because the caller cannot
         // know them: the name is derived from the part the surfaces were taken from
         string[] OffsetFace(GeometrySelection geometrySelection, double offset);
+        Dictionary<string, int> DeleteCadPartFaces(GeometrySelection geometrySelection);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
         Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection);

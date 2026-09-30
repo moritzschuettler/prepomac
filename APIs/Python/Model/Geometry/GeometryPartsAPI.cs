@@ -189,6 +189,19 @@ namespace APIs.Python.Model
             return _service.OffsetFace(selection, offset);
         }
 
+        [PythonAPI("Deletes the selected CAD part faces using command history and leaves the gap open. " +
+                   "The selection uses the 'geometry' view and target. A solid that loses a face becomes " +
+                   "a shell part; the part keeps its name and part id either way. A part is left as it was " +
+                   "when its remaining faces would fall apart into more separate pieces or when no face " +
+                   "would remain, and the faces of compound sub-parts are not deleted. Returns the number of " +
+                   "faces deleted from every selected part, so a part that was left alone reports zero.",
+                   Arguments = "selection: Selection", Returns = "dict[str, int]",
+                   Example = "deleted = pmx.model.geometry.parts.delete_cad_faces(selection)")]
+        public Dictionary<string, int> delete_cad_faces(SelectionAPI selection)
+        {
+            return _service.DeleteCadFaces(selection);
+        }
+
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void flip_stl_normals(object part_names)

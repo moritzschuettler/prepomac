@@ -5690,6 +5690,11 @@ namespace PrePoMax
             COffsetFace comm = new COffsetFace(faceOffset);
             _commands.AddAndExecute(comm);
         }
+        public void DeleteCadPartFacesCommand(GeometrySelection geometrySelection)
+        {
+            CDeleteCadPartFaces comm = new CDeleteCadPartFaces(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
         //******************************************************************************************
         public void ConvertShellToSolid(string[] partNames)
         {
@@ -9163,6 +9168,118 @@ namespace PrePoMax
                                     changedParts + " of the " + faceCountsBefore.Count + " selected parts.");
         }
         #endregion #################################################################################################################
+        // The faces are taken out and the gap is left open, so a solid that loses a face becomes a shell.
+        // The part is replaced in place and keeps its name and part id, whatever kind of body it becomes.
+        public void DeleteCadPartFaces(GeometrySelection geometrySelection)
+        {
+            if (geometrySelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = geometrySelection.CreationData.DeepCopy(true, false);
+                geometrySelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            // A sub part of a compound carries no geometry of its own, and deleting its faces would leave the
+            // compound holding a shell among its solids, so its faces are skipped and said to be
+            int[] itemTypePartIds;
+            BasePart part;
+            List<int> kernelFaceIds;
+            List<int> partIds = new List<int>();
+            Dictionary<int, List<int>> kernelFaceIdsByPartId = new Dictionary<int, List<int>>();
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            HashSet<string> subPartNames = new HashSet<string>();
+            int numOfSkippedFaces = 0;
+            //
+            foreach (int geometryId in geometrySelection.GeometryIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                part = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+                if (part == null || !((GeometryType)itemTypePartIds[1]).IsSurface()) continue;
+                //
+                if (compoundPartNames.ContainsKey(part.Name)) { subPartNames.Add(part.Name); continue; }
+                if (!(part is GeometryPart geometryPart) || !geometryPart.IsCADPart ||
+                    geometryPart is CompoundGeometryPart)
+                {
+                    numOfSkippedFaces++;
+                    continue;
+                }
+                //
+                if (!kernelFaceIdsByPartId.TryGetValue(part.PartId, out kernelFaceIds))
+                {
+                    kernelFaceIds = new List<int>();
+                    kernelFaceIdsByPartId.Add(part.PartId, kernelFaceIds);
+                    partIds.Add(part.PartId);
+                }
+                int kernelFaceId = GetSplitGeometryKernelId(geometryId);
+                if (!kernelFaceIds.Contains(kernelFaceId)) kernelFaceIds.Add(kernelFaceId);
+            }
+            //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
+            foreach (int partId in partIds)
+            {
+                GeometryPart geometryPart = (GeometryPart)_model.Geometry.GetPartFromId(partId);
+                string partName = geometryPart.Name;
+                int facesBefore = geometryPart.Visualization == null ? 0 : geometryPart.Visualization.FaceCount;
+                _lastGeometryOperationCounts[partName] = 0;
+                //
+                string brepFileName = DeleteCadPartFaces(geometryPart, kernelFaceIdsByPartId[partId].ToArray());
+                if (brepFileName == null) continue;
+                //
+                ReplacePartGeometryFromFile(geometryPart, brepFileName, true);
+                BasePart changedPart;
+                if (_model.Geometry.Parts.TryGetValue(partName, out changedPart) && changedPart.Visualization != null)
+                    _lastGeometryOperationCounts[partName] = facesBefore - changedPart.Visualization.FaceCount;
+            }
+            //
+            if (partIds.Count > 0) WriteGeometryOperationReport("Delete cad part faces", "faces were deleted");
+            foreach (string subPartName in subPartNames)
+            {
+                _form.WriteDataToOutput("Delete cad part faces: the faces of the part " + subPartName + " were " +
+                                        "skipped - the faces of a compound sub-part cannot be deleted.");
+            }
+            if (numOfSkippedFaces > 0)
+                _form.WriteDataToOutput("Delete cad part faces: " + numOfSkippedFaces + " selected faces do not " +
+                                        "belong to a CAD part and were skipped.");
+            //
+            if (partIds.Count == 0)
+                MessageBoxes.ShowWarning("Only faces of CAD parts that are not compound sub-parts can be deleted.");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
+        }
+        private string DeleteCadPartFaces(GeometryPart part, int[] kernelFaceIds)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = inputBrepFileName;
+            // One face group, numbered in the shape itself
+            string faceIdsArgument = "1 0 " + kernelFaceIds.Length;
+            foreach (int kernelFaceId in kernelFaceIds) faceIdsArgument += " " + kernelFaceId;
+            //
+            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            //
+            File.WriteAllText(inputBrepFileName, part.CADFileData);
+            //
+            string argument = "BREP_REMOVE_FACES " +
+                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              faceIdsArgument;
+            //
+            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            // Job completed
+            if (jobStatus == JobStatus.OK) return outputBrepFileName;
+            else return null;
+        }
 
         #region Geometry Stl part menu   ###########################################################################################
         // COMMANDS ********************************************************************************
