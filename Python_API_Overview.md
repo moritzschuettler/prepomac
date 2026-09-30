@@ -818,7 +818,10 @@ kind is not refused, it simply leaves that part alone, which is what the zero sa
 `delete_cad_faces` takes the faces out and leaves the gap open, where `defeature` closes it. A solid
 that loses a face is no longer closed and becomes a shell part, keeping its name and part id. A part
 is left as it was when the faces it would keep fall apart into more separate pieces than it had, or
-when no face would be left, and the faces of a compound sub-part are not deleted.
+when no face would be left. A compound holds only solids, so a sub-part or a split cell that loses a
+face leaves it as a shell part with its own name and part id, and a face two of them share is deleted
+from both. The solids that lost nothing stay the compound with its name and id, and one solid left
+becomes a plain part with its name and id, as it does after `fuse_bodies`.
 
 `defeature` returns the number of faces every selected part actually lost.
 The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`

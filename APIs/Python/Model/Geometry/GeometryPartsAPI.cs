@@ -193,8 +193,11 @@ namespace APIs.Python.Model
                    "The selection uses the 'geometry' view and target. A solid that loses a face becomes " +
                    "a shell part; the part keeps its name and part id either way. A part is left as it was " +
                    "when its remaining faces would fall apart into more separate pieces or when no face " +
-                   "would remain, and the faces of compound sub-parts are not deleted. Returns the number of " +
-                   "faces deleted from every selected part, so a part that was left alone reports zero.",
+                   "would remain. A sub-part or split cell of a compound that loses a face leaves the compound " +
+                   "as a shell part with its own name and part id, and a face two of them share is deleted " +
+                   "from both; the solids that lost nothing stay the compound, and one solid left becomes a " +
+                   "plain part. Returns the number of faces deleted from every selected or opened part, so a " +
+                   "part that was left alone reports zero.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
                    Example = "deleted = pmx.model.geometry.parts.delete_cad_faces(selection)")]
         public Dictionary<string, int> delete_cad_faces(SelectionAPI selection)

@@ -4679,12 +4679,24 @@ namespace PrePoMax
         private string ReplaceCompoundWithFusedSubParts(CompoundGeometryPart compoundPart, string brepFileName,
                                                         int[] solidIds)
         {
+            int[] keptSolidNumbers = Enumerable.Range(1, compoundPart.SubPartNames.Length)
+                                               .Where(i => i == solidIds[0] || !solidIds.Contains(i)).ToArray();
+            return ReplaceCompoundKeepingSubParts(compoundPart, brepFileName, keptSolidNumbers, "Fuse bodies", null);
+        }
+        /// <summary>
+        /// A compound whose solids are the sub parts named by their numbers, in that order, keeps its name and part
+        /// id, and each of those sub parts keeps its name, part id and color. The ids held besides are kept free for
+        /// parts that are imported once the compound is replaced.
+        /// </summary>
+        private string ReplaceCompoundKeepingSubParts(CompoundGeometryPart compoundPart, string brepFileName,
+                                                      int[] keptSolidNumbers, string operation,
+                                                      IEnumerable<int> heldPartIds)
+        {
             List<string> subPartNames = new List<string>();
             List<int> subPartIds = new List<int>();
             List<Color> subPartColors = new List<Color>();
-            for (int i = 1; i <= compoundPart.SubPartNames.Length; i++)
+            foreach (int i in keptSolidNumbers)
             {
-                if (i != solidIds[0] && solidIds.Contains(i)) continue;
                 BasePart subPart = _model.Geometry.Parts[compoundPart.SubPartNames[i - 1]];
                 subPartNames.Add(subPart.Name);
                 subPartIds.Add(subPart.PartId);
@@ -4693,7 +4705,8 @@ namespace PrePoMax
             //
             string compoundPartName;
             string[] importedPartNames;
-            _model.HoldPartIds(subPartIds.Concat(new int[] { compoundPart.PartId }));
+            _model.HoldPartIds(subPartIds.Concat(new int[] { compoundPart.PartId })
+                                         .Concat(heldPartIds ?? Enumerable.Empty<int>()));
             try
             {
                 RemoveGeometryParts(new string[] { compoundPart.Name }, true, false);
@@ -4706,7 +4719,7 @@ namespace PrePoMax
             }
             if (importedPartNames == null || importedPartNames.Length != subPartNames.Count ||
                 !(_model.Geometry.Parts[compoundPartName] is CompoundGeometryPart result))
-                throw new CaeException("Fuse bodies: the compound part " + compoundPart.Name + " could not be replaced.");
+                throw new CaeException(operation + ": the compound part " + compoundPart.Name + " could not be replaced.");
             // The sub parts are imported under new names, which may be the names others are to take back, so they
             // are moved out of the way first. They are not drawn under their final names yet, and only the mesh
             // parts meshed from them may still hold those names, so the names are given directly.
@@ -4738,14 +4751,15 @@ namespace PrePoMax
         /// or of one of its sub parts is defined on it.
         /// </summary>
         private string ReplaceCompoundWithPart(CompoundGeometryPart compoundPart, string brepFileName, string subPartName,
-                                               int subPartId, Color color)
+                                               int subPartId, Color color, string operation = "Fuse bodies",
+                                               IEnumerable<int> heldPartIds = null)
         {
             Dictionary<MeshSetupItem, string[]> coveredSubPartNames;
             Dictionary<MeshSetupItem, int[]> meshSetupItems = GetMeshSetupItemsCoveringCompound(compoundPart,
                                                                   out coveredSubPartNames);
             //
             string[] importedPartNames;
-            _model.HoldPartIds(new int[] { subPartId });
+            _model.HoldPartIds(new int[] { subPartId }.Concat(heldPartIds ?? Enumerable.Empty<int>()));
             try
             {
                 RemoveGeometryParts(new string[] { compoundPart.Name }, false, false);
@@ -4756,7 +4770,7 @@ namespace PrePoMax
                 _model.ReleaseHeldPartIds();
             }
             if (importedPartNames == null || importedPartNames.Length != 1)
-                throw new CaeException("Fuse bodies: the fused cells of the compound part " + compoundPart.Name +
+                throw new CaeException(operation + ": the solid left of the compound part " + compoundPart.Name +
                                        " could not be imported as one part.");
             //
             string partName = importedPartNames[0];
@@ -6930,7 +6944,7 @@ namespace PrePoMax
         /// before it made and took away again, which is a different set of names each time an earlier
         /// command cuts a different number of pieces.
         /// </summary>
-        private string ReplaceSplitGeometryPart(GeometryPart part, string brepFileName)
+        private string ReplaceSplitGeometryPart(GeometryPart part, string brepFileName, IEnumerable<int> heldPartIds = null)
         {
             string partName = part.Name;
             //
@@ -6964,7 +6978,8 @@ namespace PrePoMax
             int keptCompoundPartId = part is CompoundGeometryPart ? part.PartId : -1;
             string compoundPartName;
             string[] importedPartNames;
-            _model.HoldPartIds(sourceSubPartIds.Concat(new int[] { keptCompoundPartId }));
+            _model.HoldPartIds(sourceSubPartIds.Concat(new int[] { keptCompoundPartId })
+                                               .Concat(heldPartIds ?? Enumerable.Empty<int>()));
             try
             {
                 RemoveGeometryParts(new string[] { partName }, false, false);
@@ -9162,9 +9177,10 @@ namespace PrePoMax
             _form.WriteDataToOutput("Defeature finished: " + totalRemoved + " faces were removed from " +
                                     changedParts + " of the " + faceCountsBefore.Count + " selected parts.");
         }
-        #endregion #################################################################################################################
         // The faces are taken out and the gap is left open, so a solid that loses a face becomes a shell.
-        // The part is replaced in place and keeps its name and part id, whatever kind of body it becomes.
+        // The part is replaced in place and keeps its name and part id, whatever kind of body it becomes. A
+        // compound holds only solids, so a sub part or a cell that loses a face leaves it as a shell part of
+        // its own, keeping its name and part id, and the solids that lost nothing stay the compound.
         public void DeleteCadPartFaces(GeometrySelection geometrySelection)
         {
             if (geometrySelection.CreationData != null)
@@ -9175,15 +9191,19 @@ namespace PrePoMax
                 _selection.Clear();
             }
             else throw new NotSupportedException("The geometry selection does not contain any selection data.");
-            // A sub part of a compound carries no geometry of its own, and deleting its faces would leave the
-            // compound holding a shell among its solids, so its faces are skipped and said to be
+            // A sub part of a compound carries no geometry of its own, so its faces are numbered inside the solid
+            // it was written out of and the compound is what the faces are deleted from, once for all its sub
+            // parts, so that a face two of them share is deleted from both
             int[] itemTypePartIds;
             BasePart part;
             List<int> kernelFaceIds;
             List<int> partIds = new List<int>();
             Dictionary<int, List<int>> kernelFaceIdsByPartId = new Dictionary<int, List<int>>();
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
-            HashSet<string> subPartNames = new HashSet<string>();
+            List<string> compoundNames = new List<string>();
+            Dictionary<string, SortedDictionary<int, List<int>>> kernelFaceIdsBySolidByCompound =
+                new Dictionary<string, SortedDictionary<int, List<int>>>();
+            Dictionary<string, List<string>> pickedSubPartNamesByCompound = new Dictionary<string, List<string>>();
             int numOfSkippedFaces = 0;
             //
             foreach (int geometryId in geometrySelection.GeometryIds)
@@ -9192,7 +9212,34 @@ namespace PrePoMax
                 part = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
                 if (part == null || !((GeometryType)itemTypePartIds[1]).IsSurface()) continue;
                 //
-                if (compoundPartNames.ContainsKey(part.Name)) { subPartNames.Add(part.Name); continue; }
+                string compoundName;
+                if (compoundPartNames.TryGetValue(part.Name, out compoundName))
+                {
+                    int solidNumber;
+                    if (!(part is GeometryPart subPart) ||
+                        !GetOffsetFaceSource(subPart, compoundPartNames, out compoundName, out solidNumber))
+                    {
+                        numOfSkippedFaces++;
+                        continue;
+                    }
+                    SortedDictionary<int, List<int>> kernelFaceIdsBySolid;
+                    if (!kernelFaceIdsBySolidByCompound.TryGetValue(compoundName, out kernelFaceIdsBySolid))
+                    {
+                        kernelFaceIdsBySolid = new SortedDictionary<int, List<int>>();
+                        kernelFaceIdsBySolidByCompound.Add(compoundName, kernelFaceIdsBySolid);
+                        pickedSubPartNamesByCompound.Add(compoundName, new List<string>());
+                        compoundNames.Add(compoundName);
+                    }
+                    if (!kernelFaceIdsBySolid.TryGetValue(solidNumber, out kernelFaceIds))
+                    {
+                        kernelFaceIds = new List<int>();
+                        kernelFaceIdsBySolid.Add(solidNumber, kernelFaceIds);
+                        pickedSubPartNamesByCompound[compoundName].Add(part.Name);
+                    }
+                    int subPartKernelFaceId = GetSplitGeometryKernelId(geometryId);
+                    if (!kernelFaceIds.Contains(subPartKernelFaceId)) kernelFaceIds.Add(subPartKernelFaceId);
+                    continue;
+                }
                 if (!(part is GeometryPart geometryPart) || !geometryPart.IsCADPart ||
                     geometryPart is CompoundGeometryPart)
                 {
@@ -9227,21 +9274,206 @@ namespace PrePoMax
                     _lastGeometryOperationCounts[partName] = facesBefore - changedPart.Visualization.FaceCount;
             }
             //
-            if (partIds.Count > 0) WriteGeometryOperationReport("Delete cad part faces", "faces were deleted");
-            foreach (string subPartName in subPartNames)
+            List<string> openedMessages = new List<string>();
+            foreach (string compoundName in compoundNames)
             {
-                _form.WriteDataToOutput("Delete cad part faces: the faces of the part " + subPartName + " were " +
-                                        "skipped - the faces of a compound sub-part cannot be deleted.");
+                foreach (string pickedSubPartName in pickedSubPartNamesByCompound[compoundName])
+                    _lastGeometryOperationCounts[pickedSubPartName] = 0;
+                DeleteCompoundPartFaces((CompoundGeometryPart)_model.Geometry.Parts[compoundName],
+                                        kernelFaceIdsBySolidByCompound[compoundName], openedMessages);
             }
+            //
+            if (partIds.Count + compoundNames.Count > 0)
+                WriteGeometryOperationReport("Delete cad part faces", "faces were deleted");
+            foreach (string message in openedMessages) _form.WriteDataToOutput(message);
             if (numOfSkippedFaces > 0)
                 _form.WriteDataToOutput("Delete cad part faces: " + numOfSkippedFaces + " selected faces do not " +
                                         "belong to a CAD part and were skipped.");
             //
-            if (partIds.Count == 0)
-                MessageBoxes.ShowWarning("Only faces of CAD parts that are not compound sub-parts can be deleted.");
+            if (partIds.Count + compoundNames.Count == 0)
+                MessageBoxes.ShowWarning("Only faces of CAD parts can be deleted.");
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
+        }
+        // The solids of the compound that lost no face stay the compound, which keeps its name and part id as they
+        // keep theirs; one solid left gives way to a plain part, as a fused compound does. Every solid that lost a
+        // face is imported as a shell part with the name, part id and color it had in the compound.
+        private void DeleteCompoundPartFaces(CompoundGeometryPart compoundPart,
+                                             SortedDictionary<int, List<int>> kernelFaceIdsBySolid,
+                                             List<string> openedMessages)
+        {
+            string compoundName = compoundPart.Name;
+            int numOfSolids = compoundPart.SubPartNames.Length;
+            BasePart[] subParts = compoundPart.SubPartNames.Select(name => _model.Geometry.Parts[name]).ToArray();
+            int[] facesBefore = subParts.Select(subPart => subPart.Visualization == null ? 0 :
+                                                           subPart.Visualization.FaceCount).ToArray();
+            //
+            string brepFileName = DeleteCompoundPartFaces(compoundPart, kernelFaceIdsBySolid);
+            if (brepFileName == null) return;
+            int[] openedSolidNumbers = File.ReadAllLines(brepFileName + ".opened")
+                                           .Where(line => line.Trim().Length > 0)
+                                           .Select(line => int.Parse(line.Trim())).ToArray();
+            if (openedSolidNumbers.Length == 0 || openedSolidNumbers.Any(i => i < 1 || i > numOfSolids))
+                throw new CaeException("Delete cad part faces: the modelling kernel did not say which solids of the " +
+                                       "compound part " + compoundName + " were opened.");
+            int[] keptSolidNumbers = Enumerable.Range(1, numOfSolids)
+                                               .Where(i => !openedSolidNumbers.Contains(i)).ToArray();
+            int[] openedPartIds = openedSolidNumbers.Select(i => subParts[i - 1].PartId).ToArray();
+            //
+            Guid? targetGroupId = GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts,
+                                                                            new string[] { compoundName });
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(_model.Geometry.Parts,
+                                                                                              targetGroupId);
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                if (keptSolidNumbers.Length > 1 && compoundPart.CreatedBySplit)
+                {
+                    File.WriteAllLines(GetSplitGeometryOriginsFileName(brepFileName),
+                                       keptSolidNumbers.Select(i => i.ToString()));
+                    if (ReplaceSplitGeometryPart(compoundPart, brepFileName, openedPartIds) == null)
+                        throw new CaeException("Delete cad part faces: the compound part " + compoundName +
+                                               " could not be replaced.");
+                }
+                else if (keptSolidNumbers.Length > 1)
+                {
+                    ReplaceCompoundKeepingSubParts(compoundPart, brepFileName, keptSolidNumbers, "Delete cad part faces",
+                                                   openedPartIds);
+                }
+                else if (keptSolidNumbers.Length == 1)
+                {
+                    BasePart keptSubPart = subParts[keptSolidNumbers[0] - 1];
+                    string partName = keptSubPart.Name;
+                    int partId = keptSubPart.PartId;
+                    if (compoundPart.CreatedBySplit)
+                    {
+                        partName = compoundPart.CellSubPartNames[keptSolidNumbers[0] - 1];
+                        partId = GetSplitSubPartId(compoundPart, partName);
+                    }
+                    ReplaceCompoundWithPart(compoundPart, brepFileName, partName, partId, keptSubPart.Color,
+                                            "Delete cad part faces", openedPartIds);
+                }
+                else
+                {
+                    _model.HoldPartIds(openedPartIds);
+                    try
+                    {
+                        RemoveGeometryParts(new string[] { compoundName }, false, false);
+                    }
+                    finally
+                    {
+                        _model.ReleaseHeldPartIds();
+                    }
+                }
+                // The opened solids are imported while their ids are held, so that none takes the id of another
+                string[] importedPartNames = new string[openedSolidNumbers.Length];
+                _model.HoldPartIds(openedPartIds);
+                try
+                {
+                    for (int i = 0; i < openedSolidNumbers.Length; i++)
+                    {
+                        string[] names = ImportBrepPartFile(GetDeleteCompoundFacesFileName(brepFileName, i + 1));
+                        if (names == null || names.Length != 1)
+                            throw new CaeException("Delete cad part faces: the part " +
+                                                   subParts[openedSolidNumbers[i] - 1].Name + " of the compound part " +
+                                                   compoundName + " could not be imported as a shell part.");
+                        importedPartNames[i] = names[0];
+                    }
+                }
+                finally
+                {
+                    _model.ReleaseHeldPartIds();
+                }
+                // They are not drawn yet, so the names and ids are given directly
+                for (int i = 0; i < openedSolidNumbers.Length; i++)
+                {
+                    BasePart subPart = subParts[openedSolidNumbers[i] - 1];
+                    if (!_model.GetReservedPartIds().Contains(subPart.PartId))
+                        _model.Geometry.ChangePartId(importedPartNames[i], subPart.PartId);
+                    string partName = GetDeleteCompoundFacesPartName(subPart.Name, importedPartNames[i]);
+                    BasePart importedPart = _model.Geometry.Parts[importedPartNames[i]];
+                    importedPart.Name = partName;
+                    importedPart.Color = subPart.Color;
+                    _model.Geometry.Parts.Replace(importedPartNames[i], partName, importedPart);
+                    //
+                    int facesAfter = importedPart.Visualization == null ? 0 : importedPart.Visualization.FaceCount;
+                    _lastGeometryOperationCounts[partName] = facesBefore[openedSolidNumbers[i] - 1] - facesAfter;
+                    openedMessages.Add("Delete cad part faces: the part " + partName + " left the compound part " +
+                                       compoundName + " as a shell part.");
+                }
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
+                UpdateAfterImport(".brep");
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
+            }
+        }
+        // An opened solid keeps its name unless a cell of the compound that stayed was renamed to it
+        private string GetDeleteCompoundFacesPartName(string subPartName, string importedPartName)
+        {
+            HashSet<string> reservedPartNames = _model.GetReservedPartNames();
+            reservedPartNames.Remove(importedPartName);
+            string partName = subPartName;
+            int count = 1;
+            while (reservedPartNames.Contains(partName)) partName = subPartName + "-" + ++count;
+            return partName;
+        }
+        // The mesher writes opened solid k beside the output as <out>_000k.brep
+        private static string GetDeleteCompoundFacesFileName(string brepFileName, int openedNumber)
+        {
+            return Path.Combine(Path.GetDirectoryName(brepFileName),
+                                Path.GetFileNameWithoutExtension(brepFileName) + "_" + openedNumber.ToString("0000") +
+                                Path.GetExtension(brepFileName));
+        }
+        private string DeleteCompoundPartFaces(CompoundGeometryPart compoundPart,
+                                               SortedDictionary<int, List<int>> kernelFaceIdsBySolid)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = inputBrepFileName;
+            // One face group per solid, the faces numbered inside it
+            string faceIdsArgument = kernelFaceIdsBySolid.Count.ToString();
+            foreach (var entry in kernelFaceIdsBySolid)
+            {
+                faceIdsArgument += " " + entry.Key + " " + entry.Value.Count;
+                foreach (int kernelFaceId in entry.Value) faceIdsArgument += " " + kernelFaceId;
+            }
+            //
+            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            if (File.Exists(outputBrepFileName + ".opened")) File.Delete(outputBrepFileName + ".opened");
+            for (int i = 1; i <= compoundPart.SubPartNames.Length; i++)
+            {
+                string openedFileName = GetDeleteCompoundFacesFileName(outputBrepFileName, i);
+                if (File.Exists(openedFileName)) File.Delete(openedFileName);
+            }
+            //
+            File.WriteAllText(inputBrepFileName, compoundPart.CADFileData);
+            //
+            string argument = "BREP_REMOVE_COMPOUND_FACES " +
+                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              faceIdsArgument;
+            //
+            JobStatus jobStatus = _jobRunner.Run(compoundPart.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            // Job completed
+            if (jobStatus == JobStatus.OK && File.Exists(outputBrepFileName + ".opened")) return outputBrepFileName;
+            else return null;
         }
         private string DeleteCadPartFaces(GeometryPart part, int[] kernelFaceIds)
         {
@@ -9275,6 +9507,7 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
+        #endregion #################################################################################################################
 
         #region Geometry Stl part menu   ###########################################################################################
         // COMMANDS ********************************************************************************

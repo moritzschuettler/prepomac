@@ -53,7 +53,9 @@ makes one solid of the named solids of a compound, leaving out the faces they sh
 the removed faces leave on the outside, and writes every other solid as it was, which is what Fuse Bodies
 runs. Its `BREP_REMOVE_FACES` deletes the named faces and leaves the gap open, so a solid that loses a
 face comes back as the open shells left of it, and refuses a result whose faces fall into more separate
-pieces than before, which is what Delete Faces of a CAD part runs. Its `BREP_OFFSET_FACES`
+pieces than before, which is what Delete Faces of a CAD part runs. `BREP_REMOVE_COMPOUND_FACES` does the same
+for a compound and writes the solids that were kept, each opened solid as a shell of its own beside them and
+the list of which solids were opened. Its `BREP_OFFSET_FACES`
 writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
 that share no edge to separate files. Its `VOL_VOLUME_MESH` meshes a given boundary - triangles and
 quadrilaterals in a `.vol` file, one domain per cell - by tetrahedra, standing a pyramid on every
