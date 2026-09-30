@@ -143,21 +143,22 @@ namespace APIs.Python.Model
             return _service.GroupSplitCells(part_name, cell_names, sub_part_name);
         }
 
-        [PythonAPI("Makes one solid of the named cells of a compound part made by split_solid, the way Fuse " +
-                   "Cells in the tree does. The faces the cells share are taken out, and the edges the cut left " +
-                   "on their outside are healed where the faces on both sides lie on one surface, so the cells " +
-                   "come back as the solid the splits cut them from. The cells must touch over faces. Cells " +
-                   "of several sub-parts are first grouped under one - the largest of them whose cells are all " +
-                   "named, or else the one of the first cell - and a sub-part left without cells is gone. The " +
-                   "compound keeps its name and id; fusing all the cells of a compound gives back a plain part " +
-                   "with the name and id of the sub-part they end in. Returns the name of the fused cell, or of " +
-                   "that part.",
-                   Arguments = "part_name: str, cell_names: list[str]", Returns = "str",
-                   Example = "cells = compound.get_split_cell_names('Solid_part-1')\n" +
-                             "pmx.model.geometry.parts.fuse_split_cells(compound.name, cells[:2])")]
-        public string fuse_split_cells(string part_name, object cell_names)
+        [PythonAPI("Makes one solid of the named bodies of a compound part, the way Fuse Bodies in the tree " +
+                   "does. A body is a sub-part of the compound; of a compound made by split_solid it is a cell, or " +
+                   "a sub-part, which stands for all of its cells. The faces the solids share are taken out, and " +
+                   "the edges left on their outside are healed where the faces on both sides lie on one surface, " +
+                   "so cells come back as the solid the splits cut them from. The solids must touch over faces, " +
+                   "and there must be at least two of them. The compound keeps its name and id, and the sub-parts " +
+                   "that were not fused keep theirs; the fused solid takes the name and id of the first sub-part " +
+                   "fused. Cells of several sub-parts of a split compound are first grouped under one - the " +
+                   "largest of them whose cells are all fused, or else the one of the first cell - and a sub-part " +
+                   "left without cells is gone. Fusing the whole compound gives back a plain part with the name " +
+                   "and id of the sub-part it ends in. Returns the name of the fused solid, or of that part.",
+                   Arguments = "part_name: str, body_names: list[str] or str", Returns = "str",
+                   Example = "pmx.model.geometry.parts.fuse_bodies(compound.name, ['Solid_part-1', 'Solid_part-2'])")]
+        public string fuse_bodies(string part_name, object body_names)
         {
-            return _service.FuseSplitCells(part_name, cell_names);
+            return _service.FuseBodies(part_name, body_names);
         }
 
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +

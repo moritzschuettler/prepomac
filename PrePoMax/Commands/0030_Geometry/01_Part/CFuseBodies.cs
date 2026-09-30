@@ -22,37 +22,37 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CFuseSplitCells : PreprocessCommand
+    class CFuseBodies : PreprocessCommand
     {
         // Variables
         private string _compoundPartName;
-        private string[] _cellNames;
+        private string[] _bodyNames;
 
 
         // Constructor
-        public CFuseSplitCells(string compoundPartName, string[] cellNames)
-            : base("Fuse cells")
+        public CFuseBodies(string compoundPartName, string[] bodyNames)
+            : base("Fuse bodies")
         {
             _compoundPartName = compoundPartName;
-            _cellNames = cellNames.ToArray();
+            _bodyNames = bodyNames.ToArray();
         }
 
 
         // Methods
         public override bool Execute(Controller receiver)
         {
-            receiver.FuseSplitCells(_compoundPartName, _cellNames);
+            receiver.FuseBodies(_compoundPartName, _bodyNames);
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.geometry.parts", "fuse_split_cells",
-                                         writer.Value(_compoundPartName), writer.Value(_cellNames)));
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "fuse_bodies",
+                                         writer.Value(_compoundPartName), writer.Value(_bodyNames)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {
-            return base.GetCommandString() + _compoundPartName + ": " + string.Join(", ", _cellNames);
+            return base.GetCommandString() + _compoundPartName + ": " + string.Join(", ", _bodyNames);
         }
     }
 }

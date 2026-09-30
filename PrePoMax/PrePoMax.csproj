@@ -217,7 +217,7 @@
     <Compile Include="Commands\0030_Geometry\01_Part\CSetTransparencyForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CHideGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CRemoveGeometryParts.cs" />
-    <Compile Include="Commands\0030_Geometry\01_Part\CFuseSplitCells.cs" />
+    <Compile Include="Commands\0030_Geometry\01_Part\CFuseBodies.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CGroupSplitCells.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CRenameSplitSubPart.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CReplaceGeometryPartProperties.cs" />

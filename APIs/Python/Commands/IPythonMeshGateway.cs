@@ -77,8 +77,8 @@ namespace APIs.Python
         void RenameSplitSubPart(string compoundPartName, string oldSubPartName, string newSubPartName);
         // Returns the sub-part the cells were put under, which the application names when no name is given
         string GroupSplitCells(string compoundPartName, string[] cellNames, string subPartName);
-        // Returns the cell the cells became, or the part when they were all the cells of the compound
-        string FuseSplitCells(string compoundPartName, string[] cellNames);
+        // Returns the cell the bodies became, or the part when they were all the cells of the compound
+        string FuseBodies(string compoundPartName, string[] bodyNames);
         // Returns the number of faces each selected part lost, zero included, because a defeaturing that
         // removed nothing reports success just as loudly as one that worked
         Dictionary<string, int> Defeature(GeometrySelection geometrySelection);

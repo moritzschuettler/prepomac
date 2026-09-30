@@ -396,7 +396,7 @@ namespace PrePoMax
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.RenameSplitSubPartEvent += ModelTree_RenameSplitSubPartEvent;
                 _modelTree.GroupSplitCellsEvent += ModelTree_GroupSplitCellsEvent;
-                _modelTree.FuseSplitCellsEvent += ModelTree_FuseSplitCellsEvent;
+                _modelTree.FuseBodiesEvent += ModelTree_FuseBodiesEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
@@ -1329,9 +1329,9 @@ namespace PrePoMax
         {
             GroupSplitCellsAndSelect(compoundPartName, cellNames);
         }
-        private void ModelTree_FuseSplitCellsEvent(string compoundPartName, string[] cellNames)
+        private void ModelTree_FuseBodiesEvent(string compoundPartName, string[] cellNames)
         {
-            FuseSplitCellsAndSelect(compoundPartName, cellNames);
+            FuseBodiesAndSelect(compoundPartName, cellNames);
         }
         private void ModelTree_QueryEvent()
         {
@@ -3960,11 +3960,11 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiFuseSplitCells_Click(object sender, EventArgs e)
+        private void tsmiFuseBodies_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Cells", _controller.GetSplitCells(), FuseSplitCells, 2);
+                SelectMultipleEntities("Bodies", _controller.GetFusableBodies(), FuseBodies);
             }
             catch (Exception ex)
             {
@@ -4246,24 +4246,24 @@ namespace PrePoMax
         }
         private void GroupSplitCells(string[] cellNames)
         {
-            string[] compoundPartNames = cellNames.Select(_controller.GetSplitCompoundPartNameOfCell).Distinct().ToArray();
+            string[] compoundPartNames = cellNames.Select(_controller.GetCompoundPartNameOfBody).Distinct().ToArray();
             if (compoundPartNames.Length != 1)
                 MessageBoxes.ShowError("Only the cells of one compound part can be grouped.");
             else GroupSplitCellsAndSelect(compoundPartNames[0], cellNames);
         }
-        private void FuseSplitCells(string[] cellNames)
+        private void FuseBodies(string[] bodyNames)
         {
-            string[] compoundPartNames = cellNames.Select(_controller.GetSplitCompoundPartNameOfCell).Distinct().ToArray();
+            string[] compoundPartNames = bodyNames.Select(_controller.GetCompoundPartNameOfBody).Distinct().ToArray();
             if (compoundPartNames.Length != 1)
-                MessageBoxes.ShowError("Only the cells of one compound part can be fused.");
-            else FuseSplitCellsAndSelect(compoundPartNames[0], cellNames);
+                MessageBoxes.ShowError("Only the bodies of one compound part can be fused.");
+            else FuseBodiesAndSelect(compoundPartNames[0], bodyNames);
         }
         // The fused cell is shown in its sub part, and a part that is whole again is selected itself. The fuse
         // replaces the compound, clears the selection and highlights the result, each of which would draw the
         // scene, so the tree and the view are both held until the result is selected and drawn once.
         // A fuse also imports the parts it replaces, and the import switches the view, the menus and the tool
         // strips, so the whole window is held, not only the tree
-        private void FuseSplitCellsAndSelect(string compoundPartName, string[] cellNames)
+        private void FuseBodiesAndSelect(string compoundPartName, string[] cellNames)
         {
             bool rendering = _vtk.RenderingOn;
             _vtk.RenderingOn = false;
@@ -4271,11 +4271,10 @@ namespace PrePoMax
             _modelTree.BeginGeometryTreeUpdate();
             try
             {
-                string fusedName = _controller.FuseSplitCellsCommand(compoundPartName, cellNames);
-                string fusedCompoundPartName = _controller.GetSplitCompoundPartNameOfCell(fusedName);
-                if (fusedCompoundPartName != null)
-                    _modelTree.SelectSplitSubPart(fusedCompoundPartName,
-                                                  _controller.GetSplitSubPartNameOfCell(fusedName));
+                string fusedName = _controller.FuseBodiesCommand(compoundPartName, cellNames);
+                string fusedSubPartName = _controller.GetSplitSubPartNameOfCell(fusedName);
+                if (fusedSubPartName != null)
+                    _modelTree.SelectSplitSubPart(_controller.GetCompoundPartNameOfBody(fusedName), fusedSubPartName);
                 else if (fusedName != null) SelectBaseParts(new string[] { fusedName });
             }
             finally

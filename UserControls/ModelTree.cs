@@ -322,7 +322,7 @@ namespace UserControls
         public event Action<NamedClass, string, string> RenameEvent;
         public event Action<string, string, string> RenameSplitSubPartEvent;
         public event Action<string, string[]> GroupSplitCellsEvent;
-        public event Action<string, string[]> FuseSplitCellsEvent;
+        public event Action<string, string[]> FuseBodiesEvent;
         //
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
@@ -610,11 +610,11 @@ namespace UserControls
             if (node?.Parent == null) return false;
             return node.Parent.Tag is CompoundGeometryPart || _splitSubPartNodes.ContainsKey(node.Parent);
         }
-        // Two or more cells of one split compound, which can be made one solid
-        private bool TryGetSplitCellsToFuse(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
+        // Two or more sub parts of one compound, cells of a split one included, which can be made one solid
+        private bool TryGetBodiesToFuse(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
         {
             CompoundGeometryPart compoundPart;
-            if (!TryGetSplitCells(nodes, out compoundPart, out cellNames) || cellNames.Length < 2)
+            if (!TryGetCompoundSubParts(nodes, out compoundPart, out cellNames) || cellNames.Length < 2)
             {
                 compoundPartName = null;
                 return false;
@@ -622,7 +622,8 @@ namespace UserControls
             compoundPartName = compoundPart.Name;
             return true;
         }
-        private bool TryGetSplitCells(TreeNode[] nodes, out CompoundGeometryPart compoundPart, out string[] cellNames)
+        private bool TryGetCompoundSubParts(TreeNode[] nodes, out CompoundGeometryPart compoundPart,
+                                            out string[] cellNames)
         {
             compoundPart = null;
             cellNames = null;
@@ -633,8 +634,7 @@ namespace UserControls
             {
                 if (!(node.Tag is GeometryPart cell) || !IsCompoundGeometrySubPartNode(node)) return false;
                 TreeNode compoundNode = _splitSubPartNodes.ContainsKey(node.Parent) ? node.Parent.Parent : node.Parent;
-                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart) || !nodeCompoundPart.CreatedBySplit)
-                    return false;
+                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart)) return false;
                 if (compoundPart == null) compoundPart = nodeCompoundPart;
                 else if (compoundPart != nodeCompoundPart) return false;
                 names.Add(cell.Name);
@@ -1700,8 +1700,8 @@ namespace UserControls
             tsmiSwapPartGeometries.Visible = visible;
             visible = TryGetSplitCellsToGroup(actionNodes, out _, out _);
             tsmiGroupSplitCells.Visible = visible;
-            visible = TryGetSplitCellsToFuse(actionNodes, out _, out _);
-            tsmiFuseSplitCells.Visible = visible;
+            visible = TryGetBodiesToFuse(actionNodes, out _, out _);
+            tsmiFuseBodies.Visible = visible;
             oneAboveVisible |= visible;
             // Mesh                                                 
             visible = hasActionNodes && menuFields.MeshingParameters == n;
@@ -2777,15 +2777,15 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiFuseSplitCells_Click(object sender, EventArgs e)
+        private void tsmiFuseBodies_Click(object sender, EventArgs e)
         {
             try
             {
                 string compoundPartName;
                 string[] cellNames;
-                if (TryGetSplitCellsToFuse(GetSelectedNodesIncludingGroupItems(cltvGeometry), out compoundPartName,
+                if (TryGetBodiesToFuse(GetSelectedNodesIncludingGroupItems(cltvGeometry), out compoundPartName,
                                            out cellNames))
-                    FuseSplitCellsEvent?.Invoke(compoundPartName, cellNames);
+                    FuseBodiesEvent?.Invoke(compoundPartName, cellNames);
             }
             catch (Exception ex)
             {

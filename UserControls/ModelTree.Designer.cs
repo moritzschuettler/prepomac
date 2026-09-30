@@ -134,7 +134,7 @@ namespace UserControls
             this.tsmiCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSwapPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGroupSplitCells = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiFuseSplitCells = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFuseBodies = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceMesh = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiPreviewEdgeMesh = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateMesh = new System.Windows.Forms.ToolStripMenuItem();
@@ -217,7 +217,7 @@ namespace UserControls
             this.tsmiSpaceCompoundPart,
             this.tsmiCompoundPart,
             this.tsmiGroupSplitCells,
-            this.tsmiFuseSplitCells,
+            this.tsmiFuseBodies,
             this.tsmiSwapPartGeometries,
             this.tsmiSpaceMesh,
             this.tsmiPreviewEdgeMesh,
@@ -339,12 +339,12 @@ namespace UserControls
             this.tsmiGroupSplitCells.Text = "Group Cells";
             this.tsmiGroupSplitCells.Click += new System.EventHandler(this.tsmiGroupSplitCells_Click);
             // 
-            // tsmiFuseSplitCells
+            // tsmiFuseBodies
             // 
-            this.tsmiFuseSplitCells.Name = "tsmiFuseSplitCells";
-            this.tsmiFuseSplitCells.Size = new System.Drawing.Size(211, 22);
-            this.tsmiFuseSplitCells.Text = "Fuse Cells";
-            this.tsmiFuseSplitCells.Click += new System.EventHandler(this.tsmiFuseSplitCells_Click);
+            this.tsmiFuseBodies.Name = "tsmiFuseBodies";
+            this.tsmiFuseBodies.Size = new System.Drawing.Size(211, 22);
+            this.tsmiFuseBodies.Text = "Fuse Bodies";
+            this.tsmiFuseBodies.Click += new System.EventHandler(this.tsmiFuseBodies_Click);
             // 
             // tsmiSpaceMesh
             // 
@@ -1229,7 +1229,7 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagate;
         private System.Windows.Forms.ToolStripMenuItem tsmiSwapPartGeometries;
         private System.Windows.Forms.ToolStripMenuItem tsmiGroupSplitCells;
-        private System.Windows.Forms.ToolStripMenuItem tsmiFuseSplitCells;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFuseBodies;
         private System.Windows.Forms.TabPage tpGeometry;
         private SearchTextBox stbGeometrySearch;
         private CodersLabTreeView cltvGeometry;

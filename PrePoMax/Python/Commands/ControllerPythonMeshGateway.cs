@@ -292,15 +292,15 @@ namespace PrePoMax.Python
             }
             return _controller.GroupSplitCellsCommand(compoundPartName, cellNames, subPartName);
         }
-        public string FuseSplitCells(string compoundPartName, string[] cellNames)
+        public string FuseBodies(string compoundPartName, string[] bodyNames)
         {
             // The cells are checked as the command checks them, so a refusal is raised before anything is
             // recorded; cells the modelling kernel cannot fuse are refused by the command, which then records
             // nothing either
             try
             {
-                _controller.CheckFuseSplitCells(compoundPartName, cellNames);
-                return _controller.FuseSplitCellsCommand(compoundPartName, cellNames);
+                _controller.CheckFuseBodies(compoundPartName, bodyNames);
+                return _controller.FuseBodiesCommand(compoundPartName, bodyNames);
             }
             catch (CaeException ex)
             {

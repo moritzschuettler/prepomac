@@ -187,25 +187,26 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.GroupSplitCells(partName, names, subPartName);
         }
-        public string FuseSplitCells(string partName, object cellNames)
+        public string FuseBodies(string partName, object bodyNames)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
-            if (compoundPart == null || !compoundPart.CreatedBySplit)
-                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
-            string[] names = PythonStringListConverter.ToStringArrayOrSingle(cellNames, "cell_names");
-            if (names == null || names.Length < 2)
-                throw new PythonAPIException("The argument 'cell_names' must name at least two cells.");
+            if (compoundPart == null)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part.");
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(bodyNames, "body_names");
+            if (names == null || names.Length == 0)
+                throw new PythonAPIException("The argument 'body_names' must name at least one sub-part or cell.");
+            string[] subPartNames = compoundPart.GetSplitSubPartNames();
             foreach (string name in names)
             {
-                if (!compoundPart.SubPartNames.Contains(name))
-                    throw new PythonAPIException("The argument 'cell_names' names '" + name + "', which is not a " +
-                                                 "cell of the compound part '" + partName + "'.");
+                if (!compoundPart.SubPartNames.Contains(name) && !subPartNames.Contains(name))
+                    throw new PythonAPIException("The argument 'body_names' names '" + name + "', which is not a " +
+                                                 "sub-part or a cell of the compound part '" + partName + "'.");
             }
             if (names.Distinct().Count() != names.Length)
-                throw new PythonAPIException("The argument 'cell_names' names a cell more than once.");
+                throw new PythonAPIException("The argument 'body_names' names a body more than once.");
             //
             EnsureCommandsAvailable();
-            return MeshGateway.FuseSplitCells(partName, names);
+            return MeshGateway.FuseBodies(partName, names);
         }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {

@@ -804,7 +804,7 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_split_cells`, `defeature`, `offset_face`,
+`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
 `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the `geometry` view, with
 the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
 `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
@@ -872,22 +872,26 @@ steel = compound.get_split_cell_names('Web')[:2]
 pmx.model.geometry.parts.group_split_cells(compound.name, steel, 'Steel')
 ```
 
-`fuse_split_cells(part_name, cell_names)` is Fuse Cells in the tree, and it changes the geometry: the
-named cells become one solid. The faces they share are taken out and the edges the cut left on their
-outside are healed where the faces on both sides lie on one surface, so cells cut from one solid come
-back as that solid, with the faces and edges it had. Only what the cells hold alone is healed, so the
-cells around them keep the faces they share with the result and the compound stays conformal. The
-cells must touch over faces; cells that only meet along an edge are refused. Cells of several
-sub-parts are first grouped under one, as `group_split_cells` would group them: the largest of those
-sub-parts whose cells are all named, or else the sub-part of the first cell, and a sub-part left
-without cells is gone. The compound keeps its name and its id, and fusing every cell of a compound
-gives back a plain part carrying the name and the id of the sub-part they end in, which undoes the
-split. The method returns the name of the fused cell, or of that
-part.
+`fuse_bodies(part_name, body_names)` is Fuse Bodies in the tree, and it changes the geometry: the
+named bodies of a compound become one solid. A body is a sub-part of the compound, whether the
+compound was imported, created with `create_compound` or made by `split_solid`; of a split compound
+it may also be a cell, and a sub-part stands for all of its cells. The faces the solids share are
+taken out and the edges left on their outside are healed where the faces on both sides lie on one
+surface, so cells cut from one solid come back as that solid, with the faces and edges it had. Only
+what the fused solids hold alone is healed, so the solids around them keep the faces they share with
+the result and the compound stays conformal. The solids must touch over faces, and there must be at
+least two of them; solids that only meet along an edge are refused.
+
+The compound keeps its name and its id. The sub-parts of an ordinary compound that are not fused
+keep their names, ids and colors, and the fused solid takes those of the first sub-part fused. Cells
+of several sub-parts of a split compound are first grouped under one, as `group_split_cells` would
+group them: the largest of those sub-parts whose cells are all named, or else the sub-part of the
+first cell, and a sub-part left without cells is gone. Fusing the whole compound gives back a plain
+part carrying the name and the id of the sub-part it ends in, which undoes a split. The method
+returns the name of the fused solid, or of that part.
 
 ```python
-cells = compound.get_split_cell_names('Web')
-pmx.model.geometry.parts.fuse_split_cells(compound.name, cells)
+pmx.model.geometry.parts.fuse_bodies(compound.name, ['Web', 'Flange'])
 ```
 
 `offset_face(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
