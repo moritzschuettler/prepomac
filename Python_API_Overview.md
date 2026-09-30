@@ -926,7 +926,7 @@ pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
 removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
-names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # ['Solid-1-Offset']
+names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # ['Solid-1_Offset-1']
 ```
 
 `translate` and `rotate` take `number_of_copies`: 0 moves the parts, and a larger value keeps them

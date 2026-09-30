@@ -117,7 +117,7 @@ def test_compound():
     #
     names = offset_faces(selection(large, [rim]))
     check(len(names) == 1, "one part must be created from a sub-part: " + str(names))
-    check(names[0] == large.name + "-Offset",
+    check(names[0] == large.name + "_Offset-1",
           "the part must be named after the sub-part it was picked on: " + names[0])
     rim_part = part_named(names[0])
     check(rim_part.part_type == "Shell", "the offset part must be a shell part: " + rim_part.part_type)
@@ -129,7 +129,7 @@ def test_compound():
     # quietly take the face of the other box - this is what says it did not
     names = offset_faces(selection(small, [wall]))
     check(len(names) == 1, "one part must be created from the second sub-part: " + str(names))
-    check(names[0] == small.name + "-Offset", "the second part must be named after its sub-part: " + names[0])
+    check(names[0] == small.name + "_Offset-1", "the second part must be named after its sub-part: " + names[0])
     wall_part = part_named(names[0])
     close(wall_part.surface_area, wall["area"],
           "the surface offset from the second sub-part must keep its area")
@@ -139,7 +139,7 @@ def test_compound():
                                        {large.id: [rim["id"]], small.id: [wall["id"]]})
     names = offset_faces(both)
     check(len(names) == 1, "the surfaces of one compound must become one part: " + str(names))
-    check(names[0] == compound.name + "-Offset",
+    check(names[0] == compound.name + "_Offset-1",
           "a part built from several sub-parts must be named after the compound: " + names[0])
     glued = part_named(names[0])
     check(len(faces(glued)) == 2, "the offset part must carry both picked surfaces: " + str(faces(glued)))
@@ -183,7 +183,7 @@ def main():
     # The plain face offset: one new shell part carrying the one picked surface
     names = offset_faces(selection(box, [top]))
     check(len(names) == 1, "one part must be created: " + str(names))
-    check(names[0] == box.name + "-Offset", "the part must be named after its source: " + names[0])
+    check(names[0] == box.name + "_Offset-1", "the part must be named after its source: " + names[0])
     offset_part = part_named(names[0])
     check(offset_part.part_type == "Shell", "the offset part must be a shell part: " + offset_part.part_type)
     offset_rows = faces(offset_part)
@@ -200,12 +200,15 @@ def main():
     # The mid-surface: half the wall thickness entered as a negative value on an outer surface
     names = offset_faces(selection(box, [top]), -10.0)
     check(len(names) == 1, "one part must be created: " + str(names))
-    check(names[0] == box.name + "-Offset-2", "the second part must be numbered: " + names[0])
+    check(names[0] == box.name + "_Offset-2", "the second part must be numbered: " + names[0])
     middle = part_named(names[0])
     limits = list(middle.get_bounding_box())
     close(limits[4], 10.0, "the offset surface must lie halfway through the box")
     close(limits[5], 10.0, "the offset surface must lie halfway through the box")
     close(middle.surface_area, top["area"], "an offset plane must keep its area")
+    # An offset of an offset part is named after that part, so its own offsets are numbered apart
+    names = offset_faces(selection(middle, faces(middle)))
+    check(names[0] == middle.name + "_Offset-1", "an offset of an offset part must be named after it: " + names[0])
     # A positive offset moves the surface out of the body it was taken from
     names = offset_faces(selection(box, [top]), 5.0)
     limits = list(part_named(names[0]).get_bounding_box())

@@ -6270,12 +6270,7 @@ namespace PrePoMax
         }
         private string GetOffsetFacePartName(string sourcePartName)
         {
-            HashSet<string> reservedPartNames = _model.GetReservedPartNames();
-            string baseName = sourcePartName + "-Offset";
-            string partName = baseName;
-            int count = 1;
-            while (reservedPartNames.Contains(partName)) partName = baseName + "-" + ++count;
-            return partName;
+            return _model.GetReservedPartNames().GetNextNumberedKey(sourcePartName + "_Offset");
         }
         private bool ReplacePartGeometryFromFile(GeometryPart part, string fileName, bool keepGeometrySelections)
         {
