@@ -73,7 +73,7 @@ namespace PrePoMax.Commands
         {
             writer.Statement(writer.Call("pmx.model.parts", "translate", PythonValueFormatter.List(_partNames),
                                          PythonValueFormatter.List(_translateVector),
-                                         "number_of_copies=" + PythonValueFormatter.Format(_numberOfCopies)));
+                                         "number_of_copies=" + PythonValueFormatter.Format(Math.Max(_numberOfCopies, 0))));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

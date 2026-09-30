@@ -26,35 +26,6 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Translates the named parts using command history. A number of copies larger than zero " +
-                   "keeps the original and creates that many translated copies.",
-                   Arguments = "part_names: list[str] or str, translate_vector: list[float], " +
-                               "number_of_copies: int = 0", Returns = "None",
-                   Example = "pmx.model.parts.translate('Solid-1', [0, 0, 10])")]
-        public void translate(object part_names, object translate_vector, int number_of_copies = 0)
-        {
-            _service.Translate(_service.ResolveNames(part_names), translate_vector, number_of_copies);
-        }
-
-        [PythonAPI("Rotates the named parts around an axis using command history. The angle is in degrees.",
-                   Arguments = "part_names: list[str] or str, rotate_center: list[float], " +
-                               "rotate_axis: list[float], rotate_angle: float, number_of_copies: int = 0",
-                   Returns = "None")]
-        public void rotate(object part_names, object rotate_center, object rotate_axis, object rotate_angle,
-                           int number_of_copies = 0)
-        {
-            _service.Rotate(_service.ResolveNames(part_names), rotate_center, rotate_axis, rotate_angle,
-                            number_of_copies);
-        }
-
-        [PythonAPI("Mirrors the named parts over a plane using command history.",
-                   Arguments = "part_names: list[str] or str, mirror_point: list[float], " +
-                               "mirror_direction: list[float], copy: bool = False", Returns = "None")]
-        public void mirror(object part_names, object mirror_point, object mirror_direction, bool copy = false)
-        {
-            _service.Mirror(_service.ResolveNames(part_names), mirror_point, mirror_direction, copy);
-        }
-
         [PythonAPI("Merges the named parts into a single part using command history.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void merge(object part_names)

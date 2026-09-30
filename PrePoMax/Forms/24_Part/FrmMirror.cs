@@ -32,7 +32,11 @@ namespace PrePoMax.Forms
         private ToolStripMenuItem tsmiResetAll;
 
 
-        // Properties                                                                                                               
+        // Callbacks
+        public Func<string[], double[], double[], bool, Task> MirrorGeometryPartsAsync;
+
+
+        // Properties
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
         
 
@@ -123,10 +127,32 @@ namespace PrePoMax.Forms
         }
         protected override void OnApply(bool onOkAddNew)
         {
-            _controller.MirrorModelPartsCommand(_partNames, _mirrorParameters.MirrorPoint, _mirrorParameters.MirrorDirection,
-                                                _mirrorParameters.Copy);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                MirrorGeometryParts();
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.MirrorModelPartsCommand(_partNames, _mirrorParameters.MirrorPoint,
+                                                    _mirrorParameters.MirrorDirection, _mirrorParameters.Copy);
+            else throw new NotSupportedException();
             //
             Highlight();
+        }
+        async private void MirrorGeometryParts()
+        {
+            try
+            {
+                Enabled = false;
+                await MirrorGeometryPartsAsync?.Invoke(_partNames, _mirrorParameters.MirrorPoint,
+                                                       _mirrorParameters.MirrorDirection, _mirrorParameters.Copy);
+                Highlight(); // must be here to start after await
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                Enabled = true;
+            }
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -241,7 +267,10 @@ namespace PrePoMax.Forms
             _endPoint[2] = _mirrorParameters.Z2;
             //
             _controller.ClearAllSelection();
-            _controller.HighlightModelParts(_partNames, false, false);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                _controller.HighlightGeometryParts(_partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.HighlightModelParts(_partNames, false, false);
             //
             _controller.HighlightNodes(new double[][] { _mirrorParameters.MirrorPoint }, true);
             //
@@ -256,7 +285,9 @@ namespace PrePoMax.Forms
         //
         private FeMesh GetMesh()
         {
-            if (_controller.CurrentView == ViewGeometryModelResults.Model)
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                return _controller.Model.Geometry;
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
                 return _controller.Model.Mesh;
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 return _controller.AllResults.CurrentResult.Mesh;

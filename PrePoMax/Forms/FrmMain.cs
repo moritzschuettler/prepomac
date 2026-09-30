@@ -557,12 +557,15 @@ namespace PrePoMax
                 AddFormToAllForms(_frmPartProperties);
                 //
                 _frmTranslate = new FrmTranslate(_controller);
+                _frmTranslate.TranslateGeometryPartsAsync = TranslateGeometryPartsAsync;
                 AddFormToAllForms(_frmTranslate);
                 //
                 _frmRotate = new FrmRotate(_controller);
+                _frmRotate.RotateGeometryPartsAsync = RotateGeometryPartsAsync;
                 AddFormToAllForms(_frmRotate);
                 //
                 _frmMirror = new FrmMirror(_controller);
+                _frmMirror.MirrorGeometryPartsAsync = MirrorGeometryPartsAsync;
                 AddFormToAllForms(_frmMirror);
                 //
                 _frmScale = new FrmScale(_controller);
@@ -3788,6 +3791,39 @@ namespace PrePoMax
             }
         }
         // Transform
+        private void tsmiTranslateGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryPartsWithoutSubParts(), TranslateGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiRotateGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryPartsWithoutSubParts(), RotateGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiMirrorGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryPartsWithoutSubParts(), MirrorGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiScaleGeometryParts_Click(object sender, EventArgs e)
         {
             try
@@ -3966,16 +4002,53 @@ namespace PrePoMax
             ShowForm(_frmPartProperties, "Edit Part", partName);
         }
         // Transform
-        private void ScaleGeometryParts(string[] partNames)
+        private void TranslateGeometryParts(string[] partNames)
         {
-            SinglePointDataEditor.ParentForm = _frmScale;
+            SinglePointDataEditor.ParentForm = _frmTranslate;
             SinglePointDataEditor.Controller = _controller;
-            // Set all part names for scaling
-            _frmScale.PartNames = partNames;
+            // Set all part names for translation
+            _frmTranslate.PartNames = partNames;
             //
-            ShowForm(_frmScale, "Scale parts: " + partNames.ToShortString(), null);
+            ShowForm(_frmTranslate, "Translate parts: " + partNames.ToShortString(), null);
         }
-        public async Task ScaleGeometryPartsAsync(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
+        public async Task TranslateGeometryPartsAsync(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            await RunGeometryTransformAsync(partNames, () => _controller.TranslateGeometryPartsCommand(partNames,
+                                                                                                      translateVector,
+                                                                                                      numberOfCopies));
+        }
+        private void RotateGeometryParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmRotate;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for rotation
+            _frmRotate.PartNames = partNames;
+            //
+            ShowForm(_frmRotate, "Rotate parts: " + partNames.ToShortString(), null);
+        }
+        public async Task RotateGeometryPartsAsync(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                                   double rotateAngle, int numberOfCopies)
+        {
+            await RunGeometryTransformAsync(partNames, () => _controller.RotateGeometryPartsCommand(partNames, rotateCenter,
+                                                                                                   rotateAxis, rotateAngle,
+                                                                                                   numberOfCopies));
+        }
+        private void MirrorGeometryParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmMirror;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for mirror
+            _frmMirror.PartNames = partNames;
+            //
+            ShowForm(_frmMirror, "Mirror parts: " + partNames.ToShortString(), null);
+        }
+        public async Task MirrorGeometryPartsAsync(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
+                                                   bool copy)
+        {
+            await RunGeometryTransformAsync(partNames, () => _controller.MirrorGeometryPartsCommand(partNames, mirrorPoint,
+                                                                                                   mirrorDirection, copy));
+        }
+        private async Task RunGeometryTransformAsync(string[] partNames, Action transform)
         {
             bool stateSet = false;
             try
@@ -3984,10 +4057,7 @@ namespace PrePoMax
                 {
                     stateSet = true;
                     //
-                    if (partNames != null && partNames.Length > 0)
-                    {
-                        await Task.Run(() => _controller.ScaleGeometryPartsCommand(partNames, scaleCenter, scaleFactors, copy));
-                    }
+                    if (partNames != null && partNames.Length > 0) await Task.Run(transform);
                 }
                 else MessageBoxes.ShowWarning("Another task is already running.");
             }
@@ -3999,6 +4069,20 @@ namespace PrePoMax
             {
                 if (stateSet) SetStateReady(Globals.TransformingText);
             }
+        }
+        private void ScaleGeometryParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmScale;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for scaling
+            _frmScale.PartNames = partNames;
+            //
+            ShowForm(_frmScale, "Scale parts: " + partNames.ToShortString(), null);
+        }
+        public async Task ScaleGeometryPartsAsync(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
+        {
+            await RunGeometryTransformAsync(partNames, () => _controller.ScaleGeometryPartsCommand(partNames, scaleCenter,
+                                                                                                  scaleFactors, copy));
         }
         // End Transform
         private void CopyGeometryPartsToResults(string[] partNames)

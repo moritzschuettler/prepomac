@@ -33,11 +33,15 @@ namespace PrePoMax.Forms
         private ToolStripMenuItem tsmiResetAll;
 
 
-        // Properties                                                                                                               
-        public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
-        
+        // Callbacks
+        public Func<string[], double[], int, Task> TranslateGeometryPartsAsync;
 
-        // Constructors                                                                                                             
+
+        // Properties
+        public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
+
+
+        // Constructors
         public FrmTranslate(Controller controller) 
             : base(1.7)
         {
@@ -134,10 +138,32 @@ namespace PrePoMax.Forms
         {
             _translateParameters = (TranslateParameters)propertyGrid.SelectedObject;
             //
-            _controller.TranslateModelPartsCommand(_partNames, _translateParameters.TranslateVector,
-                                                   _translateParameters.NumberOfCopies);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                TranslateGeometryParts();
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.TranslateModelPartsCommand(_partNames, _translateParameters.TranslateVector,
+                                                       _translateParameters.NumberOfCopies);
+            else throw new NotSupportedException();
             //
             Highlight();
+        }
+        async private void TranslateGeometryParts()
+        {
+            try
+            {
+                Enabled = false;
+                await TranslateGeometryPartsAsync?.Invoke(_partNames, _translateParameters.TranslateVector,
+                                                          _translateParameters.NumberOfCopies);
+                Highlight(); // must be here to start after await
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                Enabled = true;
+            }
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -266,7 +292,10 @@ namespace PrePoMax.Forms
             _endPoint[2] = _translateParameters.Z2;
             //
             _controller.ClearAllSelection();
-            _controller.HighlightModelParts(_partNames, false, false);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                _controller.HighlightGeometryParts(_partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.HighlightModelParts(_partNames, false, false);
             //
             double[] translateVector = _translateParameters.TranslateVector;
             if (translateVector[0] != 0 || translateVector[1] != 0 || translateVector[2] != 0)
@@ -278,7 +307,9 @@ namespace PrePoMax.Forms
         //
         private FeMesh GetMesh()
         {
-            if (_controller.CurrentView == ViewGeometryModelResults.Model)
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                return _controller.Model.Geometry;
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
                 return _controller.Model.Mesh;
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 return _controller.AllResults.CurrentResult.Mesh;

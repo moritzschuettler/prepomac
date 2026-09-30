@@ -97,6 +97,39 @@ namespace APIs.Python.Model
             _service.SetElementType(_service.ResolveNames(part_names), element_type, value);
         }
 
+        [PythonAPI("Translates the named parts using command history. A number of copies of 0 moves the parts, and " +
+                   "a larger number keeps them and creates that many copies, copy k translated k times.",
+                   Arguments = "part_names: list[str] or str, translate_vector: list[float], " +
+                               "number_of_copies: int = 0", Returns = "None",
+                   Example = "pmx.model.parts.translate('Solid-1', [0, 0, 10])")]
+        public void translate(object part_names, object translate_vector, int number_of_copies = 0)
+        {
+            _service.Translate(_service.ResolveNames(part_names), translate_vector, number_of_copies);
+        }
+
+        [PythonAPI("Rotates the named parts around an axis using command history. The angle is in degrees and " +
+                   "right handed about the axis. A number of copies of 0 moves the parts, and a larger number " +
+                   "keeps them and creates that many copies, copy k rotated k times.",
+                   Arguments = "part_names: list[str] or str, rotate_center: list[float], " +
+                               "rotate_axis: list[float], rotate_angle: float, number_of_copies: int = 0",
+                   Returns = "None",
+                   Example = "pmx.model.geometry.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 90)")]
+        public void rotate(object part_names, object rotate_center, object rotate_axis, object rotate_angle,
+                           int number_of_copies = 0)
+        {
+            _service.Rotate(_service.ResolveNames(part_names), rotate_center, rotate_axis, rotate_angle,
+                            number_of_copies);
+        }
+
+        [PythonAPI("Mirrors the named parts over the plane through a point with the given normal using command " +
+                   "history. With copy the parts are kept and a mirrored copy is created.",
+                   Arguments = "part_names: list[str] or str, mirror_point: list[float], " +
+                               "mirror_direction: list[float], copy: bool = False", Returns = "None")]
+        public void mirror(object part_names, object mirror_point, object mirror_direction, bool copy = false)
+        {
+            _service.Mirror(_service.ResolveNames(part_names), mirror_point, mirror_direction, copy);
+        }
+
         [PythonAPI("Scales the named parts using command history.",
                    Arguments = "part_names: list[str] or str, scale_center: list[float], " +
                                "scale_factors: list[float], copy: bool = False", Returns = "None")]

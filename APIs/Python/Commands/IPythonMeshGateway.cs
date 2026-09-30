@@ -51,6 +51,10 @@ namespace APIs.Python
         PartProperties GetGeometryPartProperties(string partName);
         // Geometry parts
         void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties);
+        void TranslateGeometryParts(string[] partNames, double[] translateVector, int numberOfCopies);
+        void RotateGeometryParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                 int numberOfCopies);
+        void MirrorGeometryParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy);
         void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy);
         void HideGeometryParts(string[] partNames);
         void ShowGeometryParts(string[] partNames);

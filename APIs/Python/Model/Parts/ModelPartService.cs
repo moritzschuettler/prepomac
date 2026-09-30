@@ -27,30 +27,6 @@ namespace APIs.Python.Model
 
 
         // Methods
-        public void Translate(string[] partNames, object translateVector, int numberOfCopies)
-        {
-            double[] vector = ToVector(translateVector, "translate_vector");
-            ValidateNumberOfCopies(numberOfCopies);
-            EnsureCommandsAvailable();
-            MeshGateway.TranslateModelParts(partNames, vector, numberOfCopies);
-        }
-        public void Rotate(string[] partNames, object rotateCenter, object rotateAxis, object rotateAngle,
-                           int numberOfCopies)
-        {
-            double[] center = ToVector(rotateCenter, "rotate_center");
-            double[] axis = ToVector(rotateAxis, "rotate_axis");
-            double angle = PythonValueConverter.ToDouble(rotateAngle, "rotate_angle");
-            ValidateNumberOfCopies(numberOfCopies);
-            EnsureCommandsAvailable();
-            MeshGateway.RotateModelParts(partNames, center, axis, angle, numberOfCopies);
-        }
-        public void Mirror(string[] partNames, object mirrorPoint, object mirrorDirection, bool copy)
-        {
-            double[] point = ToVector(mirrorPoint, "mirror_point");
-            double[] direction = ToVector(mirrorDirection, "mirror_direction");
-            EnsureCommandsAvailable();
-            MeshGateway.MirrorModelParts(partNames, point, direction, copy);
-        }
         public void Merge(string[] partNames)
         {
             EnsureCommandsAvailable();
@@ -99,15 +75,23 @@ namespace APIs.Python.Model
         {
             MeshGateway.RemoveModelParts(partNames);
         }
+        protected override void TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            MeshGateway.TranslateModelParts(partNames, translateVector, numberOfCopies);
+        }
+        protected override void RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                            double rotateAngle, int numberOfCopies)
+        {
+            MeshGateway.RotateModelParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies);
+        }
+        protected override void MirrorParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
+                                            bool copy)
+        {
+            MeshGateway.MirrorModelParts(partNames, mirrorPoint, mirrorDirection, copy);
+        }
         protected override void ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             MeshGateway.ScaleModelParts(partNames, scaleCenter, scaleFactors, copy);
-        }
-        //
-        private static void ValidateNumberOfCopies(int numberOfCopies)
-        {
-            if (numberOfCopies < 0)
-                throw new PythonAPIException("The argument 'number_of_copies' must not be negative.");
         }
     }
 }

@@ -85,8 +85,8 @@ namespace PrePoMax.Commands
             writer.Statement(writer.Call("pmx.model.parts", "rotate", PythonValueFormatter.List(_partNames),
                                          PythonValueFormatter.List(_rotateCenter),
                                          PythonValueFormatter.List(_rotateAxis),
-                                         PythonValueFormatter.Number(_rotateAngle),
-                                         "number_of_copies=" + PythonValueFormatter.Format(_numberOfCopies)));
+                                         PythonValueFormatter.Number(_rotateAngle * 180 / Math.PI),
+                                         "number_of_copies=" + PythonValueFormatter.Format(Math.Max(_numberOfCopies, 0))));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

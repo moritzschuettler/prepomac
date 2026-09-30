@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common\ExecutableJobRunner.cs" />
+    <Compile Include="Meshing\Netgen\GeometryTransform.cs" />
     <Compile Include="Meshing\Netgen\NetgenMesherRunner.cs" />
     <Compile Include="Meshing\Mmg\MmgMesherRunner.cs" />
     <Compile Include="Meshing\Gmsh\GmshMesherRunner.cs" />
@@ -209,7 +210,10 @@
     <Compile Include="Commands\0030_Geometry\CConvertShellToSolid.cs" />
     <Compile Include="Commands\0030_Geometry\CSwapPartGeometries.cs" />
     <Compile Include="Commands\0030_Geometry\CCreateAndImportCompoundPart.cs" />
+    <Compile Include="Commands\0030_Geometry\01_Part\CMirrorGeometryParts.cs" />
+    <Compile Include="Commands\0030_Geometry\01_Part\CRotateGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CScaleGeometryParts.cs" />
+    <Compile Include="Commands\0030_Geometry\01_Part\CTranslateGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CSetTransparencyForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CHideGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CRemoveGeometryParts.cs" />

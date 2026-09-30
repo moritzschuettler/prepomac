@@ -103,6 +103,7 @@ namespace PrePoMax
         public static string BrepFileName = "geometry.brep";
         public static string SplitSourceBrepFileName = "splitSource.brep";
         public static string SplitToolFileName = "splitTool";
+        public static string TransformFileName = "transform";
         public static string StlFileName = "geometry.stl";        
         public static string MeshParametersFileName = "meshParameters";
         public static string LocalMeshSizesFileName = "localMeshSizes";

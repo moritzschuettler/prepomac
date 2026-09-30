@@ -268,6 +268,20 @@ namespace APIs.Python.Model
         {
             MeshGateway.RemoveGeometryParts(partNames);
         }
+        protected override void TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            MeshGateway.TranslateGeometryParts(partNames, translateVector, numberOfCopies);
+        }
+        protected override void RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                            double rotateAngle, int numberOfCopies)
+        {
+            MeshGateway.RotateGeometryParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies);
+        }
+        protected override void MirrorParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
+                                            bool copy)
+        {
+            MeshGateway.MirrorGeometryParts(partNames, mirrorPoint, mirrorDirection, copy);
+        }
         protected override void ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             MeshGateway.ScaleGeometryParts(partNames, scaleCenter, scaleFactors, copy);

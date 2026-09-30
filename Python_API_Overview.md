@@ -793,6 +793,9 @@ Every `part_names` argument accepts a single name or a list of names.
 | `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. |
 | `reset_color(part_names)` | Restores the default color. |
 | `set_transparency(part_names, transparency)` | 0 is fully transparent, 255 is opaque. |
+| `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
+| `rotate(part_names, rotate_center, rotate_axis, rotate_angle, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
+| `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
 | `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. |
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
 | `get_element_types(part_name)` | The element type of every slot of a part. |
@@ -905,11 +908,11 @@ A connected patch is offset as a whole, so the faces that meet are trimmed again
 than coming apart at the edge they share, and an offset the modelling kernel cannot make fails the
 extraction for that part instead of returning the surfaces unmoved.
 
-`ModelParts` adds `translate`, `rotate`, `mirror`, `merge` and `find_edges_by_angle`.
+`ModelParts` adds `merge` and `find_edges_by_angle`.
 
 ```python
 pmx.model.parts.translate('Solid-1', [0, 0, 10])
-pmx.model.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 45)
+pmx.model.geometry.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 45, number_of_copies=7)
 pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
@@ -917,8 +920,15 @@ removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
 names = pmx.model.geometry.parts.extract_surface(selection, -1.5)   # ['Solid-1-Surface']
 ```
 
-`translate` and `rotate` take `number_of_copies`; a value larger than zero keeps the original and
-creates that many transformed copies. `mirror` and `scale` take `copy` instead.
+`translate` and `rotate` take `number_of_copies`: 0 moves the parts, and a larger value keeps them
+and creates that many copies, copy k transformed k times, which makes a linear or a circular pattern.
+`mirror` and `scale` take `copy` instead. A zero rotation axis or mirror normal is refused.
+
+On geometry parts a move replaces every part in place, so it keeps its name, its part id and the
+order of its faces, and a copy adds new parts. A CAD part is transformed exactly by the modelling
+kernel, except that a non-uniform scale turns its curves and surfaces into splines. A compound is
+transformed as one shape, so its sub-parts cannot be transformed on their own, and none of the
+transforms can be done while the exploded view is on.
 
 ### `GeometryPart` and `ModelPart`
 

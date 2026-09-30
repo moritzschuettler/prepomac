@@ -81,6 +81,56 @@ namespace PrePoMax
                 throw new CaeException("Defeaturing failed for part '" + part.Name + "'.");
             return brepFileName;
         }
+        // A move returns the one transformed file, and a pattern returns one file per copy, copy k transformed k times
+        public string[] Transform(GeometryPart part, GeometryTransform transform)
+        {
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string transformFileName = Path.Combine(workDirectory, Globals.TransformFileName);
+            string[] outputFileNames = new string[Math.Max(transform.NumberOfCopies, 1)];
+            if (transform.NumberOfCopies == 0) outputFileNames[0] = brepFileName;
+            else
+            {
+                string baseName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(brepFileName));
+                string extension = Path.GetExtension(brepFileName);
+                for (int i = 0; i < outputFileNames.Length; i++)
+                    outputFileNames[i] = baseName + "_" + (i + 1).ToString("0000") + extension;
+            }
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            if (File.Exists(transformFileName)) File.Delete(transformFileName);
+            foreach (var outputFileName in outputFileNames)
+            {
+                if (File.Exists(outputFileName)) File.Delete(outputFileName);
+            }
+            //
+            File.WriteAllText(brepFileName, part.CADFileData);
+            File.WriteAllText(transformFileName, transform.GetDefinition());
+            //
+            string argument = "BREP_TRANSFORM " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + transformFileName.ToUTF8() + "\"";
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
+                                                           _controller.Form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK)
+                throw new CaeException("The " + transform.Type.ToString().ToLower() + " transform failed for part '" +
+                                       part.Name + "'.");
+            foreach (var outputFileName in outputFileNames)
+            {
+                if (!File.Exists(outputFileName))
+                    throw new CaeException("Netgen reported success but did not write the transformed geometry of part '" +
+                                           part.Name + "'.");
+            }
+            return outputFileNames;
+        }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {

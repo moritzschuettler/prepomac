@@ -3978,6 +3978,24 @@ namespace PrePoMax
             return _lastFusedSplitCellName;
         }
         // Transform
+        public void TranslateGeometryPartsCommand(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            CTranslateGeometryParts comm = new CTranslateGeometryParts(partNames, translateVector, numberOfCopies);
+            _commands.AddAndExecute(comm);
+        }
+        public void RotateGeometryPartsCommand(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                               double rotateAngle, int numberOfCopies)
+        {
+            CRotateGeometryParts comm = new CRotateGeometryParts(partNames, rotateCenter, rotateAxis, rotateAngle,
+                                                                 numberOfCopies);
+            _commands.AddAndExecute(comm);
+        }
+        public void MirrorGeometryPartsCommand(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
+                                               bool copy)
+        {
+            CMirrorGeometryParts comm = new CMirrorGeometryParts(partNames, mirrorPoint, mirrorDirection, copy);
+            _commands.AddAndExecute(comm);
+        }
         public void ScaleGeometryPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             CScaleGeometryParts comm = new CScaleGeometryParts(partNames, scaleCenter, scaleFactors, copy);
@@ -4648,14 +4666,52 @@ namespace PrePoMax
             return subPartName;
         }
         // Transform
+        public void TranslateGeometryParts(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            TransformGeometryParts(partNames, GeometryTransform.Translate(translateVector, numberOfCopies),
+                                   stlPartNames => _model.Geometry.TranslateParts(stlPartNames, translateVector,
+                                                                                  numberOfCopies,
+                                                                                  _model.GetReservedPartNames(),
+                                                                                  _model.GetReservedPartIds()));
+        }
+        public void RotateGeometryParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                        int numberOfCopies)
+        {
+            TransformGeometryParts(partNames, GeometryTransform.Rotate(rotateCenter, rotateAxis, rotateAngle,
+                                                                       numberOfCopies),
+                                   stlPartNames => _model.Geometry.RotateParts(stlPartNames, rotateCenter, rotateAxis,
+                                                                               rotateAngle, numberOfCopies,
+                                                                               _model.GetReservedPartNames(),
+                                                                               _model.GetReservedPartIds()));
+        }
+        public void MirrorGeometryParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy)
+        {
+            TransformGeometryParts(partNames, GeometryTransform.Mirror(mirrorPoint, mirrorDirection, copy),
+                                   stlPartNames => _model.Geometry.MirrorParts(stlPartNames, mirrorPoint,
+                                                                               mirrorDirection, copy,
+                                                                               _model.GetReservedPartNames(),
+                                                                               _model.GetReservedPartIds()));
+        }
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
+            TransformGeometryParts(partNames, GeometryTransform.Scale(scaleCenter, scaleFactors, copy),
+                                   stlPartNames => _model.Geometry.ScaleParts(stlPartNames, scaleCenter, scaleFactors,
+                                                                              copy, _model.GetReservedPartNames(),
+                                                                              _model.GetReservedPartIds()));
+        }
+        // A move replaces each part in place, so it keeps its name and part id, and a copy or a pattern adds new parts
+        private void TransformGeometryParts(string[] partNames, GeometryTransform transform,
+                                            Action<string[]> transformStlParts)
+        {
+            string transformName = transform.Type.ToString().ToLower();
             if (IsExplodedViewActive())
-                throw new CaeException("The scaling can only be done when the exploded view is turned off.");
+                throw new CaeException("The " + transformName + " transform can only be done when the exploded view " +
+                                       "is turned off.");
             Guid? targetGroupId =
                 GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, partNames);
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
+            bool copy = transform.NumberOfCopies > 0;
             // Split parts to groups
             GeometryPart geometryPart;
             List<string> cadPartNames = new List<string>();
@@ -4668,61 +4724,67 @@ namespace PrePoMax
                 {
                     if (geometryPart is CompoundGeometryPart cgp) compoundPartNames.Add(partName);
                     else if (IsPartCompoundSubPart(partName))
-                        throw new CaeException("The scaling cannot be done for compound sub-parts.");
+                        throw new CaeException("The " + transformName + " transform cannot be done for the compound " +
+                                               "sub-part '" + partName + "'.");
                     else cadPartNames.Add(partName);
                 }
                 else stlPartNames.Add(partName);
             }
             //
             int count = 0;
-            string brepFileName;
+            string[] brepFileNames;
             string[] importedPartNames;
             CompoundGeometryPart compoundPart;
-            // Scale CAD parts
+            CompoundGeometryPart newCompoundPart;
+            // Transform CAD parts
             foreach (var partName in cadPartNames)
             {
                 geometryPart = (GeometryPart)_model.Geometry.Parts[partName];
                 //
-                brepFileName = ScaleGeometryPart(geometryPart, scaleCenter, scaleFactors);
+                brepFileNames = _netgenRunner.Transform(geometryPart, transform);
                 //
-                if (brepFileName != null)
+                if (brepFileNames != null)
                 {
                     if (copy)
                     {
-                        importedPartNames = ImportBrepPartFile(brepFileName);
-                        count++;
+                        foreach (var brepFileName in brepFileNames)
+                        {
+                            importedPartNames = ImportBrepPartFile(brepFileName);
+                            count++;
+                        }
                     }
-                    else ReplacePartGeometryFromFile(geometryPart, brepFileName, true); // calls UpdateAfterPartsChanged
+                    else ReplacePartGeometryFromFile(geometryPart, brepFileNames[0], true); // calls UpdateAfterPartsChanged
                 }
                 else ClearAllSelection();
             }
-            // Scale Compound parts
+            // Transform Compound parts
             string newCompoundPartName;
             foreach (var partName in compoundPartNames)
             {
                 compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[partName];
                 //
-                brepFileName = ScaleGeometryPart(compoundPart, scaleCenter, scaleFactors);
+                brepFileNames = _netgenRunner.Transform(compoundPart, transform);
                 //
-                if (brepFileName != null)
+                if (brepFileNames != null)
                 {
-                    ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
-                                           out newCompoundPartName, out importedPartNames);
-                    ((CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName]).CellSubPartNames =
-                        compoundPart.CellSubPartNames?.ToArray();
-                    ((CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName]).SplitSubPartOrder =
-                        compoundPart.SplitSubPartOrder?.ToArray();
-                    //
-                    if (copy) count++;
-                    else SwapCompoundParts(partName, newCompoundPartName, true);
+                    foreach (var brepFileName in brepFileNames)
+                    {
+                        ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
+                                               out newCompoundPartName, out importedPartNames);
+                        newCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
+                        newCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
+                        newCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
+                        //
+                        if (copy) count++;
+                        else SwapCompoundParts(partName, newCompoundPartName, true);
+                    }
                 }
                 else ClearAllSelection();
             }
-            // Scale stl parts
+            // Transform stl parts
             if (stlPartNames.Count > 0)
             {
-                _model.Geometry.ScaleParts(stlPartNames.ToArray(), scaleCenter, scaleFactors, copy,
-                                           _model.GetReservedPartNames(), _model.GetReservedPartIds());
+                transformStlParts(stlPartNames.ToArray());
                 if (copy) count++;
                 else
                 {
@@ -4739,40 +4801,6 @@ namespace PrePoMax
             }
             //
             CheckAndUpdateModelValidity();
-        }
-        private string ScaleGeometryPart(GeometryPart part, double[] scaleCenter, double[] scaleFactors)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return null;
-            }
-            //
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            //
-            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
-            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
-            //
-            File.WriteAllText(inputBrepFileName, part.CADFileData);
-            //
-            string argument = "BREP_SCALE_GEOMETRY " +
-                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
-                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
-                              scaleCenter[0] + " " + scaleCenter[1] + " " + scaleCenter[2] + " " +
-                              scaleFactors[0] + " " + scaleFactors[1] + " " + scaleFactors[2];
-
-            //
-            JobStatus jobStatus = _jobRunner.Run(part.Name, executable, argument, workDirectory,
-                                                 _form.WriteDataToOutput);
-            // Job completed
-            CheckAndUpdateModelValidity();
-            //
-            if (jobStatus == JobStatus.OK) return outputBrepFileName;
-            else return null;
         }
         // End Transform
         public void CopyGeometryPartsToResults(string[] partNames)

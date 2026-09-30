@@ -190,6 +190,19 @@ namespace PrePoMax.Python
         {
             _controller.ReplaceGeometryPartPropertiesCommand(oldPartName, newPartProperties);
         }
+        public void TranslateGeometryParts(string[] partNames, double[] translateVector, int numberOfCopies)
+        {
+            _controller.TranslateGeometryPartsCommand(partNames, translateVector, numberOfCopies);
+        }
+        public void RotateGeometryParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                        double rotateAngle, int numberOfCopies)
+        {
+            _controller.RotateGeometryPartsCommand(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies);
+        }
+        public void MirrorGeometryParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy)
+        {
+            _controller.MirrorGeometryPartsCommand(partNames, mirrorPoint, mirrorDirection, copy);
+        }
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             _controller.ScaleGeometryPartsCommand(partNames, scaleCenter, scaleFactors, copy);

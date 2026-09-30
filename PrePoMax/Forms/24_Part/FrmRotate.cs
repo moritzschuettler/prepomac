@@ -32,7 +32,11 @@ namespace PrePoMax.Forms
         private ToolStripMenuItem tsmiResetAll;
 
 
-        // Properties                                                                                                               
+        // Callbacks
+        public Func<string[], double[], double[], double, int, Task> RotateGeometryPartsAsync;
+
+
+        // Properties
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
 
 
@@ -123,10 +127,33 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             double angle = _rotateParameters.AngleDeg * Math.PI / 180;
-            _controller.RotateModelPartsCommand(_partNames, _rotateParameters.RotateCenter, _rotateParameters.RotateAxis,
-                                                angle, _rotateParameters.NumberOfCopies);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                RotateGeometryParts(angle);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.RotateModelPartsCommand(_partNames, _rotateParameters.RotateCenter,
+                                                    _rotateParameters.RotateAxis, angle, _rotateParameters.NumberOfCopies);
+            else throw new NotSupportedException();
             //
             Highlight();
+        }
+        async private void RotateGeometryParts(double angle)
+        {
+            try
+            {
+                Enabled = false;
+                await RotateGeometryPartsAsync?.Invoke(_partNames, _rotateParameters.RotateCenter,
+                                                       _rotateParameters.RotateAxis, angle,
+                                                       _rotateParameters.NumberOfCopies);
+                Highlight(); // must be here to start after await
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                Enabled = true;
+            }
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -254,7 +281,10 @@ namespace PrePoMax.Forms
             _endPoint[2] = _rotateParameters.Z2;
             //
             _controller.ClearAllSelection();
-            _controller.HighlightModelParts(_partNames, false, false);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                _controller.HighlightGeometryParts(_partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.HighlightModelParts(_partNames, false, false);
             //
             double[] rotateAxis = _rotateParameters.RotateAxis;
             if (rotateAxis[0] != 0 || rotateAxis[1] != 0 || rotateAxis[2] != 0)
@@ -267,7 +297,9 @@ namespace PrePoMax.Forms
         //
         private FeMesh GetMesh()
         {
-            if (_controller.CurrentView == ViewGeometryModelResults.Model)
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                return _controller.Model.Geometry;
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
                 return _controller.Model.Mesh;
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 return _controller.AllResults.CurrentResult.Mesh;

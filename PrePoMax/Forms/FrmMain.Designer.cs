@@ -224,6 +224,9 @@ namespace PrePoMax
             this.tsmiGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTransformGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiTranslateGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiRotateGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiMirrorGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerGeomPart1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCopyGeometryPartsToResults = new System.Windows.Forms.ToolStripMenuItem();
@@ -2276,15 +2279,39 @@ namespace PrePoMax
             // tsmiTransformGeometryParts
             // 
             this.tsmiTransformGeometryParts.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiTranslateGeometryParts,
+            this.tsmiRotateGeometryParts,
+            this.tsmiMirrorGeometryParts,
             this.tsmiScaleGeometryParts});
             this.tsmiTransformGeometryParts.Name = "tsmiTransformGeometryParts";
             this.tsmiTransformGeometryParts.Size = new System.Drawing.Size(211, 22);
             this.tsmiTransformGeometryParts.Text = "Transform";
             // 
+            // tsmiTranslateGeometryParts
+            //
+            this.tsmiTranslateGeometryParts.Name = "tsmiTranslateGeometryParts";
+            this.tsmiTranslateGeometryParts.Size = new System.Drawing.Size(121, 22);
+            this.tsmiTranslateGeometryParts.Text = "Translate";
+            this.tsmiTranslateGeometryParts.Click += new System.EventHandler(this.tsmiTranslateGeometryParts_Click);
+            //
+            // tsmiRotateGeometryParts
+            //
+            this.tsmiRotateGeometryParts.Name = "tsmiRotateGeometryParts";
+            this.tsmiRotateGeometryParts.Size = new System.Drawing.Size(121, 22);
+            this.tsmiRotateGeometryParts.Text = "Rotate";
+            this.tsmiRotateGeometryParts.Click += new System.EventHandler(this.tsmiRotateGeometryParts_Click);
+            //
+            // tsmiMirrorGeometryParts
+            //
+            this.tsmiMirrorGeometryParts.Name = "tsmiMirrorGeometryParts";
+            this.tsmiMirrorGeometryParts.Size = new System.Drawing.Size(121, 22);
+            this.tsmiMirrorGeometryParts.Text = "Mirror";
+            this.tsmiMirrorGeometryParts.Click += new System.EventHandler(this.tsmiMirrorGeometryParts_Click);
+            //
             // tsmiScaleGeometryParts
-            // 
+            //
             this.tsmiScaleGeometryParts.Name = "tsmiScaleGeometryParts";
-            this.tsmiScaleGeometryParts.Size = new System.Drawing.Size(101, 22);
+            this.tsmiScaleGeometryParts.Size = new System.Drawing.Size(121, 22);
             this.tsmiScaleGeometryParts.Text = "Scale";
             this.tsmiScaleGeometryParts.Click += new System.EventHandler(this.tsmiScaleGeometryParts_Click);
             // 
@@ -5717,6 +5744,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiMergeByMasterSlaveContactPair;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerContactPair3;
         private System.Windows.Forms.ToolStripMenuItem tsmiTransformGeometryParts;
+        private System.Windows.Forms.ToolStripMenuItem tsmiTranslateGeometryParts;
+        private System.Windows.Forms.ToolStripMenuItem tsmiRotateGeometryParts;
+        private System.Windows.Forms.ToolStripMenuItem tsmiMirrorGeometryParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiScaleGeometryParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiElement;
         private System.Windows.Forms.ToolStripMenuItem tsmiRenumberAllElements;

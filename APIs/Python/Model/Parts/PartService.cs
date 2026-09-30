@@ -223,6 +223,30 @@ namespace APIs.Python.Model
                 ReplacePartProperties(partName, (PartProperties)boxed);
             }
         }
+        public void Translate(string[] partNames, object translateVector, int numberOfCopies)
+        {
+            double[] vector = ToVector(translateVector, "translate_vector");
+            ValidateNumberOfCopies(numberOfCopies);
+            EnsureCommandsAvailable();
+            TranslateParts(partNames, vector, ToCommandNumberOfCopies(numberOfCopies));
+        }
+        public void Rotate(string[] partNames, object rotateCenter, object rotateAxis, object rotateAngle,
+                           int numberOfCopies)
+        {
+            double[] center = ToVector(rotateCenter, "rotate_center");
+            double[] axis = ToDirection(rotateAxis, "rotate_axis");
+            double angleDeg = PythonValueConverter.ToDouble(rotateAngle, "rotate_angle");
+            ValidateNumberOfCopies(numberOfCopies);
+            EnsureCommandsAvailable();
+            RotateParts(partNames, center, axis, angleDeg * Math.PI / 180, ToCommandNumberOfCopies(numberOfCopies));
+        }
+        public void Mirror(string[] partNames, object mirrorPoint, object mirrorDirection, bool copy)
+        {
+            double[] point = ToVector(mirrorPoint, "mirror_point");
+            double[] direction = ToDirection(mirrorDirection, "mirror_direction");
+            EnsureCommandsAvailable();
+            MirrorParts(partNames, point, direction, copy);
+        }
         public void Scale(string[] partNames, object scaleCenter, object scaleFactors, bool copy)
         {
             double[] center = ToVector(scaleCenter, "scale_center");
@@ -277,8 +301,30 @@ namespace APIs.Python.Model
         protected abstract void HideParts(string[] partNames);
         protected abstract void ShowParts(string[] partNames);
         protected abstract void RemoveParts(string[] partNames);
+        protected abstract void TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies);
+        protected abstract void RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                            double rotateAngle, int numberOfCopies);
+        protected abstract void MirrorParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
+                                            bool copy);
         protected abstract void ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy);
         //
+        private static void ValidateNumberOfCopies(int numberOfCopies)
+        {
+            if (numberOfCopies < 0)
+                throw new PythonAPIException("The argument 'number_of_copies' must not be negative.");
+        }
+        // The dialogs record a move as -1 copies, and the Python API writes it as 0
+        private static int ToCommandNumberOfCopies(int numberOfCopies)
+        {
+            return numberOfCopies == 0 ? -1 : numberOfCopies;
+        }
+        private double[] ToDirection(object value, string argumentName)
+        {
+            double[] direction = ToVector(value, argumentName);
+            if (direction[0] == 0 && direction[1] == 0 && direction[2] == 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be a zero vector.");
+            return direction;
+        }
         private static FieldInfo ResolveElementTypeField(string elementType)
         {
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
