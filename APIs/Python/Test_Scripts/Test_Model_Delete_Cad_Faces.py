@@ -5,7 +5,7 @@
 #that loses a face is no longer closed and becomes a shell part, and a shell part loses faces and
 #stays a shell. Either way the part is replaced in place and keeps its name and part id. A part is
 #left as it was when the faces it would keep fall apart into more pieces than it had, or when no face
-#would be left, and the report says so with a zero.
+#would be left, and the report says so with a zero. A body whose last face is deleted is deleted.
 #
 #A compound holds only solids, so a sub-part or a split cell that loses a face leaves it as a shell part
 #with its own name and id, the solids that lost nothing stay the compound, and one solid left gives way
@@ -84,10 +84,10 @@ def main():
     deleted = pmx.model.geometry.parts.delete_cad_faces(selection(part(), others))
     check(deleted[name] == 0, "a part that would fall apart must be left alone: " + str(dict(deleted)))
     check(len(faces(part())) == len(rows), "a refused deletion must leave the faces as they were")
-    # Deleting every face would leave nothing, which is refused as well
+    # A part whose every face is deleted is deleted with them
     deleted = pmx.model.geometry.parts.delete_cad_faces(selection(part(), rows))
-    check(deleted[name] == 0, "deleting every face must be refused: " + str(dict(deleted)))
-    check(len(faces(part())) == len(rows), "a refused deletion must leave the faces as they were")
+    check(deleted[name] == len(rows), "every face must be reported deleted: " + str(dict(deleted)))
+    check(name not in list(pmx.model.geometry.parts.get_names()), "a part without faces must be deleted")
     # Only CAD parts are touched: an STL part in the selection is left alone and reports zero
     before = list(pmx.model.geometry.parts.get_names())
     pmx.import_file(os.path.join(MODELS, "cube.stl"))
@@ -100,6 +100,7 @@ def main():
     check(len(faces(pmx.model.geometry.parts[stl.name])) == stl_faces, "the STL part must be left as it was")
     test_ordinary_compound()
     test_shared_face()
+    test_last_face()
     test_split_compound()
     print("TEST PASSED")
 
@@ -166,6 +167,20 @@ def test_shared_face():
               sub_part[0] + " must be a shell part with its id")
     check(name not in list(parts.get_names()) and parts[top[0]].id == top[1] and
           parts[top[0]].part_type == "SolidAsShell", "the top box must be left as a plain solid part")
+
+
+# A box that loses every face is gone, and the boxes it shared a face with are opened by losing it
+def test_last_face():
+    parts = pmx.model.geometry.parts
+    name, part_id, (bottom, middle, top) = import_stack()
+    middle_faces = len(faces(parts[middle[0]]))
+    deleted = delete(parts[middle[0]], z_faces(parts[middle[0]]))
+    check(deleted[middle[0]] == middle_faces, "every face of the middle box must be deleted: " + str(dict(deleted)))
+    names = list(parts.get_names())
+    check(middle[0] not in names and name not in names, "the middle box and the compound must be gone")
+    for sub_part in (bottom, top):
+        check(parts[sub_part[0]].part_type == "Shell" and parts[sub_part[0]].id == sub_part[1] and
+              deleted[sub_part[0]] == 1, sub_part[0] + " must be a shell part with its id, one face less")
 
 
 # A cell of a split compound that loses a face leaves it the same way, under its own name and id
