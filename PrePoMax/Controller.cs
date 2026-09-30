@@ -4736,69 +4736,79 @@ namespace PrePoMax
             string[] importedPartNames;
             CompoundGeometryPart compoundPart;
             CompoundGeometryPart newCompoundPart;
-            // Transform CAD parts
-            foreach (var partName in cadPartNames)
+            // The parts reach the tree and the scene together at the end, so that the transform is one tree and one
+            // redraw instead of several of each per part
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
             {
-                geometryPart = (GeometryPart)_model.Geometry.Parts[partName];
-                //
-                brepFileNames = _netgenRunner.Transform(geometryPart, transform);
-                //
-                if (brepFileNames != null)
+                // Transform CAD parts
+                foreach (var partName in cadPartNames)
                 {
-                    if (copy)
+                    geometryPart = (GeometryPart)_model.Geometry.Parts[partName];
+                    //
+                    brepFileNames = _netgenRunner.Transform(geometryPart, transform);
+                    //
+                    if (brepFileNames != null)
+                    {
+                        if (copy)
+                        {
+                            foreach (var brepFileName in brepFileNames)
+                            {
+                                importedPartNames = ImportBrepPartFile(brepFileName);
+                                count++;
+                            }
+                        }
+                        else ReplacePartGeometryFromFile(geometryPart, brepFileNames[0], true); // calls UpdateAfterPartsChanged
+                    }
+                    else ClearAllSelection();
+                }
+                // Transform Compound parts
+                string newCompoundPartName;
+                foreach (var partName in compoundPartNames)
+                {
+                    compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[partName];
+                    //
+                    brepFileNames = _netgenRunner.Transform(compoundPart, transform);
+                    //
+                    if (brepFileNames != null)
                     {
                         foreach (var brepFileName in brepFileNames)
                         {
-                            importedPartNames = ImportBrepPartFile(brepFileName);
-                            count++;
+                            ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
+                                                   out newCompoundPartName, out importedPartNames);
+                            newCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
+                            newCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
+                            newCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
+                            //
+                            if (copy) count++;
+                            else SwapCompoundParts(partName, newCompoundPartName, true);
                         }
                     }
-                    else ReplacePartGeometryFromFile(geometryPart, brepFileNames[0], true); // calls UpdateAfterPartsChanged
+                    else ClearAllSelection();
                 }
-                else ClearAllSelection();
-            }
-            // Transform Compound parts
-            string newCompoundPartName;
-            foreach (var partName in compoundPartNames)
-            {
-                compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[partName];
-                //
-                brepFileNames = _netgenRunner.Transform(compoundPart, transform);
-                //
-                if (brepFileNames != null)
+                // Transform stl parts
+                if (stlPartNames.Count > 0)
                 {
-                    foreach (var brepFileName in brepFileNames)
-                    {
-                        ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
-                                               out newCompoundPartName, out importedPartNames);
-                        newCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
-                        newCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
-                        newCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
-                        //
-                        if (copy) count++;
-                        else SwapCompoundParts(partName, newCompoundPartName, true);
-                    }
+                    transformStlParts(stlPartNames.ToArray());
+                    if (copy) count++;
                 }
-                else ClearAllSelection();
+                //
+                if (count > 0)
+                    MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
             }
-            // Transform stl parts
-            if (stlPartNames.Count > 0)
+            finally
             {
-                transformStlParts(stlPartNames.ToArray());
-                if (copy) count++;
-                else
-                {
-                    UpdateAfterPartsChanged(); // must be here before any drawing
-                    //
-                    DrawGeometry(false);
-                }
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
             }
             //
-            if (count > 0)
-            {
-                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
-                UpdateAfterImport(".brep");
-            }
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
+            DrawGeometry(false);
             //
             CheckAndUpdateModelValidity();
         }
@@ -26466,7 +26476,10 @@ namespace PrePoMax
 
         #region Highlight  #########################################################################################################
         public void UpdateTreeSelection()
-        {            
+        {
+            // While the tree and the scene are held off, the parts a dialog highlights may be halfway through being
+            // replaced, so the highlight waits for the drawing that ends the batch
+            if (!_form.ScreenUpdating) return;
             _form.UpdateHighlight();
         }
         public void SelectBasePartsInTree(string[] partNames)
