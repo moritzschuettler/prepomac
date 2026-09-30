@@ -11043,6 +11043,7 @@ namespace PrePoMax
             int[] meshedPartIds;
             int[] partIds = new int[1];
             MeshTypeEnum meshType;
+            bool sweepMeshesCompound;
             HashSet<int> selectedPartIds;
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             foreach (var entry in _model.Geometry.Parts)
@@ -11056,21 +11057,27 @@ namespace PrePoMax
                 partIds[0] = part.PartId;
                 //
                 meshType = MeshTypeEnum.Unknown;
+                sweepMeshesCompound = false;
                 foreach (var mesherSetupItem in mesherSetupItems)
                 {
                     selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(mesherSetupItem.CreationIds));
-                    // A sweep meshes the parts its blocks reach and leaves the rest of a compound part to an
-                    // item of its own, so it is asked about this part alone
+                    // A sweep gives its block cells a structured mesh and tetrahedrally fills the rest of a
+                    // compound unless another item covers them, so it is asked about this part alone
                     if (!_model.DoesMeshSetupItemCoverPart(mesherSetupItem, selectedPartIds,
                                                            mesherSetupItem is SweepMesh ? partIds : meshedPartIds))
+                    {
+                        if (mesherSetupItem is SweepMesh &&
+                            _model.DoesMeshSetupItemCoverPart(mesherSetupItem, selectedPartIds, meshedPartIds))
+                            sweepMeshesCompound = true;
                         continue;
+                    }
                     //
                     meshType = GetMeshTypeOfMeshSetupItem(mesherSetupItem, part);
                     break;
                 }
-                if (meshType == MeshTypeEnum.Unknown) meshType = part.MeshType;
+                if (meshType == MeshTypeEnum.Unknown)
+                    meshType = sweepMeshesCompound ? MeshTypeEnum.Tetrahedral : part.MeshType;
                 //
-                    }
                 effectiveMeshTypes.Add(part.Name, meshType);
             }
             return effectiveMeshTypes;
