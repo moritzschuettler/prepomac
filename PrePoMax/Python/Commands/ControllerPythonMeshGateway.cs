@@ -370,15 +370,15 @@ namespace PrePoMax.Python
             }
             return facesRemoved;
         }
-        public string[] ExtractSurface(GeometrySelection geometrySelection, double offset)
+        public string[] OffsetFace(GeometrySelection geometrySelection, double offset)
         {
-            SurfaceExtraction surfaceExtraction = new SurfaceExtraction();
-            surfaceExtraction.CreationIds = geometrySelection.GeometryIds;
-            surfaceExtraction.CreationData = geometrySelection.CreationData;
-            surfaceExtraction.Offset = offset;
+            FaceOffset faceOffset = new FaceOffset();
+            faceOffset.CreationIds = geometrySelection.GeometryIds;
+            faceOffset.CreationData = geometrySelection.CreationData;
+            faceOffset.Offset = offset;
             //
-            _controller.ExtractSurfaceCommand(surfaceExtraction);
-            return _controller.LastExtractedSurfacePartNames;
+            _controller.OffsetFaceCommand(faceOffset);
+            return _controller.LastOffsetFacePartNames;
         }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)

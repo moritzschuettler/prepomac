@@ -804,7 +804,7 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_split_cells`, `defeature`, `extract_surface`,
+`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_split_cells`, `defeature`, `offset_face`,
 `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the `geometry` view, with
 the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
 `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
@@ -890,23 +890,23 @@ cells = compound.get_split_cell_names('Web')
 pmx.model.geometry.parts.fuse_split_cells(compound.name, cells)
 ```
 
-`extract_surface(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
+`offset_face(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
 are lifted out of the parts that carry them and become new shell parts, named after the part they
 were taken from, and that part is left exactly as it was. It returns the names of the parts that
 were created.
 
-The unit of extraction is the geometry the surfaces are written out of, and the surfaces picked on
+The unit of a face offset is the geometry the surfaces are written out of, and the surfaces picked on
 one geometry are sewn together where they touch, so they come back as one body rather than as loose
 faces. A selection spanning three parts therefore gives three parts, while the surfaces of several
 sub-parts of one compound give one part, named after the compound: a sub-part carries no geometry of
 its own, the compound is what all of them are written out of, and the faces of two sub-parts that
 meet are sewn along the edge they share exactly as the faces of one part are.
 
-A non zero `offset` moves the extracted surfaces along their own normals, outwards when it is
+A non zero `offset` moves the new surfaces along their own normals, outwards when it is
 positive: half the wall thickness entered as a negative value on an outer surface is a mid-surface.
 A connected patch is offset as a whole, so the faces that meet are trimmed against each other rather
 than coming apart at the edge they share, and an offset the modelling kernel cannot make fails the
-extraction for that part instead of returning the surfaces unmoved.
+face offset for that part instead of returning the surfaces unmoved.
 
 `ModelParts` adds `merge` and `find_edges_by_angle`.
 
@@ -917,7 +917,7 @@ pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
 removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
-names = pmx.model.geometry.parts.extract_surface(selection, -1.5)   # ['Solid-1-Surface']
+names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # ['Solid-1-Offset']
 ```
 
 `translate` and `rotate` take `number_of_copies`: 0 moves the parts, and a larger value keeps them

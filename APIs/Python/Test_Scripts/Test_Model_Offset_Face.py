@@ -1,9 +1,9 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the surface extraction: the picked surfaces are lifted out of the part that carries them and
+#Checks the face offset: the picked surfaces are lifted out of the part that carries them and
 #added to the model as a new shell part, while that part is left exactly as it was. A non zero offset
-#moves the extracted surfaces along their own normals, outwards when it is positive, which is what a
+#moves the new surfaces along their own normals, outwards when it is positive, which is what a
 #mid-surface is made of. Surfaces that touch are sewn together, so what is picked in one operation
 #comes back as one body rather than as loose faces - and the surfaces of several sub-parts of one
 #compound are sewn the same way, because the compound is the geometry all of them are written out of.
@@ -14,7 +14,7 @@
 #the large box is split into that shared face and the rim around it, and the walls of the small box
 #stand on the boundary between the two.
 #
-#  PrePoMax.com -f blind_holes.brep -u MM_TON_S_C --script Test_Model_Extract_Surface.py -g No -x Yes -w <dir>
+#  PrePoMax.com -f blind_holes.brep -u MM_TON_S_C --script Test_Model_Offset_Face.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 
@@ -56,10 +56,10 @@ def selection(part, rows):
                                        {part.id: [row["id"] for row in rows]})
 
 
-def extract(selection_to_use, offset=None):
+def offset_faces(selection_to_use, offset=None):
     if offset is None:
-        return list(pmx.model.geometry.parts.extract_surface(selection_to_use))
-    return list(pmx.model.geometry.parts.extract_surface(selection_to_use, offset))
+        return list(pmx.model.geometry.parts.offset_face(selection_to_use))
+    return list(pmx.model.geometry.parts.offset_face(selection_to_use, offset))
 
 
 def part_named(name):
@@ -94,8 +94,8 @@ def import_compound():
     return compounds[0], large[0], small[0]
 
 
-# Two faces that meet along an edge lose that edge to the sewing when they are extracted together, so
-# the edge count is what says whether the extraction glued them or left them loose
+# Two faces that meet along an edge lose that edge to the sewing when they are offset together, so
+# the edge count is what says whether the face offset glued them or left them loose
 def check_glued(first_name, second_name, both_name, message):
     separate = edge_count(part_named(first_name)) + edge_count(part_named(second_name))
     together = edge_count(part_named(both_name))
@@ -105,7 +105,7 @@ def check_glued(first_name, second_name, both_name, message):
 
 # A sub-part of a compound carries no geometry of its own: the compound is written to the modelling
 # kernel and the faces of the sub-part are numbered inside the solid it was written out of. Picking
-# the surfaces of several sub-parts is still one extraction, so they are sewn together.
+# the surfaces of several sub-parts is still one face offset, so they are sewn together.
 def test_compound():
     compound, large, small = import_compound()
     # The top of the large box is split by the contact face, and the rim around it is what the walls of
@@ -115,35 +115,35 @@ def test_compound():
     check(len(walls) == 4, "the small box must stand on the rim with four walls: " + str(faces(small)))
     wall = walls[0]
     #
-    names = extract(selection(large, [rim]))
+    names = offset_faces(selection(large, [rim]))
     check(len(names) == 1, "one part must be created from a sub-part: " + str(names))
-    check(names[0] == large.name + "-Surface",
+    check(names[0] == large.name + "-Offset",
           "the part must be named after the sub-part it was picked on: " + names[0])
     rim_part = part_named(names[0])
-    check(rim_part.part_type == "Shell", "the extracted part must be a shell part: " + rim_part.part_type)
-    close(rim_part.surface_area, rim["area"], "the surface extracted from a sub-part must keep its area")
+    check(rim_part.part_type == "Shell", "the offset part must be a shell part: " + rim_part.part_type)
+    close(rim_part.surface_area, rim["area"], "the surface offset from a sub-part must keep its area")
     limits = list(rim_part.get_bounding_box())
     close(limits[4], rim["z"], "the surface must stay where it was taken from")
     close(limits[5], rim["z"], "the surface must stay where it was taken from")
     # The face ids of a sub-part mean nothing in the compound as a whole, so a wrong solid number would
     # quietly take the face of the other box - this is what says it did not
-    names = extract(selection(small, [wall]))
+    names = offset_faces(selection(small, [wall]))
     check(len(names) == 1, "one part must be created from the second sub-part: " + str(names))
-    check(names[0] == small.name + "-Surface", "the second part must be named after its sub-part: " + names[0])
+    check(names[0] == small.name + "-Offset", "the second part must be named after its sub-part: " + names[0])
     wall_part = part_named(names[0])
     close(wall_part.surface_area, wall["area"],
-          "the surface extracted from the second sub-part must keep its area")
-    # One selection over both sub-parts is one extraction: one part, and the rim and the wall standing on
+          "the surface offset from the second sub-part must keep its area")
+    # One selection over both sub-parts is one face offset: one part, and the rim and the wall standing on
     # it are sewn along the edge they share
     both = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces',
                                        {large.id: [rim["id"]], small.id: [wall["id"]]})
-    names = extract(both)
+    names = offset_faces(both)
     check(len(names) == 1, "the surfaces of one compound must become one part: " + str(names))
-    check(names[0] == compound.name + "-Surface",
+    check(names[0] == compound.name + "-Offset",
           "a part built from several sub-parts must be named after the compound: " + names[0])
     glued = part_named(names[0])
-    check(len(faces(glued)) == 2, "the extracted part must carry both picked surfaces: " + str(faces(glued)))
-    close(glued.surface_area, rim["area"] + wall["area"], "the extracted part must keep the area of both")
+    check(len(faces(glued)) == 2, "the offset part must carry both picked surfaces: " + str(faces(glued)))
+    close(glued.surface_area, rim["area"] + wall["area"], "the offset part must keep the area of both")
     check_glued(rim_part.name, wall_part.name, glued.name,
                 "the surfaces of two sub-parts must be sewn together")
     # The sub-parts are left as they were
@@ -158,19 +158,19 @@ def test_apart(box, sides):
     first = sides[0]
     opposite = [row for row in sides[1:] if abs(row["area"] - first["area"]) < TOLERANCE * first["area"]]
     check(len(opposite) == 1, "the box must carry one side face opposite the first one: " + str(sides))
-    names = extract(selection(box, [first, opposite[0]]))
+    names = offset_faces(selection(box, [first, opposite[0]]))
     check(len(names) == 2, "two surfaces that share no edge must become two parts: " + str(names))
     for name in names:
         part = part_named(name)
-        check(part.is_cad_part, "every part extracted apart must carry its own CAD geometry: " + name)
-        check(len(faces(part)) == 1, "every part extracted apart must carry one face: " + name)
-        close(part.surface_area, first["area"], "every part extracted apart must keep the area of its face")
+        check(part.is_cad_part, "every part offset apart must carry its own CAD geometry: " + name)
+        check(len(faces(part)) == 1, "every part offset apart must carry one face: " + name)
+        close(part.surface_area, first["area"], "every part offset apart must keep the area of its face")
     pmx.model.mesh.create(names)
     mesh_parts = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name in names]
-    check(len(mesh_parts) == 2, "both parts extracted apart must be meshed: " + str([p.name for p in mesh_parts]))
+    check(len(mesh_parts) == 2, "both parts offset apart must be meshed: " + str([p.name for p in mesh_parts]))
     for mesh_part in mesh_parts:
         close(mesh_part.surface_area, first["area"],
-              "the mesh of a part extracted apart must cover its own face only: " + mesh_part.name)
+              "the mesh of a part offset apart must cover its own face only: " + mesh_part.name)
 
 
 def main():
@@ -180,51 +180,51 @@ def main():
     box_area = box.surface_area
     top = top_face(rows)
     close(top["z"], 20.0, "the top face of the box must lie at z = 20")
-    # The plain extraction: one new shell part carrying the one picked surface
-    names = extract(selection(box, [top]))
+    # The plain face offset: one new shell part carrying the one picked surface
+    names = offset_faces(selection(box, [top]))
     check(len(names) == 1, "one part must be created: " + str(names))
-    check(names[0] == box.name + "-Surface", "the part must be named after its source: " + names[0])
-    extracted = part_named(names[0])
-    check(extracted.part_type == "Shell", "the extracted part must be a shell part: " + extracted.part_type)
-    extracted_rows = faces(extracted)
-    check(len(extracted_rows) == 1, "the extracted part must carry one face: " + str(extracted_rows))
-    close(extracted.surface_area, top["area"], "the extracted surface must keep its area")
+    check(names[0] == box.name + "-Offset", "the part must be named after its source: " + names[0])
+    offset_part = part_named(names[0])
+    check(offset_part.part_type == "Shell", "the offset part must be a shell part: " + offset_part.part_type)
+    offset_rows = faces(offset_part)
+    check(len(offset_rows) == 1, "the offset part must carry one face: " + str(offset_rows))
+    close(offset_part.surface_area, top["area"], "the offset surface must keep its area")
     box_limits = list(box.get_bounding_box())
-    limits = list(extracted.get_bounding_box())
-    close(limits[4], 20.0, "the extracted surface must stay where it was taken from")
-    close(limits[5], 20.0, "the extracted surface must stay where it was taken from")
+    limits = list(offset_part.get_bounding_box())
+    close(limits[4], 20.0, "the offset surface must stay where it was taken from")
+    close(limits[5], 20.0, "the offset surface must stay where it was taken from")
     # The part the surface was taken from is left as it was
     box = part_named(box.name)
     check(len(faces(box)) == box_face_count, "the source part must keep its faces")
     close(box.surface_area, box_area, "the source part must keep its area")
     # The mid-surface: half the wall thickness entered as a negative value on an outer surface
-    names = extract(selection(box, [top]), -10.0)
+    names = offset_faces(selection(box, [top]), -10.0)
     check(len(names) == 1, "one part must be created: " + str(names))
-    check(names[0] == box.name + "-Surface-2", "the second part must be numbered: " + names[0])
+    check(names[0] == box.name + "-Offset-2", "the second part must be numbered: " + names[0])
     middle = part_named(names[0])
     limits = list(middle.get_bounding_box())
     close(limits[4], 10.0, "the offset surface must lie halfway through the box")
     close(limits[5], 10.0, "the offset surface must lie halfway through the box")
     close(middle.surface_area, top["area"], "an offset plane must keep its area")
     # A positive offset moves the surface out of the body it was taken from
-    names = extract(selection(box, [top]), 5.0)
+    names = offset_faces(selection(box, [top]), 5.0)
     limits = list(part_named(names[0]).get_bounding_box())
     close(limits[4], 25.0, "a positive offset must move the surface outwards")
     # Several surfaces of one part become one part, sewn along the edges they share
     sides = side_faces(rows, top)
     check(len(sides) >= 2, "the box must carry side faces: " + str(sides))
-    side_names = extract(selection(box, [sides[0]]))
-    pair_names = extract(selection(box, [top, sides[0]]))
-    check_glued(extracted.name, side_names[0], pair_names[0],
+    side_names = offset_faces(selection(box, [sides[0]]))
+    pair_names = offset_faces(selection(box, [top, sides[0]]))
+    check_glued(offset_part.name, side_names[0], pair_names[0],
                 "the surfaces of one part must be sewn together")
     picked = [top] + sides[:2]
-    names = extract(selection(box, picked))
+    names = offset_faces(selection(box, picked))
     check(len(names) == 1, "the surfaces of one part must become one part: " + str(names))
     patch = part_named(names[0])
     check(len(faces(patch)) == len(picked),
-          "the extracted part must carry every picked surface: " + str(faces(patch)))
+          "the offset part must carry every picked surface: " + str(faces(patch)))
     # A connected patch is offset as a whole, so the faces that meet are trimmed against each other
-    names = extract(selection(box, picked), -2.0)
+    names = offset_faces(selection(box, picked), -2.0)
     offset_patch = part_named(names[0])
     check(len(faces(offset_patch)) == len(picked),
           "the offset patch must carry every picked surface: " + str(faces(offset_patch)))

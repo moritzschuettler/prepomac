@@ -119,7 +119,7 @@ namespace PrePoMax
         private FrmMeshSetupItem _frmMeshSetupItem;
         private FrmSplitSolid _frmSplitSolid;
         private FrmSplitShell _frmSplitShell;
-        private FrmExtractSurface _frmExtractSurface;
+        private FrmOffsetFace _frmOffsetFace;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -528,8 +528,8 @@ namespace PrePoMax
                 _frmSplitShell = new FrmSplitShell(_controller);
                 AddFormToAllForms(_frmSplitShell);
                 //
-                _frmExtractSurface = new FrmExtractSurface(_controller);
-                AddFormToAllForms(_frmExtractSurface);
+                _frmOffsetFace = new FrmOffsetFace(_controller);
+                AddFormToAllForms(_frmOffsetFace);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -4437,23 +4437,23 @@ namespace PrePoMax
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitShell);
             ShowForm(_frmSplitShell, "Split Shell", null);
         }
-        private void tsmiExtractSurface_Click(object sender, EventArgs e)
+        private void tsmiOffsetFace_Click(object sender, EventArgs e)
         {
             try
             {
-                CreateExtractSurface();
+                CreateOffsetFace();
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void CreateExtractSurface()
+        private void CreateOffsetFace()
         {
             if (_controller.Model.Geometry == null) return;
             // Data editor
-            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmExtractSurface);
-            ShowForm(_frmExtractSurface, "Extract Surface", null);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmOffsetFace);
+            ShowForm(_frmOffsetFace, "Offset Face", null);
         }
         private async void tsmiDefeature_Click(object sender, EventArgs e)
         {
@@ -10346,7 +10346,7 @@ namespace PrePoMax
             if (_frmMeshSetupItem != null && _frmMeshSetupItem.Visible) _frmMeshSetupItem.SelectionChanged(ids);
             if (_frmSplitSolid != null && _frmSplitSolid.Visible) _frmSplitSolid.SelectionChanged(ids);
             if (_frmSplitShell != null && _frmSplitShell.Visible) _frmSplitShell.SelectionChanged(ids);
-            if (_frmExtractSurface != null && _frmExtractSurface.Visible) _frmExtractSurface.SelectionChanged(ids);
+            if (_frmOffsetFace != null && _frmOffsetFace.Visible) _frmOffsetFace.SelectionChanged(ids);
             if (_frmSelectGeometry != null && _frmSelectGeometry.Visible) _frmSelectGeometry.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);

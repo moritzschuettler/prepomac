@@ -82,9 +82,9 @@ namespace APIs.Python
         // Returns the number of faces each selected part lost, zero included, because a defeaturing that
         // removed nothing reports success just as loudly as one that worked
         Dictionary<string, int> Defeature(GeometrySelection geometrySelection);
-        // Returns the names of the shell parts the extraction created, because the caller cannot
+        // Returns the names of the shell parts the face offset created, because the caller cannot
         // know them: the name is derived from the part the surfaces were taken from
-        string[] ExtractSurface(GeometrySelection geometrySelection, double offset);
+        string[] OffsetFace(GeometrySelection geometrySelection, double offset);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
         Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection);

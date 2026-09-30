@@ -204,7 +204,7 @@
     <Compile Include="Commands\0030_Geometry\CConvertSolidToShell.cs" />
     <Compile Include="Commands\0030_Geometry\CDeleteStlPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\CDefeature.cs" />
-    <Compile Include="Commands\0030_Geometry\CExtractSurface.cs" />
+    <Compile Include="Commands\0030_Geometry\COffsetFace.cs" />
     <Compile Include="Commands\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />
     <Compile Include="Commands\0030_Geometry\CConvertShellToSolid.cs" />
@@ -538,7 +538,7 @@
     <Compile Include="Forms\04_GeometryFeature\FrmSplitShell.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\04_GeometryFeature\FrmExtractSurface.cs">
+    <Compile Include="Forms\04_GeometryFeature\FrmOffsetFace.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\04_GeometryFeature\GeometryFeatureTypes.cs" />
@@ -548,7 +548,7 @@
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByExtrudedEdges.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByPlaneThreePoints.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByPointAndNormal.cs" />
-    <Compile Include="Forms\04_GeometryFeature\ViewSurfaceExtraction.cs" />
+    <Compile Include="Forms\04_GeometryFeature\ViewFaceOffset.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewGeometryFeature.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
@@ -1172,8 +1172,8 @@
     <EmbeddedResource Include="Forms\04_GeometryFeature\FrmSplitShell.resx">
       <DependentUpon>FrmSplitShell.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\04_GeometryFeature\FrmExtractSurface.resx">
-      <DependentUpon>FrmExtractSurface.cs</DependentUpon>
+    <EmbeddedResource Include="Forms\04_GeometryFeature\FrmOffsetFace.resx">
+      <DependentUpon>FrmOffsetFace.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\55_Load\FrmLoad.resx">
       <DependentUpon>FrmLoad.cs</DependentUpon>

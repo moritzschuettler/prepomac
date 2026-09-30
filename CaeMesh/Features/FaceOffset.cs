@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
-    public class SurfaceExtraction : ISerializable
+    public class FaceOffset : ISerializable
     {
         // Variables                                                                                                                
         private int[] _creationIds;                         //ISerializable
@@ -33,13 +33,13 @@ namespace CaeMesh
 
 
         // Constructors                                                                                                             
-        public SurfaceExtraction()
+        public FaceOffset()
         {
             _creationIds = null;
             _creationData = null;
             _offset = 0;
         }
-        public SurfaceExtraction(SerializationInfo info, StreamingContext context)
+        public FaceOffset(SerializationInfo info, StreamingContext context)
         {
             foreach (SerializationEntry entry in info)
             {
@@ -60,11 +60,11 @@ namespace CaeMesh
 
         // Methods                                                                                                                  
         /// <summary>
-        /// Returns the reason the extraction cannot be applied, or null when it is properly defined.
+        /// Returns the reason the face offset cannot be applied, or null when it is properly defined.
         /// </summary>
         public string CheckValidity()
         {
-            if (_creationIds == null || _creationIds.Length == 0) return "Select at least one surface to extract.";
+            if (_creationIds == null || _creationIds.Length == 0) return "Select at least one surface to offset.";
             //
             return null;
         }

@@ -22,37 +22,37 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExtractSurface : PreprocessCommand
+    class COffsetFace : PreprocessCommand
     {
         // Variables
-        private SurfaceExtraction _surfaceExtraction;
+        private FaceOffset _faceOffset;
 
 
         // Constructor
-        public CExtractSurface(SurfaceExtraction surfaceExtraction)
-            : base("Extract surface")
+        public COffsetFace(FaceOffset faceOffset)
+            : base("Offset face")
         {
-            _surfaceExtraction = surfaceExtraction.DeepClone();
+            _faceOffset = faceOffset.DeepClone();
         }
 
 
         // Methods
         public override bool Execute(Controller receiver)
         {
-            receiver.ExtractSurface(_surfaceExtraction.DeepClone());
+            receiver.OffsetFace(_faceOffset.DeepClone());
             return true;
         }
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            string selection = PythonSelectionEmitter.Emit(writer, _surfaceExtraction.CreationData);
-            writer.Statement(writer.Call("pmx.model.geometry.parts", "extract_surface", selection,
-                                         PythonValueFormatter.Number(_surfaceExtraction.Offset)));
+            string selection = PythonSelectionEmitter.Emit(writer, _faceOffset.CreationData);
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "offset_face", selection,
+                                         PythonValueFormatter.Number(_faceOffset.Offset)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {
-            int numOfSurfaces = _surfaceExtraction.CreationIds == null ? 0 : _surfaceExtraction.CreationIds.Length;
+            int numOfSurfaces = _faceOffset.CreationIds == null ? 0 : _faceOffset.CreationIds.Length;
             return base.GetCommandString() + ": " + numOfSurfaces + " surfaces";
         }
     }

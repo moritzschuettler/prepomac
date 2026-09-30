@@ -247,7 +247,7 @@ namespace PrePoMax
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitSolid = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitShell = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiExtractSurface = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiOffsetFace = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -2404,7 +2404,7 @@ namespace PrePoMax
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitSolid,
             this.tsmiSplitShell,
-            this.tsmiExtractSurface,
+            this.tsmiOffsetFace,
             this.tsmiDividerCAD2,
             this.tsmiDefeature});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
@@ -2451,12 +2451,12 @@ namespace PrePoMax
             this.tsmiSplitShell.Text = "Split Shell";
             this.tsmiSplitShell.Click += new System.EventHandler(this.tsmiSplitShell_Click);
             // 
-            // tsmiExtractSurface
+            // tsmiOffsetFace
             // 
-            this.tsmiExtractSurface.Name = "tsmiExtractSurface";
-            this.tsmiExtractSurface.Size = new System.Drawing.Size(227, 22);
-            this.tsmiExtractSurface.Text = "Extract Surface";
-            this.tsmiExtractSurface.Click += new System.EventHandler(this.tsmiExtractSurface_Click);
+            this.tsmiOffsetFace.Name = "tsmiOffsetFace";
+            this.tsmiOffsetFace.Size = new System.Drawing.Size(227, 22);
+            this.tsmiOffsetFace.Text = "Offset Face";
+            this.tsmiOffsetFace.Click += new System.EventHandler(this.tsmiOffsetFace_Click);
             // 
             // tsmiDividerCAD2
             // 
@@ -5694,7 +5694,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitSolid;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitShell;
-        private System.Windows.Forms.ToolStripMenuItem tsmiExtractSurface;
+        private System.Windows.Forms.ToolStripMenuItem tsmiOffsetFace;
         private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCylinder;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateElementSet;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateNodeSet;

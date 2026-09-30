@@ -18,28 +18,28 @@ using System.Windows.Forms;
 
 namespace PrePoMax.Forms
 {
-    class FrmExtractSurface : UserControls.FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
+    class FrmOffsetFace : UserControls.FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables
-        private ViewSurfaceExtraction _viewSurfaceExtraction;
+        private ViewFaceOffset _viewFaceOffset;
         private Controller _controller;
         private Button btnPreview;
 
 
         // Properties
-        public SurfaceExtraction SurfaceExtraction
+        public FaceOffset FaceOffset
         {
-            get { return _viewSurfaceExtraction != null ? _viewSurfaceExtraction.GetBase() : null; }
+            get { return _viewFaceOffset != null ? _viewFaceOffset.GetBase() : null; }
         }
 
 
         // Constructors
-        public FrmExtractSurface(Controller controller)
+        public FrmOffsetFace(Controller controller)
         {
             InitializeComponent();
             //
             _controller = controller;
-            _viewSurfaceExtraction = null;
+            _viewFaceOffset = null;
             //
             SelectionClear = _controller.Selection.Clear;
         }
@@ -60,13 +60,13 @@ namespace PrePoMax.Forms
             this.btnPreview.UseVisualStyleBackColor = true;
             this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
             //
-            // FrmExtractSurface
+            // FrmOffsetFace
             //
             this.ClientSize = new System.Drawing.Size(334, 411);
             this.Controls.Add(this.btnPreview);
             this.MinimumSize = new System.Drawing.Size(350, 350);
-            this.Name = "FrmExtractSurface";
-            this.Text = "Extract Surface";
+            this.Name = "FrmOffsetFace";
+            this.Text = "Offset Face";
             this.Controls.SetChildIndex(this.gbProperties, 0);
             this.Controls.SetChildIndex(this.btnCancel, 0);
             this.Controls.SetChildIndex(this.btnOK, 0);
@@ -83,14 +83,14 @@ namespace PrePoMax.Forms
         {
             try
             {
-                SurfaceExtraction surfaceExtraction = SurfaceExtraction;
+                FaceOffset faceOffset = FaceOffset;
                 //
-                if (surfaceExtraction == null) throw new CaeException("No surface extraction was prepared.");
+                if (faceOffset == null) throw new CaeException("No face offset was prepared.");
                 //
-                string error = surfaceExtraction.CheckValidity();
+                string error = faceOffset.CheckValidity();
                 if (error != null) throw new CaeException(error);
                 //
-                await _controller.PreviewExtractSurfaceAsync(surfaceExtraction.DeepClone());
+                await _controller.PreviewOffsetFaceAsync(faceOffset.DeepClone());
             }
             catch (Exception ex)
             {
@@ -105,34 +105,34 @@ namespace PrePoMax.Forms
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
             else
             {
-                _controller.ClearExtractSurfacePreview();
+                _controller.ClearOffsetFacePreview();
                 _controller.ClearAllSelection();
             }
             //
             base.OnVisibleChanged(e);
         }
-        // A preview shows the extraction as it stood when the button was pressed, so a change of the
+        // A preview shows the face offset as it stood when the button was pressed, so a change of the
         // offset or of the picked surfaces takes it off the screen rather than leaving a stale one there
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            _controller.ClearExtractSurfacePreview();
+            _controller.ClearOffsetFacePreview();
             UpdatePreviewButton();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
-            SurfaceExtraction surfaceExtraction = SurfaceExtraction;
+            FaceOffset faceOffset = FaceOffset;
             //
-            if (surfaceExtraction == null) throw new CaeException("No surface extraction was prepared.");
+            if (faceOffset == null) throw new CaeException("No face offset was prepared.");
             //
-            string error = surfaceExtraction.CheckValidity();
+            string error = faceOffset.CheckValidity();
             if (error != null) throw new CaeException(error);
             //
-            _controller.ClearExtractSurfacePreview();
-            _controller.ExtractSurfaceCommand(surfaceExtraction.DeepClone());
+            _controller.ClearOffsetFacePreview();
+            _controller.OffsetFaceCommand(faceOffset.DeepClone());
             // The parts the surfaces were taken from are left as they were, but a selection carried into the
-            // next extraction would extract the same surfaces again, so the picking starts over
+            // next face offset would offset the same surfaces again, so the picking starts over
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             propertyGrid.Refresh();
             //
@@ -154,15 +154,15 @@ namespace PrePoMax.Forms
             DialogResult = DialogResult.None;
             //
             _propertyItemChanged = false;
-            _viewSurfaceExtraction = null;
+            _viewFaceOffset = null;
             propertyGrid.SelectedObject = null;
-            _controller.ClearExtractSurfacePreview();
+            _controller.ClearOffsetFacePreview();
             _controller.ClearAllSelection();
             //
             btnOkAddNew.Visible = true;
             //
-            _viewSurfaceExtraction = new ViewSurfaceExtraction(new SurfaceExtraction());
-            propertyGrid.SelectedObject = _viewSurfaceExtraction;
+            _viewFaceOffset = new ViewFaceOffset(new FaceOffset());
+            propertyGrid.SelectedObject = _viewFaceOffset;
             UpdatePreviewButton();
             //
             SetSelectItem();
@@ -178,11 +178,11 @@ namespace PrePoMax.Forms
 
 
         // Methods
-        // Without an offset the extracted surface lies on the surface it was taken from, so there is nothing
+        // Without an offset the new surface lies on the surface it was taken from, so there is nothing
         // a preview could show
         private void UpdatePreviewButton()
         {
-            btnPreview.Enabled = SurfaceExtraction != null && SurfaceExtraction.Offset != 0;
+            btnPreview.Enabled = FaceOffset != null && FaceOffset.Offset != 0;
         }
         private void ShowHideSelectionForm()
         {
@@ -190,7 +190,7 @@ namespace PrePoMax.Forms
             else
             {
                 ItemSetDataEditor.SelectionForm.ItemSetData =
-                    new ItemSetData(SurfaceExtraction == null ? null : SurfaceExtraction.CreationIds);
+                    new ItemSetData(FaceOffset == null ? null : FaceOffset.CreationIds);
                 ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
             }
         }
@@ -204,13 +204,13 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (_closing || SurfaceExtraction == null) return;
+                if (_closing || FaceOffset == null) return;
                 //
                 _controller.ClearSelectionHistory();
                 //
-                if (SurfaceExtraction.CreationData != null)
+                if (FaceOffset.CreationData != null)
                 {
-                    _controller.Selection = SurfaceExtraction.CreationData.DeepCopy(true, false);
+                    _controller.Selection = FaceOffset.CreationData.DeepCopy(true, false);
                     _controller.HighlightSelection();
                 }
             }
@@ -219,12 +219,12 @@ namespace PrePoMax.Forms
         //
         public void SelectionChanged(int[] ids)
         {
-            if (SurfaceExtraction == null) return;
+            if (FaceOffset == null) return;
             //
-            _controller.ClearExtractSurfacePreview();
+            _controller.ClearOffsetFacePreview();
             //
-            SurfaceExtraction.CreationIds = ids;
-            SurfaceExtraction.CreationData = _controller.Selection.DeepCopy(true, false);
+            FaceOffset.CreationIds = ids;
+            FaceOffset.CreationData = _controller.Selection.DeepCopy(true, false);
             //
             propertyGrid.Refresh();
             //
@@ -246,8 +246,8 @@ namespace PrePoMax.Forms
         {
             bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
             //
-            if (SurfaceExtraction != null && SurfaceExtraction.CreationData != null)
-                return SurfaceExtraction.CreationData.IsGeometryIdBased(defaultMode);
+            if (FaceOffset != null && FaceOffset.CreationData != null)
+                return FaceOffset.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

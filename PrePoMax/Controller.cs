@@ -105,7 +105,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastMeshingErrors;
         [NonSerialized] protected string[] _lastInvertedElementPartNames;
         [NonSerialized] protected string[] _lastDefeaturedPartNames;
-        [NonSerialized] protected string[] _lastExtractedSurfacePartNames;
+        [NonSerialized] protected string[] _lastOffsetFacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
         [NonSerialized] protected string _lastFusedSplitCellName;
         [NonSerialized] private Dictionary<string, MeshTypeEnum> _effectiveMeshTypes;
@@ -231,14 +231,14 @@ namespace PrePoMax
         {
             get { return _lastDefeaturedPartNames == null ? new string[0] : _lastDefeaturedPartNames; }
         }
-        // The shell parts the last surface extraction created, named in the order the surfaces were
+        // The shell parts the last face offset created, named in the order the surfaces were
         // taken, so that a caller that cannot read the output window knows what was added and what it
         // is called
-        public string[] LastExtractedSurfacePartNames
+        public string[] LastOffsetFacePartNames
         {
             get
             {
-                return _lastExtractedSurfacePartNames == null ? new string[0] : _lastExtractedSurfacePartNames;
+                return _lastOffsetFacePartNames == null ? new string[0] : _lastOffsetFacePartNames;
             }
         }
         // What the last geometry operation did to each part it was asked about, zero included. A caller
@@ -5555,9 +5555,9 @@ namespace PrePoMax
             CDefeature comm = new CDefeature(geometrySelection);
             _commands.AddAndExecute(comm);
         }
-        public void ExtractSurfaceCommand(SurfaceExtraction surfaceExtraction)
+        public void OffsetFaceCommand(FaceOffset faceOffset)
         {
-            CExtractSurface comm = new CExtractSurface(surfaceExtraction);
+            COffsetFace comm = new COffsetFace(faceOffset);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -5763,51 +5763,51 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
-        public void ExtractSurface(SurfaceExtraction surfaceExtraction)
+        public void OffsetFace(FaceOffset faceOffset)
         {
-            ExtractSurface(surfaceExtraction, false);
+            OffsetFace(faceOffset, false);
         }
-        // The same extraction, drawn where it would land instead of being added to the model, so that an
+        // The same face offset, drawn where it would land instead of being added to the model, so that an
         // offset can be judged before it is applied. It records nothing and changes nothing.
-        public async Task PreviewExtractSurfaceAsync(SurfaceExtraction surfaceExtraction)
+        public async Task PreviewOffsetFaceAsync(FaceOffset faceOffset)
         {
-            ClearExtractSurfacePreview();
+            ClearOffsetFacePreview();
             //
             _form.SetStateWorking(Globals.PreviewText, false);
             try
             {
-                await Task.Run(() => ExtractSurface(surfaceExtraction, true));
+                await Task.Run(() => OffsetFace(faceOffset, true));
             }
             finally
             {
                 _form.SetStateReady(Globals.PreviewText);
             }
         }
-        public void ClearExtractSurfacePreview()
+        public void ClearOffsetFacePreview()
         {
-            if (!_extractSurfacePreviewDrawn) return;
+            if (!_offsetFacePreviewDrawn) return;
             // Redrawing the selection clears the layer the preview was drawn on
-            _extractSurfacePreviewDrawn = false;
+            _offsetFacePreviewDrawn = false;
             HighlightSelection();
         }
         // The surfaces the user picked, lifted out of the parts that carry them and added to the model as
-        // new shell parts. The parts they were taken from are left exactly as they were, so an extraction
+        // new shell parts. The parts they were taken from are left exactly as they were, so a face offset
         // adds and never changes.
-        private void ExtractSurface(SurfaceExtraction surfaceExtraction, bool preview)
+        private void OffsetFace(FaceOffset faceOffset, bool preview)
         {
             // A preview runs while the user is still picking, so it takes the ids the dialog holds rather
             // than resolving the selection again, which would replace the selection being picked
             if (!preview)
             {
-                if (surfaceExtraction.CreationData == null)
+                if (faceOffset.CreationData == null)
                     throw new NotSupportedException("The surface selection does not contain any selection data.");
                 // In order for the Regenerate history to work perform the selection
-                _selection = surfaceExtraction.CreationData.DeepCopy(true, false);
-                surfaceExtraction.CreationIds = GetSelectionIds();
+                _selection = faceOffset.CreationData.DeepCopy(true, false);
+                faceOffset.CreationIds = GetSelectionIds();
                 _selection.Clear();
             }
             //
-            string error = surfaceExtraction.CheckValidity();
+            string error = faceOffset.CheckValidity();
             if (error != null) throw new CaeException(error);
             // The surfaces of one part become one new part, so the picks are gathered by the part that
             // carries them and named by the id the modelling kernel gave the face
@@ -5822,14 +5822,14 @@ namespace PrePoMax
             // the faces of the sub part are numbered inside the solid it was written out of
             Dictionary<int, string> sourcePartNameByPartId = new Dictionary<int, string>();
             Dictionary<int, int> solidNumberByPartId = new Dictionary<int, int>();
-            // Everything picked on one geometry is extracted in one go, so that the surfaces of several
+            // Everything picked on one geometry is offset in one go, so that the surfaces of several
             // sub parts of a compound are sewn together the way the surfaces of one part are
             List<string> sourcePartNames = new List<string>();
             Dictionary<string, List<int>> partIdsBySourcePartName = new Dictionary<string, List<int>>();
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             int numOfSkippedSurfaces = 0;
             //
-            foreach (int geometryId in surfaceExtraction.CreationIds)
+            foreach (int geometryId in faceOffset.CreationIds)
             {
                 itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
                 geometryType = (GeometryType)itemTypePartIds[1];
@@ -5846,7 +5846,7 @@ namespace PrePoMax
                 {
                     string sourcePartName;
                     int solidNumber;
-                    if (!GetExtractSurfaceSource(geometryPart, compoundPartNames, out sourcePartName,
+                    if (!GetOffsetFaceSource(geometryPart, compoundPartNames, out sourcePartName,
                                                  out solidNumber))
                     {
                         numOfSkippedSurfaces++;
@@ -5879,9 +5879,9 @@ namespace PrePoMax
                 _model.Geometry.Parts, targetGroupId);
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
-            List<string> extractedPartNames = new List<string>();
+            List<string> offsetPartNames = new List<string>();
             List<string> failedPartNames = new List<string>();
-            // The new parts reach the tree and the scene together at the end, so that the extraction is
+            // The new parts reach the tree and the scene together at the end, so that the face offset is
             // one redraw and one tree instead of one of each per part
             bool rendering = _form.RenderingOn;
             bool screenUpdating = _form.ScreenUpdating;
@@ -5907,21 +5907,21 @@ namespace PrePoMax
                     string pickedPartName = sourcePartIds.Count == 1 ?
                                             _model.Geometry.GetPartFromId(sourcePartIds[0]).Name : sourcePartName;
                     //
-                    string brepFileName = ExtractPartSurface(sourcePart, solidNumbers.ToArray(),
-                                                             groupKernelFaceIds, surfaceExtraction.Offset);
+                    string brepFileName = OffsetPartFaces(sourcePart, solidNumbers.ToArray(),
+                                                             groupKernelFaceIds, faceOffset.Offset);
                     // A part the modelling kernel refuses must not stop the parts it does not refuse
                     if (brepFileName == null) { failedPartNames.Add(pickedPartName); continue; }
                     //
                     if (preview)
                     {
-                        DrawExtractSurfacePreview(brepFileName, sourcePartIds);
+                        DrawOffsetFacePreview(brepFileName, sourcePartIds);
                         continue;
                     }
                     //
-                    string[] partNames = ImportExtractedSurfaceParts(pickedPartName, brepFileName);
+                    string[] partNames = ImportOffsetFaceParts(pickedPartName, brepFileName);
                     if (partNames.Length == 0) { failedPartNames.Add(pickedPartName); continue; }
                     //
-                    extractedPartNames.AddRange(partNames);
+                    offsetPartNames.AddRange(partNames);
                     foreach (int partId in sourcePartIds)
                         _lastGeometryOperationCounts[_model.Geometry.GetPartFromId(partId).Name] =
                             kernelFaceIdsByPartId[partId].Count;
@@ -5938,39 +5938,39 @@ namespace PrePoMax
             if (preview)
             {
                 foreach (string partName in failedPartNames)
-                    _form.WriteDataToOutput("Extract surface preview: no surface was extracted from the part " +
+                    _form.WriteDataToOutput("Offset face preview: no surface was offset from the part " +
                                             partName + ".");
                 return;
             }
             //
-            _lastExtractedSurfacePartNames = extractedPartNames.ToArray();
+            _lastOffsetFacePartNames = offsetPartNames.ToArray();
             //
-            if (extractedPartNames.Count > 0)
+            if (offsetPartNames.Count > 0)
             {
                 MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
                 UpdateAfterImport(".brep");
             }
             //
-            WriteGeometryOperationReport("Extract surface", "surfaces were extracted");
+            WriteGeometryOperationReport("Offset face", "surfaces were offset");
             //
-            foreach (string partName in extractedPartNames)
-                _form.WriteDataToOutput("Extract surface: the part " + partName + " was created.");
+            foreach (string partName in offsetPartNames)
+                _form.WriteDataToOutput("Offset face: the part " + partName + " was created.");
             foreach (string partName in failedPartNames)
-                _form.WriteDataToOutput("Extract surface: no surface was extracted from the part " + partName + ".");
+                _form.WriteDataToOutput("Offset face: no surface was offset from the part " + partName + ".");
             if (numOfSkippedSurfaces > 0)
-                _form.WriteDataToOutput("Extract surface: " + numOfSkippedSurfaces + " selected surfaces do not " +
-                                        "belong to a CAD part a surface can be extracted from and were skipped.");
+                _form.WriteDataToOutput("Offset face: " + numOfSkippedSurfaces + " selected surfaces do not " +
+                                        "belong to a CAD part a surface can be offset from and were skipped.");
             //
             if (partIds.Count == 0)
-                MessageBoxes.ShowWarning("Surfaces can only be extracted from CAD parts.");
+                MessageBoxes.ShowWarning("Surfaces can only be offset from CAD parts.");
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
         }
-        // The extracted geometry drawn where it would land. It is the geometry the operation itself would
-        // add, read back from the file the mesher wrote, so what the user sees is what the extraction
+        // The offset geometry drawn where it would land. It is the geometry the operation itself would
+        // add, read back from the file the mesher wrote, so what the user sees is what the face offset
         // makes and not an approximation of it.
-        private void DrawExtractSurfacePreview(string brepFileName, List<int> pickedPartIds)
+        private void DrawOffsetFacePreview(string brepFileName, List<int> pickedPartIds)
         {
             string visFileName = CreateVisFile(brepFileName, false);
             if (visFileName == null) return;
@@ -5978,17 +5978,17 @@ namespace PrePoMax
             CaeMesh.FeMesh previewMesh = FileInOut.Input.VisFileReader.Read(visFileName);
             if (previewMesh == null) return;
             //
-            double[] offset = GetExtractSurfacePreviewOffset(pickedPartIds);
+            double[] offset = GetOffsetFacePreviewOffset(pickedPartIds);
             int count = 0;
             //
             foreach (var entry in previewMesh.Parts)
             {
-                // The boundaries of the extracted faces are what says where one face ends and the next
+                // The boundaries of the offset faces are what says where one face ends and the next
                 // begins, which is the whole question an offset raises, so only they are drawn
                 if (!entry.Value.PartType.HasEdges() || entry.Value.Visualization.EdgeCells == null) continue;
                 //
                 vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = "extractSurfacePreview" + count++;
+                data.Name = "offsetFacePreview" + count++;
                 // The preview is highlighted as the other previews are, so a pick that changes the selection
                 // also takes it off the screen
                 data.Layer = vtkRendererLayer.Selection;
@@ -6002,17 +6002,17 @@ namespace PrePoMax
                                                           out data.Geometry.Nodes.Coor,
                                                           out data.Geometry.Cells.CellNodeIds,
                                                           out data.Geometry.Cells.Types);
-                data.Geometry.Nodes.Coor = MoveExtractSurfacePreviewCoor(data.Geometry.Nodes.Coor, offset);
+                data.Geometry.Nodes.Coor = MoveOffsetFacePreviewCoor(data.Geometry.Nodes.Coor, offset);
                 //
                 ApplyLighting(data);
                 _form.Add3DCells(data);
-                _extractSurfacePreviewDrawn = true;
+                _offsetFacePreviewDrawn = true;
             }
         }
         // The exploded view offset the preview is drawn at. The picked parts carry it, and where they do
-        // not all stand at the same one there is no single place the extracted surface can be drawn at, so
+        // not all stand at the same one there is no single place the offset surface can be drawn at, so
         // it is drawn where the geometry itself is.
-        private double[] GetExtractSurfacePreviewOffset(List<int> pickedPartIds)
+        private double[] GetOffsetFacePreviewOffset(List<int> pickedPartIds)
         {
             double[] offset = null;
             foreach (int partId in pickedPartIds)
@@ -6027,7 +6027,7 @@ namespace PrePoMax
             }
             return offset;
         }
-        private static double[][] MoveExtractSurfacePreviewCoor(double[][] nodeCoor, double[] offset)
+        private static double[][] MoveOffsetFacePreviewCoor(double[][] nodeCoor, double[] offset)
         {
             if (nodeCoor == null || offset == null) return nodeCoor;
             if (offset[0] == 0 && offset[1] == 0 && offset[2] == 0) return nodeCoor;
@@ -6044,7 +6044,7 @@ namespace PrePoMax
         // inside. A sub part of a compound is written as its compound, because it carries no geometry of
         // its own, and its place in the sub part list is the number of its solid - the order the solids
         // were written out of the compound in.
-        private bool GetExtractSurfaceSource(GeometryPart part, Dictionary<string, string> compoundPartNames,
+        private bool GetOffsetFaceSource(GeometryPart part, Dictionary<string, string> compoundPartNames,
                                              out string sourcePartName, out int solidNumber)
         {
             sourcePartName = part.Name;
@@ -6066,7 +6066,7 @@ namespace PrePoMax
         }
         // The picked faces arrive grouped by the solid of the written geometry they are numbered inside,
         // which is one group for a part of its own and one group per picked sub part for a compound.
-        private string ExtractPartSurface(GeometryPart part, int[] solidNumbers, List<int[]> kernelFaceIds,
+        private string OffsetPartFaces(GeometryPart part, int[] solidNumbers, List<int[]> kernelFaceIds,
                                           double offset)
         {
             string workDirectory = _settings.GetWorkDirectory();
@@ -6091,7 +6091,7 @@ namespace PrePoMax
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             //
-            string argument = "BREP_EXTRACT_FACES " +
+            string argument = "BREP_OFFSET_FACES " +
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
                               "\"" + outputBrepFileName.ToUTF8() + "\" " +
                               offset + " " +
@@ -6103,16 +6103,16 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
-        // The extracted geometry is added as a part of its own, named after the part it was taken from so
-        // that the two can be told apart in the tree. The extracted surfaces that share no edge are written
+        // The offset geometry is added as a part of its own, named after the part it was taken from so
+        // that the two can be told apart in the tree. The offset surfaces that share no edge are written
         // to a file each, because a part imported from a file carries the whole file as its geometry and
         // would be meshed with the others.
-        private string[] ImportExtractedSurfaceParts(string pickedPartName, string brepFileName)
+        private string[] ImportOffsetFaceParts(string pickedPartName, string brepFileName)
         {
             string[] patchFileNames = SplitAssembly(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS", 1);
             if (patchFileNames == null) return new string[0];
             //
-            List<string> extractedPartNames = new List<string>();
+            List<string> offsetPartNames = new List<string>();
             foreach (string patchFileName in patchFileNames)
             {
                 string[] importedPartNames = ImportBrepPartFile(patchFileName);
@@ -6124,19 +6124,19 @@ namespace PrePoMax
                     BasePart importedPart;
                     if (!_model.Geometry.Parts.TryGetValue(importedPartName, out importedPart)) continue;
                     //
-                    string extractedPartName = GetExtractedSurfacePartName(pickedPartName);
-                    importedPart.Name = extractedPartName;
-                    _model.Geometry.Parts.Replace(importedPartName, extractedPartName, importedPart);
+                    string offsetPartName = GetOffsetFacePartName(pickedPartName);
+                    importedPart.Name = offsetPartName;
+                    _model.Geometry.Parts.Replace(importedPartName, offsetPartName, importedPart);
                     //
-                    extractedPartNames.Add(extractedPartName);
+                    offsetPartNames.Add(offsetPartName);
                 }
             }
-            return extractedPartNames.ToArray();
+            return offsetPartNames.ToArray();
         }
-        private string GetExtractedSurfacePartName(string sourcePartName)
+        private string GetOffsetFacePartName(string sourcePartName)
         {
             HashSet<string> reservedPartNames = _model.GetReservedPartNames();
-            string baseName = sourcePartName + "-Surface";
+            string baseName = sourcePartName + "-Offset";
             string partName = baseName;
             int count = 1;
             while (reservedPartNames.Contains(partName)) partName = baseName + "-" + ++count;
@@ -6313,8 +6313,8 @@ namespace PrePoMax
         // that get removed, rather than the names the symbols were asked to use
         [NonSerialized] private HashSet<string> _geometryFeatureSymbolActorNames;
         [NonSerialized] private SplitToolSymbol _splitToolSymbolRecorder;
-        // A surface extraction preview is drawn on the selection layer, which is cleared only as a whole
-        [NonSerialized] private bool _extractSurfacePreviewDrawn;
+        // A face offset preview is drawn on the selection layer, which is cleared only as a whole
+        [NonSerialized] private bool _offsetFacePreviewDrawn;
         // While a split dialog is open, the geometry and the annotations as they were before each of its splits,
         // with the command each split was recorded as, so that the splits can be undone without replaying the
         // history. Null while no split dialog keeps an undo.
@@ -10940,6 +10940,7 @@ namespace PrePoMax
                 }
                 if (meshType == MeshTypeEnum.Unknown) meshType = part.MeshType;
                 //
+                    }
                 effectiveMeshTypes.Add(part.Name, meshType);
             }
             return effectiveMeshTypes;

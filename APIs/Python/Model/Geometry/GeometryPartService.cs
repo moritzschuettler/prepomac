@@ -213,12 +213,12 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.Defeature(geometrySelection);
         }
-        public string[] ExtractSurface(SelectionAPI selection, object offset)
+        public string[] OffsetFace(SelectionAPI selection, object offset)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset");
             EnsureCommandsAvailable();
-            return MeshGateway.ExtractSurface(geometrySelection, offsetValue);
+            return MeshGateway.OffsetFace(geometrySelection, offsetValue);
         }
         public void FlipStlNormals(string[] partNames)
         {
