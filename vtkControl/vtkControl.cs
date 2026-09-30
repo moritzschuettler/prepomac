@@ -6875,6 +6875,13 @@ namespace vtkControl
             sectionViewActor.Geometry = vtkActor.New();
             sectionViewActor.GeometryMapper = polyMapper;
             sectionViewActor.GeometryProperty.DeepCopy(actor.GeometryProperty);
+            vtkProperty backfaceProperty = actor.Geometry.GetBackfaceProperty();
+            if (backfaceProperty != null)
+            {
+                vtkProperty sectionViewBackfaceProperty = vtkProperty.New();
+                sectionViewBackfaceProperty.DeepCopy(backfaceProperty);
+                sectionViewActor.Geometry.SetBackfaceProperty(sectionViewBackfaceProperty);
+            }
             sectionViewActor.Geometry.SetVisibility(actor.Geometry.GetVisibility());
             // The faces carry the element and node ids, so they can be picked like the part surface
             if (actor.Geometry.GetPickable() == 1 && polyData.GetCellData().GetGlobalIds() != null)
