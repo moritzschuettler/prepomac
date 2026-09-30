@@ -623,6 +623,34 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.Optimize(gmshSetupItem.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
             }
         }
+        // Q-Morph full-quad surface meshing, not offered yet: meant to replace GenerateMesh(2) in ShellGmsh, with
+        // RecombineAll off and the Blossom full-quad recombination for the surfaces Q-Morph leaves to gmsh
+        private void QMorphMesh()
+        {
+            GenerateMesh(1);
+            // The transfinite surfaces keep their structured grid; Q-Morph converts the triangles of the others
+            Tuple<int, int>[] dimTags;
+            Gmsh.Model.GetEntities(out dimTags, 2);
+            List<int> surfaceIds = new List<int>();
+            foreach (var dimTag in dimTags)
+            {
+                if (!_transfiniteSurfaceIds.Contains(dimTag.Item2)) surfaceIds.Add(dimTag.Item2);
+            }
+            // The triangulation Q-Morph starts from is chosen per surface, and the surfaces are meshed in one pass
+            QMorph.SetBackgroundAlgorithms(surfaceIds.ToArray());
+            Gmsh.Model.Mesh.Generate(2);
+            QMorphFaceReport[] reports = QMorph.QuadMeshSurfaces(surfaceIds.ToArray());
+            // A surface Q-Morph cannot mesh keeps its triangles, marked for the recombination by gmsh
+            bool recombineRest = false;
+            foreach (var report in reports)
+            {
+                if (report.QMorph) continue;
+                recombineRest = true;
+                _writeOutput?.Invoke(NameGmshEntities("Q-Morph: surface " + report.Tag + " is recombined by gmsh (" +
+                                                      report.Reason + ")."));
+            }
+            if (recombineRest) Gmsh.Model.Mesh.Recombine();
+        }
         private void TetrahedralGmsh(GmshSetupItem gmshSetupItem, bool preview)
         {
             bool recombine = gmshSetupItem.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;

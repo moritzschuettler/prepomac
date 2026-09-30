@@ -57,11 +57,11 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\include;$(SolutionDir)\ThirdParty\QuadMesher\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>gmsh.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>qmorph_gmsh.lib;qmorph_static.lib;gmsh.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\lib;$(SolutionDir)\ThirdParty\QuadMesher\lib\mdd;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -70,15 +70,16 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\include;$(SolutionDir)\ThirdParty\QuadMesher\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>gmsh.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>qmorph_gmsh.lib;qmorph_static.lib;gmsh.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\ThirdParty\gmsh-4.13.0-Windows64-sdk\lib;$(SolutionDir)\ThirdParty\QuadMesher\lib\md;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="GmshCommon.h" />
+    <ClInclude Include="QMorph.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Utility.h" />
