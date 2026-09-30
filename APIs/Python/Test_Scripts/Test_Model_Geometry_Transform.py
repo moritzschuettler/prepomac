@@ -142,7 +142,44 @@ def test_stl():
     check(len(added) == 1, "a mirrored STL copy added " + str(len(added)) + " parts")
     check_close(box_center(added[0]),[before_center[0], before_center[1], -before_center[2] - 5],
                 "the mirrored STL copy is not on the other side of the plane")
-    parts().remove(added + [stl_name])
+    parts().remove(added)
+    parts().translate(stl_name, [0, 0, -5])
+    #
+    x, y, z = before_center
+    parts().mirror(stl_name, [0, 0, 0], [1, 0, 0])
+    check(stl_name in parts().get_names(), "a mirrored STL part must keep its name")
+    check_close(box_center(stl_name), [-x, y, z], "the STL part was not mirrored in place")
+    parts().mirror(stl_name, [0, 0, 0], [1, 0, 0])
+    #
+    parts().rotate(stl_name, [0, 0, 0], [0, 0, 1], 90)
+    check_close(box_center(stl_name), [-y, x, z], "the STL part was not rotated right handed")
+    parts().rotate(stl_name, [0, 0, 0], [0, 0, 1], -90)
+    check_close(box_center(stl_name), before_center, "rotating the STL part back must return it")
+    #
+    before = list(parts().get_names())
+    parts().rotate(stl_name, [0, 0, 0], [0, 0, 1], 90, number_of_copies=2)
+    added = added_part_names(before)
+    check(len(added) == 2, "a rotated STL pattern of 2 copies added " + str(len(added)) + " parts")
+    centers = sorted([round(value, 6) for value in box_center(copy)] for copy in added)
+    expected = sorted([round(value, 6) for value in point] for point in ([-y, x, z], [-x, -y, z]))
+    check(centers == expected, "copy k of a rotated STL pattern must be rotated k times: " + str(centers))
+    check_close(box_center(stl_name), before_center, "the original of an STL pattern must not move")
+    parts().remove(added)
+    #
+    before = list(parts().get_names())
+    parts().translate(stl_name, [0, 20, 0], number_of_copies=3)
+    added = added_part_names(before)
+    check(len(added) == 3, "a translated STL pattern of 3 copies added " + str(len(added)) + " parts")
+    offsets = sorted(box_center(copy)[1] - y for copy in added)
+    check_close(offsets, [20, 40, 60], "copy k of a translated STL pattern must be translated k times")
+    parts().remove(added)
+    #
+    box = [float(value) for value in list(parts()[stl_name].get_bounding_box())]
+    parts().scale(stl_name, before_center, [2, 1, 1])
+    scaled = [float(value) for value in list(parts()[stl_name].get_bounding_box())]
+    check_close([scaled[1] - scaled[0], scaled[3] - scaled[2]], [2 * (box[1] - box[0]), box[3] - box[2]],
+                "the STL part was not scaled by 2 along x only")
+    parts().remove([stl_name])
 
 
 def test_compound(names):
