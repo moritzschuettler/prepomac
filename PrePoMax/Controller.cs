@@ -27585,6 +27585,20 @@ namespace PrePoMax
             }
         }
         // Transformations
+        // A compound is drawn by its sub-parts, so the edges of a transformed compound are theirs
+        private BasePart[] GetPartsDrawingEdges(FeMesh mesh, string[] partNames)
+        {
+            List<BasePart> parts = new List<BasePart>();
+            foreach (var partName in partNames)
+            {
+                if (mesh.Parts[partName] is CompoundGeometryPart compoundPart)
+                {
+                    foreach (var subPartName in compoundPart.SubPartNames) parts.Add(mesh.Parts[subPartName]);
+                }
+                else parts.Add(mesh.Parts[partName]);
+            }
+            return parts.ToArray();
+        }
         public void HighlightTranslatedEdges(string[] _partNames, double[] translateVector, int numCopies,
                                              bool useSecondaryHighlightColor = false)
         {
@@ -27592,9 +27606,8 @@ namespace PrePoMax
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             FeMesh mesh = DisplayedMesh;
-            foreach (var partName in _partNames)
+            foreach (var part in GetPartsDrawingEdges(mesh, _partNames))
             {
-                BasePart part = mesh.Parts[partName];
                 if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
@@ -27627,9 +27640,8 @@ namespace PrePoMax
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             FeMesh mesh = DisplayedMesh;
-            foreach (var partName in _partNames)
+            foreach (var part in GetPartsDrawingEdges(mesh, _partNames))
             {
-                BasePart part = mesh.Parts[partName];
                 if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
@@ -27662,9 +27674,8 @@ namespace PrePoMax
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             FeMesh mesh = DisplayedMesh;
-            foreach (var partName in _partNames)
+            foreach (var part in GetPartsDrawingEdges(mesh, _partNames))
             {
-                BasePart part = mesh.Parts[partName];
                 if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
@@ -27694,9 +27705,8 @@ namespace PrePoMax
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             FeMesh mesh = DisplayedMesh;
-            foreach (var partName in _partNames)
+            foreach (var part in GetPartsDrawingEdges(mesh, _partNames))
             {
-                BasePart part = mesh.Parts[partName];
                 if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
