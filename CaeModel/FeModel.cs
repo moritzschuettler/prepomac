@@ -3374,7 +3374,7 @@ namespace CaeModel
         {
             SweepBlocks blocks = CreateSweepBlocksForGroup(cells, partIdSelectedSurfaceIds, true, out error,
                                                            out errorPartName);
-            if (error == null) return blocks;
+            if (error == null && blocks.SourceSurfaceIds.Length == cells.Length) return blocks;
             //
             GeometryPart[] cellsToSweep = GetCellsToSweep(cells, partIdSelectedSurfaceIds);
             if (cellsToSweep.Length == 0 || cellsToSweep.Length == cells.Length) return blocks;
@@ -3383,7 +3383,9 @@ namespace CaeModel
             string cellsErrorPartName;
             SweepBlocks cellBlocks = CreateSweepBlocksForGroup(cellsToSweep, partIdSelectedSurfaceIds, true,
                                                                out cellsError, out cellsErrorPartName);
-            if (cellsError != null) return blocks;
+            if (cellsError != null || (error == null &&
+                                       cellBlocks.SourceSurfaceIds.Length <= blocks.SourceSurfaceIds.Length))
+                return blocks;
             //
             error = null;
             errorPartName = null;
