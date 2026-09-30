@@ -391,6 +391,7 @@ namespace PrePoMax
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
                 _modelTree.SelectEvent += ModelTree_SelectEvent;
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
+                _modelTree.ContextMenuForPartsClosedEvent += UpdateHighlight;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_EditEvent;
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
@@ -12500,9 +12501,12 @@ namespace PrePoMax
         }
         public void SelectBaseParts(MouseEventArgs e, Keys modifierKeys, string[] partNames)
         {
-            SelectBaseParts(e, modifierKeys, partNames, true);
+            // While a dialog picks the sub-parts of a compound one by one, a right click on one acts on that
+            // sub-part too, and not on the compound it belongs to
+            SelectBaseParts(e, modifierKeys, partNames, !_controller.PickCompoundSubPartsSeparately);
         }
-        // A pick in the viewport selects the whole compound of a picked sub-part, while parts named in a list are
+        // A pick in the viewport selects the whole compound of a picked sub-part unless a dialog picks sub-parts
+        // one by one, while parts named in a list are
         // selected as named, so a single sub-part can be chosen
         private void SelectBaseParts(MouseEventArgs e, Keys modifierKeys, string[] partNames,
                                      bool selectCompoundOfSubParts)
@@ -12536,6 +12540,36 @@ namespace PrePoMax
                     else if (GetCurrentView() == ViewGeometryModelResults.Results)
                         parts = _controller.GetResultParts(partNames);
                     else throw new NotSupportedException();
+                    // While a dialog has the tree locked, the picking belongs to the dialog, and the menu of a
+                    // part is shown without selecting it in the tree
+                    if (e.Button == MouseButtons.Right && parts.Length > 0 && _modelTree.DisableMouse &&
+                        GetCurrentView() == ViewGeometryModelResults.Geometry)
+                    {
+                        string[] menuPartNames = parts.Select(p => p.Name).ToArray();
+                        // A dialog that picks parts treats a right click the way the parts are treated without
+                        // one: a part that is not selected is picked as a left click would pick it, and a
+                        // selected one keeps the selection, so the menu acts on all of it
+                        if (_controller.Selection.SelectItem == vtkSelectItem.Part)
+                        {
+                            string[] selectedPartNames = GetSelectedGeometryPartNames();
+                            if (!menuPartNames.All(selectedPartNames.Contains))
+                            {
+                                _vtk.Pick(e.X, e.Y, false, e.X, e.Y);
+                                selectedPartNames = GetSelectedGeometryPartNames();
+                            }
+                            if (selectedPartNames.Length > 0) menuPartNames = selectedPartNames;
+                        }
+                        // Otherwise the part is highlighted over what the dialog draws - which is drawn again
+                        // first, so that a part an earlier right click highlighted is let go - and the dialog
+                        // draws its highlight again once the menu has closed
+                        else
+                        {
+                            UpdateHighlight();
+                            _controller.Highlight3DObjects(ViewGeometryModelResults.Geometry, parts, false, false);
+                        }
+                        _modelTree.ShowContextMenuForGeometryParts(_vtk, e.X, _vtk.Height - e.Y, menuPartNames);
+                        return;
+                    }
                     // A selected mesh setup item highlights the parts it is defined on, so a right click on
                     // one of them acts on all of those parts at once; the mesh setup item stays selected in
                     // the tree and the parts are not selected there
@@ -12565,6 +12599,17 @@ namespace PrePoMax
                     }
                 }
             }
+        }
+        // The geometry parts the current selection names, when it picks parts
+        private string[] GetSelectedGeometryPartNames()
+        {
+            List<string> partNames = new List<string>();
+            foreach (int id in _controller.GetSelectionIds())
+            {
+                BasePart part = _controller.Model.Geometry.GetPartFromGeometryId(id);
+                if (part != null && !partNames.Contains(part.Name)) partNames.Add(part.Name);
+            }
+            return partNames.ToArray();
         }
         // Returns the names of the parts the selected mesh setup items are defined on, but only when the
         // given parts are among them

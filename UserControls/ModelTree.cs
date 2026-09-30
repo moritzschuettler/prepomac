@@ -316,6 +316,7 @@ namespace UserControls
         public event Action<ViewType> GeometryMeshResultsEvent;
         public event Action<NamedClass[], bool> SelectEvent;
         public event Action ClearSelectionEvent;
+        public event Action ContextMenuForPartsClosedEvent;
         //
         public event Action<string, string> CreateEvent;
         public event Action<NamedClass, string> EditEvent;
@@ -1962,7 +1963,16 @@ namespace UserControls
         // released only after the message that carries the click has been processed
         private void cmsTree_Closed(object sender, ToolStripDropDownClosedEventArgs e)
         {
-            if (_contextMenuNodes != null) BeginInvoke((MethodInvoker)(() => { _contextMenuNodes = null; }));
+            if (_contextMenuNodes == null) return;
+            // A right click on another part shows the menu again before this close is handled, and the nodes it
+            // was shown for are then the ones that stay
+            TreeNode[] closedNodes = _contextMenuNodes;
+            BeginInvoke((MethodInvoker)(() =>
+            {
+                if (_contextMenuNodes != closedNodes || cmsTree.Visible) return;
+                _contextMenuNodes = null;
+                ContextMenuForPartsClosedEvent?.Invoke();
+            }));
         }
         private void cltv_MouseDown(object sender, MouseEventArgs e)
         {
@@ -5064,7 +5074,9 @@ namespace UserControls
         public void ShowContextMenu(Control control, int x, int y)
         {
             CodersLabTreeView tree = GetActiveTree();
-            if (tree.SelectedNodes.Count > 0)
+            // A menu shown for given parts acts on them and needs nothing selected in the tree
+            bool nodesGiven = _contextMenuNodes != null && tree == cltvGeometry;
+            if (tree.SelectedNodes.Count > 0 || nodesGiven)
             {
                 PrepareToolStripItem(tree);
                 //Expand / Collapse

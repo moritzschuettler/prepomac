@@ -737,9 +737,10 @@ namespace vtkControl
 
 
         // Mouse Events - Style                                                                                                     
+        // Picks as a left click at the given point does, with the keys that are held. A right click on a part
+        // that a dialog has not picked yet picks it this way
         public void Pick(int x1, int y1, bool boxSelection, int x2, int y2)
         {
-            // Test only method
             MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
             style_PointPickedOnLeftUpEvt(e, boxSelection, x2, y2);
         }
