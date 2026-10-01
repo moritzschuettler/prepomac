@@ -816,8 +816,9 @@ deleting faces on a CAD solid or shell, deleting on an STL part - and a selectio
 kind is not refused, it simply leaves that part alone, which is what the zero says.
 
 `delete_cad_faces` takes the faces out and leaves the gap open, where `defeature` closes it. A solid
-that loses a face is no longer closed and becomes a shell part, keeping its name and part id. A part
-is left as it was when the faces it would keep fall apart into more separate pieces than it had, and a
+that loses a face is no longer closed and becomes a shell part, keeping its name and part id. When the
+faces a part keeps fall apart into more pieces that no longer touch than it had, the largest piece stays
+the part and every other piece becomes a shell part of its own, named after it (`Shell_part-1-2`, ...). A
 part whose last face is deleted is deleted with it - in a compound a face it shared with a neighbour
 counts too. A compound holds only solids, so a sub-part or a split cell that loses a
 face leaves it as a shell part with its own name and part id, and a face two of them share is deleted

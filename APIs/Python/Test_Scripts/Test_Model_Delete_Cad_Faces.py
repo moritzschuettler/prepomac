@@ -3,9 +3,9 @@
 #
 #Checks deleting the faces of CAD parts. The faces are taken out and the gap is left open, so a solid
 #that loses a face is no longer closed and becomes a shell part, and a shell part loses faces and
-#stays a shell. Either way the part is replaced in place and keeps its name and part id. A part is
-#left as it was when the faces it would keep fall apart into more pieces than it had, or when no face
-#would be left, and the report says so with a zero. A body whose last face is deleted is deleted.
+#stays a shell. Either way the part is replaced in place and keeps its name and part id. When the faces
+#it keeps fall apart into more pieces than it had, the largest piece stays the part and every other one
+#becomes a shell part of its own. A body whose last face is deleted is deleted.
 #
 #A compound holds only solids, so a sub-part or a split cell that loses a face leaves it as a shell part
 #with its own name and id, the solids that lost nothing stay the compound, and one solid left gives way
@@ -78,14 +78,26 @@ def main():
     check(deleted[name] == 1, "the second cap must be deleted from the shell: " + str(dict(deleted)))
     check(part().part_type == "Shell" and len(faces(part())) == len(rows) - 1,
           "the shell must stay a shell with one face less")
-    # Keeping only the hole walls would leave three pieces that do not touch, which is refused
+    # Keeping only the hole walls leaves three pieces that do not touch. The largest, the wall of the
+    # through hole, stays the part with its name and id, and each of the others becomes a part of its own
+    parts = pmx.model.geometry.parts
     rows = faces(part())
+    walls = [row for row in rows if row["type"] == "Cylinder"]
     others = [row for row in rows if row["type"] != "Cylinder"]
-    deleted = pmx.model.geometry.parts.delete_cad_faces(selection(part(), others))
-    check(deleted[name] == 0, "a part that would fall apart must be left alone: " + str(dict(deleted)))
-    check(len(faces(part())) == len(rows), "a refused deletion must leave the faces as they were")
+    deleted = parts.delete_cad_faces(selection(part(), others))
+    check(deleted[name] == len(others), "every face but the walls must be deleted: " + str(dict(deleted)))
+    names = list(parts.get_names())
+    check(parts[name].id == part_id and parts[name].part_type == "Shell",
+          "the largest piece must keep the name and id of the part")
+    pieces = [n for n in names if n.startswith(name + "-")]
+    check(len(pieces) == 2, "the two other pieces must be parts of their own: " + str(names))
+    through_wall_area = max(row["area"] for row in walls) * 2
+    check(abs(sum(row["area"] for row in faces(parts[name])) - through_wall_area) < 1e-6,
+          "the part must keep the largest piece, the wall of the through hole")
+    check(sum(len(faces(parts[n])) for n in pieces + [name]) == len(walls), "the pieces must hold every wall")
     # A part whose every face is deleted is deleted with them
-    deleted = pmx.model.geometry.parts.delete_cad_faces(selection(part(), rows))
+    rows = faces(parts[name])
+    deleted = pmx.model.geometry.parts.delete_cad_faces(selection(parts[name], rows))
     check(deleted[name] == len(rows), "every face must be reported deleted: " + str(dict(deleted)))
     check(name not in list(pmx.model.geometry.parts.get_names()), "a part without faces must be deleted")
     # Only CAD parts are touched: an STL part in the selection is left alone and reports zero
@@ -101,6 +113,7 @@ def main():
     test_ordinary_compound()
     test_shared_face()
     test_last_face()
+    test_compound_body_falls_apart()
     test_split_compound()
     print("TEST PASSED")
 
@@ -181,6 +194,25 @@ def test_last_face():
     for sub_part in (bottom, top):
         check(parts[sub_part[0]].part_type == "Shell" and parts[sub_part[0]].id == sub_part[1] and
               deleted[sub_part[0]] == 1, sub_part[0] + " must be a shell part with its id, one face less")
+
+
+# The middle box losing its four sides falls into its bottom and its top, which no longer touch: the larger
+# keeps its name and id - they are the same size, so either - and the other becomes a part of its own. The
+# boxes above and below keep the faces they shared with it and stay the compound
+def test_compound_body_falls_apart():
+    parts = pmx.model.geometry.parts
+    name, part_id, (bottom, middle, top) = import_stack()
+    sides = z_faces(parts[middle[0]])[1:-1]
+    check(len(sides) == 4, "the middle box must have four sides: " + str(sides))
+    deleted = delete(parts[middle[0]], sides)
+    check(deleted[middle[0]] == 4, "the four sides must be deleted: " + str(dict(deleted)))
+    names = list(parts.get_names())
+    check(parts[middle[0]].part_type == "Shell" and parts[middle[0]].id == middle[1],
+          "the middle box must be a shell part with its id")
+    check(middle[0] + "-2" in names and len(faces(parts[middle[0] + "-2"])) == 1 and
+          len(faces(parts[middle[0]])) == 1, "the other piece must be a part of its own: " + str(names))
+    check(parts[name].part_type == "Compound" and parts[name].id == part_id,
+          "the compound of the two other boxes must keep its name and id")
 
 
 # A cell of a split compound that loses a face leaves it the same way, under its own name and id

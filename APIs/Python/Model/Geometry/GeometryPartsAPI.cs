@@ -191,11 +191,13 @@ namespace APIs.Python.Model
 
         [PythonAPI("Deletes the selected CAD part faces using command history and leaves the gap open. " +
                    "The selection uses the 'geometry' view and target. A solid that loses a face becomes " +
-                   "a shell part; the part keeps its name and part id either way. A part is left as it was " +
-                   "when its remaining faces would fall apart into more separate pieces, and a part or a " +
-                   "sub-part whose last face is deleted is deleted with it. A sub-part or split cell of a compound that loses a face leaves the compound " +
-                   "as a shell part with its own name and part id, and a face two of them share is deleted " +
-                   "from both; the solids that lost nothing stay the compound, and one solid left becomes a " +
+                   "a shell part; the part keeps its name and part id either way. When the faces it keeps " +
+                   "fall apart into pieces that no longer touch, the largest piece stays the part and every " +
+                   "other one becomes a shell part of its own, and a part or a sub-part whose last face is " +
+                   "deleted is deleted with it. A sub-part or split cell of a compound that loses a face " +
+                   "leaves the compound as a shell part with its own name and part id, and a face two of them " +
+                   "share is deleted from both; the solids that lost nothing stay the compound, and one solid " +
+                   "left becomes a " +
                    "plain part. Returns the number of faces deleted from every selected or opened part, so a " +
                    "part that was left alone reports zero.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
