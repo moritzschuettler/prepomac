@@ -48,7 +48,8 @@ namespace CaeGlobals
                 { "CaeMesh.TetrahedralNetgen", "CaeMesh.NetgenMesh, CaeMesh" },
                 { "PrePoMax.Commands.CAddTetrahedralNetgenToUncoveredParts",
                   "PrePoMax.Commands.CAddNetgenMeshToUncoveredParts, PrePoMax" },
-                { "PrePoMax.SplitPartMeshData", "CaeMesh.SplitPartMeshData, CaeMesh" }
+                { "PrePoMax.SplitPartMeshData", "CaeMesh.SplitPartMeshData, CaeMesh" },
+                { "CaeMesh.SurfaceExtraction", "CaeMesh.FaceOffset, CaeMesh" }
             };
         }
         public override Type BindToType(string assemblyName, string typeName)

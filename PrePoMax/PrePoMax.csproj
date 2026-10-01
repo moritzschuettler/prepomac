@@ -180,6 +180,7 @@
     <Compile Include="Commands\0000_File\CExportTo3mf.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportToStl.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CSplitAFaceUsingTwoPoints.cs" />
+    <Compile Include="Commands\_Compatibility\v2.6.4\CExtractSurface.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportCADGeometryPartsAsBrep.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportPartsAsMmgMesh.cs" />
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportCADGeometryPartsAsStep.cs" />
