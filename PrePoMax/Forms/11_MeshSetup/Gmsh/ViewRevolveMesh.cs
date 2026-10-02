@@ -27,7 +27,17 @@ namespace PrePoMax.Forms
 
 
         // Properties                                                                                                               
-        
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Source surfaces")]
+        [DescriptionAttribute("Select the source surfaces of the revolution, or select the part and let the source " +
+                              "surfaces be found automatically.")]
+        [Id(2, 1)]
+        public RevolveSourceTypeEnum SourceType
+        {
+            get { return _revolveMesh.SourceType; }
+            set { _revolveMesh.SourceType = value; }
+        }
+        //
 
         [CategoryAttribute("Full revolution")]
         [OrderedDisplayName(0, 10, "Create 360° model")]

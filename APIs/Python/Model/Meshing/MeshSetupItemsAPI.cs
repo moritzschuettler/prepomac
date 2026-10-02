@@ -401,7 +401,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a Gmsh revolve mesh item for the selected source surfaces. The revolution axis, " +
-                   "angle and middle radius are derived by the model from the selection.",
+                   "angle and middle radius are derived by the model from the selection. A part selection - one " +
+                   "solid CAD part - lets the model find the source surfaces itself: a group of coplanar surfaces " +
+                   "the part is the revolution of.",
                    Arguments = "name: str, selection: Selection, create_full_360_model: bool = None, " +
                                "algorithm_2d: str = None, recombine_min_quality: float = None, " +
                                GmshRecombineArguments + ", transfinite_angle: float = None, " + GmshLayerArguments,

@@ -32,6 +32,7 @@ namespace CaeMesh
         private int[][][] _layerGroupEdgeIds;                           // ISerializable
         private double[][] _blockArrowStarts;                           // ISerializable
         private double[][] _blockArrowDirections;                       // ISerializable
+        private double[][] _blockRevolveAxes;                           // ISerializable
         private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
         private double _quadWildAlpha;                                  // ISerializable
         private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
@@ -60,6 +61,11 @@ namespace CaeMesh
         public int[][][] LayerGroupEdgeIds { get { return _layerGroupEdgeIds; } set { _layerGroupEdgeIds = value; } }
         public double[][] BlockArrowStarts { get { return _blockArrowStarts; } set { _blockArrowStarts = value; } }
         public double[][] BlockArrowDirections { get { return _blockArrowDirections; } set { _blockArrowDirections = value; } }
+        /// <summary>
+        /// Per block, the axis and the angle a revolved block turns its source through, or null for a block that is
+        /// swept: x, y, z, dx, dy, dz, angle in degrees. Null when no block is revolved.
+        /// </summary>
+        public double[][] BlockRevolveAxes { get { return _blockRevolveAxes; } set { _blockRevolveAxes = value; } }
         public SweepSourceMesherEnum SourceMesher { get { return _sourceMesher; } set { _sourceMesher = value; } }
         /// <summary>
         /// The 2D meshing algorithm as the user chooses it: QuadWild for a sweep whose sources QuadWild meshes, else
@@ -178,6 +184,8 @@ namespace CaeMesh
                         _blockArrowStarts = (double[][])entry.Value; break;
                     case "_blockArrowDirections":
                         _blockArrowDirections = (double[][])entry.Value; break;
+                    case "_blockRevolveAxes":
+                        _blockRevolveAxes = (double[][])entry.Value; break;
                     case "_sourceMesher":
                         _sourceMesher = (SweepSourceMesherEnum)entry.Value; break;
                     case "_quadWildAlpha":
@@ -232,6 +240,7 @@ namespace CaeMesh
             _layerGroupEdgeIds = null;
             _blockArrowStarts = null;
             _blockArrowDirections = null;
+            _blockRevolveAxes = null;
             SetQuadWildDefaults();
             _symmetry = SweepSymmetryEnum.Automatic;
             _symmetryPlanes = null;
@@ -257,6 +266,7 @@ namespace CaeMesh
             _blockTargetSurfaceIds = CopyBlockIds(sweepMesh._blockTargetSurfaceIds);
             _blockArrowStarts = CopyBlockCoors(sweepMesh._blockArrowStarts);
             _blockArrowDirections = CopyBlockCoors(sweepMesh._blockArrowDirections);
+            _blockRevolveAxes = CopyBlockCoors(sweepMesh._blockRevolveAxes);
             _sourceMesher = sweepMesh._sourceMesher;
             _quadWildAlpha = sweepMesh._quadWildAlpha;
             _quadWildFlowProfile = sweepMesh._quadWildFlowProfile;
@@ -298,6 +308,7 @@ namespace CaeMesh
             List<int[][]> layerGroupEdgeIds = new List<int[][]>();
             List<double[]> blockArrowStarts = new List<double[]>();
             List<double[]> blockArrowDirections = new List<double[]>();
+            List<double[]> blockRevolveAxes = new List<double[]>();
             for (int i = 0; i < sweepMesh._blockSourceSurfaceIds.Length; i++)
             {
                 if (!IsOnParts(sweepMesh._blockSourceSurfaceIds[i], keptPartIds)) continue;
@@ -307,6 +318,7 @@ namespace CaeMesh
                 blockTargetSurfaceIds.Add(sweepMesh._blockTargetSurfaceIds[i]);
                 if (sweepMesh._blockArrowStarts != null) blockArrowStarts.Add(sweepMesh._blockArrowStarts[i]);
                 if (sweepMesh._blockArrowDirections != null) blockArrowDirections.Add(sweepMesh._blockArrowDirections[i]);
+                if (sweepMesh._blockRevolveAxes != null) blockRevolveAxes.Add(sweepMesh._blockRevolveAxes[i]);
             }
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -328,6 +340,7 @@ namespace CaeMesh
             sweepMesh._layerGroupEdgeIds = layerGroupEdgeIds.ToArray();
             if (sweepMesh._blockArrowStarts != null) sweepMesh._blockArrowStarts = blockArrowStarts.ToArray();
             if (sweepMesh._blockArrowDirections != null) sweepMesh._blockArrowDirections = blockArrowDirections.ToArray();
+            if (sweepMesh._blockRevolveAxes != null) sweepMesh._blockRevolveAxes = blockRevolveAxes.ToArray();
             //
             return sweepMesh;
         }
@@ -352,7 +365,7 @@ namespace CaeMesh
             if (blockCoors == null) return null;
             //
             double[][] copy = new double[blockCoors.Length][];
-            for (int i = 0; i < blockCoors.Length; i++) copy[i] = blockCoors[i].ToArray();
+            for (int i = 0; i < blockCoors.Length; i++) copy[i] = blockCoors[i]?.ToArray();
             return copy;
         }
         // ISerialization
@@ -369,6 +382,7 @@ namespace CaeMesh
             info.AddValue("_layerGroupEdgeIds", _layerGroupEdgeIds, typeof(int[][][]));
             info.AddValue("_blockArrowStarts", _blockArrowStarts, typeof(double[][]));
             info.AddValue("_blockArrowDirections", _blockArrowDirections, typeof(double[][]));
+            info.AddValue("_blockRevolveAxes", _blockRevolveAxes, typeof(double[][]));
             info.AddValue("_sourceMesher", _sourceMesher, typeof(SweepSourceMesherEnum));
             info.AddValue("_quadWildAlpha", _quadWildAlpha, typeof(double));
             info.AddValue("_quadWildFlowProfile", _quadWildFlowProfile, typeof(QuadWildFlowProfileEnum));

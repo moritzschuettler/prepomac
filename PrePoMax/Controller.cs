@@ -11106,7 +11106,8 @@ namespace PrePoMax
             //
             MeshSetupItem mesherSetupItem;
             if (meshType == MeshTypeEnum.Transfinite) mesherSetupItem = new TransfiniteMesh("Default_Transfinite_Mesh");
-            else if (meshType == MeshTypeEnum.Sweep)
+            // A revolved part is swept too, by a block that turns its source about the axis
+            else if (meshType == MeshTypeEnum.Sweep || meshType == MeshTypeEnum.Revolve)
             {
                 SweepMesh sweepMesh = new SweepMesh("Default_Sweep_Mesh");
                 sweepMesh.SourceType = SweepSourceTypeEnum.Automatic;
@@ -11176,7 +11177,8 @@ namespace PrePoMax
                 geometryPart = part as GeometryPart;
                 if (geometryPart == null || geometryPart.MeshType == MeshTypeEnum.Unknown) return MeshTypeEnum.Unknown;
                 if (geometryPart.MeshType > meshType) meshType = geometryPart.MeshType;
-                if (geometryPart.MeshType == MeshTypeEnum.Transfinite || geometryPart.MeshType == MeshTypeEnum.Sweep)
+                if (geometryPart.MeshType == MeshTypeEnum.Transfinite || geometryPart.MeshType == MeshTypeEnum.Sweep ||
+                    geometryPart.MeshType == MeshTypeEnum.Revolve)
                     anyStructured = true;
             }
             if (meshType == MeshTypeEnum.Tetrahedral && anyStructured) meshType = MeshTypeEnum.Sweep;
@@ -11635,6 +11637,18 @@ namespace PrePoMax
                 return null;
             }
         }
+        // Whether the block the sweep builds on the part is revolved rather than swept between two ends
+        private static bool IsPartRevolvedBySweep(SweepMesh sweepMesh, GeometryPart part)
+        {
+            if (sweepMesh.BlockRevolveAxes == null || sweepMesh.BlockSourceSurfaceIds == null) return false;
+            //
+            for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length && i < sweepMesh.BlockRevolveAxes.Length; i++)
+            {
+                if (sweepMesh.BlockRevolveAxes[i] != null &&
+                    FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]) == part.PartId) return true;
+            }
+            return false;
+        }
         private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem, GeometryPart part)
         {
             // Which faces of a CAD shell are structured is told by the faces
@@ -11643,7 +11657,9 @@ namespace PrePoMax
                  meshSetupItem is NetgenMesh))
                 return MeshTypeEnum.Free;
             else if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
-            else if (meshSetupItem is SweepMesh) return MeshTypeEnum.Sweep;
+            else if (meshSetupItem is SweepMesh sweepMesh)
+                return IsPartRevolvedBySweep(sweepMesh, part) ? MeshTypeEnum.Revolve : MeshTypeEnum.Sweep;
+            else if (meshSetupItem is RevolveMesh) return MeshTypeEnum.Revolve;
             else if (meshSetupItem is TetrahedralGmsh) return MeshTypeEnum.Tetrahedral;
             // A shell part Netgen meshes is colored as any other shell part
             else if (meshSetupItem is NetgenMesh && part.PartType != PartType.Shell) return MeshTypeEnum.Tetrahedral;
@@ -27747,10 +27763,21 @@ namespace PrePoMax
         }
         public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)
         {
-            HighlightShellInMeshSetupItem(revolveMesh, useSecondaryHighlightColor);
+            // A revolve that finds its own sources is selected by part, and shows the source surfaces once they are
+            // found, drawn as the sweep draws its sources
+            int[] ids = revolveMesh.SourceSurfaceIds;
+            if (revolveMesh.SourceType == RevolveSourceTypeEnum.Automatic)
+            {
+                if (ids == null || ids.Length == 0)
+                {
+                    HighlightMeshSetupItemParts(revolveMesh, useSecondaryHighlightColor);
+                    return;
+                }
+                HighlightItemsByGeometryIds(ids, false, useSecondaryHighlightColor, true);
+            }
+            else HighlightShellInMeshSetupItem(revolveMesh, useSecondaryHighlightColor);
             //
-            int[] ids = revolveMesh.CreationIds;
-            if (ids.Length == 0) return;
+            if (ids == null || ids.Length == 0) return;
             // The selection is limited to one part
             int partId = FeMesh.GetPartIdFromGeometryId(ids[0]);
             BasePart part = (GeometryPart)_model.Geometry.GetPartFromId(partId);

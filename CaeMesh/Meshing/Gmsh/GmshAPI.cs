@@ -44,6 +44,8 @@ namespace CaeMesh
         private HashSet<int> _fullQuadSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
+        private List<SweepRevolvedBlock> _revolvedBlocks = new List<SweepRevolvedBlock>();
+        private Dictionary<SweepRevolvedBlock, int> _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int>();
         private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
         private static readonly Regex _entityProgress =
@@ -606,7 +608,7 @@ namespace CaeMesh
             //
             int[] creationIds;
             if (gmshSetupItem is ExtrudeMesh extrudeMesh) creationIds = extrudeMesh.CreationIds;
-            else if (gmshSetupItem is RevolveMesh revolveMesh) creationIds = revolveMesh.CreationIds;
+            else if (gmshSetupItem is RevolveMesh revolveMesh) creationIds = revolveMesh.SourceSurfaceIds;
             else return null;
             if (creationIds == null) return null;
             //
@@ -739,9 +741,11 @@ namespace CaeMesh
             int surfaceId;
             HashSet<int> sourceSurfaceIds = new HashSet<int>();
             bool recombine = revolveMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            for (int i = 0; i < revolveMesh.CreationIds.Length; i++)
+            if (revolveMesh.SourceSurfaceIds == null || revolveMesh.SourceSurfaceIds.Length == 0)
+                throw new CaeException("The revolve source surfaces could not be determined.");
+            for (int i = 0; i < revolveMesh.SourceSurfaceIds.Length; i++)
             {
-                surfaceId = FeMesh.GetItemIdFromGeometryId(revolveMesh.CreationIds[i]) + 1;
+                surfaceId = FeMesh.GetItemIdFromGeometryId(revolveMesh.SourceSurfaceIds[i]) + 1;
                 sourceSurfaceIds.Add(surfaceId);
                 if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
             }
@@ -852,6 +856,8 @@ namespace CaeMesh
             List<int> chainBlockIndices = new List<int>();
             HashSet<int> wallSurfaceIds = new HashSet<int>();
             HashSet<int> targetSurfaceIds = new HashSet<int>();
+            _revolvedBlocks = new List<SweepRevolvedBlock>();
+            _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int>();
             foreach (var block in blocks)
             {
                 // Set source surfaces
@@ -863,6 +869,13 @@ namespace CaeMesh
                         Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
                         if (IsFullQuad(sweepMesh.AlgorithmRecombine)) _fullQuadSourceIds.Add(sourceSurfaceId);
                     }
+                }
+                // A revolved block has no walls of the sweep between two ends: it builds them itself
+                if (block.IsRevolved)
+                {
+                    _revolvedBlocks.Add(new SweepRevolvedBlock(block));
+                    targetSurfaceIds.UnionWith(block.TargetSurfaceIds);
+                    continue;
                 }
                 // Set side surfaces. A wall whose side is built from several edges - which is what a
                 // split source face produces - needs its four corners nominated by hand, and needs the
@@ -1044,7 +1057,7 @@ namespace CaeMesh
             Dictionary<SweepBlock, int[][]> blockOriginalSurfaceIds = new Dictionary<SweepBlock, int[][]>();
             foreach (var block in _sweepBlocks)
             {
-                block.ImprintTranslation = GetPrismTranslation(block, surfaceIdEdgeIds);
+                block.ImprintTranslation = block.IsRevolved ? null : GetPrismTranslation(block, surfaceIdEdgeIds);
                 blockOriginalSurfaceIds.Add(block, new int[][] { block.SourceSurfaceIds.ToArray(),
                                                                 block.WallSurfaceIds.ToArray(),
                                                                 block.TargetSurfaceIds.ToArray() });
@@ -1076,7 +1089,10 @@ namespace CaeMesh
             }
             // Also for a block that had nothing to carry: its two ends may already be split at matching
             // places, and the lines between them are pinned just the same
-            foreach (var block in _sweepBlocks) PairImprintEdges(block, surfaceIdEdgeIds);
+            foreach (var block in _sweepBlocks)
+            {
+                if (!block.IsRevolved) PairImprintEdges(block, surfaceIdEdgeIds);
+            }
             if (round > 0) _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
             // A target surface is meshed only to be thrown away, and the counts on its edges are set for the
             // walls, not for it: a structured grid on it would fail as often as not. Taken once the fragmentation
@@ -1087,6 +1103,8 @@ namespace CaeMesh
             foreach (var block in _sweepBlocks)
             {
                 if (!block.ClosesRing) _freeMeshedSurfaceIds.UnionWith(block.TargetSurfaceIds);
+                // A revolved block meshes its walls itself, so gmsh is not asked for a structured grid on them
+                if (block.IsRevolved) _freeMeshedSurfaceIds.UnionWith(block.WallSurfaceIds);
             }
             // A surface of no block bounds only the cells left to tetrahedra, which need no structured grid on it;
             // made one, it would be held to the counts the sweep set on its edges, which its opposite sides need not
@@ -1103,6 +1121,11 @@ namespace CaeMesh
                     if (!block.ClosesRing) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
                 }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
+                // A revolved source is meshed by gmsh, since its edges carry the counts of the target edges
+                foreach (var block in _sweepBlocks)
+                {
+                    if (block.IsRevolved) _quadWildSourceIds.ExceptWith(block.SourceSurfaceIds);
+                }
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
             }
         }
@@ -1115,7 +1138,8 @@ namespace CaeMesh
             HashSet<int> earlierSourceIds = new HashSet<int>();
             foreach (var block in blocks)
             {
-                block.ClosesRing = block.TargetSurfaceIds.Count > 0 && block.TargetSurfaceIds.IsSubsetOf(earlierSourceIds);
+                block.ClosesRing = !block.IsRevolved && block.TargetSurfaceIds.Count > 0 &&
+                                   block.TargetSurfaceIds.IsSubsetOf(earlierSourceIds);
                 earlierSourceIds.UnionWith(block.SourceSurfaceIds);
             }
         }
@@ -2026,9 +2050,14 @@ namespace CaeMesh
                                      Dictionary<int, int[]> surfaceIdEdgeIds, List<int> chainBlockIndices,
                                      bool preview, bool setTransfiniteWalls)
         {
+            // The revolved blocks settle their layer counts first, and the walls of the other blocks read them as
+            // pins; the edges of their targets follow what the walls of the other blocks settle there
+            PrepareRevolvedLayers();
             if (_quadWildSourceIds.Count > 0)
             {
+                PrepareRevolvedEdges();
                 MeshQuadWildSourceEdges(sweepMesh, blocks, walls, chains, surfaceIdEdgeIds, chainBlockIndices);
+                CheckRevolvedEdgeCounts();
             }
             else
             {
@@ -2036,12 +2065,14 @@ namespace CaeMesh
                 PrepareWallEdges(walls, chains, chainBlockIndices);
                 FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds,
                                             sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
+                PrepareRevolvedEdges();
                 foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
                 // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
                 // side check with node counts that are not the ones the constraints above set
                 GenerateMesh(1);
                 MatchOppositeSideSpacing(walls, null);
+                CheckRevolvedEdgeCounts();
             }
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
             // later attempt keeps the constraints of the first
@@ -2109,8 +2140,238 @@ namespace CaeMesh
             }
             else
             {
-                SweepMethods.CreateSweepMesh(blocks, sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
+                // A revolved block rebuilds its walls and its target, which the other blocks may read as sources, so a
+                // revolved block fed through the target of another is built after it
+                HashSet<int> builtWallIds = new HashSet<int>();
+                Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags = new Dictionary<Tuple<IntPtr, int>, IntPtr>();
+                foreach (var revolvedBlock in GetRevolvedBuildOrder())
+                {
+                    _writeOutput?.Invoke("Revolved block: " + _revolvedLayerCounts[revolvedBlock] + " element layers.");
+                    revolvedBlock.Build(_revolvedLayerCounts[revolvedBlock], builtWallIds, wallNodeTags);
+                }
+                SweepMethods.CreateSweepMesh(blocks.Where(block => !block.IsRevolved).ToList(),
+                                             sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
             }
+        }
+        /// <summary>
+        /// The layer counts of the revolved blocks, measured on a 1D mesh and pinned on their arcs, so that the walls
+        /// of the other blocks read them. The layer count is the smallest an arc measures, since the coarser count is
+        /// the one the user can always refine; a count the user pinned on an arc wins. Blocks turned about one axis
+        /// through one angle may share walls, so they get one layer count.
+        /// </summary>
+        private void PrepareRevolvedLayers()
+        {
+            if (_revolvedBlocks.Count == 0) return;
+            //
+            GenerateMesh(1);
+            Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
+            foreach (var group in GetRevolvedGroups())
+            {
+                int[] arcIds = group.SelectMany(block => block.ArcEdgeIds).Distinct().ToArray();
+                if (arcIds.Length == 0)
+                    throw new CaeException("No vertex of the source of " + group[0].Block.GetDescription() + " lies off " +
+                                           "the axis, so the number of its element layers cannot be measured.");
+                int[] pinnedArcIds = arcIds.Where(id => _gmshData.EdgeIdNumElements.ContainsKey(id)).ToArray();
+                int numLayers = pinnedArcIds.Length > 0 ? pinnedArcIds.Min(id => _gmshData.EdgeIdNumElements[id])
+                                                        : arcIds.Min(id => SweepWallTopology.GetElementCount(id));
+                numLayers = Math.Max(1, numLayers);
+                foreach (var revolvedBlock in group)
+                {
+                    _revolvedLayerCounts[revolvedBlock] = numLayers;
+                    foreach (var arcId in revolvedBlock.ArcEdgeIds) edgeIdNumOfElements[arcId] = numLayers;
+                }
+            }
+            SetPinnedEdgeCounts(edgeIdNumOfElements);
+        }
+        /// <summary>
+        /// The counts of the source and the target edges of the revolved blocks, so that the turned source edges fit
+        /// the target edges node for node: a chain of source edges turned onto one target edge gives it the sum of
+        /// their counts. A count pinned before - by the user, by the walls of the other blocks, or as the target of a
+        /// revolved block built before - is kept, and a target edge pinned so takes its count from the chain by
+        /// changing a source edge of the chain that is not pinned. A chain with no such edge is refused.
+        /// </summary>
+        private void PrepareRevolvedEdges()
+        {
+            if (_revolvedBlocks.Count == 0) return;
+            //
+            GenerateMesh(1);
+            int numOfElements;
+            Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
+            Func<int, bool> isPinned = edgeId => edgeIdNumOfElements.ContainsKey(edgeId) ||
+                                                 _gmshData.EdgeIdNumElements.ContainsKey(edgeId);
+            Func<int, int> getCount = edgeId =>
+                edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements) ? numOfElements :
+                _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements) ? numOfElements :
+                SweepWallTopology.GetElementCount(edgeId);
+            // The walls of the other blocks may have given the arcs a count of their own, which the layers follow
+            foreach (var group in GetRevolvedGroups())
+            {
+                int numLayers = _revolvedLayerCounts[group[0]];
+                int[] arcIds = group.SelectMany(block => block.ArcEdgeIds).Distinct().ToArray();
+                int[] changedArcIds = arcIds.Where(id => getCount(id) != numLayers).ToArray();
+                int[] changedCounts = changedArcIds.Select(getCount).Distinct().ToArray();
+                if (changedCounts.Length > 1)
+                    throw new CaeException("The edges " + string.Join(", ", changedArcIds.Select(id => "edge " + id + " (" +
+                                           getCount(id) + ")")) + " along the revolution of " +
+                                           group[0].Block.GetDescription() + " were given different element counts by " +
+                                           "the sweep of the blocks beside it, so its layers cannot follow them.");
+                if (changedCounts.Length == 1)
+                {
+                    numLayers = changedCounts[0];
+                    foreach (var revolvedBlock in group) _revolvedLayerCounts[revolvedBlock] = numLayers;
+                }
+                foreach (var arcId in arcIds) edgeIdNumOfElements[arcId] = numLayers;
+            }
+            foreach (var revolvedBlock in GetRevolvedBuildOrder())
+            {
+                foreach (var chain in revolvedBlock.TargetEdgeChains)
+                {
+                    int[] counts = chain.Item1.Select(id => Math.Max(1, getCount(id))).ToArray();
+                    if (isPinned(chain.Item2))
+                    {
+                        int difference = getCount(chain.Item2) - counts.Sum();
+                        if (difference != 0)
+                        {
+                            int free = -1;
+                            for (int i = 0; i < counts.Length; i++)
+                            {
+                                if (isPinned(chain.Item1[i]) || counts[i] + difference < 1) continue;
+                                if (free < 0 || counts[i] > counts[free]) free = i;
+                            }
+                            if (free < 0)
+                                throw new CaeException("The edge " + chain.Item2 + " carries " + getCount(chain.Item2) +
+                                                       " elements, but the edges " + string.Join(", ",
+                                                       chain.Item1.Select(id => "edge " + id)) + " of the source of " +
+                                                       revolvedBlock.Block.GetDescription() + " turned onto it carry " +
+                                                       counts.Sum() + ", and none of them can be changed.");
+                            counts[free] += difference;
+                        }
+                    }
+                    for (int i = 0; i < counts.Length; i++) edgeIdNumOfElements[chain.Item1[i]] = counts[i];
+                    edgeIdNumOfElements[chain.Item2] = counts.Sum();
+                }
+                FreeRevolvedSourcesWithUnequalSides(revolvedBlock, getCount);
+            }
+            SetPinnedEdgeCounts(edgeIdNumOfElements);
+        }
+        /// <summary>
+        /// Meshes free a four sided source of a revolved block whose opposite sides were given different element
+        /// counts, which happens when an edge of it had to take its count from the walls of a block beside it.
+        /// </summary>
+        private void FreeRevolvedSourcesWithUnequalSides(SweepRevolvedBlock revolvedBlock, Func<int, int> getCount)
+        {
+            int[] upward;
+            int[] edgeIds;
+            int[] vertexIds;
+            foreach (var surfaceId in revolvedBlock.Block.SourceSurfaceIds)
+            {
+                if (!_transfiniteSurfaceIds.Contains(surfaceId)) continue;
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out upward, out edgeIds);
+                edgeIds = edgeIds.Select(Math.Abs).Distinct().ToArray();
+                if (edgeIds.Length != 4) continue;
+                //
+                int[][] edgeVertexIds = new int[4][];
+                for (int j = 0; j < 4; j++)
+                {
+                    Gmsh.Model.GetAdjacencies(1, edgeIds[j], out _, out vertexIds);
+                    edgeVertexIds[j] = vertexIds;
+                }
+                int opposite = Enumerable.Range(1, 3).FirstOrDefault(j => !edgeVertexIds[0].Intersect(edgeVertexIds[j]).Any());
+                if (opposite == 0) continue;
+                int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
+                int[] counts = edgeIds.Select(getCount).ToArray();
+                if (counts[0] == counts[opposite] && counts[others[0]] == counts[others[1]]) continue;
+                //
+                Gmsh.Model.Mesh.RemoveConstraints(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
+                _transfiniteSurfaceIds.Remove(surfaceId);
+                Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
+                _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + surfaceId + ", a source of " +
+                                                      revolvedBlock.Block.GetDescription() + ", was given " + counts[0] +
+                                                      " and " + counts[opposite] + " elements on one pair of opposite " +
+                                                      "sides and " + counts[others[0]] + " and " + counts[others[1]] +
+                                                      " on the other, so it is meshed free rather than as a structured grid."));
+            }
+        }
+        /// <summary>
+        /// Checks on the 1D mesh that every arc of a revolved block carries its layer count and every target edge as
+        /// many elements as the source edges turned onto it, which the counts pinned on them ask for but the walls of
+        /// the other blocks may have changed. A revolved block that does not fit is refused, naming the edges.
+        /// </summary>
+        private void CheckRevolvedEdgeCounts()
+        {
+            foreach (var revolvedBlock in _revolvedBlocks)
+            {
+                int numLayers = _revolvedLayerCounts[revolvedBlock];
+                foreach (var arcId in revolvedBlock.ArcEdgeIds)
+                {
+                    int count = SweepWallTopology.GetElementCount(arcId);
+                    if (count != numLayers)
+                        throw new CaeException(NameGmshEntities("The edge " + arcId + " along the revolution of " +
+                                               revolvedBlock.Block.GetDescription() + " is meshed with " + count +
+                                               " elements, but the block is revolved through " + numLayers +
+                                               " element layers."));
+                }
+                foreach (var chain in revolvedBlock.TargetEdgeChains)
+                {
+                    int sum = chain.Item1.Sum(id => SweepWallTopology.GetElementCount(id));
+                    int count = SweepWallTopology.GetElementCount(chain.Item2);
+                    if (count != sum)
+                        throw new CaeException(NameGmshEntities("The edge " + chain.Item2 + " is meshed with " + count +
+                                               " elements, but the edges " + string.Join(", ", chain.Item1.Select(id =>
+                                               "edge " + id)) + " of the source of " + revolvedBlock.Block.GetDescription() +
+                                               " turned onto it carry " + sum + "."));
+                }
+            }
+        }
+        /// <summary>
+        /// The revolved blocks in groups turned about one axis through one angle, which may share walls and so get
+        /// one layer count.
+        /// </summary>
+        private List<List<SweepRevolvedBlock>> GetRevolvedGroups()
+        {
+            List<List<SweepRevolvedBlock>> groups = new List<List<SweepRevolvedBlock>>();
+            foreach (var revolvedBlock in GetRevolvedBuildOrder())
+            {
+                List<SweepRevolvedBlock> group = groups.FirstOrDefault(g => AreRevolveAxesEqual(g[0].Block.RevolveAxis,
+                                                                                             revolvedBlock.Block.RevolveAxis));
+                if (group == null) groups.Add(new List<SweepRevolvedBlock>() { revolvedBlock });
+                else group.Add(revolvedBlock);
+            }
+            return groups;
+        }
+        private void SetPinnedEdgeCounts(Dictionary<int, int> edgeIdNumOfElements)
+        {
+            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
+            foreach (var entry in edgeIdNumOfElements)
+            {
+                _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            }
+        }
+        private List<SweepRevolvedBlock> GetRevolvedBuildOrder()
+        {
+            List<SweepRevolvedBlock> ordered = new List<SweepRevolvedBlock>();
+            List<SweepRevolvedBlock> pending = new List<SweepRevolvedBlock>(_revolvedBlocks);
+            while (pending.Count > 0)
+            {
+                SweepRevolvedBlock next = pending.FirstOrDefault(block => !pending.Any(other => other != block &&
+                    other.Block.TargetSurfaceIds.Overlaps(block.Block.SourceSurfaceIds)));
+                if (next == null)
+                    throw new CaeException("The order in which the revolved sweep blocks are built could not be determined.");
+                ordered.Add(next);
+                pending.Remove(next);
+            }
+            return ordered;
+        }
+        private static bool AreRevolveAxesEqual(double[] axis1, double[] axis2)
+        {
+            double dot = axis1[3] * axis2[3] + axis1[4] * axis2[4] + axis1[5] * axis2[5];
+            if (dot < 1 - 1E-6 || Math.Abs(axis1[6] - axis2[6]) > 1E-3) return false;
+            //
+            double[] offset = new double[] { axis2[0] - axis1[0], axis2[1] - axis1[1], axis2[2] - axis1[2] };
+            double along = offset[0] * axis1[3] + offset[1] * axis1[4] + offset[2] * axis1[5];
+            double across2 = offset[0] * offset[0] + offset[1] * offset[1] + offset[2] * offset[2] - along * along;
+            return across2 <= 1E-8 * Math.Max(1, GetModelDiagonal() * GetModelDiagonal());
         }
         /// <summary>
         /// Settles the counts of the walls and of the source edges QuadWild meshes, and leaves the curves meshed with
@@ -2747,8 +3008,11 @@ namespace CaeMesh
             {
                 for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
                 {
-                    blocks.Add(new SweepBlock(sweepMesh.BlockSourceSurfaceIds[i], sweepMesh.BlockSideSurfaceIds[i],
-                                              sweepMesh.BlockTargetSurfaceIds[i]));
+                    SweepBlock block = new SweepBlock(sweepMesh.BlockSourceSurfaceIds[i], sweepMesh.BlockSideSurfaceIds[i],
+                                                      sweepMesh.BlockTargetSurfaceIds[i]);
+                    if (sweepMesh.BlockRevolveAxes != null && i < sweepMesh.BlockRevolveAxes.Length)
+                        block.RevolveAxis = sweepMesh.BlockRevolveAxes[i];
+                    blocks.Add(block);
                 }
             }
             else

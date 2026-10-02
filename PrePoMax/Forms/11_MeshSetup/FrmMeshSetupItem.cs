@@ -185,7 +185,11 @@ namespace PrePoMax.Forms
             else
             {
                 MeshSetupItem.Reset();
-                if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
+                if (_viewMeshSetupItem is ViewRevolveMesh vrm)
+                {
+                    vrm.UpdateVisibility();
+                    SetSelectItem();
+                }
                 if (_viewMeshSetupItem is ViewSweepMesh vsw)
                 {
                     vsw.UpdateVisibility();
@@ -271,15 +275,22 @@ namespace PrePoMax.Forms
             {
                 SetSelectItem();
             }
-            else if (_viewMeshSetupItem is ViewSweepMesh vsm && property == nameof(vsm.SourceType))
+            else if ((_viewMeshSetupItem is ViewSweepMesh vsm && property == nameof(vsm.SourceType)) ||
+                     (_viewMeshSetupItem is ViewRevolveMesh vrm && property == nameof(vrm.SourceType)))
             {
-                // A surface selection means nothing to an automatic sweep and a part selection nothing to a
-                // manual one. The picker mode also lives in the selection that the highlight below restores,
+                // A surface selection means nothing to an automatic sweep or revolve and a part selection nothing
+                // to a manual one. The picker mode also lives in the selection that the highlight below restores,
                 // so the selection is dropped before the picker is switched, or it would switch right back
                 MeshSetupItem.CreationIds = new int[0];
                 MeshSetupItem.CreationData = null;
                 _controller.ClearSelectionHistory();
                 ShowHideSelectionForm();
+                // The revolution angle found for the dropped selection no longer applies
+                if (MeshSetupItem is RevolveMesh revolveMesh)
+                {
+                    revolveMesh.AngleDeg = -1;
+                    ((ViewRevolveMesh)_viewMeshSetupItem).UpdateVisibility();
+                }
             }
             //
             HighlightMeshSetupItem();
@@ -555,7 +566,11 @@ namespace PrePoMax.Forms
                     if (sm.SourceType == SweepSourceTypeEnum.Automatic) _controller.SetSelectItemToPart();
                     else _controller.SetSelectItemToGeometrySurface();
                 }
-                else if (MeshSetupItem is RevolveMesh) _controller.SetSelectItemToGeometrySurface();
+                else if (MeshSetupItem is RevolveMesh rm)
+                {
+                    if (rm.SourceType == RevolveSourceTypeEnum.Automatic) _controller.SetSelectItemToPart();
+                    else _controller.SetSelectItemToGeometrySurface();
+                }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }
             else _controller.SetSelectByToOff();

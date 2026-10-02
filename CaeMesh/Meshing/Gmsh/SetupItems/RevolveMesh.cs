@@ -23,6 +23,8 @@ namespace CaeMesh
     public class RevolveMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
+        private RevolveSourceTypeEnum _sourceType;                      // ISerializable
+        private int[] _sourceSurfaceIds;                                // ISerializable
         private double[] _axisCenter;                                   // ISerializable
         private double[] _axisDirection;                                // ISerializable
         private double _angleDeg;                                       // ISerializable
@@ -31,6 +33,16 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
+        public RevolveSourceTypeEnum SourceType { get { return _sourceType; } set { _sourceType = value; } }
+        /// <summary>
+        /// The geometry ids of the surfaces that are revolved: the selection itself, or the surfaces the detection
+        /// found on the selected part when they are found automatically.
+        /// </summary>
+        public int[] SourceSurfaceIds
+        {
+            get { return _sourceType == RevolveSourceTypeEnum.Automatic ? _sourceSurfaceIds : CreationIds; }
+            set { _sourceSurfaceIds = value; }
+        }
         public double[] AxisCenter { get { return _axisCenter; } set { _axisCenter = value; } }
         public double[] AxisDirection { get { return _axisDirection; } set { _axisDirection = value; } }
         public double AngleDeg { get { return _angleDeg; } set { _angleDeg = value; } }
@@ -71,10 +83,16 @@ namespace CaeMesh
         public RevolveMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            // An item written before the source surfaces could be found automatically carries a surface selection
+            _sourceType = RevolveSourceTypeEnum.SelectedSurfaces;
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
                 {
+                    case "_sourceType":
+                        _sourceType = (RevolveSourceTypeEnum)entry.Value; break;
+                    case "_sourceSurfaceIds":
+                        _sourceSurfaceIds = (int[])entry.Value; break;
                     case "_axisCenter":
                         _axisCenter = (double[])entry.Value; break;
                     case "_axisDirection":
@@ -96,7 +114,13 @@ namespace CaeMesh
         public override void Reset()
         {
             base.Reset();
+            // The source is meshed the way a sweep meshes it: Frontal-Delaunay recombined by the simple algorithm,
+            // which keeps the boundary counts and turns the triangles into quadrilaterals and so the wedges into
+            // hexahedra
+            AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
             //
+            _sourceType = RevolveSourceTypeEnum.Automatic;
+            _sourceSurfaceIds = null;
             _axisCenter = null;
             _axisDirection = null;
             _angleDeg = -1;
@@ -107,8 +131,10 @@ namespace CaeMesh
         {
             base.CopyFrom(revolveMesh);
             //
-            if (_axisCenter != null) _axisCenter = revolveMesh._axisCenter.ToArray();
-            if (_axisDirection != null) _axisDirection = revolveMesh._axisDirection.ToArray();
+            _sourceType = revolveMesh._sourceType;
+            _sourceSurfaceIds = revolveMesh._sourceSurfaceIds?.ToArray();
+            _axisCenter = revolveMesh._axisCenter?.ToArray();
+            _axisDirection = revolveMesh._axisDirection?.ToArray();
             _angleDeg = revolveMesh._angleDeg;
             _middleR = revolveMesh._middleR;
             _createFull360Model = revolveMesh._createFull360Model;
@@ -118,6 +144,8 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
+            info.AddValue("_sourceType", _sourceType, typeof(RevolveSourceTypeEnum));
+            info.AddValue("_sourceSurfaceIds", _sourceSurfaceIds, typeof(int[]));
             info.AddValue("_axisCenter", _axisCenter, typeof(double[]));
             info.AddValue("_axisDirection", _axisDirection, typeof(double[]));
             info.AddValue("_angleDeg", _angleDeg, typeof(double));

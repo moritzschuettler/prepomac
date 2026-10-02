@@ -55,9 +55,16 @@ namespace CaeMesh.Sweep
         /// are meshed already, and the block is swept between two meshed caps rather than onto its target.
         /// </summary>
         public bool ClosesRing { get; set; }
+        /// <summary>
+        /// The axis a revolved block turns its source about and the angle it turns it through: a point on the axis,
+        /// its direction and the angle in degrees, x, y, z, dx, dy, dz, angle. Turning the source through the angle
+        /// about the direction carries it onto the target. Null for a block that is swept, not revolved.
+        /// </summary>
+        public double[] RevolveAxis { get; set; }
+        public bool IsRevolved { get { return RevolveAxis != null; } }
 
 
-        // Constructors                                                                                                             
+        // Constructors                                                                                                            
         public SweepBlock(IEnumerable<int> sourceSurfaceIds, IEnumerable<int> wallSurfaceIds,
                           IEnumerable<int> targetSurfaceIds)
         {
@@ -88,7 +95,7 @@ namespace CaeMesh.Sweep
         /// </summary>
         public string GetDescription()
         {
-            return "the sweep block swept from " +
+            return (IsRevolved ? "the sweep block revolved from " : "the sweep block swept from ") +
                    string.Join(", ", _sourceSurfaceIds.OrderBy(id => id).Select(id => "surface " + id));
         }
     }

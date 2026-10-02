@@ -57,6 +57,10 @@ namespace CaeMesh
         /// </summary>
         public HashSet<int> SweepablePartIds { get { return _sweepablePartIds; } }
         public string Stamp { get { return _stamp; } }
+        /// <summary>
+        /// Whether the group is not swept but revolved: a single part turned about an axis it touches.
+        /// </summary>
+        public bool IsRevolved { get { return _blocks != null && _blocks.HasRevolvedBlocks; } }
 
 
         // Constructors

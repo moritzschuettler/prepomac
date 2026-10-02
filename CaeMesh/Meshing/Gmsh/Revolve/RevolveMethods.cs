@@ -874,7 +874,7 @@ namespace CaeMesh
             }
         }
 
-        private static IntPtr[] GetOutwardSourceNodeIds(IntPtr[] sourceNodeIds,
+        internal static IntPtr[] GetOutwardSourceNodeIds(IntPtr[] sourceNodeIds,
                                                         Dictionary<IntPtr, double[]> sourceNodeCoordinates,
                                                         double[] axisCenter, double[] axisDirection,
                                                         double firstLayerAngleRad)
@@ -943,7 +943,7 @@ namespace CaeMesh
             return orientedNodeIds;
         }
 
-        private static IntPtr[] RotateSourceNodeIdsToAxis(IntPtr[] sourceNodeIds,
+        internal static IntPtr[] RotateSourceNodeIdsToAxis(IntPtr[] sourceNodeIds,
                                                           Dictionary<IntPtr, double[]> sourceNodeCoordinates,
                                                           double[] axisCenter, double[] axisDirection,
                                                           double axisTolerance, out int numAxisNodes)
@@ -1054,7 +1054,7 @@ namespace CaeMesh
             return new double[] { vector[0] / length, vector[1] / length, vector[2] / length };
         }
 
-        private static double[] Rotate(double[] point, double[] axisCenter, double[] axisDirection, double angle)
+        internal static double[] Rotate(double[] point, double[] axisCenter, double[] axisDirection, double angle)
         {
             double x = point[0] - axisCenter[0];
             double y = point[1] - axisCenter[1];
@@ -1098,7 +1098,7 @@ namespace CaeMesh
             };
         }
 
-        private static double DistanceFromAxis(double[] point, double[] axisCenter, double[] axisDirection)
+        internal static double DistanceFromAxis(double[] point, double[] axisCenter, double[] axisDirection)
         {
             double x = point[0] - axisCenter[0];
             double y = point[1] - axisCenter[1];
