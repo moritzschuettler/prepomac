@@ -684,7 +684,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_faces=None, transfinite_angle=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
+| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
@@ -707,10 +707,10 @@ carries, not by the verdict of the item it replaces.
 `midside_nodes_on_geometry`, `split_compound_mesh`, `merge_compound_parts` and `merge_cells`.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
-`optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_faces` and
-`transfinite_angle` belong to `add_netgen_mesh`. `transfinite_faces` is `'None'` or `'All'`: whether the
-4-sided faces every mesher structures are meshed as structured grids, quads when `quad_dominated` is set
-and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
+`optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
+`transfinite_four_sided` and `transfinite_angle` belong to `add_netgen_mesh`. The two switches, off by default,
+mesh the 3-sided and the 4-sided faces every mesher structures as structured grids - a 3-sided face as three
+blocks of quads around one inner node - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
 edge is kept, and the meshing is refused when the set numbers cannot agree.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
 arguments of the call are applied on top of those. `replace_meshing_parameters` does the same when

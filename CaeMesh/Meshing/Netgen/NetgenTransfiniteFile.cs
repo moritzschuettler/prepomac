@@ -26,10 +26,11 @@ namespace CaeMesh
         /// <summary>
         /// pinnedEdgeCounts holds the number of elements the user set on an edge of the part, by edge id.
         /// </summary>
-        public static void Write(string fileName, FeMesh geometry, BasePart part, bool fourSided, double transfiniteAngleDeg,
-                                 Dictionary<int, int> pinnedEdgeCounts)
+        public static void Write(string fileName, FeMesh geometry, BasePart part, bool threeSided, bool fourSided,
+                                 double transfiniteAngleDeg, Dictionary<int, int> pinnedEdgeCounts)
         {
-            TransfiniteFace[] faces = TransfiniteFaceDetector.Detect(geometry, part, false, fourSided, transfiniteAngleDeg);
+            TransfiniteFace[] faces = TransfiniteFaceDetector.Detect(geometry, part, threeSided, fourSided,
+                                                                     transfiniteAngleDeg);
             VisualizationData vis = part.Visualization;
             //
             StringBuilder sb = new StringBuilder();

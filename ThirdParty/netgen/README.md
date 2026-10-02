@@ -49,7 +49,8 @@ triangulate. Its `BREP_MESH` reads the optional `transfinite_faces`, `transfinit
 finds by the one definition all its meshers follow - every face with its sides as chains of edges, the
 numbers of elements set on edges and the names messages use - and Netgen then finds none of its own: it
 balances opposite sides to the coarser count without changing a set number, meshes every given face as a
-structured grid - quads when quad dominated, else triangles - with no fallback, and refuses the meshing,
+structured grid - a 3-sided one as three blocks of quads around one inner node by the mapping all
+PrePoMax meshers share - quads when quad dominated, else triangles - with no fallback, and refuses the meshing,
 naming the faces and edges, when the set numbers cannot agree or a grid folds. Without the file the older
 detection of 4-sided faces by `transfinite_faces` and `transfinite_angle` applies. Its `BREP_MERGE_SOLIDS`
 makes one solid of the named solids of a compound, leaving out the faces they share and healing the edges

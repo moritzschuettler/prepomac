@@ -11610,9 +11610,8 @@ namespace PrePoMax
                     if (_defaultMeshTypesDisabled)
                     {
                         MeshingParameters meshingParameters = GetPartMeshingParameters(meshedPartName);
-                        return _model.Geometry.GetTransfiniteShellFaces(part, false,
-                                                                        meshingParameters.TransfiniteFaces !=
-                                                                        NetgenTransfiniteFacesEnum.None,
+                        return _model.Geometry.GetTransfiniteShellFaces(part, meshingParameters.TransfiniteThreeSided,
+                                                                        meshingParameters.TransfiniteFourSided,
                                                                         meshingParameters.TransfiniteAngleDeg);
                     }
                     mesherSetupItem = GetDefaultShellGmsh();
@@ -11626,11 +11625,9 @@ namespace PrePoMax
                     return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.TransfiniteThreeSided,
                                                                     shellQuadWild.TransfiniteFourSided,
                                                                     shellQuadWild.TransfiniteAngleDeg);
-                // Netgen lays its grid on four sided faces only
                 else if (mesherSetupItem is NetgenMesh netgenMesh)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, false,
-                                                                    netgenMesh.TransfiniteFaces !=
-                                                                    NetgenTransfiniteFacesEnum.None,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, netgenMesh.TransfiniteThreeSided,
+                                                                    netgenMesh.TransfiniteFourSided,
                                                                     netgenMesh.TransfiniteAngleDeg);
                 else return null;
             }

@@ -161,8 +161,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps2D));
                 arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps3D));
                 arguments.Add("quad_dominated=" + PythonValueFormatter.Format(netgenMesh.QuadDominated));
-                arguments.Add("transfinite_faces=" +
-                              PythonValueFormatter.Text(netgenMesh.TransfiniteFaces.ToString()));
+                arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteThreeSided));
+                arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteFourSided));
                 arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
                 return "netgen_mesh";
             }

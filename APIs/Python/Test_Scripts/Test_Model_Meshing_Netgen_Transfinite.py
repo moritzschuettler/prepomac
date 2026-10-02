@@ -14,6 +14,9 @@
 #    is still meshed as structured grids.
 #  - A number of elements set on one edge carries over to the edges parallel to it; set to a different number on a
 #    second of them it cannot be kept, and the meshing is refused.
+#  - The quarter cylinder that loses a flat radial face keeps two quarter circles, which have three sides and are
+#    meshed as three blocks of quads around one inner node by the mapping all meshers share: the shell is
+#    quadrilaterals only, and only the two inner nodes and the vertices have other than four quads around them.
 #  - blind_holes.brep with one cap deleted: the face with the holes is meshed free, the others structured. It is
 #    meshed with triangles: Netgen's parallel quad-dominated meshing of a free face fails now and then.
 #
@@ -90,7 +93,8 @@ def netgen(part, quad_dominated):
     items = pmx.model.mesh.setup_items
     if NETGEN in list(items.get_names()):
         items.remove([NETGEN])
-    items.add_netgen_mesh(NETGEN, part_selection(part), quad_dominated=quad_dominated, transfinite_faces="All")
+    items.add_netgen_mesh(NETGEN, part_selection(part), quad_dominated=quad_dominated,
+                          transfinite_three_sided=True, transfinite_four_sided=True)
 
 
 def mesh(part):
@@ -167,6 +171,16 @@ def main():
     open_box = split_side_face(open_box)
     netgen(open_box, True)
     check_structured_quads(open_box, "the split open box")
+    #
+    cylinder = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 5][0]
+    open_cylinder = delete_face(cylinder, 4)
+    netgen(open_cylinder, True)
+    kinds = mesh(open_cylinder)
+    check(list(kinds.keys()) == ["quadrilateral"], "the open quarter cylinder must be quadrilaterals: " + str(kinds))
+    irregular = irregular_node_count(open_cylinder.name)
+    allowed = open_cylinder.get_vertex_data().count + 2
+    print("irregular nodes:", irregular, "of at most", allowed, "vertices and inner nodes")
+    check(irregular <= allowed, "the quarter circles are not meshed as three blocks: " + str(irregular))
     #
     before = set(pmx.model.geometry.parts.get_names())
     pmx.import_file(os.path.join(MODELS, "blind_holes.brep"))

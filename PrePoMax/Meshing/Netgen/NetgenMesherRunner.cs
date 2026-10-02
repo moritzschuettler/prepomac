@@ -240,8 +240,8 @@ namespace PrePoMax
         {
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
-            if (meshingParameters.TransfiniteFaces == NetgenTransfiniteFacesEnum.None || !part.IsCADPart ||
-                part is CompoundGeometryPart) return null;
+            if ((!meshingParameters.TransfiniteThreeSided && !meshingParameters.TransfiniteFourSided) ||
+                !part.IsCADPart || part is CompoundGeometryPart) return null;
             //
             GmshData sizes = new GmshData();
             _controller.GetMeshItemSizes(part.Name, ref sizes, meshSetupItems);
@@ -254,8 +254,9 @@ namespace PrePoMax
                         pinnedEdgeCounts[FeMesh.GetItemIdFromGmshTopologyId(entry.Key)] = entry.Value;
                 }
             }
-            NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, part, true,
-                                        meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts);
+            NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, part, meshingParameters.TransfiniteThreeSided,
+                                        meshingParameters.TransfiniteFourSided, meshingParameters.TransfiniteAngleDeg,
+                                        pinnedEdgeCounts);
             return fileName;
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,

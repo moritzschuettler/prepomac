@@ -52,25 +52,41 @@ namespace PrePoMax.Forms
         public bool QuadDominated { get { return _netgenMesh.QuadDominated; } set { _netgenMesh.QuadDominated = value; } }
         //
         [Category("Mesh type")]
-        [OrderedDisplayName(1, 10, "Transfinite 4-sided faces")]
-        [Description("Select whether the 4-sided model faces are meshed as structured grids - quads on a quad " +
-                     "dominated shell, else triangles. The faces are those every mesher structures.")]
+        [OrderedDisplayName(1, 10, "Transfinite 3-sided faces")]
+        [Description("Mesh the 3-sided model faces as three structured blocks of quads around one inner node - " +
+                     "quads on a quad dominated shell, else every quad split into two triangles.")]
         [Id(2, 4)]
-        public NetgenTransfiniteFacesEnum TransfiniteFaces
+        public bool TransfiniteThreeSided
         {
-            get { return _netgenMesh.TransfiniteFaces; }
+            get { return _netgenMesh.TransfiniteThreeSided; }
             set
             {
-                _netgenMesh.TransfiniteFaces = value;
+                _netgenMesh.TransfiniteThreeSided = value;
                 UpdateVisibility();
             }
         }
         //
         [Category("Mesh type")]
-        [OrderedDisplayName(2, 10, "Transfinite threshold angle")]
-        [Description("Quadrangular faces with a corner angle larger than the threshold angle are ignored.")]
-        [TypeConverter(typeof(StringAngleDegConverter))]
+        [OrderedDisplayName(2, 10, "Transfinite 4-sided faces")]
+        [Description("Mesh the 4-sided model faces as structured grids - quads on a quad dominated shell, else " +
+                     "triangles.")]
         [Id(3, 4)]
+        public bool TransfiniteFourSided
+        {
+            get { return _netgenMesh.TransfiniteFourSided; }
+            set
+            {
+                _netgenMesh.TransfiniteFourSided = value;
+                UpdateVisibility();
+            }
+        }
+        //
+        [Category("Mesh type")]
+        [OrderedDisplayName(3, 10, "Transfinite threshold angle")]
+        [Description("A vertex is a corner of a structured face where its edges meet at this angle or sharper; " +
+                     "flatter joints are inside a side.")]
+        [TypeConverter(typeof(StringAngleDegConverter))]
+        [Id(4, 4)]
         public double TransfiniteAngleDeg
         {
             get { return _netgenMesh.TransfiniteAngleDeg; }
@@ -88,6 +104,8 @@ namespace PrePoMax.Forms
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(QuadDominated));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteThreeSided));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
             //
             UpdateVisibility();
         }
@@ -101,7 +119,7 @@ namespace PrePoMax.Forms
         private void UpdateVisibility()
         {
             _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(
-                _netgenMesh.TransfiniteFaces != NetgenTransfiniteFacesEnum.None);
+                _netgenMesh.TransfiniteThreeSided || _netgenMesh.TransfiniteFourSided);
         }
     }
 }

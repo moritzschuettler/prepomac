@@ -19,8 +19,8 @@ namespace CaeMesh
     [Serializable]
     public enum NetgenTransfiniteFacesEnum
     {
-        // The values are the transfinite_faces entry of the Netgen mesh parameters file. Netgen meshes the faces the one
-        // definition all meshers follow finds, so 1, a size check written by an earlier version, is read as All
+        // The Netgen transfinite setting of an earlier version, kept so that its files still load: any value but None
+        // is read as the 4-sided faces on
         [StandardValue("None", DisplayName = "None")]
         None = 0,
         [StandardValue("All", DisplayName = "All")]
