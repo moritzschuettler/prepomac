@@ -29,6 +29,9 @@ namespace CaeMesh
         private bool _edgeRotations;                                     // ISerializable
         private double _singularityPosition;                             // ISerializable
         private int _countSearch;                                        // ISerializable
+        private bool _transfiniteThreeSided;                             // ISerializable
+        private bool _transfiniteFourSided;                              // ISerializable
+        private double _transfiniteAngleDeg;                             // ISerializable
 
 
         // Properties
@@ -63,6 +66,13 @@ namespace CaeMesh
             set { _singularityPosition = value < 0 ? 0 : value; }
         }
         public int CountSearch { get { return _countSearch; } set { _countSearch = value < 0 ? 0 : value; } }
+        public bool TransfiniteThreeSided { get { return _transfiniteThreeSided; } set { _transfiniteThreeSided = value; } }
+        public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
+        public double TransfiniteAngleDeg
+        {
+            get { return _transfiniteAngleDeg; }
+            set { _transfiniteAngleDeg = Math.Max(90, Math.Min(180, value)); }
+        }
 
 
         // Constructors
@@ -113,6 +123,12 @@ namespace CaeMesh
                         _singularityPosition = (double)entry.Value; break;
                     case "_countSearch":
                         _countSearch = (int)entry.Value; break;
+                    case "_transfiniteThreeSided":
+                        _transfiniteThreeSided = (bool)entry.Value; break;
+                    case "_transfiniteFourSided":
+                        _transfiniteFourSided = (bool)entry.Value; break;
+                    case "_transfiniteAngleDeg":
+                        _transfiniteAngleDeg = (double)entry.Value; break;
                     default:
                         break;
                 }
@@ -138,6 +154,9 @@ namespace CaeMesh
             _edgeRotations = false;
             _singularityPosition = 0;
             _countSearch = 0;
+            _transfiniteThreeSided = true;
+            _transfiniteFourSided = true;
+            _transfiniteAngleDeg = 135;
         }
         public void CopyFrom(ShellQuadWild shellQuadWild)
         {
@@ -156,6 +175,9 @@ namespace CaeMesh
             _edgeRotations = shellQuadWild._edgeRotations;
             _singularityPosition = shellQuadWild._singularityPosition;
             _countSearch = shellQuadWild._countSearch;
+            _transfiniteThreeSided = shellQuadWild._transfiniteThreeSided;
+            _transfiniteFourSided = shellQuadWild._transfiniteFourSided;
+            _transfiniteAngleDeg = shellQuadWild._transfiniteAngleDeg;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -175,6 +197,9 @@ namespace CaeMesh
             info.AddValue("_edgeRotations", _edgeRotations, typeof(bool));
             info.AddValue("_singularityPosition", _singularityPosition, typeof(double));
             info.AddValue("_countSearch", _countSearch, typeof(int));
+            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(bool));
+            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
+            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }
 }

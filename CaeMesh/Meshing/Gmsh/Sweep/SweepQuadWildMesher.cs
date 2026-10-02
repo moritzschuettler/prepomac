@@ -89,10 +89,14 @@ namespace CaeMesh.Sweep
             // rotations of a later QuadWild are off as well: over the sweep test models they lowered the minimum
             // quality of the swept elements on ten of them and raised it on none. No boundary layer is added around the
             // holes of a source
+            // The transfinite faces of a source follow the transfinite settings of the item, like the gmsh sources
+            List<string> flowOptions = new List<string> { "input_line_count 0", "smooth_curves 0", "rotate_edges 0",
+                                                          "boundary_layer 0" };
+            flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(sweepMesh.TransfiniteThreeSided,
+                                                                           sweepMesh.TransfiniteFourSided,
+                                                                           sweepMesh.TransfiniteAngleDeg));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, sweepMesh.QuadWildFlowProfile,
-                                            sweepMesh.QuadWildAlpha,
-                                            new string[] { "input_line_count 0", "smooth_curves 0", "rotate_edges 0",
-                                                           "boundary_layer 0" });
+                                            sweepMesh.QuadWildAlpha, flowOptions);
             argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             QuadWildRuntime.RunStage("quad generation of " + group.GetDescription(), patchExecutable, argument,
                                      unsmoothedObjFileName, smoothObjFileName);

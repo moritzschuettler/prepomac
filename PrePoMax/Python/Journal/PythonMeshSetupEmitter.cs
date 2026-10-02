@@ -83,6 +83,12 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("singularity_position=" + PythonValueFormatter.Number(quadWild.SingularityPosition));
                 if (quadWild.CountSearch > 0)
                     arguments.Add("count_search=" + quadWild.CountSearch.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                if (!quadWild.TransfiniteThreeSided)
+                    arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Format(quadWild.TransfiniteThreeSided));
+                if (!quadWild.TransfiniteFourSided)
+                    arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(quadWild.TransfiniteFourSided));
+                if (quadWild.TransfiniteAngleDeg != 135)
+                    arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(quadWild.TransfiniteAngleDeg));
                 return "shell_quad_wild";
             }
             if (item is ExtrudeMesh extrude)

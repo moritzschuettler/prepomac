@@ -39,11 +39,24 @@ namespace CaeMesh
             "thin_corner_merge 0", "thin_corner_pattern 0",
             "strip_equal_sides 0", "bend_corners 0", "symmetric_mesh 0",
             "merge_infeasible_patches 0", "curve_max_angle 0", "even_holes 0",
-            "feature_chain_smooth 0", "smooth_no_fold 0"
+            "feature_chain_smooth 0", "smooth_no_fold 0", "transfinite_three_sided 0", "transfinite_four_sided 0"
         };
 
 
         // Methods                                                                                                                  
+        /// <summary>
+        /// The quad generation options of the transfinite faces: structured grids on the faces with 3 and 4 sides whose
+        /// corner angles lie between 180° minus the threshold angle and the threshold angle.
+        /// </summary>
+        public static string[] GetTransfiniteFlowOptions(bool threeSided, bool fourSided, double angleDeg)
+        {
+            return new string[]
+            {
+                "transfinite_three_sided " + (threeSided ? 1 : 0),
+                "transfinite_four_sided " + (fourSided ? 1 : 0),
+                "transfinite_angle " + angleDeg.ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+            };
+        }
         public static void ValidateRuntime(string executable, string patchExecutable, string runtimeDirectory)
         {
             if (!File.Exists(executable))

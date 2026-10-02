@@ -100,6 +100,42 @@ namespace PrePoMax.Forms
         [Id(4, 5)]
         public bool Smooth { get { return _shellQuadWild.Smooth; } set { _shellQuadWild.Smooth = value; } }
         //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(4, 10, "Transfinite 3-sided faces")]
+        [DescriptionAttribute("Take 3-sided model faces out of the QuadWild patch layout and mesh them with three " +
+                              "structured blocks of quads that meet at one inner node. QuadWild chooses the element " +
+                              "counts of their sides together with the rest of the mesh.")]
+        [Id(5, 5)]
+        public bool TransfiniteThreeSided
+        {
+            get { return _shellQuadWild.TransfiniteThreeSided; }
+            set { _shellQuadWild.TransfiniteThreeSided = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(5, 10, "Transfinite 4-sided faces")]
+        [DescriptionAttribute("Take 4-sided model faces out of the QuadWild patch layout and mesh them with a " +
+                              "structured grid of quads. QuadWild chooses the element counts of their sides together " +
+                              "with the rest of the mesh and gives the opposite sides the same number of elements.")]
+        [Id(6, 5)]
+        public bool TransfiniteFourSided
+        {
+            get { return _shellQuadWild.TransfiniteFourSided; }
+            set { _shellQuadWild.TransfiniteFourSided = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(6, 10, "Transfinite threshold angle")]
+        [DescriptionAttribute("Faces with a corner angle larger than the threshold angle or smaller than 180° minus " +
+                              "the threshold angle are meshed without the transfinite structure.")]
+        [TypeConverter(typeof(StringAngleDegConverter))]
+        [Id(7, 5)]
+        public double TransfiniteAngleDeg
+        {
+            get { return _shellQuadWild.TransfiniteAngleDeg; }
+            set { _shellQuadWild.TransfiniteAngleDeg = value; }
+        }
+        //
         [CategoryAttribute("Debugging")]
         [OrderedDisplayName(0, 10, "Keep files on failure")]
         [DescriptionAttribute("Keep the QuadWild MeshBatch folder when meshing fails so that its input, " +
@@ -213,6 +249,8 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanProperty(nameof(OldAlgorithm), "Old", "New");
             _dctd.RenameBooleanProperty(nameof(PinEdgeNodes), "Pinned", "Free");
             _dctd.RenameBooleanPropertyToOnOff(nameof(EdgeRotations));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteThreeSided));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
             //
             UpdateVisibility();
         }
@@ -230,6 +268,10 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(BoundaryLayer)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Alpha)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Smooth)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(TransfiniteThreeSided)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(TransfiniteFourSided)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(visible &&
+                (_shellQuadWild.TransfiniteThreeSided || _shellQuadWild.TransfiniteFourSided));
         }
     }
 }

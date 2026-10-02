@@ -211,6 +211,11 @@ namespace PrePoMax
                 flowOptions.Add("count_search " + shellQuadWild.CountSearch.ToString(CultureInfo.InvariantCulture));
             // 0 none, 1 holes, 2 every loop; the old algorithm has none
             flowOptions.Add("boundary_layer " + (shellQuadWild.OldAlgorithm ? 0 : (int)shellQuadWild.BoundaryLayer));
+            // Transfinite faces, like gmsh: structured grids on the faces with 3 and 4 sides; the old algorithm has none
+            if (!shellQuadWild.OldAlgorithm)
+                flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(shellQuadWild.TransfiniteThreeSided,
+                                                                               shellQuadWild.TransfiniteFourSided,
+                                                                               shellQuadWild.TransfiniteAngleDeg));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, shellQuadWild.FlowProfile,
                                             shellQuadWild.Alpha, flowOptions);
             //
@@ -220,6 +225,11 @@ namespace PrePoMax
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +
                                                (shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm ? ", edge rotations" : "") +
+                                               (!shellQuadWild.OldAlgorithm && (shellQuadWild.TransfiniteThreeSided ||
+                                                shellQuadWild.TransfiniteFourSided) ? ", transfinite " +
+                                                (shellQuadWild.TransfiniteThreeSided && shellQuadWild.TransfiniteFourSided ?
+                                                 "3- and 4-sided" : shellQuadWild.TransfiniteThreeSided ? "3-sided" : "4-sided") +
+                                                " faces" : "") +
                                                (shellQuadWild.SingularityPosition > 0 ? ", singularity position " +
                                                 shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture) : "") +
                                                (shellQuadWild.CountSearch > 0 ? ", count search " +
