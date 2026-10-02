@@ -113,6 +113,17 @@ namespace PrePoMax.Settings
             set { _solverSettings.ConvertPyramidsTo = value; }
         }
         //
+        [CategoryAttribute("CalculiX")]
+        [OrderedDisplayName(4, 10, "Binary results file")]
+        [DescriptionAttribute("Select yes to write the results file (.frd) in binary. It is about a third of the size " +
+                              "and opens faster. A step with contact energy (CELS) or PCON output stays ASCII.")]
+        [Id(5, 3)]
+        public bool BinaryResultsFile
+        {
+            get { return _solverSettings.BinaryResultsFile; }
+            set { _solverSettings.BinaryResultsFile = value; }
+        }
+        //
         [CategoryAttribute("Abaqus")]
         [OrderedDisplayName(0, 10, "Executable")]
         [DescriptionAttribute("Select the Abaqus executable file.")]
@@ -142,6 +153,7 @@ namespace PrePoMax.Settings
             _solverSettings = solverSettings;
             _dctd = ProviderInstaller.Install(this);
             _dctd.RenameBooleanPropertyToYesNo(nameof(UsePmxFolderAsWorkDirectory));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(BinaryResultsFile));
         }
 
 

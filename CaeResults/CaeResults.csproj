@@ -88,7 +88,9 @@
     <Compile Include="FileInOut\Input\CalculiX\DatDataSet.cs" />
     <Compile Include="FileInOut\Input\CalculiX\FrdFeDescriptorId.cs" />
     <Compile Include="FileInOut\Input\CalculiX\DatFileReader.cs" />
+    <Compile Include="FileInOut\Input\CalculiX\FrdDataSet.cs" />
     <Compile Include="FileInOut\Input\CalculiX\FrdFileReader.cs" />
+    <Compile Include="FileInOut\Input\CalculiX\FrdStreamReader.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromIntegration.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromTable.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromMergedHistories.cs" />

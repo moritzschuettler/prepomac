@@ -37,7 +37,7 @@ namespace FileInOut.Output
 
         // Methods                                                                                                                  
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
-                                 Dictionary<int, double[]> deformations = null)
+                                 bool binaryResultsFile, Dictionary<int, double[]> deformations = null)
         {
             // Copy model
             FeModel copy = model.DeepCopy();
@@ -45,6 +45,8 @@ namespace FileInOut.Output
             copy.Mesh.RemoveParts(inactivePartNames, out _, false);
             //
             List<CalculixKeyword> keywords = GetAllKeywords(copy, convertPyramidsTo, deformations);
+            // After the overrides, which are matched against the ASCII keywords shown in the keyword editor
+            if (binaryResultsFile) SetBinaryResultsFile(keywords);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -61,6 +63,42 @@ namespace FileInOut.Output
                     upper = Math.Min(sb.Length - i, step);
                     sw.Write(sb.ToString(i, upper));
                 }
+            }
+        }
+        static private void SetBinaryResultsFile(List<CalculixKeyword> keywords)
+        {
+            if (keywords == null) return;
+            foreach (var keyword in keywords)
+            {
+                if (keyword is CalStepHeader stepHeader) SetBinaryResultsFile(stepHeader);
+                else SetBinaryResultsFile(keyword.Keywords);
+            }
+        }
+        static private void SetBinaryResultsFile(CalStepHeader stepHeader)
+        {
+            // CalculiX writes the results of a step in the format of the last field output keyword of the step
+            List<CalculixKeyword> fieldOutputs = new List<CalculixKeyword>();
+            CollectFieldOutputKeywords(stepHeader.Keywords, fieldOutputs);
+            //
+            foreach (var fieldOutput in fieldOutputs)
+            {
+                if (fieldOutput is CalContactFile contactFile && !contactFile.BinarySupported) return;
+            }
+            //
+            foreach (var fieldOutput in fieldOutputs)
+            {
+                if (fieldOutput is CalNodeFile nodeFile) nodeFile.Binary = true;
+                else if (fieldOutput is CalElFile elFile) elFile.Binary = true;
+                else if (fieldOutput is CalContactFile contactFile) contactFile.Binary = true;
+            }
+        }
+        static private void CollectFieldOutputKeywords(List<CalculixKeyword> keywords, List<CalculixKeyword> fieldOutputs)
+        {
+            if (keywords == null) return;
+            foreach (var keyword in keywords)
+            {
+                if (keyword is CalNodeFile || keyword is CalElFile || keyword is CalContactFile) fieldOutputs.Add(keyword);
+                CollectFieldOutputKeywords(keyword.Keywords, fieldOutputs);
             }
         }
         static private void Clean(FeModel model)

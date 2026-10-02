@@ -76,10 +76,8 @@ namespace CaeResults
                     _bemaNodeIds = new HashSet<int[]>(comparer);
                 }
                 //
-                string[] lines = Tools.ReadAllLines(fileName);
-                if (lines == null) return null;
-                //
-                List<string[]> dataSets = GetDataSets(lines);
+                List<FrdDataSet> dataSets = GetDataSets(fileName);
+                if (dataSets == null) return null;
                 //
                 string setID;
                 Dictionary<int, FeNode> nodes = null;
@@ -98,26 +96,34 @@ namespace CaeResults
                 //
                 bool constantWidth = true;
                 //
-                foreach (string[] dataSet in dataSets)
+                foreach (FrdDataSet dataSet in dataSets)
                 {
-                    setID = dataSet[0];
+                    setID = dataSet.Lines[0];
                     if (setID.StartsWith("    1C", StringComparison.Ordinal))  // Data
                     {
-                        result.HashName = GetHashName(dataSet);
-                        result.DateTime = GetDateTime(dataSet);
-                        result.UnitSystem = GetUnitSystem(dataSet); // calls SetConverterUnits on the UnitSystem
-                        GetMaterialIdsAndNames(dataSet, out materialIdMaterialName, out gapMaterialIds,
+                        result.HashName = GetHashName(dataSet.Lines);
+                        result.DateTime = GetDateTime(dataSet.Lines);
+                        result.UnitSystem = GetUnitSystem(dataSet.Lines); // calls SetConverterUnits on the UnitSystem
+                        GetMaterialIdsAndNames(dataSet.Lines, out materialIdMaterialName, out gapMaterialIds,
                                                out springMaterialIds, out massMaterialIds);
                     }
                     else if (setID.StartsWith("    2C", StringComparison.Ordinal)) // Nodes
                     {
-                        constantWidth = IsConstantWidth(dataSet);
-                        nodes = GetNodes(dataSet, constantWidth, out nodeIdsLookUp);
+                        if (dataSet.IsBinary) nodes = GetNodesBinary(dataSet, out nodeIdsLookUp);
+                        else
+                        {
+                            constantWidth = IsConstantWidth(dataSet.Lines);
+                            nodes = GetNodes(dataSet.Lines, constantWidth, out nodeIdsLookUp);
+                        }
                     }
                     else if (setID.StartsWith("    3C", StringComparison.Ordinal)) // Elements
                     {
-                        elements = GetElements(dataSet, gapMaterialIds, springMaterialIds, massMaterialIds, out materialIdElementIds);
-                        //elements = GetElementsFast(dataSet));
+                        if (dataSet.IsBinary)
+                            elements = GetElementsBinary(dataSet, gapMaterialIds, springMaterialIds, massMaterialIds,
+                                                         out materialIdElementIds);
+                        else
+                            elements = GetElements(dataSet.Lines, gapMaterialIds, springMaterialIds, massMaterialIds,
+                                                   out materialIdElementIds);
                     }
                     else if (setID.StartsWith("    1PSTEP", StringComparison.Ordinal)) // Fields
                     {
@@ -342,33 +348,160 @@ namespace CaeResults
                 }
             }
         }
-        static private List<string[]> GetDataSets(string[] lines)
+        static private List<FrdDataSet> GetDataSets(string fileName)
         {
-            List<string> dataSet = new List<string>();
-            List<string[]> dataSets = new List<string[]>();
+            // The blocks written by *NODE OUTPUT, *ELEMENT OUTPUT and *CONTACT OUTPUT keep their header lines but store
+            // the records in binary without line breaks or the closing " -3" line; a file may mix both kinds of blocks
+            if (!Tools.WaitForFileToUnlock(fileName, 5000)) return null;
             //
-            for (int i = 0; i < lines.Length; i++)
+            string line;
+            int binaryFormat;
+            List<string> dataSet = new List<string>();
+            List<FrdDataSet> dataSets = new List<FrdDataSet>();
+            //
+            using (FileStream fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                if (lines[i] == " -3")
+                FrdStreamReader reader = new FrdStreamReader(fileStream);
+                while ((line = reader.ReadLine()) != null)
                 {
-                    dataSets.Add(dataSet.ToArray());
-                    dataSet = new List<string>();
+                    if (line == " -3")
+                    {
+                        if (dataSet.Count > 0) dataSets.Add(new FrdDataSet(dataSet.ToArray()));
+                        dataSet = new List<string>();
+                    }
+                    // Fast check for lines starting with: "    2C" or "    3C"
+                    else if (line.Length > 5 &&
+                             line[5] == 'C' &&
+                             (line[4] == '2' || line[4] == '3') &&
+                             line[3] == ' ' && line[2] == ' ' && line[1] == ' ' && line[0] == ' ')
+                    {
+                        if (dataSet.Count > 0) dataSets.Add(new FrdDataSet(dataSet.ToArray()));
+                        dataSet = new List<string>() { line };
+                        //
+                        binaryFormat = GetNodesOrElementsBinaryFormat(line);
+                        if (binaryFormat > 0)
+                        {
+                            byte[] data;
+                            if (line[4] == '2') data = ReadBinaryNodes(reader, line, binaryFormat);
+                            else data = ReadBinaryElements(reader, line);
+                            // As an ASCII block without its closing line, a block the solver is still writing is skipped
+                            if (data == null) break;
+                            dataSets.Add(new FrdDataSet(dataSet.ToArray(), binaryFormat, data));
+                            dataSet = new List<string>();
+                        }
+                    }
+                    // Fast check for lines starting with: "  100C"
+                    else if (line.Length > 74 && line[5] == 'C' && line[4] == '0' && line[3] == '0' && line[2] == '1' &&
+                             (binaryFormat = GetResultsBinaryFormat(line)) > 0)
+                    {
+                        dataSet.Add(line);
+                        byte[] data = ReadBinaryResults(reader, line, binaryFormat, dataSet);
+                        if (data == null) break;
+                        dataSets.Add(new FrdDataSet(dataSet.ToArray(), binaryFormat, data));
+                        dataSet = new List<string>();
+                    }
+                    else
+                        dataSet.Add(line);
                 }
-                // Fast check for lines starting with: "    2C" or "    3C"
-                else if (lines[i].Length > 5 &&
-                         lines[i][5] == 'C' &&
-                         (lines[i][4] == '2' || lines[i][4] == '3') &&
-                         lines[i][3] == ' ' && lines[i][2] == ' ' && lines[i][1] == ' ' && lines[i][0] == ' ' &&
-                         dataSet.Count > 0)
-                {
-                    dataSets.Add(dataSet.ToArray());
-                    dataSet = new List<string>() { lines[i] };
-                }
-                else
-                    dataSet.Add(lines[i]);
             }
             //
             return dataSets;
+        }
+        static private int GetNodesOrElementsBinaryFormat(string line)
+        {
+            //    2C                            36                                     1
+            //    2C                            36                                     3
+            int format;
+            if (line.Length > 36 && int.TryParse(line.Substring(36), out format) && (format == 2 || format == 3))
+                return format;
+            return 0;
+        }
+        static private int GetResultsBinaryFormat(string line)
+        {
+            //  100CL  101 149855.6204         111                     2    1MODAL      1
+            //  100CL  101 149855.6204         111                     2    1MODAL      2
+            int format;
+            if (int.TryParse(line.Substring(73, 2), out format) && (format == 2 || format == 3)) return format;
+            return 0;
+        }
+        static private int GetBinaryValueSize(int binaryFormat)
+        {
+            return binaryFormat == 3 ? sizeof(double) : sizeof(float);
+        }
+        static private byte[] ReadBinaryNodes(FrdStreamReader reader, string headerLine, int binaryFormat)
+        {
+            int numOfNodes = int.Parse(headerLine.Substring(6, 30));
+            return reader.ReadBytes(numOfNodes * (sizeof(int) + 3 * GetBinaryValueSize(binaryFormat)));
+        }
+        static private byte[] ReadBinaryElements(FrdStreamReader reader, string headerLine)
+        {
+            // Element id, type, group and material id followed by the element node ids
+            int numOfElements = int.Parse(headerLine.Substring(6, 30));
+            int headerSize = 4 * sizeof(int);
+            int recordSize;
+            int numOfNodes;
+            byte[] record = new byte[headerSize + 20 * sizeof(int)];
+            using (MemoryStream data = new MemoryStream(numOfElements * (headerSize + 10 * sizeof(int))))
+            {
+                for (int i = 0; i < numOfElements; i++)
+                {
+                    if (reader.ReadBytes(record, 0, headerSize) < headerSize) return null;
+                    numOfNodes = GetNumberOfElementNodes((FrdFeDescriptorId)BitConverter.ToInt32(record, sizeof(int)));
+                    recordSize = headerSize + numOfNodes * sizeof(int);
+                    if (reader.ReadBytes(record, headerSize, recordSize - headerSize) < recordSize - headerSize) return null;
+                    data.Write(record, 0, recordSize);
+                }
+                return data.ToArray();
+            }
+        }
+        static private byte[] ReadBinaryResults(FrdStreamReader reader, string headerLine, int binaryFormat,
+                                                List<string> dataSet)
+        {
+            // -4  DISP        4    1
+            // -5  D1          1    2    1    0
+            // -5  ALL         1    2    0    0    1ALL
+            int numOfComponents;
+            string line = reader.ReadLine();
+            if (line == null || line.Length < 18 || !int.TryParse(line.Substring(13, 5), out numOfComponents)) return null;
+            dataSet.Add(line);
+            //
+            int numOfStoredComponents = 0;
+            for (int i = 0; i < numOfComponents; i++)
+            {
+                line = reader.ReadLine();
+                if (line == null) return null;
+                dataSet.Add(line);
+                if (IsResultsComponentStored(line)) numOfStoredComponents++;
+            }
+            //
+            int numOfValues = int.Parse(headerLine.Substring(24, 12));
+            return reader.ReadBytes(numOfValues * (sizeof(int) + numOfStoredComponents * GetBinaryValueSize(binaryFormat)));
+        }
+        static private bool IsResultsComponentStored(string componentLine)
+        {
+            // A component with a nonzero existence flag, as ALL, is computed by the reader and not stored
+            int exists;
+            if (componentLine.Length <= 34) return true;
+            return !(int.TryParse(componentLine.Substring(33, Math.Min(5, componentLine.Length - 33)), out exists) &&
+                     exists != 0);
+        }
+        static private int GetNumberOfElementNodes(FrdFeDescriptorId feDescriptorId)
+        {
+            switch (feDescriptorId)
+            {
+                case FrdFeDescriptorId.SolidLinearHexahedron: return 8;
+                case FrdFeDescriptorId.SolidLinearWedge: return 6;
+                case FrdFeDescriptorId.SolidLinearTetrahedron: return 4;
+                case FrdFeDescriptorId.SolidParabolicHexahedron: return 20;
+                case FrdFeDescriptorId.SolidParabolicWedge: return 15;
+                case FrdFeDescriptorId.SolidParabolicTetrahedron: return 10;
+                case FrdFeDescriptorId.ShellLinearTriangle: return 3;
+                case FrdFeDescriptorId.ShellParabolicTriangle: return 6;
+                case FrdFeDescriptorId.ShellLinearQuadrilateral: return 4;
+                case FrdFeDescriptorId.ShellParabolicQuadrilateral: return 8;
+                case FrdFeDescriptorId.BeamLinear: return 2;
+                default: throw new Exception("The element type " + feDescriptorId.ToString() + " is not supported.");
+            }
         }
         static private Dictionary<int, FeNode> GetNodes(string[] lines, bool constantWidth, out Dictionary<int, int> nodeIdsLookUp)
         {
@@ -435,23 +568,57 @@ namespace CaeResults
 
             return nodes;
         }
+        static private Dictionary<int, FeNode> GetNodesBinary(FrdDataSet dataSet, out Dictionary<int, int> nodeIdsLookUp)
+        {
+            // Node id followed by the coordinates
+            byte[] data = dataSet.BinaryData;
+            int valueSize = GetBinaryValueSize(dataSet.BinaryFormat);
+            int recordSize = sizeof(int) + 3 * valueSize;
+            int numOfNodes = data.Length / recordSize;
+            Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>(numOfNodes);
+            nodeIdsLookUp = new Dictionary<int, int>(numOfNodes);
+            int id;
+            int position;
+            FeNode node;
+            //
+            for (int i = 0; i < numOfNodes; i++)
+            {
+                position = i * recordSize;
+                id = BitConverter.ToInt32(data, position);
+                position += sizeof(int);
+                node = new FeNode();
+                node.Id = id;
+                node.X = GetBinaryValue(data, position, valueSize);
+                node.Y = GetBinaryValue(data, position + valueSize, valueSize);
+                node.Z = GetBinaryValue(data, position + 2 * valueSize, valueSize);
+                //
+                nodes.Add(id, node);
+                nodeIdsLookUp.Add(id, i);
+            }
+            //
+            return nodes;
+        }
+        static private double GetBinaryValue(byte[] data, int position, int valueSize)
+        {
+            if (valueSize == sizeof(double)) return BitConverter.ToDouble(data, position);
+            else return BitConverter.ToSingle(data, position);
+        }
         static private Dictionary<int, FeElement> GetElements(string[] lines, HashSet<int> gapMaterialIds,
                                                               HashSet<int> springMaterialIds,
                                                               HashSet<int> massMaterialIds,
                                                               out Dictionary<int, List<int>> materialIdElementIds)
         {
-            //        el.id   type       ?   mat.id      
-            // -1      1413      3       0        1      
+            //        el.id   type       ?   mat.id
+            // -1      1413      3       0        1
             //           n1        n1        n3        n4
             // -2       483       489       481       482
             Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
-            List<int> elementIds;
             materialIdElementIds = new Dictionary<int, List<int>>();
             int id;
             FrdFeDescriptorId feDescriptorId;
-            FeElement element;
             int materialID;
-            int[] nodeIds;
+            int numOfNodes;
+            int[] frdNodeIds;
             string[] record1;
             string[] record2;
             string[] splitter = new string[] { " " };
@@ -461,106 +628,82 @@ namespace CaeResults
                 record1 = lines[i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                 id = int.Parse(record1[1]);
                 feDescriptorId = (FrdFeDescriptorId)int.Parse(record1[2]);
-                if (record1.Length == 5) materialID = int.Parse(record1[4]);    // ResultsForLastIterations has different output 
+                if (record1.Length == 5) materialID = int.Parse(record1[4]);    // ResultsForLastIterations has different output
                 else materialID = -1;
                 //
-                if (gapMaterialIds.Count > 0 && gapMaterialIds.Contains(materialID)) materialID = _gapMaterialId;
-                else if (springMaterialIds.Count > 0 && springMaterialIds.Contains(materialID)) materialID = _springMaterialId;
-                else if (massMaterialIds.Count > 0 && massMaterialIds.Contains(materialID)) materialID = _massMaterialId;
+                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
+                // A line holds up to 10 element nodes
+                numOfNodes = GetNumberOfElementNodes(feDescriptorId);
+                record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                if (numOfNodes > 10) record2 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                else record2 = null;
                 //
-                if (materialIdElementIds.TryGetValue(materialID, out elementIds)) elementIds.Add(id);
-                else materialIdElementIds.Add(materialID, new List<int> { id });
-                //
-                switch (feDescriptorId)
+                if (feDescriptorId == FrdFeDescriptorId.BeamLinear)
                 {
-                    // LINEAR ELEMENTS                                                                                              
-                    case FrdFeDescriptorId.BeamLinear:
-                        // Beam element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        if (TryGetLinearBeamElement(id, record1, out element))
-                        {
-                            if (_bemaNodeIds != null)
-                            {
-                                nodeIds = element.NodeIds;
-                                Array.Sort(nodeIds);
-                                if (_bemaNodeIds.Contains(nodeIds))
-                                    break;
-                                else _bemaNodeIds.Add(nodeIds);
-                            }
-                            elements.Add(id, element);
-                        }
-                        break;
-                    case FrdFeDescriptorId.ShellLinearTriangle:
-                        // Triangle element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetLinearTriangleElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.ShellLinearQuadrilateral:
-                        // Quadrilateral element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetLinearQuadrilateralElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidLinearTetrahedron:
-                        // Tetrahedron element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetLinearTetraElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidLinearWedge:
-                        // Wedge element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetLinearWedgeElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidLinearHexahedron:
-                        // Hexahedron element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetLinearHexaElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-
-                    // PARABOLIC ELEMENTS                                                                                           
-
-                    case FrdFeDescriptorId.ShellParabolicTriangle:
-                        // Triangle element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetParabolicTriangleElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.ShellParabolicQuadrilateral:
-                        // Quadrilateral element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetParabolicQuadrilateralElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidParabolicTetrahedron:
-                        // Tetrahedron element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetParabolicTetraElement(id, record1);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidParabolicWedge:
-                        // Wedge element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        record2 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetParabolicWedgeElement(id, record1, record2);
-                        elements.Add(id, element);
-                        break;
-                    case FrdFeDescriptorId.SolidParabolicHexahedron:
-                        // Hexahedron element
-                        record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        record2 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        element = GetParabolicHexaElement(id, record1, record2);
-                        elements.Add(id, element);
-                        break;
-                    default:
-                        throw new Exception("The element type " + feDescriptorId.ToString() + " is not supported.");
+                    if (!TryGetBeamNodeIds(record1, out frdNodeIds)) continue;
                 }
+                else frdNodeIds = GetNodeIds(record1, record2, numOfNodes);
+                //
+                AddElement(elements, GetElement(id, feDescriptorId, frdNodeIds));
             }
             //
             return elements;
+        }
+        static private Dictionary<int, FeElement> GetElementsBinary(FrdDataSet dataSet, HashSet<int> gapMaterialIds,
+                                                                    HashSet<int> springMaterialIds,
+                                                                    HashSet<int> massMaterialIds,
+                                                                    out Dictionary<int, List<int>> materialIdElementIds)
+        {
+            // Element id, type, group and material id followed by the element node ids
+            Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
+            materialIdElementIds = new Dictionary<int, List<int>>();
+            byte[] data = dataSet.BinaryData;
+            int id;
+            FrdFeDescriptorId feDescriptorId;
+            int materialID;
+            int[] frdNodeIds;
+            int position = 0;
+            //
+            while (position < data.Length)
+            {
+                id = BitConverter.ToInt32(data, position);
+                feDescriptorId = (FrdFeDescriptorId)BitConverter.ToInt32(data, position + sizeof(int));
+                materialID = BitConverter.ToInt32(data, position + 3 * sizeof(int));
+                position += 4 * sizeof(int);
+                //
+                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
+                //
+                frdNodeIds = new int[GetNumberOfElementNodes(feDescriptorId)];
+                Buffer.BlockCopy(data, position, frdNodeIds, 0, frdNodeIds.Length * sizeof(int));
+                position += frdNodeIds.Length * sizeof(int);
+                //
+                AddElement(elements, GetElement(id, feDescriptorId, frdNodeIds));
+            }
+            //
+            return elements;
+        }
+        static private void AddMaterialElementId(int elementId, int materialID, HashSet<int> gapMaterialIds,
+                                                 HashSet<int> springMaterialIds, HashSet<int> massMaterialIds,
+                                                 Dictionary<int, List<int>> materialIdElementIds)
+        {
+            List<int> elementIds;
+            if (gapMaterialIds.Count > 0 && gapMaterialIds.Contains(materialID)) materialID = _gapMaterialId;
+            else if (springMaterialIds.Count > 0 && springMaterialIds.Contains(materialID)) materialID = _springMaterialId;
+            else if (massMaterialIds.Count > 0 && massMaterialIds.Contains(materialID)) materialID = _massMaterialId;
+            //
+            if (materialIdElementIds.TryGetValue(materialID, out elementIds)) elementIds.Add(elementId);
+            else materialIdElementIds.Add(materialID, new List<int> { elementId });
+        }
+        static private void AddElement(Dictionary<int, FeElement> elements, FeElement element)
+        {
+            if (element is LinearBeamElement && _bemaNodeIds != null)
+            {
+                int[] nodeIds = element.NodeIds;
+                Array.Sort(nodeIds);
+                if (_bemaNodeIds.Contains(nodeIds)) return;
+                else _bemaNodeIds.Add(nodeIds);
+            }
+            elements.Add(element.Id, element);
         }
         static private void RemoveErrorElements(Dictionary<int, FeNode> nodes, ref Dictionary<int, FeElement> elements)
         {
@@ -578,15 +721,19 @@ namespace CaeResults
             }
             foreach (var elementId in elementsIdsToRemove) elements.Remove(elementId);
         }
-        static private void GetField(string[] lines, bool constantWidth, FieldData prevFieldData, Dictionary<int, int> nodeIdsLookUp,
-                                     out FieldData fieldData, out Field field)
+        static private void GetField(FrdDataSet dataSet, bool constantWidth, FieldData prevFieldData,
+                                     Dictionary<int, int> nodeIdsLookUp, out FieldData fieldData, out Field field)
         {
             int lineNum = 0;
             int numOfVal;
             List<string> components;
+            float[][] values;
             //
-            GetFieldHeaderData(lines, ref lineNum, prevFieldData, out fieldData, out numOfVal);
-            float[][] values = GetFieldValuesData(lines, ref lineNum, constantWidth, numOfVal, nodeIdsLookUp, out components);
+            GetFieldHeaderData(dataSet.Lines, ref lineNum, prevFieldData, out fieldData, out numOfVal);
+            if (dataSet.IsBinary)
+                values = GetFieldValuesDataBinary(dataSet, lineNum, numOfVal, nodeIdsLookUp, out components);
+            else
+                values = GetFieldValuesData(dataSet.Lines, ref lineNum, constantWidth, numOfVal, nodeIdsLookUp, out components);
             //
             field = new Field(fieldData.Name);
             for (int i = 0; i < components.Count; i++)
@@ -998,149 +1145,117 @@ namespace CaeResults
             }
             return values;
         }
-        
-        
-        // LINEAR ELEMENTS                                                                                              
-        static private bool TryGetLinearBeamElement(int id, string[] record, out FeElement element)
+        static private float[][] GetFieldValuesDataBinary(FrdDataSet dataSet, int lineNum, int numOfVal,
+                                                          Dictionary<int, int> nodeIdsLookUp, out List<string> components)
         {
-            element = null;
-            //
-            try
+            // -4  DISP        4    1
+            // -5  D1          1    2    1    0
+            // -5  ALL         1    2    0    0    1ALL
+            // Each record is the node id followed by the values of the stored components
+            string[] lines = dataSet.Lines;
+            string componentName;
+            string componentRename;
+            List<int> storedComponentIds = new List<int>();
+            components = new List<string>();
+            for (int i = lineNum; i < lines.Length; i++)
             {
-                int[] nodes = new int[2];
-                for (int i = 0; i < nodes.Length; i++)
-                {
-                    if (!int.TryParse(record[i + 1], out nodes[i])) return false;
-                }
-                element = new LinearBeamElement(id, nodes);
+                componentName = lines[i].Substring(5, Math.Min(8, lines[i].Length - 5)).Trim();
+                if (componentNameMap.TryGetValue(componentName, out componentRename)) componentName = componentRename;
+                if (IsResultsComponentStored(lines[i])) storedComponentIds.Add(components.Count);
+                components.Add(componentName);
+            }
+            //
+            float[][] values = new float[components.Count][];
+            for (int i = 0; i < values.Length; i++) values[i] = new float[nodeIdsLookUp.Count];
+            //
+            byte[] data = dataSet.BinaryData;
+            int valueSize = GetBinaryValueSize(dataSet.BinaryFormat);
+            int recordSize = sizeof(int) + storedComponentIds.Count * valueSize;
+            //
+            bool directIds = nodeIdsLookUp.Count == numOfVal;
+            int nodeValueId;
+            int position;
+            for (int i = 0; i < numOfVal; i++)
+            {
+                position = i * recordSize;
+                if (directIds) nodeValueId = i;
+                else if (!nodeIdsLookUp.TryGetValue(BitConverter.ToInt32(data, position), out nodeValueId)) continue;
+                position += sizeof(int);
                 //
-                return true;
+                for (int j = 0; j < storedComponentIds.Count; j++)
+                {
+                    values[storedComponentIds[j]][nodeValueId] = (float)GetBinaryValue(data, position, valueSize);
+                    position += valueSize;
+                }
             }
-            catch
-            {
-                return false;
-            }
-        }
-        static private LinearTriangleElement GetLinearTriangleElement(int id, string[] record)
-        {
-            int[] nodes = new int[3];
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = int.Parse(record[i + 1]);
-            }
-            return new LinearTriangleElement(id, nodes);
-        }
-        static private LinearQuadrilateralElement GetLinearQuadrilateralElement(int id, string[] record)
-        {
-            int[] nodes = new int[4];
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = int.Parse(record[i + 1]);
-            }
-            return new LinearQuadrilateralElement(id, nodes);
-        }
-        static private LinearTetraElement GetLinearTetraElement(int id, string[] record)
-        {
-            int[] nodes = new int[4];
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = int.Parse(record[i + 1]);
-            }
-            return new LinearTetraElement(id, nodes);
-        }
-        static private LinearWedgeElement GetLinearWedgeElement(int id, string[] record)
-        {
-            int[] nodes = new int[6];
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = int.Parse(record[i + 1]);
-            }
-            return new LinearWedgeElement(id, nodes);
-        }
-        static private LinearHexaElement GetLinearHexaElement(int id, string[] record)
-        {
-            int[] nodes = new int[8];
-            //
-            nodes[0] = int.Parse(record[1]);
-            nodes[1] = int.Parse(record[2]);
-            nodes[2] = int.Parse(record[3]);
-            nodes[3] = int.Parse(record[4]);
-            nodes[4] = int.Parse(record[5]);
-            nodes[5] = int.Parse(record[6]);
-            nodes[6] = int.Parse(record[7]);
-            nodes[7] = int.Parse(record[8]);
-            //
-            return new LinearHexaElement(id, nodes);
+            return values;
         }
 
 
-        // PARABOLIC ELEMENTS                                                                                           
-        static private ParabolicTriangleElement GetParabolicTriangleElement(int id, string[] record)
+        static private bool TryGetBeamNodeIds(string[] record, out int[] nodeIds)
         {
-            int[] nodes = new int[6];
-            for (int i = 0; i < nodes.Length; i++)
+            nodeIds = new int[2];
+            if (record.Length < 3) return false;
+            for (int i = 0; i < nodeIds.Length; i++)
             {
-                nodes[i] = int.Parse(record[i + 1]);
+                if (!int.TryParse(record[i + 1], out nodeIds[i])) return false;
             }
-            return new ParabolicTriangleElement(id, nodes);
+            return true;
         }
-        static private ParabolicQuadrilateralElement GetParabolicQuadrilateralElement(int id, string[] record)
+        static private int[] GetNodeIds(string[] record1, string[] record2, int numOfNodes)
         {
-            int[] nodes = new int[8];
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = int.Parse(record[i + 1]);
-            }
-            return new ParabolicQuadrilateralElement(id, nodes);
+            int[] nodeIds = new int[numOfNodes];
+            int numOfNodes1 = Math.Min(numOfNodes, 10);
+            for (int i = 0; i < numOfNodes1; i++) nodeIds[i] = int.Parse(record1[i + 1]);
+            for (int i = numOfNodes1; i < numOfNodes; i++) nodeIds[i] = int.Parse(record2[i - numOfNodes1 + 1]);
+            return nodeIds;
         }
-        static private ParabolicTetraElement GetParabolicTetraElement(int id, string[] record)
+        static private FeElement GetElement(int id, FrdFeDescriptorId feDescriptorId, int[] frdNodeIds)
         {
-            int[] nodes = new int[10];
-            for (int i = 0; i < nodes.Length; i++)
+            int[] nodes;
+            switch (feDescriptorId)
             {
-                nodes[i] = int.Parse(record[i + 1]);
+                // LINEAR ELEMENTS
+                case FrdFeDescriptorId.BeamLinear: return new LinearBeamElement(id, frdNodeIds);
+                case FrdFeDescriptorId.ShellLinearTriangle: return new LinearTriangleElement(id, frdNodeIds);
+                case FrdFeDescriptorId.ShellLinearQuadrilateral: return new LinearQuadrilateralElement(id, frdNodeIds);
+                case FrdFeDescriptorId.SolidLinearTetrahedron: return new LinearTetraElement(id, frdNodeIds);
+                case FrdFeDescriptorId.SolidLinearWedge: return new LinearWedgeElement(id, frdNodeIds);
+                case FrdFeDescriptorId.SolidLinearHexahedron: return new LinearHexaElement(id, frdNodeIds);
+                // PARABOLIC ELEMENTS
+                case FrdFeDescriptorId.ShellParabolicTriangle: return new ParabolicTriangleElement(id, frdNodeIds);
+                case FrdFeDescriptorId.ShellParabolicQuadrilateral: return new ParabolicQuadrilateralElement(id, frdNodeIds);
+                case FrdFeDescriptorId.SolidParabolicTetrahedron: return new ParabolicTetraElement(id, frdNodeIds);
+                case FrdFeDescriptorId.SolidParabolicWedge:
+                    nodes = new int[15];
+                    // First 9 nodes are OK
+                    Array.Copy(frdNodeIds, nodes, 9);
+                    // Swap last 3 nodes with forelast 3 nodes
+                    nodes[9] = frdNodeIds[12];
+                    nodes[10] = frdNodeIds[13];
+                    nodes[11] = frdNodeIds[14];
+                    nodes[12] = frdNodeIds[9];
+                    nodes[13] = frdNodeIds[10];
+                    nodes[14] = frdNodeIds[11];
+                    return new ParabolicWedgeElement(id, nodes);
+                case FrdFeDescriptorId.SolidParabolicHexahedron:
+                    nodes = new int[20];
+                    // First 12 nodes are OK
+                    Array.Copy(frdNodeIds, nodes, 12);
+                    // Swap last 4 nodes with forelast 4 nodes
+                    nodes[12] = frdNodeIds[16];
+                    nodes[13] = frdNodeIds[17];
+                    nodes[14] = frdNodeIds[18];
+                    nodes[15] = frdNodeIds[19];
+                    //
+                    nodes[16] = frdNodeIds[12];
+                    nodes[17] = frdNodeIds[13];
+                    nodes[18] = frdNodeIds[14];
+                    nodes[19] = frdNodeIds[15];
+                    return new ParabolicHexaElement(id, nodes);
+                default:
+                    throw new Exception("The element type " + feDescriptorId.ToString() + " is not supported.");
             }
-            return new ParabolicTetraElement(id, nodes);
-        }
-        static private ParabolicWedgeElement GetParabolicWedgeElement(int id, string[] record1, string[] record2)
-        {
-            int[] nodes = new int[15];
-            for (int i = 0; i < 9; i++) // first 9 nodes are OK
-            {
-                nodes[i] = int.Parse(record1[i + 1]);
-            }
-            // Swap last 3 nodes with forelast 3 nodes
-            nodes[9] = int.Parse(record2[3]);
-            nodes[10] = int.Parse(record2[4]);
-            nodes[11] = int.Parse(record2[5]);
-            nodes[12] = int.Parse(record1[10]);
-            nodes[13] = int.Parse(record2[1]);
-            nodes[14] = int.Parse(record2[2]);
-            //
-            return new ParabolicWedgeElement(id, nodes);
-        }
-        static private ParabolicHexaElement GetParabolicHexaElement(int id, string[] record1, string[] record2)
-        {
-            int[] nodes = new int[20];
-            // First 12 nodes are OK
-            for (int i = 0; i < 10; i++)
-            {
-                nodes[i] = int.Parse(record1[i + 1]);
-            }
-            nodes[10] = int.Parse(record2[1]);
-            nodes[11] = int.Parse(record2[2]);
-            // Swap last 3 nodes with forelast 3 nodes
-            nodes[12] = int.Parse(record2[7]);
-            nodes[13] = int.Parse(record2[8]);
-            nodes[14] = int.Parse(record2[9]);
-            nodes[15] = int.Parse(record2[10]);
-            //
-            nodes[16] = int.Parse(record2[3]);
-            nodes[17] = int.Parse(record2[4]);
-            nodes[18] = int.Parse(record2[5]);
-            nodes[19] = int.Parse(record2[6]);
-            //
-            return new ParabolicHexaElement(id, nodes);
         }
 
         //                                                                                                          

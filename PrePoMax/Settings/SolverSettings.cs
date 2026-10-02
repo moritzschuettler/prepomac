@@ -28,6 +28,7 @@ namespace PrePoMax
         private SolverTypeEnum _calculixDefaultSolverType;
         private List<EnvironmentVariable> _environmentVariables;
         private ConvertPyramidsToEnum _convertPyramidsTo;
+        private bool _binaryResultsFile;
         private string _abaqusExe;
         private string _femasterExe;
         public static string NonEnglishDirectoryWarning = "The selected work directory path contains non-English characters. " +
@@ -74,6 +75,11 @@ namespace PrePoMax
             get { return _convertPyramidsTo; }
             set { _convertPyramidsTo = value; }
         }
+        public bool BinaryResultsFile
+        {
+            get { return _binaryResultsFile; }
+            set { _binaryResultsFile = value; }
+        }
         public string AbaqusExe
         {
             get { return Tools.GetGlobalPath(_abaqusExe); }
@@ -106,6 +112,7 @@ namespace PrePoMax
             _calculixDefaultSolverType = SolverTypeEnum.Pardiso;
             _environmentVariables = null;
             _convertPyramidsTo = ConvertPyramidsToEnum.Wedges;
+            _binaryResultsFile = false;
             _abaqusExe = null;
             _femasterExe = null;
         }

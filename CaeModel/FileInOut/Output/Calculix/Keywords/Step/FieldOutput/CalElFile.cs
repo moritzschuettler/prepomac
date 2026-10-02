@@ -23,15 +23,18 @@ namespace FileInOut.Output.Calculix
         // Variables                                                                                                                
         protected ElementFieldOutput _elementFieldOutput;
         protected int _outputFrequency;
+        protected bool _binary;
 
 
-        // Properties                                                                                                               
+        // Properties
+        public bool Binary { get { return _binary; } set { _binary = value; } }
 
 
-        // Constructor                                                                                                              
+        // Constructor
         public CalElFile(CalElFile calElFile)
             : this(calElFile._elementFieldOutput, calElFile._outputFrequency)
         {
+            _binary = calElFile._binary;
         }
         public CalElFile(ElementFieldOutput elementFieldOutput, int outputFrequency)
         {
@@ -51,7 +54,9 @@ namespace FileInOut.Output.Calculix
             else if (_elementFieldOutput.Output == ElementFieldOutputOutputEnum.ThreeD) output += ", Output=3D";
             string global = !_elementFieldOutput.Global ? ", Global=No" : "";
             //
-            return string.Format("*El file{0}{1}{2}{3}{4}", lastIterations, contactElements, output, global,
+            string keyword = _binary ? "*Element output" : "*El file";
+            //
+            return string.Format("{0}{1}{2}{3}{4}{5}", keyword, lastIterations, contactElements, output, global,
                                  Environment.NewLine);
         }
         public override string GetDataString()

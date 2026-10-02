@@ -22,15 +22,27 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         protected ContactFieldOutput _contactFieldOutput;
+        protected bool _binary;
 
 
-        // Properties                                                                                                               
+        // Properties
+        public bool Binary { get { return _binary; } set { _binary = value; } }
+        // CalculiX 2.22 writes wrong contact energies into a binary results file and PCON is not verified there
+        public bool BinarySupported
+        {
+            get
+            {
+                return !_contactFieldOutput.Variables.HasFlag(ContactFieldVariable.CELS) &&
+                       !_contactFieldOutput.Variables.HasFlag(ContactFieldVariable.PCON);
+            }
+        }
 
 
-        // Constructor                                                                                                              
+        // Constructor
         public CalContactFile(CalContactFile calContactFile)
             : this(calContactFile._contactFieldOutput)
         {
+            _binary = calContactFile._binary;
         }
         public CalContactFile(ContactFieldOutput contactFieldOutput)
         {
@@ -44,7 +56,9 @@ namespace FileInOut.Output.Calculix
             string lastIterations = _contactFieldOutput.LastIterations ? ", Last iterations" : "";
             string contactElements = _contactFieldOutput.ContactElements ? ", Contact elements" : "";
             //
-            return string.Format("*Contact file{0}{1}{2}", lastIterations, contactElements, Environment.NewLine);
+            string keyword = _binary ? "*Contact output" : "*Contact file";
+            //
+            return string.Format("{0}{1}{2}{3}", keyword, lastIterations, contactElements, Environment.NewLine);
         }
         public override string GetDataString()
         {

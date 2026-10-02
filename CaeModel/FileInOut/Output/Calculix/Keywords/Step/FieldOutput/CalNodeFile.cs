@@ -23,15 +23,18 @@ namespace FileInOut.Output.Calculix
         // Variables                                                                                                                
         protected NodalFieldOutput _nodalFieldOutput;
         protected int _outputFrequency;
+        protected bool _binary;
 
 
-        // Properties                                                                                                               
+        // Properties
+        public bool Binary { get { return _binary; } set { _binary = value; } }
 
 
-        // Constructor                                                                                                              
+        // Constructor
         public CalNodeFile(CalNodeFile calNodeFile)
             : this(calNodeFile._nodalFieldOutput, calNodeFile._outputFrequency)
         {
+            _binary = calNodeFile._binary;
         }
         public CalNodeFile(NodalFieldOutput nodalFieldOutput, int outputFrequency)
         {
@@ -47,7 +50,9 @@ namespace FileInOut.Output.Calculix
             string contactElements = _nodalFieldOutput.ContactElements ? ", Contact elements" : "";
             string global = !_nodalFieldOutput.Global ? ", Global=No" : "";
             //
-            return string.Format("*Node file{0}{1}{2}{3}", lastIterations, contactElements, global, Environment.NewLine);
+            string keyword = _binary ? "*Node output" : "*Node file";
+            //
+            return string.Format("{0}{1}{2}{3}{4}", keyword, lastIterations, contactElements, global, Environment.NewLine);
         }
         public override string GetDataString()
         {

@@ -2880,13 +2880,15 @@ namespace PrePoMax
             }
         }
         //
-        public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
+        public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null,
+                                     bool binaryResultsFileAllowed = true)
         {
             SuppressExplodedView();
             // Add deformations to model
             _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations);
             UpdateNCalcParameters();
-            CalculixFileWriter.Write(fileName, _model, _settings.Solver.ConvertPyramidsTo);
+            CalculixFileWriter.Write(fileName, _model, _settings.Solver.ConvertPyramidsTo,
+                                     binaryResultsFileAllowed && _settings.Solver.BinaryResultsFile);
             // Remove deformations from model
             _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations, true);
             ResumeExplodedViews(false);
@@ -2969,7 +2971,8 @@ namespace PrePoMax
                 }
                 newModel.Mesh.Parts = meshParts;
                 //
-                CalculixFileWriter.Write(fileName, newModel, _settings.Solver.ConvertPyramidsTo);
+                CalculixFileWriter.Write(fileName, newModel, _settings.Solver.ConvertPyramidsTo,
+                                         _settings.Solver.BinaryResultsFile);
                 ResumeExplodedViews(false);
                 //
                 _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
@@ -3054,7 +3057,8 @@ namespace PrePoMax
         private void ExportMeshPartsToCalculix(string[] partNames, string fileName)
         {
             SuppressExplodedView(partNames);
-            CalculixFileWriter.Write(fileName, CreateMeshPartsModel(partNames), _settings.Solver.ConvertPyramidsTo);
+            CalculixFileWriter.Write(fileName, CreateMeshPartsModel(partNames), _settings.Solver.ConvertPyramidsTo,
+                                     _settings.Solver.BinaryResultsFile);
             ResumeExplodedViews(false);
             //
             foreach (var partName in partNames)
@@ -18492,7 +18496,7 @@ namespace PrePoMax
         {
             if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
-            else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName);
+            else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName, null, false);
             else throw new NotSupportedException();
             //
             job.JobStatusChanged = JobStatusChanged;
@@ -18541,7 +18545,8 @@ namespace PrePoMax
             {
                 SuppressExplodedView();
                 FeModel model = _model.PrepareBdmModel(deformations);
-                CalculixFileWriter.Write(job.InputFileName, model, _settings.Solver.ConvertPyramidsTo, null);
+                CalculixFileWriter.Write(job.InputFileName, model, _settings.Solver.ConvertPyramidsTo,
+                                         _settings.Solver.BinaryResultsFile, null);
                 ResumeExplodedViews(false);
             }
         }
