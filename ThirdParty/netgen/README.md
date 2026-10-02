@@ -44,11 +44,14 @@ and BRepMesh silently drops whole faces. It divides a copy in which every face h
 own, because faces a split cut from one face share its surface and the pcurves of the edges between
 them, and dividing one of them left the other without pcurves on those edges. It warns on stdout about
 every face it could not
-triangulate. Its `BREP_MESH` reads the optional `transfinite_faces` and `transfinite_angle` entries
-of the mesh parameters file, which mesh 4-sided faces with matching segment counts on opposite sides
-as structured triangle grids - none, size checked (only where the grid is not much finer than the mesh
-size) or all; the edge meshing balances the segment counts of opposite sides - each
-one edge or several - across neighbouring faces, so that most of them match. Its `BREP_MERGE_SOLIDS`
+triangulate. Its `BREP_MESH` reads the optional `transfinite_faces`, `transfinite_angle` and
+`transfinite_filename` entries of the mesh parameters file. The file names the structured faces PrePoMax
+finds by the one definition all its meshers follow - every face with its sides as chains of edges, the
+numbers of elements set on edges and the names messages use - and Netgen then finds none of its own: it
+balances opposite sides to the coarser count without changing a set number, meshes every given face as a
+structured grid - quads when quad dominated, else triangles - with no fallback, and refuses the meshing,
+naming the faces and edges, when the set numbers cannot agree or a grid folds. Without the file the older
+detection of 4-sided faces by `transfinite_faces` and `transfinite_angle` applies. Its `BREP_MERGE_SOLIDS`
 makes one solid of the named solids of a compound, leaving out the faces they share and healing the edges
 the removed faces leave on the outside, and writes every other solid as it was, which is what Fuse Bodies
 runs. Its `BREP_REMOVE_FACES` deletes the named faces and leaves the gap open, so a solid that loses a
