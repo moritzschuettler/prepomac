@@ -94,7 +94,10 @@ namespace CaeMesh
                     case "_quadDominated":
                         _quadDominated = (bool)entry.Value; break;
                     case "_transfiniteFaces":
-                        _transfiniteFaces = (NetgenTransfiniteFacesEnum)entry.Value; break;
+                        _transfiniteFaces = (NetgenTransfiniteFacesEnum)entry.Value;
+                        // The size check of an earlier version: the structured faces are those of the definition
+                        if ((int)_transfiniteFaces == 1) _transfiniteFaces = NetgenTransfiniteFacesEnum.All;
+                        break;
                     case "_transfiniteAngleDeg":
                         _transfiniteAngleDeg = (double)entry.Value; break;
                     default:

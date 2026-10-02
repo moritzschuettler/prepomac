@@ -11622,6 +11622,10 @@ namespace PrePoMax
                     return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.TransfiniteThreeSided,
                                                                     shellGmsh.TransfiniteFourSided,
                                                                     shellGmsh.TransfiniteAngleDeg);
+                else if (mesherSetupItem is ShellQuadWild shellQuadWild)
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.TransfiniteThreeSided,
+                                                                    shellQuadWild.TransfiniteFourSided,
+                                                                    shellQuadWild.TransfiniteAngleDeg);
                 // Netgen lays its grid on four sided faces only
                 else if (mesherSetupItem is NetgenMesh netgenMesh)
                     return _model.Geometry.GetTransfiniteShellFaces(part, false,

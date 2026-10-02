@@ -107,6 +107,7 @@ namespace PrePoMax
         public static string StlFileName = "geometry.stl";        
         public static string MeshParametersFileName = "meshParameters";
         public static string LocalMeshSizesFileName = "localMeshSizes";
+        public static string TransfiniteFacesFileName = "transfiniteFaces";
         public static string GmshMeshFileName = "gmsh.msh";
         public static string GmshDataFileName = "gmshData";
         public static string QuadWildGmshDataFileName = "quadwildGmshData";

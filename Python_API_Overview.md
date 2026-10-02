@@ -708,9 +708,10 @@ carries, not by the verdict of the item it replaces.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_faces` and
-`transfinite_angle` belong to `add_netgen_mesh`. `transfinite_faces` is `'None'`, `'SizeChecked'` or
-`'All'`: which 4-sided faces are meshed as structured triangle grids, `'SizeChecked'` leaving a face
-whose grid would be much finer than the mesh size asks for to the usual mesher.
+`transfinite_angle` belong to `add_netgen_mesh`. `transfinite_faces` is `'None'` or `'All'`: whether the
+4-sided faces every mesher structures are meshed as structured grids, quads when `quad_dominated` is set
+and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
+edge is kept, and the meshing is refused when the set numbers cannot agree.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
 arguments of the call are applied on top of those. `replace_meshing_parameters` does the same when
 it is given a new `selection` and no other value, so the sizes follow the geometry the item now

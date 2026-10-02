@@ -53,8 +53,8 @@ namespace PrePoMax.Forms
         //
         [Category("Mesh type")]
         [OrderedDisplayName(1, 10, "Transfinite 4-sided faces")]
-        [Description("Select the 4-sided model faces meshed as structured triangle grids. Size checked leaves a " +
-                     "face whose grid would be much finer than the mesh size asks for to the usual mesher.")]
+        [Description("Select whether the 4-sided model faces are meshed as structured grids - quads on a quad " +
+                     "dominated shell, else triangles. The faces are those every mesher structures.")]
         [Id(2, 4)]
         public NetgenTransfiniteFacesEnum TransfiniteFaces
         {

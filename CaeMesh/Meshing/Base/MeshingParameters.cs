@@ -248,7 +248,10 @@ namespace CaeMesh
                     case "_quadDominated":
                         _quadDominated = (bool)entry.Value; break;
                     case "_transfiniteFaces":
-                        _transfiniteFaces = (NetgenTransfiniteFacesEnum)entry.Value; break;
+                        _transfiniteFaces = (NetgenTransfiniteFacesEnum)entry.Value;
+                        // The size check of an earlier version: the structured faces are those of the definition
+                        if ((int)_transfiniteFaces == 1) _transfiniteFaces = NetgenTransfiniteFacesEnum.All;
+                        break;
                     case "_transfiniteAngleDeg":
                         _transfiniteAngleDeg = (double)entry.Value; break;
                     case "_midsideNodesOnGeometry":
@@ -308,7 +311,8 @@ namespace CaeMesh
         {
             WriteToFile(fileName, bbDiagonal, 1);
         }
-        public void WriteToFile(string fileName, double bbDiagonal, int parallelMeshingThreads)
+        public void WriteToFile(string fileName, double bbDiagonal, int parallelMeshingThreads,
+                                string transfiniteFileName = null)
         {
             if (parallelMeshingThreads < 1)
                 throw new ArgumentOutOfRangeException(nameof(parallelMeshingThreads),
@@ -375,6 +379,9 @@ namespace CaeMesh
             sb.AppendLine("double   transfinite_angle           ... A vertex is a corner of a transfinite face where its " +
                           "edges meet at less than this angle in degrees.");
             sb.AppendLine(_transfiniteAngleDeg.ToString());
+            sb.AppendLine("char*    transfinite_filename        ... Optional file of the structured faces, which replace " +
+                          "those Netgen finds.");
+            sb.AppendLine(transfiniteFileName ?? "");
             //
             //Encoding encoding = Encoding.Unicode;
             System.IO.File.WriteAllText(fileName, sb.ToString());

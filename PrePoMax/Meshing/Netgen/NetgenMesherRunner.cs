@@ -210,8 +210,9 @@ namespace PrePoMax
             File.WriteAllText(brepFileName, part.CADFileData);
             _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
             MeshingParameters meshingParameters = _controller.GetPartMeshingParameters(part.Name, meshSetupItems);
+            string transfiniteFileName = WriteTransfiniteFile(part, meshingParameters, workDirectory, meshSetupItems);
             meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
-                                          _controller.Settings.Meshing.ParallelMeshingThreads);
+                                          _controller.Settings.Meshing.ParallelMeshingThreads, transfiniteFileName);
             _controller.ResumeExplodedViews(false);
             //
             string argument = "BREP_EDGE_MESH " +
@@ -229,6 +230,33 @@ namespace PrePoMax
                 return true;
             }
             else return false;
+        }
+        /// <summary>
+        /// The file of the structured faces of a CAD part, by the one definition all meshers follow, or null when
+        /// Netgen lays no structured grid. The numbers of elements the user set on the edges are written with it.
+        /// </summary>
+        private string WriteTransfiniteFile(GeometryPart part, MeshingParameters meshingParameters, string workDirectory,
+                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        {
+            string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
+            if (File.Exists(fileName)) File.Delete(fileName);
+            if (meshingParameters.TransfiniteFaces == NetgenTransfiniteFacesEnum.None || !part.IsCADPart ||
+                part is CompoundGeometryPart) return null;
+            //
+            GmshData sizes = new GmshData();
+            _controller.GetMeshItemSizes(part.Name, ref sizes, meshSetupItems);
+            Dictionary<int, int> pinnedEdgeCounts = new Dictionary<int, int>();
+            if (sizes.EdgeIdNumElements != null)
+            {
+                foreach (var entry in sizes.EdgeIdNumElements)
+                {
+                    if (FeMesh.GetPartIdFromGmshTopologyId(entry.Key) == part.PartId)
+                        pinnedEdgeCounts[FeMesh.GetItemIdFromGmshTopologyId(entry.Key)] = entry.Value;
+                }
+            }
+            NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, part, true,
+                                        meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts);
+            return fileName;
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)
@@ -390,8 +418,9 @@ namespace PrePoMax
             {
                 File.WriteAllText(brepFileName, part.CADFileData);
                 meshingParameters = _controller.GetPartMeshingParameters(part.Name);
+                string transfiniteFileName = WriteTransfiniteFile(part, meshingParameters, workDirectory, null);
                 meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal(),
-                                              _controller.Settings.Meshing.ParallelMeshingThreads);
+                                              _controller.Settings.Meshing.ParallelMeshingThreads, transfiniteFileName);
                 _controller.CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
             }
             finally
