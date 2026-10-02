@@ -38,6 +38,9 @@
 #  - revolve_sectors.brep is the part split into three sectors, each found revolved on its own, some of them from the
 #    other end. In the compound they are turned the same way round, so the target of one is the source of the
 #    next, and the compound is meshed by layers alone, sharing every node.
+#  - revolve_bracket.brep is the part whole with the bracket. Its source edge under the bracket is turned onto three
+#    edges of the bracket, which its sweep settles, and onto a free edge of the target, so the source edge takes the
+#    count of the bracket before the target edge follows.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Revolve.py -g No -x Yes -w <dir>
 #
@@ -221,6 +224,7 @@ def main():
     test_split_capsule()
     test_split_cells("revolve_split_cells.brep", ["Revolve", "Revolve", "Sweep"])
     test_split_cells("revolve_sectors.brep", ["Revolve", "Revolve", "Revolve", "Sweep"])
+    test_split_cells("revolve_bracket.brep", ["Revolve", "Sweep"])
     print("TEST PASSED")
 
 

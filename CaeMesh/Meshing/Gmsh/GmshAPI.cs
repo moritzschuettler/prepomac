@@ -2342,7 +2342,11 @@ namespace CaeMesh
             }
             foreach (var revolvedBlock in GetRevolvedBuildOrder())
             {
-                foreach (var chain in revolvedBlock.TargetEdgeChains)
+                // A source edge may be turned onto several edges, at the levels and on the target, so the edges another
+                // block pinned are reconciled first and the source edges take their counts before the free edges follow
+                List<Tuple<int[], int>> chains = revolvedBlock.TargetEdgeChains.OrderBy(chain => isPinned(chain.Item2) ? 0 : 1)
+                                                                               .ToList();
+                foreach (var chain in chains)
                 {
                     int[] counts = chain.Item1.Select(id => Math.Max(1, getCount(id))).ToArray();
                     if (isPinned(chain.Item2))
