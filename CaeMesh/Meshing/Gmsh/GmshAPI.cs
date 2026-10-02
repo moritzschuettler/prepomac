@@ -5532,8 +5532,17 @@ namespace CaeMesh
             List<TransfiniteSidePair> linkPairs = new List<TransfiniteSidePair>();
             foreach (var wall in walls)
             {
-                if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0)
-                    linkPairs.Add(new TransfiniteSidePair(wall.SurfaceId, wall.SourceEdgeIds, wall.TargetEdgeIds));
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                // The grid of a wall joins its two sides node by node, and a vertex fixes its node, so two chains whose
+                // joints lie across from each other carry one count edge by edge, or the grid leans between them
+                int[][] segments = GetOppositeSegments(wall.SourceEdgeIds, wall.TargetEdgeIds);
+                if (segments != null)
+                {
+                    for (int i = 0; i < segments[0].Length; i++)
+                        linkPairs.Add(new TransfiniteSidePair(wall.SurfaceId, new int[] { segments[0][i] },
+                                                              new int[] { segments[1][i] }));
+                }
+                else linkPairs.Add(new TransfiniteSidePair(wall.SurfaceId, wall.SourceEdgeIds, wall.TargetEdgeIds));
             }
             foreach (var classEdgeIds in tiedEdgeGroups)
             {
@@ -5628,6 +5637,78 @@ namespace CaeMesh
             _structuredSourceFaces.Remove(surfaceId);
             if (_sweepRecombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
             _writeOutput?.Invoke(NameGmshEntities(message));
+        }
+        /// <summary>
+        /// The edges of the two sides of a wall paired across it, in order, when both are chains of as many edges whose
+        /// joints lie at the same fraction of their lengths; null otherwise, and for sides of one edge.
+        /// </summary>
+        private static int[][] GetOppositeSegments(int[] sideEdgeIds1, int[] sideEdgeIds2)
+        {
+            if (sideEdgeIds1.Length < 2 || sideEdgeIds1.Length != sideEdgeIds2.Length) return null;
+            int[] vertexIds1;
+            int[] vertexIds2;
+            int[] chain1 = OrderEdgeChain(sideEdgeIds1, out vertexIds1);
+            int[] chain2 = OrderEdgeChain(sideEdgeIds2, out vertexIds2);
+            if (chain1 == null || chain2 == null) return null;
+            // The second runs the way the first does
+            double[] start1 = GetVertexCoor(vertexIds1[0]);
+            double[] end1 = GetVertexCoor(vertexIds1[vertexIds1.Length - 1]);
+            double[] start2 = GetVertexCoor(vertexIds2[0]);
+            double[] end2 = GetVertexCoor(vertexIds2[vertexIds2.Length - 1]);
+            double along = 0;
+            for (int i = 0; i < 3; i++) along += (end1[i] - start1[i]) * (end2[i] - start2[i]);
+            if (along < 0) Array.Reverse(chain2);
+            //
+            double[] lengths1 = SweepWallTopology.GetEdgeLengths(chain1);
+            double[] lengths2 = SweepWallTopology.GetEdgeLengths(chain2);
+            double total1 = lengths1.Sum();
+            double total2 = lengths2.Sum();
+            if (total1 <= 0 || total2 <= 0) return null;
+            double sum1 = 0;
+            double sum2 = 0;
+            for (int i = 0; i < chain1.Length - 1; i++)
+            {
+                sum1 += lengths1[i];
+                sum2 += lengths2[i];
+                if (Math.Abs(sum1 / total1 - sum2 / total2) > 0.05) return null;
+            }
+            return new int[][] { chain1, chain2 };
+        }
+        /// <summary>
+        /// The edges of a chain in order from one end, with the vertices from that end to the other; null when the
+        /// edges do not form one open chain.
+        /// </summary>
+        private static int[] OrderEdgeChain(int[] edgeIds, out int[] chainVertexIds)
+        {
+            chainVertexIds = null;
+            int[] vertexIds;
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            Dictionary<int, int> vertexIdNumOfUses = new Dictionary<int, int>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                if (vertexIds.Length != 2) return null;
+                edgeIdVertexIds[edgeId] = vertexIds;
+                foreach (var vertexId in vertexIds)
+                    vertexIdNumOfUses[vertexId] = vertexIdNumOfUses.TryGetValue(vertexId, out int n) ? n + 1 : 1;
+            }
+            int[] ends = vertexIdNumOfUses.Where(entry => entry.Value == 1).Select(entry => entry.Key).ToArray();
+            if (ends.Length != 2) return null;
+            List<int> chain = new List<int>();
+            List<int> chainVertices = new List<int>() { ends[0] };
+            HashSet<int> remaining = new HashSet<int>(edgeIds);
+            int vertex = ends[0];
+            while (remaining.Count > 0)
+            {
+                int next = remaining.FirstOrDefault(edgeId => edgeIdVertexIds[edgeId].Contains(vertex));
+                if (next == 0 && !remaining.Contains(0)) return null;
+                remaining.Remove(next);
+                chain.Add(next);
+                vertex = edgeIdVertexIds[next][0] == vertex ? edgeIdVertexIds[next][1] : edgeIdVertexIds[next][0];
+                chainVertices.Add(vertex);
+            }
+            chainVertexIds = chainVertices.ToArray();
+            return chain.ToArray();
         }
         /// <summary>
         /// Checks the structured sweep sources once the walls are resolved: one with counts its grid cannot have -
