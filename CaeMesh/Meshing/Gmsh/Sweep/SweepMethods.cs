@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CaeGlobals;
 using CaeMesh.Sweep;
 
@@ -59,15 +60,26 @@ namespace CaeMesh
         /// The blocks of a ring are swept one after another, each from the cap the one before it left, so every
         /// cap is a copy of the source the ring started from. The node every interior cap node was copied from is
         /// kept, back to the meshed source, and the block closing the ring ends its sweep lines on those nodes.
+        /// A revolved block in the list is built by buildRevolvedBlock where it stands, so that the blocks it feeds
+        /// read what it leaves and the ones feeding it are built before it.
         /// </summary>
         public static void CreateSweepMesh(IList<SweepBlock> blocks, int numGlobalSmoothSteps,
-                                           Dictionary<int, int[]> surfaceIdEdgeIds, Action<string> writeOutput)
+                                           Dictionary<int, int[]> surfaceIdEdgeIds, Action<string> writeOutput,
+                                           Action<SweepBlock> buildRevolvedBlock = null)
         {
             Dictionary<IntPtr, IntPtr> capNodeOrigins = new Dictionary<IntPtr, IntPtr>();
-            for (int i = 0; i < blocks.Count; i++)
+            int numSweptBlocks = blocks.Count(block => !block.IsRevolved);
+            int count = 0;
+            foreach (var block in blocks)
             {
-                if (blocks.Count > 1) writeOutput?.Invoke("Sweep block " + (i + 1) + " of " + blocks.Count + ".");
-                CreateBlockMesh(blocks[i], numGlobalSmoothSteps, surfaceIdEdgeIds, capNodeOrigins, writeOutput);
+                if (block.IsRevolved)
+                {
+                    buildRevolvedBlock(block);
+                    continue;
+                }
+                count++;
+                if (numSweptBlocks > 1) writeOutput?.Invoke("Sweep block " + count + " of " + numSweptBlocks + ".");
+                CreateBlockMesh(block, numGlobalSmoothSteps, surfaceIdEdgeIds, capNodeOrigins, writeOutput);
             }
         }
         private static void CreateBlockMesh(SweepBlock block, int numGlobalSmoothSteps,

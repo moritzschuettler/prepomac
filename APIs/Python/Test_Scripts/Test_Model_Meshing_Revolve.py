@@ -41,6 +41,10 @@
 #  - revolve_bracket.brep is the part whole with the bracket. Its source edge under the bracket is turned onto three
 #    edges of the bracket, which its sweep settles, and onto a free edge of the target, so the source edge takes the
 #    count of the bracket before the target edge follows.
+#  - revolve_elbows.brep is a pipe of two straight pieces on either side of each of two elbows. Every straight piece
+#    is found swept from its free end towards its elbow, so an elbow is revolved from the target of one piece and
+#    is built after it, and the piece ending on the target of the elbow is turned round to start from it. The
+#    source edges of an elbow tie the counts of the pieces on its two sides.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Revolve.py -g No -x Yes -w <dir>
 #
@@ -225,6 +229,8 @@ def main():
     test_split_cells("revolve_split_cells.brep", ["Revolve", "Revolve", "Sweep"])
     test_split_cells("revolve_sectors.brep", ["Revolve", "Revolve", "Revolve", "Sweep"])
     test_split_cells("revolve_bracket.brep", ["Revolve", "Sweep"])
+    test_split_cells("revolve_elbows.brep", ["Revolve", "Revolve", "Transfinite", "Transfinite", "Transfinite",
+                                             "Transfinite"])
     print("TEST PASSED")
 
 

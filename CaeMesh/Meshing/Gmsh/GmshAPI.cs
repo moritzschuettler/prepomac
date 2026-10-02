@@ -2175,19 +2175,23 @@ namespace CaeMesh
             }
             else
             {
-                // A revolved block rebuilds its walls and its target, which the other blocks may read as sources, so a
-                // revolved block fed through the target of another is built after it
+                // A revolved block rebuilds its walls and its target, which the other blocks may read as sources, and
+                // reads its source as the block feeding it leaves it, so every block is built after the ones whose
+                // target is its source, and a swept block after the revolved blocks whose walls it shares
                 HashSet<int> builtWallIds = new HashSet<int>();
                 Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags = new Dictionary<Tuple<IntPtr, int>, IntPtr>();
-                foreach (var revolvedBlock in GetRevolvedBuildOrder())
+                Dictionary<SweepBlock, SweepRevolvedBlock> blockRevolvedBlock =
+                    _revolvedBlocks.ToDictionary(revolvedBlock => revolvedBlock.Block);
+                Action<SweepBlock> buildRevolvedBlock = block =>
                 {
+                    SweepRevolvedBlock revolvedBlock = blockRevolvedBlock[block];
                     int[] layerCounts = _revolvedLayerCounts[revolvedBlock];
                     _writeOutput?.Invoke("Revolved block: " + layerCounts.Sum() + " element layers" +
                                          (layerCounts.Length > 1 ? " (" + string.Join(" + ", layerCounts) + ")" : "") + ".");
                     revolvedBlock.Build(_revolvedLevels[revolvedBlock], layerCounts, builtWallIds, wallNodeTags);
-                }
-                SweepMethods.CreateSweepMesh(blocks.Where(block => !block.IsRevolved).ToList(),
-                                             sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
+                };
+                SweepMethods.CreateSweepMesh(GetBuildOrder(blocks), sweepMesh.NumberOfGlobalSmoothSteps,
+                                             surfaceIdEdgeIds, _writeOutput, buildRevolvedBlock);
             }
         }
         /// <summary>
@@ -2470,6 +2474,32 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
                 Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
+        }
+        /// <summary>
+        /// The blocks in the order they are built, which keeps the order they were given in wherever nothing
+        /// requires another.
+        /// </summary>
+        private static List<SweepBlock> GetBuildOrder(List<SweepBlock> blocks)
+        {
+            if (!blocks.Any(block => block.IsRevolved)) return blocks;
+            //
+            List<SweepBlock> ordered = new List<SweepBlock>();
+            List<SweepBlock> pending = new List<SweepBlock>(blocks);
+            while (pending.Count > 0)
+            {
+                SweepBlock next = pending.FirstOrDefault(block => !pending.Any(other => other != block &&
+                                                                                         IsBuiltBefore(other, block)));
+                if (next == null)
+                    throw new CaeException("The order in which the sweep blocks are built could not be determined.");
+                ordered.Add(next);
+                pending.Remove(next);
+            }
+            return ordered;
+        }
+        private static bool IsBuiltBefore(SweepBlock first, SweepBlock second)
+        {
+            if (!first.ClosesRing && first.TargetSurfaceIds.Overlaps(second.SourceSurfaceIds)) return true;
+            return first.IsRevolved && !second.IsRevolved && first.WallSurfaceIds.Overlaps(second.WallSurfaceIds);
         }
         private List<SweepRevolvedBlock> GetRevolvedBuildOrder()
         {
@@ -3366,7 +3396,20 @@ namespace CaeMesh
                     Unite(parent, edgeIds[others[0]], edgeIds[others[1]]);
                 }
             }
-            if (transfiniteSourceEdgeIds.Count == 0) return groups;
+            // A source edge of a revolved block and the one edge it is turned onto carry one count, which ties the
+            // walls of a block feeding the revolved block to the walls of the one it feeds
+            HashSet<int> revolvedEdgeIds = new HashSet<int>();
+            foreach (var revolvedBlock in _revolvedBlocks)
+            {
+                foreach (var chain in revolvedBlock.TargetEdgeChains)
+                {
+                    if (chain.Item1.Length != 1) continue;
+                    Unite(parent, chain.Item1[0], chain.Item2);
+                    revolvedEdgeIds.Add(chain.Item1[0]);
+                    revolvedEdgeIds.Add(chain.Item2);
+                }
+            }
+            if (transfiniteSourceEdgeIds.Count == 0 && revolvedEdgeIds.Count == 0) return groups;
             // A wall with one edge on each side carries one count across
             foreach (var wall in walls)
             {
@@ -3377,7 +3420,8 @@ namespace CaeMesh
             foreach (var group in parent.Keys.ToArray().GroupBy(id => Find(parent, id)))
             {
                 int[] classEdgeIds = group.OrderBy(id => id).ToArray();
-                if (classEdgeIds.Any(id => transfiniteSourceEdgeIds.Contains(id))) groups.Add(classEdgeIds);
+                if (classEdgeIds.Any(id => transfiniteSourceEdgeIds.Contains(id) || revolvedEdgeIds.Contains(id)))
+                    groups.Add(classEdgeIds);
             }
             return groups;
         }

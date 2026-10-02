@@ -3383,6 +3383,7 @@ namespace CaeModel
                                                       out string error, out string errorPartName)
         {
             SweepBlocks blocks = CreatePrismBlocksForCells(cells, partIdSelectedSurfaceIds, out error, out errorPartName);
+            if (error == null) blocks = GetSweptBlocksTurnedToRevolvedCells(cells, blocks);
             SweepBlocks revolvedBlocks = CreateRevolvedBlocksForCells(cells, error == null ? blocks : null);
             if (revolvedBlocks == null) return blocks;
             //
@@ -3395,14 +3396,89 @@ namespace CaeModel
             return SweepBlocks.Merge(new SweepBlocks[] { blocks, revolvedBlocks });
         }
         /// <summary>
+        /// The swept blocks of the cells of a compound, every block that ends on the target of a revolved cell turned
+        /// round to start from it. A swept block may end on the source of a revolved block, which then reads what the
+        /// sweep leaves there, but two targets cannot meet, since both blocks build theirs. The sweep of a block
+        /// between two ends finds its source on its own and may run either way, as two straight pipes swept from their
+        /// free ends towards the elbow between them do. A block is turned only when it runs from one surface to one
+        /// other in one layer and nothing shares its source, which becomes its target.
+        /// </summary>
+        private SweepBlocks GetSweptBlocksTurnedToRevolvedCells(GeometryPart[] cells, SweepBlocks blocks)
+        {
+            if (cells.Length < 2 || blocks == null) return blocks;
+            //
+            HashSet<int> sweptPartIds = new HashSet<int>(blocks.SourceSurfaceIds.Select(surfaceIds =>
+                                                         FeMesh.GetPartIdFromGmshTopologyId(surfaceIds[0])));
+            HashSet<int> revolvedTargetIds = new HashSet<int>(GetAlignedRevolvedBlocks(cells, sweptPartIds).Values
+                                                              .SelectMany(revolved => revolved.TargetSurfaceIds[0]));
+            if (revolvedTargetIds.Count == 0) return blocks;
+            //
+            int twinId;
+            bool turned = false;
+            Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);
+            int[][] sourceSurfaceIds = blocks.SourceSurfaceIds.ToArray();
+            int[][] targetSurfaceIds = blocks.TargetSurfaceIds.ToArray();
+            double[][] arrowStarts = blocks.ArrowStarts.ToArray();
+            double[][] arrowDirections = blocks.ArrowDirections.ToArray();
+            for (int i = 0; i < sourceSurfaceIds.Length; i++)
+            {
+                if (blocks.RevolveAxes[i] != null) continue;
+                if (sourceSurfaceIds[i].Length != 1 || targetSurfaceIds[i].Length != 1) continue;
+                if (twinSurfaceIds.ContainsKey(sourceSurfaceIds[i][0])) continue;
+                if (!twinSurfaceIds.TryGetValue(targetSurfaceIds[i][0], out twinId) ||
+                    !revolvedTargetIds.Contains(twinId)) continue;
+                //
+                int partId = FeMesh.GetPartIdFromGmshTopologyId(sourceSurfaceIds[i][0]);
+                int[][][] layers = blocks.LayerGroupEdgeIds
+                                         .Where(layer => layer.Any(edgeIds => edgeIds.Any(edgeId =>
+                                                FeMesh.GetPartIdFromGmshTopologyId(edgeId) == partId))).ToArray();
+                if (layers.Length != 1) continue;
+                //
+                GeometryPart part = cells.First(cell => cell.PartId == partId);
+                int[][][] layerItemIds = new int[][][] { layers[0].Select(edgeIds => edgeIds.Select(edgeId =>
+                                                         FeMesh.GetItemIdFromGmshTopologyId(edgeId)).ToArray()).ToArray() };
+                HashSet<int> newSourceItemIds = new HashSet<int>() {
+                    FeMesh.GetItemIdFromGmshTopologyId(targetSurfaceIds[i][0]) };
+                GetBlockArrow(part, newSourceItemIds, layerItemIds, out arrowStarts[i], out arrowDirections[i]);
+                (sourceSurfaceIds[i], targetSurfaceIds[i]) = (targetSurfaceIds[i], sourceSurfaceIds[i]);
+                turned = true;
+            }
+            if (!turned) return blocks;
+            return new SweepBlocks(sourceSurfaceIds, blocks.SideSurfaceIds, targetSurfaceIds, blocks.LayerGroupEdgeIds,
+                                   arrowStarts, arrowDirections, blocks.RevolveAxes);
+        }
+        /// <summary>
+        /// The blocks the revolved cells the swept blocks leave out were found revolved by, by their part, every
+        /// cell turned the same way round about one axis, so that the target of one is the source of the next. Every
+        /// cell found its source on its own, and one found from its other end is reversed.
+        /// </summary>
+        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds)
+        {
+            double[] referenceAxis = null;
+            Dictionary<int, SweepBlocks> partIdBlocks = new Dictionary<int, SweepBlocks>();
+            foreach (var cell in cells)
+            {
+                if (sweptPartIds.Contains(cell.PartId) || !GetCellSweepDetection(cell).IsRevolved) continue;
+                //
+                SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
+                double[] axis = cellBlocks.RevolveAxes[0];
+                if (referenceAxis == null) referenceAxis = axis;
+                else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
+                    cellBlocks = GetReversedRevolvedBlocks(cellBlocks);
+                partIdBlocks.Add(cell.PartId, cellBlocks);
+            }
+            return partIdBlocks;
+        }
+        /// <summary>
         /// The revolved blocks of the cells of a compound the swept blocks leave to tetrahedra: a cell the sweep
-        /// between two ends cannot mesh and that is revolved about an axis it touches. A revolved block is meshed
-        /// before the swept ones and rebuilds its walls and its target, so a surface it shares with a swept block
-        /// has to be the source of that block, which reads it back from there, or a wall of both, whose grid the
-        /// swept block reads as the revolved block leaves it, its counts settled between the two. A surface it shares
-        /// with another revolved block, turned about the same axis through the same angle, has to be a wall of both,
-        /// or the target of one and the source of the other, which is then built after it. A cell that shares a
-        /// surface in any other way is left to tetrahedra. Null when no cell is revolved.
+        /// between two ends cannot mesh and that is revolved about an axis it touches. A revolved block rebuilds its
+        /// walls and its target, so a surface it shares with a swept block has to be the source of that block, which
+        /// reads it back from there, a wall of both, whose grid the swept block reads as the revolved block leaves
+        /// it, its counts settled between the two, or the target of the swept block and the source of the revolved
+        /// one, which reads it as the sweep leaves it; the blocks are built in the order they feed each other. A
+        /// surface it shares with another revolved block, turned about the same axis through the same angle, has to
+        /// be a wall of both, or the target of one and the source of the other, which is then built after it. A cell
+        /// that shares a surface in any other way is left to tetrahedra. Null when no cell is revolved.
         /// </summary>
         private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks)
         {
@@ -3410,8 +3486,6 @@ namespace CaeModel
             //
             int twinId;
             int[][] partBlock;
-            GeometryPart[] candidates = cells.Where(cell => GetCellSweepDetection(cell).IsRevolved).ToArray();
-            if (candidates.Length == 0) return null;
             // The swept blocks by the part they lie on
             Dictionary<int, int[][]> partIdSweptBlock = new Dictionary<int, int[][]>();
             if (sweptBlocks != null)
@@ -3424,19 +3498,15 @@ namespace CaeModel
                                                              sweptBlocks.TargetSurfaceIds[i] };
                 }
             }
+            Dictionary<int, SweepBlocks> alignedBlocks =
+                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys));
+            if (alignedBlocks.Count == 0) return null;
+            //
             Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);
             Dictionary<int, SweepBlocks> partIdRevolved = new Dictionary<int, SweepBlocks>();
-            double[] referenceAxis = null;
-            foreach (var cell in candidates)
+            foreach (var cell in cells.Where(cell => alignedBlocks.ContainsKey(cell.PartId)))
             {
-                if (partIdSweptBlock.ContainsKey(cell.PartId)) continue;
-                // Every cell found its source on its own, so cells turned about one axis are turned the same way
-                // round, and the target of one is then the source of the next
-                SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
-                double[] axis = cellBlocks.RevolveAxes[0];
-                if (referenceAxis == null) referenceAxis = axis;
-                else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
-                    cellBlocks = GetReversedRevolvedBlocks(cellBlocks);
+                SweepBlocks cellBlocks = alignedBlocks[cell.PartId];
                 HashSet<int> ownSideIds = new HashSet<int>(cellBlocks.SideSurfaceIds[0]);
                 HashSet<int> ownSourceIds = new HashSet<int>(cellBlocks.SourceSurfaceIds[0]);
                 HashSet<int> ownTargetIds = new HashSet<int>(cellBlocks.TargetSurfaceIds[0]);
@@ -3451,7 +3521,8 @@ namespace CaeModel
                     {
                         bool sweptSource = partBlock[0].Contains(twinId);
                         bool bothWalls = ownSideIds.Contains(gmshTopologyId) && partBlock[1].Contains(twinId);
-                        if (!sweptSource && !bothWalls) revolvable = false;
+                        bool fed = ownSourceIds.Contains(gmshTopologyId) && partBlock[2].Contains(twinId);
+                        if (!sweptSource && !bothWalls && !fed) revolvable = false;
                     }
                     else if (partIdRevolved.TryGetValue(neighbourPartId, out SweepBlocks neighbourBlocks))
                     {
