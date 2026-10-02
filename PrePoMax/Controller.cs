@@ -9974,8 +9974,10 @@ namespace PrePoMax
             int numElements;
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();
+            gmshData.FixedCountEdgeIds = new HashSet<int>();
             foreach (var localMeshSize in localMeshSizes)
             {
+                bool fixedCount = localMeshSize.Type == LocalMeshSizeTypeEnum.NumberOfElements;
                 foreach (int geometryId in localMeshSize.CreationIds)
                 {
                     itemTypePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
@@ -10001,6 +10003,7 @@ namespace PrePoMax
                         numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
                         //
                         gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(itemId, partId)] = numElements;
+                        if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(itemId, partId));
                     }
                     else if (geometryType.IsSurface())
                     {
@@ -10011,6 +10014,7 @@ namespace PrePoMax
                             numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
                             //
                             gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
+                            if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(edgeId, partId));
                         }
                     }
                     else if (geometryType == GeometryType.Part)
@@ -10024,6 +10028,7 @@ namespace PrePoMax
                                 numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
                                 //
                                 gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
+                                if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(edgeId, partId));
                             }
                         }
                     }

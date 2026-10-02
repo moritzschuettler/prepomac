@@ -41,11 +41,47 @@ namespace CaeMesh.Sweep
 
 
         // Methods                                                                                                                  
+        // Methods
+        /// <summary>
+        /// The structured faces of the group, by their gmsh ids, as quad_from_patches reads them: a point inside every
+        /// face - the centre of a triangle gmsh meshed on it - and its corners at the nodes the input gives them.
+        /// </summary>
+        private static void WriteTransfiniteFile(string fileName, SweepQuadWildGroup group, SweepQuadWildInput input,
+                                                 TransfiniteFace[] transfiniteFaces)
+        {
+            List<string> lines = new List<string>();
+            HashSet<int> surfaceIds = new HashSet<int>(group.SurfaceIds);
+            int node;
+            foreach (var face in transfiniteFaces ?? new TransfiniteFace[0])
+            {
+                if (!surfaceIds.Contains(face.FaceId)) continue;
+                int[] triangleIndices = Enumerable.Range(0, input.Triangles.Length)
+                                                  .Where(i => input.TriangleSurfaceIds[i] == face.FaceId).ToArray();
+                if (triangleIndices.Length == 0) continue;
+                if (!face.CornerNodeIds.All(vertexId => input.VertexIdNode.ContainsKey(vertexId))) continue;
+                //
+                int[] triangle = input.Triangles[triangleIndices[triangleIndices.Length / 2]];
+                double[] inside = new double[3];
+                foreach (var index in triangle)
+                {
+                    for (int i = 0; i < 3; i++) inside[i] += input.Coors[index][i] / triangle.Length;
+                }
+                double[][] corners = face.CornerNodeIds.Select(vertexId =>
+                {
+                    node = input.VertexIdNode[vertexId];
+                    return input.Coors[node];
+                }).ToArray();
+                lines.Add(QuadWildTransfiniteFile.GetFaceLine(face.NumberOfSides, inside, corners,
+                                                              "Surface " + face.FaceId));
+            }
+            QuadWildTransfiniteFile.WriteLines(fileName, lines);
+        }
         /// <summary>
         /// Meshes the group from the triangulation its surfaces carry now, and the nodes its edges carry now.
         /// </summary>
         public static SweepQuadWildMesh Mesh(SweepQuadWildGroup group, SweepMesh sweepMesh, string runtimeDirectory,
-                                             string workDirectory, Action<string> writeOutput)
+                                             string workDirectory, Action<string> writeOutput,
+                                             TransfiniteFace[] transfiniteFaces)
         {
             string executable = Path.Combine(runtimeDirectory, QuadWildRuntime.MesherFileName);
             string patchExecutable = Path.Combine(runtimeDirectory, QuadWildRuntime.PatchMesherFileName);
@@ -59,6 +95,7 @@ namespace CaeMesh.Sweep
             string objFileName = Path.Combine(directory, "input.obj");
             string sharpFileName = Path.Combine(directory, "input.sharp");
             string nodesFileName = Path.Combine(directory, "input.cnodes");
+            string transfiniteFileName = Path.Combine(directory, "input.tfaces");
             string prepConfigFileName = Path.Combine(directory, "prep.txt");
             string flowConfigFileName = Path.Combine(directory, "flow.txt");
             string preparedObjFileName = Path.Combine(directory, "input_rem.obj");
@@ -74,6 +111,11 @@ namespace CaeMesh.Sweep
             //
             SweepQuadWildInput input = SweepQuadWildInput.Read(group);
             input.Write(objFileName, sharpFileName, nodesFileName, group.FixedEdgeIds);
+            // The structured faces of the sources are those of the one definition all meshers follow, read by
+            // quad_from_patches beside the prescribed nodes instead of finding its own
+            QuadWildRuntime.DeleteIfExists(transfiniteFileName);
+            if (sweepMesh.TransfiniteThreeSided || sweepMesh.TransfiniteFourSided)
+                WriteTransfiniteFile(transfiniteFileName, group, input, transfiniteFaces);
             //
             QuadWildRuntime.WritePrepConfig(runtimeDirectory, prepConfigFileName, false);
             string argument = QuadWildRuntime.Quote(objFileName) + " 2 " + QuadWildRuntime.Quote(prepConfigFileName) +

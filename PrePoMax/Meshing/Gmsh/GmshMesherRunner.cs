@@ -441,6 +441,7 @@ namespace PrePoMax
                     numElements = (int)Math.Round(visualization.EdgeLengths[edgeId] / meshingParameters.MaxH);
                 numElements = Math.Max(2, numElements + numElements % 2);
                 gmshData.EdgeIdNumElements[key] = numElements;
+                gmshData.FixedCountEdgeIds?.Add(key);
             }
         }
         public GeneratedMeshData CreateMeshFromStl(GeometryPart part, MeshSetupItem[] meshSetupItems,

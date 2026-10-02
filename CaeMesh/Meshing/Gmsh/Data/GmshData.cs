@@ -43,6 +43,9 @@ namespace CaeMesh
         // Mesh size
         public Dictionary<int, double> VertexNodeIdMeshSize;
         public Dictionary<int, int> EdgeIdNumElements;
+        // The edges whose number of elements the user set as a number; the others carry the number an element size
+        // gives them, which a structured grid may change. Null where every number is the user's
+        public HashSet<int> FixedCountEdgeIds;
         // Transfinite: the structured faces by the one definition all meshers follow - faces and edges by their gmsh
         // topology ids, corners by their vertex node ids
         public TransfiniteFace[] TransfiniteFaces;

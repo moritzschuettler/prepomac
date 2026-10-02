@@ -250,6 +250,8 @@ namespace PrePoMax
             {
                 foreach (var entry in sizes.EdgeIdNumElements)
                 {
+                    // A number an element size gives is the structured grid's to change
+                    if (sizes.FixedCountEdgeIds != null && !sizes.FixedCountEdgeIds.Contains(entry.Key)) continue;
                     if (FeMesh.GetPartIdFromGmshTopologyId(entry.Key) == part.PartId)
                         pinnedEdgeCounts[FeMesh.GetItemIdFromGmshTopologyId(entry.Key)] = entry.Value;
                 }

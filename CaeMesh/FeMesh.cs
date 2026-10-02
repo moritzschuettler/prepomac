@@ -4506,20 +4506,33 @@ namespace CaeMesh
             }
             // A shell is structured on the faces the one definition all meshers follow finds
             ShellGmsh shellGmsh = gmshData.GmshSetupItems?.OfType<ShellGmsh>().FirstOrDefault();
-            if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh);
+            if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh, null);
+            // So are the sources of a sweep
+            SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
+            if (sweepMesh != null && sweepMesh.BlockSourceSurfaceIds != null)
+                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh,
+                                                                       new HashSet<int>(sweepMesh.BlockSourceSurfaceIds
+                                                                                        .SelectMany(ids => ids)));
         }
-        private TransfiniteFace[] GetTransfiniteFacesForGmsh(string[] partNames, ShellGmsh shellGmsh)
+        /// <summary>
+        /// The structured faces of the parts by the one definition all meshers follow, with gmsh topology ids: of the
+        /// shells, or, where faceTopologyIds is given, those faces of any part.
+        /// </summary>
+        private TransfiniteFace[] GetTransfiniteFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem,
+                                                             HashSet<int> faceTopologyIds)
         {
             List<TransfiniteFace> transfiniteFaces = new List<TransfiniteFace>();
             foreach (var partName in partNames)
             {
                 BasePart part = _parts[partName];
-                if (part.PartType != PartType.Shell) continue;
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
                 //
-                foreach (var face in TransfiniteFaceDetector.Detect(this, part, shellGmsh.TransfiniteThreeSided,
-                                                                    shellGmsh.TransfiniteFourSided,
-                                                                    shellGmsh.TransfiniteAngleDeg))
+                foreach (var face in TransfiniteFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteThreeSided,
+                                                                    gmshSetupItem.TransfiniteFourSided,
+                                                                    gmshSetupItem.TransfiniteAngleDeg))
                 {
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(GmshTopologyId(face.FaceId, part.PartId)))
+                        continue;
                     int[][] sideEdgeIds = face.SideEdgeIds.Select(side => side.Select(edgeId =>
                                                                   GmshTopologyId(edgeId, part.PartId)).ToArray())
                                                           .ToArray();

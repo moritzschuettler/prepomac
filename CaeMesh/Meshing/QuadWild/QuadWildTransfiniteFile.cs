@@ -46,17 +46,30 @@ namespace CaeMesh
                         for (int i = 0; i < 3; i++) inside[i] += geometry.Nodes[nodeId].Coor[i] / cell.Length;
                     }
                     //
-                    StringBuilder sb = new StringBuilder();
-                    sb.Append("face ").Append(face.NumberOfSides).Append(' ').Append(Format(inside));
-                    foreach (var cornerNodeId in face.CornerNodeIds)
-                        sb.Append(' ').Append(Format(geometry.Nodes[cornerNodeId].Coor));
-                    sb.Append(" surface ").Append(face.FaceId + 1).Append(" of ").Append(part.Name);
-                    lines.Add(sb.ToString());
+                    lines.Add(GetFaceLine(face.NumberOfSides, inside,
+                                          face.CornerNodeIds.Select(nodeId => geometry.Nodes[nodeId].Coor),
+                                          "surface " + (face.FaceId + 1) + " of " + part.Name));
                 }
             }
+            WriteLines(fileName, lines);
+            return lines.Count;
+        }
+        /// <summary>
+        /// The line of one face: its number of sides, a point inside it, its corners in loop order and the name the
+        /// messages of quad_from_patches use.
+        /// </summary>
+        public static string GetFaceLine(int numberOfSides, double[] inside, IEnumerable<double[]> corners, string name)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("face ").Append(numberOfSides).Append(' ').Append(Format(inside));
+            foreach (var corner in corners) sb.Append(' ').Append(Format(corner));
+            sb.Append(' ').Append(name);
+            return sb.ToString();
+        }
+        public static void WriteLines(string fileName, List<string> lines)
+        {
             System.IO.File.WriteAllText(fileName, "faces " + lines.Count + Environment.NewLine +
                                                   string.Join(Environment.NewLine, lines) + Environment.NewLine);
-            return lines.Count;
         }
         private static string Format(double[] coor)
         {

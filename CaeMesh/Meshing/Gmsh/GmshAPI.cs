@@ -35,6 +35,9 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
         private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
+        // The sweep sources structured by the one definition all meshers follow that the edge graph of the opposite
+        // edges cannot carry: those with a side of several edges, and the three-sided ones, meshed as three blocks
+        private Dictionary<int, TransfiniteFace> _structuredSourceFaces = new Dictionary<int, TransfiniteFace>();
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
@@ -546,7 +549,7 @@ namespace CaeMesh
         /// <summary>
         /// The sweep sources gmsh meshes free with a full-quad recombination: the recombined sources QuadWild does
         /// not mesh, other than a four sided one meshed as a structured grid, which is not halved. A four sided
-        /// source whose opposite sides were given different counts is freed later, and counts among them.
+        /// source whose opposite sides were given different counts refuses the meshing later, and counts among them.
         /// </summary>
         private List<int> GetFreeFullQuadSourceIds(Dictionary<int, int> edgeIdNumOfElements)
         {
@@ -1347,6 +1350,7 @@ namespace CaeMesh
             HashSet<int> surfaceCopyIds = new HashSet<int>(surfaceCopyDimTags.Select(dimTag => dimTag.Item2));
             Dictionary<int, int> newSurfaceIdOriginalId = new Dictionary<int, int>();
             Dictionary<int, int> gmshSurfaceIdTopologyId = new Dictionary<int, int>();
+            Dictionary<int, List<int>> oldSurfaceIdNewIds = new Dictionary<int, List<int>>();
             Gmsh.Model.GetEntities(out outDimTags, 2);
             foreach (var dimTag in outDimTags)
             {
@@ -1369,6 +1373,8 @@ namespace CaeMesh
                     throw new CaeException("A surface made by carrying the splits of the sweep ends across lies in no surface " +
                                            "that was there before.");
                 newSurfaceIdOriginalId.Add(dimTag.Item2, surfaceIdOriginalId[oldSurfaceId]);
+                if (!oldSurfaceIdNewIds.ContainsKey(oldSurfaceId)) oldSurfaceIdNewIds[oldSurfaceId] = new List<int>();
+                oldSurfaceIdNewIds[oldSurfaceId].Add(dimTag.Item2);
                 // A piece of a split face is named after the face the user sees
                 if (_gmshSurfaceIdTopologyId.TryGetValue(oldSurfaceId, out topologyId))
                     gmshSurfaceIdTopologyId[dimTag.Item2] = topologyId;
@@ -1406,6 +1412,15 @@ namespace CaeMesh
                 block.VolumeId = newVolumeId;
             }
             RemapGmshData(edgeIdMap, pointIdMap, GetSplitLayerEdgePieces(layerEdgeIdSamples, edgeIdMap, diagonal));
+            // A structured face the carried splits cut into pieces, or whose edges they split, is structured no more
+            if (_gmshData.TransfiniteFaces != null)
+            {
+                Dictionary<int, int> surfaceIdMap = oldSurfaceIdNewIds.Where(entry => entry.Value.Count == 1)
+                                                                      .ToDictionary(entry => entry.Key,
+                                                                                    entry => entry.Value[0]);
+                _gmshData.TransfiniteFaces = RenumberTransfiniteFaces(_gmshData.TransfiniteFaces, pointIdMap, edgeIdMap,
+                                                                      surfaceIdMap);
+            }
             // The messages name the entities by the tags they carry now. An error above still names them by the
             // tags they carried before, so the names follow only here
             if (_gmshSurfaceIdTopologyId.Count > 0) _gmshSurfaceIdTopologyId = gmshSurfaceIdTopologyId;
@@ -1868,6 +1883,15 @@ namespace CaeMesh
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;
             }
+            if (_gmshData.FixedCountEdgeIds != null)
+            {
+                HashSet<int> fixedCountEdgeIds = new HashSet<int>();
+                foreach (var edgeId in _gmshData.FixedCountEdgeIds)
+                {
+                    if (edgeIdMap.TryGetValue(edgeId, out newId)) fixedCountEdgeIds.Add(newId);
+                }
+                _gmshData.FixedCountEdgeIds = fixedCountEdgeIds;
+            }
             // A layer edge follows the sweep. A curve carried onto the end of another block can still split it,
             // and it is then followed on by its pieces
             List<int> pieceIds;
@@ -2066,8 +2090,8 @@ namespace CaeMesh
             {
                 // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
                 PrepareWallEdges(walls, chains, chainBlockIndices);
-                FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds,
-                                            sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
+                RefuseSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
+                CheckStructuredSourceCounts(walls);
                 PrepareRevolvedEdges();
                 foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 // The curves are meshed in a pass of their own. Measured: when the curves and the surfaces are
@@ -2098,6 +2122,12 @@ namespace CaeMesh
             {
                 throw new CaeException(GetRefusedSurfacesMessage(ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds,
                                                                                         logLength)));
+            }
+            // The three-sided structured sources become three blocks of quads around one inner node
+            foreach (var face in _structuredSourceFaces.Values)
+            {
+                if (face.NumberOfSides == 3)
+                    GmshThreeBlockMesher.Mesh(face, sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
@@ -2510,7 +2540,8 @@ namespace CaeMesh
                 foreach (var entry in _parityRaisedEdgeIdNumOfElements) pinnedEdgeIdNumElements[entry.Key] = entry.Value;
                 if (round == 1)
                 {
-                    FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds, recombine);
+                    RefuseSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
+                    CheckStructuredSourceCounts(walls);
                     foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 }
                 GenerateMesh(1);
@@ -2556,7 +2587,7 @@ namespace CaeMesh
                     try
                     {
                         group.Mesh = SweepQuadWildMesher.Mesh(group, sweepMesh, _gmshData.QuadWildDirectory,
-                                                              workDirectory, writeOutput);
+                                                              workDirectory, writeOutput, _gmshData.TransfiniteFaces);
                     }
                     catch (CaeException ex)
                     {
@@ -3351,8 +3382,8 @@ namespace CaeMesh
         /// these two relations form classes, and every class holding an edge of a transfinite source is given
         /// one count: the count the user pinned on one of its edges, else the count the levels along the sweep
         /// gave one of them - such an edge is a layer edge of a neighbouring block - else the smallest of the
-        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree is left alone, and the source falls to the free
-        /// mesh later.
+        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree refuses the
+        /// meshing.
         /// </summary>
         private Dictionary<int, int> PinTransfiniteSourceSides(List<int[]> tiedEdgeGroups,
                                                                Dictionary<int, int> directionEdgeIdNumOfElements)
@@ -3367,6 +3398,9 @@ namespace CaeMesh
                 foreach (var edgeId in classEdgeIds)
                 {
                     if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count)) continue;
+                    // A number an element size gave the user's edge is the structured grid's to change
+                    bool userEdge = _userPinnedEdgeIds == null || _userPinnedEdgeIds.Contains(edgeId);
+                    if (userEdge && !IsFixedEdgeCount(edgeId)) continue;
                     // A count QuadWild chose in an earlier round is held no lower than the fewest the walls need
                     if (_userPinnedEdgeIds != null && !_userPinnedEdgeIds.Contains(edgeId))
                         count = Math.Max(count, GetMeasuredCrossEdgeElements(edgeId));
@@ -3382,7 +3416,15 @@ namespace CaeMesh
                         else if (fixedCount != count) conflict = true;
                     }
                 }
-                if (conflict) continue;
+                // A structured source is meshed as one: fixed counts it cannot keep refuse the meshing
+                if (conflict)
+                    throw new CaeException("Sweep: " + string.Join(", ", classEdgeIds.Select(id =>
+                        "Edge " + id + DescribeFixedCount(id, directionEdgeIdNumOfElements))) + " are tied together by " +
+                        "the transfinite source surface/s " + string.Join(", ", GetTransfiniteSourceIdsOfEdges(classEdgeIds)
+                                                                              .Select(id => "Surface " + id)) +
+                        " and cannot all carry one number of elements." + Environment.NewLine +
+                        "Change the number of elements set on these edges, or switch off the transfinite meshing of " +
+                        "the 3-sided and 4-sided surfaces.");
                 bool hasLayerEdge = classEdgeIds.Any(id => directionEdgeIdNumOfElements.ContainsKey(id));
                 int[] measured = classEdgeIds.Select(id => SweepWallTopology.GetElementCount(id)).ToArray();
                 // No fewer than a wall needs, whose other side is cut into more edges
@@ -3403,6 +3445,22 @@ namespace CaeMesh
                                                       " element/s and are all given " + fixedCount + ", " + origin + "."));
             }
             return pins;
+        }
+        /// <summary>
+        /// Whether the user set the number of elements on the edge as a number, rather than by an element size.
+        /// </summary>
+        private bool IsFixedEdgeCount(int edgeId)
+        {
+            return _gmshData.EdgeIdNumElements != null && _gmshData.EdgeIdNumElements.ContainsKey(edgeId) &&
+                   (_gmshData.FixedCountEdgeIds == null || _gmshData.FixedCountEdgeIds.Contains(edgeId));
+        }
+        private string DescribeFixedCount(int edgeId, Dictionary<int, int> directionEdgeIdNumOfElements)
+        {
+            int count;
+            if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count)) return " (set to " + count + ")";
+            if (directionEdgeIdNumOfElements.TryGetValue(edgeId, out count))
+                return " (" + count + ", the layer count of the neighbouring block)";
+            return "";
         }
         /// <summary>
         /// The transfinite sources the given edges lie on, for a message to name them.
@@ -3442,17 +3500,17 @@ namespace CaeMesh
             return id;
         }
         /// <summary>
-        /// Meshes free every four sided source surface whose opposite sides were given different element counts.
-        /// The pass before the sweep makes every four sided surface transfinite, but the counts on the edges of a
-        /// source are settled wall by wall, and an edge shared with a neighbouring part carries the count that
-        /// part's walls need, so two opposite edges settled by different walls need not agree. gmsh refuses such
-        /// a surface with an exception rather than meshing it free, so the constraint is taken off first and the
-        /// source is meshed the way a source carrying an imprint is. The recombination is set again, since the
-        /// constraints go together.
+        /// Refuses the meshing when a structured four sided source was given different element counts on its opposite
+        /// sides. The counts on the edges of a source are settled wall by wall, and an edge shared with a neighbouring
+        /// part carries the count that part's walls need; the opposite sides were tied before the walls were resolved,
+        /// so only counts that cannot move - the ones the user set, or the layer counts of a neighbouring block - can
+        /// have pulled them apart. The source is not meshed free instead: a structured face is meshed as one, as it is
+        /// on a shell.
         /// </summary>
-        private void FreeSourcesWithUnequalSides(List<SweepBlock> blocks, List<SweepWall> walls,
-                                                 Dictionary<int, int[]> surfaceIdEdgeIds, bool recombine)
+        private void RefuseSourcesWithUnequalSides(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                   Dictionary<int, int[]> surfaceIdEdgeIds)
         {
+            List<string> lines = new List<string>();
             int[] edgeIds;
             int[] vertexIds;
             HashSet<int> checkedSurfaceIds = new HashSet<int>();
@@ -3485,16 +3543,16 @@ namespace CaeMesh
                     int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
                     if (counts[0] == counts[opposite] && counts[others[0]] == counts[others[1]]) continue;
                     //
-                    Gmsh.Model.Mesh.RemoveConstraints(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
-                    _transfiniteSurfaceIds.Remove(surfaceId);
-                    if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
-                    _writeOutput?.Invoke(NameGmshEntities("Sweep: Surface " + surfaceId + ", the source of sweep block " + (i + 1) +
-                                                          ", was given " + counts[0] + " and " + counts[opposite] + " elements on one " +
-                                                          "pair of opposite sides and " + counts[others[0]] + " and " + counts[others[1]] +
-                                                          " on the other, so it is meshed free rather than as a structured grid. " +
-                                                          "Its edges: " + DescribeEdgeRoles(edgeIds, walls) + "."));
+                    lines.Add("Sweep: Surface " + surfaceId + ", the structured source of sweep block " + (i + 1) +
+                              ", was given " + counts[0] + " and " + counts[opposite] + " elements on one pair of " +
+                              "opposite sides and " + counts[others[0]] + " and " + counts[others[1]] + " on the other. " +
+                              "Its edges: " + DescribeEdgeRoles(edgeIds, walls) + ".");
                 }
             }
+            if (lines.Count == 0) return;
+            lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
+                      "3-sided and 4-sided surfaces.");
+            throw new CaeException(string.Join(Environment.NewLine, lines));
         }
         /// <summary>
         /// Takes back the transfinite constraints the first attempt set on the edges of the walls, so that the
@@ -3669,6 +3727,10 @@ namespace CaeMesh
             // edge follow it: the count the user pinned on either edge, else the one the levels along the
             // sweep gave either of them, else the larger of the two measured
             Dictionary<int, int> transfiniteSourcePins = PinTransfiniteSourceSides(tiedEdgeGroups, directionEdgeIdNumOfElements);
+            // The structured sources with a side of several edges, and the three-sided ones, are balanced as a whole
+            transfiniteSourcePins = MergeEdgeElements(transfiniteSourcePins,
+                                                      BalanceStructuredSources(directionEdgeIdNumOfElements,
+                                                                               transfiniteSourcePins));
             _transfiniteSourcePins = transfiniteSourcePins;
             // An edge that follows the sweep in the walls of one block and crosses it in a wall of another - a
             // vertical edge of a plate swept through its thickness, shared with a cell beside it swept along
@@ -5198,6 +5260,8 @@ namespace CaeMesh
             // Corner angles
             WithdrawTransfiniteOnCornerAngles(surfaceIdSurface, volumeIdVolume, transfiniteThreeSided, transfiniteFourSided,
                                               transfiniteAngleDeg);
+            // The sources of a sweep are structured on the faces the one definition all meshers follow finds
+            if (_sweepBlocks != null) SetStructuredSweepSources(surfaceIdSurface, surfaceIdsWithInternalCurves);
             // Edge graph
             Node<GmshEdge> edgeNode;
             Graph<GmshEdge> edgeGraph = new Graph<GmshEdge>();
@@ -5367,12 +5431,134 @@ namespace CaeMesh
                     //Gmsh.Model.Mesh.SetSmoothing(2, surface.Id, 100);
                 }
             }
+            // A four-sided source with a side of several edges is given its corners; a three-sided one is meshed free
+            // first and its three blocks replace that mesh
+            foreach (var face in _structuredSourceFaces.Values)
+            {
+                if (face.NumberOfSides != 4) continue;
+                Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                _transfiniteSurfaceIds.Add(face.FaceId);
+            }
             //
             foreach (var entry in volumeIdVolume)
             {
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
             }
+        }
+        /// <summary>
+        /// Which sweep sources are structured: the faces the one definition all meshers follow found, by the
+        /// transfinite settings of the sweep, and no others. A source with four sides of one edge each stays in the
+        /// edge graph of the opposite edges; one with a side of several edges, or three sides, is kept for the
+        /// balancing of its counts against the walls. A source the sweep meshes free, a wall of another block and the
+        /// source of a revolved block keep the rules of the sweep.
+        /// </summary>
+        private void SetStructuredSweepSources(Dictionary<int, GmshSurface> surfaceIdSurface,
+                                               HashSet<int> surfaceIdsWithInternalCurves)
+        {
+            _structuredSourceFaces.Clear();
+            Dictionary<int, TransfiniteFace> faces = new Dictionary<int, TransfiniteFace>();
+            if (_gmshData.TransfiniteFaces != null)
+            {
+                foreach (var face in _gmshData.TransfiniteFaces) faces[face.FaceId] = face;
+            }
+            HashSet<int> wallSurfaceIds = new HashSet<int>(_sweepBlocks.SelectMany(block => block.WallSurfaceIds));
+            HashSet<int> revolvedSourceIds = new HashSet<int>(_sweepBlocks.Where(block => block.IsRevolved)
+                                                                          .SelectMany(block => block.SourceSurfaceIds));
+            GmshSurface surface;
+            TransfiniteFace structuredFace;
+            foreach (var surfaceId in _sweepBlocks.SelectMany(block => block.SourceSurfaceIds).Distinct())
+            {
+                if (wallSurfaceIds.Contains(surfaceId) || revolvedSourceIds.Contains(surfaceId) ||
+                    _freeMeshedSurfaceIds.Contains(surfaceId) || _tetrahedralSurfaceIds.Contains(surfaceId) ||
+                    !surfaceIdSurface.TryGetValue(surfaceId, out surface)) continue;
+                //
+                bool structured = faces.TryGetValue(surfaceId, out structuredFace) &&
+                                  !surfaceIdsWithInternalCurves.Contains(surfaceId);
+                surface.Transfinite = structured && structuredFace.NumberOfSides == 4 && surface.FourSided &&
+                                      structuredFace.SideEdgeIds.All(side => side.Length == 1);
+                if (structured && !surface.Transfinite) _structuredSourceFaces[surfaceId] = structuredFace;
+            }
+        }
+        /// <summary>
+        /// The counts of the edges of the structured sweep sources the edge graph does not carry, balanced the way the
+        /// faces of a shell are: the opposite sides of a four-sided one, and the three sides of a three-sided one, to
+        /// counts three blocks of quads fill, lowered where they can be for the coarser mesh. The counts the user set,
+        /// the layer counts of the neighbouring blocks and the ties of the four-sided sources stay; where they make the
+        /// balance impossible, the meshing is refused.
+        /// </summary>
+        private Dictionary<int, int> BalanceStructuredSources(Dictionary<int, int> directionEdgeIdNumOfElements,
+                                                              Dictionary<int, int> fixedEdgeIdNumOfElements)
+        {
+            Dictionary<int, int> pins = new Dictionary<int, int>();
+            if (_structuredSourceFaces.Count == 0) return pins;
+            //
+            int count;
+            Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+            HashSet<int> pinnedEdgeIds = new HashSet<int>();
+            foreach (var edgeId in _structuredSourceFaces.Values.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
+                                                                .Distinct())
+            {
+                naturalCounts[edgeId] = Math.Max(1, GetMeasuredCrossEdgeElements(edgeId));
+                edgeIdCount[edgeId] = naturalCounts[edgeId];
+                count = 0;
+                bool userPinned = IsFixedEdgeCount(edgeId) && _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count) &&
+                                  (_userPinnedEdgeIds == null || _userPinnedEdgeIds.Contains(edgeId));
+                if (userPinned || directionEdgeIdNumOfElements.TryGetValue(edgeId, out count) ||
+                    fixedEdgeIdNumOfElements.TryGetValue(edgeId, out count))
+                {
+                    edgeIdCount[edgeId] = Math.Max(1, count);
+                    pinnedEdgeIds.Add(edgeId);
+                }
+            }
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
+            foreach (var face in _structuredSourceFaces.Values)
+            {
+                if (face.NumberOfSides == 4)
+                {
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
+                }
+                else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
+            }
+            List<TransfiniteSideTriple> unbalancedTriples;
+            List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
+                                                                                         pinnedEdgeIds, pairs, triples,
+                                                                                         out unbalancedTriples);
+            if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
+                throw new CaeException("Sweep: " + GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
+                                                                             pinnedEdgeIds));
+            foreach (var entry in edgeIdCount) pins[entry.Key] = entry.Value;
+            return pins;
+        }
+        /// <summary>
+        /// Refuses the meshing when the walls left a structured sweep source with counts its grid cannot have: opposite
+        /// sides of a four-sided one that differ, or three sides three blocks of quads cannot fill. The counts were
+        /// balanced before the walls were resolved, so only the counts the user set, or the layer counts of the
+        /// neighbouring blocks, can have pulled them apart.
+        /// </summary>
+        private void CheckStructuredSourceCounts(List<SweepWall> walls)
+        {
+            int count;
+            Func<int[], int> sideCount = side => side.Sum(edgeId => _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count) ?
+                                                                    count : SweepWallTopology.GetElementCount(edgeId));
+            List<string> lines = new List<string>();
+            foreach (var face in _structuredSourceFaces.Values.OrderBy(face => face.FaceId))
+            {
+                int[] counts = face.SideEdgeIds.Select(sideCount).ToArray();
+                bool valid = face.NumberOfSides == 4 ? counts[0] == counts[2] && counts[1] == counts[3] :
+                                                       TransfiniteSideTriple.AreCountsValid(counts);
+                if (valid) continue;
+                lines.Add("Sweep: the walls gave the structured source Surface " + face.FaceId + " " +
+                          string.Join(", ", counts) + " elements on its sides, which its grid cannot have. Its edges: " +
+                          DescribeEdgeRoles(face.SideEdgeIds.SelectMany(side => side).ToArray(), walls) + ".");
+            }
+            if (lines.Count == 0) return;
+            lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
+                      "3-sided and 4-sided surfaces.");
+            throw new CaeException(string.Join(Environment.NewLine, lines));
         }
         /// <summary>
         /// Lays a structured grid over the faces of a shell the one definition all meshers follow found. A side is a
@@ -5414,8 +5600,7 @@ namespace CaeMesh
             int numOfElements;
             foreach (var edgeId in naturalCounts.Keys)
             {
-                if (_gmshData.EdgeIdNumElements != null &&
-                    _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                if (IsFixedEdgeCount(edgeId) && _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
                 {
                     edgeIdCount[edgeId] = Math.Max(1, numOfElements);
                     pinnedEdgeIds.Add(edgeId);
@@ -5522,7 +5707,8 @@ namespace CaeMesh
                 new Dictionary<int, SortedDictionary<int, List<int>>>();
             foreach (var edgeId in edgeIdRootId.Keys.ToArray())
             {
-                if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements)) continue;
+                if (!IsFixedEdgeCount(edgeId) || !_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                    continue;
                 //
                 int rootId = getRootId(edgeId);
                 SortedDictionary<int, List<int>> numOfElementsEdgeIds;
@@ -5949,6 +6135,15 @@ namespace CaeMesh
                         edgeIdNumElements[edgeId] = entry.Value;
                     else numOfUnmappedEdges++;  // an edge of a part that is not being meshed
                 }
+                if (_gmshData.FixedCountEdgeIds != null)
+                {
+                    HashSet<int> fixedCountEdgeIds = new HashSet<int>();
+                    foreach (var fixedEdgeId in _gmshData.FixedCountEdgeIds)
+                    {
+                        if (netgenEdgeIdGmshEdgeId.TryGetValue(fixedEdgeId, out edgeId)) fixedCountEdgeIds.Add(edgeId);
+                    }
+                    _gmshData.FixedCountEdgeIds = fixedCountEdgeIds;
+                }
                 // The unmapped edges are silently dropped, so report the count the user can check against
                 if (_gmshData.EdgeIdNumElements.Count > 0)
                 {
@@ -6070,9 +6265,16 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements = _gmshData.EdgeIdNumElements.Where(entry => curveIds.Contains(entry.Key))
                                                                          .ToDictionary(entry => entry.Key,
                                                                                        entry => entry.Value);
+            if (_gmshData.FixedCountEdgeIds != null)
+                _gmshData.FixedCountEdgeIds = new HashSet<int>(_gmshData.FixedCountEdgeIds.Where(curveIds.Contains));
             if (_gmshData.FaceIdNodes != null)
                 _gmshData.FaceIdNodes = _gmshData.FaceIdNodes.Where(entry => surfaceIds.Contains(entry.Key))
                                                              .ToDictionary(entry => entry.Key, entry => entry.Value);
+            if (_gmshData.TransfiniteFaces != null)
+                _gmshData.TransfiniteFaces = _gmshData.TransfiniteFaces
+                                                      .Where(face => surfaceIds.Contains(face.FaceId) &&
+                                                                     face.SideEdgeIds.All(side => side.All(curveIds.Contains)))
+                                                      .ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
