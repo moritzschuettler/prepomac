@@ -38,6 +38,7 @@ namespace CaeMesh
         // The sweep sources structured by the one definition all meshers follow that the edge graph of the opposite
         // edges cannot carry: those with a side of several edges, and the three-sided ones, meshed as three blocks
         private Dictionary<int, TransfiniteFace> _structuredSourceFaces = new Dictionary<int, TransfiniteFace>();
+        private bool _sweepRecombine;
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
@@ -848,6 +849,7 @@ namespace CaeMesh
             if (sweepMesh == null) throw new NotSupportedException();
             //
             bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            _sweepRecombine = recombine;
             // Get surface item ids
             Dictionary<int, int[]> surfaceIdEdgeIds;
             Dictionary<int, int[]> surfaceIdVertexIds;
@@ -2090,7 +2092,7 @@ namespace CaeMesh
             {
                 // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
                 PrepareWallEdges(walls, chains, chainBlockIndices);
-                RefuseSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
+                FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
                 CheckStructuredSourceCounts(walls);
                 PrepareRevolvedEdges();
                 foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
@@ -2544,7 +2546,7 @@ namespace CaeMesh
                 foreach (var entry in _parityRaisedEdgeIdNumOfElements) pinnedEdgeIdNumElements[entry.Key] = entry.Value;
                 if (round == 1)
                 {
-                    RefuseSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
+                    FreeSourcesWithUnequalSides(blocks, walls, surfaceIdEdgeIds);
                     CheckStructuredSourceCounts(walls);
                     foreach (var wall in walls) Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
                 }
@@ -3386,8 +3388,8 @@ namespace CaeMesh
         /// these two relations form classes, and every class holding an edge of a transfinite source is given
         /// one count: the count the user pinned on one of its edges, else the count the levels along the sweep
         /// gave one of them - such an edge is a layer edge of a neighbouring block - else the smallest of the
-        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose fixed counts disagree refuses the
-        /// meshing.
+        /// measured counts, since a user who wants the mesh finer refines it far more easily than the other way. A class whose counts the user set disagree refuses the
+        /// meshing; one whose other fixed counts disagree is left alone, and the source falls to the free mesh later.
         /// </summary>
         private Dictionary<int, int> PinTransfiniteSourceSides(List<int[]> tiedEdgeGroups,
                                                                Dictionary<int, int> directionEdgeIdNumOfElements)
@@ -3399,6 +3401,7 @@ namespace CaeMesh
                 int fixedCount = -1;
                 string origin = null;
                 bool conflict = false;
+                HashSet<int> userCounts = new HashSet<int>();
                 foreach (var edgeId in classEdgeIds)
                 {
                     if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count)) continue;
@@ -3408,6 +3411,7 @@ namespace CaeMesh
                     // A count QuadWild chose in an earlier round is held no lower than the fewest the walls need
                     if (_userPinnedEdgeIds != null && !_userPinnedEdgeIds.Contains(edgeId))
                         count = Math.Max(count, GetMeasuredCrossEdgeElements(edgeId));
+                    if (userEdge) userCounts.Add(count);
                     if (fixedCount < 0) { fixedCount = count; origin = "the count the user set"; }
                     else if (fixedCount != count) conflict = true;
                 }
@@ -3420,8 +3424,10 @@ namespace CaeMesh
                         else if (fixedCount != count) conflict = true;
                     }
                 }
-                // A structured source is meshed as one: fixed counts it cannot keep refuse the meshing
-                if (conflict)
+                // A structured source is meshed as one: counts the user set that it cannot keep refuse the meshing. Counts
+                // that cannot move otherwise, the layer counts of the neighbouring blocks, leave the class alone, and
+                // the source is meshed free later
+                if (userCounts.Count > 1)
                     throw new CaeException("Sweep: " + string.Join(", ", classEdgeIds.Select(id =>
                         "Edge " + id + DescribeFixedCount(id, directionEdgeIdNumOfElements))) + " are tied together by " +
                         "the transfinite source surface/s " + string.Join(", ", GetTransfiniteSourceIdsOfEdges(classEdgeIds)
@@ -3429,6 +3435,7 @@ namespace CaeMesh
                         " and cannot all carry one number of elements." + Environment.NewLine +
                         "Change the number of elements set on these edges, or switch off the transfinite meshing of " +
                         "the 3-sided and 4-sided surfaces.");
+                if (conflict) continue;
                 bool hasLayerEdge = classEdgeIds.Any(id => directionEdgeIdNumOfElements.ContainsKey(id));
                 int[] measured = classEdgeIds.Select(id => SweepWallTopology.GetElementCount(id)).ToArray();
                 // No fewer than a wall needs, whose other side is cut into more edges
@@ -3504,15 +3511,16 @@ namespace CaeMesh
             return id;
         }
         /// <summary>
-        /// Refuses the meshing when a structured four sided source was given different element counts on its opposite
-        /// sides. The counts on the edges of a source are settled wall by wall, and an edge shared with a neighbouring
-        /// part carries the count that part's walls need; the opposite sides were tied before the walls were resolved,
-        /// so only counts that cannot move - the ones the user set, or the layer counts of a neighbouring block - can
-        /// have pulled them apart. The source is not meshed free instead: a structured face is meshed as one, as it is
-        /// on a shell.
+        /// Meshes free every structured four sided source whose opposite sides were given different element counts.
+        /// The counts on the edges of a source are settled wall by wall, and an edge shared with a neighbouring part
+        /// carries the count that part's walls need; the opposite sides were tied before the walls were resolved, so
+        /// only counts that cannot move - the ones the user set, or the layer counts of a neighbouring block - can have
+        /// pulled them apart. Two opposite edges the user set to different counts refuse the meshing, as on a shell;
+        /// otherwise gmsh, which refuses such a surface with an exception rather than meshing it free, has the
+        /// constraint taken off and the source is meshed the way a source carrying an imprint is.
         /// </summary>
-        private void RefuseSourcesWithUnequalSides(List<SweepBlock> blocks, List<SweepWall> walls,
-                                                   Dictionary<int, int[]> surfaceIdEdgeIds)
+        private void FreeSourcesWithUnequalSides(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                 Dictionary<int, int[]> surfaceIdEdgeIds)
         {
             List<string> lines = new List<string>();
             int[] edgeIds;
@@ -3547,10 +3555,19 @@ namespace CaeMesh
                     int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
                     if (counts[0] == counts[opposite] && counts[others[0]] == counts[others[1]]) continue;
                     //
-                    lines.Add("Sweep: Surface " + surfaceId + ", the structured source of sweep block " + (i + 1) +
-                              ", was given " + counts[0] + " and " + counts[opposite] + " elements on one pair of " +
-                              "opposite sides and " + counts[others[0]] + " and " + counts[others[1]] + " on the other. " +
-                              "Its edges: " + DescribeEdgeRoles(edgeIds, walls) + ".");
+                    string description = "Sweep: Surface " + surfaceId + ", the structured source of sweep block " +
+                                         (i + 1) + ", was given " + counts[0] + " and " + counts[opposite] +
+                                         " elements on one pair of opposite sides and " + counts[others[0]] + " and " +
+                                         counts[others[1]] + " on the other";
+                    Func<int, int, bool> setApart = (a, c) => counts[a] != counts[c] && IsFixedEdgeCount(edgeIds[a]) &&
+                                                              IsFixedEdgeCount(edgeIds[c]);
+                    if (setApart(0, opposite) || setApart(others[0], others[1]))
+                    {
+                        lines.Add(description + ". Its edges: " + DescribeEdgeRoles(edgeIds, walls) + ".");
+                        continue;
+                    }
+                    FreeStructuredSource(surfaceId, description + ", so it is meshed free rather than as a structured " +
+                                                    "grid. Its edges: " + DescribeEdgeRoles(edgeIds, walls) + ".");
                 }
             }
             if (lines.Count == 0) return;
@@ -3733,7 +3750,8 @@ namespace CaeMesh
             Dictionary<int, int> transfiniteSourcePins = PinTransfiniteSourceSides(tiedEdgeGroups, directionEdgeIdNumOfElements);
             // The structured sources with a side of several edges, and the three-sided ones, are balanced as a whole
             transfiniteSourcePins = MergeEdgeElements(transfiniteSourcePins,
-                                                      BalanceStructuredSources(directionEdgeIdNumOfElements,
+                                                      BalanceStructuredSources(walls, tiedEdgeGroups,
+                                                                               directionEdgeIdNumOfElements,
                                                                                transfiniteSourcePins));
             _transfiniteSourcePins = transfiniteSourcePins;
             // An edge that follows the sweep in the walls of one block and crosses it in a wall of another - a
@@ -5487,22 +5505,67 @@ namespace CaeMesh
         /// <summary>
         /// The counts of the edges of the structured sweep sources the edge graph does not carry, balanced the way the
         /// faces of a shell are: the opposite sides of a four-sided one, and the three sides of a three-sided one, to
-        /// counts three blocks of quads fill, lowered where they can be for the coarser mesh. The counts the user set,
-        /// the layer counts of the neighbouring blocks and the ties of the four-sided sources stay; where they make the
-        /// balance impossible, the meshing is refused.
+        /// counts three blocks of quads fill, lowered where they can be for the coarser mesh. The walls carry these
+        /// counts on to the other sources, so everything they reach is balanced with them: the two sides of every wall,
+        /// which carry one total, and the edges a four-sided source ties together. The counts the user set, the layer
+        /// counts of the neighbouring blocks and the ties of the four-sided sources stay; where they make the balance
+        /// impossible, the meshing is refused.
         /// </summary>
-        private Dictionary<int, int> BalanceStructuredSources(Dictionary<int, int> directionEdgeIdNumOfElements,
+        private Dictionary<int, int> BalanceStructuredSources(List<SweepWall> walls, List<int[]> tiedEdgeGroups,
+                                                              Dictionary<int, int> directionEdgeIdNumOfElements,
                                                               Dictionary<int, int> fixedEdgeIdNumOfElements)
         {
             Dictionary<int, int> pins = new Dictionary<int, int>();
             if (_structuredSourceFaces.Count == 0) return pins;
             //
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
+            foreach (var face in _structuredSourceFaces.Values)
+            {
+                if (face.NumberOfSides == 4)
+                {
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
+                }
+                else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
+            }
+            List<TransfiniteSidePair> linkPairs = new List<TransfiniteSidePair>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0)
+                    linkPairs.Add(new TransfiniteSidePair(wall.SurfaceId, wall.SourceEdgeIds, wall.TargetEdgeIds));
+            }
+            foreach (var classEdgeIds in tiedEdgeGroups)
+            {
+                int faceId = GetTransfiniteSourceIdsOfEdges(classEdgeIds).DefaultIfEmpty(0).First();
+                for (int i = 1; i < classEdgeIds.Length; i++)
+                    linkPairs.Add(new TransfiniteSidePair(faceId, new int[] { classEdgeIds[0] },
+                                                          new int[] { classEdgeIds[i] }));
+            }
+            // The links the structured sources reach, through the edges they share
+            HashSet<int> reachedEdgeIds = new HashSet<int>(pairs.SelectMany(pair => pair.SideA.Concat(pair.SideB))
+                                                                .Concat(triples.SelectMany(triple =>
+                                                                    triple.Sides.SelectMany(side => side))));
+            HashSet<TransfiniteSidePair> reachedLinks = new HashSet<TransfiniteSidePair>();
+            bool added = true;
+            while (added)
+            {
+                added = false;
+                foreach (var link in linkPairs)
+                {
+                    if (reachedLinks.Contains(link) || !link.SideA.Concat(link.SideB).Any(reachedEdgeIds.Contains)) continue;
+                    reachedLinks.Add(link);
+                    reachedEdgeIds.UnionWith(link.SideA.Concat(link.SideB));
+                    added = true;
+                }
+            }
+            pairs.AddRange(linkPairs.Where(reachedLinks.Contains));
+            //
             int count;
             Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
             Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
             HashSet<int> pinnedEdgeIds = new HashSet<int>();
-            foreach (var edgeId in _structuredSourceFaces.Values.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
-                                                                .Distinct())
+            foreach (var edgeId in reachedEdgeIds)
             {
                 naturalCounts[edgeId] = Math.Max(1, GetMeasuredCrossEdgeElements(edgeId));
                 edgeIdCount[edgeId] = naturalCounts[edgeId];
@@ -5516,32 +5579,62 @@ namespace CaeMesh
                     pinnedEdgeIds.Add(edgeId);
                 }
             }
-            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
-            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
-            foreach (var face in _structuredSourceFaces.Values)
+            // Sides the user set apart refuse the meshing. A structured source the other fixed counts cannot balance is
+            // meshed free, and a link they cannot balance is left to the walls; the rest is balanced again
+            Func<int[], bool> userSet = side => side.All(IsFixedEdgeCount);
+            for (int round = 0; ; round++)
             {
-                if (face.NumberOfSides == 4)
+                Dictionary<int, int> counts = new Dictionary<int, int>(edgeIdCount);
+                List<TransfiniteSideTriple> unbalancedTriples;
+                List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(counts, naturalCounts,
+                                                                                             pinnedEdgeIds, pairs, triples,
+                                                                                             out unbalancedTriples);
+                if (unbalanced.Count == 0 && unbalancedTriples.Count == 0)
                 {
-                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
-                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
+                    foreach (var entry in counts) pins[entry.Key] = entry.Value;
+                    return pins;
                 }
-                else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
+                List<TransfiniteSidePair> refusedPairs = unbalanced.Where(pair => _structuredSourceFaces.ContainsKey(pair.FaceId) &&
+                                                                                 userSet(pair.SideA) && userSet(pair.SideB))
+                                                                   .ToList();
+                List<TransfiniteSideTriple> refusedTriples = unbalancedTriples.Where(triple => triple.Sides.All(userSet))
+                                                                              .ToList();
+                if (refusedPairs.Count > 0 || refusedTriples.Count > 0 || round > pairs.Count + triples.Count)
+                    throw new CaeException("Sweep: " + GetUnbalancedSidesMessage(refusedPairs, refusedTriples, counts,
+                                                                                 pinnedEdgeIds));
+                HashSet<int> freedFaceIds = new HashSet<int>(unbalanced.Select(pair => pair.FaceId)
+                                                                       .Concat(unbalancedTriples.Select(t => t.FaceId))
+                                                                       .Where(_structuredSourceFaces.ContainsKey));
+                foreach (var faceId in freedFaceIds)
+                {
+                    FreeStructuredSource(faceId, "Sweep: Surface " + faceId + " is a structured source whose sides the " +
+                                                 "counts the walls carry from the neighbouring blocks cannot balance, so " +
+                                                 "it is meshed free rather than as a structured grid.");
+                }
+                HashSet<TransfiniteSidePair> unbalancedLinks = new HashSet<TransfiniteSidePair>(
+                    unbalanced.Where(pair => !freedFaceIds.Contains(pair.FaceId)));
+                pairs = pairs.Where(pair => !freedFaceIds.Contains(pair.FaceId) && !unbalancedLinks.Contains(pair)).ToList();
+                triples = triples.Where(triple => !freedFaceIds.Contains(triple.FaceId)).ToList();
             }
-            List<TransfiniteSideTriple> unbalancedTriples;
-            List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
-                                                                                         pinnedEdgeIds, pairs, triples,
-                                                                                         out unbalancedTriples);
-            if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
-                throw new CaeException("Sweep: " + GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
-                                                                             pinnedEdgeIds));
-            foreach (var entry in edgeIdCount) pins[entry.Key] = entry.Value;
-            return pins;
         }
         /// <summary>
-        /// Refuses the meshing when the walls left a structured sweep source with counts its grid cannot have: opposite
-        /// sides of a four-sided one that differ, or three sides three blocks of quads cannot fill. The counts were
-        /// balanced before the walls were resolved, so only the counts the user set, or the layer counts of the
-        /// neighbouring blocks, can have pulled them apart.
+        /// Meshes a structured sweep source free: its grid constraint is taken off and it is recombined, as a source
+        /// carrying an imprint is.
+        /// </summary>
+        private void FreeStructuredSource(int surfaceId, string message)
+        {
+            Gmsh.Model.Mesh.RemoveConstraints(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
+            _transfiniteSurfaceIds.Remove(surfaceId);
+            _structuredSourceFaces.Remove(surfaceId);
+            if (_sweepRecombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
+            _writeOutput?.Invoke(NameGmshEntities(message));
+        }
+        /// <summary>
+        /// Checks the structured sweep sources once the walls are resolved: one with counts its grid cannot have -
+        /// opposite sides of a four-sided one that differ, or three sides three blocks of quads cannot fill - refuses
+        /// the meshing when the user set them all, and is meshed free otherwise. The counts were balanced before the
+        /// walls were resolved, so only the counts the user set, or the layer counts of the neighbouring blocks, can
+        /// have pulled them apart.
         /// </summary>
         private void CheckStructuredSourceCounts(List<SweepWall> walls)
         {
@@ -5549,15 +5642,18 @@ namespace CaeMesh
             Func<int[], int> sideCount = side => side.Sum(edgeId => _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out count) ?
                                                                     count : SweepWallTopology.GetElementCount(edgeId));
             List<string> lines = new List<string>();
-            foreach (var face in _structuredSourceFaces.Values.OrderBy(face => face.FaceId))
+            foreach (var face in _structuredSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
             {
                 int[] counts = face.SideEdgeIds.Select(sideCount).ToArray();
                 bool valid = face.NumberOfSides == 4 ? counts[0] == counts[2] && counts[1] == counts[3] :
                                                        TransfiniteSideTriple.AreCountsValid(counts);
                 if (valid) continue;
-                lines.Add("Sweep: the walls gave the structured source Surface " + face.FaceId + " " +
-                          string.Join(", ", counts) + " elements on its sides, which its grid cannot have. Its edges: " +
-                          DescribeEdgeRoles(face.SideEdgeIds.SelectMany(side => side).ToArray(), walls) + ".");
+                string description = "Sweep: the walls gave the structured source Surface " + face.FaceId + " " +
+                                     string.Join(", ", counts) + " elements on its sides, which its grid cannot have";
+                string edges = DescribeEdgeRoles(face.SideEdgeIds.SelectMany(side => side).ToArray(), walls);
+                if (face.SideEdgeIds.All(side => side.All(IsFixedEdgeCount)))
+                    lines.Add(description + ". Its edges: " + edges + ".");
+                else FreeStructuredSource(face.FaceId, description + ", so it is meshed free. Its edges: " + edges + ".");
             }
             if (lines.Count == 0) return;
             lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
