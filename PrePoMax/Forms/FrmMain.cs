@@ -9060,13 +9060,31 @@ namespace PrePoMax
                     // Disable the form during regenerate - check that the state is ready
                     if (tsslState.Text != Globals.RegeneratingText)
                     {
-                        CloseAllForms();
-                        SetFormLocation(_frmNewModel);
-                        //
-                        if (_frmNewModel.PrepareForm("", "New Model"))
+                        // A session without a user cannot answer the model properties dialog, so what is
+                        // undefined is set to the 3D model space and to no units
+                        if (MessageBoxes.Mode != MessageBoxModeEnum.Interactive)
                         {
-                            _frmNewModel.SetCancelPossible(cancelPossible);
-                            dialogResult = _frmNewModel.ShowDialog(this);
+                            ModelSpaceEnum modelSpace = _controller.Model.Properties.ModelSpace;
+                            UnitSystemType unitSystemType = _controller.Model.UnitSystem.UnitSystemType;
+                            if (modelSpace == ModelSpaceEnum.Undefined) modelSpace = ModelSpaceEnum.ThreeD;
+                            if (unitSystemType == UnitSystemType.Undefined) unitSystemType = UnitSystemType.UNIT_LESS;
+                            _frmNewModel.ModelSpace = modelSpace;
+                            _frmNewModel.UnitSystem = new UnitSystem(unitSystemType);
+                            WriteDataToOutput("The model properties are not defined. Model space: " + modelSpace +
+                                              ", unit system: " + unitSystemType + ". Use the -u switch to select " +
+                                              "the unit system.");
+                            dialogResult = DialogResult.OK;
+                        }
+                        else
+                        {
+                            CloseAllForms();
+                            SetFormLocation(_frmNewModel);
+                            //
+                            if (_frmNewModel.PrepareForm("", "New Model"))
+                            {
+                                _frmNewModel.SetCancelPossible(cancelPossible);
+                                dialogResult = _frmNewModel.ShowDialog(this);
+                            }
                         }
                     }
                 }
@@ -9118,6 +9136,14 @@ namespace PrePoMax
                             if (Enum.TryParse(parameters, out unitSystemTypeFromParameters))
                             {
                                 _controller.SetResultsUnitSystem(unitSystemTypeFromParameters);
+                            }
+                            // A session without a user cannot answer the results properties dialog
+                            else if (MessageBoxes.Mode != MessageBoxModeEnum.Interactive)
+                            {
+                                _controller.SetResultsUnitSystem(UnitSystemType.UNIT_LESS);
+                                WriteDataToOutput("The results do not define a unit system. Unit system: " +
+                                                  UnitSystemType.UNIT_LESS + ". Use the -u switch to select the " +
+                                                  "unit system.");
                             }
                             else
                             {
