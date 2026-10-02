@@ -9280,8 +9280,11 @@ namespace PrePoMax
                 string brepFileName = DeleteCadPartFaces(geometryPart, kernelFaceIdsByPartId[partId].ToArray());
                 if (brepFileName == null) continue;
                 //
+                string[] pieceFileNames = GetDeleteFacesPieceFileNames(brepFileName, 1,
+                                                                       ReadDeleteFacesNumber(brepFileName + ".pieces"));
                 ReplacePartGeometryFromFile(geometryPart, brepFileName, true);
                 BasePart changedPart;
+                int facesAfter = 0;
                 if (_model.Geometry.Parts.TryGetValue(partName, out changedPart) && changedPart.Visualization != null)
                     facesAfter = changedPart.Visualization.FaceCount;
                 //
@@ -9297,11 +9300,8 @@ namespace PrePoMax
                     openedMessages.Add(GetDeleteFacesPiecesMessage(partName, pieceNames));
                 }
                 _lastGeometryOperationCounts[partName] = facesBefore - facesAfter;
-                string[] pieceFileNames = GetDeleteFacesPieceFileNames(brepFileName, 1,
-                                                                       ReadDeleteFacesNumber(brepFileName + ".pieces"));
             }
             //
-                int facesAfter = 0;
             foreach (string compoundName in compoundNames)
             {
                 foreach (string pickedSubPartName in pickedSubPartNamesByCompound[compoundName])
@@ -9410,26 +9410,26 @@ namespace PrePoMax
                 // The opened solids are imported while their ids are held, so that none takes the id of another. The
                 // first file of an opened solid is the largest of its pieces, which takes its place
                 string[] importedPartNames = new string[openedSolidNumbers.Length];
+                string[][] pieceFileNames = new string[openedSolidNumbers.Length][];
                 _model.HoldPartIds(openedPartIds);
                 try
                 {
+                    int fileNumber = 1;
                     for (int i = 0; i < openedSolidNumbers.Length; i++)
-                string[][] pieceFileNames = new string[openedSolidNumbers.Length][];
                     {
                         string[] names = ImportBrepPartFile(GetDeleteCompoundFacesFileName(brepFileName, fileNumber));
                         if (names == null || names.Length != 1)
-                    int fileNumber = 1;
                             throw new CaeException("Delete cad part faces: the part " +
                                                    subParts[openedSolidNumbers[i] - 1].Name + " of the compound part " +
                                                    compoundName + " could not be imported as a shell part.");
                         importedPartNames[i] = names[0];
+                        pieceFileNames[i] = GetDeleteFacesPieceFileNames(brepFileName, fileNumber + 1,
+                                                                         openedFileCounts[i] - 1);
+                        fileNumber += openedFileCounts[i];
                     }
                 }
                 finally
                 {
-                        pieceFileNames[i] = GetDeleteFacesPieceFileNames(brepFileName, fileNumber + 1,
-                                                                         openedFileCounts[i] - 1);
-                        fileNumber += openedFileCounts[i];
                     _model.ReleaseHeldPartIds();
                 }
                 // They are not drawn yet, so the names and ids are given directly
@@ -9447,16 +9447,16 @@ namespace PrePoMax
                     int facesAfter = importedPart.Visualization == null ? 0 : importedPart.Visualization.FaceCount;
                     openedMessages.Add("Delete cad part faces: the part " + partName + " left the compound part " +
                                        compoundName + " as a shell part.");
-                }
-                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
-                UpdateAfterImport(".brep");
-            }
                     if (pieceFileNames[i].Length > 0)
                     {
                         string[] pieceNames = ImportDeleteFacesPieces(partName, pieceFileNames[i], ref facesAfter);
                         openedMessages.Add(GetDeleteFacesPiecesMessage(partName, pieceNames));
                     }
                     _lastGeometryOperationCounts[partName] = facesBefore[openedSolidNumbers[i] - 1] - facesAfter;
+                }
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
+                UpdateAfterImport(".brep");
+            }
             finally
             {
                 _form.ScreenUpdating = screenUpdating;
@@ -9564,16 +9564,16 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK && File.Exists(outputBrepFileName + ".opened")) return outputBrepFileName;
             else return null;
         }
-        private string DeleteCadPartFaces(GeometryPart part, int[] kernelFaceIds)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
         private static void DeleteDeleteFacesPieceFiles(string brepFileName)
         {
             string pattern = Path.GetFileNameWithoutExtension(brepFileName) + "_????" + Path.GetExtension(brepFileName);
             foreach (string fileName in Directory.GetFiles(Path.GetDirectoryName(brepFileName), pattern))
                 File.Delete(fileName);
         }
+        private string DeleteCadPartFaces(GeometryPart part, int[] kernelFaceIds)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
             if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
@@ -9588,12 +9588,12 @@ namespace PrePoMax
             foreach (int kernelFaceId in kernelFaceIds) faceIdsArgument += " " + kernelFaceId;
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            if (File.Exists(outputBrepFileName + ".pieces")) File.Delete(outputBrepFileName + ".pieces");
+            DeleteDeleteFacesPieceFiles(outputBrepFileName);
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             //
             string argument = "BREP_REMOVE_FACES " +
-            if (File.Exists(outputBrepFileName + ".pieces")) File.Delete(outputBrepFileName + ".pieces");
-            DeleteDeleteFacesPieceFiles(outputBrepFileName);
                               "\"" + inputBrepFileName.ToUTF8() + "\" " +
                               "\"" + outputBrepFileName.ToUTF8() + "\" " +
                               faceIdsArgument;
