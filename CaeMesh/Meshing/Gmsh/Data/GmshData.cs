@@ -43,6 +43,9 @@ namespace CaeMesh
         // Mesh size
         public Dictionary<int, double> VertexNodeIdMeshSize;
         public Dictionary<int, int> EdgeIdNumElements;
+        // Transfinite: the structured faces by the one definition all meshers follow - faces and edges by their gmsh
+        // topology ids, corners by their vertex node ids
+        public TransfiniteFace[] TransfiniteFaces;
         // Sweep
         public HashSet<int>[] EdgeIdsBySweepLayer;
         public string QuadWildDirectory;

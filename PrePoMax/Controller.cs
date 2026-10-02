@@ -108,7 +108,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastOffsetFacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
         [NonSerialized] protected string _lastFusedSplitCellName;
-        [NonSerialized] private Dictionary<string, MeshTypeEnum> _effectiveMeshTypes;
+        [NonSerialized] private Dictionary<string, MeshTypeEnum[]> _effectiveMeshTypes;
         [NonSerialized] private int _openedPmxVersion;
         [NonSerialized] private bool _defaultMeshTypesDisabled;
         protected FeResults _results;   // Compatibility v1.3.3
@@ -11085,7 +11085,8 @@ namespace PrePoMax
         /// <summary>
         /// The setup item that meshes a part the user defined none for. The geometry is given the most
         /// structured mesh it supports, which is the mesh type the recognition keeps on the parts; a part the
-        /// recognition leaves at tetrahedra is meshed by Netgen as it always was and needs no item at all.
+        /// recognition leaves at tetrahedra is meshed by Netgen as it always was and needs no item at all. A CAD
+        /// shell is always meshed by gmsh, which is structured on the faces that can carry a grid.
         /// The item is built for the meshing that asks for it and is neither recorded nor kept in the model
         /// tree, so the geometry alone decides it and a regenerated model reaches the same one.
         /// </summary>
@@ -11111,6 +11112,8 @@ namespace PrePoMax
                 sweepMesh.SourceType = SweepSourceTypeEnum.Automatic;
                 mesherSetupItem = sweepMesh;
             }
+            else if (meshType == MeshTypeEnum.Free && AreMeshedPartsCadShells(partName))
+                mesherSetupItem = GetDefaultShellGmsh();
             else return null;
             //
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
@@ -11129,6 +11132,28 @@ namespace PrePoMax
             }
             //
             return mesherSetupItem;
+        }
+        private bool AreMeshedPartsCadShells(string partName)
+        {
+            BasePart part;
+            foreach (var meshablePartName in GetMeshablePartNames(new string[] { partName }))
+            {
+                if (!_model.Geometry.Parts.TryGetValue(meshablePartName, out part)) return false;
+                if (!(part is GeometryPart geometryPart) || !geometryPart.IsCADPart ||
+                    geometryPart.PartType != PartType.Shell) return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// A shell is meshed the way a sweep meshes its source: a structured grid on the three and four sided faces
+        /// and a free mesh on the others, all of it recombined into quadrilaterals by the simple algorithm, which
+        /// joins triangles where it can and leaves the boundary alone.
+        /// </summary>
+        private static ShellGmsh GetDefaultShellGmsh()
+        {
+            ShellGmsh shellGmsh = new ShellGmsh("Default_Shell_Mesh");
+            shellGmsh.AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
+            return shellGmsh;
         }
         /// <summary>
         /// The most structured mesh the parts that are meshed together support, which is the least structured
@@ -11445,31 +11470,58 @@ namespace PrePoMax
             DetectMeshTypes();
             return GetMeshTypeOfMeshedPart(partName);
         }
-        // The mesh type colors show which item meshes each part, so a changed item recolors the geometry
+        // The mesh type colors show which item meshes each part, so a changed item recolors the geometry. Only the
+        // color tables of the drawn parts are replaced, which needs no part drawn again
         private void UpdateMeshTypeColors(bool redraw = true)
         {
             _effectiveMeshTypes = null;
             //
             if (redraw && _updateBatchCount == 0 && _annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
                 _currentView == ViewGeometryModelResults.Geometry)
-                Redraw();
+            {
+                if (RecolorMeshTypeFaces()) AnnotateWithColorLegend();
+                else Redraw();
+            }
+        }
+        private bool RecolorMeshTypeFaces()
+        {
+            if (_model == null || _model.Geometry == null) return false;
+            //
+            List<string> actorNames = new List<string>();
+            List<Color[]> colorTables = new List<Color[]>();
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value.Labels.Length == 0) continue;
+                if (!AreMeshTypeFaceColorsDrawn(_model.Geometry, entry.Value))
+                {
+                    if (entry.Value is CompoundGeometryPart) continue;
+                    // A part drawn without a color table, a wire, is colored by a redraw
+                    return false;
+                }
+                //
+                actorNames.Add(entry.Key);
+                colorTables.Add(GetMeshTypeFaceColors((GeometryPart)entry.Value));
+            }
+            if (actorNames.Count == 0) return true;
+            //
+            return _form.UpdateActorsColorTables(actorNames.ToArray(), colorTables.ToArray());
         }
         /// <summary>
-        /// The mesh type every geometry part is meshed by: the type its mesh setup item asks for, or the type
-        /// the recognition chose for it when the user defined no item. This is what the mesh type colors show,
-        /// so a part colored as swept is a part that is going to be swept.
+        /// The mesh type every face of a geometry part is meshed by: the type its mesh setup item asks for, or the
+        /// type the recognition chose for it when the user defined no item. This is what the mesh type colors
+        /// show, so a face colored as structured is a face that is going to be structured.
         /// </summary>
-        private MeshTypeEnum GetEffectiveMeshType(string partName)
+        private MeshTypeEnum[] GetEffectiveFaceMeshTypes(string partName)
         {
             if (_effectiveMeshTypes == null) _effectiveMeshTypes = GetEffectiveMeshTypes();
             //
-            MeshTypeEnum meshType;
-            if (_effectiveMeshTypes.TryGetValue(partName, out meshType)) return meshType;
-            else return MeshTypeEnum.Unknown;
+            MeshTypeEnum[] faceMeshTypes;
+            if (_effectiveMeshTypes.TryGetValue(partName, out faceMeshTypes)) return faceMeshTypes;
+            else return null;
         }
-        private Dictionary<string, MeshTypeEnum> GetEffectiveMeshTypes()
+        private Dictionary<string, MeshTypeEnum[]> GetEffectiveMeshTypes()
         {
-            Dictionary<string, MeshTypeEnum> effectiveMeshTypes = new Dictionary<string, MeshTypeEnum>();
+            Dictionary<string, MeshTypeEnum[]> effectiveMeshTypes = new Dictionary<string, MeshTypeEnum[]>();
             if (_model == null || _model.Geometry == null || _model.Geometry.Parts == null) return effectiveMeshTypes;
             //
             List<MeshSetupItem> mesherSetupItems = new List<MeshSetupItem>();
@@ -11485,6 +11537,7 @@ namespace PrePoMax
             int[] meshedPartIds;
             int[] partIds = new int[1];
             MeshTypeEnum meshType;
+            MeshSetupItem partMesherSetupItem;
             bool sweepMeshesCompound;
             HashSet<int> selectedPartIds;
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
@@ -11499,6 +11552,7 @@ namespace PrePoMax
                 partIds[0] = part.PartId;
                 //
                 meshType = MeshTypeEnum.Unknown;
+                partMesherSetupItem = null;
                 sweepMeshesCompound = false;
                 foreach (var mesherSetupItem in mesherSetupItems)
                 {
@@ -11515,18 +11569,80 @@ namespace PrePoMax
                     }
                     //
                     meshType = GetMeshTypeOfMeshSetupItem(mesherSetupItem, part);
+                    partMesherSetupItem = mesherSetupItem;
                     break;
                 }
                 if (meshType == MeshTypeEnum.Unknown)
                     meshType = sweepMeshesCompound ? MeshTypeEnum.Tetrahedral : part.MeshType;
                 //
-                effectiveMeshTypes.Add(part.Name, meshType);
+                effectiveMeshTypes.Add(part.Name, GetFaceMeshTypes(part, meshedPartName, meshType, partMesherSetupItem));
             }
             return effectiveMeshTypes;
         }
+        /// <summary>
+        /// A shell is structured only on the faces its mesher lays a grid over, so its faces are told one by one;
+        /// every face of any other part is meshed by the type of the part.
+        /// </summary>
+        private MeshTypeEnum[] GetFaceMeshTypes(GeometryPart part, string meshedPartName, MeshTypeEnum meshType,
+                                                MeshSetupItem mesherSetupItem)
+        {
+            MeshTypeEnum[] faceMeshTypes = new MeshTypeEnum[part.Visualization.FaceCount];
+            bool[] transfiniteFaces = null;
+            if (meshType == MeshTypeEnum.Free) transfiniteFaces = GetTransfiniteShellFaces(part, meshedPartName, mesherSetupItem);
+            //
+            for (int i = 0; i < faceMeshTypes.Length; i++)
+            {
+                if (transfiniteFaces != null && transfiniteFaces[i]) faceMeshTypes[i] = MeshTypeEnum.Transfinite;
+                else faceMeshTypes[i] = meshType;
+            }
+            return faceMeshTypes;
+        }
+        private bool[] GetTransfiniteShellFaces(GeometryPart part, string meshedPartName, MeshSetupItem mesherSetupItem)
+        {
+            try
+            {
+                if (mesherSetupItem == null)
+                {
+                    // An older model meshes a shell without an item by Netgen, with the settings of its meshing
+                    // parameters
+                    if (_defaultMeshTypesDisabled)
+                    {
+                        MeshingParameters meshingParameters = GetPartMeshingParameters(meshedPartName);
+                        return _model.Geometry.GetTransfiniteShellFaces(part, false,
+                                                                        meshingParameters.TransfiniteFaces !=
+                                                                        NetgenTransfiniteFacesEnum.None,
+                                                                        meshingParameters.TransfiniteAngleDeg);
+                    }
+                    mesherSetupItem = GetDefaultShellGmsh();
+                }
+                //
+                if (mesherSetupItem is ShellGmsh shellGmsh)
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.TransfiniteThreeSided,
+                                                                    shellGmsh.TransfiniteFourSided,
+                                                                    shellGmsh.TransfiniteAngleDeg);
+                // Netgen lays its grid on four sided faces only
+                else if (mesherSetupItem is NetgenMesh netgenMesh)
+                    return _model.Geometry.GetTransfiniteShellFaces(part, false,
+                                                                    netgenMesh.TransfiniteFaces !=
+                                                                    NetgenTransfiniteFacesEnum.None,
+                                                                    netgenMesh.TransfiniteAngleDeg);
+                else return null;
+            }
+            catch (Exception ex)
+            {
+                // The faces only color the geometry, so a face that cannot be told must not stop the drawing
+                Debug.WriteLine(ex);
+                return null;
+            }
+        }
         private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem, GeometryPart part)
         {
-            if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
+            // Which faces of a CAD shell are structured is told by the faces
+            if (part.IsCADPart && part.PartType == PartType.Shell &&
+                (meshSetupItem is ShellGmsh || meshSetupItem is ShellMmg || meshSetupItem is ShellQuadWild ||
+                 meshSetupItem is NetgenMesh))
+                return MeshTypeEnum.Free;
+            else if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
             else if (meshSetupItem is SweepMesh) return MeshTypeEnum.Sweep;
             else if (meshSetupItem is TetrahedralGmsh) return MeshTypeEnum.Tetrahedral;
             // A shell part Netgen meshes is colored as any other shell part
@@ -22458,6 +22574,7 @@ namespace PrePoMax
             mesh.GetVisualizationNodesAndCells(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
                                                out data.Geometry.Cells.Ids, out data.Geometry.Cells.CellNodeIds,
                                                out data.Geometry.Cells.Types);
+            if (AreMeshTypeFaceColorsDrawn(mesh, part)) SetMeshTypeFaceColors(data, (GeometryPart)part);
             // Model edges
             if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
             {
@@ -22673,8 +22790,58 @@ namespace PrePoMax
             else if (_annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
                      _currentView == ViewGeometryModelResults.Geometry && part is GeometryPart geometryPart)
             {
-                color = GetMeshTypeColor(GetEffectiveMeshType(geometryPart.Name));
+                color = GetMeanColor(GetMeshTypeFaceColors(geometryPart));
             }
+        }
+        // The faces are colored by the mesh type of each, since a shell is structured only on some of its faces
+        private bool AreMeshTypeFaceColorsDrawn(FeMesh mesh, BasePart part)
+        {
+            return _annotateWithColor == AnnotateWithColorEnum.MeshTypes &&
+                   _currentView == ViewGeometryModelResults.Geometry && _model != null && mesh == _model.Geometry &&
+                   part is GeometryPart && !(part is CompoundGeometryPart) && part.Visualization.FaceCount > 0 &&
+                   (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
+                    part.PartType == PartType.Shell);
+        }
+        private void SetMeshTypeFaceColors(vtkMaxActorData data, GeometryPart part)
+        {
+            // The visualization cells are drawn face by face, so a cell takes the index of its face
+            int[][] cellIdsByFace = part.Visualization.CellIdsByFace;
+            float[] values = new float[data.Geometry.Cells.Ids.Length];
+            int count = 0;
+            for (int i = 0; i < cellIdsByFace.Length; i++)
+            {
+                for (int j = 0; j < cellIdsByFace[i].Length && count < values.Length; j++) values[count++] = i;
+            }
+            if (count != values.Length) return;
+            //
+            data.Geometry.Cells.Values = values;
+            data.ColorTable = GetMeshTypeFaceColors(part);
+            data.Color = Color.FromArgb(data.Color.A, GetMeanColor(data.ColorTable));
+        }
+        private Color[] GetMeshTypeFaceColors(GeometryPart part)
+        {
+            MeshTypeEnum[] faceMeshTypes = GetEffectiveFaceMeshTypes(part.Name);
+            if (faceMeshTypes == null || faceMeshTypes.Length == 0)
+                return new Color[] { GetMeshTypeColor(MeshTypeEnum.Unknown) };
+            //
+            Color[] faceColors = new Color[faceMeshTypes.Length];
+            for (int i = 0; i < faceColors.Length; i++) faceColors[i] = GetMeshTypeColor(faceMeshTypes[i]);
+            return faceColors;
+        }
+        private static Color GetMeanColor(Color[] colors)
+        {
+            if (colors.Length == 0) return Color.Gray;
+            //
+            double sumR = 0;
+            double sumG = 0;
+            double sumB = 0;
+            foreach (var color in colors)
+            {
+                sumR += color.R;
+                sumG += color.G;
+                sumB += color.B;
+            }
+            return Color.FromArgb((int)(sumR / colors.Length), (int)(sumG / colors.Length), (int)(sumB / colors.Length));
         }
         private Color GetMeshTypeColor(MeshTypeEnum meshType)
         {
@@ -22683,7 +22850,9 @@ namespace PrePoMax
             {
                 case MeshTypeEnum.Transfinite: return colorSettings.TransfiniteMeshColor;
                 case MeshTypeEnum.Sweep: return colorSettings.SweepMeshColor;
+                case MeshTypeEnum.Revolve: return colorSettings.RevolveMeshColor;
                 case MeshTypeEnum.Tetrahedral: return colorSettings.TetrahedralMeshColor;
+                case MeshTypeEnum.Free: return colorSettings.FreeMeshColor;
                 default: return colorSettings.OtherMeshColor;
             }
         }
@@ -22693,7 +22862,9 @@ namespace PrePoMax
             {
                 case MeshTypeEnum.Transfinite: return "Transfinite - structured";
                 case MeshTypeEnum.Sweep: return "Sweep";
+                case MeshTypeEnum.Revolve: return "Revolve";
                 case MeshTypeEnum.Tetrahedral: return "Tetrahedral";
+                case MeshTypeEnum.Free: return "Free";
                 default: return "Other";
             }
         }
@@ -22720,20 +22891,27 @@ namespace PrePoMax
                 if (_currentView == ViewGeometryModelResults.Geometry)
                 {
                     MeshTypeEnum[] meshTypes = new MeshTypeEnum[] { MeshTypeEnum.Transfinite, MeshTypeEnum.Sweep,
-                                                                    MeshTypeEnum.Tetrahedral, MeshTypeEnum.Other };
+                                                                    MeshTypeEnum.Revolve,
+                                                                    MeshTypeEnum.Tetrahedral, MeshTypeEnum.Free,
+                                                                    MeshTypeEnum.Other };
+                    HashSet<MeshTypeEnum> shownMeshTypes = new HashSet<MeshTypeEnum>();
+                    foreach (var entry in _model.Geometry.Parts)
+                    {
+                        if (entry.Value is CompoundGeometryPart || !(entry.Value is GeometryPart geometryPart)) continue;
+                        if (!geometryPart.Visible) continue;
+                        //
+                        MeshTypeEnum[] faceMeshTypes = GetEffectiveFaceMeshTypes(geometryPart.Name);
+                        if (faceMeshTypes == null || faceMeshTypes.Length == 0) shownMeshTypes.Add(MeshTypeEnum.Other);
+                        else shownMeshTypes.UnionWith(faceMeshTypes);
+                    }
                     List<Color> meshTypeColors = new List<Color>();
                     List<string> meshTypeNames = new List<string>();
                     foreach (var meshType in meshTypes)
                     {
-                        foreach (var entry in _model.Geometry.Parts)
-                        {
-                            if (entry.Value is CompoundGeometryPart || !(entry.Value is GeometryPart geometryPart)) continue;
-                            if (!geometryPart.Visible || GetEffectiveMeshType(geometryPart.Name) != meshType) continue;
-                            //
-                            meshTypeColors.Add(GetMeshTypeColor(meshType));
-                            meshTypeNames.Add(GetMeshTypeName(meshType));
-                            break;
-                        }
+                        if (!shownMeshTypes.Contains(meshType)) continue;
+                        //
+                        meshTypeColors.Add(GetMeshTypeColor(meshType));
+                        meshTypeNames.Add(GetMeshTypeName(meshType));
                     }
                     _form.SetColorBarColorsAndLabels(meshTypeColors.ToArray(), meshTypeNames.ToArray());
                 }

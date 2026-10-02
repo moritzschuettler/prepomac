@@ -10216,6 +10216,47 @@ namespace vtkControl
             }
             if (_sectionViewData.Active && actor.SectionViewSkinActor != null) actor.SectionViewSkinActor.Color = newColor;
         }
+        /// <summary>
+        /// Recolors actors whose cells are colored through a color table by replacing the tables only, so new
+        /// colors need neither the actors nor their cells rebuilt. An actor is shaded and highlighted with the
+        /// mean of its cell colors, which keeps the alpha of its own color. Returns false when an actor is not
+        /// drawn with a color table of the same length, which only a rebuild can color.
+        /// </summary>
+        public bool UpdateActorsColorTables(string[] actorNames, Color[][] colorTables)
+        {
+            vtkMaxActor actor;
+            for (int i = 0; i < actorNames.Length; i++)
+            {
+                if (!_actors.TryGetValue(actorNames[i], out actor) || actor.ColorTable == null ||
+                    actor.ColorTable.Length != colorTables[i].Length) return false;
+            }
+            //
+            for (int i = 0; i < actorNames.Length; i++)
+                UpdateActorColorTable(_actors[actorNames[i]], colorTables[i]);
+            //
+            RenderScene();
+            return true;
+        }
+        private void UpdateActorColorTable(vtkMaxActor actor, Color[] colorTable)
+        {
+            double sumR = 0;
+            double sumG = 0;
+            double sumB = 0;
+            foreach (var color in colorTable)
+            {
+                sumR += color.R;
+                sumG += color.G;
+                sumB += color.B;
+            }
+            int count = Math.Max(colorTable.Length, 1);
+            Color meanColor = Color.FromArgb(actor.Color.A, (int)(sumR / count), (int)(sumG / count), (int)(sumB / count));
+            //
+            actor.ColorTable = colorTable;
+            foreach (var copy in actor.Copies) UpdateActorColorTable(copy, colorTable);
+            if (actor.SectionViewSkinActor != null && actor.SectionViewSkinActor.ColorTable != null)
+                actor.SectionViewSkinActor.ColorTable = colorTable;
+            UpdateActorColor(actor, meanColor);
+        }
         private void UpdateSectionViewActorColor(vtkMaxActor sectionViewActor)
         {
             if (sectionViewActor != null)

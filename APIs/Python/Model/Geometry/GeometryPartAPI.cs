@@ -29,7 +29,8 @@ namespace APIs.Python.Model
             }
         }
         [PythonAPI("The most structured mesh the recognition finds the part supports, whatever the mesh setup " +
-                   "items ask for: Transfinite, Sweep, Tetrahedral, or Other for a part that is not a CAD solid. " +
+                   "items ask for: Transfinite, Sweep, Revolve, Tetrahedral, Free for a CAD shell, which gmsh " +
+                   "meshes with a structured grid on the faces that can carry one, or Other for an stl based part. " +
                    "A compound part reports the most restrictive type of its sub-parts, except that one in which " +
                    "some cells sweep and others do not reports Sweep, since the sweep meshes the cells it cannot " +
                    "reach by tetrahedra. The recognition depends " +

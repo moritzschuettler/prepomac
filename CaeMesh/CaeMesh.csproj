@@ -149,7 +149,13 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlockValidation.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepDetectionData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
+    <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />
+    <Compile Include="Meshing\Transfinite\TransfiniteEdgeCountBalancer.cs" />
+    <Compile Include="Meshing\Transfinite\TransfiniteFace.cs" />
+    <Compile Include="Meshing\Transfinite\TransfiniteFaceDetector.cs" />
+    <Compile Include="Meshing\Transfinite\TransfiniteSidePair.cs" />
+    <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepLaplacian.cs" />

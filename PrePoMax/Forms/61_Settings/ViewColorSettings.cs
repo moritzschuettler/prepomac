@@ -50,7 +50,8 @@ namespace PrePoMax.Settings
         //
         [CategoryAttribute("Mesh types")]
         [OrderedDisplayName(0, 10, "Transfinite color")]
-        [DescriptionAttribute("Select the color of the parts that can be meshed by the transfinite algorithm.")]
+        [DescriptionAttribute("Select the color of the parts and shell faces that can be meshed by the transfinite " +
+                              "algorithm.")]
         [Id(1, 2)]
         public Color TransfiniteMeshColor
         {
@@ -69,9 +70,19 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Mesh types")]
-        [OrderedDisplayName(2, 10, "Tetrahedral color")]
-        [DescriptionAttribute("Select the color of the solid parts that can only be meshed by tetrahedra.")]
+        [OrderedDisplayName(2, 10, "Revolve color")]
+        [DescriptionAttribute("Select the color of the parts that are swept by turning them about an axis they touch.")]
         [Id(3, 2)]
+        public Color RevolveMeshColor
+        {
+            get { return _colorSettings.RevolveMeshColor; }
+            set { _colorSettings.RevolveMeshColor = value; }
+        }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(3, 10, "Tetrahedral color")]
+        [DescriptionAttribute("Select the color of the solid parts that can only be meshed by tetrahedra.")]
+        [Id(4, 2)]
         public Color TetrahedralMeshColor
         {
             get { return _colorSettings.TetrahedralMeshColor; }
@@ -79,10 +90,19 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Mesh types")]
-        [OrderedDisplayName(3, 10, "Other color")]
-        [DescriptionAttribute("Select the color of the parts that are not solid CAD parts and are meshed by the " +
-                              "shell meshers.")]
-        [Id(4, 2)]
+        [OrderedDisplayName(4, 10, "Free color")]
+        [DescriptionAttribute("Select the color of the shell faces that are meshed without a structured grid.")]
+        [Id(5, 2)]
+        public Color FreeMeshColor
+        {
+            get { return _colorSettings.FreeMeshColor; }
+            set { _colorSettings.FreeMeshColor = value; }
+        }
+        //
+        [CategoryAttribute("Mesh types")]
+        [OrderedDisplayName(5, 10, "Other color")]
+        [DescriptionAttribute("Select the color of the parts meshed in any other way, such as the stl based parts.")]
+        [Id(6, 2)]
         public Color OtherMeshColor
         {
             get { return _colorSettings.OtherMeshColor; }

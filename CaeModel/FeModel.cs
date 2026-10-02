@@ -2661,7 +2661,14 @@ namespace CaeModel
             {
                 part = entry.Value as GeometryPart;
                 if (part == null || part is CompoundGeometryPart) continue;
-                // Everything that is not a solid CAD part is meshed by the shell meshers
+                // A CAD shell is meshed by the shell gmsh mesher, which lays a structured grid face by face, so
+                // which of its faces are structured is told by the faces and not by the part
+                if (part.IsCADPart && part.PartType == PartType.Shell)
+                {
+                    part.MeshType = MeshTypeEnum.Free;
+                    continue;
+                }
+                // Everything else that is not a solid CAD part is meshed by the Netgen and STL meshers
                 if (!part.IsCADPart || (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell))
                 {
                     part.MeshType = MeshTypeEnum.Other;

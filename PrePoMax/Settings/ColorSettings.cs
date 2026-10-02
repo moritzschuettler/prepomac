@@ -81,7 +81,9 @@ namespace PrePoMax
         private Color _backFaceColor;
         private Color _transfiniteMeshColor;
         private Color _sweepMeshColor;
+        private Color _revolveMeshColor;
         private Color _tetrahedralMeshColor;
+        private Color _freeMeshColor;
         private Color _otherMeshColor;
 
         // Properties                                                                                                               
@@ -120,10 +122,20 @@ namespace PrePoMax
             get { return _sweepMeshColor; }
             set { _sweepMeshColor = value; }
         }
+        public Color RevolveMeshColor
+        {
+            get { return _revolveMeshColor; }
+            set { _revolveMeshColor = value; }
+        }
         public Color TetrahedralMeshColor
         {
             get { return _tetrahedralMeshColor; }
             set { _tetrahedralMeshColor = value; }
+        }
+        public Color FreeMeshColor
+        {
+            get { return _freeMeshColor; }
+            set { _freeMeshColor = value; }
         }
         public Color OtherMeshColor
         {
@@ -155,7 +167,9 @@ namespace PrePoMax
             //
             _transfiniteMeshColor = Color.DarkSeaGreen;
             _sweepMeshColor = Color.Khaki;
+            _revolveMeshColor = Color.SkyBlue;
             _tetrahedralMeshColor = Color.Coral;
+            _freeMeshColor = Color.Plum;
             _otherMeshColor = Color.LightGray;
         }
         public void ApplyColorPalette()

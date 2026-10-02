@@ -4504,6 +4504,31 @@ namespace CaeMesh
                         gmshData.FaceVertexNodeIdsFaceId[vertexIds] = new List<GmshIdLocation>() { idLocation };
                 }
             }
+            // A shell is structured on the faces the one definition all meshers follow finds
+            ShellGmsh shellGmsh = gmshData.GmshSetupItems?.OfType<ShellGmsh>().FirstOrDefault();
+            if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh);
+        }
+        private TransfiniteFace[] GetTransfiniteFacesForGmsh(string[] partNames, ShellGmsh shellGmsh)
+        {
+            List<TransfiniteFace> transfiniteFaces = new List<TransfiniteFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in TransfiniteFaceDetector.Detect(this, part, shellGmsh.TransfiniteThreeSided,
+                                                                    shellGmsh.TransfiniteFourSided,
+                                                                    shellGmsh.TransfiniteAngleDeg))
+                {
+                    int[][] sideEdgeIds = face.SideEdgeIds.Select(side => side.Select(edgeId =>
+                                                                  GmshTopologyId(edgeId, part.PartId)).ToArray())
+                                                          .ToArray();
+                    transfiniteFaces.Add(new TransfiniteFace(GmshTopologyId(face.FaceId, part.PartId),
+                                                             face.CornerNodeIds.ToArray(),
+                                                             face.CornerAnglesDeg.ToArray(), sideEdgeIds));
+                }
+            }
+            return transfiniteFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5122,7 +5147,15 @@ namespace CaeMesh
         public void SetPartColorFromColorTable(BasePart part)
         {
             part.Color = Globals.ColorTable[(part.PartId - 1) % Globals.ColorTable.Length];
-        }        
+        }
+        // Mesh types
+        /// <summary>
+        /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow.
+        /// </summary>
+        public bool[] GetTransfiniteShellFaces(BasePart part, bool threeSided, bool fourSided, double transfiniteAngleDeg)
+        {
+            return TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided, transfiniteAngleDeg);
+        }
 
         #endregion #################################################################################################################
 

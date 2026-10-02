@@ -19,7 +19,11 @@ namespace CaeMesh
         Unknown,
         Transfinite,
         Sweep,
+        // Swept by turning the source about an axis it touches, which the sweep between two ends cannot do
+        Revolve,
         Tetrahedral,
+        // A shell face meshed without a structured grid
+        Free,
         Other
     }
 }

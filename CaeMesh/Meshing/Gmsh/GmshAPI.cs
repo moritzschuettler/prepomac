@@ -33,6 +33,8 @@ namespace CaeMesh
         private List<SweepBlock> _sweepBlocks;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
+        // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
+        private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
@@ -215,7 +217,10 @@ namespace CaeMesh
                     // Transfinite
                     bool transfiniteVolume = gsi is TransfiniteMesh && gsi.TransfiniteThreeSided && gsi.TransfiniteFourSided;
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
-                    if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
+                    // A shell is structured on the faces the one definition all meshers follow found
+                    if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
+                        SetTransfiniteShellFaces(_gmshData.TransfiniteFaces);
+                    else if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
                                                gsi.TransfiniteAngleDeg, recombine, gsi.AlgorithmRecombine);
@@ -616,6 +621,8 @@ namespace CaeMesh
             //
             if (preview) GenerateMesh(2);
             else GenerateMesh(2);
+            // The three-sided faces become three blocks of quads around one inner node
+            foreach (var face in _threeBlockFaces) GmshThreeBlockMesher.Mesh(face);
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
@@ -4874,6 +4881,9 @@ namespace CaeMesh
             }
             // Get groups of connected edges
             List<Graph<GmshEdge>> edgeGroups = edgeGraph.GetConnectedSubgraphs();
+            // The sweep shares the numbers of elements pinned on its edges out over its walls itself
+            if (_sweepBlocks == null && _gmshData.EdgeIdsBySweepLayer == null)
+                CheckPinnedTransfiniteEdgeCounts(surfaceIdSurface, transfiniteThreeSided, transfiniteFourSided);
             //
             int min;
             int max;
@@ -5012,6 +5022,191 @@ namespace CaeMesh
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
             }
+        }
+        /// <summary>
+        /// Lays a structured grid over the faces of a shell the one definition all meshers follow found. A side is a
+        /// chain of edges, so every surface is given its corners. Opposite sides are balanced to the same number of
+        /// elements for the coarser mesh; when the numbers the user set on edges make that impossible, the meshing is
+        /// refused. A three-sided face is meshed as three blocks of quads around one inner node, which needs an even
+        /// sum on its sides and no side with as many elements as the other two; gmsh meshes it free first and the
+        /// blocks replace that mesh.
+        /// </summary>
+        private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces)
+        {
+            if (transfiniteFaces.Length == 0) return;
+            // An edge embedded in a face would be crossed by the grid, which gmsh then does not follow
+            Tuple<int, int>[] surfaceDimTags;
+            Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+            HashSet<int> surfaceIdsWithInternalCurves = GetSurfaceIdsWithInternalCurves(surfaceDimTags);
+            List<TransfiniteFace> faces = new List<TransfiniteFace>();
+            foreach (var face in transfiniteFaces)
+            {
+                if (surfaceIdsWithInternalCurves.Contains(face.FaceId))
+                {
+                    _writeOutput?.Invoke(NameGmshEntities("Transfinite: Surface " + face.FaceId + " is meshed without " +
+                                                          "a structured grid - it carries an edge inside it."));
+                }
+                else faces.Add(face);
+            }
+            if (faces.Count == 0) return;
+            // The numbers of elements the mesh size asks for, which the pinned edges already carry
+            GenerateMesh(1);
+            IntPtr[] nodeTags;
+            Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
+            foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side)).Distinct())
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
+                naturalCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
+            }
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>(naturalCounts);
+            HashSet<int> pinnedEdgeIds = new HashSet<int>();
+            int numOfElements;
+            foreach (var edgeId in naturalCounts.Keys)
+            {
+                if (_gmshData.EdgeIdNumElements != null &&
+                    _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                {
+                    edgeIdCount[edgeId] = Math.Max(1, numOfElements);
+                    pinnedEdgeIds.Add(edgeId);
+                }
+            }
+            //
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
+            foreach (var face in faces)
+            {
+                if (face.NumberOfSides == 4)
+                {
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
+                    pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
+                }
+                else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
+            }
+            List<TransfiniteSideTriple> unbalancedTriples;
+            List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
+                                                                                         pinnedEdgeIds, pairs, triples,
+                                                                                         out unbalancedTriples);
+            if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
+                throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
+                                                                 pinnedEdgeIds));
+            //
+            Gmsh.Model.Mesh.Clear();
+            foreach (var entry in edgeIdCount) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            foreach (var face in faces)
+            {
+                if (face.NumberOfSides == 3)
+                {
+                    _threeBlockFaces.Add(face);
+                    continue;
+                }
+                Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                _transfiniteSurfaceIds.Add(face.FaceId);
+            }
+        }
+        private static string GetUnbalancedSidesMessage(List<TransfiniteSidePair> unbalanced,
+                                                        List<TransfiniteSideTriple> unbalancedTriples,
+                                                        Dictionary<int, int> edgeIdCount, HashSet<int> pinnedEdgeIds)
+        {
+            double sf = GetMeshSizeFactor((GmshAlgorithmMesh2DEnum)(int)Gmsh.Option.GetNumber("Mesh.Algorithm"));
+            Func<int[], string> describe = side =>
+                string.Join(", ", side.Select(edgeId => "Edge " + edgeId +
+                                                        (pinnedEdgeIds.Contains(edgeId) ? " (set to " +
+                                                         (int)Math.Round(edgeIdCount[edgeId] * sf) + ")" : "")));
+            List<string> lines = new List<string>();
+            foreach (var pair in unbalanced)
+            {
+                // The error is named by the caller
+                lines.Add("The opposite sides of Surface " + pair.FaceId + " cannot be given the same number of " +
+                          "elements: " + describe(pair.SideA) + " against " + describe(pair.SideB) + ".");
+            }
+            foreach (var triple in unbalancedTriples)
+            {
+                lines.Add("The three sides of Surface " + triple.FaceId + " cannot be given numbers of elements three " +
+                          "blocks of quads fill - an even sum, with no side carrying as many as the other two: " +
+                          string.Join("; ", triple.Sides.Select(describe)) + ".");
+            }
+            lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
+                      "3-sided and 4-sided surfaces.");
+            return string.Join(Environment.NewLine, lines);
+        }
+        /// <summary>
+        /// Refuses the meshing when a structured grid cannot keep the numbers of elements the user set on the edges.
+        /// The grid divides the opposite sides of a transfinite surface equally, so every edge linked to another
+        /// through the opposite sides of the transfinite surfaces gets one number of elements; where the user set
+        /// different numbers on two such edges, one of them would be overridden.
+        /// </summary>
+        private void CheckPinnedTransfiniteEdgeCounts(Dictionary<int, GmshSurface> surfaceIdSurface,
+                                                      bool transfiniteThreeSided, bool transfiniteFourSided)
+        {
+            if (_gmshData.EdgeIdNumElements == null || _gmshData.EdgeIdNumElements.Count < 2) return;
+            //
+            List<GmshSurface> gridSurfaces = surfaceIdSurface.Values.Where(surface =>
+                surface.Transfinite && !_freeMeshedSurfaceIds.Contains(surface.Id) &&
+                ((surface.ThreeSided && transfiniteThreeSided) || (surface.FourSided && transfiniteFourSided))).ToList();
+            // Union of the opposite edges
+            Dictionary<int, int> edgeIdRootId = new Dictionary<int, int>();
+            Func<int, int> getRootId = null;
+            getRootId = edgeId =>
+            {
+                int parentId;
+                if (!edgeIdRootId.TryGetValue(edgeId, out parentId)) { edgeIdRootId[edgeId] = edgeId; return edgeId; }
+                if (parentId == edgeId) return edgeId;
+                int rootId = getRootId(parentId);
+                edgeIdRootId[edgeId] = rootId;
+                return rootId;
+            };
+            Action<int[]> join = oppositeEdgeIds =>
+            {
+                if (oppositeEdgeIds == null || oppositeEdgeIds.Length != 2) return;
+                edgeIdRootId[getRootId(oppositeEdgeIds[0])] = getRootId(oppositeEdgeIds[1]);
+            };
+            foreach (var surface in gridSurfaces)
+            {
+                join(surface.OppositeEdgesA);
+                join(surface.OppositeEdgesB);
+            }
+            // The numbers of elements set on the edges of each group
+            int numOfElements;
+            Dictionary<int, SortedDictionary<int, List<int>>> rootIdNumOfElementsEdgeIds =
+                new Dictionary<int, SortedDictionary<int, List<int>>>();
+            foreach (var edgeId in edgeIdRootId.Keys.ToArray())
+            {
+                if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements)) continue;
+                //
+                int rootId = getRootId(edgeId);
+                SortedDictionary<int, List<int>> numOfElementsEdgeIds;
+                if (!rootIdNumOfElementsEdgeIds.TryGetValue(rootId, out numOfElementsEdgeIds))
+                {
+                    numOfElementsEdgeIds = new SortedDictionary<int, List<int>>();
+                    rootIdNumOfElementsEdgeIds.Add(rootId, numOfElementsEdgeIds);
+                }
+                if (!numOfElementsEdgeIds.ContainsKey(numOfElements)) numOfElementsEdgeIds.Add(numOfElements, new List<int>());
+                numOfElementsEdgeIds[numOfElements].Add(edgeId);
+            }
+            //
+            double sf = GetMeshSizeFactor((GmshAlgorithmMesh2DEnum)(int)Gmsh.Option.GetNumber("Mesh.Algorithm"));
+            List<string> conflicts = new List<string>();
+            foreach (var entry in rootIdNumOfElementsEdgeIds)
+            {
+                if (entry.Value.Count < 2) continue;
+                //
+                HashSet<int> groupEdgeIds = new HashSet<int>(edgeIdRootId.Keys.ToArray()
+                                                                          .Where(id => getRootId(id) == entry.Key));
+                int[] surfaceIds = gridSurfaces.Where(surface => surface.EdgeIds.Any(groupEdgeIds.Contains))
+                                               .Select(surface => surface.Id).OrderBy(id => id).ToArray();
+                string counts = string.Join("; ", entry.Value.Select(numOfEdgeIds =>
+                    string.Join(", ", numOfEdgeIds.Value.OrderBy(id => id).Select(id => "Edge " + id)) + " to " +
+                    (int)Math.Round(numOfEdgeIds.Key * sf)));
+                // The error is named by the caller
+                conflicts.Add("The number of elements is set to different values on edges a structured grid divides " +
+                              "equally (" + counts + "), which are linked through the opposite sides of " +
+                              string.Join(", ", surfaceIds.Select(id => "Surface " + id)) + ".");
+            }
+            if (conflicts.Count == 0) return;
+            //
+            throw new CaeException(string.Join(Environment.NewLine, conflicts) + Environment.NewLine +
+                                   "Set the same number of elements on these edges, or switch off the transfinite " +
+                                   "meshing of the 3-sided and 4-sided surfaces.");
         }
         /// <summary>
         /// Meshes free every face with a corner sharper than 180° minus the threshold angle or flatter than the
@@ -5424,6 +5619,12 @@ namespace CaeMesh
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
+            // Transfinite faces
+            if (_gmshData.TransfiniteFaces != null)
+            {
+                _gmshData.TransfiniteFaces = RenumberTransfiniteFaces(_gmshData.TransfiniteFaces, netgenVertexIdGmshVertexId,
+                                                                      netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+            }
             // Defeature
             if (_gmshData.SurfaceIds != null)
             {
@@ -5525,6 +5726,33 @@ namespace CaeMesh
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
                                  "swept and the mesh is mirrored onto the other " + removedDimTags.Length + ".");
+        }
+        // A face whose surface, corners or edges gmsh does not have is not on the meshed part
+        private static TransfiniteFace[] RenumberTransfiniteFaces(TransfiniteFace[] transfiniteFaces,
+                                                                  Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                                  Dictionary<int, int> netgenEdgeIdGmshEdgeId,
+                                                                  Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            int surfaceId;
+            List<TransfiniteFace> renumbered = new List<TransfiniteFace>();
+            foreach (var face in transfiniteFaces)
+            {
+                if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId)) continue;
+                //
+                int[] cornerIds = new int[face.CornerNodeIds.Length];
+                int[][] sideEdgeIds = new int[face.SideEdgeIds.Length][];
+                bool mapped = true;
+                for (int i = 0; i < cornerIds.Length && mapped; i++)
+                    mapped = netgenVertexIdGmshVertexId.TryGetValue(face.CornerNodeIds[i], out cornerIds[i]);
+                for (int i = 0; i < sideEdgeIds.Length && mapped; i++)
+                {
+                    sideEdgeIds[i] = new int[face.SideEdgeIds[i].Length];
+                    for (int j = 0; j < sideEdgeIds[i].Length && mapped; j++)
+                        mapped = netgenEdgeIdGmshEdgeId.TryGetValue(face.SideEdgeIds[i][j], out sideEdgeIds[i][j]);
+                }
+                if (mapped) renumbered.Add(new TransfiniteFace(surfaceId, cornerIds, face.CornerAnglesDeg, sideEdgeIds));
+            }
+            return renumbered.ToArray();
         }
         private static void RenumberSurfaceIds(int[][] surfaceIds, Dictionary<int, int> netgenFaceIdGmshFaceId)
         {
