@@ -45,7 +45,8 @@ namespace CaeMesh
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
         private List<SweepRevolvedBlock> _revolvedBlocks = new List<SweepRevolvedBlock>();
-        private Dictionary<SweepRevolvedBlock, int> _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int>();
+        private Dictionary<SweepRevolvedBlock, int[]> _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int[]>();
+        private Dictionary<SweepRevolvedBlock, double[]> _revolvedLevels = new Dictionary<SweepRevolvedBlock, double[]>();
         private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
         private static readonly Regex _entityProgress =
@@ -857,7 +858,8 @@ namespace CaeMesh
             HashSet<int> wallSurfaceIds = new HashSet<int>();
             HashSet<int> targetSurfaceIds = new HashSet<int>();
             _revolvedBlocks = new List<SweepRevolvedBlock>();
-            _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int>();
+            _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int[]>();
+            _revolvedLevels = new Dictionary<SweepRevolvedBlock, double[]>();
             foreach (var block in blocks)
             {
                 // Set source surfaces
@@ -2146,8 +2148,10 @@ namespace CaeMesh
                 Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags = new Dictionary<Tuple<IntPtr, int>, IntPtr>();
                 foreach (var revolvedBlock in GetRevolvedBuildOrder())
                 {
-                    _writeOutput?.Invoke("Revolved block: " + _revolvedLayerCounts[revolvedBlock] + " element layers.");
-                    revolvedBlock.Build(_revolvedLayerCounts[revolvedBlock], builtWallIds, wallNodeTags);
+                    int[] layerCounts = _revolvedLayerCounts[revolvedBlock];
+                    _writeOutput?.Invoke("Revolved block: " + layerCounts.Sum() + " element layers" +
+                                         (layerCounts.Length > 1 ? " (" + string.Join(" + ", layerCounts) + ")" : "") + ".");
+                    revolvedBlock.Build(_revolvedLevels[revolvedBlock], layerCounts, builtWallIds, wallNodeTags);
                 }
                 SweepMethods.CreateSweepMesh(blocks.Where(block => !block.IsRevolved).ToList(),
                                              sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, _writeOutput);
@@ -2155,33 +2159,98 @@ namespace CaeMesh
         }
         /// <summary>
         /// The layer counts of the revolved blocks, measured on a 1D mesh and pinned on their arcs, so that the walls
-        /// of the other blocks read them. The layer count is the smallest an arc measures, since the coarser count is
-        /// the one the user can always refine; a count the user pinned on an arc wins. Blocks turned about one axis
-        /// through one angle may share walls, so they get one layer count.
+        /// of the other blocks read them. The angles the vertices of the blocks stand at are the levels the layers end
+        /// on, and every interval between two levels gets a count of its own: the smallest the arcs spanning it
+        /// measure, shared out by angle where an arc spans several, since the coarser count is the one the user can
+        /// always refine. A count the user pinned on an arc of one interval wins. Blocks turned about one axis through
+        /// one angle may share walls, so they share their levels and their counts.
         /// </summary>
         private void PrepareRevolvedLayers()
         {
             if (_revolvedBlocks.Count == 0) return;
             //
             GenerateMesh(1);
+            int pinned;
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
             foreach (var group in GetRevolvedGroups())
             {
-                int[] arcIds = group.SelectMany(block => block.ArcEdgeIds).Distinct().ToArray();
-                if (arcIds.Length == 0)
+                double[] levels = GetRevolvedLevels(group);
+                List<Tuple<int, double, double>> arcs = GetRevolvedArcs(group);
+                if (arcs.Count == 0)
                     throw new CaeException("No vertex of the source of " + group[0].Block.GetDescription() + " lies off " +
                                            "the axis, so the number of its element layers cannot be measured.");
-                int[] pinnedArcIds = arcIds.Where(id => _gmshData.EdgeIdNumElements.ContainsKey(id)).ToArray();
-                int numLayers = pinnedArcIds.Length > 0 ? pinnedArcIds.Min(id => _gmshData.EdgeIdNumElements[id])
-                                                        : arcIds.Min(id => SweepWallTopology.GetElementCount(id));
-                numLayers = Math.Max(1, numLayers);
+                int numIntervals = levels.Length - 1;
+                double[] estimates = Enumerable.Repeat(double.MaxValue, numIntervals).ToArray();
+                int[] fixedCounts = Enumerable.Repeat(int.MaxValue, numIntervals).ToArray();
+                foreach (var arc in arcs)
+                {
+                    int first = GetLevelIndex(levels, arc.Item2);
+                    int last = GetLevelIndex(levels, arc.Item3);
+                    bool isPinned = _gmshData.EdgeIdNumElements.TryGetValue(arc.Item1, out pinned);
+                    if (isPinned && last - first == 1)
+                    {
+                        fixedCounts[first] = Math.Min(fixedCounts[first], pinned);
+                        continue;
+                    }
+                    double count = isPinned ? pinned : SweepWallTopology.GetElementCount(arc.Item1);
+                    for (int i = first; i < last; i++)
+                    {
+                        double share = count * (levels[i + 1] - levels[i]) / (arc.Item3 - arc.Item2);
+                        estimates[i] = Math.Min(estimates[i], share);
+                    }
+                }
+                int[] counts = new int[numIntervals];
+                for (int i = 0; i < numIntervals; i++)
+                {
+                    if (fixedCounts[i] != int.MaxValue) counts[i] = Math.Max(1, fixedCounts[i]);
+                    else if (estimates[i] != double.MaxValue) counts[i] = Math.Max(1, (int)Math.Round(estimates[i]));
+                    else throw new CaeException("No edge turns about the axis between two of the angles the vertices of " +
+                                                group[0].Block.GetDescription() + " stand at.");
+                }
                 foreach (var revolvedBlock in group)
                 {
-                    _revolvedLayerCounts[revolvedBlock] = numLayers;
-                    foreach (var arcId in revolvedBlock.ArcEdgeIds) edgeIdNumOfElements[arcId] = numLayers;
+                    _revolvedLevels[revolvedBlock] = levels;
+                    _revolvedLayerCounts[revolvedBlock] = counts;
                 }
+                foreach (var arc in arcs) edgeIdNumOfElements[arc.Item1] = GetArcCount(levels, counts, arc);
             }
             SetPinnedEdgeCounts(edgeIdNumOfElements);
+        }
+        /// <summary>
+        /// The angles the vertices of the blocks of a group stand at, which every block of the group ends its layers on.
+        /// </summary>
+        private static double[] GetRevolvedLevels(List<SweepRevolvedBlock> group)
+        {
+            List<double> levels = new List<double>();
+            foreach (var level in group.SelectMany(block => block.Levels))
+            {
+                if (!levels.Any(existing => Math.Abs(existing - level) <= 1E-6)) levels.Add(level);
+            }
+            return levels.OrderBy(level => level).ToArray();
+        }
+        private static List<Tuple<int, double, double>> GetRevolvedArcs(List<SweepRevolvedBlock> group)
+        {
+            HashSet<int> arcIds = new HashSet<int>();
+            List<Tuple<int, double, double>> arcs = new List<Tuple<int, double, double>>();
+            foreach (var arc in group.SelectMany(block => block.Arcs))
+            {
+                if (arcIds.Add(arc.Item1)) arcs.Add(arc);
+            }
+            return arcs;
+        }
+        private static int GetLevelIndex(double[] levels, double angle)
+        {
+            for (int i = 0; i < levels.Length; i++)
+            {
+                if (Math.Abs(levels[i] - angle) <= 1E-6) return i;
+            }
+            throw new CaeException("An edge turning about the axis of a revolved sweep block ends at no level of the block.");
+        }
+        private static int GetArcCount(double[] levels, int[] counts, Tuple<int, double, double> arc)
+        {
+            int sum = 0;
+            for (int i = GetLevelIndex(levels, arc.Item2); i < GetLevelIndex(levels, arc.Item3); i++) sum += counts[i];
+            return sum;
         }
         /// <summary>
         /// The counts of the source and the target edges of the revolved blocks, so that the turned source edges fit
@@ -2203,24 +2272,42 @@ namespace CaeMesh
                 edgeIdNumOfElements.TryGetValue(edgeId, out numOfElements) ? numOfElements :
                 _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements) ? numOfElements :
                 SweepWallTopology.GetElementCount(edgeId);
-            // The walls of the other blocks may have given the arcs a count of their own, which the layers follow
+            // The walls of the other blocks may have given an arc a count of its own, which the layers of the interval
+            // it spans follow; an arc spanning several intervals has to agree with them as they are
             foreach (var group in GetRevolvedGroups())
             {
-                int numLayers = _revolvedLayerCounts[group[0]];
-                int[] arcIds = group.SelectMany(block => block.ArcEdgeIds).Distinct().ToArray();
-                int[] changedArcIds = arcIds.Where(id => getCount(id) != numLayers).ToArray();
-                int[] changedCounts = changedArcIds.Select(getCount).Distinct().ToArray();
-                if (changedCounts.Length > 1)
-                    throw new CaeException("The edges " + string.Join(", ", changedArcIds.Select(id => "edge " + id + " (" +
-                                           getCount(id) + ")")) + " along the revolution of " +
-                                           group[0].Block.GetDescription() + " were given different element counts by " +
-                                           "the sweep of the blocks beside it, so its layers cannot follow them.");
-                if (changedCounts.Length == 1)
+                double[] levels = _revolvedLevels[group[0]];
+                int[] counts = _revolvedLayerCounts[group[0]];
+                List<Tuple<int, double, double>> arcs = GetRevolvedArcs(group);
+                Dictionary<int, int> settledCounts = arcs.ToDictionary(arc => arc.Item1, arc => GetArcCount(levels, counts, arc));
+                Dictionary<int, HashSet<int>> intervalCounts = new Dictionary<int, HashSet<int>>();
+                List<Tuple<int, double, double>> changedArcs = arcs.Where(arc => getCount(arc.Item1) != settledCounts[arc.Item1])
+                                                                   .ToList();
+                foreach (var arc in changedArcs)
                 {
-                    numLayers = changedCounts[0];
-                    foreach (var revolvedBlock in group) _revolvedLayerCounts[revolvedBlock] = numLayers;
+                    int first = GetLevelIndex(levels, arc.Item2);
+                    if (GetLevelIndex(levels, arc.Item3) - first != 1) continue;
+                    if (!intervalCounts.ContainsKey(first)) intervalCounts.Add(first, new HashSet<int>());
+                    intervalCounts[first].Add(getCount(arc.Item1));
                 }
-                foreach (var arcId in arcIds) edgeIdNumOfElements[arcId] = numLayers;
+                foreach (var entry in intervalCounts)
+                {
+                    if (entry.Value.Count > 1)
+                        throw new CaeException("The edges " + string.Join(", ", changedArcs.Select(arc => "edge " +
+                                               arc.Item1 + " (" + getCount(arc.Item1) + ")")) + " along the revolution of " +
+                                               group[0].Block.GetDescription() + " were given different element counts " +
+                                               "by the sweep of the blocks beside it, so its layers cannot follow them.");
+                    counts[entry.Key] = entry.Value.First();
+                }
+                foreach (var arc in changedArcs)
+                {
+                    if (getCount(arc.Item1) != GetArcCount(levels, counts, arc))
+                        throw new CaeException("The edge " + arc.Item1 + " along the revolution of " +
+                                               group[0].Block.GetDescription() + " was given " + getCount(arc.Item1) +
+                                               " elements by the sweep of the blocks beside it, but the layers it spans " +
+                                               "carry " + GetArcCount(levels, counts, arc) + ".");
+                }
+                foreach (var arc in arcs) edgeIdNumOfElements[arc.Item1] = GetArcCount(levels, counts, arc);
             }
             foreach (var revolvedBlock in GetRevolvedBuildOrder())
             {
@@ -2301,15 +2388,14 @@ namespace CaeMesh
         {
             foreach (var revolvedBlock in _revolvedBlocks)
             {
-                int numLayers = _revolvedLayerCounts[revolvedBlock];
-                foreach (var arcId in revolvedBlock.ArcEdgeIds)
+                foreach (var arc in revolvedBlock.Arcs)
                 {
-                    int count = SweepWallTopology.GetElementCount(arcId);
-                    if (count != numLayers)
-                        throw new CaeException(NameGmshEntities("The edge " + arcId + " along the revolution of " +
+                    int count = SweepWallTopology.GetElementCount(arc.Item1);
+                    int expected = GetArcCount(_revolvedLevels[revolvedBlock], _revolvedLayerCounts[revolvedBlock], arc);
+                    if (count != expected)
+                        throw new CaeException(NameGmshEntities("The edge " + arc.Item1 + " along the revolution of " +
                                                revolvedBlock.Block.GetDescription() + " is meshed with " + count +
-                                               " elements, but the block is revolved through " + numLayers +
-                                               " element layers."));
+                                               " elements, but the layers it spans carry " + expected + "."));
                 }
                 foreach (var chain in revolvedBlock.TargetEdgeChains)
                 {

@@ -3398,10 +3398,11 @@ namespace CaeModel
         /// The revolved blocks of the cells of a compound the swept blocks leave to tetrahedra: a cell the sweep
         /// between two ends cannot mesh and that is revolved about an axis it touches. A revolved block is meshed
         /// before the swept ones and rebuilds its walls and its target, so a surface it shares with a swept block
-        /// has to be the source of that block, which reads it back from there. A surface it shares with another
-        /// revolved block, turned about the same axis through the same angle, has to be a wall of both, or the target
-        /// of one and the source of the other, which is then built after it. A cell that shares a surface in any
-        /// other way is left to tetrahedra. Null when no cell is revolved.
+        /// has to be the source of that block, which reads it back from there, or a wall of both, whose grid the
+        /// swept block reads as the revolved block leaves it, its counts settled between the two. A surface it shares
+        /// with another revolved block, turned about the same axis through the same angle, has to be a wall of both,
+        /// or the target of one and the source of the other, which is then built after it. A cell that shares a
+        /// surface in any other way is left to tetrahedra. Null when no cell is revolved.
         /// </summary>
         private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks)
         {
@@ -3425,11 +3426,17 @@ namespace CaeModel
             }
             Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);
             Dictionary<int, SweepBlocks> partIdRevolved = new Dictionary<int, SweepBlocks>();
+            double[] referenceAxis = null;
             foreach (var cell in candidates)
             {
                 if (partIdSweptBlock.ContainsKey(cell.PartId)) continue;
-                //
+                // Every cell found its source on its own, so cells turned about one axis are turned the same way
+                // round, and the target of one is then the source of the next
                 SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
+                double[] axis = cellBlocks.RevolveAxes[0];
+                if (referenceAxis == null) referenceAxis = axis;
+                else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
+                    cellBlocks = GetReversedRevolvedBlocks(cellBlocks);
                 HashSet<int> ownSideIds = new HashSet<int>(cellBlocks.SideSurfaceIds[0]);
                 HashSet<int> ownSourceIds = new HashSet<int>(cellBlocks.SourceSurfaceIds[0]);
                 HashSet<int> ownTargetIds = new HashSet<int>(cellBlocks.TargetSurfaceIds[0]);
@@ -3442,7 +3449,9 @@ namespace CaeModel
                     int neighbourPartId = FeMesh.GetPartIdFromGmshTopologyId(twinId);
                     if (partIdSweptBlock.TryGetValue(neighbourPartId, out partBlock))
                     {
-                        if (!partBlock[0].Contains(twinId)) revolvable = false;
+                        bool sweptSource = partBlock[0].Contains(twinId);
+                        bool bothWalls = ownSideIds.Contains(gmshTopologyId) && partBlock[1].Contains(twinId);
+                        if (!sweptSource && !bothWalls) revolvable = false;
                     }
                     else if (partIdRevolved.TryGetValue(neighbourPartId, out SweepBlocks neighbourBlocks))
                     {
@@ -3452,8 +3461,10 @@ namespace CaeModel
                                       neighbourBlocks.SourceSurfaceIds[0].Contains(twinId)) ||
                                      (ownSourceIds.Contains(gmshTopologyId) &&
                                       neighbourBlocks.TargetSurfaceIds[0].Contains(twinId));
+                        // Two cells sharing a wall turn through the same angle; one feeding the other only about the
+                        // same axis
                         if (!(bothWalls || feeds) ||
-                            !AreRevolveAxesEqual(cellBlocks.RevolveAxes[0], neighbourBlocks.RevolveAxes[0], cell))
+                            !AreRevolveAxesEqual(cellBlocks.RevolveAxes[0], neighbourBlocks.RevolveAxes[0], cell, bothWalls))
                             revolvable = false;
                     }
                     if (!revolvable) break;
@@ -3463,13 +3474,41 @@ namespace CaeModel
             if (partIdRevolved.Count == 0) return null;
             return SweepBlocks.Merge(partIdRevolved.Values);
         }
-        private static bool AreRevolveAxesEqual(double[] axis1, double[] axis2, GeometryPart part)
+        /// <summary>
+        /// The revolved block turned the other way round: from its target onto its source, about the reversed axis.
+        /// </summary>
+        private static SweepBlocks GetReversedRevolvedBlocks(SweepBlocks blocks)
+        {
+            double[] axis = blocks.RevolveAxes[0];
+            double[] reversedAxis = new double[] { axis[0], axis[1], axis[2], -axis[3], -axis[4], -axis[5], axis[6] };
+            // The arrow starts on the new source, where the old one was turned to, and points back
+            double[] arrowStart = null;
+            double[] arrowDirection = null;
+            if (blocks.ArrowStarts[0] != null && blocks.ArrowDirections[0] != null)
+            {
+                Vec3D direction = new Vec3D(axis[3], axis[4], axis[5]);
+                direction.Normalize();
+                Vec3D start = RotateAboutAxis(new Vec3D(blocks.ArrowStarts[0]), new Vec3D(axis[0], axis[1], axis[2]),
+                                              direction, axis[6] * Math.PI / 180);
+                Vec3D tangent = Vec3D.CrossProduct(-1 * direction, start - new Vec3D(axis[0], axis[1], axis[2]));
+                if (tangent.Len > 0)
+                {
+                    tangent.Normalize();
+                    arrowStart = start.Coor;
+                    arrowDirection = tangent.Coor;
+                }
+            }
+            return new SweepBlocks(blocks.TargetSurfaceIds, blocks.SideSurfaceIds, blocks.SourceSurfaceIds,
+                                   blocks.LayerGroupEdgeIds, new double[][] { arrowStart },
+                                   new double[][] { arrowDirection }, new double[][] { reversedAxis });
+        }
+        private static bool AreRevolveAxesEqual(double[] axis1, double[] axis2, GeometryPart part, bool sameAngle)
         {
             double tolerance = 1E-4 * part.BoundingBox.GetDiagonal();
             Vec3D direction1 = new Vec3D(axis1[3], axis1[4], axis1[5]);
             Vec3D direction2 = new Vec3D(axis2[3], axis2[4], axis2[5]);
             if (Vec3D.DotProduct(direction1, direction2) < 1 - 1E-6) return false;
-            if (Math.Abs(axis1[6] - axis2[6]) > 1E-3) return false;
+            if (sameAngle && Math.Abs(axis1[6] - axis2[6]) > 1E-3) return false;
             //
             double radius;
             double height;
@@ -6160,18 +6199,6 @@ namespace CaeModel
                                                            .Select(entry => entry.Key).ToArray();
                 return "A vertex of " + GetSweepSurfaceNames(part, vertexSurfaceIds) + " lies on no circle a " +
                        "vertex of " + sourceNames + " turns on, so the part is not revolved from it.";
-            }
-            if (touchingAxis)
-            {
-                foreach (var vertexId in vis.VertexNodeIds)
-                {
-                    if (sourceVertexIds.Contains(vertexId) || targetVertexIds.Contains(vertexId)) continue;
-                    //
-                    int[] vertexSurfaceIds = surfaceIdVertexIds.Where(entry => entry.Value.Contains(vertexId))
-                                                               .Select(entry => entry.Key).ToArray();
-                    return "The " + GetSweepSurfaceNames(part, vertexSurfaceIds) + " is split along the revolution " +
-                           "from " + sourceNames + ", which a revolved sweep block cannot follow.";
-                }
             }
             // Every other surface is the target or a surface turning about the axis
             Vec3D axisPoint = center - new Vec3D(part.Offset);

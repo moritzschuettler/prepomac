@@ -20,13 +20,16 @@ namespace CaeMesh.Sweep
     /// mesh: the lines of the source nodes on the axis collapse into a point, and the elements beside the axis
     /// collapse into wedges, pyramids and tetrahedra.
     ///
-    /// The block keeps the CAD entities of the model, so that its neighbours share its surfaces. gmsh meshes the source
-    /// and the curves, with the counts the block sets before: every arc the source vertices turn along gets the layer
-    /// count, and every edge of the target the count of the source edge it is the image of. Once the surfaces are
-    /// meshed the block builds everything else by turning the source mesh: the nodes on the arcs and on the target
-    /// edges are moved to where the turning puts them, the walls and the target are meshed again by the turned source
-    /// edges and the turned source, and the volume by the turned source elements. It is built before the blocks
-    /// swept between two ends, and before the cells left to tetrahedra, so that both read its surfaces as they end.
+    /// The block keeps the CAD entities of the model, so that its neighbours share its surfaces. Its walls may be split
+    /// along the revolution, by the faces of a neighbour standing on them, and every angle a vertex of the block stands
+    /// at is a level the layers end on: between two levels the layers are equal. gmsh meshes the source and the
+    /// curves, with the counts the block sets before: every arc gets the layers of the levels it spans, and every edge
+    /// standing at a level the count of the source edges turned onto it. Once the surfaces are meshed the block builds
+    /// everything else by turning the source mesh. Every turned source entity is found where it lands - on a vertex,
+    /// on an edge, inside a wall or inside the volume - the nodes already on the edges are moved to where the turning
+    /// puts them, in their order along the edge, and the walls, the target and the volume are meshed by the turned
+    /// source. It is built before the blocks swept between two ends, and before the cells left to tetrahedra, so that
+    /// both read its surfaces as they end.
     /// </summary>
     public class SweepRevolvedBlock
     {
@@ -36,33 +39,37 @@ namespace CaeMesh.Sweep
         private readonly double[] _direction;
         private readonly double _angleRad;
         private readonly double _tolerance;
+        private readonly double _angleTolerance;
         private readonly HashSet<int> _sourceVertexIds;
         private readonly HashSet<int> _sourceEdgeIds;
         private readonly HashSet<int> _boundaryEdgeIds;
-        private readonly Dictionary<int, int> _targetVertexIds;
-        private readonly Dictionary<int, int> _targetEdgeIds;
-        private readonly Dictionary<int, int> _arcEdgeIds;
-        private readonly Dictionary<int, int> _wallSurfaceIds;
-        private readonly Dictionary<int, int> _vertexTargetEdgeIds;
-        private readonly Dictionary<int, int> _vertexWallSurfaceIds;
-        private readonly List<Tuple<int[], int>> _targetEdgeChains;
+        private readonly HashSet<int> _boundaryVertexIds;
+        private readonly HashSet<int> _targetVertexIds;
+        private readonly HashSet<int> _targetEdgeIds;
+        private readonly HashSet<int> _wallVertexIds;
+        private readonly HashSet<int> _wallEdgeIds;
+        private readonly Dictionary<int, double[]> _wallSpans;
+        private readonly Dictionary<int, double[]> _vertexCoor;
+        private readonly double[] _levels;
+        private readonly List<Tuple<int, double, double>> _arcs;
+        private readonly List<Tuple<int[], int>> _edgeChains;
 
 
         // Properties
         public SweepBlock Block { get { return _block; } }
-        /// <summary>The edges the source vertices off the axis turn along, one for each of them.</summary>
-        public IEnumerable<int> ArcEdgeIds { get { return _arcEdgeIds.Values; } }
         /// <summary>
-        /// Every edge of the source off the axis, and the edge of the target it is turned onto. An edge inside a split
-        /// source may be turned into a target that is not split, and then has none.
+        /// The angles the vertices of the block stand at, measured from the source in the sense it is turned, from 0
+        /// to the angle of the block.
         /// </summary>
-        public Dictionary<int, int> TargetEdgeIds { get { return _targetEdgeIds; } }
+        public double[] Levels { get { return _levels; } }
+        /// <summary>The edges that turn about the axis, each with the angles it starts and ends at.</summary>
+        public List<Tuple<int, double, double>> Arcs { get { return _arcs; } }
+        public IEnumerable<int> ArcEdgeIds { get { return _arcs.Select(arc => arc.Item1); } }
         /// <summary>
-        /// The chains of source edges and the target edge each chain is turned onto: one edge, or several when the
-        /// vertices between them only split an edge of the source boundary and are turned onto points along the
-        /// target edge, which then carries as many elements as the chain.
+        /// Every edge standing at a level, a target edge or one splitting a wall along the revolution, and the source
+        /// edges turned onto it, which give it the sum of their counts.
         /// </summary>
-        public List<Tuple<int[], int>> TargetEdgeChains { get { return _targetEdgeChains; } }
+        public List<Tuple<int[], int>> TargetEdgeChains { get { return _edgeChains; } }
 
 
         // Constructors
@@ -74,6 +81,7 @@ namespace CaeMesh.Sweep
             _angleRad = block.RevolveAxis[6] * Math.PI / 180;
             if (!(_angleRad > 0) || _angleRad >= 2 * Math.PI - 1E-9)
                 throw new CaeException("The angle of " + GetDescription() + " must be larger than 0° and smaller than 360°.");
+            _angleTolerance = 1E-6;
             //
             int[] upward;
             int[] downward;
@@ -90,193 +98,158 @@ namespace CaeMesh.Sweep
             }
             _sourceEdgeIds = new HashSet<int>(edgeUseCount.Keys);
             Dictionary<int, int[]> edgeVertexIds = new Dictionary<int, int[]>();
-            _sourceVertexIds = new HashSet<int>();
-            foreach (var edgeId in _sourceEdgeIds)
+            foreach (var edgeId in _sourceEdgeIds) edgeVertexIds.Add(edgeId, GetEdgeVertexIds(edgeId));
+            _sourceVertexIds = new HashSet<int>(_sourceEdgeIds.SelectMany(id => edgeVertexIds[id]));
+            // The edges and the vertices of the walls and of the target
+            _wallEdgeIds = new HashSet<int>();
+            foreach (var surfaceId in block.WallSurfaceIds)
             {
-                edgeVertexIds.Add(edgeId, GetEdgeVertexIds(edgeId));
-                _sourceVertexIds.UnionWith(edgeVertexIds[edgeId]);
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out upward, out downward);
+                _wallEdgeIds.UnionWith(downward.Select(Math.Abs));
             }
-            // The tolerance follows the size of the source
-            BoundingBox box = new BoundingBox();
-            Dictionary<int, double[]> vertexCoor = new Dictionary<int, double[]>();
-            foreach (var vertexId in _sourceVertexIds)
-            {
-                vertexCoor.Add(vertexId, GetVertexCoor(vertexId));
-                box.IncludeCoor(vertexCoor[vertexId]);
-            }
-            _tolerance = 1E-6 * Math.Max(box.GetDiagonal(), 1E-6);
-            // The target entities, which the turned source entities are matched against
-            HashSet<int> targetEdgeIds = new HashSet<int>();
+            _targetEdgeIds = new HashSet<int>();
             foreach (var surfaceId in block.TargetSurfaceIds)
             {
                 Gmsh.Model.GetAdjacencies(2, surfaceId, out upward, out downward);
-                targetEdgeIds.UnionWith(downward.Select(Math.Abs));
+                _targetEdgeIds.UnionWith(downward.Select(Math.Abs));
             }
-            HashSet<int> targetVertexIds = new HashSet<int>();
-            foreach (var edgeId in targetEdgeIds)
+            _wallEdgeIds.ExceptWith(_sourceEdgeIds);
+            _targetEdgeIds.ExceptWith(_sourceEdgeIds);
+            foreach (var edgeId in _wallEdgeIds.Concat(_targetEdgeIds))
             {
                 if (!edgeVertexIds.ContainsKey(edgeId)) edgeVertexIds.Add(edgeId, GetEdgeVertexIds(edgeId));
-                targetVertexIds.UnionWith(edgeVertexIds[edgeId]);
             }
-            foreach (var vertexId in targetVertexIds)
+            _wallVertexIds = new HashSet<int>(_wallEdgeIds.SelectMany(id => edgeVertexIds[id]));
+            _targetVertexIds = new HashSet<int>(_targetEdgeIds.SelectMany(id => edgeVertexIds[id]));
+            // The tolerance follows the size of the block
+            BoundingBox box = new BoundingBox();
+            _vertexCoor = new Dictionary<int, double[]>();
+            foreach (var vertexId in _sourceVertexIds.Concat(_wallVertexIds).Concat(_targetVertexIds).Distinct())
             {
-                if (!vertexCoor.ContainsKey(vertexId)) vertexCoor.Add(vertexId, GetVertexCoor(vertexId));
+                _vertexCoor.Add(vertexId, GetVertexCoor(vertexId));
+                box.IncludeCoor(_vertexCoor[vertexId]);
             }
-            // Every source vertex off the axis turns onto a vertex of the target; one on the axis stays where it is. A
-            // vertex inside a split source may turn into the inside of the target, which need not be split there
-            HashSet<int> boundaryVertexIds = new HashSet<int>(edgeUseCount.Where(entry => entry.Value == 1)
-                                                                          .SelectMany(entry => edgeVertexIds[entry.Key]));
-            _targetVertexIds = new Dictionary<int, int>();
-            foreach (var vertexId in _sourceVertexIds)
+            _tolerance = 1E-6 * Math.Max(box.GetDiagonal(), 1E-6);
+            // The boundary of the source off the axis
+            _boundaryEdgeIds = new HashSet<int>(_sourceEdgeIds.Where(id => edgeUseCount[id] == 1 &&
+                                                                           !IsAxisEdge(id, edgeVertexIds[id])));
+            _boundaryVertexIds = new HashSet<int>(_boundaryEdgeIds.SelectMany(id => edgeVertexIds[id])
+                                                                  .Where(id => !IsOnAxis(_vertexCoor[id])));
+            // The angle of every vertex, from the source vertex on its circle
+            Dictionary<int, double> vertexAngles = new Dictionary<int, double>();
+            foreach (var entry in _vertexCoor)
             {
-                if (IsOnAxis(vertexCoor[vertexId]))
-                {
-                    _targetVertexIds.Add(vertexId, vertexId);
-                    continue;
-                }
-                double[] turned = Turn(vertexCoor[vertexId], _angleRad);
-                int targetVertexId = targetVertexIds.Where(id => Distance(vertexCoor[id], turned) <= 100 * _tolerance)
-                                                    .DefaultIfEmpty(-1).First();
-                if (targetVertexId >= 0) _targetVertexIds.Add(vertexId, targetVertexId);
+                if (IsOnAxis(entry.Value)) continue;
+                if (_sourceVertexIds.Contains(entry.Key)) vertexAngles.Add(entry.Key, 0);
+                else vertexAngles.Add(entry.Key, GetAngleFromSource(entry.Value));
             }
-            // Every source edge off the axis turns onto an edge of the target joining the turned vertices. A vertex
-            // splitting an edge of the source boundary turns onto a point along an edge of the target, so the edges of
-            // the boundary are followed in chains from one vertex turned onto a vertex to the next
-            _targetEdgeIds = new Dictionary<int, int>();
-            _boundaryEdgeIds = new HashSet<int>();
-            _targetEdgeChains = new List<Tuple<int[], int>>();
-            _vertexTargetEdgeIds = new Dictionary<int, int>();
-            Dictionary<int, List<int>> vertexBoundaryEdgeIds = new Dictionary<int, List<int>>();
-            foreach (var edgeId in _sourceEdgeIds)
+            List<double> levels = new List<double>() { 0, _angleRad };
+            foreach (var angle in vertexAngles.Values)
+            {
+                if (!levels.Any(level => Math.Abs(level - angle) <= _angleTolerance)) levels.Add(angle);
+            }
+            _levels = levels.OrderBy(level => level).ToArray();
+            // The angles a wall spans, from its vertices off the axis
+            _wallSpans = new Dictionary<int, double[]>();
+            foreach (var surfaceId in block.WallSurfaceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out upward, out downward);
+                double[] angles = downward.Select(Math.Abs).SelectMany(id => edgeVertexIds.ContainsKey(id) ?
+                                                                       edgeVertexIds[id] : GetEdgeVertexIds(id))
+                                          .Where(id => vertexAngles.ContainsKey(id)).Select(id => vertexAngles[id])
+                                          .ToArray();
+                if (angles.Length == 0)
+                    throw new CaeException("A wall of " + GetDescription() + " has no vertex off the axis.");
+                _wallSpans.Add(surfaceId, new double[] { angles.Min(), angles.Max() });
+            }
+            // Every edge of the walls and of the target either turns about the axis or stands at a level
+            _arcs = new List<Tuple<int, double, double>>();
+            Dictionary<int, double> levelEdgeAngles = new Dictionary<int, double>();
+            // An edge on the axis, like the degenerate edge at the pole of a sphere, has no node off it to turn, and is
+            // no edge a turned node can land on
+            int[] axisEdgeIds = _wallEdgeIds.Concat(_targetEdgeIds)
+                                            .Where(id => !edgeVertexIds[id].Any(vertexId => vertexAngles.ContainsKey(vertexId)))
+                                            .ToArray();
+            _wallEdgeIds.ExceptWith(axisEdgeIds);
+            _targetEdgeIds.ExceptWith(axisEdgeIds);
+            foreach (var edgeId in _wallEdgeIds.Concat(_targetEdgeIds).Distinct())
             {
                 int[] vertexIds = edgeVertexIds[edgeId];
-                if (IsAxisEdge(edgeId, vertexIds, vertexCoor)) continue;
-                //
-                if (edgeUseCount[edgeId] == 1)
+                int[] offAxisIds = vertexIds.Where(id => vertexAngles.ContainsKey(id)).ToArray();
+                if (offAxisIds.Length == 2 && vertexIds.Length == 2 && IsArc(edgeId, vertexIds))
                 {
-                    _boundaryEdgeIds.Add(edgeId);
-                    foreach (var vertexId in vertexIds)
-                    {
-                        if (!vertexBoundaryEdgeIds.ContainsKey(vertexId)) vertexBoundaryEdgeIds.Add(vertexId, new List<int>());
-                        vertexBoundaryEdgeIds[vertexId].Add(edgeId);
-                    }
+                    double start = vertexAngles[vertexIds[0]];
+                    double end = vertexAngles[vertexIds[1]];
+                    _arcs.Add(new Tuple<int, double, double>(edgeId, Math.Min(start, end), Math.Max(start, end)));
+                    continue;
                 }
-                else if (vertexIds.All(id => _targetVertexIds.ContainsKey(id)))
-                {
-                    // An edge inside the source has an edge on the target only when the target is split there too
-                    int targetEdgeId = FindTargetEdge(new int[] { edgeId }, vertexIds, edgeVertexIds, targetEdgeIds);
-                    if (targetEdgeId >= 0)
-                    {
-                        _targetEdgeIds.Add(edgeId, targetEdgeId);
-                        _targetEdgeChains.Add(new Tuple<int[], int>(new int[] { edgeId }, targetEdgeId));
-                    }
-                }
+                double[] angles = offAxisIds.Select(id => vertexAngles[id]).ToArray();
+                if (angles.Length == 0 || angles.Max() - angles.Min() > _angleTolerance)
+                    throw new CaeException(NameEdge(edgeId) + " of " + GetDescription() + " neither turns about the " +
+                                           "axis nor stands at one angle of the revolution.");
+                levelEdgeAngles.Add(edgeId, angles[0]);
             }
-            HashSet<int> chainedEdgeIds = new HashSet<int>();
-            foreach (var edgeId in _boundaryEdgeIds)
+            // Every edge standing at a level is the image of the source edges turned onto it there
+            _edgeChains = new List<Tuple<int[], int>>();
+            foreach (var entry in levelEdgeAngles)
             {
-                if (chainedEdgeIds.Contains(edgeId)) continue;
-                //
-                List<int> chainEdgeIds;
-                List<int> innerVertexIds;
-                int[] ends = GetBoundaryChain(edgeId, edgeVertexIds, vertexBoundaryEdgeIds, out chainEdgeIds,
-                                              out innerVertexIds);
-                chainedEdgeIds.UnionWith(chainEdgeIds);
-                if (ends == null || !ends.All(id => _targetVertexIds.ContainsKey(id)))
-                    throw new CaeException("A vertex of the source of " + GetDescription() + " is not turned onto the " +
-                                           "boundary of its target.");
-                int targetEdgeId = FindTargetEdge(chainEdgeIds.ToArray(), ends, edgeVertexIds, targetEdgeIds);
-                if (targetEdgeId < 0)
-                    throw new CaeException("An edge of the source of " + GetDescription() + " is not turned onto an " +
-                                           "edge of its target.");
-                foreach (var chainEdgeId in chainEdgeIds) _targetEdgeIds.Add(chainEdgeId, targetEdgeId);
-                foreach (var vertexId in innerVertexIds) _vertexTargetEdgeIds.Add(vertexId, targetEdgeId);
-                _targetEdgeChains.Add(new Tuple<int[], int>(chainEdgeIds.ToArray(), targetEdgeId));
-            }
-            // The wall every boundary edge sweeps, and the arc every boundary vertex off the axis turns along
-            _wallSurfaceIds = new Dictionary<int, int>();
-            HashSet<int> wallEdgeIds = new HashSet<int>();
-            foreach (var edgeId in _boundaryEdgeIds)
-            {
-                Gmsh.Model.GetAdjacencies(1, edgeId, out upward, out downward);
-                int[] wallIds = upward.Select(Math.Abs).Where(id => block.WallSurfaceIds.Contains(id)).Distinct().ToArray();
-                if (wallIds.Length != 1)
-                    throw new CaeException("The wall an edge of the source of " + GetDescription() + " sweeps could not " +
-                                           "be determined.");
-                _wallSurfaceIds.Add(edgeId, wallIds[0]);
-                Gmsh.Model.GetAdjacencies(2, wallIds[0], out upward, out downward);
-                wallEdgeIds.UnionWith(downward.Select(Math.Abs));
-            }
-            // A vertex turned onto a point along a target edge turns across the wall of its two edges
-            _vertexWallSurfaceIds = new Dictionary<int, int>();
-            foreach (var vertexId in _vertexTargetEdgeIds.Keys)
-            {
-                int[] wallIds = vertexBoundaryEdgeIds[vertexId].Select(id => _wallSurfaceIds[id]).Distinct().ToArray();
-                if (wallIds.Length != 1)
-                    throw new CaeException("A vertex of the source of " + GetDescription() + " joins two walls but is " +
-                                           "turned onto no vertex of its target.");
-                _vertexWallSurfaceIds.Add(vertexId, wallIds[0]);
-            }
-            _arcEdgeIds = new Dictionary<int, int>();
-            foreach (var edgeId in _boundaryEdgeIds)
-            {
-                foreach (var vertexId in edgeVertexIds[edgeId])
-                {
-                    if (_arcEdgeIds.ContainsKey(vertexId) || !_targetVertexIds.ContainsKey(vertexId) ||
-                        _targetVertexIds[vertexId] == vertexId) continue;
-                    //
-                    HashSet<int> ends = new HashSet<int>() { vertexId, _targetVertexIds[vertexId] };
-                    int[] arcIds = wallEdgeIds.Where(id => !_sourceEdgeIds.Contains(id) && !targetEdgeIds.Contains(id))
-                                              .Where(id => GetEdgeVertexIds(id).ToHashSet().SetEquals(ends)).ToArray();
-                    if (arcIds.Length != 1)
-                        throw new CaeException("A vertex of the source of " + GetDescription() + " does not turn along " +
-                                               "one edge onto the target, so the walls of the block are split along " +
-                                               "the revolution.");
-                    _arcEdgeIds.Add(vertexId, arcIds[0]);
-                }
+                bool atTarget = Math.Abs(entry.Value - _angleRad) <= _angleTolerance;
+                IEnumerable<int> candidates = atTarget ? _sourceEdgeIds.Where(id => !IsAxisEdge(id, edgeVertexIds[id]))
+                                                       : _boundaryEdgeIds;
+                int[] chain = candidates.Where(id => IsOnEdge(entry.Key, Turn(GetEdgeMiddle(id), entry.Value)))
+                                        .OrderBy(id => id).ToArray();
+                if (chain.Length == 0)
+                    throw new CaeException(NameEdge(entry.Key) + " of " + GetDescription() + " stands at an angle of " +
+                                           "the revolution, but no edge of the source is turned onto it.");
+                _edgeChains.Add(new Tuple<int[], int>(chain, entry.Key));
             }
         }
 
 
         // Methods
         /// <summary>
-        /// Builds the mesh of the block from the meshed source: the nodes on the arcs and the target edges are moved
-        /// onto the turned source, and the walls, the target and the volume are meshed by turning the source mesh
-        /// through the given number of equal layers. A wall two revolved blocks share is meshed by the one built
-        /// first, and the nodes it made there are kept by their source node and layer, so that the other block uses
-        /// them rather than meshing the wall again.
+        /// Builds the mesh of the block from the meshed source: the source mesh is turned through the layers, equal
+        /// between two of the given levels and as many there as the counts say, and every turned node is put where it
+        /// lands. A wall two revolved blocks share is meshed by the one built first, and the nodes it made there are
+        /// kept by their source node and layer, so that the other block uses them rather than meshing the wall again.
         /// </summary>
-        public void Build(int numLayers, HashSet<int> builtWallIds, Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags)
+        public void Build(double[] levels, int[] intervalCounts, HashSet<int> builtWallIds,
+                          Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags)
         {
-            if (numLayers < 1) numLayers = 1;
+            int numLayers = intervalCounts.Sum();
             double[] angles = new double[numLayers + 1];
-            for (int k = 0; k <= numLayers; k++) angles[k] = _angleRad * k / numLayers;
+            bool[] atLevel = new bool[numLayers + 1];
+            int[] layerInterval = new int[numLayers];
+            int layer = 0;
+            atLevel[0] = true;
+            for (int i = 0; i < intervalCounts.Length; i++)
+            {
+                for (int j = 0; j < intervalCounts[i]; j++)
+                {
+                    layerInterval[layer] = i;
+                    angles[layer] = levels[i] + (levels[i + 1] - levels[i]) * j / intervalCounts[i];
+                    layer++;
+                }
+                atLevel[layer] = true;
+            }
+            angles[numLayers] = _angleRad;
+            HashSet<int> builtBefore = new HashSet<int>(builtWallIds);
             // The walls are meshed again from the turned source edges, and the target from the turned source
             List<Tuple<int, int>> clearDimTags = new List<Tuple<int, int>>();
-            foreach (var wallId in _wallSurfaceIds.Values.Distinct())
+            foreach (var wallId in _wallSpans.Keys)
             {
-                if (!builtWallIds.Contains(wallId)) clearDimTags.Add(new Tuple<int, int>(2, wallId));
+                if (!builtBefore.Contains(wallId)) clearDimTags.Add(new Tuple<int, int>(2, wallId));
             }
             foreach (var targetId in _block.TargetSurfaceIds) clearDimTags.Add(new Tuple<int, int>(2, targetId));
             Gmsh.Model.Mesh.Clear(clearDimTags.ToArray());
             // The source nodes and the entities they are classified on
-            IntPtr[] tags;
-            double[] coor;
             Dictionary<IntPtr, double[]> sourceCoor = new Dictionary<IntPtr, double[]>();
             Dictionary<IntPtr, Tuple<int, int>> sourceEntity = new Dictionary<IntPtr, Tuple<int, int>>();
             AddSourceNodes(0, _sourceVertexIds, sourceCoor, sourceEntity);
             AddSourceNodes(1, _sourceEdgeIds, sourceCoor, sourceEntity);
             AddSourceNodes(2, _block.SourceSurfaceIds, sourceCoor, sourceEntity);
-            // The nodes already there, on the arcs and on the target edges, to be moved onto the turned source
-            Dictionary<int, List<IntPtr>> edgeNodes = new Dictionary<int, List<IntPtr>>();
-            Dictionary<IntPtr, double[]> edgeNodeCoor = new Dictionary<IntPtr, double[]>();
-            foreach (var edgeId in _arcEdgeIds.Values.Concat(_targetEdgeIds.Values).Distinct())
-            {
-                Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, edgeId, false, false);
-                edgeNodes.Add(edgeId, tags.ToList());
-                for (int i = 0; i < tags.Length; i++)
-                    edgeNodeCoor[tags[i]] = new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] };
-            }
+            Dictionary<int, double[]> edgeMiddles = new Dictionary<int, double[]>();
+            foreach (var edgeId in _sourceEdgeIds) edgeMiddles.Add(edgeId, GetEdgeMiddle(edgeId));
             // The line of every source node through the layers
             IntPtr maxNodeTag;
             Gmsh.Model.Mesh.GetMaxNodeTag(out maxNodeTag);
@@ -290,11 +263,7 @@ namespace CaeMesh.Sweep
             Dictionary<IntPtr, IntPtr[]> lines = new Dictionary<IntPtr, IntPtr[]>();
             Dictionary<int, List<Tuple<IntPtr[], int, double[]>>> edgeRequests =
                 new Dictionary<int, List<Tuple<IntPtr[], int, double[]>>>();
-            Action<int, IntPtr[], int, double[]> requestEdgeNode = (edgeId, nodeLine, layer, turnedPoint) =>
-            {
-                if (!edgeRequests.ContainsKey(edgeId)) edgeRequests.Add(edgeId, new List<Tuple<IntPtr[], int, double[]>>());
-                edgeRequests[edgeId].Add(new Tuple<IntPtr[], int, double[]>(nodeLine, layer, turnedPoint));
-            };
+            Dictionary<Tuple<int, int, int>, Tuple<int, int>> locations = new Dictionary<Tuple<int, int, int>, Tuple<int, int>>();
             foreach (var entry in sourceCoor)
             {
                 IntPtr[] line = new IntPtr[numLayers + 1];
@@ -308,17 +277,46 @@ namespace CaeMesh.Sweep
                 }
                 int dim = sourceEntity[entry.Key].Item1;
                 int tag = sourceEntity[entry.Key].Item2;
-                for (int k = 1; k < numLayers; k++)
+                bool boundary = (dim == 0 && _boundaryVertexIds.Contains(tag)) || (dim == 1 && _boundaryEdgeIds.Contains(tag));
+                for (int k = 1; k <= numLayers; k++)
                 {
                     double[] turned = Turn(point, angles[k]);
-                    if (dim == 0 && _arcEdgeIds.ContainsKey(tag)) requestEdgeNode(_arcEdgeIds[tag], line, k, turned);
-                    else if ((dim == 1 && _boundaryEdgeIds.Contains(tag)) || (dim == 0 && _vertexWallSurfaceIds.ContainsKey(tag)))
+                    if (!boundary && k < numLayers)
                     {
-                        int wallId = dim == 1 ? _wallSurfaceIds[tag] : _vertexWallSurfaceIds[tag];
-                        Tuple<IntPtr, int> key = new Tuple<IntPtr, int>(entry.Key, k);
-                        if (builtWallIds.Contains(wallId))
+                        line[k] = (IntPtr)nextNodeTag++;
+                        volumeTags.Add(line[k]);
+                        volumeCoor.AddRange(turned);
+                        continue;
+                    }
+                    // Where the source entity lands at this layer, found once for all its nodes
+                    Tuple<int, int, int> key = new Tuple<int, int, int>(dim, tag, k);
+                    Tuple<int, int> location;
+                    if (!locations.TryGetValue(key, out location))
+                    {
+                        double[] representative = dim == 0 ? _vertexCoor[tag] : dim == 1 ? edgeMiddles[tag] : point;
+                        location = Locate(Turn(representative, angles[k]), angles[k], dim, atLevel[k], k == numLayers);
+                        locations.Add(key, location);
+                    }
+                    if (location.Item1 == 0) line[k] = GetVertexNodeTag(location.Item2);
+                    else if (location.Item1 == 1)
+                    {
+                        if (!edgeRequests.ContainsKey(location.Item2))
+                            edgeRequests.Add(location.Item2, new List<Tuple<IntPtr[], int, double[]>>());
+                        edgeRequests[location.Item2].Add(new Tuple<IntPtr[], int, double[]>(line, k, turned));
+                    }
+                    else if (k == numLayers)
+                    {
+                        line[k] = (IntPtr)nextNodeTag++;
+                        targetTags.Add(line[k]);
+                        targetCoor.AddRange(turned);
+                    }
+                    else
+                    {
+                        int wallId = location.Item2;
+                        Tuple<IntPtr, int> wallKey = new Tuple<IntPtr, int>(entry.Key, k);
+                        if (builtBefore.Contains(wallId))
                         {
-                            if (!wallNodeTags.TryGetValue(key, out line[k]))
+                            if (!wallNodeTags.TryGetValue(wallKey, out line[k]))
                                 throw new CaeException("A wall " + GetDescription() + " shares with a revolved block " +
                                                        "built before it has no node where the turned source puts one.");
                             continue;
@@ -331,39 +329,25 @@ namespace CaeMesh.Sweep
                         line[k] = (IntPtr)nextNodeTag++;
                         wallTags[wallId].Add(line[k]);
                         wallCoor[wallId].AddRange(turned);
-                        wallNodeTags[key] = line[k];
+                        wallNodeTags[wallKey] = line[k];
                     }
-                    else
-                    {
-                        line[k] = (IntPtr)nextNodeTag++;
-                        volumeTags.Add(line[k]);
-                        volumeCoor.AddRange(turned);
-                    }
-                }
-                double[] end = Turn(point, _angleRad);
-                if (dim == 0 && _targetVertexIds.ContainsKey(tag)) line[numLayers] = GetVertexNodeTag(_targetVertexIds[tag]);
-                else if (dim == 0 && _vertexTargetEdgeIds.ContainsKey(tag))
-                    requestEdgeNode(_vertexTargetEdgeIds[tag], line, numLayers, end);
-                else if (dim == 1 && _targetEdgeIds.ContainsKey(tag)) requestEdgeNode(_targetEdgeIds[tag], line, numLayers, end);
-                else
-                {
-                    line[numLayers] = (IntPtr)nextNodeTag++;
-                    targetTags.Add(line[numLayers]);
-                    targetCoor.AddRange(end);
                 }
             }
-            // The nodes on the arcs and on the target edges are paired with the turned source nodes in their order
-            // along the edge, and moved onto them
-            foreach (var entry in edgeNodes)
+            // The nodes on the edges are paired with the turned source nodes in their order along the edge, and moved
+            // onto them
+            IntPtr[] tags;
+            double[] coor;
+            foreach (var entry in edgeRequests)
             {
-                List<Tuple<IntPtr[], int, double[]>> requests;
-                if (!edgeRequests.TryGetValue(entry.Key, out requests))
-                    requests = new List<Tuple<IntPtr[], int, double[]>>();
-                if (requests.Count != entry.Value.Count)
-                    throw new CaeException("The edge " + entry.Key + " of " + GetDescription() + " has " +
-                                           entry.Value.Count + " nodes inside it, but the turned source puts " +
-                                           requests.Count + " there.");
-                MoveEdgeNodes(entry.Key, entry.Value, edgeNodeCoor, requests);
+                Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, entry.Key, false, false);
+                if (tags.Length != entry.Value.Count)
+                    throw new CaeException(NameEdge(entry.Key) + " of " + GetDescription() + " has " + tags.Length +
+                                           " nodes inside it, but the turned source puts " + entry.Value.Count +
+                                           " there.");
+                Dictionary<IntPtr, double[]> nodeCoor = new Dictionary<IntPtr, double[]>();
+                for (int i = 0; i < tags.Length; i++)
+                    nodeCoor.Add(tags[i], new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] });
+                MoveEdgeNodes(entry.Key, tags.ToList(), nodeCoor, entry.Value);
             }
             // The new nodes: inside the volume, on the walls, and on the target surfaces
             if (volumeTags.Count > 0)
@@ -377,8 +361,59 @@ namespace CaeMesh.Sweep
             }
             Dictionary<IntPtr, int> targetNodeSurfaceIds = AddTargetNodes(targetTags, targetCoor);
             // The elements
-            AddElements(lines, sourceCoor, numLayers, targetNodeSurfaceIds, builtWallIds);
-            builtWallIds.UnionWith(_wallSurfaceIds.Values);
+            AddElements(lines, sourceCoor, angles, layerInterval, levels, edgeMiddles, targetNodeSurfaceIds, builtBefore);
+            CheckSurfaceBoundaries(_block.TargetSurfaceIds.Concat(_wallSpans.Keys.Where(id => !builtBefore.Contains(id))));
+            builtWallIds.UnionWith(_wallSpans.Keys);
+        }
+        /// <summary>
+        /// Where a turned source entity lands, as the dimension and the tag of the entity: a vertex, an edge, a wall
+        /// or, on the target layer, a target surface. A vertex is found at any layer, an edge at a level or, for a
+        /// source vertex, on the arc it turns along, and a wall between the levels or where no edge stands.
+        /// </summary>
+        private Tuple<int, int> Locate(double[] point, double angle, int dim, bool atLevel, bool atTarget)
+        {
+            if (dim == 0)
+            {
+                foreach (var vertexId in atTarget ? _targetVertexIds : _wallVertexIds)
+                {
+                    if (Distance(_vertexCoor[vertexId], point) <= 100 * _tolerance) return new Tuple<int, int>(0, vertexId);
+                }
+            }
+            if (dim <= 1 && (atLevel || dim == 0))
+            {
+                foreach (var edgeId in atTarget ? _targetEdgeIds : _wallEdgeIds)
+                {
+                    if (IsOnEdge(edgeId, point)) return new Tuple<int, int>(1, edgeId);
+                }
+            }
+            if (atTarget) return new Tuple<int, int>(2, -1);
+            return new Tuple<int, int>(2, GetWallId(point, angle));
+        }
+        /// <summary>
+        /// The wall a point at the given angle lies on: the one spanning the angle whose surface passes through it.
+        /// </summary>
+        private int GetWallId(double[] point, double angle)
+        {
+            int wallId = -1;
+            double bestDistance = double.MaxValue;
+            foreach (var entry in _wallSpans)
+            {
+                if (angle < entry.Value[0] - _angleTolerance || angle > entry.Value[1] + _angleTolerance) continue;
+                //
+                double[] closest;
+                double[] parametric;
+                Gmsh.Model.GetClosestPoint(2, entry.Key, point, out closest, out parametric);
+                double distance = Distance(closest, point);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    wallId = entry.Key;
+                }
+            }
+            if (wallId < 0 || bestDistance > 1E3 * _tolerance)
+                throw new CaeException("A turned edge of the source of " + GetDescription() + " lies on none of its " +
+                                       "walls.");
+            return wallId;
         }
         private void AddSourceNodes(int dim, IEnumerable<int> entityIds, Dictionary<IntPtr, double[]> sourceCoor,
                                     Dictionary<IntPtr, Tuple<int, int>> sourceEntity)
@@ -420,7 +455,6 @@ namespace CaeMesh.Sweep
                 request.Item1[request.Item2] = tag;
                 Gmsh.Model.Mesh.SetNode(tag, request.Item3, new double[] { requestParameters[requestOrder[i]] });
             }
-            nodeTags.Clear();
         }
         /// <summary>
         /// Adds the turned interior source nodes to the target surfaces they lie on and returns the surface of each.
@@ -465,9 +499,12 @@ namespace CaeMesh.Sweep
             }
             return targetNodeSurfaceIds;
         }
-        private void AddElements(Dictionary<IntPtr, IntPtr[]> lines, Dictionary<IntPtr, double[]> sourceCoor, int numLayers,
-                                 Dictionary<IntPtr, int> targetNodeSurfaceIds, HashSet<int> builtWallIds)
+        private void AddElements(Dictionary<IntPtr, IntPtr[]> lines, Dictionary<IntPtr, double[]> sourceCoor,
+                                 double[] angles, int[] layerInterval, double[] levels,
+                                 Dictionary<int, double[]> edgeMiddles, Dictionary<IntPtr, int> targetNodeSurfaceIds,
+                                 HashSet<int> builtBefore)
         {
+            int numLayers = angles.Length - 1;
             IntPtr maxElementTag;
             Gmsh.Model.Mesh.GetMaxElementTag(out maxElementTag);
             long nextElementTag = maxElementTag.ToInt64() + 1;
@@ -516,11 +553,10 @@ namespace CaeMesh.Sweep
                     edgeElementCenter[GetEdgeKey(element[i], element[(i + 1) % element.Length])] = elementCenter;
             }
             // The volume and the target cap, element by element
-            double firstAngle = _angleRad / numLayers;
             foreach (var element in sourceElements)
             {
                 IntPtr[] oriented = RevolveMethods.GetOutwardSourceNodeIds(element, sourceCoor, _center, _direction,
-                                                                           firstAngle);
+                                                                           angles[1]);
                 int numAxisNodes;
                 oriented = RevolveMethods.RotateSourceNodeIdsToAxis(oriented, sourceCoor, _center, _direction,
                                                                     _tolerance, out numAxisNodes);
@@ -533,14 +569,14 @@ namespace CaeMesh.Sweep
                 else
                     cap = new IntPtr[] { lines[oriented[0]][numLayers], lines[oriented[3]][numLayers],
                                          lines[oriented[2]][numLayers], lines[oriented[1]][numLayers] };
-                add(2, GetCapSurfaceId(cap, targetNodeSurfaceIds, lines, sourceCoor, oriented),
+                add(2, GetCapSurfaceId(cap, targetNodeSurfaceIds, sourceCoor, oriented),
                     oriented.Length == 3 ? GmshElementType.LinearTriangle : GmshElementType.LinearQuadrilateral, cap);
             }
-            // The walls, from the elements of the boundary edges, their normals away from the source element beside them
+            // The walls, from the elements of the boundary edges, each layer on the wall the edge turns across there,
+            // their normals away from the source element beside them
+            Dictionary<Tuple<int, int>, int> edgeIntervalWallIds = new Dictionary<Tuple<int, int>, int>();
             foreach (var edgeId in _boundaryEdgeIds)
             {
-                int wallId = _wallSurfaceIds[edgeId];
-                if (builtWallIds.Contains(wallId)) continue;
                 Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 1, edgeId);
                 for (int i = 0; i < elementTypes.Length; i++)
                 {
@@ -555,21 +591,30 @@ namespace CaeMesh.Sweep
                         //
                         double[] elementCenter;
                         if (!edgeElementCenter.TryGetValue(GetEdgeKey(node0, node1), out elementCenter)) continue;
-                        double[] outward = Subtract(GetCenter(new IntPtr[] { node0, node1 }, sourceCoor), elementCenter);
+                        double[] middle = GetCenter(new IntPtr[] { node0, node1 }, sourceCoor);
+                        double[] outward = Subtract(middle, elementCenter);
+                        double[] along = Subtract(sourceCoor[node1], sourceCoor[node0]);
+                        double[] turning = Cross(_direction, Subtract(middle, _center));
+                        bool reverse = Dot(Cross(along, turning), outward) < 0;
                         for (int k = 0; k < numLayers; k++)
                         {
+                            Tuple<int, int> key = new Tuple<int, int>(edgeId, layerInterval[k]);
+                            int wallId;
+                            if (!edgeIntervalWallIds.TryGetValue(key, out wallId))
+                            {
+                                int interval = layerInterval[k];
+                                double angle = 0.5 * (levels[interval] + levels[interval + 1]);
+                                wallId = GetWallId(Turn(edgeMiddles[edgeId], angle), angle);
+                                edgeIntervalWallIds.Add(key, wallId);
+                            }
+                            if (builtBefore.Contains(wallId)) continue;
+                            //
                             IntPtr[] face;
                             if (onAxis0) face = new IntPtr[] { lines[node0][k], lines[node1][k], lines[node1][k + 1] };
                             else if (onAxis1) face = new IntPtr[] { lines[node0][k], lines[node1][k], lines[node0][k + 1] };
                             else face = new IntPtr[] { lines[node0][k], lines[node1][k], lines[node1][k + 1],
                                                        lines[node0][k + 1] };
-                            // The first layer of a face is where the source edge lies, so the normal is measured there
-                            double[] p0 = sourceCoor[node0];
-                            double[] p1 = sourceCoor[node1];
-                            double[] along = Subtract(p1, p0);
-                            double[] turning = Cross(_direction, Subtract(GetCenter(new IntPtr[] { node0, node1 },
-                                                                                    sourceCoor), _center));
-                            if (Dot(Cross(along, turning), outward) < 0) Array.Reverse(face);
+                            if (reverse) Array.Reverse(face);
                             add(2, wallId, face.Length == 3 ? GmshElementType.LinearTriangle :
                                                               GmshElementType.LinearQuadrilateral, face);
                         }
@@ -583,21 +628,20 @@ namespace CaeMesh.Sweep
                                             new IntPtr[][] { entry.Value.ToArray() },
                                             new IntPtr[][] { batchNodes[entry.Key].ToArray() });
             }
-            CheckSurfaceBoundaries();
         }
         /// <summary>
         /// Checks that the mesh of every wall and every target surface the block built ends on the line elements of
         /// the edges around it, so that a surface the block does not close is refused here rather than by the mesher
         /// of a neighbouring cell.
         /// </summary>
-        private void CheckSurfaceBoundaries()
+        private void CheckSurfaceBoundaries(IEnumerable<int> surfaceIds)
         {
             int[] upward;
             int[] edgeIds;
             int[] elementTypes;
             IntPtr[][] elementTags;
             IntPtr[][] nodeTags;
-            foreach (var surfaceId in _block.TargetSurfaceIds.Concat(_wallSurfaceIds.Values.Distinct()))
+            foreach (var surfaceId in surfaceIds)
             {
                 // The element edges used once are the boundary of the surface mesh
                 Dictionary<Tuple<IntPtr, IntPtr>, int> edgeUseCount = new Dictionary<Tuple<IntPtr, IntPtr>, int>();
@@ -679,8 +723,7 @@ namespace CaeMesh.Sweep
             }
         }
         private int GetCapSurfaceId(IntPtr[] cap, Dictionary<IntPtr, int> targetNodeSurfaceIds,
-                                    Dictionary<IntPtr, IntPtr[]> lines, Dictionary<IntPtr, double[]> sourceCoor,
-                                    IntPtr[] oriented)
+                                    Dictionary<IntPtr, double[]> sourceCoor, IntPtr[] oriented)
         {
             if (_block.TargetSurfaceIds.Count == 1) return _block.TargetSurfaceIds.First();
             // The surface most of its nodes inside a target surface lie on, or the one its centre lies on
@@ -704,79 +747,77 @@ namespace CaeMesh.Sweep
             return bestSurfaceId[0];
         }
         /// <summary>
-        /// The chain of boundary edges through the given one, running on through the vertices that are turned onto no
-        /// vertex of the target, and the two vertices it ends on. Null ends for a chain that closes on itself.
+        /// The angle a point is turned through from the source vertex on its circle, in the sense the block is turned.
         /// </summary>
-        private int[] GetBoundaryChain(int edgeId, Dictionary<int, int[]> edgeVertexIds,
-                                       Dictionary<int, List<int>> vertexBoundaryEdgeIds, out List<int> chainEdgeIds,
-                                       out List<int> innerVertexIds)
+        private double GetAngleFromSource(double[] point)
         {
-            chainEdgeIds = new List<int>() { edgeId };
-            innerVertexIds = new List<int>();
-            int[] ends = new int[2];
-            int[] vertexIds = edgeVertexIds[edgeId];
-            for (int side = 0; side < 2; side++)
+            double radius = RevolveMethods.DistanceFromAxis(point, _center, _direction);
+            double height = Dot(Subtract(point, _center), _direction);
+            foreach (var vertexId in _sourceVertexIds)
             {
-                int currentEdgeId = edgeId;
-                int vertexId = vertexIds.Length == 2 ? vertexIds[side] : vertexIds[0];
-                while (!_targetVertexIds.ContainsKey(vertexId))
-                {
-                    List<int> nextEdgeIds = vertexBoundaryEdgeIds[vertexId].Where(id => id != currentEdgeId).ToList();
-                    if (nextEdgeIds.Count != 1 || chainEdgeIds.Contains(nextEdgeIds[0])) return null;
-                    //
-                    innerVertexIds.Add(vertexId);
-                    currentEdgeId = nextEdgeIds[0];
-                    chainEdgeIds.Add(currentEdgeId);
-                    int[] nextVertexIds = edgeVertexIds[currentEdgeId];
-                    vertexId = nextVertexIds[0] == vertexId ? nextVertexIds[nextVertexIds.Length - 1] : nextVertexIds[0];
-                }
-                ends[side] = vertexId;
+                double[] source = _vertexCoor[vertexId];
+                if (Math.Abs(RevolveMethods.DistanceFromAxis(source, _center, _direction) - radius) > 100 * _tolerance) continue;
+                if (Math.Abs(Dot(Subtract(source, _center), _direction) - height) > 100 * _tolerance) continue;
+                //
+                double[] from = GetRadial(source);
+                double[] to = GetRadial(point);
+                double angle = Math.Atan2(Dot(Cross(from, to), _direction), Dot(from, to));
+                if (angle < -_angleTolerance) angle += 2 * Math.PI;
+                return Math.Max(0, angle);
             }
-            return ends;
+            throw new CaeException("A vertex of " + GetDescription() + " lies on no circle a vertex of its source turns on.");
+        }
+        private double[] GetRadial(double[] point)
+        {
+            double[] arm = Subtract(point, _center);
+            double along = Dot(arm, _direction);
+            return new double[] { arm[0] - along * _direction[0], arm[1] - along * _direction[1],
+                                  arm[2] - along * _direction[2] };
         }
         /// <summary>
-        /// The target edge joining the turned ends of the source edges and passing nearest to where a point of the
-        /// first of them is turned, or -1 when none passes there.
+        /// Whether an edge between two vertices on one circle about the axis runs along that circle.
         /// </summary>
-        private int FindTargetEdge(int[] sourceEdgeIds, int[] ends, Dictionary<int, int[]> edgeVertexIds,
-                                   HashSet<int> targetEdgeIds)
+        private bool IsArc(int edgeId, int[] vertexIds)
         {
-            HashSet<int> turnedEnds = new HashSet<int>(ends.Select(id => _targetVertexIds[id]));
-            double[] turnedMiddle = Turn(GetEdgeMiddle(sourceEdgeIds[0]), _angleRad);
-            int targetEdgeId = -1;
-            double bestDistance = double.MaxValue;
-            foreach (var candidateId in targetEdgeIds)
-            {
-                if (_sourceEdgeIds.Contains(candidateId)) continue;
-                if (!turnedEnds.SetEquals(edgeVertexIds[candidateId])) continue;
-                //
-                double distance = GetDistanceToEdge(candidateId, turnedMiddle);
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    targetEdgeId = candidateId;
-                }
-            }
-            return bestDistance <= 1E3 * _tolerance ? targetEdgeId : -1;
-        }
-        private static double GetDistanceToEdge(int edgeId, double[] point)
-        {
-            double[] parametric;
-            double[] closest;
-            Gmsh.Model.GetClosestPoint(1, edgeId, point, out closest, out parametric);
-            return Distance(closest, point);
+            double[] first = _vertexCoor[vertexIds[0]];
+            double[] second = _vertexCoor[vertexIds[1]];
+            double radius = RevolveMethods.DistanceFromAxis(first, _center, _direction);
+            double height = Dot(Subtract(first, _center), _direction);
+            if (Math.Abs(RevolveMethods.DistanceFromAxis(second, _center, _direction) - radius) > 100 * _tolerance) return false;
+            if (Math.Abs(Dot(Subtract(second, _center), _direction) - height) > 100 * _tolerance) return false;
+            double[] middle = GetEdgeMiddle(edgeId);
+            return Math.Abs(RevolveMethods.DistanceFromAxis(middle, _center, _direction) - radius) <= 100 * _tolerance &&
+                   Math.Abs(Dot(Subtract(middle, _center), _direction) - height) <= 100 * _tolerance &&
+                   Distance(first, second) > 100 * _tolerance;
         }
         private bool IsOnAxis(double[] point)
         {
             return RevolveMethods.DistanceFromAxis(point, _center, _direction) <= _tolerance;
         }
-        private bool IsAxisEdge(int edgeId, int[] vertexIds, Dictionary<int, double[]> vertexCoor)
+        private bool IsAxisEdge(int edgeId, int[] vertexIds)
         {
             foreach (var vertexId in vertexIds)
             {
-                if (!IsOnAxis(vertexCoor[vertexId])) return false;
+                if (!IsOnAxis(GetVertexCoor(vertexId))) return false;
             }
             return IsOnAxis(GetEdgeMiddle(edgeId));
+        }
+        /// <summary>
+        /// Whether a point lies on an edge between its ends, not only on the curve the edge is cut from.
+        /// </summary>
+        private bool IsOnEdge(int edgeId, double[] point)
+        {
+            double[] min;
+            double[] max;
+            double[] closest;
+            double[] parametric;
+            // The parameter is read off the closest point, since the one the closest point query returns is not set
+            Gmsh.Model.GetClosestPoint(1, edgeId, point, out closest, out parametric);
+            if (Distance(closest, point) > 100 * _tolerance) return false;
+            Gmsh.Model.GetParametrization(1, edgeId, closest, out parametric);
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out min, out max);
+            double margin = 1E-9 * Math.Max(1, Math.Abs(max[0] - min[0]));
+            return parametric[0] >= min[0] - margin && parametric[0] <= max[0] + margin;
         }
         private double[] Turn(double[] point, double angle)
         {
@@ -785,6 +826,10 @@ namespace CaeMesh.Sweep
         private string GetDescription()
         {
             return _block.GetDescription();
+        }
+        private static string NameEdge(int edgeId)
+        {
+            return "The edge " + edgeId;
         }
         private static int[] GetEdgeVertexIds(int edgeId)
         {

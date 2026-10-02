@@ -29,10 +29,15 @@
 #  - revolve_split_source.brep is turned through 90 degrees from a source split into five faces onto a target of
 #    one face. The vertices inside the source and those that only split an edge of its boundary have no vertex on
 #    the target, and turn into it and onto points along its edges.
-#  - revolve_split_cells.brep is that part split into a revolved cell and a cell left to tetrahedra, in a compound
-#    with a swept part. An edge of the target of the revolved cell is an edge of a wall of the swept part, which
-#    settles its count, so the revolved cell takes it on the source edge turned onto it. The three parts share
-#    every node on the faces and edges between them.
+#  - revolve_split_cells.brep is that part split into two cells, in a compound with a swept part standing on it. An
+#    edge of the target of one cell is an edge of a wall of the swept part, which settles its count, so the cell
+#    takes it on the source edge turned onto it. The swept part splits the outer wall of the other cell along the
+#    revolution, so that cell is turned through layers ending at the angles of the split, and the faces it shares
+#    with the swept part are walls of both. Both cells are revolved, nothing is left to tetrahedra, and the three
+#    parts share every node on the faces and edges between them.
+#  - revolve_sectors.brep is the part split into three sectors, each found revolved on its own, some of them from the
+#    other end. In the compound they are turned the same way round, so the target of one is the source of the
+#    next, and the compound is meshed by layers alone, sharing every node.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Revolve.py -g No -x Yes -w <dir>
 #
@@ -148,23 +153,27 @@ def test_split_capsule():
     check(len(points) > 0 and len(doubled) == 0, "the cells of the split capsule do not share the nodes of their wall")
 
 
-def test_split_cells():
-    added = import_parts("revolve_split_cells.brep")
+def test_split_cells(file_name, expected_types):
+    added = import_parts(file_name)
     compound = [p for p in added if p.part_type == "Compound"][0]
     cells = [p for p in added if p.part_type != "Compound"]
     types = sorted(cell.mesh_type for cell in cells)
-    check(types == ["Revolve", "Sweep", "Tetrahedral"], "the cells of the split part are recognized as " + str(types))
+    check(types == expected_types, "the cells of " + file_name + " are recognized as " + str(types))
     report = pmx.model.mesh.create(compound.name)
     check(report[compound.name] == "", "meshing the split part reported: " + report[compound.name])
     meshed = [p for p in pmx.model.parts if p.name in [cell.name for cell in cells]]
-    check(len(meshed) == 3 and all(p.element_count > 0 for p in meshed), "the split part was not meshed into three parts")
+    check(len(meshed) == len(cells) and all(p.element_count > 0 for p in meshed),
+          file_name + " was not meshed into " + str(len(cells)) + " parts")
+    kinds = [element_kinds(p) for p in meshed]
+    check(all("tetrahedron" not in k and "pyramid" not in k for k in kinds),
+          "the split part is not meshed by layers alone: " + str(kinds))
     # Two parts never put two nodes at one point
     points = {}
     for part in meshed:
         for node_id, xyz in zip(part.get_node_ids(), part.get_node_coordinates()):
             points.setdefault(tuple(round(float(c), 5) for c in xyz), set()).add(int(node_id))
     doubled = [point for point, ids in points.items() if len(ids) > 1]
-    print("split cells:", [(p.name, p.element_count) for p in meshed], len(doubled), "points with two nodes")
+    print("split cells:", file_name, [(p.name, p.element_count) for p in meshed], len(doubled), "points with two nodes")
     check(len(doubled) == 0, "the cells of the split part do not share the nodes between them")
 
 
@@ -210,7 +219,8 @@ def main():
     check("tetrahedron" not in kinds and "pyramid" not in kinds,
           "the part revolved from a split source is not meshed by layers alone: " + str(kinds))
     test_split_capsule()
-    test_split_cells()
+    test_split_cells("revolve_split_cells.brep", ["Revolve", "Revolve", "Sweep"])
+    test_split_cells("revolve_sectors.brep", ["Revolve", "Revolve", "Revolve", "Sweep"])
     print("TEST PASSED")
 
 
