@@ -4680,7 +4680,7 @@ namespace CaeModel
                         foreach (var edgeIds in group) ringDirectionEdgeIds.UnionWith(edgeIds);
                     }
                     error = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                               ringDirectionEdgeIds);
+                                               ringDirectionEdgeIds, maps);
                     if (error == null)
                         error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                             ringDirectionEdgeIds);
@@ -5494,7 +5494,7 @@ namespace CaeModel
                     return GetSweepSideFourSidesError(part, surfaceId);
             }
             string wallChainsError = GetWallChainsError(part, sourceSurfaceIds, wallSurfaceIds.ToArray(),
-                                                        otherSurfaceIds.ToArray(), chainEdgeIdSet);
+                                                        otherSurfaceIds.ToArray(), chainEdgeIdSet, maps);
             if (wallChainsError != null) return wallChainsError;
             //
             sideSurfaceIds = wallSurfaceIds.ToArray();
@@ -5565,10 +5565,15 @@ namespace CaeModel
         /// chain the rest of the wall follows, and the sweep folds the plate across its own outline. A plate bent
         /// round a corner and swept through its thickness has the chains of its end walls square to each other
         /// just as well, but each of them is the thickness of the plate: the sweep lines only turn with the bend.
+        /// A block the transfinite mesher accepts is left alone, as it is by the other measurements of the geometry:
+        /// it carries one structured grid whichever face the sweep starts from, and a tapered three sided prism,
+        /// whose side edges converge, was refused as a sweep although it meshes as a transfinite block.
         /// </summary>
         private string GetWallChainsError(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] wallSurfaceIds,
-                                          int[] targetSurfaceIds, HashSet<int> directionEdgeIds)
+                                          int[] targetSurfaceIds, HashSet<int> directionEdgeIds, SweepPartMaps maps)
         {
+            if (maps.IsTransfiniteBlock(part, p => IsPartTransfinite((GeometryPart)p, false) == null)) return null;
+            //
             VisualizationData vis = part.Visualization;
             if (vis.FaceTypes == null) return null;
             //
