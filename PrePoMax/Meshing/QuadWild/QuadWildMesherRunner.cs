@@ -218,6 +218,32 @@ namespace PrePoMax
                                                                                shellQuadWild.TransfiniteAngleDeg));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, shellQuadWild.FlowProfile,
                                             shellQuadWild.Alpha, flowOptions);
+            // The structured faces of a CAD shell are those of the one definition all meshers follow, read by
+            // quad_from_patches as <input>.tfaces instead of finding its own
+            string transfiniteFileName = inputPrefix + ".tfaces";
+            QuadWildRuntime.DeleteIfExists(transfiniteFileName);
+            if (!shellQuadWild.OldAlgorithm && part.IsCADPart &&
+                (shellQuadWild.TransfiniteThreeSided || shellQuadWild.TransfiniteFourSided))
+            {
+                string[] partNames = _controller.GetMeshablePartNames(new string[] { part.Name });
+                int numOfFaces;
+                _controller.SuppressExplodedView(partNames);
+                try
+                {
+                    numOfFaces = QuadWildTransfiniteFile.Write(transfiniteFileName, _controller.Model.Geometry,
+                                                               partNames.Select(name =>
+                                                                   _controller.Model.Geometry.Parts[name]),
+                                                               shellQuadWild.TransfiniteThreeSided,
+                                                               shellQuadWild.TransfiniteFourSided,
+                                                               shellQuadWild.TransfiniteAngleDeg);
+                }
+                finally
+                {
+                    _controller.ResumeExplodedViews(false);
+                }
+                _controller.Form.WriteDataToOutput("QuadWild transfinite faces: " + numOfFaces + " structured faces " +
+                                                   "of " + part.Name + " given.");
+            }
             //
             _controller.Form.WriteDataToOutput("Running QuadWild quad generation (" +
                                                GetFlowProfileName(shellQuadWild.FlowProfile) +

@@ -298,7 +298,7 @@ def main():
     if os.environ.get("PMX_WRITE_THREE_BLOCK_VECTORS") == "1":
         write_vectors(results)
     compare_vectors(results)
-    print("PASSED")
+    print("TEST PASSED")
 
 
 main()

@@ -26,9 +26,10 @@ namespace CaeMesh
     {
         // Methods
         /// <summary>
-        /// The face carries gmsh ids: its surface, its corner points and the curves of its sides.
+        /// The face carries gmsh ids: its surface, its corner points and the curves of its sides. Without quads, as for a
+        /// surface that is not recombined, every quad is split into two triangles.
         /// </summary>
-        public static void Mesh(TransfiniteFace face)
+        public static void Mesh(TransfiniteFace face, bool quads = true)
         {
             int surfaceId = face.FaceId;
             // The nodes of every side from its corner to the next one
@@ -86,10 +87,22 @@ namespace CaeMesh
                                      grid.InnerUv.SelectMany(uv => uv).ToArray());
             Gmsh.Model.Mesh.GetMaxElementTag(out maxTag);
             long elementTag = maxTag.ToInt64();
-            IntPtr[] elementTags = new IntPtr[grid.Quads.Length];
+            int elementType = (int)GmshElementType.LinearQuadrilateral;
+            IntPtr[] elementNodeTags = quadNodeTags;
+            if (!quads)
+            {
+                elementType = (int)GmshElementType.LinearTriangle;
+                elementNodeTags = new IntPtr[6 * grid.Quads.Length];
+                for (int q = 0; q < grid.Quads.Length; q++)
+                {
+                    int[] corners = new int[] { 0, 1, 2, 0, 2, 3 };
+                    for (int c = 0; c < 6; c++) elementNodeTags[6 * q + c] = quadNodeTags[4 * q + corners[c]];
+                }
+            }
+            IntPtr[] elementTags = new IntPtr[elementNodeTags.Length / (quads ? 4 : 3)];
             for (int i = 0; i < elementTags.Length; i++) elementTags[i] = new IntPtr(++elementTag);
-            Gmsh.Model.Mesh.AddElements(2, surfaceId, new int[] { (int)GmshElementType.LinearQuadrilateral },
-                                        new IntPtr[][] { elementTags }, new IntPtr[][] { quadNodeTags });
+            Gmsh.Model.Mesh.AddElements(2, surfaceId, new int[] { elementType },
+                                        new IntPtr[][] { elementTags }, new IntPtr[][] { elementNodeTags });
         }
         /// <summary>
         /// The nodes of a side, from its first corner to its last, along the chain of its edges.

@@ -169,7 +169,7 @@ def main():
     print("irregular nodes:", irregular, "of at most", allowed, "vertices and inner nodes")
     check(irregular <= allowed, "the quarter circles of the open quarter cylinder are not meshed as three blocks: " +
           str(irregular) + " irregular nodes")
-    print("PASSED")
+    print("TEST PASSED")
 
 
 main()

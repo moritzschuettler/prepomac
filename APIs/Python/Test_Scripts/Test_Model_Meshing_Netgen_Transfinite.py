@@ -192,7 +192,7 @@ def main():
     netgen(holes, False)
     kinds = mesh(holes)
     check(list(kinds.keys()) == ["triangle"], "the shell with holes must be meshed by triangles: " + str(kinds))
-    print("PASSED")
+    print("TEST PASSED")
 
 
 main()

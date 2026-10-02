@@ -204,6 +204,7 @@
     <Compile Include="Meshing\QuadWild\Enums\QuadWildBoundaryLayerEnum.cs" />
     <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
     <Compile Include="Meshing\QuadWild\QuadWildRuntime.cs" />
+    <Compile Include="Meshing\QuadWild\QuadWildTransfiniteFile.cs" />
     <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
     <Compile Include="Meshing\Mmg\SetupItems\ShellMmg.cs" />
     <Compile Include="Meshing\Netgen\Enums\NetgenTransfiniteFacesEnum.cs" />

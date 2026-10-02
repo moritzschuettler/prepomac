@@ -624,8 +624,9 @@ namespace CaeMesh
             //
             if (preview) GenerateMesh(2);
             else GenerateMesh(2);
-            // The three-sided faces become three blocks of quads around one inner node
-            foreach (var face in _threeBlockFaces) GmshThreeBlockMesher.Mesh(face);
+            // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
+            // surfaces are not recombined
+            foreach (var face in _threeBlockFaces) GmshThreeBlockMesher.Mesh(face, recombine);
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
