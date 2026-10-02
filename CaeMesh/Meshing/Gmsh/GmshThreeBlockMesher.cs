@@ -17,12 +17,10 @@ using GmshCommon;
 namespace CaeMesh
 {
     /// <summary>
-    /// Meshes a three-sided face as three structured blocks of quads around one inner node: the inner lines run from
-    /// that node to a split point on every side, and each block lies between two of them and a corner. The numbers on
-    /// the sides decide where they are split, so a sharp corner, whose two sides are long against the third, gets the
-    /// smallest block, and the inner node, placed at the mean of the split points, moves towards it; in the limit the
-    /// block at the corner is a single element. The face is meshed by gmsh first, onto the nodes its edges carry, and
-    /// its elements are then replaced and turned the way gmsh turned its own.
+    /// Meshes a three-sided face by ThreeBlockMapping, the structured mapping every mesher shares: gmsh supplies the
+    /// nodes its edges carry, their parameters on the surface and the evaluation of the surface. The face is meshed
+    /// by gmsh first, onto the nodes of its edges, and its elements are then replaced and turned the way gmsh turned
+    /// its own. A grid that folds is refused.
     /// </summary>
     public static class GmshThreeBlockMesher
     {
@@ -43,118 +41,55 @@ namespace CaeMesh
             if (!TransfiniteSideTriple.AreCountsValid(sideCounts))
                 throw new CaeException("The sides of Surface " + surfaceId + " carry " + string.Join(", ", sideCounts) +
                                        " elements, which three blocks of quads cannot fill.");
-            int[] innerCounts = Enumerable.Range(0, 3).Select(k => TransfiniteSideTriple.GetInnerLineCount(sideCounts, k))
-                                          .ToArray();
-            // Parameters of the boundary nodes
             double[][][] sideUv = new double[3][][];
             for (int k = 0; k < 3; k++) sideUv[k] = GetParametricCoordinates(surfaceId, sideXyz[k]);
-            // The split points: side k is split L(k - 1) elements from its first corner
-            double[][] splitUv = new double[3][];
-            IntPtr[] splitTags = new IntPtr[3];
+            //
+            ThreeBlockGrid grid = ThreeBlockMapping.Map(sideUv, sideXyz.Select(xyz => xyz.ToArray()).ToArray(), uv =>
+            {
+                double[] coor;
+                Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
+                return coor;
+            });
+            if (grid.NumberOfFoldedQuads > 0)
+                throw new CaeException("The three blocks of quads on Surface " + surfaceId + " fold: " +
+                                       grid.NumberOfFoldedQuads + " of its " + grid.Quads.Length +
+                                       " quads are inverted.");
+            // The tags of the boundary nodes and the new inner nodes
+            int numOfBoundaryNodes = grid.NumberOfBoundaryNodes;
+            IntPtr[] nodeTags = new IntPtr[numOfBoundaryNodes + grid.InnerUv.Length];
             for (int k = 0; k < 3; k++)
             {
-                int index = innerCounts[(k + 2) % 3];
-                splitUv[k] = sideUv[k][index];
-                splitTags[k] = sideTags[k][index];
+                for (int i = 0; i < sideCounts[k]; i++) nodeTags[grid.GetBoundaryNodeId(k, i)] = sideTags[k][i];
             }
-            double[] centreUv = new double[] { splitUv.Average(uv => uv[0]), splitUv.Average(uv => uv[1]) };
-            // New nodes
             IntPtr maxTag;
             Gmsh.Model.Mesh.GetMaxNodeTag(out maxTag);
             long nodeTag = maxTag.ToInt64();
-            List<IntPtr> newTags = new List<IntPtr>();
-            List<double[]> newUv = new List<double[]>();
-            Func<double[], IntPtr> addNode = uv =>
+            IntPtr[] newTags = new IntPtr[grid.InnerUv.Length];
+            for (int i = 0; i < newTags.Length; i++)
             {
-                IntPtr tag = new IntPtr(++nodeTag);
-                newTags.Add(tag);
-                newUv.Add(uv);
-                return tag;
-            };
-            IntPtr centreTag = addNode(centreUv);
-            // Inner line k from the split point of side k to the inner node
-            IntPtr[][] lineTags = new IntPtr[3][];
-            double[][][] lineUv = new double[3][][];
-            for (int k = 0; k < 3; k++)
-            {
-                int n = innerCounts[k];
-                lineTags[k] = new IntPtr[n + 1];
-                lineUv[k] = new double[n + 1][];
-                for (int j = 0; j <= n; j++)
-                {
-                    double t = (double)j / n;
-                    lineUv[k][j] = new double[] { (1 - t) * splitUv[k][0] + t * centreUv[0],
-                                                  (1 - t) * splitUv[k][1] + t * centreUv[1] };
-                    if (j == 0) lineTags[k][j] = splitTags[k];
-                    else if (j == n) lineTags[k][j] = centreTag;
-                    else lineTags[k][j] = addNode(lineUv[k][j]);
-                }
+                newTags[i] = new IntPtr(++nodeTag);
+                nodeTags[numOfBoundaryNodes + i] = newTags[i];
             }
-            // Block k at corner k: side k to its split point, inner line k to the inner node, inner line k - 1 from the
-            // split point of side k - 1, and side k - 1 back to the corner
-            List<IntPtr[]> quads = new List<IntPtr[]>();
-            List<double[][]> quadUv = new List<double[][]>();
-            for (int k = 0; k < 3; k++)
+            // The quads turn as the boundary loop does in the parameter space, and must turn the way gmsh turned its
+            // own elements on the face
+            double[][] loopUv = Enumerable.Range(0, 3).SelectMany(k => sideUv[k].Take(sideCounts[k])).ToArray();
+            bool reverse = Math.Sign(GetSignedArea(loopUv)) != GetGmshOrientation(surfaceId);
+            IntPtr[] quadNodeTags = new IntPtr[4 * grid.Quads.Length];
+            for (int q = 0; q < grid.Quads.Length; q++)
             {
-                int previous = (k + 2) % 3;
-                int a = innerCounts[previous];
-                int b = innerCounts[k];
-                IntPtr[,] tags = new IntPtr[a + 1, b + 1];
-                double[,][] uvs = new double[a + 1, b + 1][];
-                int previousCount = sideCounts[previous];
-                for (int i = 0; i <= a; i++)
-                {
-                    tags[i, 0] = sideTags[k][i];
-                    uvs[i, 0] = sideUv[k][i];
-                    tags[i, b] = lineTags[previous][i];
-                    uvs[i, b] = lineUv[previous][i];
-                }
-                for (int j = 0; j <= b; j++)
-                {
-                    tags[0, j] = sideTags[previous][previousCount - j];
-                    uvs[0, j] = sideUv[previous][previousCount - j];
-                    tags[a, j] = lineTags[k][j];
-                    uvs[a, j] = lineUv[k][j];
-                }
-                for (int i = 1; i < a; i++)
-                {
-                    for (int j = 1; j < b; j++)
-                    {
-                        uvs[i, j] = GetTransfiniteUv(uvs, a, b, i, j);
-                        tags[i, j] = addNode(uvs[i, j]);
-                    }
-                }
-                for (int i = 0; i < a; i++)
-                {
-                    for (int j = 0; j < b; j++)
-                    {
-                        quads.Add(new IntPtr[] { tags[i, j], tags[i + 1, j], tags[i + 1, j + 1], tags[i, j + 1] });
-                        quadUv.Add(new double[][] { uvs[i, j], uvs[i + 1, j], uvs[i + 1, j + 1], uvs[i, j + 1] });
-                    }
-                }
+                for (int c = 0; c < 4; c++)
+                    quadNodeTags[4 * q + c] = nodeTags[grid.Quads[q][reverse ? 3 - c : c]];
             }
-            // The quads turn the way gmsh turned its own elements on the face
-            double signedArea = quadUv.Sum(uv => GetSignedArea(uv));
-            if (Math.Sign(signedArea) != GetGmshOrientation(surfaceId))
-            {
-                foreach (var quad in quads) Array.Reverse(quad);
-            }
-            //
-            double[] newCoor = new double[0];
-            double[] flatUv = newUv.SelectMany(uv => uv).ToArray();
-            if (flatUv.Length > 0) Gmsh.Model.GetValue(2, surfaceId, flatUv, out newCoor);
-            if (newCoor.Length != 3 * newTags.Count)
-                throw new CaeException("The nodes inside Surface " + surfaceId + " could not be placed on the surface.");
             //
             Gmsh.Model.Mesh.Clear(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
-            Gmsh.Model.Mesh.AddNodes(2, surfaceId, newTags.ToArray(), newCoor, flatUv);
+            Gmsh.Model.Mesh.AddNodes(2, surfaceId, newTags, grid.InnerXyz.SelectMany(xyz => xyz).ToArray(),
+                                     grid.InnerUv.SelectMany(uv => uv).ToArray());
             Gmsh.Model.Mesh.GetMaxElementTag(out maxTag);
             long elementTag = maxTag.ToInt64();
-            IntPtr[] elementTags = new IntPtr[quads.Count];
+            IntPtr[] elementTags = new IntPtr[grid.Quads.Length];
             for (int i = 0; i < elementTags.Length; i++) elementTags[i] = new IntPtr(++elementTag);
             Gmsh.Model.Mesh.AddElements(2, surfaceId, new int[] { (int)GmshElementType.LinearQuadrilateral },
-                                        new IntPtr[][] { elementTags },
-                                        new IntPtr[][] { quads.SelectMany(quad => quad).ToArray() });
+                                        new IntPtr[][] { elementTags }, new IntPtr[][] { quadNodeTags });
         }
         /// <summary>
         /// The nodes of a side, from its first corner to its last, along the chain of its edges.
@@ -204,22 +139,6 @@ namespace CaeMesh
             if (uv.Length != 2 * xyz.Count)
                 throw new CaeException("The nodes on the sides of Surface " + surfaceId + " could not be placed on it.");
             return Enumerable.Range(0, xyz.Count).Select(i => new double[] { uv[2 * i], uv[2 * i + 1] }).ToArray();
-        }
-        /// <summary>
-        /// The transfinite (Coons) interpolation of a block between its four sides, by the index along each.
-        /// </summary>
-        private static double[] GetTransfiniteUv(double[,][] uvs, int a, int b, int i, int j)
-        {
-            double xi = (double)i / a;
-            double eta = (double)j / b;
-            double[] uv = new double[2];
-            for (int d = 0; d < 2; d++)
-            {
-                uv[d] = (1 - eta) * uvs[i, 0][d] + eta * uvs[i, b][d] + (1 - xi) * uvs[0, j][d] + xi * uvs[a, j][d] -
-                        ((1 - xi) * (1 - eta) * uvs[0, 0][d] + xi * (1 - eta) * uvs[a, 0][d] +
-                         xi * eta * uvs[a, b][d] + (1 - xi) * eta * uvs[0, b][d]);
-            }
-            return uv;
         }
         private static double GetSignedArea(double[][] polygon)
         {

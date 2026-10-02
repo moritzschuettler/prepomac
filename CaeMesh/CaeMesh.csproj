@@ -155,6 +155,8 @@
     <Compile Include="Meshing\Transfinite\TransfiniteFace.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteFaceDetector.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSidePair.cs" />
+    <Compile Include="Meshing\Transfinite\ThreeBlockGrid.cs" />
+    <Compile Include="Meshing\Transfinite\ThreeBlockMapping.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />
