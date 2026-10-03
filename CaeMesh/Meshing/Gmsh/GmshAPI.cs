@@ -6663,7 +6663,7 @@ namespace CaeMesh
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
-                                 "swept and the mesh is mirrored onto the other " + removedDimTags.Length + ".");
+                                 "meshed and the mesh is mirrored onto the other " + removedDimTags.Length + ".");
         }
         // A face whose surface, corners or edges gmsh does not have is not on the meshed part
         private static TransfiniteFace[] RenumberTransfiniteFaces(TransfiniteFace[] transfiniteFaces,

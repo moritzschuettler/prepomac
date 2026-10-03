@@ -11647,15 +11647,24 @@ namespace PrePoMax
                 return null;
             }
         }
-        // Whether the block the sweep builds on the part is revolved rather than swept between two ends
+        // Whether the block the sweep builds on the part is revolved rather than swept between two ends. A cell a
+        // symmetric sweep mirrors has no block of its own and takes the one of the cell it is the image of
         private static bool IsPartRevolvedBySweep(SweepMesh sweepMesh, GeometryPart part)
         {
             if (sweepMesh.BlockRevolveAxes == null || sweepMesh.BlockSourceSurfaceIds == null) return false;
             //
+            int partId = part.PartId;
+            if (sweepMesh.HasSymmetry)
+            {
+                foreach (var row in sweepMesh.SymmetryPartIds)
+                {
+                    if (row[0] == partId) { partId = row[1]; break; }
+                }
+            }
             for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length && i < sweepMesh.BlockRevolveAxes.Length; i++)
             {
                 if (sweepMesh.BlockRevolveAxes[i] != null &&
-                    FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]) == part.PartId) return true;
+                    FeMesh.GetPartIdFromGmshTopologyId(sweepMesh.BlockSourceSurfaceIds[i][0]) == partId) return true;
             }
             return false;
         }
