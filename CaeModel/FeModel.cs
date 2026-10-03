@@ -3401,7 +3401,8 @@ namespace CaeModel
         /// sweep leaves there, but two targets cannot meet, since both blocks build theirs. The sweep of a block
         /// between two ends finds its source on its own and may run either way, as two straight pipes swept from their
         /// free ends towards the elbow between them do. A block is turned only when it runs from one surface to one
-        /// other in one layer and nothing shares its source, which becomes its target.
+        /// other in one layer and its source, which becomes its target, is shared with nothing or with the source of
+        /// a revolved cell, as in a ring of swept and revolved cells all turned one way round.
         /// </summary>
         private SweepBlocks GetSweptBlocksTurnedToRevolvedCells(GeometryPart[] cells, SweepBlocks blocks)
         {
@@ -3409,8 +3410,11 @@ namespace CaeModel
             //
             HashSet<int> sweptPartIds = new HashSet<int>(blocks.SourceSurfaceIds.Select(surfaceIds =>
                                                          FeMesh.GetPartIdFromGmshTopologyId(surfaceIds[0])));
-            HashSet<int> revolvedTargetIds = new HashSet<int>(GetAlignedRevolvedBlocks(cells, sweptPartIds).Values
-                                                              .SelectMany(revolved => revolved.TargetSurfaceIds[0]));
+            Dictionary<int, SweepBlocks> alignedBlocks = GetAlignedRevolvedBlocks(cells, sweptPartIds);
+            HashSet<int> revolvedTargetIds = new HashSet<int>(alignedBlocks.Values.SelectMany(revolved =>
+                                                                                   revolved.TargetSurfaceIds[0]));
+            HashSet<int> revolvedSourceIds = new HashSet<int>(alignedBlocks.Values.SelectMany(revolved =>
+                                                                                   revolved.SourceSurfaceIds[0]));
             if (revolvedTargetIds.Count == 0) return blocks;
             //
             int twinId;
@@ -3424,7 +3428,8 @@ namespace CaeModel
             {
                 if (blocks.RevolveAxes[i] != null) continue;
                 if (sourceSurfaceIds[i].Length != 1 || targetSurfaceIds[i].Length != 1) continue;
-                if (twinSurfaceIds.ContainsKey(sourceSurfaceIds[i][0])) continue;
+                if (twinSurfaceIds.TryGetValue(sourceSurfaceIds[i][0], out twinId) && !revolvedSourceIds.Contains(twinId))
+                    continue;
                 if (!twinSurfaceIds.TryGetValue(targetSurfaceIds[i][0], out twinId) ||
                     !revolvedTargetIds.Contains(twinId)) continue;
                 //

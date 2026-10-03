@@ -45,6 +45,11 @@
 #    is found swept from its free end towards its elbow, so an elbow is revolved from the target of one piece and
 #    is built after it, and the piece ending on the target of the elbow is turned round to start from it. The
 #    source edges of an elbow tie the counts of the pieces on its two sides.
+#  - revolve_frame.brep is a hexagonal frame of an L shaped section, whose six straight sides are swept and whose six
+#    corners are revolved about the edge of their inner corner. The cells form a ring, closed by a swept side ending
+#    on the meshed source of the corner after it, through the nodes every revolved and swept cell copied from the
+#    one before. The corners collapse into wedges, pyramids and tetrahedra beside their axis, and the sides are
+#    meshed by layers alone.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Revolve.py -g No -x Yes -w <dir>
 #
@@ -160,7 +165,7 @@ def test_split_capsule():
     check(len(points) > 0 and len(doubled) == 0, "the cells of the split capsule do not share the nodes of their wall")
 
 
-def test_split_cells(file_name, expected_types):
+def test_split_cells(file_name, expected_types, collapsed_at_axis=False):
     added = import_parts(file_name)
     compound = [p for p in added if p.part_type == "Compound"][0]
     cells = [p for p in added if p.part_type != "Compound"]
@@ -171,7 +176,9 @@ def test_split_cells(file_name, expected_types):
     meshed = [p for p in pmx.model.parts if p.name in [cell.name for cell in cells]]
     check(len(meshed) == len(cells) and all(p.element_count > 0 for p in meshed),
           file_name + " was not meshed into " + str(len(cells)) + " parts")
-    kinds = [element_kinds(p) for p in meshed]
+    # A revolved cell whose source touches the axis by a vertex collapses beside it into pyramids and tetrahedra
+    cell_types = dict((cell.name, cell.mesh_type) for cell in cells)
+    kinds = [element_kinds(p) for p in meshed if not (collapsed_at_axis and cell_types[p.name] == "Revolve")]
     check(all("tetrahedron" not in k and "pyramid" not in k for k in kinds),
           "the split part is not meshed by layers alone: " + str(kinds))
     # Two parts never put two nodes at one point
@@ -231,6 +238,7 @@ def main():
     test_split_cells("revolve_bracket.brep", ["Revolve", "Sweep"])
     test_split_cells("revolve_elbows.brep", ["Revolve", "Revolve", "Transfinite", "Transfinite", "Transfinite",
                                              "Transfinite"])
+    test_split_cells("revolve_frame.brep", ["Revolve"] * 6 + ["Sweep"] * 6, True)
     print("TEST PASSED")
 
 

@@ -1175,6 +1175,9 @@ namespace CaeMesh
         /// <summary>
         /// Marks the blocks that close a ring: every target of such a block is the source of a block swept before
         /// it, so the target is meshed before the block is swept and has to be kept, not rebuilt by the sweep.
+        /// A ring through revolved blocks is found in the order the blocks are built in, which leaves its blocks
+        /// waiting on each other; it is closed by a swept block of it, since a revolved block always builds its
+        /// target, and the block it feeds then starts the ring.
         /// </summary>
         private static void MarkRingClosingBlocks(List<SweepBlock> blocks)
         {
@@ -1184,6 +1187,23 @@ namespace CaeMesh
                 block.ClosesRing = !block.IsRevolved && block.TargetSurfaceIds.Count > 0 &&
                                    block.TargetSurfaceIds.IsSubsetOf(earlierSourceIds);
                 earlierSourceIds.UnionWith(block.SourceSurfaceIds);
+            }
+            if (!blocks.Any(block => block.IsRevolved)) return;
+            //
+            List<SweepBlock> pending = new List<SweepBlock>(blocks);
+            while (pending.Count > 0)
+            {
+                SweepBlock next = pending.FirstOrDefault(block => !pending.Any(other => other != block &&
+                                                                                         IsBuiltBefore(other, block)));
+                if (next != null)
+                {
+                    pending.Remove(next);
+                    continue;
+                }
+                SweepBlock closing = pending.FirstOrDefault(block => !block.IsRevolved && !block.ClosesRing &&
+                    pending.Any(other => other != block && block.TargetSurfaceIds.Overlaps(other.SourceSurfaceIds)));
+                if (closing == null) return;
+                closing.ClosesRing = true;
             }
         }
         private double[] GetPrismTranslation(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds)
@@ -2217,13 +2237,14 @@ namespace CaeMesh
                 Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags = new Dictionary<Tuple<IntPtr, int>, IntPtr>();
                 Dictionary<SweepBlock, SweepRevolvedBlock> blockRevolvedBlock =
                     _revolvedBlocks.ToDictionary(revolvedBlock => revolvedBlock.Block);
-                Action<SweepBlock> buildRevolvedBlock = block =>
+                Action<SweepBlock, Dictionary<IntPtr, IntPtr>> buildRevolvedBlock = (block, capNodeOrigins) =>
                 {
                     SweepRevolvedBlock revolvedBlock = blockRevolvedBlock[block];
                     int[] layerCounts = _revolvedLayerCounts[revolvedBlock];
                     _writeOutput?.Invoke("Revolved block: " + layerCounts.Sum() + " element layers" +
                                          (layerCounts.Length > 1 ? " (" + string.Join(" + ", layerCounts) + ")" : "") + ".");
-                    revolvedBlock.Build(_revolvedLevels[revolvedBlock], layerCounts, builtWallIds, wallNodeTags);
+                    revolvedBlock.Build(_revolvedLevels[revolvedBlock], layerCounts, builtWallIds, wallNodeTags,
+                                        capNodeOrigins);
                 };
                 SweepMethods.CreateSweepMesh(GetBuildOrder(blocks), sweepMesh.NumberOfGlobalSmoothSteps,
                                              surfaceIdEdgeIds, _writeOutput, buildRevolvedBlock);

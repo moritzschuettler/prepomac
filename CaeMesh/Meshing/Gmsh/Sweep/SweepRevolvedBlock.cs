@@ -212,9 +212,12 @@ namespace CaeMesh.Sweep
         /// between two of the given levels and as many there as the counts say, and every turned node is put where it
         /// lands. A wall two revolved blocks share is meshed by the one built first, and the nodes it made there are
         /// kept by their source node and layer, so that the other block uses them rather than meshing the wall again.
+        /// Every node the block adds inside its target is the copy of a node inside its source, and it is kept with
+        /// the node that one was copied from, back to the meshed source a ring started from, so that the block
+        /// closing the ring ends on those nodes.
         /// </summary>
         public void Build(double[] levels, int[] intervalCounts, HashSet<int> builtWallIds,
-                          Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags)
+                          Dictionary<Tuple<IntPtr, int>, IntPtr> wallNodeTags, Dictionary<IntPtr, IntPtr> capNodeOrigins)
         {
             int numLayers = intervalCounts.Sum();
             double[] angles = new double[numLayers + 1];
@@ -309,6 +312,12 @@ namespace CaeMesh.Sweep
                         line[k] = (IntPtr)nextNodeTag++;
                         targetTags.Add(line[k]);
                         targetCoor.AddRange(turned);
+                        if (dim == 2)
+                        {
+                            IntPtr origin;
+                            if (!capNodeOrigins.TryGetValue(entry.Key, out origin)) origin = entry.Key;
+                            capNodeOrigins[line[k]] = origin;
+                        }
                     }
                     else
                     {

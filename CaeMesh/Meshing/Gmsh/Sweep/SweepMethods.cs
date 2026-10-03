@@ -61,11 +61,12 @@ namespace CaeMesh
         /// cap is a copy of the source the ring started from. The node every interior cap node was copied from is
         /// kept, back to the meshed source, and the block closing the ring ends its sweep lines on those nodes.
         /// A revolved block in the list is built by buildRevolvedBlock where it stands, so that the blocks it feeds
-        /// read what it leaves and the ones feeding it are built before it.
+        /// read what it leaves and the ones feeding it are built before it; it keeps the origins of its target nodes
+        /// as a swept block does, so that a ring through it can be closed.
         /// </summary>
         public static void CreateSweepMesh(IList<SweepBlock> blocks, int numGlobalSmoothSteps,
                                            Dictionary<int, int[]> surfaceIdEdgeIds, Action<string> writeOutput,
-                                           Action<SweepBlock> buildRevolvedBlock = null)
+                                           Action<SweepBlock, Dictionary<IntPtr, IntPtr>> buildRevolvedBlock = null)
         {
             Dictionary<IntPtr, IntPtr> capNodeOrigins = new Dictionary<IntPtr, IntPtr>();
             int numSweptBlocks = blocks.Count(block => !block.IsRevolved);
@@ -74,7 +75,7 @@ namespace CaeMesh
             {
                 if (block.IsRevolved)
                 {
-                    buildRevolvedBlock(block);
+                    buildRevolvedBlock(block, capNodeOrigins);
                     continue;
                 }
                 count++;
