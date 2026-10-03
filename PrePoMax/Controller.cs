@@ -1026,15 +1026,15 @@ namespace PrePoMax
             // Compatibility v2.6.4
             if (_model != null && _model.Geometry != null && _model.Geometry.MeshSetupItems != null)
             {
-                RevolveMesh revolveMesh;
+                SweepMesh sweepMesh;
                 foreach (var name in _model.Geometry.MeshSetupItems.Keys.ToArray())
                 {
-                    revolveMesh = GetRevolveMeshOfRevolvedSweep(_model.Geometry.MeshSetupItems[name]);
-                    if (revolveMesh == null) continue;
+                    sweepMesh = GetSweepMeshOfRevolveMesh(_model.Geometry.MeshSetupItems[name]);
+                    if (sweepMesh == null) continue;
                     //
-                    _model.Geometry.MeshSetupItems[name] = revolveMesh;
-                    _form.WriteDataToOutput("The sweep mesh setup item " + name + " revolves every part it meshes, so " +
-                                            "it is turned into a revolve mesh setup item.");
+                    _model.Geometry.MeshSetupItems[name] = sweepMesh;
+                    _form.WriteDataToOutput("The revolve mesh setup item " + name + " is turned into a sweep mesh " +
+                                            "setup item, which revolves the parts it meshes.");
                 }
             }
         }
@@ -1203,21 +1203,16 @@ namespace PrePoMax
             _commands.OnEnableDisableUndoRedo();
         }
         /// <summary>
-        /// A revolve mesh setup item made of a sweep item whose blocks are all revolved, or null for any other item.
-        /// The sweep item once revolved such parts; it now leaves them to the revolve item, which builds them the same
-        /// way, so a file that meshed them by a sweep item meshes them by a revolve item as before.
+        /// A sweep mesh setup item made of a revolve item of an older file, or null for any other item. The sweep
+        /// item revolves every part that is revolved about an axis its source touches.
         /// </summary>
-        private static RevolveMesh GetRevolveMeshOfRevolvedSweep(MeshSetupItem meshSetupItem)
+        private static SweepMesh GetSweepMeshOfRevolveMesh(MeshSetupItem meshSetupItem)
         {
-            if (meshSetupItem == null || meshSetupItem.GetType() != typeof(SweepMesh)) return null;
+            if (!(meshSetupItem is RevolveMesh revolveMesh)) return null;
             //
-            SweepMesh sweepMesh = (SweepMesh)meshSetupItem;
-            int[][] sourceSurfaceIds = sweepMesh.BlockSourceSurfaceIds;
-            double[][] revolveAxes = sweepMesh.BlockRevolveAxes;
-            if (sourceSurfaceIds == null || sourceSurfaceIds.Length == 0 || revolveAxes == null ||
-                revolveAxes.Length != sourceSurfaceIds.Length || revolveAxes.Any(axis => axis == null)) return null;
-            //
-            return new RevolveMesh(sweepMesh);
+            SweepMesh sweepMesh = new SweepMesh(revolveMesh);
+            sweepMesh.SourceType = SweepSourceTypeEnum.Automatic;
+            return sweepMesh;
         }
         private void ApplyCompatibilityToCommands(CommandsCollection commandsCollection)
         {
@@ -1226,15 +1221,15 @@ namespace PrePoMax
             // Compatibility v2.6.4
             if (commandsCollection != null)
             {
-                RevolveMesh revolveMesh;
+                SweepMesh sweepMesh;
                 foreach (var command in commandsCollection.Commands)
                 {
                     if (command is CAddMeshSetupItem amsi &&
-                        (revolveMesh = GetRevolveMeshOfRevolvedSweep(amsi.MeshSetupItem)) != null)
-                        amsi.MeshSetupItem = revolveMesh;
+                        (sweepMesh = GetSweepMeshOfRevolveMesh(amsi.MeshSetupItem)) != null)
+                        amsi.MeshSetupItem = sweepMesh;
                     else if (command is CReplaceMeshSetupItem rmsi &&
-                             (revolveMesh = GetRevolveMeshOfRevolvedSweep(rmsi.MeshSetupItem)) != null)
-                        rmsi.MeshSetupItem = revolveMesh;
+                             (sweepMesh = GetSweepMeshOfRevolveMesh(rmsi.MeshSetupItem)) != null)
+                        rmsi.MeshSetupItem = sweepMesh;
                 }
             }
             // Compatibility v2.4.4
@@ -11151,11 +11146,7 @@ namespace PrePoMax
             //
             MeshSetupItem mesherSetupItem;
             if (meshType == MeshTypeEnum.Transfinite) mesherSetupItem = new TransfiniteMesh("Default_Transfinite_Mesh");
-            // A part whose cells are all revolved is meshed by a revolve item, and one that mixes swept and revolved
-            // cells by a sweep, which revolves the revolved ones by blocks that turn their source about the axis
-            else if (meshType == MeshTypeEnum.Revolve && !HasMeshedPartOfType(partName, MeshTypeEnum.Sweep) &&
-                     !HasMeshedPartOfType(partName, MeshTypeEnum.Transfinite))
-                mesherSetupItem = new RevolveMesh("Default_Revolve_Mesh");
+            // A revolved part is meshed by a sweep, which revolves it by blocks that turn its source about the axis
             else if (meshType == MeshTypeEnum.Sweep || meshType == MeshTypeEnum.Revolve)
             {
                 SweepMesh sweepMesh = new SweepMesh("Default_Sweep_Mesh");
@@ -11176,23 +11167,12 @@ namespace PrePoMax
             if (error != null)
             {
                 throw new CaeException("The cells of the part " + partName + " can be meshed by a " +
-                                       (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" :
-                                        mesherSetupItem is RevolveMesh ? "revolve" : "sweep") +
+                                       (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" : "sweep") +
                                        " on their own, but not together: " + error +
                                        " Split the cells further or define a mesh setup item for the part.");
             }
             //
             return mesherSetupItem;
-        }
-        private bool HasMeshedPartOfType(string partName, MeshTypeEnum meshType)
-        {
-            BasePart part;
-            foreach (var meshablePartName in GetMeshablePartNames(new string[] { partName }))
-            {
-                if (_model.Geometry.Parts.TryGetValue(meshablePartName, out part) && part is GeometryPart geometryPart &&
-                    geometryPart.MeshType == meshType) return true;
-            }
-            return false;
         }
         private bool AreMeshedPartsCadShells(string partName)
         {

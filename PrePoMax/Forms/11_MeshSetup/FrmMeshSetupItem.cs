@@ -549,7 +549,7 @@ namespace PrePoMax.Forms
                 else if (MeshSetupItem is SweepMesh sm)
                 {
                     // A revolve finds the sources of the parts itself
-                    if (sm is RevolveMesh || sm.SourceType == SweepSourceTypeEnum.Automatic) _controller.SetSelectItemToPart();
+                    if (sm.SourceType == SweepSourceTypeEnum.Automatic) _controller.SetSelectItemToPart();
                     else _controller.SetSelectItemToGeometrySurface();
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");

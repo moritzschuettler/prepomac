@@ -6,7 +6,7 @@
 #
 #Every item type is added on geometry it can actually be defined on, because an item the model cannot
 #honour is refused the way the dialog refuses it. box_and_cylinder.brep carries the CAD box the
-#transfinite and sweep items need and the quarter cylinder the revolve item needs; the two
+#transfinite and sweep items need and a quarter cylinder; the two
 #STL parts are imported for the shell items and the tetrahedral one.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Coverage.py -g No -x Yes -w <dir>
@@ -114,12 +114,7 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
     check(values["transfinite_angle_deg"] == 110.0, "the transfinite angle was not replaced")
 
 
-def test_derived_arguments(items, selection, revolve_selection):
-    items.add_revolve_mesh(PREFIX + "Revolve", revolve_selection)
-    items.replace_revolve_mesh(PREFIX + "Revolve", number_of_elements=4)
-    check_raises(lambda: items.replace_revolve_mesh(PREFIX + "Revolve", angle=90.0),
-                 "the derived revolution angle was accepted")
-    #
+def test_derived_arguments(items, selection):
     items.add_sweep_mesh(PREFIX + "Sweep", selection, number_of_global_smooth_steps=1)
     items.replace_sweep_mesh(PREFIX + "Sweep", transfinite_angle=100.0)
     check(settings(items, PREFIX + "Sweep")["number_of_global_smooth_steps"] == 1,
@@ -204,10 +199,8 @@ def main():
     shell = import_parts("open_shell.stl")[0]
     solid = import_parts("cube.stl")[0]
     check(shell.part_type == "Shell", "the shell part is a " + shell.part_type)
-    # The bottom face of the box is what a sweep is built from, and one of the flat
-    # radial faces of the quarter cylinder is the section the solid is a revolution of
+    # The bottom face of the box is what a sweep is built from
     box_face = face_selection(box, 5)
-    revolve_face = face_selection(cylinder, 4)
     solid_selection = part_selection(solid)
     shell_selection = part_selection(shell)
     items = pmx.model.mesh.setup_items
@@ -221,7 +214,7 @@ def main():
     test_shell_mmg(items, shell_selection)
     test_thicken_shell(items, shell_selection)
     test_gmsh_items(items, solid_selection, shell_selection, part_selection(box))
-    test_derived_arguments(items, box_face, revolve_face)
+    test_derived_arguments(items, box_face)
     test_layer_validation(items)
     test_quad_wild(items, shell_selection)
     test_size_defaults(items, solid, solid_selection, box, part_selection(box))

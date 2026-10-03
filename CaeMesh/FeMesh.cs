@@ -704,7 +704,7 @@ namespace CaeMesh
                     }
                     //
                     SetItemValidity(sm, valid, items);
-                    if (!valid && sm.Active) invalidItems.Add((sm is RevolveMesh ? "Revolve mesh: " : "Sweep mesh: ") + sm.Name);
+                    if (!valid && sm.Active) invalidItems.Add("Sweep mesh: " + sm.Name);
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
                 //

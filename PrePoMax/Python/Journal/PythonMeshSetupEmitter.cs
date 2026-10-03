@@ -14,7 +14,7 @@ using CaeMesh;
 namespace PrePoMax.Python.Journal
 {
     // Mesh setup items. The Gmsh based ones share the algorithm and recombination values of their base
-    // type, the extrude item adds the layer sizing on top of them, and the revolve item is a sweep item.
+    // type.
     public static class PythonMeshSetupEmitter
     {
         // Variables                                                                                                                
@@ -93,7 +93,6 @@ namespace PrePoMax.Python.Journal
             }
             if (item is SweepMesh sweep)
             {
-                bool revolve = item is RevolveMesh;
                 arguments.Add("number_of_global_smooth_steps=" +
                               PythonValueFormatter.Format(sweep.NumberOfGlobalSmoothSteps));
                 AddSolidGmshValues(arguments, sweep);
@@ -102,9 +101,7 @@ namespace PrePoMax.Python.Journal
                     "algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString());
                 arguments.Add("optimize_first_order_shell=" +
                               PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
-                // A revolve counts the layers of its arcs itself
-                if (!revolve)
-                    arguments.Add("elements_per_layer=" + PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
+                arguments.Add("elements_per_layer=" + PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
                 // An item read from an older file sweeps every cell, a new one uses the symmetry, so the value
                 // is always written
                 arguments.Add("symmetry=" + PythonValueFormatter.Text(sweep.Symmetry.ToString()));
@@ -115,7 +112,7 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("quad_wild_alpha=" + PythonValueFormatter.Number(sweep.QuadWildAlpha));
                     arguments.Add("quad_wild_smooth=" + PythonValueFormatter.Format(sweep.QuadWildSmooth));
                 }
-                return revolve ? "revolve_mesh" : "sweep_mesh";
+                return "sweep_mesh";
             }
             if (item is TransfiniteMesh transfinite)
             {

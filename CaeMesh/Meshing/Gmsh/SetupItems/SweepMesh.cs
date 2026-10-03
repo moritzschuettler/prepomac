@@ -136,6 +136,11 @@ namespace CaeMesh
         {
             Reset();
         }
+        public SweepMesh(SweepMesh sweepMesh)
+            : base("tmpName")
+        {
+            CopyFrom(sweepMesh);
+        }
         public SweepMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {

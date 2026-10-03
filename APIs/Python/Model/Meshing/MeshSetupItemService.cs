@@ -72,7 +72,6 @@ namespace APIs.Python.Model
             if (item is TetrahedralGmsh) return new TetrahedralGmsh((TetrahedralGmsh)item);
             if (item is ShellGmsh) return new ShellGmsh((ShellGmsh)item);
             if (item is TransfiniteMesh) return new TransfiniteMesh((TransfiniteMesh)item);
-            if (item is RevolveMesh) return new RevolveMesh((SweepMesh)item);
             if (item is SweepMesh)
             {
                 SweepMesh sweepMesh = new SweepMesh(item.Name);
@@ -212,7 +211,7 @@ namespace APIs.Python.Model
         // An item the model cannot honour is refused, the way FrmMeshSetupItem.OnApply refuses it. It would
         // otherwise be recorded, be marked invalid by the validity check, and then be skipped at mesh time
         // without a word - which is how an extrude mesh setup item quietly became a tetrahedral mesh. The
-        // question also derives what the sweep and revolve items take from their selection, so
+        // question also derives what the sweep item takes from its selection, so
         // asking it is what derives those values for the region that is theirs
         private void EnsureModelCanHonour(MeshSetupItem item)
         {
@@ -230,12 +229,11 @@ namespace APIs.Python.Model
             item.CreationData = compilation.Selection;
             item.CreationIds = compilation.Ids;
             // A sweep given a part rather than its source surfaces finds the source surfaces itself, the way the
-            // dialog does when its source surfaces are set to automatic, and a revolve always does
+            // dialog does when its source surfaces are set to automatic
             if (compilation.Ids.Length > 0 && item is SweepMesh sweepMesh)
             {
                 bool parts = FeMesh.IsPartGeometryId(compilation.Ids[0]);
-                sweepMesh.SourceType = parts || item is RevolveMesh ? SweepSourceTypeEnum.Automatic :
-                                                                      SweepSourceTypeEnum.SelectedSurfaces;
+                sweepMesh.SourceType = parts ? SweepSourceTypeEnum.Automatic : SweepSourceTypeEnum.SelectedSurfaces;
             }
         }
         // The dialog points the picker at what the item type is defined on, so a whole part mesher records
@@ -251,7 +249,6 @@ namespace APIs.Python.Model
                 //
                 return new string[] { "geometry" };
             }
-            if (item is RevolveMesh) return new string[] { "parts", "geometry" };
             if (item is SweepMesh) return new string[] { "geometry_surfaces", "parts", "geometry" };
             //
             return new string[] { "parts", "geometry" };

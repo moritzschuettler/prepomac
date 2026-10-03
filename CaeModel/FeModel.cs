@@ -2983,7 +2983,6 @@ namespace CaeModel
             // surfaces are found automatically
             int partId;
             bool partsSelected = false;
-            bool surfacesSelected = false;
             HashSet<int> surfaceIds;
             HashSet<int> selectedPartIds = new HashSet<int>();
             Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds = new Dictionary<int, HashSet<int>>();
@@ -2996,7 +2995,6 @@ namespace CaeModel
                     partsSelected = true;
                     continue;
                 }
-                surfacesSelected = true;
                 if (!partIdSelectedSurfaceIds.TryGetValue(partId, out surfaceIds))
                 {
                     surfaceIds = new HashSet<int>();
@@ -3005,20 +3003,12 @@ namespace CaeModel
                 surfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]));
             }
             // One solid CAD part, or the sub-parts of one compound part, each of them swept as a block of its own.
-            // Parts standing apart from each other form groups that are swept independently. A revolve item finds the
-            // sources of its parts itself; one written by the revolve mesher the sweep replaced may have selected the
-            // surfaces to revolve, which then name the parts they lie on
+            // Parts standing apart from each other form groups that are swept independently
             GeometryPart[][] sweptPartGroups;
-            bool revolve = sweepMesh is RevolveMesh;
-            if (revolve)
+            if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
             {
-                error = GetSweptPartGroups(selectedPartIds, out sweptPartGroups);
-                if (error == null) error = CreateSweepBlocksForGroups(sweepMesh, sweptPartGroups, null);
-            }
-            else if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
-            {
-                if (surfacesSelected)
-                    return "The source surfaces are found automatically, so select the part to sweep rather than its surfaces.";
+                // The dialog and the API select parts for an automatic sweep; the surfaces a revolve item of an older
+                // file selected name the parts they lie on
                 error = GetSweptPartGroups(selectedPartIds, out sweptPartGroups);
                 if (error == null) error = CreateSweepBlocksForGroups(sweepMesh, sweptPartGroups, null);
             }
@@ -3028,38 +3018,8 @@ namespace CaeModel
                 error = GetSweptPartGroups(selectedPartIds, out sweptPartGroups);
                 if (error == null) error = CreateSweepBlocksForGroups(sweepMesh, sweptPartGroups, partIdSelectedSurfaceIds);
             }
-            if (error == null) error = GetSweepOrRevolveError(sweepMesh);
             //
-            if (error == null) return null;
-            return error + (revolve ? " The revolved mesh cannot be created." : " The swept mesh cannot be created.");
-        }
-        /// <summary>
-        /// Why the blocks found for an item belong to the other of the two items, or null when they do not. A revolve
-        /// item meshes revolved cells only and refuses a cell the sweep between two ends meshes; a sweep item meshes
-        /// the swept cells and the revolved ones among them, but refuses a selection whose cells are all revolved,
-        /// which the revolve item meshes.
-        /// </summary>
-        private string GetSweepOrRevolveError(SweepMesh sweepMesh)
-        {
-            int[][] sourceSurfaceIds = sweepMesh.BlockSourceSurfaceIds;
-            if (sourceSurfaceIds == null || sourceSurfaceIds.Length == 0) return null;
-            //
-            double[][] revolveAxes = sweepMesh.BlockRevolveAxes;
-            List<int> sweptBlockIndices = new List<int>();
-            for (int i = 0; i < sourceSurfaceIds.Length; i++)
-            {
-                if (revolveAxes == null || i >= revolveAxes.Length || revolveAxes[i] == null) sweptBlockIndices.Add(i);
-            }
-            if (sweepMesh is RevolveMesh)
-            {
-                if (sweptBlockIndices.Count == 0) return null;
-                BasePart part = _geometry.GetPartFromId(FeMesh.GetPartIdFromGmshTopologyId(
-                                                         sourceSurfaceIds[sweptBlockIndices[0]][0]));
-                return "The part " + (part != null ? part.Name : "") + " is swept between two ends rather than " +
-                       "revolved, so mesh it with a sweep mesh setup item.";
-            }
-            if (sweptBlockIndices.Count > 0) return null;
-            return "Every part of the selection is revolved, so mesh it with a revolve mesh setup item.";
+            return error == null ? null : error + " The swept mesh cannot be created.";
         }
         /// <summary>
         /// Collects the selected parts into the groups that are swept independently of each other: one solid
@@ -3170,23 +3130,20 @@ namespace CaeModel
                 blocks = null;
                 error = null;
                 errorPartName = null;
-                bool revolve = sweepMesh is RevolveMesh;
                 if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && isCompound)
                 {
                     symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
                     if (symmetry != null)
                     {
-                        if (revolve) blocks = CreateRevolveBlocksForGroup(symmetry.MasterParts, out error, out errorPartName);
-                        else blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
-                                                                out errorPartName);
+                        blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
+                                                           out errorPartName);
                         if (error != null) symmetry = null;
                     }
                 }
                 if (symmetry == null)
                 {
-                    if (revolve) blocks = CreateRevolveBlocksForGroup(sweptParts, out error, out errorPartName);
-                    else if (isCompound) blocks = CreateSweepBlocksForCells(sweptParts, partIdSelectedSurfaceIds, out error,
-                                                                            out errorPartName);
+                    if (isCompound) blocks = CreateSweepBlocksForCells(sweptParts, partIdSelectedSurfaceIds, out error,
+                                                                       out errorPartName);
                     else blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, out error,
                                                             out errorPartName);
                 }
@@ -3217,43 +3174,6 @@ namespace CaeModel
             }
             //
             return null;
-        }
-        /// <summary>
-        /// The blocks a revolve item builds on a group of parts - one part, the cells of one compound, or the symmetric
-        /// piece of them: every part that is revolved about an axis its source touches is revolved, a part the sweep
-        /// between two ends could also mesh among them. A cell that can be neither revolved nor swept is left to
-        /// tetrahedra, as the sweep item leaves it, and one that can only be swept refuses the item, which the sweep
-        /// item meshes instead.
-        /// </summary>
-        private SweepBlocks CreateRevolveBlocksForGroup(GeometryPart[] parts, out string error, out string errorPartName)
-        {
-            error = null;
-            errorPartName = null;
-            SweepBlocks blocks;
-            string revolveError = null;
-            if (parts.Length == 1) blocks = CreateRevolvedBlocks(parts[0], out revolveError);
-            else blocks = CreateRevolvedBlocksForCells(parts, null, true);
-            HashSet<int> revolvedPartIds = blocks == null ? new HashSet<int>() :
-                new HashSet<int>(blocks.SourceSurfaceIds.Select(surfaceIds => FeMesh.GetPartIdFromGmshTopologyId(surfaceIds[0])));
-            foreach (var part in parts)
-            {
-                if (revolvedPartIds.Contains(part.PartId)) continue;
-                SweepDetectionData detection = GetCellSweepDetection(part);
-                if (part.MeshType == MeshTypeEnum.Sweep || part.MeshType == MeshTypeEnum.Transfinite ||
-                    (detection.Error == null && !detection.IsRevolved))
-                {
-                    error = "The part " + part.Name + " is swept between two ends rather than revolved, so mesh it " +
-                            "with a sweep mesh setup item.";
-                    return null;
-                }
-            }
-            if (blocks == null)
-            {
-                if (revolveError != null) errorPartName = parts[0].Name;
-                error = revolveError ?? "No part of the selection is revolved about an axis its source touches.";
-                return null;
-            }
-            return blocks;
         }
         /// <summary>
         /// The blocks of cells of one compound - all its cells, or the symmetric piece of them - leaving the cells the
@@ -3339,20 +3259,15 @@ namespace CaeModel
         /// cell turned the same way round about one axis, so that the target of one is the source of the next. Every
         /// cell found its source on its own, and one found from its other end is reversed.
         /// </summary>
-        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds,
-                                                                      bool revolveAll = false)
+        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds)
         {
             double[] referenceAxis = null;
             Dictionary<int, SweepBlocks> partIdBlocks = new Dictionary<int, SweepBlocks>();
             foreach (var cell in cells)
             {
-                if (sweptPartIds.Contains(cell.PartId)) continue;
-                // A revolve item revolves a cell the sweep between two ends could mesh as well
-                SweepBlocks cellBlocks;
-                if (GetCellSweepDetection(cell).IsRevolved) cellBlocks = GetCellSweepDetection(cell).Blocks;
-                else if (revolveAll) cellBlocks = CreateRevolvedBlocks(cell, out _);
-                else continue;
-                if (cellBlocks == null) continue;
+                if (sweptPartIds.Contains(cell.PartId) || !GetCellSweepDetection(cell).IsRevolved) continue;
+                //
+                SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
                 double[] axis = cellBlocks.RevolveAxes[0];
                 if (referenceAxis == null) referenceAxis = axis;
                 else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
@@ -3372,8 +3287,7 @@ namespace CaeModel
         /// be a wall of both, or the target of one and the source of the other, which is then built after it. A cell
         /// that shares a surface in any other way is left to tetrahedra. Null when no cell is revolved.
         /// </summary>
-        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks,
-                                                         bool revolveAll = false)
+        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks)
         {
             if (cells.Length < 2) return null;
             //
@@ -3392,7 +3306,7 @@ namespace CaeModel
                 }
             }
             Dictionary<int, SweepBlocks> alignedBlocks =
-                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys), revolveAll);
+                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys));
             if (alignedBlocks.Count == 0) return null;
             //
             Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);

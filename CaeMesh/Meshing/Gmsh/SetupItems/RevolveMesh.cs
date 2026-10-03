@@ -20,28 +20,18 @@ using GmshCommon;
 namespace CaeMesh
 {
     /// <summary>
-    /// A mesh of parts and cells that are revolved about an axis their source touches. It is built by the blocks of
-    /// the sweep, every one of them revolved, so it meshes one part, several parts and the cells of compounds alike,
-    /// and the sweep item takes the compounds that mix swept and revolved cells.
+    /// The revolve mesh setup item of older files. The sweep item revolves every part that is revolved about an axis
+    /// its source touches, so an item read from a file is turned into a sweep item when the file is opened.
     /// </summary>
     [Serializable]
     public class RevolveMesh : SweepMesh, ISerializable
     {
         // Constructors
-        public RevolveMesh(string name)
-            : base(name)
-        {
-        }
-        public RevolveMesh(SweepMesh sweepMesh)
-            : base("tmpName")
-        {
-            CopyFrom(sweepMesh);
-        }
         public RevolveMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            // An item written by the revolve mesher this one replaced carried the axis, the angle and the full 360
-            // degree model, which the blocks now find for themselves; its source type is read by the sweep item
+            // The axis, the angle and the full 360 degree model of the revolve mesher are found by the blocks now;
+            // its source type is read by the sweep item
         }
     }
 }
