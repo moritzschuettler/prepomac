@@ -9138,14 +9138,42 @@ namespace PrePoMax
             //
             int faceId;
             int numOfNonSolidCADParts = 0;
+            // A sub part of a compound is defeatured with its compound, which is the geometry gmsh meshes: the
+            // compound is defeatured as a whole, so a face two sub parts share changes on both of them
+            string compoundName;
+            int solidNumber;
+            List<int> kernelFaceIds;
+            SortedDictionary<int, List<int>> kernelFaceIdsBySolid;
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            Dictionary<string, SortedDictionary<int, List<int>>> kernelFaceIdsBySolidByCompound =
+                new Dictionary<string, SortedDictionary<int, List<int>>>();
             foreach (int id in geometrySelection.GeometryIds)
             {
                 itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(id);
                 partId = itemTypePartIds[2];
                 part = _model.Geometry.GetPartFromId(partId);
+                // Solid surface of a sub part
+                if (part is GeometryPart subPart && subPart.IsCADPart && compoundPartNames.ContainsKey(part.Name) &&
+                    (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) &&
+                    ((GeometryType)itemTypePartIds[1]).IsSurface() &&
+                    GetOffsetFaceSource(subPart, compoundPartNames, out compoundName, out solidNumber))
+                {
+                    if (!kernelFaceIdsBySolidByCompound.TryGetValue(compoundName, out kernelFaceIdsBySolid))
+                    {
+                        kernelFaceIdsBySolid = new SortedDictionary<int, List<int>>();
+                        kernelFaceIdsBySolidByCompound.Add(compoundName, kernelFaceIdsBySolid);
+                    }
+                    if (!kernelFaceIdsBySolid.TryGetValue(solidNumber, out kernelFaceIds))
+                    {
+                        kernelFaceIds = new List<int>();
+                        kernelFaceIdsBySolid.Add(solidNumber, kernelFaceIds);
+                    }
+                    faceId = itemTypePartIds[0] + 1;
+                    if (!kernelFaceIds.Contains(faceId)) kernelFaceIds.Add(faceId);
+                }
                 // Solid surface
-                if (part != null && part is GeometryPart gp1 && gp1.IsCADPart &&
-                    (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
+                else if (part != null && part is GeometryPart gp1 && gp1.IsCADPart &&
+                         (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
                 {
                     // One-based CAD face numbering
                     faceId = itemTypePartIds[0] + 1;
@@ -9188,6 +9216,19 @@ namespace PrePoMax
                 //
                 numOfSolidParts++;
             }
+            foreach (var entry in kernelFaceIdsBySolidByCompound)
+            {
+                CompoundGeometryPart compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[entry.Key];
+                foreach (int number in entry.Value.Keys)
+                {
+                    BasePart subPart = _model.Geometry.Parts[compoundPart.SubPartNames[number - 1]];
+                    faceCountsBefore[subPart.Name] = subPart.Visualization == null ? 0 : subPart.Visualization.FaceCount;
+                    defeaturedPartNames.Add(subPart.Name);
+                }
+                //
+                DefeatureCompoundPart(compoundPart, entry.Value);
+                numOfSolidParts += entry.Value.Count;
+            }
             _lastDefeaturedPartNames = defeaturedPartNames.ToArray();
             WriteDefeatureReport(faceCountsBefore);
             //
@@ -9198,6 +9239,63 @@ namespace PrePoMax
                 MessageBoxes.ShowWarning(warning + Environment.NewLine + "Only defeaturing on CAD solid parts was done.");
             //
             CheckAndUpdateModelValidity();
+        }
+        /// <summary>
+        /// Defeatures the picked faces of the sub parts of a compound on the compound as a whole and replaces the
+        /// compound with the result, as the deletion of faces replaces it: the compound keeps its name and part id,
+        /// and every sub part its name, part id and color.
+        /// </summary>
+        private void DefeatureCompoundPart(CompoundGeometryPart compoundPart,
+                                           SortedDictionary<int, List<int>> kernelFaceIdsBySolid)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            File.WriteAllText(brepFileName, compoundPart.CADFileData);
+            // One face group per solid, the faces numbered inside it
+            string faceIdsArgument = kernelFaceIdsBySolid.Count.ToString();
+            foreach (var entry in kernelFaceIdsBySolid)
+            {
+                faceIdsArgument += " " + entry.Key + " " + entry.Value.Count;
+                foreach (int kernelFaceId in entry.Value) faceIdsArgument += " " + kernelFaceId;
+            }
+            string argument = "BREP_DEFEATURE_COMPOUND " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              faceIdsArgument;
+            JobStatus jobStatus = _jobRunner.Run(compoundPart.Name, executable, argument, workDirectory,
+                                                 _form.WriteDataToOutput);
+            if (jobStatus != JobStatus.OK)
+                throw new CaeException("Defeaturing failed for the compound part '" + compoundPart.Name + "'.");
+            //
+            string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+            if (_settings.General.NumOfSplitFaces > 1 && dividedBrepFileName == brepFileName)
+                throw new CaeException("Defeaturing failed to split periodic faces on part '" + compoundPart.Name + "'.");
+            try
+            {
+                int[] solidNumbers = Enumerable.Range(1, compoundPart.SubPartNames.Length).ToArray();
+                if (compoundPart.CreatedBySplit)
+                {
+                    File.WriteAllLines(GetSplitGeometryOriginsFileName(dividedBrepFileName),
+                                       solidNumbers.Select(i => i.ToString()));
+                    if (ReplaceSplitGeometryPart(compoundPart, dividedBrepFileName) == null)
+                        throw new CaeException("Defeature: the compound part " + compoundPart.Name +
+                                               " could not be replaced.");
+                }
+                else ReplaceCompoundKeepingSubParts(compoundPart, dividedBrepFileName, solidNumbers, "Defeature", null);
+            }
+            finally
+            {
+                if (dividedBrepFileName != brepFileName && File.Exists(dividedBrepFileName))
+                    File.Delete(dividedBrepFileName);
+            }
         }
         // The modelling kernel returns a shape whether or not it closed anything, and gmsh only warns about
         // the features it could not close, so the face count is the one thing that says what was removed

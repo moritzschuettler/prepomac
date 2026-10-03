@@ -820,7 +820,10 @@ face leaves it as a shell part with its own name and part id, and a face two of 
 from both. The solids that lost nothing stay the compound with its name and id, and one solid left
 becomes a plain part with its name and id, as it does after `fuse_bodies`.
 
-`defeature` returns the number of faces every selected part actually lost.
+`defeature` returns the number of faces every selected part actually lost. The faces picked on the
+sub-parts or split cells of a compound are removed from the compound as a whole, so a feature on a face two
+of them share, or one running across them, closes on both sides and they still meet where they did; the
+compound and its sub-parts keep their names and part ids.
 The modelling kernel returns a shape whether or not it closed anything, so a part that reports `0`
 is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
 well as its wall.
