@@ -136,12 +136,6 @@ namespace CaeMesh
         {
             Reset();
         }
-        public SweepMesh(ExtrudeMesh extrudeMesh)
-            : base("tmpName")
-        {
-            SetQuadWildDefaults();
-            CopyFrom(extrudeMesh);
-        }
         public SweepMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
@@ -156,7 +150,12 @@ namespace CaeMesh
                     case "_numberOfLayerSmoothSteps":
                         break;  // Removed - the layer interior is no longer built by smoothing
                     case "_sourceType":
-                        _sourceType = (SweepSourceTypeEnum)entry.Value; break;
+                        // A revolve item written by the revolve mesher the sweep replaced carried an enum of its own,
+                        // with the same values
+                        if (entry.Value is RevolveSourceTypeEnum revolveSourceType)
+                            _sourceType = (SweepSourceTypeEnum)(int)revolveSourceType;
+                        else _sourceType = (SweepSourceTypeEnum)entry.Value;
+                        break;
                     case "_numberOfGlobalSmoothSteps":
                         _numberOfGlobalSmoothSteps = (int)entry.Value; break;
                     case "_keepImprintEdges":
@@ -164,6 +163,7 @@ namespace CaeMesh
                     case "_direction":
                         break;  // Removed - every block carries an arrow of its own
                     case "_sweepCenter":
+                    case "_extrudeCenter":
                         break;  // Removed - every block carries an arrow of its own
                     case "_sideSurfaceIds":
                         {

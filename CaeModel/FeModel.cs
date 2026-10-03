@@ -1839,15 +1839,14 @@ namespace CaeModel
         }
         
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
-                                                       bool splitCompoundMesh, bool mergeCompoundParts,
-                                                       RevolveMesh revolveMesh = null)
+                                                       bool splitCompoundMesh, bool mergeCompoundParts)
         {
             return PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
-                                                    mergeCompoundParts, true, revolveMesh, out _);
+                                                    mergeCompoundParts, true, out _);
         }
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                        bool splitCompoundMesh, bool mergeCompoundParts,
-                                                       bool mergeCells, RevolveMesh revolveMesh,
+                                                       bool mergeCells,
                                                        out Dictionary<int, string> elementIdMaterialName,
                                                        SweepMesh symmetricSweep = null)
         {
@@ -1920,15 +1919,6 @@ namespace CaeModel
                     partNames = mesh.Parts.Keys.ToArray();
                 }
                 else throw new NotSupportedException();
-            }
-            // Complete a requested full revolution only after the generated mesh has been imported. This keeps the
-            // model edges stored in the PrePoMax part visualization instead of reconstructing the mesh in Gmsh.
-            if (revolveMesh != null && revolveMesh.CreateFull360Model)
-            {
-                if (prevPartNames.Length != 1 || partNames.Length != 1)
-                    throw new CaeException("A full 360 degree revolve mesh must result in one mesh part.");
-                CreateFull360RevolveMesh(mesh, revolveMesh);
-                partNames = mesh.Parts.Keys.ToArray();
             }
             // Rename the imported part/s
             BasePart[] importedParts = new BasePart[partNames.Length];
@@ -2155,49 +2145,6 @@ namespace CaeModel
             GeometryMetadata matchedMetadata = GeometryMetadataMatcher.Match(geometryPart, _geometry.Nodes,
                                                                              meshPart, mesh.Nodes);
             meshPart.FillMissingGeometryDataFrom(geometryPart, matchedMetadata);
-        }
-        private void CreateFull360RevolveMesh(FeMesh mesh, RevolveMesh revolveMesh)
-        {
-            int segmentCount = revolveMesh.Full360SegmentCount;
-            if (segmentCount < 2)
-                throw new CaeException("A full 360 degree mesh can only be created from a revolve angle that " +
-                                       "divides 360 degrees into an integer number of sectors.");
-            if (revolveMesh.AxisCenter == null || revolveMesh.AxisCenter.Length != 3 ||
-                revolveMesh.AxisDirection == null || revolveMesh.AxisDirection.Length != 3 ||
-                new Vec3D(revolveMesh.AxisDirection).Len < 1E-12)
-                throw new CaeException("The revolve axis is not valid.");
-            // Copy the imported sector with the existing model-part rotate operation. It copies the visualization
-            // data, including the model edges, and renumbers the copied nodes and elements. One copy is made for
-            // each of the remaining sectors, each rotated by an additional sector angle so the sectors tile the
-            // full revolution.
-            double sectorAngleRad = 2.0 * Math.PI / segmentCount;
-            string[] originalPartNames = mesh.Parts.Keys.ToArray();
-            string[] reservedPartNames = originalPartNames.ToArray();
-            HashSet<int> reservedPartIds = mesh.Parts.Values.Select(item => item.PartId).ToHashSet();
-            string[] rotatedPartNames = mesh.RotateParts(originalPartNames, revolveMesh.AxisCenter,
-                                                         revolveMesh.AxisDirection, sectorAngleRad,
-                                                         segmentCount - 1, reservedPartNames, reservedPartIds);
-            string[] fullRevolvePartNames = originalPartNames.Concat(rotatedPartNames).ToArray();
-            // Merge coincident nodes before the sectors are combined into one part. The final part visualization is
-            // then constructed from a conforming volume mesh, so the sector seams are not detected as outer faces.
-            string nodeSetName = mesh.NodeSets.GetNextNumberedKey(Globals.InternalSelectionName + "_" +
-                                                                  Globals.MergedCoincidentNodes);
-            FeNodeSet nodeSet = new FeNodeSet(nodeSetName, mesh.GetNodeIdsFromParts(fullRevolvePartNames));
-            nodeSet.Internal = true;
-            mesh.NodeSets.Add(nodeSetName, nodeSet);
-            try
-            {
-                MergeCoincidentNodes mergeCoincidentNodes = new MergeCoincidentNodes();
-                mergeCoincidentNodes.Tolerance = Math.Max(1E-12, 1E-6 * mesh.BoundingBox.GetDiagonal());
-                mergeCoincidentNodes.NodesToKeep = NodesToKeepEnum.SmallerID;
-                mesh.MergeCoincidentNodes(nodeSetName, mergeCoincidentNodes);
-            }
-            finally
-            {
-                mesh.NodeSets.Remove(nodeSetName);
-            }
-            // All revolved sectors now share their seam nodes and can be rebuilt as one volume without internal faces.
-            mesh.MergeMeshParts(fullRevolvePartNames, out _, out _);
         }
         public void ImportGeneratedMesh(FeMesh mesh, bool updateNodeIdElementIds = true)
         {
@@ -2764,9 +2711,7 @@ namespace CaeModel
             else if (meshSetupItem is NetgenMesh nm) error = IsNetgenMeshProperlyDefined(nm);
             else if (meshSetupItem is TetrahedralGmsh tg) error = IsTetrahedralGmshProperlyDefined(tg);
             else if (meshSetupItem is TransfiniteMesh tm) error = IsTransfiniteMeshProperlyDefined(tm);
-            else if (meshSetupItem is ExtrudeMesh em) error = IsExtrudeMeshProperlyDefined(em);
             else if (meshSetupItem is SweepMesh sm) error = IsSweepMeshProperlyDefined(sm);
-            else if (meshSetupItem is RevolveMesh rm) error = IsRevolveMeshProperlyDefined(rm);
             else throw new NotSupportedException("MeshSetupItemTypeException");
             if (error != null) return error;
             // A sweep has found its blocks by now, so the coverage asked for here is the coverage the
@@ -3018,147 +2963,6 @@ namespace CaeModel
             //
             return null;
         }
-        private string IsExtrudeMeshProperlyDefined(ExtrudeMesh extrudeMesh)
-        {
-            string error = null;
-            extrudeMesh.Direction = null;
-            extrudeMesh.ExtrudeCenter = null;
-            //
-            if (extrudeMesh.AlgorithmMesh2D == CaeMesh.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-                return "The extrude mesh setup item cannot use the quasi-structured quad algorithm.";
-            //
-            if (extrudeMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
-                (extrudeMesh.LayerSizes.Length != extrudeMesh.NumOfElementsPerLayer.Length))
-                return "The number of layers must be equal for layer sizes and number of elements per layer.";
-            //
-            int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(extrudeMesh.CreationIds);
-            //
-            if (selectedPartIds.Length == 1)
-            {
-                // Get part
-                int partId = selectedPartIds[0];
-                GeometryPart part = (GeometryPart)_geometry.GetPartFromId(partId);
-                //
-                if (IsPartCompoundSubPart(part.Name))
-                    return "The extrude mesh setup item cannot be defined on a compound part.";
-                if (!part.IsCADPart)
-                    return "The extrude mesh setup item cannot be defined on a stl based part.";
-                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
-                    return "The extrude mesh setup item cannot be defined on a shell part.";
-                //
-                VisualizationData vis = part.Visualization;
-                // Get surface ids
-                HashSet<int> sourceSurfaceIds = new HashSet<int>();
-                for (int i = 0; i < extrudeMesh.CreationIds.Length; i++)
-                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGeometryId(extrudeMesh.CreationIds[i]));
-                // Do selected surfaces form a connected surface
-                if (vis.AreSurfacesConnected(sourceSurfaceIds.ToArray()))
-                {
-                    Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
-                    HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                    HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                    //
-                    HashSet<int> directionEdgeIds = new HashSet<int>();
-                    foreach (var vertexId in surfaceVertices)
-                        directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
-                    //
-                    double directionLength = vis.GetEqualEdgeLengthOrNegative(directionEdgeIds);
-                    if (directionLength > 0)
-                    {
-                        bool straightEdges = false;
-                        if (vis.EdgeTypes != null)
-                        {
-                            HashSet<GeomCurveType> edgeTypes = new HashSet<GeomCurveType>();
-                            foreach (var directionEdgeId in directionEdgeIds) edgeTypes.Add(vis.EdgeTypes[directionEdgeId]);
-                            //
-                            if (edgeTypes.Count() == 1 && edgeTypes.First() == GeomCurveType.Line) straightEdges = true;
-                        }
-                        if (!straightEdges)
-                        {
-                            straightEdges = true;
-                            double curvature;
-                            foreach (var directionEdgeId in directionEdgeIds)
-                            {
-                                curvature = vis.GetMaxEdgeCurvature(directionEdgeId, _geometry.Nodes);
-                                if (curvature > 0.001)
-                                {
-                                    straightEdges = false;
-                                    break;
-                                }
-                            }
-                        }
-                        if (straightEdges)
-                        {
-                            int[] edgeNodes;
-                            HashSet<int> nodeIds;
-                            Vec3D normalizedDirection = null;
-                            BoundingBox bb = new BoundingBox();
-                            foreach (var directionEdgeId in directionEdgeIds)
-                            {
-                                // Get all edge node ids
-                                nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
-                                // Reduce edge node ids to vertices
-                                edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
-                                if (edgeNodes.Length != 2) throw new NotSupportedException();
-                                // First node must be on the selected surface
-                                if (!surfaceVertices.Contains(edgeNodes[0]))
-                                    (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
-                                // Compute the extrude direction
-                                normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
-                                bb.IncludeCoor(normalizedDirection.Coor);
-                            }
-                            //
-                            if (normalizedDirection != null && bb.GetDiagonal() < 0.0017) // approximately 0.1° difference
-                            {
-                                // Check if there are any internal loops on the side faces
-                                if (vis.IsBodySweepable(sourceSurfaceIds, out int[] sideSurfaceIds, out _, out _))
-                                {
-                                    bool containsInternalLoop = false;
-                                    foreach (var sideSurfaceId in sideSurfaceIds)
-                                    {
-                                        if (vis.GetFreeEdgeLoops(new int[] { sideSurfaceId }).Length > 1)
-                                        {
-                                            containsInternalLoop = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!containsInternalLoop)
-                                    {
-                                        extrudeMesh.Direction = (directionLength * normalizedDirection).Coor;
-                                        //
-                                        bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
-                                        extrudeMesh.ExtrudeCenter = bb.GetCenter();
-                                        //
-                                        // Round
-                                        double d = part.BoundingBox.GetDiagonal();
-                                        int digits = (int)Math.Log10(d) - 6;
-                                        if (digits > 0) digits = 0;
-                                        else if (digits < 0) digits *= -1;
-                                        //
-                                        extrudeMesh.Direction[0] = Math.Round(extrudeMesh.Direction[0], digits);
-                                        extrudeMesh.Direction[1] = Math.Round(extrudeMesh.Direction[1], digits);
-                                        extrudeMesh.Direction[2] = Math.Round(extrudeMesh.Direction[2], digits);
-                                        //
-                                        extrudeMesh.ExtrudeCenter[0] = Math.Round(extrudeMesh.ExtrudeCenter[0], digits);
-                                        extrudeMesh.ExtrudeCenter[1] = Math.Round(extrudeMesh.ExtrudeCenter[1], digits);
-                                        extrudeMesh.ExtrudeCenter[2] = Math.Round(extrudeMesh.ExtrudeCenter[2], digits);
-                                    }
-                                    else error = "The side surfaces contain internal edge loops.";
-                                }
-                                else error = "The selected surfaces result in incorrectly defined extruded volume.";
-                            }
-                            else error = "The selected surfaces have direction edges pointing in different direction.";
-                        }
-                        else error = "The selected surfaces have a direction edge that is not a straight line.";
-                    }
-                    else error = "The selected surfaces have direction edges of different lengths.";
-                }
-                else error = "The selected surfaces are not connected.";
-            }
-            else error = "The surfaces of more than one part are selected.";
-            //
-            return error == null ? null : error + " The extruded mesh cannot be created.";
-        }
         private string IsSweepMeshProperlyDefined(SweepMesh sweepMesh)
         {
             string error;
@@ -3201,9 +3005,17 @@ namespace CaeModel
                 surfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]));
             }
             // One solid CAD part, or the sub-parts of one compound part, each of them swept as a block of its own.
-            // Parts standing apart from each other form groups that are swept independently
+            // Parts standing apart from each other form groups that are swept independently. A revolve item finds the
+            // sources of its parts itself; one written by the revolve mesher the sweep replaced may have selected the
+            // surfaces to revolve, which then name the parts they lie on
             GeometryPart[][] sweptPartGroups;
-            if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
+            bool revolve = sweepMesh is RevolveMesh;
+            if (revolve)
+            {
+                error = GetSweptPartGroups(selectedPartIds, out sweptPartGroups);
+                if (error == null) error = CreateSweepBlocksForGroups(sweepMesh, sweptPartGroups, null);
+            }
+            else if (sweepMesh.SourceType == SweepSourceTypeEnum.Automatic)
             {
                 if (surfacesSelected)
                     return "The source surfaces are found automatically, so select the part to sweep rather than its surfaces.";
@@ -3216,8 +3028,38 @@ namespace CaeModel
                 error = GetSweptPartGroups(selectedPartIds, out sweptPartGroups);
                 if (error == null) error = CreateSweepBlocksForGroups(sweepMesh, sweptPartGroups, partIdSelectedSurfaceIds);
             }
+            if (error == null) error = GetSweepOrRevolveError(sweepMesh);
             //
-            return error == null ? null : error + " The swept mesh cannot be created.";
+            if (error == null) return null;
+            return error + (revolve ? " The revolved mesh cannot be created." : " The swept mesh cannot be created.");
+        }
+        /// <summary>
+        /// Why the blocks found for an item belong to the other of the two items, or null when they do not. A revolve
+        /// item meshes revolved cells only and refuses a cell the sweep between two ends meshes; a sweep item meshes
+        /// the swept cells and the revolved ones among them, but refuses a selection whose cells are all revolved,
+        /// which the revolve item meshes.
+        /// </summary>
+        private string GetSweepOrRevolveError(SweepMesh sweepMesh)
+        {
+            int[][] sourceSurfaceIds = sweepMesh.BlockSourceSurfaceIds;
+            if (sourceSurfaceIds == null || sourceSurfaceIds.Length == 0) return null;
+            //
+            double[][] revolveAxes = sweepMesh.BlockRevolveAxes;
+            List<int> sweptBlockIndices = new List<int>();
+            for (int i = 0; i < sourceSurfaceIds.Length; i++)
+            {
+                if (revolveAxes == null || i >= revolveAxes.Length || revolveAxes[i] == null) sweptBlockIndices.Add(i);
+            }
+            if (sweepMesh is RevolveMesh)
+            {
+                if (sweptBlockIndices.Count == 0) return null;
+                BasePart part = _geometry.GetPartFromId(FeMesh.GetPartIdFromGmshTopologyId(
+                                                         sourceSurfaceIds[sweptBlockIndices[0]][0]));
+                return "The part " + (part != null ? part.Name : "") + " is swept between two ends rather than " +
+                       "revolved, so mesh it with a sweep mesh setup item.";
+            }
+            if (sweptBlockIndices.Count > 0) return null;
+            return "Every part of the selection is revolved, so mesh it with a revolve mesh setup item.";
         }
         /// <summary>
         /// Collects the selected parts into the groups that are swept independently of each other: one solid
@@ -3328,20 +3170,23 @@ namespace CaeModel
                 blocks = null;
                 error = null;
                 errorPartName = null;
+                bool revolve = sweepMesh is RevolveMesh;
                 if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && isCompound)
                 {
                     symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
                     if (symmetry != null)
                     {
-                        blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
-                                                           out errorPartName);
+                        if (revolve) blocks = CreateRevolveBlocksForGroup(symmetry.MasterParts, out error, out errorPartName);
+                        else blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
+                                                                out errorPartName);
                         if (error != null) symmetry = null;
                     }
                 }
                 if (symmetry == null)
                 {
-                    if (isCompound) blocks = CreateSweepBlocksForCells(sweptParts, partIdSelectedSurfaceIds, out error,
-                                                                       out errorPartName);
+                    if (revolve) blocks = CreateRevolveBlocksForGroup(sweptParts, out error, out errorPartName);
+                    else if (isCompound) blocks = CreateSweepBlocksForCells(sweptParts, partIdSelectedSurfaceIds, out error,
+                                                                            out errorPartName);
                     else blocks = CreateSweepBlocksForGroup(sweptParts, partIdSelectedSurfaceIds, false, out error,
                                                             out errorPartName);
                 }
@@ -3372,6 +3217,43 @@ namespace CaeModel
             }
             //
             return null;
+        }
+        /// <summary>
+        /// The blocks a revolve item builds on a group of parts - one part, the cells of one compound, or the symmetric
+        /// piece of them: every part that is revolved about an axis its source touches is revolved, a part the sweep
+        /// between two ends could also mesh among them. A cell that can be neither revolved nor swept is left to
+        /// tetrahedra, as the sweep item leaves it, and one that can only be swept refuses the item, which the sweep
+        /// item meshes instead.
+        /// </summary>
+        private SweepBlocks CreateRevolveBlocksForGroup(GeometryPart[] parts, out string error, out string errorPartName)
+        {
+            error = null;
+            errorPartName = null;
+            SweepBlocks blocks;
+            string revolveError = null;
+            if (parts.Length == 1) blocks = CreateRevolvedBlocks(parts[0], out revolveError);
+            else blocks = CreateRevolvedBlocksForCells(parts, null, true);
+            HashSet<int> revolvedPartIds = blocks == null ? new HashSet<int>() :
+                new HashSet<int>(blocks.SourceSurfaceIds.Select(surfaceIds => FeMesh.GetPartIdFromGmshTopologyId(surfaceIds[0])));
+            foreach (var part in parts)
+            {
+                if (revolvedPartIds.Contains(part.PartId)) continue;
+                SweepDetectionData detection = GetCellSweepDetection(part);
+                if (part.MeshType == MeshTypeEnum.Sweep || part.MeshType == MeshTypeEnum.Transfinite ||
+                    (detection.Error == null && !detection.IsRevolved))
+                {
+                    error = "The part " + part.Name + " is swept between two ends rather than revolved, so mesh it " +
+                            "with a sweep mesh setup item.";
+                    return null;
+                }
+            }
+            if (blocks == null)
+            {
+                if (revolveError != null) errorPartName = parts[0].Name;
+                error = revolveError ?? "No part of the selection is revolved about an axis its source touches.";
+                return null;
+            }
+            return blocks;
         }
         /// <summary>
         /// The blocks of cells of one compound - all its cells, or the symmetric piece of them - leaving the cells the
@@ -3457,15 +3339,20 @@ namespace CaeModel
         /// cell turned the same way round about one axis, so that the target of one is the source of the next. Every
         /// cell found its source on its own, and one found from its other end is reversed.
         /// </summary>
-        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds)
+        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds,
+                                                                      bool revolveAll = false)
         {
             double[] referenceAxis = null;
             Dictionary<int, SweepBlocks> partIdBlocks = new Dictionary<int, SweepBlocks>();
             foreach (var cell in cells)
             {
-                if (sweptPartIds.Contains(cell.PartId) || !GetCellSweepDetection(cell).IsRevolved) continue;
-                //
-                SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
+                if (sweptPartIds.Contains(cell.PartId)) continue;
+                // A revolve item revolves a cell the sweep between two ends could mesh as well
+                SweepBlocks cellBlocks;
+                if (GetCellSweepDetection(cell).IsRevolved) cellBlocks = GetCellSweepDetection(cell).Blocks;
+                else if (revolveAll) cellBlocks = CreateRevolvedBlocks(cell, out _);
+                else continue;
+                if (cellBlocks == null) continue;
                 double[] axis = cellBlocks.RevolveAxes[0];
                 if (referenceAxis == null) referenceAxis = axis;
                 else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
@@ -3485,7 +3372,8 @@ namespace CaeModel
         /// be a wall of both, or the target of one and the source of the other, which is then built after it. A cell
         /// that shares a surface in any other way is left to tetrahedra. Null when no cell is revolved.
         /// </summary>
-        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks)
+        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks,
+                                                         bool revolveAll = false)
         {
             if (cells.Length < 2) return null;
             //
@@ -3504,7 +3392,7 @@ namespace CaeModel
                 }
             }
             Dictionary<int, SweepBlocks> alignedBlocks =
-                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys));
+                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys), revolveAll);
             if (alignedBlocks.Count == 0) return null;
             //
             Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);
@@ -3767,7 +3655,7 @@ namespace CaeModel
                 error = "The part " + part.Name + " is not a CAD solid.";
                 return null;
             }
-            error = DetectRevolveSourceSurfaces(part, true, out sourceSurfaceIds, out targetSurfaceIds, out _, out angleDeg,
+            error = DetectRevolveSourceSurfaces(part, out sourceSurfaceIds, out targetSurfaceIds, out _, out angleDeg,
                                                 out axisCenter, out axisDirection, out reversed);
             if (error != null) return null;
             //
@@ -5886,114 +5774,6 @@ namespace CaeModel
             foreach (var itemId in itemIds) gmshTopologyIds.Add(FeMesh.GmshTopologyId(itemId, partId));
             return gmshTopologyIds.ToArray();
         }
-        private string IsRevolveMeshProperlyDefined(RevolveMesh revolveMesh)
-        {
-            revolveMesh.SourceSurfaceIds = null;
-            revolveMesh.AxisDirection = null;
-            revolveMesh.AxisCenter = null;
-            revolveMesh.AngleDeg = -1;
-            revolveMesh.MiddleR = -1;
-            //
-            //if (revolveMesh.AlgorithmMesh2D == CaeMesh.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-            //    return "The revolve mesh setup item cannot use the quasi-structured quad algorithm.";
-            //
-            if (revolveMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
-                (revolveMesh.LayerSizes.Length != revolveMesh.NumOfElementsPerLayer.Length))
-                return "The number of layers must be equal for layer sizes and number of elements per layer.";
-            //
-            bool partsSelected = false;
-            bool surfacesSelected = false;
-            HashSet<int> surfaceIds = new HashSet<int>();
-            for (int i = 0; i < revolveMesh.CreationIds.Length; i++)
-            {
-                if (FeMesh.IsPartGeometryId(revolveMesh.CreationIds[i])) partsSelected = true;
-                else
-                {
-                    surfacesSelected = true;
-                    surfaceIds.Add(FeMesh.GetItemIdFromGeometryId(revolveMesh.CreationIds[i]));
-                }
-            }
-            //
-            string error;
-            bool automatic = revolveMesh.SourceType == RevolveSourceTypeEnum.Automatic;
-            int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(revolveMesh.CreationIds);
-            if (automatic && surfacesSelected)
-                error = "The source surfaces are found automatically, so select the part to revolve rather than its surfaces.";
-            else if (!automatic && partsSelected)
-                error = "Select the source surfaces of the revolve mesh, or let them be found automatically.";
-            else if (selectedPartIds.Length > 1)
-                error = automatic ? "More than one part is selected." : "The surfaces of more than one part are selected.";
-            else if (selectedPartIds.Length == 0) error = "The selection does not lie on a geometry part.";
-            else
-            {
-                GeometryPart part = _geometry.GetPartFromId(selectedPartIds[0]) as GeometryPart;
-                error = IsPartRevolvable(part);
-                if (error == null)
-                {
-                    double r;
-                    double angleDeg;
-                    double[] axisCenter;
-                    double[] axisDirection;
-                    if (automatic)
-                        error = DetectRevolveSourceSurfaces(part, false, out surfaceIds, out _, out r, out angleDeg,
-                                                            out axisCenter, out axisDirection, out _);
-                    else error = GetRevolveAxisData(part, surfaceIds, out r, out angleDeg, out axisCenter, out axisDirection);
-                    //
-                    if (error == null)
-                    {
-                        SetRevolveAxisData(revolveMesh, part, r, angleDeg, axisCenter, axisDirection);
-                        if (automatic)
-                        {
-                            revolveMesh.SourceSurfaceIds =
-                                surfaceIds.OrderBy(id => id)
-                                          .Select(id => FeMesh.GetGeometryId(id, (int)GeometryType.SolidSurface,
-                                                                             part.PartId))
-                                          .ToArray();
-                        }
-                    }
-                }
-            }
-            //
-            return error == null ? null : error + " The revolve mesh cannot be created.";
-        }
-        private string IsPartRevolvable(GeometryPart part)
-        {
-            if (part == null) return "The selection does not lie on a geometry part.";
-            if (part is CompoundGeometryPart || IsPartCompoundSubPart(part.Name))
-                return "The revolve mesh setup item cannot be defined on a compound part.";
-            if (!part.IsCADPart) return "The revolve mesh setup item cannot be defined on a stl based part.";
-            if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
-                return "The revolve mesh setup item cannot be defined on a shell part.";
-            return null;
-        }
-        private void SetRevolveAxisData(RevolveMesh revolveMesh, GeometryPart part, double r, double angleDeg,
-                                        double[] axisCenter, double[] axisDirection)
-        {
-            double[] offset = part.Offset;
-            revolveMesh.AxisDirection = axisDirection;
-            revolveMesh.AxisCenter = new double[3] {axisCenter[0] - offset[0],
-                                                    axisCenter[1] - offset[1],
-                                                    axisCenter[2] - offset[2]};
-            revolveMesh.AngleDeg = angleDeg;
-            revolveMesh.MiddleR = r;
-            // Round
-            double d = part.BoundingBox.GetDiagonal();
-            int digits = (int)Math.Log10(d) - 6;
-            if (digits > 0) digits = 0;
-            else if (digits < 0) digits *= -1;
-            //
-            revolveMesh.AxisDirection[0] = Math.Round(revolveMesh.AxisDirection[0], digits);
-            revolveMesh.AxisDirection[1] = Math.Round(revolveMesh.AxisDirection[1], digits);
-            revolveMesh.AxisDirection[2] = Math.Round(revolveMesh.AxisDirection[2], digits);
-            //
-            revolveMesh.AxisCenter[0] = Math.Round(revolveMesh.AxisCenter[0], digits);
-            revolveMesh.AxisCenter[1] = Math.Round(revolveMesh.AxisCenter[1], digits);
-            revolveMesh.AxisCenter[2] = Math.Round(revolveMesh.AxisCenter[2], digits);
-            //
-            revolveMesh.AngleDeg = Math.Round(revolveMesh.AngleDeg, 4);
-            //
-            revolveMesh.MiddleR = Math.Round(revolveMesh.MiddleR, digits);
-        }
         /// <summary>
         /// The axis, the angle and the middle radius of the revolution of the given source surfaces, read from the
         /// edges that leave their vertices. The axis center is in the coordinates of the geometry nodes.
@@ -6092,12 +5872,11 @@ namespace CaeModel
         /// and every other surface is either the group turned through the angle or a surface turning about the
         /// axis itself. A hole, a pocket or a boss the revolution does not make therefore refuses the part rather
         /// than being meshed away. The two ends of a revolved part are both such groups, and the first one is
-        /// taken. With touchingAxis only a group with a vertex on the axis is taken, and every vertex of the part
-        /// has to lie on one of its two ends, since a wall split along the revolution is not one a revolved sweep
-        /// block can mesh. The targets are the surfaces the group is turned onto, and reversed tells that the group
+        /// taken. Only a group with a vertex on the axis is taken, and every vertex of the part has to lie on one of
+        /// its two ends, since a wall split along the revolution is not one a revolved sweep block can mesh. The targets are the surfaces the group is turned onto, and reversed tells that the group
         /// is turned onto them against the axis direction.
         /// </summary>
-        private string DetectRevolveSourceSurfaces(GeometryPart part, bool touchingAxis, out HashSet<int> sourceSurfaceIds,
+        private string DetectRevolveSourceSurfaces(GeometryPart part, out HashSet<int> sourceSurfaceIds,
                                                    out HashSet<int> targetSurfaceIds, out double r, out double angleDeg,
                                                    out double[] axisCenter, out double[] axisDirection,
                                                    out bool reversed)
@@ -6122,7 +5901,7 @@ namespace CaeModel
                 if (GetRevolveAxisData(part, surfaceIds, out r, out angleDeg, out axisCenter, out axisDirection) != null)
                     continue;
                 //
-                error = IsPartRevolvedFromSurfaces(part, surfaceIds, angleDeg, axisCenter, axisDirection, touchingAxis,
+                error = IsPartRevolvedFromSurfaces(part, surfaceIds, angleDeg, axisCenter, axisDirection,
                                                    out targetSurfaceIds, out reversed);
                 if (error == null)
                 {
@@ -6210,7 +5989,7 @@ namespace CaeModel
         /// it is. The axis center is in the coordinates of the geometry nodes.
         /// </summary>
         private string IsPartRevolvedFromSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds, double angleDeg,
-                                                  double[] axisCenter, double[] axisDirection, bool touchingAxis,
+                                                  double[] axisCenter, double[] axisDirection,
                                                   out HashSet<int> targetSurfaceIds, out bool reversed)
         {
             targetSurfaceIds = new HashSet<int>();
@@ -6264,7 +6043,7 @@ namespace CaeModel
                 sourceCircles.Add(new double[] { radius, height });
                 if (radius <= tolerance) onAxis = true;
             }
-            if (touchingAxis && !onAxis)
+            if (!onAxis)
                 return "The " + sourceNames + " does not touch the axis it is revolved about, so the part " + part.Name +
                        " is swept rather than revolved.";
             Dictionary<int, HashSet<int>> surfaceIdVertexIds = new Dictionary<int, HashSet<int>>();

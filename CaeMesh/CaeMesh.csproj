@@ -177,7 +177,6 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepRevolvedBlock.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />
-    <Compile Include="Meshing\Gmsh\Revolve\RevolveMethods.cs" />
     <Compile Include="Meshing\Gmsh\Data\GmshSurface.cs" />
     <Compile Include="Meshing\Gmsh\Data\GmshEdge.cs" />
     <Compile Include="Meshing\Gmsh\Data\GmshVolume.cs" />
@@ -189,7 +188,6 @@
     <Compile Include="Meshing\Gmsh\SetupItems\TetrahedralGmsh.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\RevolveMesh.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\GmshSetupItem.cs" />
-    <Compile Include="Meshing\Gmsh\SetupItems\ExtrudeMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\RevolveSourceTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSourceTypeEnum.cs" />

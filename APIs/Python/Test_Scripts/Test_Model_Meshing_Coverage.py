@@ -6,7 +6,7 @@
 #
 #Every item type is added on geometry it can actually be defined on, because an item the model cannot
 #honour is refused the way the dialog refuses it. box_and_cylinder.brep carries the CAD box the
-#transfinite, extrude and sweep items need and the quarter cylinder the revolve item needs; the two
+#transfinite and sweep items need and the quarter cylinder the revolve item needs; the two
 #STL parts are imported for the shell items and the tetrahedral one.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Coverage.py -g No -x Yes -w <dir>
@@ -115,13 +115,6 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
 
 
 def test_derived_arguments(items, selection, revolve_selection):
-    items.add_extrude_mesh(PREFIX + "Extrude", selection, number_of_elements=3)
-    items.replace_extrude_mesh(PREFIX + "Extrude", element_scale_factor=1.5)
-    check(settings(items, PREFIX + "Extrude")["number_of_elements"] == 3,
-          "the omitted element count was not kept")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Extrude", direction=[1, 0, 0]),
-                 "the derived extrusion direction was accepted")
-    #
     items.add_revolve_mesh(PREFIX + "Revolve", revolve_selection)
     items.replace_revolve_mesh(PREFIX + "Revolve", number_of_elements=4)
     check_raises(lambda: items.replace_revolve_mesh(PREFIX + "Revolve", angle=90.0),
@@ -133,46 +126,7 @@ def test_derived_arguments(items, selection, revolve_selection):
           "the omitted smooth step count was not kept")
 
 
-def test_layer_validation(items, selection):
-    # The model setters clamp a value out of their domain, so a rejected value must not reach them
-    items.add_extrude_mesh(PREFIX + "Layers", selection, number_of_elements=3)
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_scale_factor=-4),
-                 "a negative element scale factor was accepted")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_scale_factor=0),
-                 "a zero element scale factor was accepted")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", number_of_elements=0),
-                 "a zero element count was accepted")
-    check(settings(items, PREFIX + "Layers")["number_of_elements"] == 3,
-          "a refused layer value changed the stored definition")
-    #
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_size_type="MultiLayerd",
-                                                    layer_sizes=[float('nan'), -1],
-                                                    elements_per_layer=[0]),
-                 "non-finite and negative layer sizes were accepted")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_size_type="MultiLayerd",
-                                                    layer_sizes=[0.5, 0.5], elements_per_layer=[2, 0]),
-                 "a zero number of elements per layer was accepted")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_size_type="MultiLayerd",
-                                                    layer_sizes=[0.5, 0.5], elements_per_layer=[2]),
-                 "layer arrays of different lengths were accepted")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", element_size_type="MultiLayerd",
-                                                    layer_sizes=[]),
-                 "an empty layer size array was accepted")
-    check(settings(items, PREFIX + "Layers")["element_size_type"] != "MultiLayerd",
-          "a refused layer definition changed the element size type")
-    # A kept array is part of the effective definition, so it is checked against the given one
-    items.replace_extrude_mesh(PREFIX + "Layers", element_size_type="MultiLayerd",
-                               layer_sizes=[0.2, 0.6, 0.2], elements_per_layer=[1, 3, 1])
-    values = settings(items, PREFIX + "Layers")
-    check(list(values["layer_sizes"]) == [0.2, 0.6, 0.2],
-          "the layer sizes did not read back: " + str(values.get("layer_sizes")))
-    check(list(values["num_of_elements_per_layer"]) == [1, 3, 1],
-          "the numbers of elements per layer did not read back")
-    check_raises(lambda: items.replace_extrude_mesh(PREFIX + "Layers", elements_per_layer=[1, 1]),
-                 "a kept layer size array of a different length was accepted")
-    check(list(settings(items, PREFIX + "Layers")["num_of_elements_per_layer"]) == [1, 3, 1],
-          "a refused layer replacement changed the stored definition")
-    #
+def test_layer_validation(items):
     check_raises(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", elements_per_layer=[2, 0]),
                  "a zero number of elements per sweep layer was accepted")
 
@@ -250,7 +204,7 @@ def main():
     shell = import_parts("open_shell.stl")[0]
     solid = import_parts("cube.stl")[0]
     check(shell.part_type == "Shell", "the shell part is a " + shell.part_type)
-    # The bottom face of the box is what an extrude and a sweep are built from, and one of the flat
+    # The bottom face of the box is what a sweep is built from, and one of the flat
     # radial faces of the quarter cylinder is the section the solid is a revolution of
     box_face = face_selection(box, 5)
     revolve_face = face_selection(cylinder, 4)
@@ -268,7 +222,7 @@ def main():
     test_thicken_shell(items, shell_selection)
     test_gmsh_items(items, solid_selection, shell_selection, part_selection(box))
     test_derived_arguments(items, box_face, revolve_face)
-    test_layer_validation(items, box_face)
+    test_layer_validation(items)
     test_quad_wild(items, shell_selection)
     test_size_defaults(items, solid, solid_selection, box, part_selection(box))
     test_rejection_leaves_no_trace(items)

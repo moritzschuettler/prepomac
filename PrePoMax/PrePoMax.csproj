@@ -529,7 +529,6 @@
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewTetrahedralGmsh.cs" />
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewRevolveMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\Gmsh\ViewGmshSetupItem.cs" />
-    <Compile Include="Forms\11_MeshSetup\Gmsh\ViewExtrudeMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\QuadWild\ViewShellQuadWild.cs" />
     <Compile Include="Forms\11_MeshSetup\Mmg\ViewShellMmg.cs" />
     <Compile Include="Forms\11_MeshSetup\Netgen\ViewNetgenMesh.cs" />

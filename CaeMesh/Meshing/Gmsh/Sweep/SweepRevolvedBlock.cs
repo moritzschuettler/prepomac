@@ -566,10 +566,10 @@ namespace CaeMesh.Sweep
             // The volume and the target cap, element by element
             foreach (var element in sourceElements)
             {
-                IntPtr[] oriented = RevolveMethods.GetOutwardSourceNodeIds(element, sourceCoor, _center, _direction,
+                IntPtr[] oriented = GetOutwardSourceNodeIds(element, sourceCoor, _center, _direction,
                                                                            angles[1]);
                 int numAxisNodes;
-                oriented = RevolveMethods.RotateSourceNodeIdsToAxis(oriented, sourceCoor, _center, _direction,
+                oriented = RotateSourceNodeIdsToAxis(oriented, sourceCoor, _center, _direction,
                                                                     _tolerance, out numAxisNodes);
                 for (int k = 0; k < numLayers; k++) AddVolumeElements(oriented, numAxisNodes, lines, k, add);
                 //
@@ -762,12 +762,12 @@ namespace CaeMesh.Sweep
         /// </summary>
         private double GetAngleFromSource(double[] point)
         {
-            double radius = RevolveMethods.DistanceFromAxis(point, _center, _direction);
+            double radius = DistanceFromAxis(point, _center, _direction);
             double height = Dot(Subtract(point, _center), _direction);
             foreach (var vertexId in _sourceVertexIds)
             {
                 double[] source = _vertexCoor[vertexId];
-                if (Math.Abs(RevolveMethods.DistanceFromAxis(source, _center, _direction) - radius) > 100 * _tolerance) continue;
+                if (Math.Abs(DistanceFromAxis(source, _center, _direction) - radius) > 100 * _tolerance) continue;
                 if (Math.Abs(Dot(Subtract(source, _center), _direction) - height) > 100 * _tolerance) continue;
                 //
                 double[] from = GetRadial(source);
@@ -792,18 +792,18 @@ namespace CaeMesh.Sweep
         {
             double[] first = _vertexCoor[vertexIds[0]];
             double[] second = _vertexCoor[vertexIds[1]];
-            double radius = RevolveMethods.DistanceFromAxis(first, _center, _direction);
+            double radius = DistanceFromAxis(first, _center, _direction);
             double height = Dot(Subtract(first, _center), _direction);
-            if (Math.Abs(RevolveMethods.DistanceFromAxis(second, _center, _direction) - radius) > 100 * _tolerance) return false;
+            if (Math.Abs(DistanceFromAxis(second, _center, _direction) - radius) > 100 * _tolerance) return false;
             if (Math.Abs(Dot(Subtract(second, _center), _direction) - height) > 100 * _tolerance) return false;
             double[] middle = GetEdgeMiddle(edgeId);
-            return Math.Abs(RevolveMethods.DistanceFromAxis(middle, _center, _direction) - radius) <= 100 * _tolerance &&
+            return Math.Abs(DistanceFromAxis(middle, _center, _direction) - radius) <= 100 * _tolerance &&
                    Math.Abs(Dot(Subtract(middle, _center), _direction) - height) <= 100 * _tolerance &&
                    Distance(first, second) > 100 * _tolerance;
         }
         private bool IsOnAxis(double[] point)
         {
-            return RevolveMethods.DistanceFromAxis(point, _center, _direction) <= _tolerance;
+            return DistanceFromAxis(point, _center, _direction) <= _tolerance;
         }
         private bool IsAxisEdge(int edgeId, int[] vertexIds)
         {
@@ -836,7 +836,7 @@ namespace CaeMesh.Sweep
         }
         private double[] Turn(double[] point, double angle)
         {
-            return RevolveMethods.Rotate(point, _center, _direction, angle);
+            return Rotate(point, _center, _direction, angle);
         }
         private string GetDescription()
         {
@@ -913,6 +913,145 @@ namespace CaeMesh.Sweep
         private static double Distance(double[] a, double[] b)
         {
             return Math.Sqrt(Dot(Subtract(a, b), Subtract(a, b)));
+        }
+        private static IntPtr[] GetOutwardSourceNodeIds(IntPtr[] sourceNodeIds,
+                                                        Dictionary<IntPtr, double[]> sourceNodeCoordinates,
+                                                        double[] axisCenter, double[] axisDirection,
+                                                        double firstLayerAngleRad)
+        {
+            IntPtr[] orientedNodeIds = sourceNodeIds.ToArray();
+            double[] center = new double[3];
+            double[] normal = new double[3];
+            double[] point0 = sourceNodeCoordinates[sourceNodeIds[0]];
+            for (int i = 0; i < sourceNodeIds.Length; i++)
+            {
+                double[] point = sourceNodeCoordinates[sourceNodeIds[i]];
+                center[0] += point[0];
+                center[1] += point[1];
+                center[2] += point[2];
+            }
+            center[0] /= sourceNodeIds.Length;
+            center[1] /= sourceNodeIds.Length;
+            center[2] /= sourceNodeIds.Length;
+
+            for (int i = 1; i < sourceNodeIds.Length - 1; i++)
+            {
+                double[] point1 = sourceNodeCoordinates[sourceNodeIds[i]];
+                double[] point2 = sourceNodeCoordinates[sourceNodeIds[i + 1]];
+                double x1 = point1[0] - point0[0];
+                double y1 = point1[1] - point0[1];
+                double z1 = point1[2] - point0[2];
+                double x2 = point2[0] - point0[0];
+                double y2 = point2[1] - point0[1];
+                double z2 = point2[2] - point0[2];
+                normal[0] += y1 * z2 - z1 * y2;
+                normal[1] += z1 * x2 - x1 * z2;
+                normal[2] += x1 * y2 - y1 * x2;
+            }
+
+            double[] nextCenter = Rotate(center, axisCenter, axisDirection, firstLayerAngleRad);
+            double travelX = nextCenter[0] - center[0];
+            double travelY = nextCenter[1] - center[1];
+            double travelZ = nextCenter[2] - center[2];
+            double normalLength = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] +
+                                            normal[2] * normal[2]);
+            double travelLength = Math.Sqrt(travelX * travelX + travelY * travelY + travelZ * travelZ);
+            if (normalLength <= 1E-30 || travelLength <= 1E-30)
+                throw new CaeException("The orientation of a revolved source element could not be determined.");
+
+            // The generated volume lies in the direction of travel, so the source-face normal must point
+            // in the opposite direction. Gmsh does not guarantee that a standalone surface mesh has that order.
+            double normalTravel = normal[0] * travelX + normal[1] * travelY + normal[2] * travelZ;
+            if (Math.Abs(normalTravel) <= 1E-12 * normalLength * travelLength)
+                throw new CaeException("The orientation of a revolved source element could not be determined.");
+            if (normalTravel > 0)
+            {
+                if (orientedNodeIds.Length == 3)
+                {
+                    IntPtr tmp = orientedNodeIds[1];
+                    orientedNodeIds[1] = orientedNodeIds[2];
+                    orientedNodeIds[2] = tmp;
+                }
+                else if (orientedNodeIds.Length == 4)
+                {
+                    IntPtr tmp = orientedNodeIds[1];
+                    orientedNodeIds[1] = orientedNodeIds[3];
+                    orientedNodeIds[3] = tmp;
+                }
+                else throw new NotSupportedException();
+            }
+            return orientedNodeIds;
+        }
+        private static IntPtr[] RotateSourceNodeIdsToAxis(IntPtr[] sourceNodeIds,
+                                                          Dictionary<IntPtr, double[]> sourceNodeCoordinates,
+                                                          double[] axisCenter, double[] axisDirection,
+                                                          double axisTolerance, out int numAxisNodes)
+        {
+            bool[] nodeOnAxis = new bool[sourceNodeIds.Length];
+            numAxisNodes = 0;
+            for (int i = 0; i < sourceNodeIds.Length; i++)
+            {
+                nodeOnAxis[i] = DistanceFromAxis(sourceNodeCoordinates[sourceNodeIds[i]],
+                                                 axisCenter, axisDirection) <= axisTolerance;
+                if (nodeOnAxis[i]) numAxisNodes++;
+            }
+            if (numAxisNodes == 0) return sourceNodeIds.ToArray();
+            if (numAxisNodes > 2)
+                throw new CaeException("A revolved source element has more than one edge on the revolution axis.");
+
+            int firstAxisNode = -1;
+            if (numAxisNodes == 1)
+            {
+                firstAxisNode = Array.IndexOf(nodeOnAxis, true);
+            }
+            else
+            {
+                for (int i = 0; i < sourceNodeIds.Length; i++)
+                {
+                    if (nodeOnAxis[i] && nodeOnAxis[(i + 1) % sourceNodeIds.Length])
+                    {
+                        firstAxisNode = i;
+                        break;
+                    }
+                }
+                if (firstAxisNode == -1)
+                    throw new CaeException("The axis nodes of a revolved source element do not form an edge.");
+            }
+
+            IntPtr[] rotatedNodeIds = new IntPtr[sourceNodeIds.Length];
+            for (int i = 0; i < sourceNodeIds.Length; i++)
+                rotatedNodeIds[i] = sourceNodeIds[(firstAxisNode + i) % sourceNodeIds.Length];
+            return rotatedNodeIds;
+        }
+        private static double[] Rotate(double[] point, double[] axisCenter, double[] axisDirection, double angle)
+        {
+            double x = point[0] - axisCenter[0];
+            double y = point[1] - axisCenter[1];
+            double z = point[2] - axisCenter[2];
+            double dot = axisDirection[0] * x + axisDirection[1] * y + axisDirection[2] * z;
+            double crossX = axisDirection[1] * z - axisDirection[2] * y;
+            double crossY = axisDirection[2] * x - axisDirection[0] * z;
+            double crossZ = axisDirection[0] * y - axisDirection[1] * x;
+            double cos = Math.Cos(angle);
+            double sin = Math.Sin(angle);
+            double oneMinusCos = 1 - cos;
+            return new double[]
+            {
+                axisCenter[0] + x * cos + crossX * sin + axisDirection[0] * dot * oneMinusCos,
+                axisCenter[1] + y * cos + crossY * sin + axisDirection[1] * dot * oneMinusCos,
+                axisCenter[2] + z * cos + crossZ * sin + axisDirection[2] * dot * oneMinusCos
+            };
+        }
+        private static double DistanceFromAxis(double[] point, double[] axisCenter, double[] axisDirection)
+        {
+            double x = point[0] - axisCenter[0];
+            double y = point[1] - axisCenter[1];
+            double z = point[2] - axisCenter[2];
+            double dot = axisDirection[0] * x + axisDirection[1] * y + axisDirection[2] * z;
+            x -= dot * axisDirection[0];
+            y -= dot * axisDirection[1];
+            z -= dot * axisDirection[2];
+            return Math.Sqrt(x * x + y * y + z * z);
         }
     }
 }

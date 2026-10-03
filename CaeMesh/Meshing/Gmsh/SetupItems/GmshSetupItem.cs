@@ -120,11 +120,6 @@ namespace CaeMesh
         {
             Reset();
         }
-        public GmshSetupItem(ExtrudeMesh extrudeMesh)
-            : base("tmpName")
-        {
-            CopyFrom(extrudeMesh);
-        }
         public GmshSetupItem(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {

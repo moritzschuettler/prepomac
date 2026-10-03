@@ -1023,6 +1023,20 @@ namespace PrePoMax
                     WriteNetgenMeshCompatibilityToOutput(netgenMesh);
                 }
             }
+            // Compatibility v2.6.4
+            if (_model != null && _model.Geometry != null && _model.Geometry.MeshSetupItems != null)
+            {
+                RevolveMesh revolveMesh;
+                foreach (var name in _model.Geometry.MeshSetupItems.Keys.ToArray())
+                {
+                    revolveMesh = GetRevolveMeshOfRevolvedSweep(_model.Geometry.MeshSetupItems[name]);
+                    if (revolveMesh == null) continue;
+                    //
+                    _model.Geometry.MeshSetupItems[name] = revolveMesh;
+                    _form.WriteDataToOutput("The sweep mesh setup item " + name + " revolves every part it meshes, so " +
+                                            "it is turned into a revolve mesh setup item.");
+                }
+            }
         }
         /// <summary>
         /// Meshes a part the user defined no mesh setup item for by Netgen tetrahedra, whatever mesh its
@@ -1188,10 +1202,41 @@ namespace PrePoMax
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
             _commands.OnEnableDisableUndoRedo();
         }
+        /// <summary>
+        /// A revolve mesh setup item made of a sweep item whose blocks are all revolved, or null for any other item.
+        /// The sweep item once revolved such parts; it now leaves them to the revolve item, which builds them the same
+        /// way, so a file that meshed them by a sweep item meshes them by a revolve item as before.
+        /// </summary>
+        private static RevolveMesh GetRevolveMeshOfRevolvedSweep(MeshSetupItem meshSetupItem)
+        {
+            if (meshSetupItem == null || meshSetupItem.GetType() != typeof(SweepMesh)) return null;
+            //
+            SweepMesh sweepMesh = (SweepMesh)meshSetupItem;
+            int[][] sourceSurfaceIds = sweepMesh.BlockSourceSurfaceIds;
+            double[][] revolveAxes = sweepMesh.BlockRevolveAxes;
+            if (sourceSurfaceIds == null || sourceSurfaceIds.Length == 0 || revolveAxes == null ||
+                revolveAxes.Length != sourceSurfaceIds.Length || revolveAxes.Any(axis => axis == null)) return null;
+            //
+            return new RevolveMesh(sweepMesh);
+        }
         private void ApplyCompatibilityToCommands(CommandsCollection commandsCollection)
         {
             // Compatibility v2.6.3
             AddDefaultMeshTypeCompatibilityCommands(commandsCollection);
+            // Compatibility v2.6.4
+            if (commandsCollection != null)
+            {
+                RevolveMesh revolveMesh;
+                foreach (var command in commandsCollection.Commands)
+                {
+                    if (command is CAddMeshSetupItem amsi &&
+                        (revolveMesh = GetRevolveMeshOfRevolvedSweep(amsi.MeshSetupItem)) != null)
+                        amsi.MeshSetupItem = revolveMesh;
+                    else if (command is CReplaceMeshSetupItem rmsi &&
+                             (revolveMesh = GetRevolveMeshOfRevolvedSweep(rmsi.MeshSetupItem)) != null)
+                        rmsi.MeshSetupItem = revolveMesh;
+                }
+            }
             // Compatibility v2.4.4
             if (commandsCollection != null)
             {
@@ -10276,13 +10321,12 @@ namespace PrePoMax
             //
             if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
             //
-            RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
             Dictionary<int, string> elementIdMaterialName;
             generatedMesh.Mesh = _model.PrepareGeneratedMeshFromMeshFile(generatedMesh.MeshFileName, part,
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
                                                                           meshingParameters.MergeCompoundParts,
-                                                                          meshingParameters.MergeCells, revolveMesh, out elementIdMaterialName,
+                                                                          meshingParameters.MergeCells, out elementIdMaterialName,
                                                                           GetSymmetricSweepMesh(part.Name));
             if (convertToSecondOrder) _form.WriteDataToOutput("Done.");
             generatedMesh.ElementIdMaterialName = elementIdMaterialName;
@@ -10372,14 +10416,6 @@ namespace PrePoMax
             MeshSetupItem[] meshSetupItems = GetActiveValidMesherSetupItems(partName);
             if (meshSetupItems.Length > 0 && meshSetupItems[0] is SweepMesh sweepMesh && sweepMesh.HasSymmetry)
                 return sweepMesh;
-            else return null;
-        }
-        private RevolveMesh GetFull360RevolveMesh(string partName)
-        {
-            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(partName);
-            if (meshSetupItems.Length > 0 && meshSetupItems[0] is RevolveMesh revolveMesh &&
-                revolveMesh.CreateFull360Model)
-                return revolveMesh;
             else return null;
         }
         private void ApplyThickenShellMesh(GeneratedMeshData generatedMesh)
@@ -11115,7 +11151,11 @@ namespace PrePoMax
             //
             MeshSetupItem mesherSetupItem;
             if (meshType == MeshTypeEnum.Transfinite) mesherSetupItem = new TransfiniteMesh("Default_Transfinite_Mesh");
-            // A revolved part is swept too, by a block that turns its source about the axis
+            // A part whose cells are all revolved is meshed by a revolve item, and one that mixes swept and revolved
+            // cells by a sweep, which revolves the revolved ones by blocks that turn their source about the axis
+            else if (meshType == MeshTypeEnum.Revolve && !HasMeshedPartOfType(partName, MeshTypeEnum.Sweep) &&
+                     !HasMeshedPartOfType(partName, MeshTypeEnum.Transfinite))
+                mesherSetupItem = new RevolveMesh("Default_Revolve_Mesh");
             else if (meshType == MeshTypeEnum.Sweep || meshType == MeshTypeEnum.Revolve)
             {
                 SweepMesh sweepMesh = new SweepMesh("Default_Sweep_Mesh");
@@ -11136,12 +11176,23 @@ namespace PrePoMax
             if (error != null)
             {
                 throw new CaeException("The cells of the part " + partName + " can be meshed by a " +
-                                       (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" : "sweep") +
+                                       (meshType == MeshTypeEnum.Transfinite ? "transfinite mesh" :
+                                        mesherSetupItem is RevolveMesh ? "revolve" : "sweep") +
                                        " on their own, but not together: " + error +
                                        " Split the cells further or define a mesh setup item for the part.");
             }
             //
             return mesherSetupItem;
+        }
+        private bool HasMeshedPartOfType(string partName, MeshTypeEnum meshType)
+        {
+            BasePart part;
+            foreach (var meshablePartName in GetMeshablePartNames(new string[] { partName }))
+            {
+                if (_model.Geometry.Parts.TryGetValue(meshablePartName, out part) && part is GeometryPart geometryPart &&
+                    geometryPart.MeshType == meshType) return true;
+            }
+            return false;
         }
         private bool AreMeshedPartsCadShells(string partName)
         {
@@ -11678,7 +11729,6 @@ namespace PrePoMax
             else if (meshSetupItem is TransfiniteMesh) return MeshTypeEnum.Transfinite;
             else if (meshSetupItem is SweepMesh sweepMesh)
                 return IsPartRevolvedBySweep(sweepMesh, part) ? MeshTypeEnum.Revolve : MeshTypeEnum.Sweep;
-            else if (meshSetupItem is RevolveMesh) return MeshTypeEnum.Revolve;
             else if (meshSetupItem is TetrahedralGmsh) return MeshTypeEnum.Tetrahedral;
             // A shell part Netgen meshes is colored as any other shell part
             else if (meshSetupItem is NetgenMesh && part.PartType != PartType.Shell) return MeshTypeEnum.Tetrahedral;
@@ -27567,9 +27617,7 @@ namespace PrePoMax
                 meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
             else if (meshSetupItem is LocalMeshSize lms) HighlightLocalMeshSize(lms, highlightNodes, useSecondaryHighlightColor);
-            else if (meshSetupItem is ExtrudeMesh em) HighlightExtrudeMesh(em, useSecondaryHighlightColor);
             else if (meshSetupItem is SweepMesh sm) HighlightSweepMesh(sm, useSecondaryHighlightColor);
-            else if (meshSetupItem is RevolveMesh rm) HighlightRevolveMesh(rm, useSecondaryHighlightColor);
             else throw new NotSupportedException();
         }
         // A hidden part shows nothing of itself, so a mesh setup item highlights only the parts on display
@@ -27626,19 +27674,6 @@ namespace PrePoMax
             bool backfaceCulling = part.PartType != PartType.Shell;
             //
             HighlightItemsByGeometryIds(ids, backfaceCulling, false, true);
-        }
-        public void HighlightExtrudeMesh(ExtrudeMesh extrudeMesh, bool useSecondaryHighlightColor = false)
-        {
-            HighlightShellInMeshSetupItem(extrudeMesh, useSecondaryHighlightColor);
-            //
-            string prefixName = extrudeMesh.Name + Globals.NameSeparator + "Arrows";
-            if (extrudeMesh.ExtrudeCenter != null && extrudeMesh.Direction != null)
-            {
-                int symbolSize = 2 * _settings.Pre.SymbolSize;
-                DrawArrowSymbols(prefixName, new double[][] { extrudeMesh.ExtrudeCenter },
-                                 new double[][] { extrudeMesh.Direction }, Color.Empty, symbolSize,
-                                 vtkRendererLayer.Selection, !useSecondaryHighlightColor);
-            }
         }
         public void HighlightSweepMesh(SweepMesh sweepMesh, bool useSecondaryHighlightColor = false)
         {
@@ -27780,41 +27815,6 @@ namespace PrePoMax
             HighlightElements(elementIds.ToArray());
             DrawNodes("Highlight", nodeIds.ToArray(), Color.Red, vtkRendererLayer.Selection, out _);
             return elementIds.Count;
-        }
-        public void HighlightRevolveMesh(RevolveMesh revolveMesh, bool useSecondaryHighlightColor = false)
-        {
-            // A revolve that finds its own sources is selected by part, and shows the source surfaces once they are
-            // found, drawn as the sweep draws its sources
-            int[] ids = revolveMesh.SourceSurfaceIds;
-            if (revolveMesh.SourceType == RevolveSourceTypeEnum.Automatic)
-            {
-                if (ids == null || ids.Length == 0)
-                {
-                    HighlightMeshSetupItemParts(revolveMesh, useSecondaryHighlightColor);
-                    return;
-                }
-                HighlightItemsByGeometryIds(ids, false, useSecondaryHighlightColor, true);
-            }
-            else HighlightShellInMeshSetupItem(revolveMesh, useSecondaryHighlightColor);
-            //
-            if (ids == null || ids.Length == 0) return;
-            // The selection is limited to one part
-            int partId = FeMesh.GetPartIdFromGeometryId(ids[0]);
-            BasePart part = (GeometryPart)_model.Geometry.GetPartFromId(partId);
-            if (part == null) return;
-            //
-            double[] offset = part.Offset;
-            string prefixName = revolveMesh.Name + Globals.NameSeparator + "Arrows";
-            if (revolveMesh.AxisCenter != null && revolveMesh.AxisDirection != null)
-            {
-                double[] axisCenter = new double[] {revolveMesh.AxisCenter[0] + offset[0],
-                                                    revolveMesh.AxisCenter[1] + offset[1],
-                                                    revolveMesh.AxisCenter[2] + offset[2]};
-                int symbolSize = 2 * _settings.Pre.SymbolSize;
-                DrawArrowSymbols(prefixName, new double[][] { axisCenter },
-                                 new double[][] { revolveMesh.AxisDirection }, Color.Empty, symbolSize,
-                                 vtkRendererLayer.Selection, !useSecondaryHighlightColor, true);
-            }
         }
         //
         public void HighlightNode(int nodeId)

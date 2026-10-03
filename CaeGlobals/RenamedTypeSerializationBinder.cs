@@ -49,7 +49,9 @@ namespace CaeGlobals
                 { "PrePoMax.Commands.CAddTetrahedralNetgenToUncoveredParts",
                   "PrePoMax.Commands.CAddNetgenMeshToUncoveredParts, PrePoMax" },
                 { "PrePoMax.SplitPartMeshData", "CaeMesh.SplitPartMeshData, CaeMesh" },
-                { "CaeMesh.SurfaceExtraction", "CaeMesh.FaceOffset, CaeMesh" }
+                { "CaeMesh.SurfaceExtraction", "CaeMesh.FaceOffset, CaeMesh" },
+                // The extrude mesh item was removed; its selected source surfaces are swept by a sweep mesh item
+                { "CaeMesh.ExtrudeMesh", "CaeMesh.SweepMesh, CaeMesh" }
             };
         }
         public override Type BindToType(string assemblyName, string typeName)

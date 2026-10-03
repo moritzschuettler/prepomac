@@ -102,13 +102,6 @@ namespace PrePoMax.Forms
             },
             new MeshSetupItemType()
             {
-                DisplayName = "Extrude Mesh", DefaultNameRoot = "Extrude_Mesh", AvailableInTwoD = false,
-                ItemType = typeof(ExtrudeMesh), ViewType = typeof(ViewExtrudeMesh),
-                CreateDefaultView = (controller, name) => new ViewExtrudeMesh(new ExtrudeMesh(name)),
-                CreateView = (controller, item) => new ViewExtrudeMesh(((ExtrudeMesh)item).DeepClone())
-            },
-            new MeshSetupItemType()
-            {
                 DisplayName = "Sweep Mesh", DefaultNameRoot = "Sweep_Mesh", AvailableInTwoD = false,
                 ItemType = typeof(SweepMesh), ViewType = typeof(ViewSweepMesh),
                 CreateDefaultView = (controller, name) => new ViewSweepMesh(new SweepMesh(name)),
@@ -132,27 +125,26 @@ namespace PrePoMax.Forms
         }
         public static int GetIndex(bool twoD, MeshSetupItem meshSetupItem)
         {
-            MeshSetupItemType[] available = GetAvailable(twoD);
-            for (int i = 0; i < available.Length; i++)
-            {
-                if (available[i].ItemType.IsInstanceOfType(meshSetupItem)) return i;
-            }
-            throw new NotSupportedException("MeshSetupItemTypeException");
+            return GetIndex(GetAvailable(twoD), entry => entry.ItemType, meshSetupItem);
         }
         public static int GetIndex(bool twoD, ViewMeshSetupItem viewMeshSetupItem)
         {
-            MeshSetupItemType[] available = GetAvailable(twoD);
-            for (int i = 0; i < available.Length; i++)
-            {
-                if (available[i].ViewType.IsInstanceOfType(viewMeshSetupItem)) return i;
-            }
-            throw new NotSupportedException("MeshSetupItemTypeException");
+            return GetIndex(GetAvailable(twoD), entry => entry.ViewType, viewMeshSetupItem);
         }
         public static ViewMeshSetupItem CreateView(Controller controller, MeshSetupItem meshSetupItem)
         {
-            foreach (var entry in _all)
+            return _all[GetIndex(_all, entry => entry.ItemType, meshSetupItem)].CreateView(controller, meshSetupItem);
+        }
+        // The entry of the type itself, else of a type it derives from: a revolve item is a sweep item too
+        private static int GetIndex(MeshSetupItemType[] entries, Func<MeshSetupItemType, Type> getType, object item)
+        {
+            for (int i = 0; i < entries.Length; i++)
             {
-                if (entry.ItemType.IsInstanceOfType(meshSetupItem)) return entry.CreateView(controller, meshSetupItem);
+                if (getType(entries[i]) == item.GetType()) return i;
+            }
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (getType(entries[i]).IsInstanceOfType(item)) return i;
             }
             throw new NotSupportedException("MeshSetupItemTypeException");
         }

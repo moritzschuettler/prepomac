@@ -19,138 +19,29 @@ using GmshCommon;
 
 namespace CaeMesh
 {
+    /// <summary>
+    /// A mesh of parts and cells that are revolved about an axis their source touches. It is built by the blocks of
+    /// the sweep, every one of them revolved, so it meshes one part, several parts and the cells of compounds alike,
+    /// and the sweep item takes the compounds that mix swept and revolved cells.
+    /// </summary>
     [Serializable]
-    public class RevolveMesh : GmshSetupItem, ISerializable
+    public class RevolveMesh : SweepMesh, ISerializable
     {
-        // Variables                                                                                                                
-        private RevolveSourceTypeEnum _sourceType;                      // ISerializable
-        private int[] _sourceSurfaceIds;                                // ISerializable
-        private double[] _axisCenter;                                   // ISerializable
-        private double[] _axisDirection;                                // ISerializable
-        private double _angleDeg;                                       // ISerializable
-        private double _middleR;                                        // ISerializable
-        private bool _createFull360Model;                               // ISerializable
-
-
-        // Properties                                                                                                               
-        public RevolveSourceTypeEnum SourceType { get { return _sourceType; } set { _sourceType = value; } }
-        /// <summary>
-        /// The geometry ids of the surfaces that are revolved: the selection itself, or the surfaces the detection
-        /// found on the selected part when they are found automatically.
-        /// </summary>
-        public int[] SourceSurfaceIds
-        {
-            get { return _sourceType == RevolveSourceTypeEnum.Automatic ? _sourceSurfaceIds : CreationIds; }
-            set { _sourceSurfaceIds = value; }
-        }
-        public double[] AxisCenter { get { return _axisCenter; } set { _axisCenter = value; } }
-        public double[] AxisDirection { get { return _axisDirection; } set { _axisDirection = value; } }
-        public double AngleDeg { get { return _angleDeg; } set { _angleDeg = value; } }
-        public double MiddleR { get { return _middleR; } set { _middleR = value; } }
-        // The number of equal sectors of size AngleDeg that tile a full revolution, or 0 when AngleDeg does not
-        // divide 360 degrees into at least two integer sectors. A full 360 degree model is built by repeating the
-        // revolved mesh around the axis this many times.
-        public int Full360SegmentCount
-        {
-            get
-            {
-                if (_angleDeg <= 1E-3) return 0;
-                int n = (int)Math.Round(360.0 / _angleDeg);
-                if (n < 2) return 0;
-                if (Math.Abs(_angleDeg - 360.0 / n) > 1E-3) return 0;
-                return n;
-            }
-        }
-        public bool CanCreateFull360Model { get { return Full360SegmentCount >= 2; } }
-        public bool CreateFull360Model
-        {
-            get { return CanCreateFull360Model && _createFull360Model; }
-            set { _createFull360Model = value; }
-        }
-
-
-        // Constructors                                                                                                             
+        // Constructors
         public RevolveMesh(string name)
             : base(name)
         {
-            Reset();
         }
-        public RevolveMesh(RevolveMesh revolveMesh)
+        public RevolveMesh(SweepMesh sweepMesh)
             : base("tmpName")
         {
-            CopyFrom(revolveMesh);
+            CopyFrom(sweepMesh);
         }
         public RevolveMesh(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            // An item written before the source surfaces could be found automatically carries a surface selection
-            _sourceType = RevolveSourceTypeEnum.SelectedSurfaces;
-            foreach (SerializationEntry entry in info)
-            {
-                switch (entry.Name)
-                {
-                    case "_sourceType":
-                        _sourceType = (RevolveSourceTypeEnum)entry.Value; break;
-                    case "_sourceSurfaceIds":
-                        _sourceSurfaceIds = (int[])entry.Value; break;
-                    case "_axisCenter":
-                        _axisCenter = (double[])entry.Value; break;
-                    case "_axisDirection":
-                        _axisDirection = (double[])entry.Value; break;
-                    case "_angleDeg":
-                        _angleDeg = (double)entry.Value; break;
-                    case "_middleR":
-                        _middleR = (double)entry.Value; break;
-                    case "_createFull360Model":
-                        _createFull360Model = (bool)entry.Value; break;
-                    default:
-                        break;
-                }
-            }
-        }
-
-
-        // Methods                                                                                                                  
-        public override void Reset()
-        {
-            base.Reset();
-            // The source is meshed the way a sweep meshes it: Frontal-Delaunay recombined by the simple algorithm,
-            // which keeps the boundary counts and turns the triangles into quadrilaterals and so the wedges into
-            // hexahedra
-            AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
-            //
-            _sourceType = RevolveSourceTypeEnum.Automatic;
-            _sourceSurfaceIds = null;
-            _axisCenter = null;
-            _axisDirection = null;
-            _angleDeg = -1;
-            _middleR = -1;
-            _createFull360Model = false;
-        }
-        public void CopyFrom(RevolveMesh revolveMesh)
-        {
-            base.CopyFrom(revolveMesh);
-            //
-            _sourceType = revolveMesh._sourceType;
-            _sourceSurfaceIds = revolveMesh._sourceSurfaceIds?.ToArray();
-            _axisCenter = revolveMesh._axisCenter?.ToArray();
-            _axisDirection = revolveMesh._axisDirection?.ToArray();
-            _angleDeg = revolveMesh._angleDeg;
-            _middleR = revolveMesh._middleR;
-            _createFull360Model = revolveMesh._createFull360Model;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_sourceType", _sourceType, typeof(RevolveSourceTypeEnum));
-            info.AddValue("_sourceSurfaceIds", _sourceSurfaceIds, typeof(int[]));
-            info.AddValue("_axisCenter", _axisCenter, typeof(double[]));
-            info.AddValue("_axisDirection", _axisDirection, typeof(double[]));
-            info.AddValue("_angleDeg", _angleDeg, typeof(double));
-            info.AddValue("_middleR", _middleR, typeof(double));
-            info.AddValue("_createFull360Model", _createFull360Model, typeof(bool));
+            // An item written by the revolve mesher this one replaced carried the axis, the angle and the full 360
+            // degree model, which the blocks now find for themselves; its source type is read by the sweep item
         }
     }
 }

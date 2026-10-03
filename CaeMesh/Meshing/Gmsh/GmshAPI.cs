@@ -180,7 +180,7 @@ namespace CaeMesh
             {
                 if (_gmshData.GmshSetupItems.Length != 1)
                     throw new CaeException("Currently, for a single part, only one active mesh setup item of the type: " +
-                        "Shell gmsh, Tetrahedral gmsh, Transfinite mesh, Extrude mesh, Sweep mesh or Revolve mesh is possible.");
+                        "Shell gmsh, Tetrahedral gmsh, Transfinite mesh, Sweep mesh or Revolve mesh is possible.");
                 //
                 MeshSetupItem meshSetupItem = _gmshData.GmshSetupItems[0];
                 //
@@ -247,10 +247,6 @@ namespace CaeMesh
                         TetrahedralGmsh(gsi, _gmshData.Preview);
                     else if (gsi is TransfiniteMesh)
                         TransfiniteMesh(_gmshData.Preview);
-                    else if (gsi is ExtrudeMesh em)
-                        ExtrudeMesh(em, _gmshData.PartMeshingParameters, _gmshData.Preview);
-                    else if (gsi is RevolveMesh rm)
-                        RevolveMesh(rm, _gmshData.PartMeshingParameters, _gmshData.Preview);
                     else if (gsi is SweepMesh sm)
                         SweepMesh(sm, _gmshData.PartMeshingParameters, _gmshData.Preview);
                     else throw new NotSupportedException("MeshSetupItemTypeException");
@@ -271,9 +267,6 @@ namespace CaeMesh
                         Gmsh.Model.Mesh.Optimize(gsi.OptimizeHighOrder.ToString(), false, 1, dimTags);
                     }
                 }
-                // Revolving a surface that touches the axis can create duplicate nodes on collapsed edges.
-                // Merge them after all mesh operations and before exporting, so visualization topology sees merged nodes.
-                if (!_gmshData.Preview && gsi is RevolveMesh) Gmsh.Model.Mesh.RemoveDuplicateNodes();
                 // Quality of the mesh that is about to be written, for every setup item type
                 if (!_gmshData.Preview) ReportMeshQuality();
                 // Output
@@ -599,9 +592,9 @@ namespace CaeMesh
         }
         /// <summary>
         /// The surfaces a full-quad recombination recombines: every surface for a shell or a tetrahedral mesh, which
-        /// recombine all of them, and the source surfaces for an extrude or a revolve mesh. Null when no full-quad
-        /// recombination is made. A sweep and a transfinite mesh are left out, since their curves are counted by the
-        /// structured grids they build; the sweep evens out its sources itself.
+        /// recombine all of them. Null when no full-quad recombination is made. A sweep, a revolve and a transfinite
+        /// mesh are left out, since their curves are counted by the structured grids they build; the sweep, which
+        /// builds the revolve mesh as well, evens out its sources itself.
         /// </summary>
         private List<int> GetFullQuadRecombinedSurfaceIds(GmshSetupItem gmshSetupItem)
         {
@@ -614,13 +607,7 @@ namespace CaeMesh
                 return dimTags.Select(dimTag => dimTag.Item2).ToList();
             }
             //
-            int[] creationIds;
-            if (gmshSetupItem is ExtrudeMesh extrudeMesh) creationIds = extrudeMesh.CreationIds;
-            else if (gmshSetupItem is RevolveMesh revolveMesh) creationIds = revolveMesh.SourceSurfaceIds;
-            else return null;
-            if (creationIds == null) return null;
-            //
-            return creationIds.Select(id => FeMesh.GetItemIdFromGeometryId(id) + 1).ToList();
+            return null;
         }
         //
         private void ShellGmsh(GmshSetupItem gmshSetupItem, bool preview)
@@ -720,164 +707,6 @@ namespace CaeMesh
                 }
                 foreach (var prism in _threeBlockPrisms) prism.Build(capNodeTags, capGrids);
             }
-        }
-        private void ExtrudeMesh(ExtrudeMesh extrudeMesh, MeshingParameters meshingParameters, bool preview)
-        {
-            if (extrudeMesh == null) throw new NotSupportedException();
-            if (extrudeMesh.ExtrudeCenter == null || extrudeMesh.Direction == null)
-                throw new CaeException("The extrude direction could not be determined.");
-            //
-            int surfaceId;
-            HashSet<int> sourceSurfaceIds = new HashSet<int>();
-            bool recombine = extrudeMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            Tuple<int, int>[] extrudeDimTags = new Tuple<int, int>[extrudeMesh.CreationIds.Length];
-            // Collect surfaces
-            for (int i = 0; i < extrudeMesh.CreationIds.Length; i++)
-            {
-                surfaceId = FeMesh.GetItemIdFromGeometryId(extrudeMesh.CreationIds[i]) + 1;
-                extrudeDimTags[i] = new Tuple<int, int>(2, surfaceId);
-                sourceSurfaceIds.Add(surfaceId);
-                if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
-            }
-            // Layers - size
-            int[] numElements;
-            double[] height;
-            double edgeLength = Math.Sqrt(Math.Pow(extrudeMesh.Direction[0], 2) +
-                                          Math.Pow(extrudeMesh.Direction[1], 2) +
-                                          Math.Pow(extrudeMesh.Direction[2], 2));
-            GetExtrudeRevolveLayers(extrudeMesh, meshingParameters, edgeLength, out numElements, out height);
-            //
-            if (preview)
-            {
-                PreviewExtrudeRevolveMesh(sourceSurfaceIds);
-            }
-            else
-            {
-                Tuple<int, int>[] outDimTags;
-                Gmsh.Model.OCC.Extrude(extrudeDimTags,
-                                       extrudeMesh.Direction[0],
-                                       extrudeMesh.Direction[1],
-                                       extrudeMesh.Direction[2],
-                                       out outDimTags, numElements, height, true);
-                // Volume check
-                if (CheckMeshVolume(outDimTags))
-                {
-                    Gmsh.Model.OCC.Remove(new Tuple<int, int>[] { new Tuple<int, int>(3, 1) }, true);
-                    Gmsh.Model.OCC.Synchronize();
-                    GenerateMesh(3);
-                }
-                else
-                {
-                    throw new CaeException("The volume of the extruded mesh is not equal to the volume " +
-                        "of the geometry it represents. Try selecting other surfaces for the extrusion.");
-                }
-            }
-        }
-        private void RevolveMesh(RevolveMesh revolveMesh, MeshingParameters meshingParameters, bool preview)
-        {
-            if (revolveMesh == null) throw new NotSupportedException();
-            if (revolveMesh.AxisCenter == null || revolveMesh.AxisDirection == null)
-                throw new CaeException("The revolve direction could not be determined.");
-            //
-            int surfaceId;
-            HashSet<int> sourceSurfaceIds = new HashSet<int>();
-            bool recombine = revolveMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            if (revolveMesh.SourceSurfaceIds == null || revolveMesh.SourceSurfaceIds.Length == 0)
-                throw new CaeException("The revolve source surfaces could not be determined.");
-            for (int i = 0; i < revolveMesh.SourceSurfaceIds.Length; i++)
-            {
-                surfaceId = FeMesh.GetItemIdFromGeometryId(revolveMesh.SourceSurfaceIds[i]) + 1;
-                sourceSurfaceIds.Add(surfaceId);
-                if (recombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
-            }
-            // Layers - the cumulative heights are converted to angular positions by RevolveMethods.
-            int[] numElements;
-            double[] height;
-            double angleRad = revolveMesh.AngleDeg * Math.PI / 180;
-            double edgeLength = revolveMesh.MiddleR * angleRad;
-            GetExtrudeRevolveLayers(revolveMesh, meshingParameters, edgeLength, out numElements, out height);
-            //
-            if (preview)
-            {
-                PreviewExtrudeRevolveMesh(sourceSurfaceIds);
-            }
-            else
-            {
-                // Only the source faces are meshed. The solid, target and side meshes are built analytically from
-                // the source-surface mesh, so the sizing of the other faces and the volume is irrelevant.
-                // RevolveMethods captures the topology, removes the volume and the non-source faces, and then calls
-                // back to mesh the source faces in isolation (a neighbour-aware 2D algorithm such as the
-                // Quasi-structured quad meshes a face differently when its neighbours are still present).
-                Action meshSourceSurfaces = () =>
-                {
-                    GenerateMesh(2);
-                    // Optimize first order shell
-                    if (revolveMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
-                    {
-                        Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
-                        Gmsh.Model.Mesh.Optimize(revolveMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
-                    }
-                };
-                RevolveMethods.CreateRevolveMesh(sourceSurfaceIds, revolveMesh.AxisCenter,
-                                                  revolveMesh.AxisDirection, angleRad,
-                                                  numElements, height, meshSourceSurfaces);
-            }
-        }
-        private static void GetExtrudeRevolveLayers(GmshSetupItem gmshSetupItem,
-                                                    MeshingParameters meshingParameters,
-                                                    double edgeLength, out int[] numElements,
-                                                    out double[] height)
-        {
-            int numEl;
-            if (gmshSetupItem.ElementSizeType == ElementSizeTypeEnum.ScaleFactor)
-            {
-                numEl = (int)Math.Round(edgeLength / meshingParameters.MaxH /
-                                        gmshSetupItem.ElementScaleFactor, 0);
-                if (numEl < 1) numEl = 1;
-                numElements = new int[] { numEl };
-                height = new double[] { 1 };
-            }
-            else if (gmshSetupItem.ElementSizeType == ElementSizeTypeEnum.NumberOfElements)
-            {
-                numEl = gmshSetupItem.NumberOfElements;
-                if (numEl < 1) numEl = 1;
-                numElements = new int[] { numEl };
-                height = new double[] { 1 };
-            }
-            else if (gmshSetupItem.ElementSizeType == ElementSizeTypeEnum.MultiLayerd)
-            {
-                if (gmshSetupItem.LayerSizes == null || gmshSetupItem.NumOfElementsPerLayer == null ||
-                    gmshSetupItem.LayerSizes.Length == 0 ||
-                    gmshSetupItem.LayerSizes.Length != gmshSetupItem.NumOfElementsPerLayer.Length)
-                    throw new CaeException("The mesh layers are not properly defined.");
-                numElements = gmshSetupItem.NumOfElementsPerLayer.ToArray();
-                double sumSizes = gmshSetupItem.LayerSizes.Sum();
-                if (sumSizes <= 0) throw new CaeException("The sum of the mesh layer thicknesses must be positive.");
-                double sumHeight = 0;
-                height = new double[gmshSetupItem.LayerSizes.Length];
-                for (int i = 0; i < height.Length; i++)
-                {
-                    sumHeight += gmshSetupItem.LayerSizes[i] / sumSizes;
-                    height[i] = sumHeight;
-                }
-                height[height.Length - 1] = 1;
-            }
-            else throw new NotSupportedException("ExtrudedElementSizeTypeEnumException");
-        }
-        private void PreviewExtrudeRevolveMesh(HashSet<int> sourceSurfaceIds)
-        {
-            Tuple<int, int>[] allDimTags = Gmsh.Model.OCC.GetEntities(2);
-            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>()
-            {
-                new Tuple<int, int>(3, 1)
-            };
-            for (int i = 0; i < allDimTags.Length; i++)
-            {
-                if (!sourceSurfaceIds.Contains(allDimTags[i].Item2)) toRemoveDimTags.Add(allDimTags[i]);
-            }
-            Gmsh.Model.OCC.Remove(toRemoveDimTags.ToArray(), false);
-            Gmsh.Model.OCC.Synchronize();
-            GenerateMesh(2);
         }
         private void SweepMesh(SweepMesh sweepMesh, MeshingParameters meshingParameters, bool preview)
         {
@@ -3270,70 +3099,6 @@ namespace CaeMesh
             return candidateIds.First();
         }
         //
-        public bool CheckMeshVolume(Tuple<int, int>[] outDimTags)
-        {
-            double volumeOut;
-            double initialVolume;
-            double extrudedVolume = 0;
-            //
-            Gmsh.Model.OCC.GetMass(3, 1, out initialVolume);
-            //
-            foreach (var outDimTag in outDimTags)
-            {
-                if (outDimTag.Item1 == 3)
-                {
-                    Gmsh.Model.OCC.GetMass(3, outDimTag.Item2, out volumeOut);
-                    extrudedVolume += volumeOut;
-                }
-            }
-            double maxVolume = Math.Max(initialVolume, extrudedVolume);
-            if (Math.Abs(initialVolume - extrudedVolume) > 1E-2 * maxVolume) return false;
-            //
-            return true;
-                
-        }
-        public bool CheckMeshVolume(GeometryPart part, ExtrudeMesh extrudeMesh, 
-                                           Func<GeometryPart, string> ExportCADPartGeometryToDefaultFile)
-        {
-            int surfaceId;
-            string brepFileName = ExportCADPartGeometryToDefaultFile(part);
-            // Initialize
-            Gmsh.Initialize();
-            Gmsh.Model.Add("Brep_model");
-            // Import
-            Tuple<int, int>[] outDimTags;
-            Gmsh.Model.OCC.ImportShapes(brepFileName, out outDimTags, false, "");
-            Gmsh.Model.OCC.Synchronize(); // must be here
-            // Get surfaces to extrude
-            Tuple<int, int>[] dimTags = new Tuple<int, int>[extrudeMesh.CreationIds.Length];
-            for (int i = 0; i < extrudeMesh.CreationIds.Length; i++)
-            {
-                surfaceId = FeMesh.GetItemIdFromGeometryId(extrudeMesh.CreationIds[i]) + 1;
-                dimTags[i] = new Tuple<int, int>(2, surfaceId);
-            }
-            // Setup layers
-            int[] numElements = new int[] { 1 };
-            double[] height = new double[] { 1 };
-            // Extrude
-            Gmsh.Model.OCC.Extrude(dimTags, 0, 0, -50, out outDimTags, numElements, height, false);
-            //
-            double massOut;
-            double mass1 = 0;
-            double massExtruded = 0;
-            //
-            Gmsh.Model.OCC.GetMass(3, 1, out massOut);
-            mass1 += massOut;
-            //
-            foreach (var outDimTag in outDimTags)
-            {
-                if (outDimTag.Item1 == 3)
-                {
-                    Gmsh.Model.OCC.GetMass(3, outDimTag.Item2, out massOut);
-                    massExtruded += massOut;
-                }
-            }
-            return false;
-        }
         /// <summary>
         /// Fixes the element counts on every edge of every wall, immediately before the walls are
         /// meshed.

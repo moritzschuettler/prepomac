@@ -204,7 +204,7 @@ namespace PrePoMax
                 //
                 FileInOut.Input.ElementsToImport elementsToImport;
                 bool importEdges = previewSweepSourceMesh || gmshSetupItems.Length == 1 &&
-                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is RevolveMesh);
+                    gmshSetupItems[0] is ShellGmsh;
                 if (importEdges) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
                 else elementsToImport = FileInOut.Input.ElementsToImport.Beam;
                 // Mesh

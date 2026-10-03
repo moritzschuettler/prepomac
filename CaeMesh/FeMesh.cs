@@ -691,21 +691,6 @@ namespace CaeMesh
                     SetItemValidity(tm, valid, items);
                     if (!valid && tm.Active) invalidItems.Add("Transfinite mesh: " + tm.Name);
                 }
-                else if (entry.Value is ExtrudeMesh em)
-                {
-                    valid = em.Valid;              // this is set to invalid after deleting a part
-                    if (!valid) em.Valid = true;   // set this to true to detect a change in validity
-                    if (em.CreationIds.Length == 0) valid &= false;
-                    else
-                    {
-                        // The selection is limited to one part
-                        partId = GetPartIdFromGeometryId(em.CreationIds[0]);
-                        if (GetPartFromId(partId) == null) valid &= false;
-                    }
-                    //
-                    SetItemValidity(em, valid, items);
-                    if (!valid && em.Active) invalidItems.Add("Extrude mesh: " + em.Name);
-                }
                 else if (entry.Value is SweepMesh sm)
                 {
                     valid = sm.Valid;              // this is set to invalid after deleting a part
@@ -719,22 +704,7 @@ namespace CaeMesh
                     }
                     //
                     SetItemValidity(sm, valid, items);
-                    if (!valid && sm.Active) invalidItems.Add("Sweep mesh: " + sm.Name);
-                }
-                else if (entry.Value is RevolveMesh rm)
-                {
-                    valid = rm.Valid;              // this is set to invalid after deleting a part
-                    if (!valid) rm.Valid = true;   // set this to true to detect a change in validity
-                    if (rm.CreationIds.Length == 0) valid &= false;
-                    else
-                    {
-                        // The selection is limited to one part
-                        partId = GetPartIdFromGeometryId(rm.CreationIds[0]);
-                        if (GetPartFromId(partId) == null) valid &= false;
-                    }
-                    //
-                    SetItemValidity(rm, valid, items);
-                    if (!valid && rm.Active) invalidItems.Add("Revolve mesh: " + rm.Name);
+                    if (!valid && sm.Active) invalidItems.Add((sm is RevolveMesh ? "Revolve mesh: " : "Sweep mesh: ") + sm.Name);
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
                 //
@@ -8825,8 +8795,7 @@ namespace CaeMesh
                         }
                     }
                 }
-                else if (entry.Value is LocalMeshSize || entry.Value is ExtrudeMesh || entry.Value is SweepMesh ||
-                         entry.Value is RevolveMesh)
+                else if (entry.Value is LocalMeshSize || entry.Value is SweepMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))
                     {
@@ -10511,19 +10480,6 @@ namespace CaeMesh
             }
             nodeIds = allNodeIds.ToArray();
             nodeCoor = edgeNodeCoor.ToArray();
-        }
-        public int[] GetPossibleExtrudeGeometryEdgeIds(string partName, int[] geometrySurfaceIds)
-        {
-            int surfaceId;
-            VisualizationData vis = _parts[partName].Visualization;
-            foreach (var geometrySurfaceId in geometrySurfaceIds)
-            {
-                surfaceId = GetItemIdFromGeometryId(geometrySurfaceId);
-                //vis.FaceTypes[surfaceId]
-            }
-
-
-            return null;
         }
 
         // Faces

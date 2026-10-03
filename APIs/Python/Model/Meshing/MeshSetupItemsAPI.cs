@@ -32,10 +32,6 @@ namespace APIs.Python.Model
         private const string GmshRecombineArguments =
             "algorithm_recombine: str = None, transfinite_three_sided: bool = None, " +
             "transfinite_four_sided: bool = None";
-        private const string GmshLayerArguments =
-            "element_size_type: str = None, element_scale_factor: float = None, " +
-            "number_of_elements: int = None, layer_sizes: list[float] = None, " +
-            "elements_per_layer: list[int] = None";
         private readonly MeshSetupItemService _service;
 
 
@@ -350,118 +346,70 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a Gmsh extrude mesh item for the selected source surfaces. The extrusion " +
-                   "direction and center are derived by the model from the selection.",
-                   Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
+        [PythonAPI("Adds a Gmsh revolve mesh item for the selected parts: solids, compounds of solids or cells of " +
+                   "compounds, every one of them the revolution of a group of coplanar surfaces about an axis the " +
+                   "group touches. The model finds the source surfaces, the axis and the angle itself, and builds " +
+                   "every part as a revolved block of the sweep. A part the sweep between two ends meshes refuses " +
+                   "the item; a compound that mixes swept and revolved cells is meshed by a sweep mesh item, which " +
+                   "revolves the revolved cells. The 2D algorithm QuadWild meshes the source surfaces with " +
+                   "QuadWild, set up by the quad_wild arguments. With the symmetry Automatic, the default, a " +
+                   "compound whose cells are mirror images across the planes it is split on is revolved one " +
+                   "symmetric piece at a time and the mesh mirrored onto the other cells; Off revolves every cell.",
+                   Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
+                               "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
-                               ", transfinite_angle: float = None, " + GmshLayerArguments,
+                               ", transfinite_angle: float = None, optimize_first_order_shell: str = None, " +
+                               "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
+                               "quad_wild_smooth: bool = None, symmetry: str = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_extrude_mesh(string name, SelectionAPI selection, object direction = null,
-                                                 object extrude_center = null, string algorithm_2d = null,
-                                                 object recombine_min_quality = null,
+        public MeshSetupItemAPI add_revolve_mesh(string name, SelectionAPI selection,
+                                                 int number_of_global_smooth_steps = 0, string algorithm_2d = null,
+                                                 string algorithm_3d = null, object recombine_min_quality = null,
                                                  string algorithm_recombine = null,
                                                  object transfinite_three_sided = null,
                                                  object transfinite_four_sided = null,
-                                                 object transfinite_angle = null, string element_size_type = null,
-                                                 object element_scale_factor = null,
-                                                 object number_of_elements = null, object layer_sizes = null,
-                                                 object elements_per_layer = null)
+                                                 object transfinite_angle = null,
+                                                 string optimize_first_order_shell = null,
+                                                 string quad_wild_flow_profile = null, object quad_wild_alpha = null,
+                                                 object quad_wild_smooth = null, string symmetry = null)
         {
-            RejectDerived(direction, "direction");
-            RejectDerived(extrude_center, "extrude_center");
-            ExtrudeMesh item = new ExtrudeMesh(name);
-            ApplyLayeredGmsh(item, algorithm_2d, recombine_min_quality, algorithm_recombine,
-                             transfinite_three_sided, transfinite_four_sided, transfinite_angle, element_size_type,
-                             element_scale_factor, number_of_elements, layer_sizes, elements_per_layer);
-            _service.Add(item, name, selection);
-            return this[name];
-        }
-
-        [PythonAPI("Replaces a Gmsh extrude mesh item, keeping every value that is not given. The extrusion " +
-                   "direction and center are derived and are rejected when they are given.",
-                   Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
-                               "arguments of add_extrude_mesh", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_extrude_mesh(string old_name, string name = null,
-                                                     SelectionAPI selection = null, object direction = null,
-                                                     object extrude_center = null, string algorithm_2d = null,
-                                                     object recombine_min_quality = null,
-                                                     string algorithm_recombine = null,
-                                                     object transfinite_three_sided = null,
-                                                     object transfinite_four_sided = null,
-                                                     object transfinite_angle = null,
-                                                     string element_size_type = null,
-                                                     object element_scale_factor = null,
-                                                     object number_of_elements = null, object layer_sizes = null,
-                                                     object elements_per_layer = null)
-        {
-            RejectDerived(direction, "direction");
-            RejectDerived(extrude_center, "extrude_center");
-            ExtrudeMesh item = (ExtrudeMesh)_service.CloneItem(old_name);
-            ApplyLayeredGmsh(item, algorithm_2d, recombine_min_quality, algorithm_recombine,
-                             transfinite_three_sided, transfinite_four_sided, transfinite_angle, element_size_type,
-                             element_scale_factor, number_of_elements, layer_sizes, elements_per_layer);
-            return Replace(old_name, name, item, selection);
-        }
-
-        [PythonAPI("Adds a Gmsh revolve mesh item for the selected source surfaces. The revolution axis, " +
-                   "angle and middle radius are derived by the model from the selection. A part selection - one " +
-                   "solid CAD part - lets the model find the source surfaces itself: a group of coplanar surfaces " +
-                   "the part is the revolution of.",
-                   Arguments = "name: str, selection: Selection, create_full_360_model: bool = None, " +
-                               "algorithm_2d: str = None, recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", transfinite_angle: float = None, " + GmshLayerArguments,
-                   Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_revolve_mesh(string name, SelectionAPI selection, object axis_center = null,
-                                                 object axis_direction = null, object angle = null,
-                                                 object middle_r = null, object create_full_360_model = null,
-                                                 string algorithm_2d = null, object recombine_min_quality = null,
-                                                 string algorithm_recombine = null,
-                                                 object transfinite_three_sided = null,
-                                                 object transfinite_four_sided = null,
-                                                 object transfinite_angle = null, string element_size_type = null,
-                                                 object element_scale_factor = null,
-                                                 object number_of_elements = null, object layer_sizes = null,
-                                                 object elements_per_layer = null)
-        {
-            RejectDerived(axis_center, "axis_center");
-            RejectDerived(axis_direction, "axis_direction");
-            RejectDerived(angle, "angle");
-            RejectDerived(middle_r, "middle_r");
             RevolveMesh item = new RevolveMesh(name);
-            ApplyRevolveMesh(item, create_full_360_model, algorithm_2d, recombine_min_quality, algorithm_recombine,
-                             transfinite_three_sided, transfinite_four_sided, transfinite_angle, element_size_type,
-                             element_scale_factor, number_of_elements, layer_sizes, elements_per_layer);
+            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
+            item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
+            ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           optimize_first_order_shell, null);
+            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             _service.Add(item, name, selection);
             return this[name];
         }
 
-        [PythonAPI("Replaces a Gmsh revolve mesh item, keeping every value that is not given. The revolution " +
-                   "axis, angle and middle radius are derived and are rejected when they are given.",
+        [PythonAPI("Replaces a Gmsh revolve mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_revolve_mesh", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI replace_revolve_mesh(string old_name, string name = null,
-                                                     SelectionAPI selection = null, object axis_center = null,
-                                                     object axis_direction = null, object angle = null,
-                                                     object middle_r = null, object create_full_360_model = null,
-                                                     string algorithm_2d = null,
+                                                     SelectionAPI selection = null,
+                                                     object number_of_global_smooth_steps = null,
+                                                     string algorithm_2d = null, string algorithm_3d = null,
                                                      object recombine_min_quality = null,
                                                      string algorithm_recombine = null,
                                                      object transfinite_three_sided = null,
                                                      object transfinite_four_sided = null,
                                                      object transfinite_angle = null,
-                                                     string element_size_type = null,
-                                                     object element_scale_factor = null,
-                                                     object number_of_elements = null, object layer_sizes = null,
-                                                     object elements_per_layer = null)
+                                                     string optimize_first_order_shell = null,
+                                                     string quad_wild_flow_profile = null,
+                                                     object quad_wild_alpha = null, object quad_wild_smooth = null,
+                                                     string symmetry = null)
         {
-            RejectDerived(axis_center, "axis_center");
-            RejectDerived(axis_direction, "axis_direction");
-            RejectDerived(angle, "angle");
-            RejectDerived(middle_r, "middle_r");
             RevolveMesh item = (RevolveMesh)_service.CloneItem(old_name);
-            ApplyRevolveMesh(item, create_full_360_model, algorithm_2d, recombine_min_quality, algorithm_recombine,
-                             transfinite_three_sided, transfinite_four_sided, transfinite_angle, element_size_type,
-                             element_scale_factor, number_of_elements, layer_sizes, elements_per_layer);
+            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
+            if (number_of_global_smooth_steps != null)
+                item.NumberOfGlobalSmoothSteps =
+                    PythonValueConverter.ToInt(number_of_global_smooth_steps, "number_of_global_smooth_steps");
+            ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           optimize_first_order_shell, null);
+            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             return Replace(old_name, name, item, selection);
         }
 
@@ -775,56 +723,6 @@ namespace APIs.Python.Model
             }
             ApplyTransfiniteAngle(item, transfiniteAngle);
         }
-        private static void ApplyLayeredGmsh(GmshSetupItem item, string algorithm2D, object recombineMinQuality,
-                                             string algorithmRecombine, object transfiniteThreeSided,
-                                             object transfiniteFourSided, object transfiniteAngle,
-                                             string elementSizeType, object elementScaleFactor,
-                                             object numberOfElements, object layerSizes, object elementsPerLayer)
-        {
-            ApplyAlgorithms(item, algorithm2D, null);
-            ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
-                               transfiniteFourSided);
-            ApplyTransfiniteAngle(item, transfiniteAngle);
-            if (elementSizeType != null)
-                item.ElementSizeType = PythonValueConverter.ToEnum<ElementSizeTypeEnum>(elementSizeType,
-                                                                                        "element_size_type");
-            // The setters clamp a value out of their domain, so the domain is checked before they run
-            if (elementScaleFactor != null)
-            {
-                double scaleFactor = PythonValueConverter.ToFiniteDouble(elementScaleFactor,
-                                                                         "element_scale_factor");
-                if (scaleFactor <= 0)
-                    throw new PythonAPIException("The argument 'element_scale_factor' must be larger than zero.");
-                item.ElementScaleFactor = scaleFactor;
-            }
-            if (numberOfElements != null)
-            {
-                int count = PythonValueConverter.ToInt(numberOfElements, "number_of_elements");
-                if (count < 1)
-                    throw new PythonAPIException("The argument 'number_of_elements' must be larger than zero.");
-                item.NumberOfElements = count;
-            }
-            if (layerSizes != null) item.LayerSizes = ToLayerSizes(layerSizes);
-            ApplyElementsPerLayer(item, elementsPerLayer);
-            // The effective definition is checked, so a replacement that keeps one of the two arrays is
-            // checked against the array it keeps
-            if (layerSizes != null || elementsPerLayer != null ||
-                item.ElementSizeType == ElementSizeTypeEnum.MultiLayerd)
-                ValidateLayerArrays(item);
-        }
-        private static void ApplyRevolveMesh(RevolveMesh item, object createFull360Model, string algorithm2D,
-                                             object recombineMinQuality, string algorithmRecombine,
-                                             object transfiniteThreeSided, object transfiniteFourSided,
-                                             object transfiniteAngle, string elementSizeType,
-                                             object elementScaleFactor, object numberOfElements, object layerSizes,
-                                             object elementsPerLayer)
-        {
-            ApplyLayeredGmsh(item, algorithm2D, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
-                             transfiniteFourSided, transfiniteAngle, elementSizeType, elementScaleFactor,
-                             numberOfElements, layerSizes, elementsPerLayer);
-            if (createFull360Model != null)
-                item.CreateFull360Model = PythonValueConverter.ToBool(createFull360Model, "create_full_360_model");
-        }
         private static void ApplySweepMesh(SweepMesh item, string algorithm2D, string algorithm3D,
                                            object recombineMinQuality, string algorithmRecombine,
                                            object transfiniteThreeSided, object transfiniteFourSided,
@@ -948,38 +846,6 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("Each value of 'elements_per_layer' must be larger than zero.");
             }
             item.NumOfElementsPerLayer = counts;
-        }
-        private static double[] ToLayerSizes(object layerSizes)
-        {
-            double[] sizes = PythonDoubleListConverter.ToDoubleArray(layerSizes, "layer_sizes");
-            if (sizes == null || sizes.Length == 0)
-                throw new PythonAPIException("The argument 'layer_sizes' must not be empty.");
-            foreach (double size in sizes)
-            {
-                if (double.IsNaN(size) || double.IsInfinity(size) || size <= 0)
-                    throw new PythonAPIException("Each layer size must be a finite value larger than zero.");
-            }
-            //
-            return sizes;
-        }
-        private static void ValidateLayerArrays(GmshSetupItem item)
-        {
-            double[] sizes = item.LayerSizes;
-            int[] counts = item.NumOfElementsPerLayer;
-            if (sizes == null || sizes.Length == 0 || counts == null || counts.Length == 0)
-                throw new PythonAPIException("The layer sizes and the numbers of elements per layer must " +
-                                             "both be defined.");
-            if (sizes.Length != counts.Length)
-                throw new PythonAPIException("The layer sizes and the numbers of elements per layer must " +
-                                             "contain the same number of values, but " + sizes.Length + " and " +
-                                             counts.Length + " were given.");
-        }
-        private static void RejectDerived(object value, string argumentName)
-        {
-            if (value == null) return;
-            //
-            throw new PythonAPIException("The argument '" + argumentName + "' is derived from the selected " +
-                                         "geometry and cannot be supplied.");
         }
     }
 }
