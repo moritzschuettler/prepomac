@@ -6761,6 +6761,9 @@ namespace PrePoMax
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
+            // The cells were colored while the mesh setup items still named the parts they were cut from; the
+            // check above put the items onto the cells and settled what they mesh there
+            UpdateMeshTypeColors();
         }
         public void UpdateSplitGeometryFromSplitterSelection(GeometryFeature geometryFeature)
         {
