@@ -166,12 +166,14 @@ namespace CaeMesh.Sweep
             _arcs = new List<Tuple<int, double, double>>();
             Dictionary<int, double> levelEdgeAngles = new Dictionary<int, double>();
             // An edge on the axis, like the degenerate edge at the pole of a sphere, has no node off it to turn, and is
-            // no edge a turned node can land on
-            int[] axisEdgeIds = _wallEdgeIds.Concat(_targetEdgeIds)
-                                            .Where(id => !edgeVertexIds[id].Any(vertexId => vertexAngles.ContainsKey(vertexId)))
-                                            .ToArray();
-            _wallEdgeIds.ExceptWith(axisEdgeIds);
-            _targetEdgeIds.ExceptWith(axisEdgeIds);
+            // no edge a turned node can land on. Neither is a degenerate edge off the axis, where a face closes onto
+            // one vertex, which has no curve gmsh could project a node onto
+            int[] pointEdgeIds = _wallEdgeIds.Concat(_targetEdgeIds)
+                                             .Where(id => !edgeVertexIds[id].Any(vertexId => vertexAngles.ContainsKey(vertexId)) ||
+                                                          IsDegenerateEdge(id, edgeVertexIds[id]))
+                                             .ToArray();
+            _wallEdgeIds.ExceptWith(pointEdgeIds);
+            _targetEdgeIds.ExceptWith(pointEdgeIds);
             foreach (var edgeId in _wallEdgeIds.Concat(_targetEdgeIds).Distinct())
             {
                 int[] vertexIds = edgeVertexIds[edgeId];
@@ -810,6 +812,10 @@ namespace CaeMesh.Sweep
                 if (!IsOnAxis(GetVertexCoor(vertexId))) return false;
             }
             return IsOnAxis(GetEdgeMiddle(edgeId));
+        }
+        private bool IsDegenerateEdge(int edgeId, int[] vertexIds)
+        {
+            return vertexIds.Length == 1 && Distance(GetEdgeMiddle(edgeId), _vertexCoor[vertexIds[0]]) <= _tolerance;
         }
         /// <summary>
         /// Whether a point lies on an edge between its ends, not only on the curve the edge is cut from.
