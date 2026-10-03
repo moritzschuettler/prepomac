@@ -150,6 +150,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepDetectionData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
+    <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />
     <Compile Include="Meshing\Netgen\NetgenTransfiniteFile.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteEdgeCountBalancer.cs" />

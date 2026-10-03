@@ -35,6 +35,9 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
         private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
+        // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
+        // volumes by hexahedra between them
+        private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
         // The sweep sources structured by the one definition all meshers follow that the edge graph of the opposite
         // edges cannot carry: those with a side of several edges, and the three-sided ones, meshed as three blocks
         private Dictionary<int, TransfiniteFace> _structuredSourceFaces = new Dictionary<int, TransfiniteFace>();
@@ -684,7 +687,39 @@ namespace CaeMesh
         private void TransfiniteMesh(bool preview)
         {
             if (preview) GenerateMesh(1);
-            else GenerateMesh(3);
+            else if (_threeBlockPrisms.Count == 0) GenerateMesh(3);
+            else
+            {
+                GenerateMesh(2);
+                // The caps are meshed before the other volumes, which may share them
+                Dictionary<int, IntPtr[]> capNodeTags = new Dictionary<int, IntPtr[]>();
+                Dictionary<int, ThreeBlockGrid> capGrids = new Dictionary<int, ThreeBlockGrid>();
+                foreach (var prism in _threeBlockPrisms) prism.MeshCaps(capNodeTags, capGrids);
+                // gmsh meshes the other volumes, and the prisms are hidden from it. It must not renumber the nodes,
+                // or the tags of the caps no longer hold
+                Tuple<int, int>[] volumeDimTags;
+                Gmsh.Model.GetEntities(out volumeDimTags, 3);
+                HashSet<int> prismVolumeIds = new HashSet<int>(_threeBlockPrisms.Select(prism => prism.VolumeId));
+                if (volumeDimTags.Any(dimTag => !prismVolumeIds.Contains(dimTag.Item2)))
+                {
+                    Tuple<int, int>[] prismDimTags = prismVolumeIds.Select(id => new Tuple<int, int>(3, id)).ToArray();
+                    double renumber = Gmsh.Option.GetNumber("Mesh.Renumber");
+                    Gmsh.Model.SetVisibility(prismDimTags, 0);
+                    Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 1);
+                    Gmsh.Option.SetNumber("Mesh.Renumber", 0);
+                    try
+                    {
+                        Gmsh.Model.Mesh.Generate(3);
+                    }
+                    finally
+                    {
+                        Gmsh.Option.SetNumber("Mesh.Renumber", renumber);
+                        Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 0);
+                        Gmsh.Model.SetVisibility(prismDimTags, 1);
+                    }
+                }
+                foreach (var prism in _threeBlockPrisms) prism.Build(capNodeTags, capGrids);
+            }
         }
         private void ExtrudeMesh(ExtrudeMesh extrudeMesh, MeshingParameters meshingParameters, bool preview)
         {
@@ -5328,6 +5363,8 @@ namespace CaeMesh
                                               transfiniteAngleDeg);
             // The sources of a sweep are structured on the faces the one definition all meshers follow finds
             if (_sweepBlocks != null) SetStructuredSweepSources(surfaceIdSurface, surfaceIdsWithInternalCurves);
+            // The caps of a five-faced volume are meshed as three blocks of quads, and the volume by hexahedra
+            if (transfiniteVolume && recombine) SetThreeBlockPrisms(surfaceIdSurface, volumeIdVolume, edgeIdEdge);
             // Edge graph
             Node<GmshEdge> edgeNode;
             Graph<GmshEdge> edgeGraph = new Graph<GmshEdge>();
@@ -5436,6 +5473,7 @@ namespace CaeMesh
                     edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
                 }
             }
+            if (_threeBlockPrisms.Count > 0) BalanceThreeBlockPrismCaps(edgeGroups, edgeIdNumOfNodes);
             // Sweep mesh layers
             int count;
             if (_gmshData.EdgeIdsBySweepLayer != null)
@@ -5510,6 +5548,106 @@ namespace CaeMesh
             {
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
+            }
+        }
+        /// <summary>
+        /// The five-faced transfinite volumes become prisms whose caps are meshed as three blocks of quads, like the
+        /// three-sided faces of a shell, instead of the triangles gmsh collapses to one corner. The caps leave the edge
+        /// graph, which would tie two of their sides together, and the volumes are not given to gmsh; the walls keep
+        /// their structured grids.
+        /// </summary>
+        private void SetThreeBlockPrisms(Dictionary<int, GmshSurface> surfaceIdSurface,
+                                         Dictionary<int, GmshVolume> volumeIdVolume, Dictionary<int, GmshEdge> edgeIdEdge)
+        {
+            Dictionary<int, int[]> edgeIdVertexIds = edgeIdEdge.ToDictionary(entry => entry.Key,
+                                                                             entry => entry.Value.VertexIds);
+            Func<GmshSurface, int[]> getCapEdgeIds = surface =>
+                surface.EdgeIds.Where(edgeId => edgeIdVertexIds[edgeId].Distinct().Count() == 2).ToArray();
+            foreach (var volume in volumeIdVolume.Values.OrderBy(volume => volume.Id))
+            {
+                if (!volume.Transfinite || volume.SurfaceIds.Count != 5 || volume.NumTriSurfaces != 2) continue;
+                //
+                GmshSurface bottom = surfaceIdSurface[volume.TriSurfIds[0]];
+                GmshSurface top = surfaceIdSurface[volume.TriSurfIds[1]];
+                Dictionary<int, int[]> wallSurfaceIdEdgeIds = volume.QuadSurfIds.ToDictionary(id => id,
+                                                                    id => surfaceIdSurface[id].EdgeIds);
+                GmshThreeBlockPrism prism = GmshThreeBlockPrism.Create(volume.Id, bottom.Id, getCapEdgeIds(bottom),
+                                                                       top.Id, getCapEdgeIds(top), wallSurfaceIdEdgeIds,
+                                                                       edgeIdVertexIds);
+                if (prism == null) continue;
+                //
+                volume.Transfinite = false;
+                bottom.Transfinite = false;
+                top.Transfinite = false;
+                _threeBlockPrisms.Add(prism);
+            }
+        }
+        /// <summary>
+        /// The sides of the prism caps balanced to numbers three blocks of quads fill: an even sum, with no side
+        /// carrying as many elements as the other two. A side carries the number of the edges the walls tie it to,
+        /// which is changed with it. Where the numbers the user set make that impossible, the meshing is refused.
+        /// </summary>
+        private void BalanceThreeBlockPrismCaps(List<Graph<GmshEdge>> edgeGroups, Dictionary<int, int> edgeIdNumOfNodes)
+        {
+            Dictionary<int, int[]> edgeIdGroupEdgeIds = new Dictionary<int, int[]>();
+            foreach (var edgeGroup in edgeGroups)
+            {
+                int[] groupEdgeIds = edgeGroup.Nodes.Select(node => node.Value.Id).ToArray();
+                foreach (var edgeId in groupEdgeIds) edgeIdGroupEdgeIds[edgeId] = groupEdgeIds;
+            }
+            Func<int, int[]> getGroupEdgeIds = edgeId =>
+                edgeIdGroupEdgeIds.TryGetValue(edgeId, out int[] groupEdgeIds) ? groupEdgeIds : new int[] { edgeId };
+            //
+            int numOfNodes;
+            IntPtr[] nodeTags;
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+            HashSet<int> pinnedEdgeIds = new HashSet<int>();
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
+            foreach (var prism in _threeBlockPrisms)
+            {
+                triples.Add(new TransfiniteSideTriple(prism.BottomFace.FaceId, prism.BottomFace.SideEdgeIds));
+                foreach (var edgeId in prism.BottomFace.SideEdgeIds.SelectMany(side => side))
+                {
+                    if (edgeIdCount.ContainsKey(edgeId)) continue;
+                    if (!edgeIdNumOfNodes.TryGetValue(edgeId, out numOfNodes))
+                    {
+                        Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
+                        numOfNodes = nodeTags.Length;
+                    }
+                    edgeIdCount[edgeId] = Math.Max(1, numOfNodes - 1);
+                    if (getGroupEdgeIds(edgeId).Any(IsFixedEdgeCount)) pinnedEdgeIds.Add(edgeId);
+                }
+            }
+            // Sides the walls tie together carry one number
+            int[] capEdgeIds = edgeIdCount.Keys.OrderBy(id => id).ToArray();
+            for (int i = 0; i < capEdgeIds.Length; i++)
+            {
+                for (int j = i + 1; j < capEdgeIds.Length; j++)
+                {
+                    if (getGroupEdgeIds(capEdgeIds[i]).Contains(capEdgeIds[j]))
+                        pairs.Add(new TransfiniteSidePair(0, new int[] { capEdgeIds[i] }, new int[] { capEdgeIds[j] }));
+                }
+            }
+            //
+            Dictionary<int, int> naturalCounts = new Dictionary<int, int>(edgeIdCount);
+            List<TransfiniteSideTriple> unbalancedTriples;
+            List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
+                                                                                         pinnedEdgeIds, pairs, triples,
+                                                                                         out unbalancedTriples);
+            if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
+                throw new CaeException(GetUnbalancedSidesMessage(new List<TransfiniteSidePair>(), unbalancedTriples,
+                                                                 edgeIdCount, pinnedEdgeIds,
+                                                                 "Change the number of elements set on these edges."));
+            //
+            foreach (var entry in edgeIdCount)
+            {
+                if (entry.Value == naturalCounts[entry.Key]) continue;
+                foreach (var edgeId in getGroupEdgeIds(entry.Key))
+                {
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, entry.Value + 1);
+                    edgeIdNumOfNodes[edgeId] = entry.Value + 1;
+                }
             }
         }
         /// <summary>
@@ -5866,7 +6004,8 @@ namespace CaeMesh
         }
         private static string GetUnbalancedSidesMessage(List<TransfiniteSidePair> unbalanced,
                                                         List<TransfiniteSideTriple> unbalancedTriples,
-                                                        Dictionary<int, int> edgeIdCount, HashSet<int> pinnedEdgeIds)
+                                                        Dictionary<int, int> edgeIdCount, HashSet<int> pinnedEdgeIds,
+                                                        string advice = null)
         {
             double sf = GetMeshSizeFactor((GmshAlgorithmMesh2DEnum)(int)Gmsh.Option.GetNumber("Mesh.Algorithm"));
             Func<int[], string> describe = side =>
@@ -5886,8 +6025,8 @@ namespace CaeMesh
                           "blocks of quads fill - an even sum, with no side carrying as many as the other two: " +
                           string.Join("; ", triple.Sides.Select(describe)) + ".");
             }
-            lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
-                      "3-sided and 4-sided surfaces.");
+            lines.Add(advice ?? "Change the number of elements set on these edges, or switch off the transfinite " +
+                                "meshing of the 3-sided and 4-sided surfaces.");
             return string.Join(Environment.NewLine, lines);
         }
         /// <summary>

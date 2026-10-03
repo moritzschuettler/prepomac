@@ -31,6 +31,14 @@ namespace CaeMesh
         /// </summary>
         public static void Mesh(TransfiniteFace face, bool quads = true)
         {
+            ThreeBlockGrid grid;
+            Mesh(face, quads, out grid);
+        }
+        /// <summary>
+        /// Meshes the face and returns the gmsh tags of the nodes of its grid, by the node ids of the grid.
+        /// </summary>
+        public static IntPtr[] Mesh(TransfiniteFace face, bool quads, out ThreeBlockGrid grid)
+        {
             int surfaceId = face.FaceId;
             // The nodes of every side from its corner to the next one
             List<IntPtr>[] sideTags = new List<IntPtr>[3];
@@ -45,7 +53,7 @@ namespace CaeMesh
             double[][][] sideUv = new double[3][][];
             for (int k = 0; k < 3; k++) sideUv[k] = GetParametricCoordinates(surfaceId, sideXyz[k]);
             //
-            ThreeBlockGrid grid = ThreeBlockMapping.Map(sideUv, sideXyz.Select(xyz => xyz.ToArray()).ToArray(), uv =>
+            grid = ThreeBlockMapping.Map(sideUv, sideXyz.Select(xyz => xyz.ToArray()).ToArray(), uv =>
             {
                 double[] coor;
                 Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
@@ -103,11 +111,12 @@ namespace CaeMesh
             for (int i = 0; i < elementTags.Length; i++) elementTags[i] = new IntPtr(++elementTag);
             Gmsh.Model.Mesh.AddElements(2, surfaceId, new int[] { elementType },
                                         new IntPtr[][] { elementTags }, new IntPtr[][] { elementNodeTags });
+            return nodeTags;
         }
         /// <summary>
         /// The nodes of a side, from its first corner to its last, along the chain of its edges.
         /// </summary>
-        private static void GetSideNodes(int surfaceId, int firstCornerId, int lastCornerId, int[] edgeIds,
+        internal static void GetSideNodes(int surfaceId, int firstCornerId, int lastCornerId, int[] edgeIds,
                                          out List<IntPtr> tags, out List<double[]> xyz)
         {
             tags = new List<IntPtr>();
