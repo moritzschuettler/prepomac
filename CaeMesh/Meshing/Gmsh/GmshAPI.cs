@@ -53,6 +53,7 @@ namespace CaeMesh
         private List<SweepQuadWildGroup> _quadWildGroups;
         private List<SweepRevolvedBlock> _revolvedBlocks = new List<SweepRevolvedBlock>();
         private Dictionary<SweepRevolvedBlock, int[]> _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int[]>();
+        private List<Tuple<int[], int>> _quadWildRevolvedChains = new List<Tuple<int[], int>>();
         private Dictionary<SweepRevolvedBlock, double[]> _revolvedLevels = new Dictionary<SweepRevolvedBlock, double[]>();
         private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
@@ -730,6 +731,7 @@ namespace CaeMesh
             _revolvedBlocks = new List<SweepRevolvedBlock>();
             _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int[]>();
             _revolvedLevels = new Dictionary<SweepRevolvedBlock, double[]>();
+            _quadWildRevolvedChains = new List<Tuple<int[], int>>();
             foreach (var block in blocks)
             {
                 // Set source surfaces
@@ -993,11 +995,6 @@ namespace CaeMesh
                     if (!block.ClosesRing) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
                 }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
-                // A revolved source is meshed by gmsh, since its edges carry the counts of the target edges
-                foreach (var block in _sweepBlocks)
-                {
-                    if (block.IsRevolved) _quadWildSourceIds.ExceptWith(block.SourceSurfaceIds);
-                }
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
             }
         }
@@ -1968,8 +1965,9 @@ namespace CaeMesh
             PrepareRevolvedLayers();
             if (_quadWildSourceIds.Count > 0)
             {
-                PrepareRevolvedEdges();
+                PrepareRevolvedEdges(walls);
                 MeshQuadWildSourceEdges(sweepMesh, blocks, walls, chains, surfaceIdEdgeIds, chainBlockIndices);
+                PinQuadWildRevolvedTargets();
                 CheckRevolvedEdgeCounts();
             }
             else
@@ -2180,8 +2178,13 @@ namespace CaeMesh
         /// their counts. A count pinned before - by the user, by the walls of the other blocks, or as the target of a
         /// revolved block built before - is kept, and a target edge pinned so takes its count from the chain by
         /// changing a source edge of the chain that is not pinned. A chain with no such edge is refused.
+        ///
+        /// When QuadWild meshes the sources, the walls of the other blocks are passed. A chain turned from QuadWild
+        /// sources - or from the targets of such chains, which a revolved block fed by another reads as its source -
+        /// onto a target edge that nothing pins and no wall of another block has on its side is left to QuadWild: it
+        /// chooses the counts of the free source edges, and the target edge then takes their sum.
         /// </summary>
-        private void PrepareRevolvedEdges()
+        private void PrepareRevolvedEdges(List<SweepWall> quadWildWalls = null)
         {
             if (_revolvedBlocks.Count == 0) return;
             //
@@ -2231,6 +2234,23 @@ namespace CaeMesh
                 }
                 foreach (var arc in arcs) edgeIdNumOfElements[arc.Item1] = GetArcCount(levels, counts, arc);
             }
+            int[] surfaceEdgeIds;
+            HashSet<int> quadWildChainEdgeIds = new HashSet<int>();
+            HashSet<int> wallSideEdgeIds = new HashSet<int>();
+            if (quadWildWalls != null)
+            {
+                foreach (var surfaceId in _quadWildSourceIds)
+                {
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out surfaceEdgeIds);
+                    quadWildChainEdgeIds.UnionWith(surfaceEdgeIds.Select(Math.Abs));
+                }
+                foreach (var wall in quadWildWalls)
+                {
+                    wallSideEdgeIds.UnionWith(wall.SourceEdgeIds);
+                    wallSideEdgeIds.UnionWith(wall.TargetEdgeIds);
+                    wallSideEdgeIds.UnionWith(wall.DirectionEdgeIds);
+                }
+            }
             foreach (var revolvedBlock in GetRevolvedBuildOrder())
             {
                 // A source edge may be turned onto several edges, at the levels and on the target, so the edges another
@@ -2239,6 +2259,13 @@ namespace CaeMesh
                                                                                .ToList();
                 foreach (var chain in chains)
                 {
+                    if (quadWildWalls != null && !isPinned(chain.Item2) && !wallSideEdgeIds.Contains(chain.Item2) &&
+                        chain.Item1.All(quadWildChainEdgeIds.Contains))
+                    {
+                        _quadWildRevolvedChains.Add(chain);
+                        quadWildChainEdgeIds.Add(chain.Item2);
+                        continue;
+                    }
                     int[] counts = chain.Item1.Select(id => Math.Max(1, getCount(id))).ToArray();
                     if (isPinned(chain.Item2))
                     {
@@ -2266,6 +2293,36 @@ namespace CaeMesh
                 FreeRevolvedSourcesWithUnequalSides(revolvedBlock, getCount);
             }
             SetPinnedEdgeCounts(edgeIdNumOfElements);
+        }
+        /// <summary>
+        /// The counts of the target edges of the revolved chains left to QuadWild: the sum of the counts on the source
+        /// edges turned onto each, in the order the blocks are built, so that a target read as the source of the next
+        /// block is counted before that block's chains.
+        /// </summary>
+        private Dictionary<int, int> GetQuadWildRevolvedTargetCounts(Dictionary<int, int> quadWildEdgeIdNumElements)
+        {
+            int count;
+            Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
+            foreach (var chain in _quadWildRevolvedChains)
+            {
+                targetEdgeIdNumOfElements[chain.Item2] = chain.Item1.Sum(id =>
+                    quadWildEdgeIdNumElements != null && quadWildEdgeIdNumElements.TryGetValue(id, out count) ? count :
+                    targetEdgeIdNumOfElements.TryGetValue(id, out count) ? count :
+                    Math.Max(1, SweepWallTopology.GetElementCount(id)));
+            }
+            return targetEdgeIdNumOfElements;
+        }
+        /// <summary>
+        /// Pins the target edges of the revolved chains left to QuadWild where the rounds of QuadWild did not, which is
+        /// when no QuadWild group was meshed and the sources are meshed by gmsh.
+        /// </summary>
+        private void PinQuadWildRevolvedTargets()
+        {
+            if (_quadWildRevolvedChains.All(chain => _gmshData.EdgeIdNumElements.ContainsKey(chain.Item2))) return;
+            //
+            GenerateMesh(1);
+            SetPinnedEdgeCounts(GetQuadWildRevolvedTargetCounts(null));
+            GenerateMesh(1);
         }
         /// <summary>
         /// Meshes free a four sided source of a revolved block whose opposite sides were given different element
@@ -2445,11 +2502,17 @@ namespace CaeMesh
             {
                 if (round > 1)
                 {
+                    // The target edges of the revolved chains left to QuadWild take the sums of the counts it chose, read
+                    // before the mesh of the round before is cleared
+                    Dictionary<int, int> revolvedTargetCounts = GetQuadWildRevolvedTargetCounts(quadWildEdgeIdNumElements);
                     _gmshData.EdgeIdNumElements.Clear();
                     foreach (var entry in pinnedEdgeIdNumElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
                     foreach (var entry in quadWildEdgeIdNumElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                    foreach (var entry in revolvedTargetCounts) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
                     Gmsh.Model.Mesh.Clear();
                     foreach (var entry in quadWildEdgeIdNumElements)
+                        Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+                    foreach (var entry in revolvedTargetCounts)
                         Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
                 }
                 // QuadWild chooses no count along the sweep, so the layers of the first round hold for every round.
@@ -2702,7 +2765,9 @@ namespace CaeMesh
             //
             int[] faceIds;
             Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out _);
-            return faceIds.Any(id => !_quadWildSourceIds.Contains(id) && !wallSurfaceIds.Contains(id));
+            // A wall of a revolved block is built by turning the source, so it follows the counts QuadWild chooses
+            return faceIds.Any(id => !_quadWildSourceIds.Contains(id) && !wallSurfaceIds.Contains(id) &&
+                                     !_revolvedBlocks.Any(revolvedBlock => revolvedBlock.Block.WallSurfaceIds.Contains(id)));
         }
         /// <summary>
         /// The QuadWild sources in groups of surfaces that touch along an edge. An edge is fixed when the user pinned
