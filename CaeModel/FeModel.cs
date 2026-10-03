@@ -3179,15 +3179,45 @@ namespace CaeModel
         /// The blocks of cells of one compound - all its cells, or the symmetric piece of them - leaving the cells the
         /// sweep does not reach to tetrahedra. Cells that cannot all be swept together are swept once more without
         /// the ones that cannot be swept even on their own, which then stand in the way of none of the others.
+        ///
+        /// A revolved cell sets the direction of the cells it touches: a cell that can be swept and revolved alike,
+        /// whose sweep meets a revolved cell in a way the revolved block cannot take, is revolved about the same axis
+        /// instead, and the cells it touches in turn follow it, so that a stack of cells about one axis is revolved
+        /// as a whole rather than left to tetrahedra.
         /// </summary>
         private SweepBlocks CreateSweepBlocksForCells(GeometryPart[] cells,
                                                       Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
                                                       out string error, out string errorPartName)
         {
             SweepBlocks blocks = CreatePrismBlocksForCells(cells, partIdSelectedSurfaceIds, out error, out errorPartName);
-            if (error == null) blocks = GetSweptBlocksTurnedToRevolvedCells(cells, blocks);
-            SweepBlocks revolvedBlocks = CreateRevolvedBlocksForCells(cells, error == null ? blocks : null);
+            SweepBlocks revolvedBlocks;
+            Dictionary<int, SweepBlocks> followerBlocks = new Dictionary<int, SweepBlocks>();
+            while (true)
+            {
+                SweepBlocks sweptBlocks = null;
+                if (error == null)
+                {
+                    sweptBlocks = GetSweepBlocksWithoutParts(blocks, new HashSet<int>(followerBlocks.Keys));
+                    sweptBlocks = GetSweptBlocksTurnedToRevolvedCells(cells, sweptBlocks, followerBlocks);
+                }
+                Dictionary<int, double[]> blockingPartIdAxis = new Dictionary<int, double[]>();
+                revolvedBlocks = CreateRevolvedBlocksForCells(cells, sweptBlocks, followerBlocks, blockingPartIdAxis);
+                if (error == null) blocks = sweptBlocks;
+                // A swept cell standing in the way of a revolved one follows it when it is revolved about the same axis
+                bool followed = false;
+                foreach (var entry in blockingPartIdAxis)
+                {
+                    GeometryPart cell = cells.First(part => part.PartId == entry.Key);
+                    SweepBlocks cellBlocks = CreateRevolvedBlocks(cell, out _);
+                    if (cellBlocks == null || !AreRevolveAxesEqual(entry.Value, cellBlocks.RevolveAxes[0], cell, false))
+                        continue;
+                    followerBlocks.Add(entry.Key, cellBlocks);
+                    followed = true;
+                }
+                if (!followed) break;
+            }
             if (revolvedBlocks == null) return blocks;
+            if (blocks != null && blocks.SourceSurfaceIds.Length == 0) return revolvedBlocks;
             //
             if (error != null)
             {
@@ -3198,6 +3228,27 @@ namespace CaeModel
             return SweepBlocks.Merge(new SweepBlocks[] { blocks, revolvedBlocks });
         }
         /// <summary>
+        /// The blocks without the ones lying on the given parts. The layer edges of the blocks are kept by the parts
+        /// their edges lie on.
+        /// </summary>
+        private static SweepBlocks GetSweepBlocksWithoutParts(SweepBlocks blocks, HashSet<int> partIds)
+        {
+            if (partIds.Count == 0) return blocks;
+            //
+            int[] kept = Enumerable.Range(0, blocks.SourceSurfaceIds.Length)
+                                   .Where(i => !partIds.Contains(FeMesh.GetPartIdFromGmshTopologyId(
+                                                                 blocks.SourceSurfaceIds[i][0]))).ToArray();
+            int[][][] layers = blocks.LayerGroupEdgeIds
+                                     .Where(layer => !layer.Any(edgeIds => edgeIds.Any(edgeId =>
+                                            partIds.Contains(FeMesh.GetPartIdFromGmshTopologyId(edgeId))))).ToArray();
+            return new SweepBlocks(kept.Select(i => blocks.SourceSurfaceIds[i]).ToArray(),
+                                   kept.Select(i => blocks.SideSurfaceIds[i]).ToArray(),
+                                   kept.Select(i => blocks.TargetSurfaceIds[i]).ToArray(), layers,
+                                   kept.Select(i => blocks.ArrowStarts[i]).ToArray(),
+                                   kept.Select(i => blocks.ArrowDirections[i]).ToArray(),
+                                   kept.Select(i => blocks.RevolveAxes[i]).ToArray());
+        }
+        /// <summary>
         /// The swept blocks of the cells of a compound, every block that ends on the target of a revolved cell turned
         /// round to start from it. A swept block may end on the source of a revolved block, which then reads what the
         /// sweep leaves there, but two targets cannot meet, since both blocks build theirs. The sweep of a block
@@ -3206,13 +3257,14 @@ namespace CaeModel
         /// other in one layer and its source, which becomes its target, is shared with nothing or with the source of
         /// a revolved cell, as in a ring of swept and revolved cells all turned one way round.
         /// </summary>
-        private SweepBlocks GetSweptBlocksTurnedToRevolvedCells(GeometryPart[] cells, SweepBlocks blocks)
+        private SweepBlocks GetSweptBlocksTurnedToRevolvedCells(GeometryPart[] cells, SweepBlocks blocks,
+                                                                Dictionary<int, SweepBlocks> followerBlocks)
         {
             if (cells.Length < 2 || blocks == null) return blocks;
             //
             HashSet<int> sweptPartIds = new HashSet<int>(blocks.SourceSurfaceIds.Select(surfaceIds =>
                                                          FeMesh.GetPartIdFromGmshTopologyId(surfaceIds[0])));
-            Dictionary<int, SweepBlocks> alignedBlocks = GetAlignedRevolvedBlocks(cells, sweptPartIds);
+            Dictionary<int, SweepBlocks> alignedBlocks = GetAlignedRevolvedBlocks(cells, sweptPartIds, followerBlocks);
             HashSet<int> revolvedTargetIds = new HashSet<int>(alignedBlocks.Values.SelectMany(revolved =>
                                                                                    revolved.TargetSurfaceIds[0]));
             HashSet<int> revolvedSourceIds = new HashSet<int>(alignedBlocks.Values.SelectMany(revolved =>
@@ -3257,17 +3309,23 @@ namespace CaeModel
         /// <summary>
         /// The blocks the revolved cells the swept blocks leave out were found revolved by, by their part, every
         /// cell turned the same way round about one axis, so that the target of one is the source of the next. Every
-        /// cell found its source on its own, and one found from its other end is reversed.
+        /// cell found its source on its own, and one found from its other end is reversed. The cells following a
+        /// revolved neighbour are revolved by the given blocks.
         /// </summary>
-        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds)
+        private Dictionary<int, SweepBlocks> GetAlignedRevolvedBlocks(GeometryPart[] cells, HashSet<int> sweptPartIds,
+                                                                      Dictionary<int, SweepBlocks> followerBlocks)
         {
             double[] referenceAxis = null;
             Dictionary<int, SweepBlocks> partIdBlocks = new Dictionary<int, SweepBlocks>();
             foreach (var cell in cells)
             {
-                if (sweptPartIds.Contains(cell.PartId) || !GetCellSweepDetection(cell).IsRevolved) continue;
-                //
-                SweepBlocks cellBlocks = GetCellSweepDetection(cell).Blocks;
+                SweepBlocks cellBlocks;
+                if (sweptPartIds.Contains(cell.PartId)) continue;
+                if (!followerBlocks.TryGetValue(cell.PartId, out cellBlocks))
+                {
+                    if (!GetCellSweepDetection(cell).IsRevolved) continue;
+                    cellBlocks = GetCellSweepDetection(cell).Blocks;
+                }
                 double[] axis = cellBlocks.RevolveAxes[0];
                 if (referenceAxis == null) referenceAxis = axis;
                 else if (axis[3] * referenceAxis[3] + axis[4] * referenceAxis[4] + axis[5] * referenceAxis[5] < 0)
@@ -3285,9 +3343,12 @@ namespace CaeModel
         /// one, which reads it as the sweep leaves it; the blocks are built in the order they feed each other. A
         /// surface it shares with another revolved block, turned about the same axis through the same angle, has to
         /// be a wall of both, or the target of one and the source of the other, which is then built after it. A cell
-        /// that shares a surface in any other way is left to tetrahedra. Null when no cell is revolved.
+        /// that shares a surface in any other way is left to tetrahedra, and a swept cell standing in its way is
+        /// given with the axis of the cell. Null when no cell is revolved.
         /// </summary>
-        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks)
+        private SweepBlocks CreateRevolvedBlocksForCells(GeometryPart[] cells, SweepBlocks sweptBlocks,
+                                                        Dictionary<int, SweepBlocks> followerBlocks,
+                                                        Dictionary<int, double[]> blockingPartIdAxis)
         {
             if (cells.Length < 2) return null;
             //
@@ -3306,7 +3367,7 @@ namespace CaeModel
                 }
             }
             Dictionary<int, SweepBlocks> alignedBlocks =
-                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys));
+                GetAlignedRevolvedBlocks(cells, new HashSet<int>(partIdSweptBlock.Keys), followerBlocks);
             if (alignedBlocks.Count == 0) return null;
             //
             Dictionary<int, int> twinSurfaceIds = _geometry.GetSharedSurfaceIds(cells);
@@ -3329,7 +3390,11 @@ namespace CaeModel
                         bool sweptSource = partBlock[0].Contains(twinId);
                         bool bothWalls = ownSideIds.Contains(gmshTopologyId) && partBlock[1].Contains(twinId);
                         bool fed = ownSourceIds.Contains(gmshTopologyId) && partBlock[2].Contains(twinId);
-                        if (!sweptSource && !bothWalls && !fed) revolvable = false;
+                        if (!sweptSource && !bothWalls && !fed)
+                        {
+                            revolvable = false;
+                            blockingPartIdAxis[neighbourPartId] = cellBlocks.RevolveAxes[0];
+                        }
                     }
                     else if (partIdRevolved.TryGetValue(neighbourPartId, out SweepBlocks neighbourBlocks))
                     {
