@@ -476,12 +476,6 @@
     <Compile Include="Forms\00_Common\FrmGetColor.Designer.cs">
       <DependentUpon>FrmGetColor.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\00_Common\FrmSelectGeometry.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\00_Common\FrmSelectGeometry.Designer.cs">
-      <DependentUpon>FrmSelectGeometry.cs</DependentUpon>
-    </Compile>
     <Compile Include="Forms\00_Common\FrmNewModel.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -541,6 +535,10 @@
     <Compile Include="Forms\04_GeometryFeature\FrmOffsetFace.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\04_GeometryFeature\FrmSurfaceOperation.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\04_GeometryFeature\SurfaceOperationEnum.cs" />
     <Compile Include="Forms\04_GeometryFeature\GeometryFeatureTypes.cs" />
     <Compile Include="Forms\04_GeometryFeature\FeatureSelectionTargetEnum.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByLineTwoPoints.cs" />
@@ -549,6 +547,7 @@
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByPlaneThreePoints.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByPointAndNormal.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewFaceOffset.cs" />
+    <Compile Include="Forms\04_GeometryFeature\ViewSurfaceOperation.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewGeometryFeature.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
@@ -1022,9 +1021,6 @@
     <EmbeddedResource Include="Forms\00_Common\FrmGetColor.resx">
       <DependentUpon>FrmGetColor.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\00_Common\FrmSelectGeometry.resx">
-      <DependentUpon>FrmSelectGeometry.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Forms\00_Common\FrmNewModel.resx">
       <DependentUpon>FrmNewModel.cs</DependentUpon>
     </EmbeddedResource>
@@ -1174,6 +1170,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\04_GeometryFeature\FrmOffsetFace.resx">
       <DependentUpon>FrmOffsetFace.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\04_GeometryFeature\FrmSurfaceOperation.resx">
+      <DependentUpon>FrmSurfaceOperation.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\55_Load\FrmLoad.resx">
       <DependentUpon>FrmLoad.cs</DependentUpon>

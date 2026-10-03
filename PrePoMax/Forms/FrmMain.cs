@@ -105,7 +105,6 @@ namespace PrePoMax
         private Point _formLocation;
         private List<Form> _allForms;
         private FrmSelectEntity _frmSelectEntity;
-        private FrmSelectGeometry _frmSelectGeometry;
         private FrmSelectItemSet _frmSelectItemSet;
         private FrmUserVew _frmUserView;
         private FrmSectionView _frmSectionView;
@@ -120,6 +119,7 @@ namespace PrePoMax
         private FrmSplitSolid _frmSplitSolid;
         private FrmSplitShell _frmSplitShell;
         private FrmOffsetFace _frmOffsetFace;
+        private FrmSurfaceOperation _frmSurfaceOperation;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -484,9 +484,6 @@ namespace PrePoMax
                 _frmSelectEntity = new FrmSelectEntity(_controller);
                 AddFormToAllForms(_frmSelectEntity);
                 //
-                _frmSelectGeometry = new FrmSelectGeometry(_controller);
-                AddFormToAllForms(_frmSelectGeometry);
-                //
                 _frmSelectItemSet = new FrmSelectItemSet(_controller);
                 AddFormToAllForms(_frmSelectItemSet);
                 //
@@ -531,6 +528,9 @@ namespace PrePoMax
                 //
                 _frmOffsetFace = new FrmOffsetFace(_controller);
                 AddFormToAllForms(_frmOffsetFace);
+                //
+                _frmSurfaceOperation = new FrmSurfaceOperation(_controller);
+                AddFormToAllForms(_frmSurfaceOperation);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -4371,33 +4371,15 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private async void tsmiFlipFaceNormalCAD_Click(object sender, EventArgs e)
+        private void tsmiFlipFaceNormalCAD_Click(object sender, EventArgs e)
         {
             try
             {
-                // Must be outside the await part otherwise causes screen flickering
-                AnnotateWithColorEnum _prevShowWithColor = _controller.AnnotateWithColor;
-                _controller.AnnotateWithColor = AnnotateWithColorEnum.FaceOrientation;
-                //
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = FlipFaces;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to flip", null); });
-                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                });
-                //
-                _controller.AnnotateWithColor = _prevShowWithColor;
+                CreateSurfaceOperation(SurfaceOperationEnum.FlipNormal);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.FlippingNormalsText);
             }
         }
         private void tsmiSplitSolid_Click(object sender, EventArgs e)
@@ -4455,50 +4437,43 @@ namespace PrePoMax
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmOffsetFace);
             ShowForm(_frmOffsetFace, "Offset Face", null);
         }
-        private async void tsmiDefeature_Click(object sender, EventArgs e)
+        private void CreateSurfaceOperation(SurfaceOperationEnum operation)
+        {
+            if (_controller.Model.Geometry == null) return;
+            //
+            string text;
+            if (operation == SurfaceOperationEnum.FlipNormal) text = "Flip Face Normal";
+            else if (operation == SurfaceOperationEnum.Defeature) text = "Defeature";
+            else if (operation == SurfaceOperationEnum.DeleteCadFaces) text = "Delete Faces";
+            else if (operation == SurfaceOperationEnum.DeleteStlFaces) text = "Delete Part Faces";
+            else throw new NotSupportedException();
+            // A form already shown is not prepared again, so one shown for another operation is hidden first
+            if (_frmSurfaceOperation.Visible && _frmSurfaceOperation.Operation != operation) _frmSurfaceOperation.Hide();
+            _frmSurfaceOperation.Operation = operation;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSurfaceOperation);
+            ShowForm(_frmSurfaceOperation, text, null);
+        }
+        private void tsmiDefeature_Click(object sender, EventArgs e)
         {
             try
             {
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = Defeature;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to defeature", null); });
-                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                });
+                CreateSurfaceOperation(SurfaceOperationEnum.Defeature);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.DefeaturingText);
             }
         }
-        private async void tsmiDeleteFacesCAD_Click(object sender, EventArgs e)
+        private void tsmiDeleteFacesCAD_Click(object sender, EventArgs e)
         {
             try
             {
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = DeleteCadPartFaces;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
-                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                });
+                CreateSurfaceOperation(SurfaceOperationEnum.DeleteCadFaces);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.DeletingFacesText);
             }
         }
         //
@@ -4509,50 +4484,6 @@ namespace PrePoMax
         private void ConvertSolidToShell(string[] partNames)
         {
             _controller.ConvertSolidToShellCommand(partNames);
-        }
-        private void FlipFaces(GeometrySelection geometrySelection)
-        {
-            try
-            {
-                SetStateWorking(Globals.FlippingNormalsText);
-                _controller.FlipFaceOrientationsCommand(geometrySelection);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-            finally
-            {
-                SetStateReady(Globals.FlippingNormalsText);
-            }
-        }
-        private void Defeature(GeometrySelection geometrySelection)
-        {
-            try
-            {
-                SetStateWorking(Globals.DefeaturingText, true);
-                _controller.DefeatureCommand(geometrySelection);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-            finally
-            {
-                SetStateReady(Globals.DefeaturingText);
-            }
-        }
-        private void DeleteCadPartFaces(GeometrySelection geometrySelection)
-        {
-            try
-            {
-                SetStateWorking(Globals.DeletingFacesText);
-                _controller.DeleteCadPartFacesCommand(geometrySelection);
-            }
-            finally
-            {
-                SetStateReady(Globals.DeletingFacesText);
-            }
         }
 
 
@@ -4592,27 +4523,15 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private async void tsmiDeleteStlPartFaces_Click(object sender, EventArgs e)
+        private void tsmiDeleteStlPartFaces_Click(object sender, EventArgs e)
         {
             try
             {
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = DeleteStlPartFaces;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
-                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                });
+                CreateSurfaceOperation(SurfaceOperationEnum.DeleteStlFaces);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.DeletingFacesText);
             }
         }
         private void tsmiCropStlPartWithCylinder_Click(object sender, EventArgs e)
@@ -4667,12 +4586,6 @@ namespace PrePoMax
             string desc = "Enter the face angle for model edges detection.";
             frmGetValue.PrepareForm("Find model edges: " + partNames.ToShortString(), "Angle", desc,
                                     CaeMesh.Globals.EdgeAngle, presetValues, new StringAngleDegConverter());
-        }
-        private void DeleteStlPartFaces(GeometrySelection geometrySelection)
-        {
-            SetStateWorking(Globals.DeletingFacesText);
-            _controller.DeleteStlPartFacesCommand(geometrySelection);
-            SetStateReady(Globals.DeletingFacesText);
         }
         
         #endregion #################################################################################################################
@@ -10408,7 +10321,7 @@ namespace PrePoMax
             if (_frmSplitSolid != null && _frmSplitSolid.Visible) _frmSplitSolid.SelectionChanged(ids);
             if (_frmSplitShell != null && _frmSplitShell.Visible) _frmSplitShell.SelectionChanged(ids);
             if (_frmOffsetFace != null && _frmOffsetFace.Visible) _frmOffsetFace.SelectionChanged(ids);
-            if (_frmSelectGeometry != null && _frmSelectGeometry.Visible) _frmSelectGeometry.SelectionChanged(ids);
+            if (_frmSurfaceOperation != null && _frmSurfaceOperation.Visible) _frmSurfaceOperation.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);
             if (_frmRemeshingParameters != null && _frmRemeshingParameters.Visible) _frmRemeshingParameters.SelectionChanged(ids);

@@ -5753,6 +5753,44 @@ namespace PrePoMax
             CDeleteCadPartFaces comm = new CDeleteCadPartFaces(geometrySelection);
             _commands.AddAndExecute(comm);
         }
+        public async Task SurfaceOperationCommandAsync(SurfaceOperationEnum operation, GeometrySelection geometrySelection)
+        {
+            string stateText;
+            Action command;
+            bool showCancelButton = false;
+            if (operation == SurfaceOperationEnum.FlipNormal)
+            {
+                stateText = Globals.FlippingNormalsText;
+                command = () => FlipFaceOrientationsCommand(geometrySelection);
+            }
+            else if (operation == SurfaceOperationEnum.Defeature)
+            {
+                stateText = Globals.DefeaturingText;
+                command = () => DefeatureCommand(geometrySelection);
+                showCancelButton = true;
+            }
+            else if (operation == SurfaceOperationEnum.DeleteCadFaces)
+            {
+                stateText = Globals.DeletingFacesText;
+                command = () => DeleteCadPartFacesCommand(geometrySelection);
+            }
+            else if (operation == SurfaceOperationEnum.DeleteStlFaces)
+            {
+                stateText = Globals.DeletingFacesText;
+                command = () => DeleteStlPartFacesCommand(geometrySelection);
+            }
+            else throw new NotSupportedException();
+            //
+            bool stateSet = _form.SetStateWorking(stateText, showCancelButton);
+            try
+            {
+                await Task.Run(command);
+            }
+            finally
+            {
+                if (stateSet) _form.SetStateReady(stateText);
+            }
+        }
         //******************************************************************************************
         public void ConvertShellToSolid(string[] partNames)
         {
@@ -21209,7 +21247,6 @@ namespace PrePoMax
             }
             else if (selectBy == vtkSelectBy.GeometryEdge)
             {
-                // GeometryEdge - from form FrmSelectGeometry
                 bool shellEdgeFace = false;
                 if (DisplayedMesh.GetPartFromId(selectionOnPartId).PartType == PartType.Shell &&
                     _selection.SelectItem == vtkSelectItem.Surface) shellEdgeFace = true;
@@ -21218,7 +21255,6 @@ namespace PrePoMax
             }
             else if (selectBy == vtkSelectBy.GeometrySurface)
             {
-                // GeometrySurface - from form FrmSelectGeometry
                 ids = GetGeometrySurfaceIdsByAngle(pickedPoint, selectionDirection, -1, selectionOnPartId);
             }
             else if (selectBy == vtkSelectBy.GeometryEdgeAngle)
