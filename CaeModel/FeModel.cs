@@ -7645,6 +7645,7 @@ namespace CaeModel
             double[] xyz;
             FeNodeSet nodeSet;
             DisplacementRotation displacementRotation;
+            double zeroLength;
             //
             if (deformations != null)
             {
@@ -7661,9 +7662,12 @@ namespace CaeModel
                         name = staticStep.BoundaryConditions.GetNextNumberedKey("BDM-" + entry.Key);
                         displacementRotation = new DisplacementRotation(name, nodeSet.Name, RegionTypeEnum.NodeSetName, twoD,
                                                                         false, 0);
-                        if (xyz[0] != 0) displacementRotation.U1.SetEquationFromValue(xyz[0]);
-                        if (xyz[1] != 0) displacementRotation.U2.SetEquationFromValue(xyz[1]);
-                        if (xyz[2] != 0) displacementRotation.U3.SetEquationFromValue(xyz[2]);
+                        // A component below a thousandth of the vector is noise of the surface normal and leaves
+                        // the node free in that direction, whatever the precision of the results file
+                        zeroLength = 1E-3 * Math.Sqrt(xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]);
+                        if (Math.Abs(xyz[0]) > zeroLength) displacementRotation.U1.SetEquationFromValue(xyz[0]);
+                        if (Math.Abs(xyz[1]) > zeroLength) displacementRotation.U2.SetEquationFromValue(xyz[1]);
+                        if (Math.Abs(xyz[2]) > zeroLength) displacementRotation.U3.SetEquationFromValue(xyz[2]);
                         staticStep.AddBoundaryCondition(displacementRotation);
                     }
                 }

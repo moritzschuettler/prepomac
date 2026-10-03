@@ -900,7 +900,9 @@ namespace CaeResults
             // Sensitivity
             if (type == StepTypeEnum.Static && methodId == 3)   // method 3 is also used for last iterations type
             {
-                if (prevFieldData.StepType == StepTypeEnum.Frequency || prevFieldData.StepType == StepTypeEnum.FrequencySensitivity)
+                // A frequency step without field outputs leaves no field before the complex frequency ones
+                if (prevFieldData == null || prevFieldData.StepType == StepTypeEnum.Frequency ||
+                    prevFieldData.StepType == StepTypeEnum.FrequencySensitivity)
                     type = StepTypeEnum.FrequencySensitivity;
             }
             //
