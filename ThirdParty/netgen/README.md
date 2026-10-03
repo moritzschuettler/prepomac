@@ -71,7 +71,8 @@ quadrilateral ever reached; a mesh without identified pairs now takes those rule
 optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base. Its smoothing weighs a
 pyramid as the four tetrahedra its points span, which keeps the apex from being moved through the base. A pyramid is scaled by its own
 quadrilateral rather than by the coarser local mesh size, so that pyramids in an inside corner do not lean
-over one another.
+over one another, and a pyramid whose quadrilateral closes an angle sharper than a right one with another
+quadrilateral is lowered, so that the pyramid of the other face still fits.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.
