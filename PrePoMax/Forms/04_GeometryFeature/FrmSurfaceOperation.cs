@@ -25,6 +25,7 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private SurfaceOperationEnum _operation;
         private AnnotateWithColorEnum? _annotateWithColorBeforeShow;
+        private bool _applying;
 
 
         // Properties
@@ -44,6 +45,7 @@ namespace PrePoMax.Forms
             _viewSurfaceOperation = null;
             _operation = SurfaceOperationEnum.DeleteCadFaces;
             _annotateWithColorBeforeShow = null;
+            _applying = false;
             //
             SelectionClear = _controller.Selection.Clear;
         }
@@ -80,16 +82,21 @@ namespace PrePoMax.Forms
                 geometrySelection.GeometryIds.Length == 0)
                 throw new CaeException("No surfaces were selected.");
             //
+            // The operation replaces the parts the surfaces were picked on and redraws them, so the picks
+            // are not highlighted again while it runs, since they would name other surfaces of the new parts
             try
             {
+                _applying = true;
                 Enabled = false;
                 await _controller.SurfaceOperationCommandAsync(_operation, geometrySelection.DeepClone());
             }
             finally
             {
+                geometrySelection.Clear();
+                _applying = false;
                 Enabled = true;
             }
-            // The operation has replaced the parts the surfaces were picked on, so the picking starts over
+            // The picking starts over
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             propertyGrid.Refresh();
             //
@@ -169,7 +176,7 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (_closing || GeometrySelection == null) return;
+                if (_closing || _applying || GeometrySelection == null) return;
                 //
                 _controller.ClearSelectionHistory();
                 //
