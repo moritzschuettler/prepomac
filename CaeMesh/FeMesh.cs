@@ -5360,7 +5360,7 @@ namespace CaeMesh
             GetSurfaceGeometry(name, out nodeCoor, out cells, out cellTypes, out _, onlyVisible);
         }
         public void GetSurfaceGeometry(string name, out double[][] nodeCoor, out int[][] cells, out int[] cellTypes,
-                                       out int[] cellElementIds, bool onlyVisible)
+                                       out int[] cellElementIds, bool onlyVisible, bool splitAtFaceEdges = true)
         {
             FeSurface surface = _surfaces[name];
             KeyValuePair<FeFaceName, string>[] elementSets = surface.ElementFaces.ToArray();
@@ -5387,36 +5387,38 @@ namespace CaeMesh
             cells = cellList.ToArray();
             cellElementIds = cellElementIdList.ToArray();
             //
-            GetSurfaceGeometry(cells, out nodeCoor, out cellTypes);
+            GetSurfaceGeometry(cells, out _, out nodeCoor, out cellTypes, splitAtFaceEdges);
         }
         public void GetSurfaceGeometry(int[][] cells, out double[][] nodeCoor, out int[] cellTypes)
         {
             GetSurfaceGeometry(cells, out int[] nodeIds, out nodeCoor, out cellTypes);
         }
-        public void GetSurfaceGeometry(int[][] cells, out int[] nodeIds, out double[][] nodeCoor, out int[] cellTypes)
+        public void GetSurfaceGeometry(int[][] cells, out int[] nodeIds, out double[][] nodeCoor, out int[] cellTypes,
+                                       bool splitAtFaceEdges = true)
         {
-            // Get the node ids of the used nodes
-            HashSet<int> nodesNeeded = new HashSet<int>();
-            for (int i = 0; i < cells.Length; i++) nodesNeeded.UnionWith(cells[i]);
-            // Create node array and a lookup table
-            nodeCoor = new double[nodesNeeded.Count][];
-            nodeIds = new int[nodesNeeded.Count];
-            Dictionary<int, int> oldNew = new Dictionary<int, int>();
-            int count = 0;
-            foreach (int id in nodesNeeded)
-            {
-                nodeIds[count] = id;
-                nodeCoor[count] = _nodes[id].Coor;
-                oldNew.Add(id, count);
-                count++;
-            }
+            // A node shared by cells of different geometry faces is duplicated, as in the drawn parts, so that the
+            // shading normals are not averaged over the edges between the faces
+            int[] cellGroupIds = splitAtFaceEdges ? GetSurfaceCellGroupIdsSplitByFaceEdges(cells) : new int[cells.Length];
+            List<int> nodeIdsList = new List<int>();
+            List<double[]> nodeCoorList = new List<double[]>();
+            Dictionary<long, int> groupNodeIdNewId = new Dictionary<long, int>();
+            long groupNodeId;
+            int newId;
             // Renumber triangles and add cell type
             cellTypes = new int[cells.Length];
             for (int i = 0; i < cells.Length; i++)
             {
                 for (int j = 0; j < cells[i].Length; j++)
                 {
-                    cells[i][j] = oldNew[cells[i][j]];
+                    groupNodeId = ((long)cellGroupIds[i] << 32) | (uint)cells[i][j];
+                    if (!groupNodeIdNewId.TryGetValue(groupNodeId, out newId))
+                    {
+                        newId = nodeIdsList.Count;
+                        nodeIdsList.Add(cells[i][j]);
+                        nodeCoorList.Add(_nodes[cells[i][j]].Coor);
+                        groupNodeIdNewId.Add(groupNodeId, newId);
+                    }
+                    cells[i][j] = newId;
                 }
                 //
                 if (cells[i].Length == 2) cellTypes[i] = (int)vtkCellType.VTK_LINE;
@@ -5426,6 +5428,86 @@ namespace CaeMesh
                 else if (cells[i].Length == 8) cellTypes[i] = (int)vtkCellType.VTK_QUADRATIC_QUAD;
                 else throw new NotSupportedException();
             }
+            nodeIds = nodeIdsList.ToArray();
+            nodeCoor = nodeCoorList.ToArray();
+        }
+        private int[] GetSurfaceCellGroupIdsSplitByFaceEdges(int[][] cells)
+        {
+            HashSet<int> cellNodeIds = new HashSet<int>();
+            for (int i = 0; i < cells.Length; i++)
+            {
+                if (cells[i].Length > 2) cellNodeIds.UnionWith(cells[i]);
+            }
+            // The edges between two different faces - a seam edge borders only one face
+            int[] edgeFaceCount;
+            int[] edgeCell;
+            HashSet<int> faceEdgeIds = new HashSet<int>();
+            HashSet<long> faceBorderEdgeKeys = new HashSet<long>();
+            VisualizationData visualization;
+            foreach (var entry in _parts)
+            {
+                visualization = entry.Value.Visualization;
+                if (visualization == null || visualization.FaceEdgeIds == null || visualization.EdgeCells == null ||
+                    visualization.EdgeCellIdsByEdge == null) continue;
+                //
+                edgeFaceCount = new int[visualization.EdgeCellIdsByEdge.Length];
+                for (int i = 0; i < visualization.FaceEdgeIds.Length; i++)
+                {
+                    faceEdgeIds.Clear();
+                    faceEdgeIds.UnionWith(visualization.FaceEdgeIds[i]);
+                    foreach (int edgeId in faceEdgeIds) edgeFaceCount[edgeId]++;
+                }
+                for (int i = 0; i < edgeFaceCount.Length; i++)
+                {
+                    if (edgeFaceCount[i] < 2) continue;
+                    foreach (int edgeCellId in visualization.EdgeCellIdsByEdge[i])
+                    {
+                        edgeCell = visualization.EdgeCells[edgeCellId];
+                        if (cellNodeIds.Contains(edgeCell[0]) && cellNodeIds.Contains(edgeCell[1]))
+                            faceBorderEdgeKeys.Add(GetUndirectedEdgeKey(edgeCell[0], edgeCell[1]));
+                    }
+                }
+            }
+            // Join the cells over the cell edges that do not border a face
+            int[] parentIds = new int[cells.Length];
+            for (int i = 0; i < parentIds.Length; i++) parentIds[i] = i;
+            //
+            int numOfCorners;
+            int otherCellId;
+            long edgeKey;
+            Dictionary<long, int> edgeKeyCellId = new Dictionary<long, int>();
+            for (int i = 0; i < cells.Length; i++)
+            {
+                if (cells[i].Length <= 2) continue;
+                numOfCorners = cells[i].Length == 6 ? 3 : cells[i].Length == 8 ? 4 : cells[i].Length;
+                for (int j = 0; j < numOfCorners; j++)
+                {
+                    edgeKey = GetUndirectedEdgeKey(cells[i][j], cells[i][(j + 1) % numOfCorners]);
+                    if (faceBorderEdgeKeys.Contains(edgeKey)) continue;
+                    //
+                    if (edgeKeyCellId.TryGetValue(edgeKey, out otherCellId))
+                        parentIds[GetRootId(parentIds, i)] = GetRootId(parentIds, otherCellId);
+                    else edgeKeyCellId.Add(edgeKey, i);
+                }
+            }
+            // Lines have no shading and all stay connected
+            int[] cellGroupIds = new int[cells.Length];
+            for (int i = 0; i < cells.Length; i++) cellGroupIds[i] = cells[i].Length <= 2 ? -1 : GetRootId(parentIds, i);
+            return cellGroupIds;
+        }
+        private static long GetUndirectedEdgeKey(int nodeId1, int nodeId2)
+        {
+            if (nodeId1 > nodeId2) return ((long)nodeId2 << 32) | (uint)nodeId1;
+            else return ((long)nodeId1 << 32) | (uint)nodeId2;
+        }
+        private static int GetRootId(int[] parentIds, int id)
+        {
+            while (parentIds[id] != id)
+            {
+                parentIds[id] = parentIds[parentIds[id]];
+                id = parentIds[id];
+            }
+            return id;
         }
         public void GetSurfaceEdgesGeometry(string name, out double[][] nodeCoor, out int[][] cells, out int[] vtkCellTypes,
                                             bool onlyVisible)

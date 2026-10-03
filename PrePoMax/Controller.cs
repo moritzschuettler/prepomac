@@ -12277,13 +12277,13 @@ namespace PrePoMax
                     data.Cells.CellNodeIds = cells;
                     data.Cells.Ids = new int[cells.Length];
                     for (int i = 0; i < cells.Length; i++) data.Cells.Ids[i] = i;
-                    mesh.GetSurfaceGeometry(cells, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Types);
+                    mesh.GetSurfaceGeometry(cells, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Types, false);
                 }
                 else if (sp.SlaveRegionType == RegionTypeEnum.SurfaceName)
                 {
                     FeSurface surface = mesh.Surfaces[sp.SlaveRegionName];
                     mesh.GetSurfaceGeometry(sp.SlaveRegionName, out data.Nodes.Coor, out data.Cells.CellNodeIds,
-                                            out data.Cells.Types, false);
+                                            out data.Cells.Types, out _, false, false);
                 }
                 else throw new NotSupportedException();
                 //
