@@ -23,6 +23,9 @@
 #
 #  - revolve_stepped_axis.brep and revolve_sphere_top.brep, a stepped shaft under a spherical end, are
 #    recognized as revolved and meshed without a setup item, as an automatic sweep item meshes them.
+#  - revolve_ball_pole.brep is an eighth of a ball, revolved about one of its straight edges. Its sphere has its poles
+#    off that axis, and one of them halfway along the arc the ball is cut along, where the spherical face closes onto
+#    a degenerate edge with no curve. No turned node lands on that edge, and the part is meshed without a setup item.
 #  - revolve_ring.brep is not recognized as revolved, and revolve_ring_hole.brep is swept.
 #  - revolve_capsule_split.brep is a capsule split across its axis into two cells, each revolved. The
 #    wall between them is meshed once, so the two mesh parts share every node on it.
@@ -226,6 +229,9 @@ def main():
     sphere = import_parts("revolve_sphere_top.brep")[0]
     check(sphere.mesh_type == "Revolve", "the shaft with a spherical end is recognized as " + sphere.mesh_type)
     mesh_by_default(sphere)
+    pole = import_parts("revolve_ball_pole.brep")[0]
+    check(pole.mesh_type == "Revolve", "the eighth of a ball is recognized as " + pole.mesh_type)
+    mesh_by_default(pole)
     split_source = import_parts("revolve_split_source.brep")[0]
     check(split_source.mesh_type == "Revolve", "the part revolved from a split source is recognized as " +
           split_source.mesh_type)
