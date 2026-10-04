@@ -2033,6 +2033,28 @@ namespace CaeMesh
             {
                 foreach (var group in _quadWildGroups) SweepQuadWildMesher.AddSurfaceMesh(group);
             }
+            // A free source mesh may hold a quadrilateral that is not convex, which no element swept from it survives.
+            // A wall keeps the grid of its layers. A structured source keeps the grid of the one definition, and one
+            // whose grid folds is refused
+            HashSet<int> wallSurfaceIds = new HashSet<int>(blocks.SelectMany(block => block.WallSurfaceIds));
+            Dictionary<int, TransfiniteFace> structuredFaces = new Dictionary<int, TransfiniteFace>();
+            if (_gmshData.TransfiniteFaces != null)
+            {
+                foreach (var face in _gmshData.TransfiniteFaces) structuredFaces[face.FaceId] = face;
+            }
+            int[] meshedSourceIds = blocks.SelectMany(block => block.SourceSurfaceIds).Distinct()
+                                          .Where(surfaceId => !wallSurfaceIds.Contains(surfaceId) &&
+                                                              !targetSurfaceIds.Contains(surfaceId)).ToArray();
+            if (!preview)
+            {
+                Dictionary<int, int> foldedSurfaceIdCount = SweepSourceRepair.CountNonConvexQuadrilaterals(
+                    meshedSourceIds.Where(structuredFaces.ContainsKey));
+                if (foldedSurfaceIdCount.Count > 0)
+                    throw new CaeException(GetFoldedSourcesMessage(foldedSurfaceIdCount, structuredFaces));
+            }
+            SweepSourceRepair.SplitNonConvexQuadrilaterals(meshedSourceIds.Where(surfaceId =>
+                                                                                 !structuredFaces.ContainsKey(surfaceId)),
+                                                           _writeOutput);
             // Debug
             if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
@@ -3568,6 +3590,19 @@ namespace CaeMesh
                                                       " - its edges: " + edges + "."));
             }
             return refusedSurfaceIds;
+        }
+        private static string GetFoldedSourcesMessage(Dictionary<int, int> foldedSurfaceIdCount,
+                                                      Dictionary<int, TransfiniteFace> structuredFaces)
+        {
+            bool threeSided = foldedSurfaceIdCount.Keys.Any(id => structuredFaces[id].NumberOfSides == 3);
+            bool fourSided = foldedSurfaceIdCount.Keys.Any(id => structuredFaces[id].NumberOfSides != 3);
+            string settings = threeSided && fourSided ? "Transfinite 3-sided faces and Transfinite 4-sided faces" :
+                              threeSided ? "Transfinite 3-sided faces" : "Transfinite 4-sided faces";
+            return "The structured grid of the sweep source surface/s " +
+                   string.Join(", ", foldedSurfaceIdCount.Select(entry => "surface " + entry.Key + " (" + entry.Value +
+                                                                          " quadrilateral/s)")) +
+                   " folds: a quadrilateral has a corner of 180 degrees or more, and every element swept from it " +
+                   "would be inverted. Mesh the surface/s finer, or switch " + settings + " off in the sweep mesh item.";
         }
         private static string GetRefusedSurfacesMessage(List<int> refusedSurfaceIds)
         {
