@@ -45,6 +45,7 @@ namespace CaeMesh
         private Dictionary<int, int> _transfiniteSourcePins = new Dictionary<int, int>();
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
+        private const int _intervalTimeoutSeconds = 20;
         private Dictionary<int, int> _parityRaisedEdgeIdNumOfElements = new Dictionary<int, int>();
         private HashSet<int> _userPinnedEdgeIds;
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
@@ -3659,39 +3660,34 @@ namespace CaeMesh
                                                       Dictionary<int, int> directionEdgeIdNumOfElements = null)
         {
             GenerateMesh(1);
+            // The counts of a sweep gmsh meshes alone are solved in one problem; QuadWild chooses counts of its own in
+            // rounds, and those are settled pass by pass as before
+            bool solve = _quadWildSourceIds.Count == 0 && directionEdgeIdNumOfElements == null &&
+                         !SweepIntervalShadow.UseOldPasses;
             IntervalProblem intervalProblem = null;
-            if (SweepIntervalShadow.Enabled)
+            if (solve || SweepIntervalShadow.Enabled)
             {
                 try
                 {
                     intervalProblem = GetSweepIntervalProblem(walls, chains, chainBlockIndices, directionEdgeIdNumOfElements);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!(ex is CaeException))
                 {
-                    SweepIntervalShadow.Report(new IntervalProblem(edgeId => 1), null, "building the problem failed: " + ex,
-                                               NameGmshEntities);
+                    _writeOutput?.Invoke("Sweep: the element counts could not be set up as one problem (" + ex.Message +
+                                         "), so they are settled pass by pass.");
                 }
             }
+            IntervalSolution solution = solve && intervalProblem != null ? SolveSweepIntervals(intervalProblem) : null;
             Dictionary<int, int> edgeIdNumOfElements;
-            IntervalSolution appliedSolution = null;
-            if (intervalProblem != null && SweepIntervalShadow.Apply && directionEdgeIdNumOfElements == null &&
-                _quadWildSourceIds.Count == 0)
+            if (solution != null)
             {
-                appliedSolution = intervalProblem.Solve(false, 20);
-                if (!appliedSolution.HasCounts) appliedSolution = null;
-            }
-            if (appliedSolution != null)
-            {
-                edgeIdNumOfElements = appliedSolution.EdgeIdNumOfElements;
+                edgeIdNumOfElements = solution.EdgeIdNumOfElements;
                 directionEdgeIdNumOfElements = walls.SelectMany(wall => wall.DirectionEdgeIds).Distinct()
                                                     .ToDictionary(edgeId => edgeId, edgeId => edgeIdNumOfElements[edgeId]);
                 _crossEdgeMinimums = GetCrossEdgeMinimums(walls, GetTransfiniteSourceTiedEdgeGroups(walls));
                 _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
                 _transfiniteSourcePins = new Dictionary<int, int>();
                 foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
-                _writeOutput?.Invoke("Sweep: the element counts of " + edgeIdNumOfElements.Count + " edges were solved by " +
-                                     "the interval assignment, giving up " + appliedSolution.ViolatedRows.Count +
-                                     " soft row/s.");
                 CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
             }
             else
@@ -3711,6 +3707,78 @@ namespace CaeMesh
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             return directionEdgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The counts of the sweep edges solved in one problem, or null when lp_solve cannot be loaded or finds no counts
+        /// in time, for the passes to settle them instead. Counts that cannot keep every hard row - the numbers of
+        /// elements the user set on edges against the walls and the levels of the sweep - refuse the meshing with the rows
+        /// that conflict, as the relaxed problem finds them.
+        /// </summary>
+        private IntervalSolution SolveSweepIntervals(IntervalProblem problem)
+        {
+            IntervalSolution solution;
+            try
+            {
+                solution = problem.Solve(false, _intervalTimeoutSeconds);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is BadImageFormatException ||
+                                       ex is EntryPointNotFoundException)
+            {
+                _writeOutput?.Invoke("Sweep: lp_solve could not be loaded (" + ex.Message + "), so the element counts " +
+                                     "are settled pass by pass.");
+                return null;
+            }
+            if (solution.HasCounts)
+            {
+                // A structured source given up keeps a free mesh, unless the user set every count on it: a grid the user
+                // asked for with sides that cannot agree is refused
+                List<IntervalRow> refusedRows = solution.ViolatedRows
+                    .Where(row => row.Tier == IntervalRowTierEnum.Structured &&
+                                  row.Sides.All(side => side.All(problem.EdgeIdFixedCount.ContainsKey)))
+                    .ToList();
+                if (refusedRows.Count == 0) return solution;
+                throw new CaeException(NameGmshEntities("Sweep: " + string.Join(Environment.NewLine, refusedRows.Select(row =>
+                    string.Join(", ", row.Sides.SelectMany(side => side).Distinct()
+                                         .Select(edgeId => "Edge " + edgeId + " (set to " + problem.EdgeIdFixedCount[edgeId] + ")")) +
+                    " are tied together by the transfinite source Surface " + row.SurfaceId +
+                    " and cannot all carry one number of elements.")) + Environment.NewLine +
+                    "Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
+                    "3-sided and 4-sided surfaces."));
+            }
+            if (solution.Status != LpSolve.Infeasible)
+            {
+                _writeOutput?.Invoke("Sweep: lp_solve found no element counts (" + solution.StatusName + "), so they " +
+                                     "are settled pass by pass.");
+                return null;
+            }
+            //
+            IntervalSolution relaxed = problem.Solve(true, _intervalTimeoutSeconds);
+            List<IntervalRow> conflicts = relaxed.HasCounts ?
+                                          relaxed.ViolatedRows.Where(row => row.Tier == IntervalRowTierEnum.Hard).ToList() :
+                                          new List<IntervalRow>();
+            Func<int, int> getCount = edgeId => relaxed.EdgeIdNumOfElements[edgeId];
+            int[] fixedEdgeIds = conflicts.SelectMany(row => row.Sides.SelectMany(side => side)).Distinct()
+                                          .Where(problem.EdgeIdFixedCount.ContainsKey).OrderBy(edgeId => edgeId).ToArray();
+            StringBuilder message = new StringBuilder("Sweep: no element counts keep every side surface of the sweep a " +
+                                                      "structured grid.");
+            if (conflicts.Count > 0)
+            {
+                message.AppendLine();
+                message.Append("These cannot hold together: " +
+                               string.Join("; ", conflicts.Select(row => row.Name + " (" + row.DescribeSides(getCount) + ")")) +
+                               ".");
+            }
+            if (fixedEdgeIds.Length > 0)
+            {
+                message.AppendLine();
+                message.Append("The numbers of elements set on " +
+                               string.Join(", ", fixedEdgeIds.Select(edgeId => "Edge " + edgeId + " (" +
+                                                                               problem.EdgeIdFixedCount[edgeId] + ")")) +
+                               " are kept.");
+            }
+            message.AppendLine();
+            message.Append("Change the number of elements set on these edges, or select the source surfaces by hand.");
+            throw new CaeException(NameGmshEntities(message.ToString()));
         }
         private Dictionary<int, int> SettleWallEdges(List<SweepWall> walls, List<SweepChain> chains,
                                                      List<int> chainBlockIndices,
@@ -3844,9 +3912,9 @@ namespace CaeMesh
                     if (opposite == 0) continue;
                     int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
                     problem.AddEqualSums("Structured Surface " + surfaceId + " sides 1-3", IntervalRowTierEnum.Structured,
-                                         new int[] { edgeIds[0] }, new int[] { edgeIds[opposite] });
+                                         new int[] { edgeIds[0] }, new int[] { edgeIds[opposite] }, surfaceId);
                     problem.AddEqualSums("Structured Surface " + surfaceId + " sides 2-4", IntervalRowTierEnum.Structured,
-                                         new int[] { edgeIds[others[0]] }, new int[] { edgeIds[others[1]] });
+                                         new int[] { edgeIds[others[0]] }, new int[] { edgeIds[others[1]] }, surfaceId);
                 }
             }
             foreach (var face in _structuredSourceFaces.Values)
@@ -3854,13 +3922,13 @@ namespace CaeMesh
                 if (face.NumberOfSides == 4)
                 {
                     problem.AddEqualSums("Structured Surface " + face.FaceId + " sides 1-3", IntervalRowTierEnum.Structured,
-                                         face.SideEdgeIds[0], face.SideEdgeIds[2]);
+                                         face.SideEdgeIds[0], face.SideEdgeIds[2], face.FaceId);
                     problem.AddEqualSums("Structured Surface " + face.FaceId + " sides 2-4", IntervalRowTierEnum.Structured,
-                                         face.SideEdgeIds[1], face.SideEdgeIds[3]);
+                                         face.SideEdgeIds[1], face.SideEdgeIds[3], face.FaceId);
                 }
                 else if (face.NumberOfSides == 3)
                     problem.AddThreeSided("Structured Surface " + face.FaceId + " three blocks", IntervalRowTierEnum.Structured,
-                                          face.SideEdgeIds);
+                                          face.SideEdgeIds, face.FaceId);
             }
             // The parity of the sources: a full-quad recombination halves every edge the walls fix, and QuadWild needs an
             // even total around a source whose every edge they fix

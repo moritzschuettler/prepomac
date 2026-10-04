@@ -16,16 +16,16 @@ using System.Text;
 namespace CaeMesh.Sweep
 {
     /// <summary>
-    /// Solves the interval assignment of a sweep beside the counts the sweep settles itself, and writes how the two
-    /// compare, without changing the mesh. It runs only when the environment variable PMX_INTERVAL_SHADOW names a folder:
-    /// every solve appends its report to interval_shadow.txt and a line to interval_shadow_summary.txt there, and leaves
-    /// the model it solved in lp format beside them.
+    /// Reports the interval assignment of a sweep against the counts the sweep meshed with - its own solve, or the passes
+    /// with PMX_INTERVAL_OLD set to 1 - without changing the mesh. It runs only when the environment variable
+    /// PMX_INTERVAL_SHADOW names a folder: every solve appends its report to interval_shadow.txt and a line to
+    /// interval_shadow_summary.txt there, and leaves the model it solved in lp format beside them.
     /// </summary>
     public static class SweepIntervalShadow
     {
         // Variables
         private const string _environmentVariable = "PMX_INTERVAL_SHADOW";
-        private const string _applyEnvironmentVariable = "PMX_INTERVAL_APPLY";
+        private const string _oldPassesEnvironmentVariable = "PMX_INTERVAL_OLD";
         private const int _timeoutSeconds = 20;
         private const int _maxListed = 40;
         private static int _numOfReports = 0;
@@ -35,10 +35,13 @@ namespace CaeMesh.Sweep
         public static string Folder { get { return Environment.GetEnvironmentVariable(_environmentVariable); } }
         public static bool Enabled { get { return !string.IsNullOrEmpty(Folder) && Directory.Exists(Folder); } }
         /// <summary>
-        /// Whether the sweep meshes with the solved counts instead of settling its own, when the solve keeps every hard row,
-        /// for the trial of the assignment on the models: set PMX_INTERVAL_APPLY to 1 beside PMX_INTERVAL_SHADOW.
+        /// Whether the sweep settles its counts pass by pass, as it did before the interval assignment, for comparing the
+        /// two on the models: set PMX_INTERVAL_OLD to 1.
         /// </summary>
-        public static bool Apply { get { return Enabled && Environment.GetEnvironmentVariable(_applyEnvironmentVariable) == "1"; } }
+        public static bool UseOldPasses
+        {
+            get { return Environment.GetEnvironmentVariable(_oldPassesEnvironmentVariable) == "1"; }
+        }
 
 
         // Methods
@@ -62,7 +65,8 @@ namespace CaeMesh.Sweep
                 Func<int, int> getTarget = edgeId => problem.EdgeIdTarget[edgeId];
                 Func<IntervalRowTierEnum, int> countRows = tier => problem.Rows.Count(row => row.Tier == tier);
                 //
-                report.AppendLine("=== Solve " + index + (Apply ? " (applied)" : "") + ": " + problem.EdgeIdTarget.Count + " edges (" +
+                report.AppendLine("=== Solve " + index + (UseOldPasses ? "" : " (applied)") + ": " +
+                                  problem.EdgeIdTarget.Count + " edges (" +
                                   problem.EdgeIdFixedCount.Count + " fixed), " + problem.Rows.Count + " rows (" +
                                   countRows(IntervalRowTierEnum.Hard) + " hard, " +
                                   countRows(IntervalRowTierEnum.Structured) + " structured, " +

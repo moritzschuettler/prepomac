@@ -63,17 +63,17 @@ namespace CaeMesh
             AddEdge(edgeId);
             _edgeIdFixedCount[edgeId] = Math.Max(1, numOfElements);
         }
-        public void AddEqualSums(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB)
+        public void AddEqualSums(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB, int surfaceId = 0)
         {
-            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EqualSums, new int[][] { sideA, sideB }));
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EqualSums, new int[][] { sideA, sideB }, surfaceId));
         }
         public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side)
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }));
         }
-        public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides)
+        public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides, int surfaceId = 0)
         {
-            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.ThreeSided, sides));
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.ThreeSided, sides, surfaceId));
         }
         private void AddRow(IntervalRow row)
         {

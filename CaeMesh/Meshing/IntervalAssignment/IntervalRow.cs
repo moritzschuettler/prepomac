@@ -23,6 +23,7 @@ namespace CaeMesh
         private readonly IntervalRowTierEnum _tier;
         private readonly IntervalRowKindEnum _kind;
         private readonly int[][] _sides;
+        private readonly int _surfaceId;
 
 
         // Properties
@@ -30,15 +31,19 @@ namespace CaeMesh
         public IntervalRowTierEnum Tier { get { return _tier; } }
         public IntervalRowKindEnum Kind { get { return _kind; } }
         public int[][] Sides { get { return _sides; } }
+        /// <summary>The surface whose grid the row keeps, or 0.</summary>
+        public int SurfaceId { get { return _surfaceId; } }
 
 
         // Constructors
-        public IntervalRow(string name, IntervalRowTierEnum tier, IntervalRowKindEnum kind, int[][] sides)
+        public IntervalRow(string name, IntervalRowTierEnum tier, IntervalRowKindEnum kind, int[][] sides,
+                           int surfaceId = 0)
         {
             _name = name;
             _tier = tier;
             _kind = kind;
             _sides = sides;
+            _surfaceId = surfaceId;
         }
 
 
@@ -53,10 +58,13 @@ namespace CaeMesh
         }
         public string Describe(Func<int, int> getCount)
         {
-            return _name + " [" + _tier + "]: " +
-                   string.Join(" | ", _sides.Select(side => string.Join(" + ", side.Select(id => "Edge " + id + "=" +
-                                                                                                 getCount(id))) +
-                                                            " = " + side.Sum(getCount)));
+            return _name + " [" + _tier + "]: " + DescribeSides(getCount);
+        }
+        public string DescribeSides(Func<int, int> getCount)
+        {
+            return string.Join(" | ", _sides.Select(side => string.Join(" + ", side.Select(id => "Edge " + id + "=" +
+                                                                                                getCount(id))) +
+                                                           " = " + side.Sum(getCount)));
         }
     }
 }
