@@ -12475,7 +12475,7 @@ namespace PrePoMax
                     //
                     if (GetCurrentView() == ViewGeometryModelResults.Geometry)
                     {
-                        if (selectCompoundOfSubParts) parts = _controller.GetGeometryPartsForSelection(partNames);
+                        if (selectCompoundOfSubParts) parts = GetGeometryPartsForPick(e, modifierKeys, partNames);
                         else parts = _controller.GetGeometryParts(partNames).Where(p => p != null).ToArray();
                     }
                     else if (GetCurrentView() == ViewGeometryModelResults.Model)
@@ -12542,6 +12542,37 @@ namespace PrePoMax
                     }
                 }
             }
+        }
+        // A pick selects the compound of a picked sub part, and a plain left click on a sub part of a selected
+        // compound selects that sub part; the picking stays on the sub parts of the compound until a part outside
+        // it is picked or the selection is cleared
+        private BasePart[] GetGeometryPartsForPick(MouseEventArgs e, Keys modifierKeys, string[] partNames)
+        {
+            if (_modelTree.DisableMouse) return _controller.GetGeometryPartsForSelection(partNames);
+            //
+            HashSet<string> selectedCompoundPartNames;
+            HashSet<string> compoundPartNamesWithSelectedSubParts;
+            _modelTree.GetCompoundsSelectedInGeometryTree(out selectedCompoundPartNames,
+                                                          out compoundPartNamesWithSelectedSubParts);
+            bool drillDown = e.Button == MouseButtons.Left && modifierKeys == Keys.None;
+            //
+            List<BasePart> parts = new List<BasePart>();
+            foreach (string partName in partNames)
+            {
+                string compoundPartName = _controller.GetCompoundPartNameOfBody(partName);
+                BasePart[] pickedParts;
+                if (compoundPartName != null &&
+                    (compoundPartNamesWithSelectedSubParts.Contains(compoundPartName) ||
+                     (drillDown && selectedCompoundPartNames.Contains(compoundPartName))))
+                    pickedParts = _controller.GetGeometryParts(new string[] { partName });
+                else pickedParts = _controller.GetGeometryPartsForSelection(new string[] { partName });
+                //
+                foreach (BasePart part in pickedParts)
+                {
+                    if (part != null && !parts.Contains(part)) parts.Add(part);
+                }
+            }
+            return parts.ToArray();
         }
         // The geometry parts the current selection names, when it picks parts
         private string[] GetSelectedGeometryPartNames()

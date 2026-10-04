@@ -2919,6 +2919,30 @@ namespace UserControls
             //
             return meshSetupItemNames.ToArray();
         }
+        // The compounds selected in the geometry tree, and the compounds one of whose sub parts or cells is
+        public void GetCompoundsSelectedInGeometryTree(out HashSet<string> selectedCompoundPartNames,
+                                                       out HashSet<string> compoundPartNamesWithSelectedSubParts)
+        {
+            selectedCompoundPartNames = new HashSet<string>();
+            compoundPartNamesWithSelectedSubParts = new HashSet<string>();
+            //
+            foreach (TreeNode node in cltvGeometry.SelectedNodes)
+            {
+                if (node.Tag is CompoundGeometryPart compoundPart)
+                {
+                    selectedCompoundPartNames.Add(compoundPart.Name);
+                    continue;
+                }
+                for (TreeNode parent = node.Parent; parent != null; parent = parent.Parent)
+                {
+                    if (parent.Tag is CompoundGeometryPart parentCompoundPart)
+                    {
+                        compoundPartNamesWithSelectedSubParts.Add(parentCompoundPart.Name);
+                        break;
+                    }
+                }
+            }
+        }
         // Geometry - copy
         private void tsmiCopyGeometryPartToResults_Click(object sender, EventArgs e)
         {
