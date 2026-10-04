@@ -257,7 +257,7 @@ namespace CaeMesh
             _quadWildAlpha = 0.005;
             _quadWildFlowProfile = QuadWildFlowProfileEnum.Aligned;
             _quadWildSmooth = true;
-            _quadWildFallbackToGmsh = true;
+            _quadWildFallbackToGmsh = false;
         }
         public void CopyFrom(SweepMesh sweepMesh)
         {

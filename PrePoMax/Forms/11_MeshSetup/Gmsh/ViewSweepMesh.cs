@@ -65,7 +65,7 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(1, 10, "2D meshing algorithm")]
+        [OrderedDisplayName(1, 20, "2D meshing algorithm")]
         [DescriptionAttribute("Select the algorithm for the surface meshing. QuadWild meshes the source surfaces with " +
                               "quadrilaterals and chooses the number of elements on every source edge whose count is " +
                               "not fixed by an edge mesh size, by the layers of another sweep block or by a " +
@@ -78,20 +78,9 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(10, 10, "Fallback to Gmsh")]
-        [DescriptionAttribute("Mesh a source surface with gmsh when QuadWild cannot mesh it. Set to No to have the " +
-                              "meshing fail instead, so that the surfaces QuadWild cannot mesh are found.")]
-        [Id(11, 3)]
-        public bool QuadWildFallbackToGmsh
-        {
-            get { return _sweepMesh.QuadWildFallbackToGmsh; }
-            set { _sweepMesh.QuadWildFallbackToGmsh = value; }
-        }
-        //
-        [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(7, 10, "Flow profile")]
+        [OrderedDisplayName(10, 20, "Flow profile")]
         [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
-        [Id(8, 3)]
+        [Id(11, 3)]
         public QuadWildFlowProfileEnum QuadWildFlowProfile
         {
             get { return _sweepMesh.QuadWildFlowProfile; }
@@ -99,11 +88,11 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(8, 10, "Alpha")]
+        [OrderedDisplayName(11, 20, "Alpha")]
         [DescriptionAttribute("Controls the QuadWild trade-off between regularity and isometry. Values near 0 favor " +
                               "regularity; larger values allow more singularities.")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(9, 3)]
+        [Id(12, 3)]
         public double QuadWildAlpha
         {
             get { return _sweepMesh.QuadWildAlpha; }
@@ -111,14 +100,25 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(9, 10, "Smooth")]
+        [OrderedDisplayName(12, 20, "Smooth")]
         [DescriptionAttribute("Use the smoothed QuadWild quadrangulation. Set to No to use the unsmoothed one, which " +
                               "has the same topology.")]
-        [Id(10, 3)]
+        [Id(13, 3)]
         public bool QuadWildSmooth
         {
             get { return _sweepMesh.QuadWildSmooth; }
             set { _sweepMesh.QuadWildSmooth = value; }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(13, 20, "Fallback to Gmsh")]
+        [DescriptionAttribute("Mesh a source surface with gmsh when QuadWild cannot mesh it. Set to No to have the " +
+                              "meshing fail instead, so that the surfaces QuadWild cannot mesh are found.")]
+        [Id(14, 3)]
+        public bool QuadWildFallbackToGmsh
+        {
+            get { return _sweepMesh.QuadWildFallbackToGmsh; }
+            set { _sweepMesh.QuadWildFallbackToGmsh = value; }
         }
         //
         [CategoryAttribute("Mesh smoothing")]
@@ -160,6 +160,10 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        public override MeshSetupItem GetBase()
+        {
+            return _sweepMesh;
+        }
         public override void UpdateVisibility()
         {
             // QuadWild takes the place of the gmsh options for the surfaces: the recombination and the optimisation. The
@@ -178,10 +182,9 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(QuadWildAlpha)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildSmooth)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildFallbackToGmsh)).SetIsBrowsable(quadWild);
-        }
-        public override MeshSetupItem GetBase()
-        {
-            return _sweepMesh;
+            // Turned off
+            _dctd.GetProperty(nameof(KeepImprintEdges)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(QuadWildFallbackToGmsh)).SetIsBrowsable(false);
         }
     }
 }

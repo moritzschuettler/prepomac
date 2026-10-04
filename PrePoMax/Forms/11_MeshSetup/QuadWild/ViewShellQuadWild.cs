@@ -57,55 +57,11 @@ namespace PrePoMax.Forms
             set { _shellQuadWild.Preview = value; UpdateVisibility(); } }
         //
         [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(0, 10, "Flow profile")]
-        [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
-        [Id(1, 5)]
-        public QuadWildFlowProfileEnum FlowProfile
-        {
-            get { return _shellQuadWild.FlowProfile; }
-            set { _shellQuadWild.FlowProfile = value; }
-        }
-        //
-        [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(2, 10, "Boundary layer")]
-        [DescriptionAttribute("One ring of regular quads along the boundary, inserted before the smoothing so that " +
-                              "the elements at the boundary follow it. Holes puts the ring around every closed edge " +
-                              "loop without corners; All edges puts it along every model edge, which helps fine " +
-                              "meshes but can hurt coarse ones and shell compounds.")]
-        [Id(3, 5)]
-        public QuadWildBoundaryLayerEnum BoundaryLayer
-        {
-            get { return _shellQuadWild.BoundaryLayer; }
-            set { _shellQuadWild.BoundaryLayer = value; }
-        }
-        //
-        [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(2, 10, "Alpha")]
-        [DescriptionAttribute("Controls the final quadrangulation trade-off between regularity and isometry. " +
-                              "Values near 0 favor regularity; larger values allow more singularities. This does " +
-                              "not control triangular preparation.")]
-        [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(3, 5)]
-        public double Alpha
-        {
-            get { return _shellQuadWild.Alpha; }
-            set { _shellQuadWild.Alpha = value; }
-        }
-        //
-        [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(3, 10, "Smooth")]
-        [DescriptionAttribute("Import the smoothed quadrangulation. Smoothing improves the shape of most quads, " +
-                              "but can collapse a few of them onto a sharp feature line. Set to No to import the " +
-                              "unsmoothed quadrangulation, which has the same topology.")]
-        [Id(4, 5)]
-        public bool Smooth { get { return _shellQuadWild.Smooth; } set { _shellQuadWild.Smooth = value; } }
-        //
-        [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(4, 10, "Transfinite 3-sided faces")]
+        [OrderedDisplayName(0, 10, "Transfinite 3-sided faces")]
         [DescriptionAttribute("Take 3-sided model faces out of the QuadWild patch layout and mesh them with three " +
                               "structured blocks of quads that meet at one inner node. QuadWild chooses the element " +
                               "counts of their sides together with the rest of the mesh.")]
-        [Id(5, 5)]
+        [Id(1, 5)]
         public bool TransfiniteThreeSided
         {
             get { return _shellQuadWild.TransfiniteThreeSided; }
@@ -113,11 +69,11 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(5, 10, "Transfinite 4-sided faces")]
+        [OrderedDisplayName(1, 10, "Transfinite 4-sided faces")]
         [DescriptionAttribute("Take 4-sided model faces out of the QuadWild patch layout and mesh them with a " +
                               "structured grid of quads. QuadWild chooses the element counts of their sides together " +
                               "with the rest of the mesh and gives the opposite sides the same number of elements.")]
-        [Id(6, 5)]
+        [Id(2, 5)]
         public bool TransfiniteFourSided
         {
             get { return _shellQuadWild.TransfiniteFourSided; }
@@ -125,16 +81,47 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Quad generation")]
-        [OrderedDisplayName(6, 10, "Transfinite threshold angle")]
+        [OrderedDisplayName(2, 10, "Transfinite threshold angle")]
         [DescriptionAttribute("Faces with a corner angle larger than the threshold angle or smaller than 180° minus " +
                               "the threshold angle are meshed without the transfinite structure.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
-        [Id(7, 5)]
+        [Id(3, 5)]
         public double TransfiniteAngleDeg
         {
             get { return _shellQuadWild.TransfiniteAngleDeg; }
             set { _shellQuadWild.TransfiniteAngleDeg = value; }
         }
+        //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(3, 10, "Flow profile")]
+        [DescriptionAttribute("Aligned uses flow.txt. No alignment uses flow_noalign.txt and relaxes singularity alignment.")]
+        [Id(4, 5)]
+        public QuadWildFlowProfileEnum FlowProfile
+        {
+            get { return _shellQuadWild.FlowProfile; }
+            set { _shellQuadWild.FlowProfile = value; }
+        }
+        //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(4, 10, "Alpha")]
+        [DescriptionAttribute("Controls the final quadrangulation trade-off between regularity and isometry. " +
+                              "Values near 0 favor regularity; larger values allow more singularities. This does " +
+                              "not control triangular preparation.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        [Id(5, 5)]
+        public double Alpha
+        {
+            get { return _shellQuadWild.Alpha; }
+            set { _shellQuadWild.Alpha = value; }
+        }
+        //
+        [CategoryAttribute("Quad generation")]
+        [OrderedDisplayName(5, 10, "Smooth")]
+        [DescriptionAttribute("Import the smoothed quadrangulation. Smoothing improves the shape of most quads, " +
+                              "but can collapse a few of them onto a sharp feature line. Set to No to import the " +
+                              "unsmoothed quadrangulation, which has the same topology.")]
+        [Id(6, 5)]
+        public bool Smooth { get { return _shellQuadWild.Smooth; } set { _shellQuadWild.Smooth = value; } }
         //
         [CategoryAttribute("Debugging")]
         [OrderedDisplayName(0, 10, "Keep files on failure")]
@@ -217,15 +204,28 @@ namespace PrePoMax.Forms
             set { _shellQuadWild.SingularityPosition = value; }
         }
         //
+        //
         [CategoryAttribute("Debugging")]
-        [OrderedDisplayName(6, 10, "Count search rounds")]
+        [OrderedDisplayName(6, 10, "Boundary layer")]
+        [DescriptionAttribute("One ring of regular quads along the boundary, inserted before the smoothing so that " +
+                              "the elements at the boundary follow it. Holes puts the ring around every closed edge " +
+                              "loop without corners; All edges puts it along every model edge, which helps fine " +
+                              "meshes but can hurt coarse ones and shell compounds.")]
+        [Id(7, 6)]
+        public QuadWildBoundaryLayerEnum BoundaryLayer
+        {
+            get { return _shellQuadWild.BoundaryLayer; }
+            set { _shellQuadWild.BoundaryLayer = value; }
+        }
+        [CategoryAttribute("Debugging")]
+        [OrderedDisplayName(7, 10, "Count search rounds")]
         [DescriptionAttribute("Rounds of the search over the element counts of the patch sides: in every round the " +
                               "three worst patches are found, every side of each is tried with one or two elements " +
                               "more or fewer, and the change that improves the worst element most is kept. Every " +
                               "trial costs a quantisation and a local smoothing, so the meshing takes longer. 0 " +
                               "keeps the counts of the quantisation.")]
         [TypeConverter(typeof(StringIntegerConverter))]
-        [Id(7, 6)]
+        [Id(8, 6)]
         public int CountSearch
         {
             get { return _shellQuadWild.CountSearch; }
@@ -272,6 +272,15 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(TransfiniteFourSided)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(visible &&
                 (_shellQuadWild.TransfiniteThreeSided || _shellQuadWild.TransfiniteFourSided));
+            // Turn off debugging
+            _dctd.GetProperty(nameof(KeepFilesOnFailure)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(DebugVisualization)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(OldAlgorithm)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(PinEdgeNodes)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(EdgeRotations)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(SingularityPosition)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(BoundaryLayer)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(CountSearch)).SetIsBrowsable(false);
         }
     }
 }
