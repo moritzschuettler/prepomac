@@ -478,79 +478,11 @@ namespace CaeMesh.Sweep
         {
             Dictionary<int, int> edgeIdNumOfElements = new Dictionary<int, int>();
             if (chains.Count == 0) return edgeIdNumOfElements;
-            // Families: chains joined by a shared edge or by a wall they are the two sides of
-            int[] parent = Enumerable.Range(0, chains.Count).ToArray();
-            Dictionary<int, List<int>> edgeIdChainIndices = new Dictionary<int, List<int>>();
-            for (int i = 0; i < chains.Count; i++)
-            {
-                foreach (var edgeId in chains[i].EdgeIds)
-                {
-                    List<int> indices;
-                    if (!edgeIdChainIndices.TryGetValue(edgeId, out indices))
-                    {
-                        indices = new List<int>();
-                        edgeIdChainIndices.Add(edgeId, indices);
-                    }
-                    indices.Add(i);
-                }
-            }
-            foreach (var indices in edgeIdChainIndices.Values) Unite(parent, indices);
-            foreach (var wall in walls)
-            {
-                List<int> indices = new List<int>();
-                foreach (var edgeId in wall.DirectionEdgeIds)
-                {
-                    List<int> chainIndices;
-                    if (edgeIdChainIndices.TryGetValue(edgeId, out chainIndices)) indices.AddRange(chainIndices);
-                }
-                Unite(parent, indices);
-            }
-            // The vertices that lie on one level: those of every cross-sweep side of a wall, and those of every
-            // cross section face. A side is taken whole, not an edge at a time: a split carried across onto the
-            // end of a block cuts the side into several edges, and the vertex between them lies on no chain, so
-            // edge by edge the two ends of the side would no longer be tied to one level
-            // A cross section face is the end of one block and is a level only of that block's chains: the end of a
-            // block swept across a bar holds vertices of the bar's chains at different places along it, and
-            // with every chain of a compound in one family would tie them all to one level
-            int[] vertexIds;
-            List<int[]> levelVertexIds = new List<int[]>(crossSectionVertexIds);
-            List<int> levelGroupBlockIndices = new List<int>(crossSectionBlockIndices);
-            foreach (var wall in walls)
-            {
-                foreach (var sideEdgeIds in new int[][] { wall.SourceEdgeIds, wall.TargetEdgeIds })
-                {
-                    int[] runParent = null;
-                    Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
-                    List<int[]> edgeVertexIds = new List<int[]>();
-                    foreach (var edgeId in sideEdgeIds)
-                    {
-                        Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
-                        edgeVertexIds.Add(vertexIds);
-                        foreach (var vertexId in vertexIds)
-                        {
-                            if (!vertexIdIndex.ContainsKey(vertexId)) vertexIdIndex.Add(vertexId, vertexIdIndex.Count);
-                        }
-                    }
-                    runParent = Enumerable.Range(0, vertexIdIndex.Count).ToArray();
-                    foreach (var ids in edgeVertexIds) Unite(runParent, ids.Select(id => vertexIdIndex[id]).ToList());
-                    foreach (var run in vertexIdIndex.GroupBy(entry => Find(runParent, entry.Value)))
-                    {
-                        if (run.Count() < 2) continue;
-                        levelVertexIds.Add(run.Select(entry => entry.Key).ToArray());
-                        levelGroupBlockIndices.Add(-1);
-                    }
-                }
-                // The two sides of a wall along the sweep run in step, so a vertex partway along one of them and
-                // a vertex at the same fraction of the other are where one grid line of the wall crosses them.
-                // Splits carried across the neighbours of the wall put such vertices on both sides at one place
-                // with no edge between them - the two splits lie on the faces on either side of the wall - and
-                // only this ties them to one level
-                foreach (var pair in GetWallSideVertexPairs(wall, edgeIdChainIndices.ContainsKey))
-                {
-                    levelVertexIds.Add(pair);
-                    levelGroupBlockIndices.Add(-1);
-                }
-            }
+            Dictionary<int, List<int>> edgeIdChainIndices;
+            int[] parent = GetChainFamilyParents(chains, walls, out edgeIdChainIndices);
+            List<int> levelGroupBlockIndices;
+            List<int[]> levelVertexIds = GetLevelVertexGroups(walls, crossSectionVertexIds, crossSectionBlockIndices,
+                                                              edgeIdChainIndices.ContainsKey, out levelGroupBlockIndices);
             //
             List<List<int>> families = Enumerable.Range(0, chains.Count).GroupBy(i => Find(parent, i))
                                                  .Select(group => group.ToList()).ToList();
@@ -872,6 +804,207 @@ namespace CaeMesh.Sweep
                                                                                          entry.Item2 / position)).ToList();
             fractions.Add(new Tuple<int, double>(-1, position));
             return fractions;
+        }
+        /// <summary>
+        /// The stretches of the chains that must carry the same number of elements, in pairs of edge lists: between two
+        /// levels along the sweep every chain running through both carries one count. The levels are the ones the layer
+        /// counts are resolved over - a vertex reached by several chains of a family, the vertices of a cross-sweep side
+        /// of a wall and the vertex pairs across it within the family of the wall, and the ends of a block across every
+        /// family of its chains, which makes the families of a block count the same layers.
+        /// </summary>
+        public static List<int[][]> GetLevelSegmentPairs(List<SweepChain> chains, List<SweepWall> walls,
+                                                         List<int[]> crossSectionVertexIds,
+                                                         List<int> crossSectionBlockIndices, List<int> chainBlockIndices)
+        {
+            List<int[][]> pairs = new List<int[][]>();
+            if (chains.Count == 0) return pairs;
+            //
+            Dictionary<int, List<int>> edgeIdChainIndices;
+            int[] familyParent = GetChainFamilyParents(chains, walls, out edgeIdChainIndices);
+            // The faces at one end of a block meet at vertices no chain runs through - the top of a plate and the tops of
+            // the bosses standing on it - and are one level all the same
+            List<int[]> mergedSectionVertexIds = new List<int[]>();
+            List<int> mergedSectionBlockIndices = new List<int>();
+            foreach (var block in Enumerable.Range(0, crossSectionVertexIds.Count).GroupBy(g => crossSectionBlockIndices[g]))
+            {
+                int[] sections = block.ToArray();
+                int[] sectionParent = Enumerable.Range(0, sections.Length).ToArray();
+                for (int i = 0; i < sections.Length; i++)
+                {
+                    for (int j = i + 1; j < sections.Length; j++)
+                    {
+                        if (crossSectionVertexIds[sections[i]].Intersect(crossSectionVertexIds[sections[j]]).Any())
+                            Unite(sectionParent, new List<int>() { i, j });
+                    }
+                }
+                foreach (var merged in Enumerable.Range(0, sections.Length).GroupBy(i => Find(sectionParent, i)))
+                {
+                    mergedSectionVertexIds.Add(merged.SelectMany(i => crossSectionVertexIds[sections[i]]).Distinct().ToArray());
+                    mergedSectionBlockIndices.Add(block.Key);
+                }
+            }
+            List<int> groupBlockIndices;
+            List<int[]> groups = GetLevelVertexGroups(walls, mergedSectionVertexIds, mergedSectionBlockIndices,
+                                                      edgeIdChainIndices.ContainsKey, out groupBlockIndices);
+            Func<int, int> getBlock = c => chainBlockIndices != null && c < chainBlockIndices.Count ? chainBlockIndices[c] : -1;
+            // Every chain vertex is a position
+            List<int> chainOfPosition = new List<int>();
+            int[] firstPosition = new int[chains.Count];
+            Dictionary<int, List<int>> vertexIdPositions = new Dictionary<int, List<int>>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                firstPosition[c] = chainOfPosition.Count;
+                foreach (var vertexId in chains[c].VertexIds)
+                {
+                    List<int> positions;
+                    if (!vertexIdPositions.TryGetValue(vertexId, out positions))
+                        vertexIdPositions.Add(vertexId, positions = new List<int>());
+                    positions.Add(chainOfPosition.Count);
+                    chainOfPosition.Add(c);
+                }
+            }
+            int[] level = Enumerable.Range(0, chainOfPosition.Count).ToArray();
+            Func<int, int> getFamily = position => Find(familyParent, chainOfPosition[position]);
+            foreach (var positions in vertexIdPositions.Values)
+            {
+                foreach (var family in positions.GroupBy(getFamily)) Unite(level, family.ToList());
+            }
+            for (int g = 0; g < groups.Count; g++)
+            {
+                List<int> positions;
+                List<int> groupPositions = new List<int>();
+                foreach (var vertexId in groups[g])
+                {
+                    if (!vertexIdPositions.TryGetValue(vertexId, out positions)) continue;
+                    groupPositions.AddRange(positions.Where(position => groupBlockIndices[g] < 0 ||
+                                                                        getBlock(chainOfPosition[position]) < 0 ||
+                                                                        getBlock(chainOfPosition[position]) == groupBlockIndices[g]));
+                }
+                // A face holding two vertices of one chain crosses the sweep of that family rather than cutting it
+                List<List<int>> familyParts = groupPositions.Distinct().GroupBy(getFamily).Select(part => part.ToList())
+                                                            .Where(part => part.Select(position => chainOfPosition[position])
+                                                                               .Distinct().Count() == part.Count)
+                                                            .ToList();
+                if (groupBlockIndices[g] >= 0)
+                {
+                    Unite(level, familyParts.SelectMany(part => part).ToList());
+                    continue;
+                }
+                foreach (var part in familyParts) Unite(level, part);
+            }
+            // Every stretch of a chain between two of its levels, keyed by the two levels
+            Dictionary<long, int[]> levelPairEdgeIds = new Dictionary<long, int[]>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                int[] edgeIds = chains[c].EdgeIds;
+                for (int i = 0; i < edgeIds.Length; i++)
+                {
+                    for (int j = i + 1; j <= edgeIds.Length; j++)
+                    {
+                        long levelI = Find(level, firstPosition[c] + i);
+                        long levelJ = Find(level, firstPosition[c] + j);
+                        if (levelI == levelJ) continue;
+                        long key = Math.Min(levelI, levelJ) * chainOfPosition.Count + Math.Max(levelI, levelJ);
+                        int[] stretch = edgeIds.Skip(i).Take(j - i).ToArray();
+                        int[] other;
+                        if (!levelPairEdgeIds.TryGetValue(key, out other)) levelPairEdgeIds.Add(key, stretch);
+                        else if (!other.OrderBy(id => id).SequenceEqual(stretch.OrderBy(id => id)))
+                            pairs.Add(new int[][] { other, stretch });
+                    }
+                }
+            }
+            return pairs;
+        }
+        /// <summary>
+        /// The families of the chains: chains joined by a shared edge or by a wall they are the two sides of, as the
+        /// parents of a union, with the chains every edge lies on.
+        /// </summary>
+        private static int[] GetChainFamilyParents(List<SweepChain> chains, List<SweepWall> walls,
+                                                   out Dictionary<int, List<int>> edgeIdChainIndices)
+        {
+            int[] parent = Enumerable.Range(0, chains.Count).ToArray();
+            edgeIdChainIndices = new Dictionary<int, List<int>>();
+            for (int i = 0; i < chains.Count; i++)
+            {
+                foreach (var edgeId in chains[i].EdgeIds)
+                {
+                    List<int> indices;
+                    if (!edgeIdChainIndices.TryGetValue(edgeId, out indices))
+                    {
+                        indices = new List<int>();
+                        edgeIdChainIndices.Add(edgeId, indices);
+                    }
+                    indices.Add(i);
+                }
+            }
+            foreach (var indices in edgeIdChainIndices.Values) Unite(parent, indices);
+            foreach (var wall in walls)
+            {
+                List<int> indices = new List<int>();
+                foreach (var edgeId in wall.DirectionEdgeIds)
+                {
+                    List<int> chainIndices;
+                    if (edgeIdChainIndices.TryGetValue(edgeId, out chainIndices)) indices.AddRange(chainIndices);
+                }
+                Unite(parent, indices);
+            }
+            return parent;
+        }
+        /// <summary>
+        /// The groups of vertices that lie on one level along the sweep, each with the block it is a level of, or -1 for
+        /// a level of every block.
+        /// </summary>
+        private static List<int[]> GetLevelVertexGroups(List<SweepWall> walls, List<int[]> crossSectionVertexIds,
+                                                        List<int> crossSectionBlockIndices, Func<int, bool> isChainEdge,
+                                                        out List<int> levelGroupBlockIndices)
+        {
+            // The vertices that lie on one level: those of every cross-sweep side of a wall, and those of every
+            // cross section face. A side is taken whole, not an edge at a time: a split carried across onto the
+            // end of a block cuts the side into several edges, and the vertex between them lies on no chain, so
+            // edge by edge the two ends of the side would no longer be tied to one level
+            // A cross section face is the end of one block and is a level only of that block's chains: the end of a
+            // block swept across a bar holds vertices of the bar's chains at different places along it, and
+            // with every chain of a compound in one family would tie them all to one level
+            int[] vertexIds;
+            List<int[]> levelVertexIds = new List<int[]>(crossSectionVertexIds);
+            levelGroupBlockIndices = new List<int>(crossSectionBlockIndices);
+            foreach (var wall in walls)
+            {
+                foreach (var sideEdgeIds in new int[][] { wall.SourceEdgeIds, wall.TargetEdgeIds })
+                {
+                    int[] runParent = null;
+                    Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
+                    List<int[]> edgeVertexIds = new List<int[]>();
+                    foreach (var edgeId in sideEdgeIds)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                        edgeVertexIds.Add(vertexIds);
+                        foreach (var vertexId in vertexIds)
+                        {
+                            if (!vertexIdIndex.ContainsKey(vertexId)) vertexIdIndex.Add(vertexId, vertexIdIndex.Count);
+                        }
+                    }
+                    runParent = Enumerable.Range(0, vertexIdIndex.Count).ToArray();
+                    foreach (var ids in edgeVertexIds) Unite(runParent, ids.Select(id => vertexIdIndex[id]).ToList());
+                    foreach (var run in vertexIdIndex.GroupBy(entry => Find(runParent, entry.Value)))
+                    {
+                        if (run.Count() < 2) continue;
+                        levelVertexIds.Add(run.Select(entry => entry.Key).ToArray());
+                        levelGroupBlockIndices.Add(-1);
+                    }
+                }
+                // The two sides of a wall along the sweep run in step, so a vertex partway along one of them and
+                // a vertex at the same fraction of the other are where one grid line of the wall crosses them.
+                // Splits carried across the neighbours of the wall put such vertices on both sides at one place
+                // with no edge between them - the two splits lie on the faces on either side of the wall - and
+                // only this ties them to one level
+                foreach (var pair in GetWallSideVertexPairs(wall, isChainEdge))
+                {
+                    levelVertexIds.Add(pair);
+                    levelGroupBlockIndices.Add(-1);
+                }
+            }
+            return levelVertexIds;
         }
         /// <summary>
         /// Pairs the vertices partway along two sides of equal length that lie at the same fraction of them. Two

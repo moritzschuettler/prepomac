@@ -3659,6 +3659,64 @@ namespace CaeMesh
                                                       Dictionary<int, int> directionEdgeIdNumOfElements = null)
         {
             GenerateMesh(1);
+            IntervalProblem intervalProblem = null;
+            if (SweepIntervalShadow.Enabled)
+            {
+                try
+                {
+                    intervalProblem = GetSweepIntervalProblem(walls, chains, chainBlockIndices, directionEdgeIdNumOfElements);
+                }
+                catch (Exception ex)
+                {
+                    SweepIntervalShadow.Report(new IntervalProblem(edgeId => 1), null, "building the problem failed: " + ex,
+                                               NameGmshEntities);
+                }
+            }
+            Dictionary<int, int> edgeIdNumOfElements;
+            IntervalSolution appliedSolution = null;
+            if (intervalProblem != null && SweepIntervalShadow.Apply && directionEdgeIdNumOfElements == null &&
+                _quadWildSourceIds.Count == 0)
+            {
+                appliedSolution = intervalProblem.Solve(false, 20);
+                if (!appliedSolution.HasCounts) appliedSolution = null;
+            }
+            if (appliedSolution != null)
+            {
+                edgeIdNumOfElements = appliedSolution.EdgeIdNumOfElements;
+                directionEdgeIdNumOfElements = walls.SelectMany(wall => wall.DirectionEdgeIds).Distinct()
+                                                    .ToDictionary(edgeId => edgeId, edgeId => edgeIdNumOfElements[edgeId]);
+                _crossEdgeMinimums = GetCrossEdgeMinimums(walls, GetTransfiniteSourceTiedEdgeGroups(walls));
+                _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
+                _transfiniteSourcePins = new Dictionary<int, int>();
+                foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                _writeOutput?.Invoke("Sweep: the element counts of " + edgeIdNumOfElements.Count + " edges were solved by " +
+                                     "the interval assignment, giving up " + appliedSolution.ViolatedRows.Count +
+                                     " soft row/s.");
+                CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
+            }
+            else
+            {
+                try
+                {
+                    directionEdgeIdNumOfElements = SettleWallEdges(walls, chains, chainBlockIndices,
+                                                                   directionEdgeIdNumOfElements, out edgeIdNumOfElements);
+                }
+                catch (CaeException ex)
+                {
+                    SweepIntervalShadow.Report(intervalProblem, null, ex.Message, NameGmshEntities);
+                    throw;
+                }
+            }
+            SweepIntervalShadow.Report(intervalProblem, edgeIdNumOfElements, null, NameGmshEntities);
+            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
+            foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            return directionEdgeIdNumOfElements;
+        }
+        private Dictionary<int, int> SettleWallEdges(List<SweepWall> walls, List<SweepChain> chains,
+                                                     List<int> chainBlockIndices,
+                                                     Dictionary<int, int> directionEdgeIdNumOfElements,
+                                                     out Dictionary<int, int> edgeIdNumOfElements)
+        {
             // How many elements each edge following the sweep direction gets, from the levels along the sweep
             // the chains define - so that the two sides of every wall add up to the same total, however each
             // of them is split. A direction edge on no chain keeps the count the user pinned on it, else the
@@ -3686,15 +3744,149 @@ namespace CaeMesh
                 }
             }
             Dictionary<int, int> pinnedEdgeIdNumOfElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
-            Dictionary<int, int> edgeIdNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups, directionEdgeIdNumOfElements);
+            edgeIdNumOfElements = ResolveWallCounts(walls, tiedEdgeGroups, directionEdgeIdNumOfElements);
             edgeIdNumOfElements = EvenOutSourceParity(walls, tiedEdgeGroups, directionEdgeIdNumOfElements,
                                                       pinnedEdgeIdNumOfElements, edgeIdNumOfElements);
             foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
             //
             CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
-            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
-            foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             return directionEdgeIdNumOfElements;
+        }
+        /// <summary>
+        /// The interval assignment of the sweep, every rule the counts of its edges follow in one problem, measured while
+        /// the 1D mesh is there: the two sides of every wall across and along the sweep, which tie the chains of a block
+        /// to one number of layers wall by wall, the imprint copies and the revolved chains, the parity of the sources a full-quad
+        /// recombination or QuadWild meshes, and the structured sources, which may still be meshed free. The counts the
+        /// user set and the layer counts held from an earlier round are fixed; every other edge aims at the count the
+        /// mesh size gives it.
+        /// </summary>
+        private IntervalProblem GetSweepIntervalProblem(List<SweepWall> walls, List<SweepChain> chains,
+                                                        List<int> chainBlockIndices,
+                                                        Dictionary<int, int> heldDirectionEdgeIdNumOfElements)
+        {
+            int count;
+            IntervalProblem problem = new IntervalProblem(edgeId => SweepWallTopology.GetElementCount(edgeId));
+            // The walls
+            Dictionary<int, int> edgeIdChainIndex = new Dictionary<int, int>();
+            for (int c = 0; c < chains.Count; c++)
+            {
+                foreach (var edgeId in chains[c].EdgeIds) edgeIdChainIndex[edgeId] = c;
+            }
+            HashSet<int> wallEdgeIds = new HashSet<int>();
+            foreach (var wall in walls)
+            {
+                wallEdgeIds.UnionWith(wall.SourceEdgeIds.Concat(wall.TargetEdgeIds).Concat(wall.DirectionEdgeIds));
+                if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0)
+                {
+                    problem.AddEqualSums("Surface " + wall.SurfaceId + " across the sweep", IntervalRowTierEnum.Hard,
+                                         wall.SourceEdgeIds, wall.TargetEdgeIds);
+                    int[][] segments = GetOppositeSegments(wall.SourceEdgeIds, wall.TargetEdgeIds);
+                    if (segments != null)
+                    {
+                        for (int i = 0; i < segments[0].Length; i++)
+                            problem.AddEqualSums("Surface " + wall.SurfaceId + " segment " + (i + 1),
+                                                 IntervalRowTierEnum.Preferred, new int[] { segments[0][i] },
+                                                 new int[] { segments[1][i] });
+                    }
+                }
+                int[][] sides = wall.DirectionEdgeIds.GroupBy(edgeId => edgeIdChainIndex.TryGetValue(edgeId, out int c) ? c : -edgeId)
+                                                     .Select(group => group.ToArray()).ToArray();
+                if (sides.Length == 2)
+                    problem.AddEqualSums("Surface " + wall.SurfaceId + " along the sweep", IntervalRowTierEnum.Hard,
+                                         sides[0], sides[1]);
+                foreach (var edgeId in wall.DirectionEdgeIds) problem.AddEdge(edgeId);
+            }
+            // The levels along the sweep: every chain carries one count between two levels it runs through
+            List<int> crossSectionBlockIndices;
+            List<int[]> crossSectionVertexIds = GetCrossSectionVertexIds(out crossSectionBlockIndices);
+            List<int[][]> levelPairs = SweepWallTopology.GetLevelSegmentPairs(chains, walls, crossSectionVertexIds,
+                                                                             crossSectionBlockIndices, chainBlockIndices);
+            for (int i = 0; i < levelPairs.Count; i++)
+                problem.AddEqualSums("Level stretch " + (i + 1), IntervalRowTierEnum.Hard, levelPairs[i][0], levelPairs[i][1]);
+            SweepIntervalShadow.WriteTopology(chains, chainBlockIndices, walls, crossSectionVertexIds,
+                                              crossSectionBlockIndices, _sweepBlocks);
+            // The imprint copies and the revolved chains
+            if (_sweepBlocks != null)
+            {
+                foreach (var block in _sweepBlocks)
+                {
+                    if (block.ImprintEdgeCopyIds == null) continue;
+                    foreach (var entry in block.ImprintEdgeCopyIds)
+                        problem.AddEqualSums("Imprint Edge " + entry.Key + " of Edge " + entry.Value, IntervalRowTierEnum.Hard,
+                                             new int[] { entry.Key }, new int[] { entry.Value });
+                }
+            }
+            foreach (var revolvedBlock in _revolvedBlocks)
+            {
+                foreach (var chain in revolvedBlock.TargetEdgeChains)
+                    problem.AddEqualSums("Revolved onto Edge " + chain.Item2, IntervalRowTierEnum.Hard, chain.Item1,
+                                         new int[] { chain.Item2 });
+            }
+            // The structured sources: four edges the pass before the sweep made transfinite, and the chained and
+            // three-sided ones
+            int[] edgeIds;
+            int[] vertexIds;
+            if (_sweepBlocks != null)
+            {
+                foreach (var surfaceId in _sweepBlocks.SelectMany(block => block.SourceSurfaceIds).Distinct())
+                {
+                    if (!_transfiniteSurfaceIds.Contains(surfaceId)) continue;
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                    if (edgeIds.Length != 4) continue;
+                    edgeIds = edgeIds.Select(id => Math.Abs(id)).ToArray();
+                    int[][] edgeVertexIds = new int[4][];
+                    for (int j = 0; j < 4; j++)
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeIds[j], out _, out vertexIds);
+                        edgeVertexIds[j] = vertexIds;
+                    }
+                    int opposite = Enumerable.Range(1, 3).FirstOrDefault(j => !edgeVertexIds[0].Intersect(edgeVertexIds[j]).Any());
+                    if (opposite == 0) continue;
+                    int[] others = Enumerable.Range(1, 3).Where(j => j != opposite).ToArray();
+                    problem.AddEqualSums("Structured Surface " + surfaceId + " sides 1-3", IntervalRowTierEnum.Structured,
+                                         new int[] { edgeIds[0] }, new int[] { edgeIds[opposite] });
+                    problem.AddEqualSums("Structured Surface " + surfaceId + " sides 2-4", IntervalRowTierEnum.Structured,
+                                         new int[] { edgeIds[others[0]] }, new int[] { edgeIds[others[1]] });
+                }
+            }
+            foreach (var face in _structuredSourceFaces.Values)
+            {
+                if (face.NumberOfSides == 4)
+                {
+                    problem.AddEqualSums("Structured Surface " + face.FaceId + " sides 1-3", IntervalRowTierEnum.Structured,
+                                         face.SideEdgeIds[0], face.SideEdgeIds[2]);
+                    problem.AddEqualSums("Structured Surface " + face.FaceId + " sides 2-4", IntervalRowTierEnum.Structured,
+                                         face.SideEdgeIds[1], face.SideEdgeIds[3]);
+                }
+                else if (face.NumberOfSides == 3)
+                    problem.AddThreeSided("Structured Surface " + face.FaceId + " three blocks", IntervalRowTierEnum.Structured,
+                                          face.SideEdgeIds);
+            }
+            // The parity of the sources: a full-quad recombination halves every edge the walls fix, and QuadWild needs an
+            // even total around a source whose every edge they fix
+            foreach (var surfaceId in _fullQuadSourceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                foreach (var edgeId in edgeIds.Select(id => Math.Abs(id)).Where(wallEdgeIds.Contains))
+                    problem.AddEvenSum("Full-quad Surface " + surfaceId + " Edge " + edgeId, IntervalRowTierEnum.Hard,
+                                       new int[] { edgeId });
+            }
+            foreach (var surfaceId in _quadWildSourceIds)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                edgeIds = edgeIds.Select(id => Math.Abs(id)).Distinct().ToArray();
+                if (edgeIds.All(wallEdgeIds.Contains))
+                    problem.AddEvenSum("QuadWild Surface " + surfaceId, IntervalRowTierEnum.Hard, edgeIds);
+            }
+            // The counts that do not move
+            foreach (var edgeId in problem.EdgeIds.ToArray())
+            {
+                if (heldDirectionEdgeIdNumOfElements != null &&
+                    heldDirectionEdgeIdNumOfElements.TryGetValue(edgeId, out count)) problem.FixEdge(edgeId, count);
+                else if (IsFixedEdgeCount(edgeId) && (_userPinnedEdgeIds == null || _userPinnedEdgeIds.Contains(edgeId)))
+                    problem.FixEdge(edgeId, _gmshData.EdgeIdNumElements[edgeId]);
+            }
+            return problem;
         }
         /// <summary>
         /// The counts of every edge of the walls, from the layer counts and the counts measured on the 1D mesh, which

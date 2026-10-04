@@ -1446,6 +1446,9 @@ VER &gt; NUL
 rem Gmsh runtime dll is vendored in ThirdParty - the sdk it comes from is what GmshCommon links against
 copy "$(SolutionDir)ThirdParty\gmsh-4.13.0-Windows64-sdk\lib\gmsh-4.13.dll" "$(TargetDir)lib\gmsh-4.13.dll"
 
+rem lp_solve solves the element counts of the edges; it sits next to GmshCaller.exe, which loads it
+copy "$(SolutionDir)ThirdParty\lpsolve\lpsolve55.dll" "$(TargetDir)lib\lpsolve55.dll"
+
 rem Mmg binaries are vendored in ThirdParty so a build produces a working Meshers\Mmg
 IF NOT EXIST "$(TargetDir)Meshers\Mmg\" mkdir "$(TargetDir)Meshers\Mmg\"
 copy "$(SolutionDir)ThirdParty\mmg\mmgs.exe" "$(TargetDir)Meshers\Mmg\mmgs.exe"
@@ -1463,6 +1466,7 @@ rem License texts that must travel with the distributed binaries
 copy "$(SolutionDir)LICENSE" "$(TargetDir)LICENSE"
 IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\LICENSE.txt" "$(TargetDir)lib\gmsh-LICENSE.txt"
 IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\CREDITS.txt" "$(TargetDir)lib\gmsh-CREDITS.txt"
+IF EXIST "$(TargetDir)lib\lpsolve55.dll" copy "$(SolutionDir)Licenses\lpsolve\LGPL-2.1.txt" "$(TargetDir)lib\lpsolve-LGPL-2.1.txt"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\LICENSE" "$(TargetDir)Meshers\Mmg\LICENSE"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING.LESSER" "$(TargetDir)Meshers\Mmg\COPYING.LESSER"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING" "$(TargetDir)Meshers\Mmg\COPYING"

@@ -22,6 +22,7 @@ only when that mesher's binary is actually present in the base folder.
 | OpenCASCADE 8.0.1 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
 | pthreads-win32 2.9.1 | `Meshers\Netgen\pthreadVC2.dll` | LGPL-2.1 | `COPYING.LIB` in the prebuilt package used for the build |
 | zlib 1.2.11 | `Meshers\Netgen\zlib.dll` | zlib License | license notice in the vendored `zlib.h` |
+| lp_solve 5.5.2.11 | `lib\lpsolve55.dll`, vendored in `ThirdParty/lpsolve/` | LGPL-2.1 | `README.txt` of the lp_solve 5.5 sources, sourceforge.net/projects/lpsolve |
 
 Gmsh, Mmg and QuadWild are all GPL/LGPL v3-compatible with PrePoMax's own GPL-3.0, so bundling them
 raises no license-compatibility question. Mmg's own LICENSE requires that both `COPYING.LESSER`
