@@ -72,7 +72,10 @@ optimisation no longer collapses an edge of a pyramid, which merged a pyramid's 
 pyramid as the four tetrahedra its points span, which keeps the apex from being moved through the base. A pyramid is scaled by its own
 quadrilateral rather than by the coarser local mesh size, so that pyramids in an inside corner do not lean
 over one another, and a pyramid whose quadrilateral closes an angle sharper than a right one with another
-quadrilateral is lowered, so that the pyramid of the other face still fits.
+quadrilateral is lowered, so that the pyramid of the other face still fits. Its `BREP_COMPOUND` writes the
+solid where parts overlap once - the general fuse lists it in the image of every part it lies in - and
+writes `<out.brep>.origins` beside the result, one line per solid listing every input solid it lies in,
+which is how a compound with a split part among its parts gathers its solids.
 
 The `PostBuildEvent` in `PrePoMax.csproj` copies this folder into `$(TargetDir)Meshers\Netgen`.
 License texts are added separately from `Licenses/netgen/`.

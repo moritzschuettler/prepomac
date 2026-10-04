@@ -27,7 +27,9 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Creates a compound part from the named parts using command history.",
+        [PythonAPI("Creates a compound part from the named parts using command history. When one of them is a " +
+                   "compound part made by split_solid, the solids are gathered into sub-parts after the parts they " +
+                   "came from, and a solid where the parts overlap is a sub-part of its own named Overlap.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void create_compound(object part_names)
         {

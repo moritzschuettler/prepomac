@@ -880,6 +880,16 @@ steel = compound.get_split_cell_names('Web')[:2]
 pmx.model.geometry.parts.group_split_cells(compound.name, steel, 'Steel')
 ```
 
+`create_compound(part_names)` imprints the parts on one another, so a solid is cut wherever another part
+crosses it, and where two parts overlap the overlap is one solid of the compound. A compound of plain
+parts makes every solid a sub-part of its own. When one of the parts is a compound made by `split_solid`,
+the compound is split as well: its solids are gathered under the parts they came from - the cells of a
+split part stay one sub-part, and so do the pieces of a plain part the others cut - and a solid where
+the parts overlap is a sub-part of its own, `Overlap-1`, ..., which `group_split_cells` puts under the
+part it belongs to. The parts the compound is made of stay in the model, hidden, so its sub-parts take
+names and part ids of their own, as a copy does. `regenerate_compound` keeps the sub-parts the compound
+has, including any grouping or renaming done on it.
+
 `fuse_bodies(part_name, body_names)` is Fuse Bodies in the tree, and it changes the geometry: the
 named bodies of a compound become one solid. A body is a sub-part of the compound, whether the
 compound was imported, created with `create_compound` or made by `split_solid`; of a split compound

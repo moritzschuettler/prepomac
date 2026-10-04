@@ -2256,6 +2256,7 @@ namespace PrePoMax
                     HideGeometryParts(partNames);
                     ImportBrepCompoundPart(brepFileName, partNames, targetGroupId,
                                            out compoundPartName, out importedPartNames);
+                    SetCompoundedSplitSubParts(partNames, compoundPartName, brepFileName);
                 }
             }
             else throw new NotSupportedException();
@@ -2276,8 +2277,10 @@ namespace PrePoMax
             for (int i = 0; i < partNames.Length; i++)
                 inFileNames[i] = inFileName + "_" + (i + 1).ToString().PadLeft(4, '0') + ".brep";
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string originsFileName = GetSplitGeometryOriginsFileName(brepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            if (File.Exists(originsFileName)) File.Delete(originsFileName);
             // Write CAD
             for (int i = 0; i < partNames.Length; i++)
                 File.WriteAllText(inFileNames[i], ((GeometryPart)_model.Geometry.Parts[partNames[i]]).CADFileData);
@@ -4993,6 +4996,123 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
         }
+        /// <summary>
+        /// A compound made of parts of which one is split into cells gathers its solids under the sub parts they come
+        /// from, so the cells of a split part are still meshed as one part, and so are the pieces of a plain part the
+        /// others cut. A solid where the parts overlap lies in several of them, and which one it belongs to is the
+        /// user's to say, so it is put under a sub part of its own, to be grouped under the right part. The parts the
+        /// compound is made of stay in the model, so its sub parts take names and part ids of their own, as a copy does.
+        /// </summary>
+        private void SetCompoundedSplitSubParts(string[] sourcePartNames, string compoundPartName, string brepFileName)
+        {
+            BasePart basePart;
+            if (compoundPartName == null || !_model.Geometry.Parts.TryGetValue(compoundPartName, out basePart) ||
+                !(basePart is CompoundGeometryPart compoundPart)) return;
+            // The solids of the parts in the order they were written out, each with the sub part it belongs to
+            bool splitSource = false;
+            List<string> sourceSubPartNames = new List<string>();
+            List<Color> sourceColors = new List<Color>();
+            foreach (string sourcePartName in sourcePartNames)
+            {
+                GeometryPart sourcePart = (GeometryPart)_model.Geometry.Parts[sourcePartName];
+                if (sourcePart is CompoundGeometryPart sourceCompoundPart)
+                {
+                    splitSource |= sourceCompoundPart.CreatedBySplit;
+                    GeometryPart[] cells = GetSubParts(sourceCompoundPart.Name);
+                    for (int i = 0; i < cells.Length; i++)
+                    {
+                        sourceSubPartNames.Add(sourceCompoundPart.CellSubPartNames?[i] ?? cells[i].Name);
+                        sourceColors.Add(cells[i].Color);
+                    }
+                }
+                else
+                {
+                    sourceSubPartNames.Add(sourcePart.Name);
+                    sourceColors.Add(sourcePart.Color);
+                }
+            }
+            if (!splitSource) return;
+            //
+            int[][] origins = ReadCompoundGeometryOrigins(brepFileName, compoundPart.SubPartNames.Length,
+                                                          sourceSubPartNames.Count);
+            if (origins == null)
+            {
+                _form.WriteDataToOutput("Compound: the mesher did not say which part each solid of the compound part " +
+                                        compoundPartName + " came from, so every solid is a part of its own.");
+                return;
+            }
+            // A solid of one part joins its sub part, one of several parts the sub part of their overlap, and one of
+            // none a sub part of its own
+            const char keySeparator = '\n';
+            string[] cellKeys = new string[origins.Length];
+            for (int i = 0; i < origins.Length; i++)
+            {
+                string[] cellSourceSubPartNames = origins[i].Select(origin => sourceSubPartNames[origin - 1])
+                                                            .Distinct().ToArray();
+                if (cellSourceSubPartNames.Length == 0) cellKeys[i] = keySeparator + compoundPart.SubPartNames[i];
+                else cellKeys[i] = string.Join(keySeparator.ToString(), cellSourceSubPartNames);
+            }
+            List<string> keys = sourceSubPartNames.Distinct().Where(key => cellKeys.Contains(key)).ToList();
+            List<string> overlapKeys = cellKeys.Distinct().Where(key => !keys.Contains(key)).ToList();
+            // The cells are renamed after their sub parts, so the names they were imported with are free
+            HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
+                                                                StringComparer.OrdinalIgnoreCase);
+            reservedNames.ExceptWith(compoundPart.SubPartNames);
+            HashSet<int> reservedPartIds = _model.GetReservedPartIds();
+            Dictionary<string, string> subPartNames = new Dictionary<string, string>();
+            Dictionary<string, int> subPartIds = new Dictionary<string, int>();
+            foreach (string key in keys.Concat(overlapKeys))
+            {
+                string baseName;
+                if (keys.Contains(key)) baseName = NamedClass.GetNameWithoutLastValue(key);
+                else if (key[0] == keySeparator) baseName = NamedClass.GetNameWithoutLastValue(key.Substring(1));
+                else baseName = "Overlap";
+                string subPartName = reservedNames.GetNextNumberedKey(baseName);
+                reservedNames.Add(subPartName);
+                subPartNames.Add(key, subPartName);
+                //
+                int subPartId = 1;
+                while (reservedPartIds.Contains(subPartId)) subPartId++;
+                reservedPartIds.Add(subPartId);
+                subPartIds.Add(key, subPartId);
+            }
+            //
+            string[] cellSubPartNames = new string[cellKeys.Length];
+            int[] cellSubPartIds = new int[cellKeys.Length];
+            for (int i = 0; i < cellKeys.Length; i++)
+            {
+                cellSubPartNames[i] = subPartNames[cellKeys[i]];
+                cellSubPartIds[i] = subPartIds[cellKeys[i]];
+            }
+            compoundPart.CellSubPartNames = cellSubPartNames;
+            compoundPart.CellSubPartIds = cellSubPartIds;
+            compoundPart.SplitSubPartOrder = keys.Concat(overlapKeys).Select(key => subPartNames[key]).ToArray();
+            // A cell keeps the color of the solid it came from, and the cell of an overlap is colored as a new part
+            for (int i = 0; i < cellKeys.Length; i++)
+            {
+                BasePart cell = _model.Geometry.Parts[compoundPart.SubPartNames[i]];
+                if (origins[i].Length > 0 && keys.Contains(cellKeys[i])) cell.Color = sourceColors[origins[i][0] - 1];
+                else SetGeometryPartColorFromColorTable(cell);
+            }
+            RenameSplitCells(compoundPart);
+            foreach (string cellName in compoundPart.SubPartNames)
+            {
+                BasePart cell = _model.Geometry.Parts[cellName];
+                _form.UpdateActor(cell.Name, cell.Name, GetDrawnGeometryPartColor(cell));
+            }
+            _effectiveMeshTypes = null;
+            //
+            foreach (string overlapKey in overlapKeys)
+            {
+                if (overlapKey[0] == keySeparator) continue;
+                string[] overlappingNames = overlapKey.Split(keySeparator)
+                    .Select(key => subPartNames.ContainsKey(key) ? subPartNames[key] : key).ToArray();
+                _form.WriteDataToOutput("Compound: the parts " + string.Join(", ", overlappingNames) + " overlap. The " +
+                                        "overlap is the sub-part " + subPartNames[overlapKey] + " of the compound part " +
+                                        compoundPartName + "; group its cells under the part they belong to.");
+            }
+            _form.RegenerateTree();
+        }
         // End Transform
         public void CopyGeometryPartsToResults(string[] partNames)
         {
@@ -5585,9 +5705,18 @@ namespace PrePoMax
             // Get new parts
             importedCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
             importedSubParts = GetSubParts(newCompoundPartName);
-            importedCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
-            importedCompoundPart.CellSubPartIds = compoundPart.CellSubPartIds?.ToArray();
-            importedCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
+            // The compound keeps the sub parts it has, which the user may have grouped or renamed since. One made
+            // before the cells of a split part were gathered keeps those the regeneration gathered them under
+            bool keepImportedSplitSubParts = importedCompoundPart.CreatedBySplit && !compoundPart.CreatedBySplit;
+            CompoundGeometryPart splitSubPartsSource = keepImportedSplitSubParts ? importedCompoundPart : compoundPart;
+            string[] cellSubPartNames = splitSubPartsSource.CellSubPartNames?.ToArray();
+            int[] cellSubPartIds = splitSubPartsSource.CellSubPartIds?.ToArray();
+            string[] splitSubPartOrder = splitSubPartsSource.SplitSubPartOrder?.ToArray();
+            // The cells take the names of the cells they replace before the sub parts are set, since the only cell of
+            // a sub part carries its name, which the sub part would otherwise already hold
+            importedCompoundPart.CellSubPartNames = null;
+            importedCompoundPart.CellSubPartIds = null;
+            importedCompoundPart.SplitSubPartOrder = null;
             if (subParts.Length != importedSubParts.Length)
                 throw new CaeException("The regenerated compound part has a different number of sub-parts " +
                                        "than before the regeneration.");
@@ -5622,6 +5751,10 @@ namespace PrePoMax
                 properties.Color = subParts[i].Color;
                 ReplaceGeometryPartProperties(importedSubParts[i].Name, properties);
             }
+            importedCompoundPart.CellSubPartNames = cellSubPartNames;
+            importedCompoundPart.CellSubPartIds = cellSubPartIds;
+            importedCompoundPart.SplitSubPartOrder = splitSubPartOrder;
+            if (keepImportedSplitSubParts) RenameSplitCells(importedCompoundPart);
             // Keep regenerated hidden subpart layout items with their compound parent.
             MoveOrderedDictionaryItemsToGroup(_model.Geometry.Parts, importedCompoundPart.SubPartNames,
                                               targetGroupId);
@@ -7251,6 +7384,34 @@ namespace PrePoMax
                                         "came from.");
                 return null;
             }
+            return origins.ToArray();
+        }
+        /// <summary>
+        /// The solids of the parts each solid of a compound lies in, numbered from one over the solids of all the parts
+        /// in the order they were written out, as the mesher writes them beside the result: one where the solid lies in
+        /// one part, several where the parts overlap, and none where the mesher found no part around it. An answer
+        /// without a line for every solid is no answer.
+        /// </summary>
+        private int[][] ReadCompoundGeometryOrigins(string brepFileName, int numOfSolids, int numOfSourceSolids)
+        {
+            string originsFileName = GetSplitGeometryOriginsFileName(brepFileName);
+            if (!File.Exists(originsFileName)) return null;
+            //
+            List<int[]> origins = new List<int[]>();
+            foreach (string line in File.ReadAllLines(originsFileName))
+            {
+                if (line.Trim().Length == 0) continue;
+                //
+                List<int> solidOrigins = new List<int>();
+                foreach (string value in line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    int origin;
+                    if (!int.TryParse(value, out origin) || origin < 0 || origin > numOfSourceSolids) return null;
+                    if (origin > 0) solidOrigins.Add(origin);
+                }
+                origins.Add(solidOrigins.ToArray());
+            }
+            if (origins.Count != numOfSolids) return null;
             return origins.ToArray();
         }
         /// <summary>
