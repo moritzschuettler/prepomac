@@ -7612,6 +7612,21 @@ namespace PrePoMax
             properties.Name = newCellName;
             ReplaceGeometryPartProperties(oldCellName, properties, false);
         }
+        private int GetGeometryPartEdgeCount(string partName)
+        {
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out part)) return 0;
+            //
+            string[] partNames = part is CompoundGeometryPart compoundPart ? compoundPart.SubPartNames :
+                                                                           new string[] { partName };
+            int edgeCount = 0;
+            foreach (string name in partNames)
+            {
+                if (_model.Geometry.Parts.TryGetValue(name, out part) && part.Visualization != null)
+                    edgeCount += part.Visualization.EdgeCount;
+            }
+            return edgeCount;
+        }
         private int GetGeometryPartFaceCount(string partName)
         {
             BasePart part;
@@ -9801,6 +9816,7 @@ namespace PrePoMax
                 {
                     GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
                     int facesBefore = GetGeometryPartFaceCount(partName);
+                    int edgesBefore = GetGeometryPartEdgeCount(partName);
                     _lastGeometryOperationCounts[partName] = 0;
                     //
                     double tolerance = GetGeometryRepairTolerance(part, geometryRepair);
@@ -9825,6 +9841,11 @@ namespace PrePoMax
                         }
                         else ReplacePartGeometryFromFile(part, dividedBrepFileName, true);
                         _lastGeometryOperationCounts[partName] = facesBefore - GetGeometryPartFaceCount(resultPartName);
+                        // A repair may change the edges and leave every face, so both are reported
+                        _form.WriteDataToOutput("Repair geometry: the part " + partName + " went from " + facesBefore +
+                                                " to " + GetGeometryPartFaceCount(resultPartName) + " faces and from " +
+                                                edgesBefore + " to " + GetGeometryPartEdgeCount(resultPartName) +
+                                                " edges.");
                     }
                     finally
                     {
@@ -9840,7 +9861,6 @@ namespace PrePoMax
                 _form.RenderingOn = rendering;
             }
             //
-            WriteGeometryOperationReport("Repair geometry", "faces were removed");
             foreach (string partName in failedPartNames)
                 _form.WriteDataToOutput("Repair geometry: the part " + partName + " was left as it was.");
             foreach (string partName in refusedPartNames)
