@@ -40,7 +40,7 @@ namespace CaeMesh
             "strip_equal_sides 0", "bend_corners 0", "symmetric_mesh 0",
             "merge_infeasible_patches 0", "curve_max_angle 0", "even_holes 0",
             "feature_chain_smooth 0", "smooth_no_fold 0", "transfinite_three_sided 0", "transfinite_four_sided 0",
-            "bad_quad_short_side_corner 0"
+            "bad_quad_short_side_corner 0", "flat_side_padding 0"
         };
 
 
