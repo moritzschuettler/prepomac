@@ -35,6 +35,7 @@ namespace CaeMesh
         private readonly Dictionary<int, int> _edgeIdFixedCount;
         private readonly Dictionary<int, double> _edgeIdWeight;
         private readonly Dictionary<int, double> _edgeIdDownWeight;
+        private readonly Dictionary<int, int> _edgeIdMinimum;
         private readonly List<IntervalRow> _rows;
 
 
@@ -53,6 +54,7 @@ namespace CaeMesh
             _edgeIdFixedCount = new Dictionary<int, int>();
             _edgeIdWeight = new Dictionary<int, double>();
             _edgeIdDownWeight = new Dictionary<int, double>();
+            _edgeIdMinimum = new Dictionary<int, int>();
             _rows = new List<IntervalRow>();
         }
 
@@ -84,6 +86,14 @@ namespace CaeMesh
             AddEdge(edgeId);
             _edgeIdDownWeight[edgeId] = weight;
         }
+        /// <summary>
+        /// The fewest elements the edge may carry, unless its count is fixed.
+        /// </summary>
+        public void SetMinimum(int edgeId, int minimum)
+        {
+            AddEdge(edgeId);
+            _edgeIdMinimum[edgeId] = Math.Max(1, minimum);
+        }
         private double GetWeight(int edgeId)
         {
             double weight;
@@ -101,6 +111,10 @@ namespace CaeMesh
         public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side)
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }));
+        }
+        public void AddAtLeastSum(string name, IntervalRowTierEnum tier, int[] side, int bound, int surfaceId = 0)
+        {
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastSum, new int[][] { side }, surfaceId, bound));
         }
         public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides, int surfaceId = 0)
         {
@@ -161,7 +175,10 @@ namespace CaeMesh
             {
                 int target = _edgeIdTarget[edgeId];
                 bool isFixed = _edgeIdFixedCount.TryGetValue(edgeId, out fixedCount);
-                int column = addColumn("n" + edgeId, isFixed ? fixedCount : 1, isFixed ? fixedCount : LpSolve.Infinity, true, 0);
+                int minimum;
+                if (!_edgeIdMinimum.TryGetValue(edgeId, out minimum)) minimum = 1;
+                int column = addColumn("n" + edgeId, isFixed ? fixedCount : minimum, isFixed ? fixedCount : LpSolve.Infinity,
+                                       true, 0);
                 double weight = GetWeight(edgeId);
                 int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, weight * _upWeight / target);
                 int downColumn = addColumn("down" + edgeId, 0, LpSolve.Infinity, false,
@@ -190,7 +207,15 @@ namespace CaeMesh
                 else penalty = _preferredPenalty;
                 //
                 List<Dictionary<int, double>> rowCoefficients = new List<Dictionary<int, double>>();
-                if (row.Kind == IntervalRowKindEnum.EqualSums)
+                int rowType = LpSolve.EQ;
+                if (row.Kind == IntervalRowKindEnum.AtLeastSum)
+                {
+                    Dictionary<int, double> coefficients = new Dictionary<int, double>();
+                    addSide(coefficients, row.Sides[0], 1);
+                    rowCoefficients.Add(coefficients);
+                    rowType = LpSolve.GE;
+                }
+                else if (row.Kind == IntervalRowKindEnum.EqualSums)
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
                     addSide(coefficients, row.Sides[0], 1);
@@ -226,7 +251,8 @@ namespace CaeMesh
                         coefficients.Add(addColumn("plus" + r + "_" + i, 0, LpSolve.Infinity, false, penalty), 1);
                         coefficients.Add(addColumn("minus" + r + "_" + i, 0, LpSolve.Infinity, false, penalty), -1);
                     }
-                    lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(coefficients, LpSolve.EQ, 0));
+                    lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(coefficients, rowType,
+                                                                               rowType == LpSolve.GE ? row.Bound : 0));
                     rowNames.Add("row" + r + (rowCoefficients.Count > 1 ? "_" + i : ""));
                 }
             }

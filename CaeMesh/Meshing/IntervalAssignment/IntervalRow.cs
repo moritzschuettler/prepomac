@@ -24,6 +24,7 @@ namespace CaeMesh
         private readonly IntervalRowKindEnum _kind;
         private readonly int[][] _sides;
         private readonly int _surfaceId;
+        private readonly int _bound;
 
 
         // Properties
@@ -33,17 +34,20 @@ namespace CaeMesh
         public int[][] Sides { get { return _sides; } }
         /// <summary>The surface whose grid the row keeps, or 0.</summary>
         public int SurfaceId { get { return _surfaceId; } }
+        /// <summary>The fewest elements an AtLeastSum row lets its side carry.</summary>
+        public int Bound { get { return _bound; } }
 
 
         // Constructors
         public IntervalRow(string name, IntervalRowTierEnum tier, IntervalRowKindEnum kind, int[][] sides,
-                           int surfaceId = 0)
+                           int surfaceId = 0, int bound = 0)
         {
             _name = name;
             _tier = tier;
             _kind = kind;
             _sides = sides;
             _surfaceId = surfaceId;
+            _bound = bound;
         }
 
 
@@ -53,6 +57,7 @@ namespace CaeMesh
             int[] sums = _sides.Select(side => side.Sum(getCount)).ToArray();
             if (_kind == IntervalRowKindEnum.EqualSums) return sums[0] == sums[1];
             if (_kind == IntervalRowKindEnum.EvenSum) return sums[0] % 2 == 0;
+            if (_kind == IntervalRowKindEnum.AtLeastSum) return sums[0] >= _bound;
             int total = sums.Sum();
             return total % 2 == 0 && sums.All(sum => 2 * sum < total);
         }
@@ -64,7 +69,8 @@ namespace CaeMesh
         {
             return string.Join(" | ", _sides.Select(side => string.Join(" + ", side.Select(id => "Edge " + id + "=" +
                                                                                                 getCount(id))) +
-                                                           " = " + side.Sum(getCount)));
+                                                           " = " + side.Sum(getCount))) +
+                   (_kind == IntervalRowKindEnum.AtLeastSum ? ", at least " + _bound : "");
         }
     }
 }

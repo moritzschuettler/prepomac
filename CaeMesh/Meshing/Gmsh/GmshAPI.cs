@@ -408,9 +408,79 @@ namespace CaeMesh
         /// radius and the tetrahedra refuse the surface as "overlapping facets", whatever the 2D algorithm and however
         /// fine the rest of the surface; with the half circles at 4 it meshes. So a pinned curve is given 2 elements for
         /// every 90° it turns, which halves it to chords turning 90° at most.
+        ///
+        /// The three rules are rows of one interval assignment over the pinned curves, which finds the counts closest to
+        /// the pinned ones, lower ones before higher ones; the rules applied one after the other are what is left when
+        /// lp_solve cannot be loaded or finds nothing in time.
         /// </summary>
         private List<int> MakeFullQuadEdgeCountsEven(IEnumerable<int> recombinedSurfaceIds,
                                                      Dictionary<int, int> edgeIdNumberOfElements)
+        {
+            List<int> changedEdgeIds = new List<int>();
+            if (recombinedSurfaceIds == null) return changedEdgeIds;
+            //
+            List<Tuple<int, List<int>>> loops = new List<Tuple<int, List<int>>>();
+            foreach (var surfaceId in recombinedSurfaceIds.Distinct().OrderBy(id => id))
+            {
+                foreach (var loop in GetBoundaryLoops(surfaceId)) loops.Add(new Tuple<int, List<int>>(surfaceId, loop));
+            }
+            HashSet<int> recombinedEdgeIds = new HashSet<int>(loops.SelectMany(loop => loop.Item2));
+            int[] pinnedEdgeIds = edgeIdNumberOfElements.Keys.Where(recombinedEdgeIds.Contains).OrderBy(id => id).ToArray();
+            if (pinnedEdgeIds.Length == 0) return changedEdgeIds;
+            //
+            Dictionary<int, double> edgeIdTurningDeg = pinnedEdgeIds.ToDictionary(id => id, id => GetTurningAngleDeg(id));
+            Dictionary<int, int> edgeIdMinimum = pinnedEdgeIds.ToDictionary(id => id, id =>
+                Math.Max(2, 2 * (int)Math.Ceiling(edgeIdTurningDeg[id] / 90 - 1E-3)));
+            IntervalProblem problem = new IntervalProblem(id => edgeIdNumberOfElements[id]);
+            foreach (var edgeId in pinnedEdgeIds)
+            {
+                problem.SetMinimum(edgeId, edgeIdMinimum[edgeId]);
+                problem.AddEvenSum("Edge " + edgeId, IntervalRowTierEnum.Hard, new int[] { edgeId });
+            }
+            Dictionary<int, int> edgeIdLoopSurfaceId = new Dictionary<int, int>();
+            foreach (var loop in loops)
+            {
+                if (!loop.Item2.All(edgeIdNumberOfElements.ContainsKey)) continue;
+                problem.AddAtLeastSum("Surface " + loop.Item1, IntervalRowTierEnum.Hard, loop.Item2.ToArray(), 6, loop.Item1);
+                foreach (var edgeId in loop.Item2) edgeIdLoopSurfaceId[edgeId] = loop.Item1;
+            }
+            IntervalSolution solution;
+            try
+            {
+                solution = problem.Solve(false, _intervalTimeoutSeconds);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is BadImageFormatException ||
+                                       ex is EntryPointNotFoundException)
+            {
+                solution = null;
+            }
+            if (solution == null || !solution.HasCounts)
+                return MakeFullQuadEdgeCountsEvenByRules(recombinedSurfaceIds, edgeIdNumberOfElements);
+            //
+            foreach (var edgeId in pinnedEdgeIds)
+            {
+                int setNumOfElements = edgeIdNumberOfElements[edgeId];
+                int numOfElements = solution.EdgeIdNumOfElements[edgeId];
+                if (numOfElements == setNumOfElements) continue;
+                //
+                edgeIdNumberOfElements[edgeId] = numOfElements;
+                changedEdgeIds.Add(edgeId);
+                string need = "an even number";
+                if (edgeIdMinimum[edgeId] > Math.Max(2, setNumOfElements - setNumOfElements % 2))
+                    need += " and at least 2 for every 90° the edge turns, which is " +
+                            Math.Round(edgeIdTurningDeg[edgeId]) + "°";
+                int loopSurfaceId;
+                if (numOfElements > Math.Max(edgeIdMinimum[edgeId], setNumOfElements + setNumOfElements % 2) &&
+                    edgeIdLoopSurfaceId.TryGetValue(edgeId, out loopSurfaceId))
+                    need += " and at least 6 around each boundary loop of Surface " + loopSurfaceId;
+                _writeOutput?.Invoke(NameGmshEntities("Warning: Edge " + edgeId + " has " + setNumOfElements +
+                                                      " elements set, but full-quad recombination needs " + need + ". " +
+                                                      numOfElements + " elements are used."));
+            }
+            return changedEdgeIds;
+        }
+        private List<int> MakeFullQuadEdgeCountsEvenByRules(IEnumerable<int> recombinedSurfaceIds,
+                                                            Dictionary<int, int> edgeIdNumberOfElements)
         {
             List<int> changedEdgeIds = new List<int>();
             if (recombinedSurfaceIds == null) return changedEdgeIds;
