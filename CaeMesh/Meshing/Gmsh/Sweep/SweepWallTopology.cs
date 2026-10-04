@@ -906,6 +906,7 @@ namespace CaeMesh.Sweep
             List<int> chainOfVertex = new List<int>();
             List<int> indexOfVertex = new List<int>();
             List<double> fractionOfVertex = new List<double>();
+            List<double> lengthOfVertexChain = new List<double>();
             Dictionary<int, List<int>> vertexIdPositions = new Dictionary<int, List<int>>();
             for (int c = 0; c < chains.Count; c++)
             {
@@ -929,6 +930,7 @@ namespace CaeMesh.Sweep
                     chainOfVertex.Add(c);
                     indexOfVertex.Add(i);
                     fractionOfVertex.Add(fractions[edgeIds.Length] > 0 ? fractions[i] / fractions[edgeIds.Length] : 0);
+                    lengthOfVertexChain.Add(fractions[edgeIds.Length]);
                 }
             }
             // The levels: one vertex reached by several chains is one level, and so are the vertices joined by
@@ -964,13 +966,14 @@ namespace CaeMesh.Sweep
             const double tolerance = 0.02;
             while (true)
             {
-                bool[,] before = GetLevelOrder(chains, levels, chainOfVertex, indexOfVertex, fractionOfVertex);
+                bool[,] before = GetLevelOrder(chains, levels, chainOfVertex, indexOfVertex, fractionOfVertex,
+                                               lengthOfVertexChain);
                 int merged = -1;
                 for (int k = 0; k + 1 < levels.Count && merged < 0; k++)
                 {
                     if (before[k, k + 1] || before[k + 1, k]) continue;
-                    double gap = Math.Abs(levels[k + 1].Average(p => fractionOfVertex[p]) -
-                                          levels[k].Average(p => fractionOfVertex[p]));
+                    double gap = Math.Abs(GetLevelFraction(levels[k + 1], fractionOfVertex, lengthOfVertexChain) -
+                                          GetLevelFraction(levels[k], fractionOfVertex, lengthOfVertexChain));
                     if (gap > tolerance) continue;
                     if (levels[k].Select(p => chainOfVertex[p]).Intersect(levels[k + 1].Select(p => chainOfVertex[p])).Any())
                         continue;
@@ -980,7 +983,8 @@ namespace CaeMesh.Sweep
                 levels[merged].AddRange(levels[merged + 1]);
                 levels.RemoveAt(merged + 1);
             }
-            double[] levelFractions = levels.Select(level => level.Average(p => fractionOfVertex[p])).ToArray();
+            double[] levelFractions = levels.Select(level => GetLevelFraction(level, fractionOfVertex, lengthOfVertexChain))
+                                            .ToArray();
             int[][] chainLevelIndices = chains.Select(chain => new int[chain.VertexIds.Length]).ToArray();
             for (int k = 0; k < levels.Count; k++)
             {
@@ -1228,7 +1232,8 @@ namespace CaeMesh.Sweep
             return orientedChains;
         }
         private static bool[,] GetLevelOrder(List<SweepChain> chains, List<List<int>> levels, List<int> chainOfVertex,
-                                             List<int> indexOfVertex, List<double> fractionOfVertex)
+                                             List<int> indexOfVertex, List<double> fractionOfVertex,
+                                             List<double> lengthOfVertexChain)
         {
             int count = levels.Count;
             int[] levelOfPosition = new int[chainOfVertex.Count];
@@ -1255,7 +1260,8 @@ namespace CaeMesh.Sweep
                     }
                 }
             }
-            double[] fractions = levels.Select(level => level.Average(p => fractionOfVertex[p])).ToArray();
+            double[] fractions = levels.Select(level => GetLevelFraction(level, fractionOfVertex, lengthOfVertexChain))
+                                       .ToArray();
             List<int> order = new List<int>();
             bool[] placed = new bool[count];
             bool consistent = true;
@@ -1287,6 +1293,19 @@ namespace CaeMesh.Sweep
                 for (int b = 0; b < count; b++) sortedBefore[a, b] = before[order[a], order[b]];
             }
             return sortedBefore;
+        }
+        /// <summary>
+        /// Where a level lies along the family: the fractions its vertices lie at along their chains, each weighed by
+        /// the length of its chain. A short chain of a neighbouring block that the family takes in through a shared
+        /// edge - the side of a cell standing on a wall, swept across it - ends at a fraction of 1 where it ends on a
+        /// level near the start of the long chains, and counted alike it moved that level past the middle of the
+        /// family, and the layers before the middle onto the short edge.
+        /// </summary>
+        private static double GetLevelFraction(List<int> level, List<double> fractionOfVertex, List<double> lengthOfVertexChain)
+        {
+            double weights = level.Sum(p => lengthOfVertexChain[p]);
+            if (weights <= 0) return level.Average(p => fractionOfVertex[p]);
+            return level.Sum(p => fractionOfVertex[p] * lengthOfVertexChain[p]) / weights;
         }
         private static int Find(int[] parent, int i)
         {
