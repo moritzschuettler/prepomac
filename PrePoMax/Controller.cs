@@ -4968,11 +4968,18 @@ namespace PrePoMax
                             ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
                                                    out newCompoundPartName, out importedPartNames);
                             newCompoundPart = (CompoundGeometryPart)_model.Geometry.Parts[newCompoundPartName];
-                            newCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
-                            newCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
                             //
-                            if (copy) count++;
-                            else SwapCompoundParts(partName, newCompoundPartName, true);
+                            if (copy)
+                            {
+                                SetCopiedSplitSubParts(compoundPart, newCompoundPart);
+                                count++;
+                            }
+                            else
+                            {
+                                newCompoundPart.CellSubPartNames = compoundPart.CellSubPartNames?.ToArray();
+                                newCompoundPart.SplitSubPartOrder = compoundPart.SplitSubPartOrder?.ToArray();
+                                SwapCompoundParts(partName, newCompoundPartName, true);
+                            }
                         }
                     }
                     else ClearAllSelection();
@@ -4999,6 +5006,58 @@ namespace PrePoMax
             DrawGeometry(false);
             //
             CheckAndUpdateModelValidity();
+        }
+        /// <summary>
+        /// A copy of a split compound is split as the compound is, but it is a body of its own, so each of its sub
+        /// parts takes the next free name and part id after the sub part it copies, and its cells are named and
+        /// colored after it. The cells of the copy are in the order of the cells they copy.
+        /// </summary>
+        private void SetCopiedSplitSubParts(CompoundGeometryPart sourceCompoundPart, CompoundGeometryPart compoundPart)
+        {
+            if (!sourceCompoundPart.CreatedBySplit ||
+                sourceCompoundPart.SubPartNames.Length != compoundPart.SubPartNames.Length) return;
+            // The cells of the copy are renamed after their sub parts, so the names they were imported with are free
+            HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
+                                                                StringComparer.OrdinalIgnoreCase);
+            reservedNames.ExceptWith(compoundPart.SubPartNames);
+            HashSet<int> reservedPartIds = _model.GetReservedPartIds();
+            Dictionary<string, string> subPartNames = new Dictionary<string, string>();
+            Dictionary<string, int> subPartIds = new Dictionary<string, int>();
+            foreach (string sourceSubPartName in sourceCompoundPart.GetSplitSubPartNames())
+            {
+                string subPartName =
+                    reservedNames.GetNextNumberedKey(NamedClass.GetNameWithoutLastValue(sourceSubPartName));
+                reservedNames.Add(subPartName);
+                subPartNames.Add(sourceSubPartName, subPartName);
+                //
+                int subPartId = 1;
+                while (reservedPartIds.Contains(subPartId)) subPartId++;
+                reservedPartIds.Add(subPartId);
+                subPartIds.Add(sourceSubPartName, subPartId);
+            }
+            //
+            string[] cellSubPartNames = new string[compoundPart.SubPartNames.Length];
+            int[] cellSubPartIds = new int[compoundPart.SubPartNames.Length];
+            for (int i = 0; i < cellSubPartNames.Length; i++)
+            {
+                string sourceSubPartName = sourceCompoundPart.CellSubPartNames[i];
+                if (sourceSubPartName == null) continue;
+                cellSubPartNames[i] = subPartNames[sourceSubPartName];
+                cellSubPartIds[i] = subPartIds[sourceSubPartName];
+            }
+            compoundPart.CellSubPartNames = cellSubPartNames;
+            compoundPart.CellSubPartIds = cellSubPartIds;
+            compoundPart.SplitSubPartOrder = sourceCompoundPart.GetSplitSubPartNames()
+                                                               .Select(name => subPartNames[name]).ToArray();
+            RenameSplitCells(compoundPart);
+            //
+            foreach (string cellName in compoundPart.SubPartNames)
+            {
+                BasePart cell = _model.Geometry.Parts[cellName];
+                SetGeometryPartColorFromColorTable(cell);
+                _form.UpdateActor(cell.Name, cell.Name, GetDrawnGeometryPartColor(cell));
+            }
+            _effectiveMeshTypes = null;
         }
         /// <summary>
         /// A compound made of parts of which one is split into cells gathers its solids under the sub parts they come
