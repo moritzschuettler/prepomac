@@ -6495,13 +6495,17 @@ namespace CaeMesh
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
                                  "meshed and the mesh is mirrored onto the other " + removedDimTags.Length + ".");
         }
-        // A face whose surface, corners or edges gmsh does not have is not on the meshed part
+        // A face whose surface, corners or edges gmsh does not have is not on the meshed part. A face two cells share
+        // is one surface in gmsh: listed by both cells - a face both blocks beside it are swept from - it is kept once,
+        // as the cell listed last gives it, which is the one gmsh was structured by when both were set, since QuadWild
+        // refuses two structured faces in one region
         private static TransfiniteFace[] RenumberTransfiniteFaces(TransfiniteFace[] transfiniteFaces,
                                                                   Dictionary<int, int> netgenVertexIdGmshVertexId,
                                                                   Dictionary<int, int> netgenEdgeIdGmshEdgeId,
                                                                   Dictionary<int, int> netgenFaceIdGmshFaceId)
         {
             int surfaceId;
+            Dictionary<int, int> surfaceIdIndex = new Dictionary<int, int>();
             List<TransfiniteFace> renumbered = new List<TransfiniteFace>();
             foreach (var face in transfiniteFaces)
             {
@@ -6518,7 +6522,16 @@ namespace CaeMesh
                     for (int j = 0; j < sideEdgeIds[i].Length && mapped; j++)
                         mapped = netgenEdgeIdGmshEdgeId.TryGetValue(face.SideEdgeIds[i][j], out sideEdgeIds[i][j]);
                 }
-                if (mapped) renumbered.Add(new TransfiniteFace(surfaceId, cornerIds, face.CornerAnglesDeg, sideEdgeIds));
+                if (!mapped) continue;
+                //
+                int index;
+                TransfiniteFace renumberedFace = new TransfiniteFace(surfaceId, cornerIds, face.CornerAnglesDeg, sideEdgeIds);
+                if (surfaceIdIndex.TryGetValue(surfaceId, out index)) renumbered[index] = renumberedFace;
+                else
+                {
+                    surfaceIdIndex.Add(surfaceId, renumbered.Count);
+                    renumbered.Add(renumberedFace);
+                }
             }
             return renumbered.ToArray();
         }
