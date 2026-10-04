@@ -99,7 +99,8 @@ def main():
         check((element_ids[0] in reported) == inverted, name + " (" + element_type + ") must " +
               ("" if inverted else "not ") + "be reported as inverted")
     check(reported <= checked, "the valid cube must report no inverted element")
-    print("Test_Model_Inverted_Elements passed: " + str(len(cases)) + " elements checked.")
+    print(str(len(cases)) + " elements checked.")
+    print("TEST PASSED")
 
 
 main()

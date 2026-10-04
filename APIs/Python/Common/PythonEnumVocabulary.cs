@@ -123,7 +123,6 @@ namespace APIs.Python
             types.Add("algorithm_2d", typeof(GmshAlgorithmMesh2DEnum));
             types.Add("algorithm_3d", typeof(GmshAlgorithmMesh3DEnum));
             types.Add("algorithm_recombine", typeof(GmshAlgorithmRecombineEnum));
-            types.Add("element_size_type", typeof(CaeMesh.ElementSizeTypeEnum));
             types.Add("optimize_high_order", typeof(GmshOptimizeHighOrderEnum));
             types.Add("optimize_first_order_shell", typeof(GmshOptimizeFirstOrderShellEnum));
             types.Add("optimize_first_order_solid", typeof(GmshOptimizeFirstOrderSolidEnum));
