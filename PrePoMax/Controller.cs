@@ -8186,7 +8186,8 @@ namespace PrePoMax
         }
         // The preview is highlighted as the other previews are, so it is taken off the screen with the
         // selection by the next pick and by every redraw of the tool symbols
-        private void DrawPreviewPolylines(string name, List<double[][]> polylines, double[] offset)
+        private void DrawPreviewPolylines(string name, List<double[][]> polylines, double[] offset,
+                                          bool useSecondaryHighlightColor = false)
         {
             List<double[]> nodeCoor = new List<double[]>();
             List<int[]> cells = new List<int[]>();
@@ -8212,7 +8213,9 @@ namespace PrePoMax
             //
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
-            data.Color = _settings.Pre.PrimaryHighlightColor;
+            data.Color = useSecondaryHighlightColor ? _settings.Pre.SecondaryHighlightColor :
+                                                      _settings.Pre.PrimaryHighlightColor;
+            data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
             data.Layer = vtkRendererLayer.Selection;
             data.LineWidth = 2;
             data.CanHaveElementEdges = false;
@@ -9930,7 +9933,7 @@ namespace PrePoMax
                 if (entry.Value.Edges.Length == 0 && entry.Value.Points.Length == 0) continue;
                 //
                 double[] offset = GetExplodedViewOffsetForGeneratedMeshPart(_model.Geometry.Parts[entry.Key], null);
-                DrawPreviewPolylines("repairGeometryPreview_" + entry.Key, entry.Value.Edges.ToList(), offset);
+                DrawPreviewPolylines("repairGeometryPreview_" + entry.Key, entry.Value.Edges.ToList(), offset, true);
                 DrawRepairGeometryPreviewPoints("repairGeometryPreviewPoints_" + entry.Key, entry.Value.Points, offset);
                 _repairGeometryPreviewDrawn = true;
             }
@@ -9997,7 +10000,8 @@ namespace PrePoMax
             //
             vtkMaxActorData data = new vtkMaxActorData();
             data.Name = name;
-            data.Color = _settings.Pre.PrimaryHighlightColor;
+            data.Color = _settings.Pre.SecondaryHighlightColor;
+            data.UseSecondaryHighlightColor = true;
             data.Layer = vtkRendererLayer.Selection;
             data.NodeSize = _settings.Pre.HighlightNodeSymbolSize;
             data.Pickable = false;
