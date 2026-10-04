@@ -3618,8 +3618,11 @@ namespace CaeModel
         {
             SweepDetectionData detection = DetectPrismSweepSources(sweptParts, stamp);
             if (detection.Error == null || sweptParts.Length != 1) return detection;
-            // A part the sweep between two ends cannot mesh may still be revolved about an axis it touches
-            SweepBlocks blocks = CreateRevolvedBlocks(sweptParts[0], out _);
+            // A part the sweep between two ends cannot mesh may still be revolved about an axis it touches, or about one
+            // it stands clear of - a bend whose inner and outer sides differ in length too much for one layer count
+            // to suit both, which a revolution turns through equal angles instead
+            SweepBlocks blocks = CreateRevolvedBlocks(sweptParts[0], out _) ??
+                                 CreateRevolvedBlocks(sweptParts[0], out _, true);
             if (blocks == null) return detection;
             //
             return new SweepDetectionData(blocks, null, null, new HashSet<int>() { sweptParts[0].PartId }, stamp);
@@ -3627,9 +3630,10 @@ namespace CaeModel
         /// <summary>
         /// The block of a solid part that is revolved about an axis its source touches: one block turning the source
         /// onto the target, with the axis and the angle it is turned through. A part that stands clear of the axis is
-        /// left to the sweep between two ends. Null, with the reason, for a part that is not revolved so.
+        /// taken only when clearOfAxis is set; otherwise it is left to the sweep between two ends. Null, with the
+        /// reason, for a part that is not revolved so.
         /// </summary>
-        private SweepBlocks CreateRevolvedBlocks(GeometryPart part, out string error)
+        private SweepBlocks CreateRevolvedBlocks(GeometryPart part, out string error, bool clearOfAxis = false)
         {
             HashSet<int> sourceSurfaceIds;
             HashSet<int> targetSurfaceIds;
@@ -3643,7 +3647,7 @@ namespace CaeModel
                 return null;
             }
             error = DetectRevolveSourceSurfaces(part, out sourceSurfaceIds, out targetSurfaceIds, out _, out angleDeg,
-                                                out axisCenter, out axisDirection, out reversed);
+                                                out axisCenter, out axisDirection, out reversed, clearOfAxis);
             if (error != null) return null;
             //
             int partId = part.PartId;
@@ -5859,14 +5863,14 @@ namespace CaeModel
         /// and every other surface is either the group turned through the angle or a surface turning about the
         /// axis itself. A hole, a pocket or a boss the revolution does not make therefore refuses the part rather
         /// than being meshed away. The two ends of a revolved part are both such groups, and the first one is
-        /// taken. Only a group with a vertex on the axis is taken, and every vertex of the part has to lie on one of
+        /// taken. Only a group with a vertex on the axis is taken, unless clearOfAxis is set, and every vertex of the part has to lie on one of
         /// its two ends, since a wall split along the revolution is not one a revolved sweep block can mesh. The targets are the surfaces the group is turned onto, and reversed tells that the group
         /// is turned onto them against the axis direction.
         /// </summary>
         private string DetectRevolveSourceSurfaces(GeometryPart part, out HashSet<int> sourceSurfaceIds,
                                                    out HashSet<int> targetSurfaceIds, out double r, out double angleDeg,
                                                    out double[] axisCenter, out double[] axisDirection,
-                                                   out bool reversed)
+                                                   out bool reversed, bool clearOfAxis = false)
         {
             sourceSurfaceIds = null;
             targetSurfaceIds = null;
@@ -5889,7 +5893,7 @@ namespace CaeModel
                     continue;
                 //
                 error = IsPartRevolvedFromSurfaces(part, surfaceIds, angleDeg, axisCenter, axisDirection,
-                                                   out targetSurfaceIds, out reversed);
+                                                   out targetSurfaceIds, out reversed, clearOfAxis);
                 if (error == null)
                 {
                     sourceSurfaceIds = surfaceIds;
@@ -5977,7 +5981,8 @@ namespace CaeModel
         /// </summary>
         private string IsPartRevolvedFromSurfaces(GeometryPart part, HashSet<int> sourceSurfaceIds, double angleDeg,
                                                   double[] axisCenter, double[] axisDirection,
-                                                  out HashSet<int> targetSurfaceIds, out bool reversed)
+                                                  out HashSet<int> targetSurfaceIds, out bool reversed,
+                                                  bool clearOfAxis = false)
         {
             targetSurfaceIds = new HashSet<int>();
             reversed = false;
@@ -6030,7 +6035,7 @@ namespace CaeModel
                 sourceCircles.Add(new double[] { radius, height });
                 if (radius <= tolerance) onAxis = true;
             }
-            if (!onAxis)
+            if (!onAxis && !clearOfAxis)
                 return "The " + sourceNames + " does not touch the axis it is revolved about, so the part " + part.Name +
                        " is swept rather than revolved.";
             Dictionary<int, HashSet<int>> surfaceIdVertexIds = new Dictionary<int, HashSet<int>>();
