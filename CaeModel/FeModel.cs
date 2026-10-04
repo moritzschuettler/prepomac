@@ -4908,8 +4908,7 @@ namespace CaeModel
             HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
             Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
             HashSet<int> chainEdgeIds = new HashSet<int>();
-            double minChainLength = double.MaxValue;
-            double maxChainLength = 0;
+            Dictionary<int, double> vertexIdChainLength = new Dictionary<int, double>();
             foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
             {
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
@@ -4952,19 +4951,39 @@ namespace CaeModel
                     //
                     if (chainLength > 0)
                     {
-                        minChainLength = Math.Min(minChainLength, chainLength);
-                        maxChainLength = Math.Max(maxChainLength, chainLength);
+                        double length;
+                        vertexIdChainLength.TryGetValue(vertexId, out length);
+                        vertexIdChainLength[vertexId] = Math.Max(length, chainLength);
                     }
                 }
             }
-            // Every sweep line of a block is divided into the same number of elements, so lines of very
-            // different lengths give elements of very different sizes and the shortest of them invert. The
-            // length of a sweep line is the length of the chain it follows, which on a block that bends is
-            // longer than the chord between its ends, and differently so on the inside and the outside
-            if (maxChainLength > 0 && minChainLength < 0.5 * maxChainLength)
+            // Every sweep line of a block is divided into the same number of elements, so the layers are thinner
+            // on a short line than on a long one. A block that bends lengthens its lines steadily from the inside of
+            // the bend to the outside - by the angle it turns through for every unit of distance across it - and its
+            // elements change their thickness as steadily; a source taken across a slot or beside a step meets lines
+            // of very different lengths side by side, and the elements between them fold. So the lengths of the
+            // lines leaving the two ends of every source edge may differ by no more than a full turn makes them
+            // differ: by two pi times the distance between the ends. The length of a sweep line is the length of
+            // the chain it follows, which on a block that bends is longer than the chord between its ends. A source
+            // across a slot keeps its lines straight, and is caught by the lines measured across it below
+            foreach (var edgeId in sourceEdgeIds.OrderBy(id => id))
             {
-                return "The sweep lines of the block swept from " + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) +
-                       " differ in length by more than half, so one element layer count cannot suit them all.";
+                int[] edgeVertexIds = vis.GetVertexNodeIdsForEdgeIds(new int[] { edgeId }).ToArray();
+                if (edgeVertexIds.Length != 2) continue;
+                double length1;
+                double length2;
+                if (!vertexIdChainLength.TryGetValue(edgeVertexIds[0], out length1) ||
+                    !vertexIdChainLength.TryGetValue(edgeVertexIds[1], out length2)) continue;
+                double distance = (new Vec3D(_geometry.Nodes[edgeVertexIds[1]].Coor) -
+                                   new Vec3D(_geometry.Nodes[edgeVertexIds[0]].Coor)).Len;
+                if (distance <= 0 || Math.Abs(length2 - length1) <= _maxSweepLengthGradient * distance) continue;
+                //
+                return "The sweep lines leaving the two ends of " + GetSweepEdgeName(part, edgeId) + " of the sweep " +
+                       "source surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") are " +
+                       Math.Round(length1, 3) + " and " + Math.Round(length2, 3) + " long, which a block bending " +
+                       "through a full turn could not make them over the " + Math.Round(distance, 3) + " between " +
+                       "them, so one element layer count cannot suit them. Select the source surfaces by hand, or " +
+                       "split the part so that each piece is swept on its own.";
             }
             // The chains measure the sweep only where an edge leaves the source. A source whose faces continue
             // one another smoothly - the two walls of a slot and the rounded bottom between them - has vertices
@@ -5206,6 +5225,9 @@ namespace CaeModel
             return string.Join(", ", edgeIds.OrderBy(id => id).Select(id => GetSweepEdgeName(part, id)));
         }
         private const double _sweepChainCosine = 0.9;
+        // How fast the length of the sweep lines may change across the source: a block bending through a full turn
+        // lengthens them by two pi for every unit of distance from the inside of the bend to the outside
+        private const double _maxSweepLengthGradient = 2 * Math.PI;
         private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
         private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
