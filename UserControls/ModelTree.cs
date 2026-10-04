@@ -629,6 +629,13 @@ namespace UserControls
             compoundPart = null;
             cellNames = null;
             if (nodes.Length == 0) return false;
+            // A compound shown as the one part it was cut from stands for all of its cells
+            if (nodes.Length == 1 && IsSinglePartSplitCompoundNode(nodes[0]))
+            {
+                compoundPart = (CompoundGeometryPart)nodes[0].Tag;
+                cellNames = compoundPart.SubPartNames.ToArray();
+                return true;
+            }
             //
             List<string> names = new List<string>();
             foreach (TreeNode node in nodes)
@@ -680,6 +687,18 @@ namespace UserControls
         {
             if (subPartNode.Parent?.Tag is CompoundGeometryPart compoundPart) return compoundPart.Name;
             return _splitSubPartNodes[subPartNode];
+        }
+        // A node is named after its item, which the tree finds it by, but a compound that is one part cut into cells
+        // reads as that part
+        private static string GetItemNodeText(NamedClass item)
+        {
+            if (item is CompoundGeometryPart compoundPart)
+                return compoundPart.GetSingleSplitSubPartName() ?? compoundPart.Name;
+            return item.Name;
+        }
+        private static bool IsSinglePartSplitCompoundNode(TreeNode node)
+        {
+            return node?.Tag is CompoundGeometryPart compoundPart && compoundPart.GetSingleSplitSubPartName() != null;
         }
         private NamedClass[] GetSplitSubPartCellItems(TreeNode subPartNode)
         {
@@ -2228,6 +2247,25 @@ namespace UserControls
                         }
                     }));
                 }
+                else if (IsSinglePartSplitCompoundNode(selectedNode))
+                {
+                    // The row reads as the part that was cut into cells, so it renames that part, not the compound
+                    CompoundGeometryPart compoundPart = (CompoundGeometryPart)selectedNode.Tag;
+                    string compoundPartName = compoundPart.Name;
+                    string oldSubPartName = compoundPart.GetSingleSplitSubPartName();
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        try
+                        {
+                            RenameSplitSubPartEvent?.Invoke(compoundPartName, oldSubPartName, newName);
+                        }
+                        catch (Exception ex)
+                        {
+                            selectedNode.Text = oldSubPartName;
+                            ExceptionTools.Show(this, ex);
+                        }
+                    }));
+                }
                 else if (e.Node.Tag is NamedClass item)
                 {
                     string stepName = GetStepNameFromNode(selectedNode);
@@ -3502,8 +3540,8 @@ namespace UserControls
         {
             cltvGeometry.EndUpdate();
         }
-        // A sub part of a split compound with several cells is a node of its own, and one with a single cell is
-        // shown as that cell
+        // A sub part of a split compound with several cells is a node of its own, one with a single cell is shown
+        // as that cell, and the only sub part of a compound is shown as the compound
         public void SelectSplitSubPart(string compoundPartName, string subPartName)
         {
             try
@@ -3526,6 +3564,18 @@ namespace UserControls
                     {
                         if (node.Tag is GeometryPart && node.Parent?.Tag is CompoundGeometryPart compoundPart &&
                             compoundPart.Name == compoundPartName)
+                        {
+                            subPartNode = node;
+                            break;
+                        }
+                    }
+                }
+                if (subPartNode == null)
+                {
+                    foreach (TreeNode node in cltvGeometry.Nodes[0].Nodes.Find(compoundPartName, true))
+                    {
+                        if (node.Tag is CompoundGeometryPart compoundPart &&
+                            compoundPart.GetSingleSplitSubPartName() == subPartName)
                         {
                             subPartNode = node;
                             break;
@@ -4003,7 +4053,7 @@ namespace UserControls
                 }
                 else
                 {
-                    baseNode.Text = item.Name;
+                    baseNode.Text = GetItemNodeText(item);
                     baseNode.Name = item.Name;
                     baseNode.Tag = item;
                 }
@@ -4220,6 +4270,7 @@ namespace UserControls
                 {
                     SetNodeStatus(parent);  // remove dotted T icon
                 }
+                else if (parent.Tag is CompoundGeometryPart compoundPart) parent.Text = GetItemNodeText(compoundPart);
                 else
                 {
                     parent.Text = parent.Name;
@@ -4318,7 +4369,11 @@ namespace UserControls
                         // The cells of a split compound are gathered under the part each of them was cut
                         // from, and those parts start collapsed, since a part may be cut into many cells.
                         // A part the split did not cut is its only cell and is shown as that cell. The parts are
-                        // listed in the order the compound keeps for them, so one made by grouping cells comes last
+                        // listed in the order the compound keeps for them, so one made by grouping cells comes last.
+                        // A compound that is one part cut into cells is shown as that part, with the cells under it
+                        string singleSubPartName = compoundPart.GetSingleSplitSubPartName();
+                        if (singleSubPartName != null) itemNode.Text = singleSubPartName;
+                        //
                         List<int> cellIndices = new List<int>();
                         foreach (string splitSubPartName in compoundPart.GetSplitSubPartNames())
                         {
@@ -4342,7 +4397,8 @@ namespace UserControls
                             //
                             TreeNode parentOfSubPartNode = itemNode;
                             string splitSubPartName = compoundPart.CellSubPartNames?[i];
-                            if (splitSubPartName != null && compoundPart.GetCellNames(splitSubPartName).Length > 1)
+                            if (splitSubPartName != null && singleSubPartName == null &&
+                                compoundPart.GetCellNames(splitSubPartName).Length > 1)
                             {
                                 if (!splitSubPartNodes.TryGetValue(splitSubPartName, out parentOfSubPartNode))
                                 {
@@ -4358,7 +4414,8 @@ namespace UserControls
                             subPartNode.Tag = subPart;
                             SetNodeStatus(subPartNode);
                         }
-                        itemNode.Expand();
+                        if (singleSubPartName == null) itemNode.Expand();
+                        else SetNodeStatus(itemNode);
                     }
                 }
             }
@@ -4527,6 +4584,10 @@ namespace UserControls
                             if (node.Tag is BasePart bp)
                             {
                                 PartType partType = bp.PartType;
+                                // A compound shown as the part it was cut from shows the type of that part
+                                if (bp is CompoundGeometryPart cgp && cgp.GetSingleSplitSubPartName() != null &&
+                                    node.Nodes.Count > 0 && node.Nodes[0].Tag is BasePart cell)
+                                    partType = cell.PartType;
                                 //
                                 if (partType == PartType.Solid || partType == PartType.SolidAsShell)
                                 {
@@ -4630,7 +4691,7 @@ namespace UserControls
         }
         private bool CheckNodeName(TreeNode node, string newName)
         {
-            if (_splitSubPartNodes.ContainsKey(node)) return true;
+            if (_splitSubPartNodes.ContainsKey(node) || IsSinglePartSplitCompoundNode(node)) return true;
             //
             if (_orderedDictionaryGroups.TryGetValue(node, out OrderedDictionaryGroupInfo groupInfo))
             {

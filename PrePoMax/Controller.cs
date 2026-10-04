@@ -4588,6 +4588,9 @@ namespace PrePoMax
             CheckFuseBodies(compoundPartName, bodyNames);
             CompoundGeometryPart compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[compoundPartName];
             string[] cellNames = GetCellNamesOfBodies(compoundPart, bodyNames);
+            string singleSubPartName = compoundPart.GetSingleSplitSubPartName();
+            string fusedPartText = singleSubPartName != null ? "the part " + singleSubPartName :
+                                                               "the compound part " + compoundPartName;
             //
             int[] solidIds = cellNames.Select(name => Array.IndexOf(compoundPart.SubPartNames, name) + 1)
                                       .Distinct().OrderBy(id => id).ToArray();
@@ -4658,7 +4661,7 @@ namespace PrePoMax
                 _form.RenderingOn = rendering;
             }
             //
-            _form.WriteDataToOutput("Fuse bodies: " + cellNames.Length + " cells of the compound part " + compoundPartName +
+            _form.WriteDataToOutput("Fuse bodies: " + cellNames.Length + " cells of " + fusedPartText +
                                     " were fused into " + _lastFusedSplitCellName + ".");
             //
             ClearAllSelection();

@@ -111,6 +111,21 @@ namespace CaeMesh
             return _splitSubPartOrder.Where(name => subPartNames.Contains(name))
                                      .Concat(subPartNames.Where(name => !_splitSubPartOrder.Contains(name))).ToArray();
         }
+        /// <summary>
+        /// The sub part of a split compound that holds every one of its cells, or null when the compound holds several
+        /// sub parts or a cell of none. Such a compound is one part cut into cells and is shown as that part.
+        /// </summary>
+        public string GetSingleSplitSubPartName()
+        {
+            if (_cellSubPartNames == null || _cellSubPartNames.Length == 0) return null;
+            //
+            string subPartName = _cellSubPartNames[0];
+            for (int i = 1; i < _cellSubPartNames.Length; i++)
+            {
+                if (_cellSubPartNames[i] != subPartName) return null;
+            }
+            return subPartName;
+        }
         public string[] GetCellNames(string subPartName)
         {
             List<string> cellNames = new List<string>();
