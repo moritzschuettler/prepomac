@@ -1542,7 +1542,10 @@ namespace CaeMesh
         /// boundary, and such a point lies on the surface across the edge just as well, so the face it is asked
         /// to identify is taken for its neighbour: the parameter box of the L-shaped end of a bent bar puts a
         /// sample on the edge the end shares with a wall, and the end was then swept as a wall of its own
-        /// block. A point on the boundary is kept only when the surface offers no other.
+        /// block. A point on the boundary is kept only when the surface offers no other. The margin kept from the
+        /// boundary shrinks with a surface narrower than it: the slivers of sweep_43_2, 0.03 wide on a model a
+        /// thousand across, had no point clear of a margin set by the model alone, and every one of them was taken
+        /// for the cylinder or the slope beside it.
         /// </summary>
         private static double[] GetPointInsideSurface(int surfaceId)
         {
@@ -1584,7 +1587,9 @@ namespace CaeMesh
         {
             int[] curveIds;
             double[] closestCoor;
-            double clearance = 1E-5 * GetModelDiagonal();
+            double area;
+            Gmsh.Model.OCC.GetMass(2, surfaceId, out area);
+            double clearance = Math.Min(1E-5 * GetModelDiagonal(), 1E-3 * Math.Sqrt(Math.Max(0, area)));
             Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out curveIds);
             foreach (var curveId in curveIds)
             {
@@ -3930,12 +3935,13 @@ namespace CaeMesh
                     problem.AddThreeSided("Structured Surface " + face.FaceId + " three blocks", IntervalRowTierEnum.Structured,
                                           face.SideEdgeIds, face.FaceId);
             }
-            // The parity of the sources: a full-quad recombination halves every edge the walls fix, and QuadWild needs an
-            // even total around a source whose every edge they fix
+            // The parity of the sources: a full-quad recombination halves every edge of a source - an edge between two
+            // sources as well, which no wall fixes and which gmsh left at 1 element on sweep_43_1 - and QuadWild needs an
+            // even total around a source whose every edge the walls fix
             foreach (var surfaceId in _fullQuadSourceIds)
             {
                 Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
-                foreach (var edgeId in edgeIds.Select(id => Math.Abs(id)).Where(wallEdgeIds.Contains))
+                foreach (var edgeId in edgeIds.Select(id => Math.Abs(id)).Distinct())
                     problem.AddEvenSum("Full-quad Surface " + surfaceId + " Edge " + edgeId, IntervalRowTierEnum.Hard,
                                        new int[] { edgeId });
             }
