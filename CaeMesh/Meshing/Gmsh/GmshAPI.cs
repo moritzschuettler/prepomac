@@ -46,6 +46,8 @@ namespace CaeMesh
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
         private const int _intervalTimeoutSeconds = 20;
+        private const double _chosenCountWeight = 1000;
+        private const double _quadWildDownWeight = 100;
         private Dictionary<int, int> _parityRaisedEdgeIdNumOfElements = new Dictionary<int, int>();
         private HashSet<int> _userPinnedEdgeIds;
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
@@ -3665,10 +3667,7 @@ namespace CaeMesh
                                                       Dictionary<int, int> directionEdgeIdNumOfElements = null)
         {
             GenerateMesh(1);
-            // The counts of a sweep gmsh meshes alone are solved in one problem; QuadWild chooses counts of its own in
-            // rounds, and those are settled pass by pass as before
-            bool solve = _quadWildSourceIds.Count == 0 && directionEdgeIdNumOfElements == null &&
-                         !SweepIntervalShadow.UseOldPasses;
+            bool solve = !SweepIntervalShadow.UseOldPasses;
             IntervalProblem intervalProblem = null;
             if (solve || SweepIntervalShadow.Enabled)
             {
@@ -3945,20 +3944,37 @@ namespace CaeMesh
                     problem.AddEvenSum("Full-quad Surface " + surfaceId + " Edge " + edgeId, IntervalRowTierEnum.Hard,
                                        new int[] { edgeId });
             }
-            foreach (var surfaceId in _quadWildSourceIds)
+            if (_quadWildSourceIds.Count > 0 && _sweepBlocks != null)
             {
-                Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
-                edgeIds = edgeIds.Select(id => Math.Abs(id)).Distinct().ToArray();
-                if (edgeIds.All(wallEdgeIds.Contains))
-                    problem.AddEvenSum("QuadWild Surface " + surfaceId, IntervalRowTierEnum.Hard, edgeIds);
+                // Fixed as QuadWild sees it with only the user's counts pinned: QuadWild chooses every other edge of its
+                // sources itself, whatever it chose in an earlier round
+                Dictionary<int, int> userPins = _gmshData.EdgeIdNumElements
+                    .Where(entry => _userPinnedEdgeIds == null || _userPinnedEdgeIds.Contains(entry.Key))
+                    .ToDictionary(entry => entry.Key, entry => entry.Value);
+                HashSet<int> wallSurfaceIds = new HashSet<int>(walls.Select(wall => wall.SurfaceId));
+                HashSet<int> alwaysFixedEdgeIds = GetAlwaysFixedQuadWildEdgeIds(_sweepBlocks, walls, userPins);
+                foreach (var surfaceId in _quadWildSourceIds)
+                {
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
+                    edgeIds = edgeIds.Select(id => Math.Abs(id)).Distinct().ToArray();
+                    if (edgeIds.All(id => IsQuadWildEdgeFixed(id, alwaysFixedEdgeIds, wallSurfaceIds)))
+                        problem.AddEvenSum("QuadWild Surface " + surfaceId, IntervalRowTierEnum.Hard, edgeIds);
+                    // QuadWild lays its own patches over the source and has to reach the counts given on its edges with
+                    // them; given fewer than gmsh measured, the patches of sweep_30 found no layout at all
+                    foreach (var edgeId in edgeIds.Where(problem.EdgeIdTarget.ContainsKey))
+                        problem.SetDownWeight(edgeId, _quadWildDownWeight);
+                }
             }
-            // The counts that do not move
+            // The counts that do not move, and the ones QuadWild chose in an earlier round, which the walls follow unless
+            // a row makes them move: the group is then meshed again with the edge fixed at the solved count
             foreach (var edgeId in problem.EdgeIds.ToArray())
             {
                 if (heldDirectionEdgeIdNumOfElements != null &&
                     heldDirectionEdgeIdNumOfElements.TryGetValue(edgeId, out count)) problem.FixEdge(edgeId, count);
                 else if (IsFixedEdgeCount(edgeId) && (_userPinnedEdgeIds == null || _userPinnedEdgeIds.Contains(edgeId)))
                     problem.FixEdge(edgeId, _gmshData.EdgeIdNumElements[edgeId]);
+                else if (_quadWildSourceIds.Count > 0 && _gmshData.EdgeIdNumElements.ContainsKey(edgeId))
+                    problem.SetWeight(edgeId, _chosenCountWeight);
             }
             return problem;
         }

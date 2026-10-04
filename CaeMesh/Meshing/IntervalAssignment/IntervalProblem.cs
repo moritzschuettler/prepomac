@@ -33,6 +33,8 @@ namespace CaeMesh
         private readonly Func<int, int> _getTarget;
         private readonly Dictionary<int, int> _edgeIdTarget;
         private readonly Dictionary<int, int> _edgeIdFixedCount;
+        private readonly Dictionary<int, double> _edgeIdWeight;
+        private readonly Dictionary<int, double> _edgeIdDownWeight;
         private readonly List<IntervalRow> _rows;
 
 
@@ -49,6 +51,8 @@ namespace CaeMesh
             _getTarget = getTarget;
             _edgeIdTarget = new Dictionary<int, int>();
             _edgeIdFixedCount = new Dictionary<int, int>();
+            _edgeIdWeight = new Dictionary<int, double>();
+            _edgeIdDownWeight = new Dictionary<int, double>();
             _rows = new List<IntervalRow>();
         }
 
@@ -62,6 +66,33 @@ namespace CaeMesh
         {
             AddEdge(edgeId);
             _edgeIdFixedCount[edgeId] = Math.Max(1, numOfElements);
+        }
+        /// <summary>
+        /// How much more a deviation from the target of the edge costs than that of another edge.
+        /// </summary>
+        public void SetWeight(int edgeId, double weight)
+        {
+            AddEdge(edgeId);
+            _edgeIdWeight[edgeId] = weight;
+        }
+        /// <summary>
+        /// How much more a count below the target of the edge costs than one below the target of another edge, on top
+        /// of its weight.
+        /// </summary>
+        public void SetDownWeight(int edgeId, double weight)
+        {
+            AddEdge(edgeId);
+            _edgeIdDownWeight[edgeId] = weight;
+        }
+        private double GetWeight(int edgeId)
+        {
+            double weight;
+            return _edgeIdWeight.TryGetValue(edgeId, out weight) ? weight : 1;
+        }
+        private double GetDownWeight(int edgeId)
+        {
+            double weight;
+            return _edgeIdDownWeight.TryGetValue(edgeId, out weight) ? weight : 1;
         }
         public void AddEqualSums(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB, int surfaceId = 0)
         {
@@ -96,7 +127,8 @@ namespace CaeMesh
             foreach (var entry in _edgeIdTarget)
             {
                 int difference = getCount(entry.Key) - entry.Value;
-                deviation += (difference > 0 ? _upWeight * difference : -_downWeight * difference) / entry.Value;
+                deviation += GetWeight(entry.Key) * (difference > 0 ? _upWeight * difference :
+                                                     -GetDownWeight(entry.Key) * _downWeight * difference) / entry.Value;
             }
             return deviation;
         }
@@ -130,8 +162,10 @@ namespace CaeMesh
                 int target = _edgeIdTarget[edgeId];
                 bool isFixed = _edgeIdFixedCount.TryGetValue(edgeId, out fixedCount);
                 int column = addColumn("n" + edgeId, isFixed ? fixedCount : 1, isFixed ? fixedCount : LpSolve.Infinity, true, 0);
-                int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, _upWeight / target);
-                int downColumn = addColumn("down" + edgeId, 0, LpSolve.Infinity, false, _downWeight / target);
+                double weight = GetWeight(edgeId);
+                int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, weight * _upWeight / target);
+                int downColumn = addColumn("down" + edgeId, 0, LpSolve.Infinity, false,
+                                           weight * GetDownWeight(edgeId) * _downWeight / target);
                 edgeIdColumn.Add(edgeId, column);
                 rowNames.Add("target" + edgeId);
                 lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(
