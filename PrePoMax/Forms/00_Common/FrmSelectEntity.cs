@@ -17,6 +17,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using CaeGlobals;
+using CaeMesh;
 
 namespace PrePoMax.Forms
 {
@@ -211,7 +212,7 @@ namespace PrePoMax.Forms
                     for (int i = 0; i < _entitiesToSelect.Length; i++)
                     {
                         DataGridViewRow row = new DataGridViewRow();
-                        row.CreateCells(dgvNames, _entitiesToSelect[i].Name);
+                        row.CreateCells(dgvNames, GetEntityText(_entitiesToSelect[i]));
                         row.Cells[0].Tag = _entitiesToSelect[i];
                         rows[i] = row;
                     }
@@ -223,7 +224,7 @@ namespace PrePoMax.Forms
                 foreach (DataGridViewRow row in dgvNames.Rows)
                 {
                     // setting row.selected = false in SingleSelection mode clears the selected row which has selection = true
-                    row.Selected = preSelectedEntities.Contains((string)row.Cells[0].Value);
+                    row.Selected = preSelectedEntities.Contains(((NamedClass)row.Cells[0].Tag).Name);
                     if (dgvNames.SelectedRows.Count > 0 && !MultiSelect) break;
                 }
             }
@@ -241,11 +242,18 @@ namespace PrePoMax.Forms
             List<string> names = new List<string>();
             foreach (DataGridViewRow row in dgvNames.SelectedRows)
             {
-                names.Add((string)row.Cells["colName"].Value);
+                names.Add(((NamedClass)row.Cells["colName"].Tag).Name);
             }
             
             //
             return names.ToArray();
+        }
+        // A compound that is one part cut into cells is listed as that part, as the tree shows it
+        private static string GetEntityText(NamedClass entity)
+        {
+            if (entity is CompoundGeometryPart compoundPart)
+                return compoundPart.GetSingleSplitSubPartName() ?? compoundPart.Name;
+            return entity.Name;
         }
 
        

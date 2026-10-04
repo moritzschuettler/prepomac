@@ -2776,7 +2776,8 @@ namespace PrePoMax
             {
                 part = (GeometryPart)_model.Geometry.Parts[partName];
                 if (partNames.Length == 1) stepFileName = fileName;
-                else stepFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
+                else stepFileName = Path.Combine(directory, fileNameWithoutExtension + "_" +
+                                                 GetGeometryPartDisplayName(partName) + extension);
                 ExportCADGeometryPartAsStep(part, stepFileName);
             }
         }
@@ -2791,10 +2792,12 @@ namespace PrePoMax
             {
                 part = (GeometryPart)_model.Geometry.Parts[partName];
                 if (partNames.Length == 1) brepFileName = fileName;
-                else brepFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
+                else brepFileName = Path.Combine(directory, fileNameWithoutExtension + "_" +
+                                                 GetGeometryPartDisplayName(partName) + extension);
                 File.WriteAllText(brepFileName, part.CADFileData);
                 //
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + brepFileName);
+                _form.WriteDataToOutput("Part " + GetGeometryPartDisplayName(partName) + " exported to file: " +
+                                        brepFileName);
             }
         }
         public void ExportCADGeometryPartsAsStepAssembly(string[] partNames, string fileName)
@@ -2842,8 +2845,19 @@ namespace PrePoMax
             //
             foreach (var partName in partNames)
             {
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
+                _form.WriteDataToOutput("Part " + GetGeometryPartDisplayName(partName) + " exported to file: " +
+                                        fileName);
             }
+        }
+        /// <summary>
+        /// The name a part is shown by: a compound that is one part cut into cells is shown as that part.
+        /// </summary>
+        private string GetGeometryPartDisplayName(string partName)
+        {
+            BasePart part;
+            if (_model.Geometry.Parts.TryGetValue(partName, out part) && part is CompoundGeometryPart compoundPart)
+                return compoundPart.GetSingleSplitSubPartName() ?? partName;
+            return partName;
         }
         public void ExportCADGeometryPartAsStep(GeometryPart part, string fileName)
         {
@@ -2871,7 +2885,8 @@ namespace PrePoMax
                                                  _form.WriteDataToOutput);
             // Job completed
             if (jobStatus == JobStatus.OK)
-                _form.WriteDataToOutput("Part " + part.Name + " exported to file: " + fileName);
+                _form.WriteDataToOutput("Part " + GetGeometryPartDisplayName(part.Name) + " exported to file: " +
+                                        fileName);
             else return;
         }
         public void ExportTo3mf(Export3mfFileProperties export3mfFileProperties)
