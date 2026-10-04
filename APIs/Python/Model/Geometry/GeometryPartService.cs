@@ -236,6 +236,24 @@ namespace APIs.Python.Model
         }
         public Dictionary<string, int> Repair(string[] partNames, GeometryRepair geometryRepair, object tolerance)
         {
+            CheckRepair(geometryRepair, tolerance);
+            EnsureCommandsAvailable();
+            return MeshGateway.RepairGeometry(partNames, geometryRepair);
+        }
+        public Dictionary<string, RepairPreviewAPI> RepairPreview(string[] partNames, GeometryRepair geometryRepair,
+                                                                  object tolerance)
+        {
+            CheckRepair(geometryRepair, tolerance);
+            EnsureCommandsAvailable();
+            //
+            Dictionary<string, RepairPreviewAPI> previews = new Dictionary<string, RepairPreviewAPI>();
+            foreach (var entry in MeshGateway.PreviewRepairGeometry(partNames, geometryRepair))
+                previews.Add(entry.Key, new RepairPreviewAPI(entry.Key, entry.Value.Refused, entry.Value.Edges,
+                                                             entry.Value.Points));
+            return previews;
+        }
+        private static void CheckRepair(GeometryRepair geometryRepair, object tolerance)
+        {
             if (tolerance != null)
             {
                 geometryRepair.Tolerance = PythonValueConverter.ToDouble(tolerance, "tolerance");
@@ -244,9 +262,6 @@ namespace APIs.Python.Model
             }
             if (geometryRepair.KernelOptions == 0)
                 throw new PythonAPIException("At least one repair must be switched on.");
-            //
-            EnsureCommandsAvailable();
-            return MeshGateway.RepairGeometry(partNames, geometryRepair);
         }
         public void FlipStlNormals(string[] partNames)
         {

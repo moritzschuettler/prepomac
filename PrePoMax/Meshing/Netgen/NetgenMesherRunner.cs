@@ -115,6 +115,8 @@ namespace PrePoMax
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + outputFileName.ToUTF8() + "\" " +
                               kernelOptions + " " + tolerance.ToString("R", CultureInfo.InvariantCulture);
+            // A repaired part has its closed faces divided again, so the preview compares it divided as well
+            if (preview) argument += " " + _controller.Settings.General.NumOfSplitFaces;
             return RunGeometryOperation(part, argument, outputFileName);
         }
         private string WritePartBrep(GeometryPart part)

@@ -90,6 +90,9 @@ namespace APIs.Python
         // or not it changed anything
         Dictionary<string, int> FuseFaces(GeometrySelection geometrySelection);
         Dictionary<string, int> RepairGeometry(string[] partNames, GeometryRepair geometryRepair);
+        // Runs the repair on a copy of each part and records nothing
+        Dictionary<string, GeometryRepairPreview> PreviewRepairGeometry(string[] partNames,
+                                                                         GeometryRepair geometryRepair);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
         Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection);

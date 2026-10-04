@@ -9905,39 +9905,50 @@ namespace PrePoMax
         }
         private void PreviewRepairGeometry(string[] partNames, GeometryRepair geometryRepair)
         {
+            foreach (var entry in GetRepairGeometryPreview(partNames, geometryRepair))
+            {
+                if (entry.Value.Edges.Length == 0 && entry.Value.Points.Length == 0) continue;
+                //
+                double[] offset = GetExplodedViewOffsetForGeneratedMeshPart(_model.Geometry.Parts[entry.Key], null);
+                DrawPreviewPolylines("repairGeometryPreview_" + entry.Key, entry.Value.Edges.ToList(), offset);
+                DrawRepairGeometryPreviewPoints("repairGeometryPreviewPoints_" + entry.Key, entry.Value.Points, offset);
+                _repairGeometryPreviewDrawn = true;
+            }
+        }
+        /// <summary>
+        /// What the repair would take away from each of the CAD parts the named parts stand for, found by running it
+        /// on a copy. It records nothing and changes nothing.
+        /// </summary>
+        public Dictionary<string, GeometryRepairPreview> GetRepairGeometryPreview(string[] partNames,
+                                                                                  GeometryRepair geometryRepair)
+        {
             List<string> skippedPartNames;
             string[] repairedPartNames = GetRepairGeometryPartNames(partNames, geometryRepair, out skippedPartNames);
             //
+            Dictionary<string, GeometryRepairPreview> previews = new Dictionary<string, GeometryRepairPreview>();
             int numOfChangedParts = 0;
             foreach (string partName in repairedPartNames)
             {
                 GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
                 double tolerance = GetGeometryRepairTolerance(part, geometryRepair);
                 string previewFileName = _netgenRunner.Repair(part, geometryRepair.KernelOptions, tolerance, true);
-                double[][][] polylines = previewFileName == null ? null : ReadSplitGeometryPreviewEdges(previewFileName);
-                double[][] points = previewFileName == null ? null : ReadRepairGeometryPreviewPoints(previewFileName);
-                if (polylines == null || points == null)
-                {
-                    _form.WriteDataToOutput("Repair preview: the part " + partName + " would be left as it was.");
-                    continue;
-                }
-                if (polylines.Length == 0 && points.Length == 0)
-                {
-                    _form.WriteDataToOutput("Repair preview: nothing would change on the part " + partName + ".");
-                    continue;
-                }
+                GeometryRepairPreview preview = previewFileName == null ? new GeometryRepairPreview(null, null) :
+                    new GeometryRepairPreview(ReadSplitGeometryPreviewEdges(previewFileName),
+                                              ReadRepairGeometryPreviewPoints(previewFileName));
+                previews.Add(partName, preview);
                 //
-                double[] offset = GetExplodedViewOffsetForGeneratedMeshPart(part, null);
-                DrawPreviewPolylines("repairGeometryPreview_" + partName, polylines.ToList(), offset);
-                DrawRepairGeometryPreviewPoints("repairGeometryPreviewPoints_" + partName, points, offset);
-                _repairGeometryPreviewDrawn = true;
-                numOfChangedParts++;
+                if (preview.Refused)
+                    _form.WriteDataToOutput("Repair preview: the part " + partName + " would be left as it was.");
+                else if (preview.Edges.Length == 0 && preview.Points.Length == 0)
+                    _form.WriteDataToOutput("Repair preview: nothing would change on the part " + partName + ".");
+                else numOfChangedParts++;
             }
             if (skippedPartNames.Count > 0)
                 _form.WriteDataToOutput("Repair preview: " + string.Join(", ", skippedPartNames) + " are not CAD " +
                                         "parts and would be skipped.");
             _form.WriteDataToOutput("Repair preview finished: the repair would change " + numOfChangedParts +
                                     " of the " + repairedPartNames.Length + " selected parts.");
+            return previews;
         }
         // The vertices the repair would take away, one point per line
         private static double[][] ReadRepairGeometryPreviewPoints(string previewFileName)

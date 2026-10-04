@@ -74,6 +74,7 @@
     <Compile Include="Python\Model\Parts\FaceDataAPI.cs" />
     <Compile Include="Python\Model\Parts\EdgeDataAPI.cs" />
     <Compile Include="Python\Model\Parts\VertexDataAPI.cs" />
+    <Compile Include="Python\Model\Geometry\RepairPreviewAPI.cs" />
     <Compile Include="Python\Selection\SelectionPreviewAPI.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartService.cs" />
     <Compile Include="Python\Model\Geometry\GeometryPartsAPI.cs" />

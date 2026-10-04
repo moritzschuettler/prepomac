@@ -245,14 +245,45 @@ namespace APIs.Python.Model
                                               bool fuse_faces = false, bool join_edges = false,
                                               object tolerance = null)
         {
-            GeometryRepair geometryRepair = new GeometryRepair();
-            geometryRepair.SewFaces = sew_faces;
-            geometryRepair.FixShape = fix_shape;
-            geometryRepair.RemoveSmallFaces = remove_small_faces;
-            geometryRepair.RemoveSmallEdges = remove_small_edges;
-            geometryRepair.FuseFaces = fuse_faces;
-            geometryRepair.JoinEdges = join_edges;
+            GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,
+                                                              remove_small_edges, fuse_faces, join_edges);
             return _service.Repair(_service.ResolveNames(part_names), geometryRepair, tolerance);
+        }
+
+        [PythonAPI("Runs repair on a copy of the named CAD parts and returns what it would take away, without " +
+                   "changing anything or recording a command, the way Preview in the Repair dialog does. It takes " +
+                   "the arguments repair takes. A sub-part is previewed with its compound, so the result is keyed " +
+                   "by the names of the parts the repair would run on. Every RepairPreview lists the edges the " +
+                   "repair would remove or sew, each as the points sampled on it, and the vertices it would remove; " +
+                   "refused is True when the repair would leave the part as it was.",
+                   Arguments = "part_names: list[str] or str, sew_faces: bool = True, fix_shape: bool = True, " +
+                               "remove_small_faces: bool = True, remove_small_edges: bool = True, " +
+                               "fuse_faces: bool = False, join_edges: bool = False, tolerance: float = None",
+                   Returns = "dict[str, RepairPreview]",
+                   Example = "preview = pmx.model.geometry.parts.repair_preview('Solid_part-1', tolerance=0.01)\n" +
+                             "print(preview['Solid_part-1'].edge_count)")]
+        public Dictionary<string, RepairPreviewAPI> repair_preview(object part_names, bool sew_faces = true,
+                                                                   bool fix_shape = true,
+                                                                   bool remove_small_faces = true,
+                                                                   bool remove_small_edges = true,
+                                                                   bool fuse_faces = false, bool join_edges = false,
+                                                                   object tolerance = null)
+        {
+            GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,
+                                                              remove_small_edges, fuse_faces, join_edges);
+            return _service.RepairPreview(_service.ResolveNames(part_names), geometryRepair, tolerance);
+        }
+        private static GeometryRepair GetGeometryRepair(bool sewFaces, bool fixShape, bool removeSmallFaces,
+                                                        bool removeSmallEdges, bool fuseFaces, bool joinEdges)
+        {
+            GeometryRepair geometryRepair = new GeometryRepair();
+            geometryRepair.SewFaces = sewFaces;
+            geometryRepair.FixShape = fixShape;
+            geometryRepair.RemoveSmallFaces = removeSmallFaces;
+            geometryRepair.RemoveSmallEdges = removeSmallEdges;
+            geometryRepair.FuseFaces = fuseFaces;
+            geometryRepair.JoinEdges = joinEdges;
+            return geometryRepair;
         }
 
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",

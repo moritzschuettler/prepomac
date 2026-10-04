@@ -395,6 +395,11 @@ namespace PrePoMax.Python
             _controller.RepairGeometryCommand(partNames, geometryRepair);
             return _controller.LastGeometryOperationCounts;
         }
+        public Dictionary<string, GeometryRepairPreview> PreviewRepairGeometry(string[] partNames,
+                                                                                GeometryRepair geometryRepair)
+        {
+            return _controller.GetRepairGeometryPreview(partNames, geometryRepair);
+        }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)
         {

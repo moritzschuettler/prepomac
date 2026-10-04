@@ -81,6 +81,7 @@
     <Compile Include="Features\SplitToolSymbol.cs" />
     <Compile Include="Features\FaceOffset.cs" />
     <Compile Include="Features\GeometryRepair.cs" />
+    <Compile Include="Features\GeometryRepairPreview.cs" />
     <Compile Include="Enums\ImportOptions.cs" />
     <Compile Include="CellEdgeData.cs" />
     <Compile Include="Enums\GeometryType.cs" />

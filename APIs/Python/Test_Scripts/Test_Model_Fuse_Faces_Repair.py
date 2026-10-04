@@ -1,7 +1,7 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks fuse_faces and repair. Fusing faces makes faces that lie on one surface one again across the
+#Checks fuse_faces, repair and repair_preview. Fusing faces makes faces that lie on one surface one again across the
 #edges they share, so a face a shell split divided comes back whole and the part keeps its name and
 #its body. Faces on different surfaces cannot be fused, which is reported as nothing fused rather
 #than refused. Repair runs on whole parts; with fuse_faces it gives back the faces a split divided,
@@ -113,9 +113,33 @@ def test_repair():
     refused(lambda: parts.repair("No_such_part"), "No_such_part")
 
 
+def test_repair_preview():
+    parts = pmx.model.geometry.parts
+    name = part().name
+    before = face_count(part())
+    clean = parts.repair_preview(name, fuse_faces=True, join_edges=True)
+    check(name in clean, "the preview must name the part: " + str(dict(clean)))
+    check(not clean[name].refused and clean[name].edge_count == 0 and clean[name].point_count == 0,
+          "a clean part must have nothing to take away: " + str(clean[name]))
+    # The line a shell split drew across the top face is the edge the fuse takes away, and its two ends are the
+    # points on the edges it crossed that the joining takes out
+    added = split_top_face(part())
+    preview = parts.repair_preview(name, fuse_faces=True, join_edges=True)[name]
+    check(preview.edge_count == 1 and len(preview.edges) == 1, "the split line must be previewed: " + str(preview))
+    check(len(preview.edges[0]) >= 2 and len(preview.edges[0][0]) == 3,
+          "an edge must come as points of three coordinates")
+    check(preview.point_count == 2, "the two ends of the split line must be previewed: " + str(preview))
+    check(face_count(part()) == before + added, "a preview must leave the part as it was")
+    #
+    refused(lambda: parts.repair_preview(name, tolerance=0), "tolerance")
+    parts.repair(name, fuse_faces=True, join_edges=True)
+    check(face_count(part()) == before, "the repair must take away what the preview showed")
+
+
 def main():
     test_fuse_faces()
     test_repair()
+    test_repair_preview()
     print("TEST PASSED")
 
 
