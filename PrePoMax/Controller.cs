@@ -10800,10 +10800,23 @@ namespace PrePoMax
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();
             gmshData.FixedCountEdgeIds = new HashSet<int>();
+            // A compound meshed by its symmetry gives a local mesh size to the images of what it selects as well
+            SweepMesh symmetricSweep = gmshData.GmshSetupItems?.OfType<SweepMesh>()
+                                                               .FirstOrDefault(sweepMesh => sweepMesh.HasSymmetry);
             foreach (var localMeshSize in localMeshSizes)
             {
                 bool fixedCount = localMeshSize.Type == LocalMeshSizeTypeEnum.NumberOfElements;
-                foreach (int geometryId in localMeshSize.CreationIds)
+                int[] geometryIds = localMeshSize.CreationIds;
+                int index = symmetricSweep?.SymmetryLocalMeshSizeNames == null ? -1 :
+                            Array.IndexOf(symmetricSweep.SymmetryLocalMeshSizeNames, localMeshSize.Name);
+                if (index >= 0)
+                {
+                    geometryIds = symmetricSweep.SymmetryLocalMeshSizeIds[index];
+                    _form.WriteDataToOutput("Sweep: the local mesh size " + localMeshSize.Name + " is given to the " +
+                                            "mirror images of what it selects as well, so that the compound is meshed " +
+                                            "by its symmetry.");
+                }
+                foreach (int geometryId in geometryIds)
                 {
                     itemTypePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
                     itemId = itemTypePartId[0];

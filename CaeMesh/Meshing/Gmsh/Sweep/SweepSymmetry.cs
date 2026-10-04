@@ -31,6 +31,7 @@ namespace CaeMesh
         private readonly double _vertexTolerance;
         private readonly double _curveTolerance;
         private readonly double _signatureTolerance;
+        private Dictionary<string, int[]> _localMeshSizeSelections;
 
 
         // Properties
@@ -42,6 +43,11 @@ namespace CaeMesh
         public GeometryPart[] MasterParts { get; private set; }
         /// <summary>Why no symmetry is used, for the output window; null when one is.</summary>
         public string Reason { get; private set; }
+        /// <summary>
+        /// The local mesh sizes that select only some of the mirror images of an entity, by name, with their selection
+        /// and every image of it: the size is then the size of every image, so that the mesh stays symmetric.
+        /// </summary>
+        public Dictionary<string, int[]> LocalMeshSizeSelections { get; private set; }
 
 
         // Constructors
@@ -177,6 +183,7 @@ namespace CaeMesh
             //
             Planes = usedPlanes;
             PartIds = rows.ToArray();
+            LocalMeshSizeSelections = _localMeshSizeSelections;
             MasterParts = _parts.Where(part => masterIds.Contains(part.PartId)).ToArray();
             return true;
         }
@@ -311,20 +318,53 @@ namespace CaeMesh
         // Selections
         /// <summary>
         /// Whether every item selecting a part of the compound selects the images of what it selects, and the own
-        /// selection of the sweep item as well. A count on an edge, a size on a face or a setting on a cell that only
-        /// one side carries asks for a mesh that is not symmetric.
+        /// selection of the sweep item as well. A setting on a cell that only one side carries asks for a mesh that
+        /// is not symmetric. A local mesh size is different: a count on an edge or a size on a face is a size the
+        /// user wants there, and the images of the entity are meshed alike when the size is given to all of them, so
+        /// its selection is completed by the images of what it selects. Two local mesh sizes the completion would
+        /// put on one entity, from different sides, ask for two sizes there, and the symmetry is not used.
         /// </summary>
         private bool AreSelectionsSymmetric(IEnumerable<MeshSetupItem> items, int[] ownSelectedGeometryIds,
                                             double[][] planes, HashSet<int> masterIds,
                                             Dictionary<int, Tuple<int, int>> partIdMasterBits, out string reason)
         {
             reason = null;
+            _localMeshSizeSelections = new Dictionary<string, int[]>();
             List<Tuple<string, int[]>> selections = new List<Tuple<string, int[]>>();
+            Dictionary<string, HashSet<int>> completedSelections = new Dictionary<string, HashSet<int>>();
             if (items != null)
             {
                 foreach (var item in items)
                 {
-                    if (item.CreationIds != null) selections.Add(new Tuple<string, int[]>(item.Name, item.CreationIds));
+                    if (item.CreationIds == null) continue;
+                    if (!(item is LocalMeshSize))
+                    {
+                        selections.Add(new Tuple<string, int[]>(item.Name, item.CreationIds));
+                        continue;
+                    }
+                    HashSet<int> completed = new HashSet<int>(item.CreationIds);
+                    foreach (var geometryId in item.CreationIds)
+                    {
+                        if (!_partIdPart.ContainsKey(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2])) continue;
+                        foreach (var image in GetImages(geometryId, planes, masterIds, partIdMasterBits))
+                        {
+                            if (image >= 0) completed.Add(image);
+                        }
+                    }
+                    foreach (var entry in completedSelections)
+                    {
+                        HashSet<int> own = new HashSet<int>(item.CreationIds);
+                        HashSet<int> other = new HashSet<int>(items.First(i => i.Name == entry.Key).CreationIds);
+                        if (completed.Any(id => entry.Value.Contains(id) && !(own.Contains(id) && other.Contains(id))))
+                        {
+                            reason = "the local mesh sizes " + entry.Key + " and " + item.Name + " select mirror images " +
+                                     "of each other";
+                            return false;
+                        }
+                    }
+                    completedSelections.Add(item.Name, completed);
+                    if (completed.Count > item.CreationIds.Distinct().Count())
+                        _localMeshSizeSelections.Add(item.Name, completed.OrderBy(id => id).ToArray());
                 }
             }
             if (ownSelectedGeometryIds != null)

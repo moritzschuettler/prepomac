@@ -2983,6 +2983,8 @@ namespace CaeModel
             sweepMesh.BlockRevolveAxes = null;
             sweepMesh.SymmetryPlanes = null;
             sweepMesh.SymmetryPartIds = null;
+            sweepMesh.SymmetryLocalMeshSizeNames = null;
+            sweepMesh.SymmetryLocalMeshSizeIds = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
@@ -3122,6 +3124,7 @@ namespace CaeModel
             SweepSymmetry symmetry;
             List<double[]> symmetryPlanes = new List<double[]>();
             List<int[]> symmetryPartIds = new List<int[]>();
+            Dictionary<string, HashSet<int>> symmetryLocalMeshSizeIds = new Dictionary<string, HashSet<int>>();
             List<SweepBlocks> sweptGroupBlocks = new List<SweepBlocks>();
             foreach (var sweptParts in sweptPartGroups)
             {
@@ -3170,6 +3173,13 @@ namespace CaeModel
                     symmetryPlanes.AddRange(symmetry.Planes);
                     foreach (var row in symmetry.PartIds)
                         symmetryPartIds.Add(new int[] { row[0], row[1], row[2] << offset });
+                    // A local mesh size selecting only some of the images of an entity is given to all of them
+                    foreach (var entry in symmetry.LocalMeshSizeSelections)
+                    {
+                        if (!symmetryLocalMeshSizeIds.ContainsKey(entry.Key))
+                            symmetryLocalMeshSizeIds.Add(entry.Key, new HashSet<int>());
+                        symmetryLocalMeshSizeIds[entry.Key].UnionWith(entry.Value);
+                    }
                 }
             }
             if (sweptGroupBlocks.Count == 0) return lastError;
@@ -3179,6 +3189,9 @@ namespace CaeModel
             {
                 sweepMesh.SymmetryPlanes = symmetryPlanes.ToArray();
                 sweepMesh.SymmetryPartIds = symmetryPartIds.ToArray();
+                sweepMesh.SymmetryLocalMeshSizeNames = symmetryLocalMeshSizeIds.Keys.ToArray();
+                sweepMesh.SymmetryLocalMeshSizeIds = symmetryLocalMeshSizeIds.Values.Select(ids => ids.OrderBy(id => id)
+                                                                                                 .ToArray()).ToArray();
             }
             //
             return null;

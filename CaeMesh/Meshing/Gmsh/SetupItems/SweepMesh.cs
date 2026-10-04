@@ -41,6 +41,8 @@ namespace CaeMesh
         private SweepSymmetryEnum _symmetry;                            // ISerializable
         private double[][] _symmetryPlanes;                             // ISerializable
         private int[][] _symmetryPartIds;                               // ISerializable
+        private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
+        private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
 
 
         // Properties                                                                                                               
@@ -123,6 +125,21 @@ namespace CaeMesh
         /// the planes it is mirrored across as bits of the indices into SymmetryPlanes.
         /// </summary>
         public int[][] SymmetryPartIds { get { return _symmetryPartIds; } set { _symmetryPartIds = value; } }
+        /// <summary>
+        /// The local mesh sizes that select only some of the mirror images of an entity, by name, with the geometry ids
+        /// of their selection and of every image of it, which they are applied to when the compound is meshed by the
+        /// symmetry.
+        /// </summary>
+        public string[] SymmetryLocalMeshSizeNames
+        {
+            get { return _symmetryLocalMeshSizeNames; }
+            set { _symmetryLocalMeshSizeNames = value; }
+        }
+        public int[][] SymmetryLocalMeshSizeIds
+        {
+            get { return _symmetryLocalMeshSizeIds; }
+            set { _symmetryLocalMeshSizeIds = value; }
+        }
         public bool HasSymmetry
         {
             get { return _symmetryPlanes != null && _symmetryPlanes.Length > 0 && _symmetryPartIds != null &&
@@ -207,6 +224,10 @@ namespace CaeMesh
                         _symmetryPlanes = (double[][])entry.Value; break;
                     case "_symmetryPartIds":
                         _symmetryPartIds = (int[][])entry.Value; break;
+                    case "_symmetryLocalMeshSizeNames":
+                        _symmetryLocalMeshSizeNames = (string[])entry.Value; break;
+                    case "_symmetryLocalMeshSizeIds":
+                        _symmetryLocalMeshSizeIds = (int[][])entry.Value; break;
                     default:
                         break;
                 }
@@ -250,6 +271,8 @@ namespace CaeMesh
             _symmetry = SweepSymmetryEnum.Automatic;
             _symmetryPlanes = null;
             _symmetryPartIds = null;
+            _symmetryLocalMeshSizeNames = null;
+            _symmetryLocalMeshSizeIds = null;
         }
         private void SetQuadWildDefaults()
         {
@@ -280,6 +303,8 @@ namespace CaeMesh
             _symmetry = sweepMesh._symmetry;
             _symmetryPlanes = CopyBlockCoors(sweepMesh._symmetryPlanes);
             _symmetryPartIds = CopyBlockIds(sweepMesh._symmetryPartIds);
+            _symmetryLocalMeshSizeNames = sweepMesh._symmetryLocalMeshSizeNames?.ToArray();
+            _symmetryLocalMeshSizeIds = CopyBlockIds(sweepMesh._symmetryLocalMeshSizeIds);
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -396,6 +421,8 @@ namespace CaeMesh
             info.AddValue("_symmetry", _symmetry, typeof(SweepSymmetryEnum));
             info.AddValue("_symmetryPlanes", _symmetryPlanes, typeof(double[][]));
             info.AddValue("_symmetryPartIds", _symmetryPartIds, typeof(int[][]));
+            info.AddValue("_symmetryLocalMeshSizeNames", _symmetryLocalMeshSizeNames, typeof(string[]));
+            info.AddValue("_symmetryLocalMeshSizeIds", _symmetryLocalMeshSizeIds, typeof(int[][]));
         }
     }
 }
