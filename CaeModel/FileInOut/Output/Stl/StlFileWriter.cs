@@ -30,7 +30,10 @@ namespace FileInOut.Output
             //
             foreach (var partName in partNames)
             {
-                foreach (int elementId in mesh.Parts[partName].Labels)
+                BasePart part = mesh.Parts[partName];
+                bool reverse = (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) &&
+                               GetEnclosedVolume(mesh, part) < 0;
+                foreach (int elementId in part.Labels)
                 {
                     element = mesh.Elements[elementId];
                     if (element is LinearTriangleElement)
@@ -39,7 +42,7 @@ namespace FileInOut.Output
                         nodeIds = element.NodeIds;
                         for (int i = 0; i < nodeIds.Length; i++)
                         {
-                            coor = mesh.Nodes[nodeIds[i]].Coor;
+                            coor = mesh.Nodes[nodeIds[reverse ? nodeIds.Length - 1 - i : i]].Coor;
                             vertices[i] = new Vertex((float)coor[0], (float)coor[1], (float)coor[2]);
                         }
                         normal = ComputeNormal(vertices);
@@ -81,6 +84,24 @@ namespace FileInOut.Output
             //{
             //   stlFile.WriteBinary(stream);
             //}
+        }
+        // Negative when the triangles of a closed part face inwards, which leaves a volume mesher no inside to fill
+        private static double GetEnclosedVolume(FeMesh mesh, BasePart part)
+        {
+            double volume = 0;
+            foreach (int elementId in part.Labels)
+            {
+                if (mesh.Elements[elementId] is LinearTriangleElement triangle)
+                {
+                    double[] a = mesh.Nodes[triangle.NodeIds[0]].Coor;
+                    double[] b = mesh.Nodes[triangle.NodeIds[1]].Coor;
+                    double[] c = mesh.Nodes[triangle.NodeIds[2]].Coor;
+                    volume += a[0] * (b[1] * c[2] - b[2] * c[1]) -
+                              a[1] * (b[0] * c[2] - b[2] * c[0]) +
+                              a[2] * (b[0] * c[1] - b[1] * c[0]);
+                }
+            }
+            return volume / 6;
         }
         //
         private static Normal ComputeNormal(Vertex[] vertices)

@@ -11939,7 +11939,9 @@ namespace PrePoMax
         {
             MeshTypeEnum[] faceMeshTypes = new MeshTypeEnum[part.Visualization.FaceCount];
             bool[] transfiniteFaces = null;
-            if (meshType == MeshTypeEnum.Free) transfiniteFaces = GetTransfiniteShellFaces(part, meshedPartName, mesherSetupItem);
+            // An stl part is meshed by the stl meshers, which lay no grid over its faces
+            if (meshType == MeshTypeEnum.Free && part.IsCADPart)
+                transfiniteFaces = GetTransfiniteShellFaces(part, meshedPartName, mesherSetupItem);
             //
             for (int i = 0; i < faceMeshTypes.Length; i++)
             {
@@ -12010,8 +12012,8 @@ namespace PrePoMax
         }
         private static MeshTypeEnum GetMeshTypeOfMeshSetupItem(MeshSetupItem meshSetupItem, GeometryPart part)
         {
-            // Which faces of a CAD shell are structured is told by the faces
-            if (part.IsCADPart && part.PartType == PartType.Shell &&
+            // Which faces of a CAD shell are structured is told by the faces, and an open stl part is a shell
+            if (part.PartType == PartType.Shell &&
                 (meshSetupItem is ShellGmsh || meshSetupItem is ShellMmg || meshSetupItem is ShellQuadWild ||
                  meshSetupItem is NetgenMesh))
                 return MeshTypeEnum.Free;

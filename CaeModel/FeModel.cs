@@ -2615,8 +2615,16 @@ namespace CaeModel
                     part.MeshType = MeshTypeEnum.Free;
                     continue;
                 }
-                // Everything else that is not a solid CAD part is meshed by the Netgen and STL meshers
-                if (!part.IsCADPart || (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell))
+                // An stl part is meshed by the stl meshers: a closed one is filled by tetrahedra and an open one
+                // is meshed as a shell without a structured grid
+                if (!part.IsCADPart)
+                {
+                    if (part.PartType == PartType.SolidAsShell) part.MeshType = MeshTypeEnum.Tetrahedral;
+                    else if (part.PartType == PartType.Shell) part.MeshType = MeshTypeEnum.Free;
+                    else part.MeshType = MeshTypeEnum.Other;
+                    continue;
+                }
+                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
                 {
                     part.MeshType = MeshTypeEnum.Other;
                     continue;
