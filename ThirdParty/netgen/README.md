@@ -59,7 +59,11 @@ runs. Its `BREP_REMOVE_FACES` deletes the named faces and leaves the gap open, s
 face comes back as the open shells left of it, and writes the pieces that no longer touch beside the largest
 when the faces left fall into more pieces than before, which is what Delete Faces of a CAD part runs. `BREP_REMOVE_COMPOUND_FACES` does the same
 for a compound and writes the solids that were kept, each opened solid as a shell of its own beside them and
-the list of which solids were opened. Its `BREP_OFFSET_FACES`
+the list of which solids were opened. Its `BREP_FUSE_FACES` makes the named faces one across the edges
+they share where they lie on one surface and bound the same solids, and joins the edges at the vertices of
+the edges it took out, which is what Fuse Faces runs; `BREP_REPAIR` sews, fixes, removes small faces and
+edges, fuses faces and joins edges on the whole shape as its options say, and refuses a result with other
+solids or one that is no longer valid, which is what Repair runs. Its `BREP_OFFSET_FACES`
 writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
 that share no edge to separate files. Its `VOL_VOLUME_MESH` meshes a given boundary - triangles and
 quadrilaterals in a `.vol` file, one domain per cell - by tetrahedra, standing a pyramid on every

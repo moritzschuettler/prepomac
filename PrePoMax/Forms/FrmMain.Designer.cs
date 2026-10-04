@@ -251,6 +251,9 @@ namespace PrePoMax
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDeleteFacesCAD = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFuseFaces = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerCAD3 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiRepairGeometry = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFindStlEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFlipStlPartFaceNormal = new System.Windows.Forms.ToolStripMenuItem();
@@ -2403,12 +2406,15 @@ namespace PrePoMax
             this.tsmiConvertSolidToShellCAD,
             this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
-            this.tsmiSplitSolid,
             this.tsmiSplitShell,
             this.tsmiOffsetFace,
+            this.tsmiFuseFaces,
+            this.tsmiDeleteFacesCAD,
             this.tsmiDividerCAD2,
+            this.tsmiSplitSolid,
             this.tsmiDefeature,
-            this.tsmiDeleteFacesCAD});
+            this.tsmiDividerCAD3,
+            this.tsmiRepairGeometry});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
             this.cADPartToolStripMenuItem.Size = new System.Drawing.Size(221, 22);
             this.cADPartToolStripMenuItem.Text = "CAD Part";
@@ -2479,6 +2485,25 @@ namespace PrePoMax
             this.tsmiDeleteFacesCAD.Size = new System.Drawing.Size(227, 22);
             this.tsmiDeleteFacesCAD.Text = "Delete Faces";
             this.tsmiDeleteFacesCAD.Click += new System.EventHandler(this.tsmiDeleteFacesCAD_Click);
+            // 
+            // tsmiFuseFaces
+            // 
+            this.tsmiFuseFaces.Name = "tsmiFuseFaces";
+            this.tsmiFuseFaces.Size = new System.Drawing.Size(227, 22);
+            this.tsmiFuseFaces.Text = "Fuse Faces";
+            this.tsmiFuseFaces.Click += new System.EventHandler(this.tsmiFuseFaces_Click);
+            // 
+            // tsmiDividerCAD3
+            // 
+            this.tsmiDividerCAD3.Name = "tsmiDividerCAD3";
+            this.tsmiDividerCAD3.Size = new System.Drawing.Size(224, 6);
+            // 
+            // tsmiRepairGeometry
+            // 
+            this.tsmiRepairGeometry.Name = "tsmiRepairGeometry";
+            this.tsmiRepairGeometry.Size = new System.Drawing.Size(227, 22);
+            this.tsmiRepairGeometry.Text = "Repair";
+            this.tsmiRepairGeometry.Click += new System.EventHandler(this.tsmiRepairGeometry_Click);
             //
             // tsmiStlPart
             // 
@@ -5935,6 +5960,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertShellToSolidCAD;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFuseFaces;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD3;
+        private System.Windows.Forms.ToolStripMenuItem tsmiRepairGeometry;
         private System.Windows.Forms.ToolStripMenuItem tsmiDistribution;
         private System.Windows.Forms.ToolStripMenuItem tsmiCreateDistribution;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditDistribution;

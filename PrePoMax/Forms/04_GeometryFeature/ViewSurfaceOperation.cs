@@ -72,6 +72,10 @@ namespace PrePoMax.Forms
                 return "Select the surfaces that are deleted from the CAD parts." + shift;
             else if (operation == SurfaceOperationEnum.DeleteStlFaces)
                 return "Select the surfaces that are deleted from the STL shell parts." + shift;
+            else if (operation == SurfaceOperationEnum.FuseFaces)
+                return "Select the surfaces of CAD parts that are fused into one. Surfaces are fused across an edge " +
+                       "they share where they lie on one surface, which gives back a surface a split divided; the " +
+                       "shape of the part does not change." + shift;
             else throw new NotSupportedException();
         }
     }

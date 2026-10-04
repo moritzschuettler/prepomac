@@ -120,6 +120,7 @@ namespace PrePoMax
         private FrmSplitShell _frmSplitShell;
         private FrmOffsetFace _frmOffsetFace;
         private FrmSurfaceOperation _frmSurfaceOperation;
+        private FrmRepairGeometry _frmRepairGeometry;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -531,6 +532,9 @@ namespace PrePoMax
                 //
                 _frmSurfaceOperation = new FrmSurfaceOperation(_controller);
                 AddFormToAllForms(_frmSurfaceOperation);
+                //
+                _frmRepairGeometry = new FrmRepairGeometry(_controller);
+                AddFormToAllForms(_frmRepairGeometry);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -4446,6 +4450,7 @@ namespace PrePoMax
             else if (operation == SurfaceOperationEnum.Defeature) text = "Defeature";
             else if (operation == SurfaceOperationEnum.DeleteCadFaces) text = "Delete Faces";
             else if (operation == SurfaceOperationEnum.DeleteStlFaces) text = "Delete Part Faces";
+            else if (operation == SurfaceOperationEnum.FuseFaces) text = "Fuse Faces";
             else throw new NotSupportedException();
             // A form already shown is not prepared again, so one shown for another operation is hidden first
             if (_frmSurfaceOperation.Visible && _frmSurfaceOperation.Operation != operation) _frmSurfaceOperation.Hide();
@@ -4475,6 +4480,35 @@ namespace PrePoMax
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        private void tsmiFuseFaces_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateSurfaceOperation(SurfaceOperationEnum.FuseFaces);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiRepairGeometry_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateRepairGeometry();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void CreateRepairGeometry()
+        {
+            if (_controller.Model.Geometry == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmRepairGeometry);
+            ShowForm(_frmRepairGeometry, "Repair Geometry", null);
         }
         //
         private void ConvertShellToSolid(string[] partNames)
@@ -10322,6 +10356,7 @@ namespace PrePoMax
             if (_frmSplitShell != null && _frmSplitShell.Visible) _frmSplitShell.SelectionChanged(ids);
             if (_frmOffsetFace != null && _frmOffsetFace.Visible) _frmOffsetFace.SelectionChanged(ids);
             if (_frmSurfaceOperation != null && _frmSurfaceOperation.Visible) _frmSurfaceOperation.SelectionChanged(ids);
+            if (_frmRepairGeometry != null && _frmRepairGeometry.Visible) _frmRepairGeometry.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);
             if (_frmRemeshingParameters != null && _frmRemeshingParameters.Visible) _frmRemeshingParameters.SelectionChanged(ids);

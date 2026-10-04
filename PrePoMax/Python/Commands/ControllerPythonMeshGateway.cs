@@ -385,6 +385,16 @@ namespace PrePoMax.Python
             _controller.DeleteCadPartFacesCommand(geometrySelection);
             return _controller.LastGeometryOperationCounts;
         }
+        public Dictionary<string, int> FuseFaces(GeometrySelection geometrySelection)
+        {
+            _controller.FuseFacesCommand(geometrySelection);
+            return _controller.LastGeometryOperationCounts;
+        }
+        public Dictionary<string, int> RepairGeometry(string[] partNames, GeometryRepair geometryRepair)
+        {
+            _controller.RepairGeometryCommand(partNames, geometryRepair);
+            return _controller.LastGeometryOperationCounts;
+        }
         // Stl parts
         public void FlipStlPartSurfacesNormal(string[] partNames)
         {

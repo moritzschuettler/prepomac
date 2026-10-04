@@ -14,8 +14,10 @@ using FileInOut.Output;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 
 namespace PrePoMax
@@ -80,6 +82,67 @@ namespace PrePoMax
             if (jobStatus != JobStatus.OK)
                 throw new CaeException("Defeaturing failed for part '" + part.Name + "'.");
             return brepFileName;
+        }
+        // The faces arrive grouped by the solid they are numbered inside, as a shell split names them: one group
+        // of solid zero for a part of its own and one group per picked sub part for a compound
+        public string FuseFaces(GeometryPart part, List<int> solidNumbers, List<int[]> kernelFaceIds)
+        {
+            string brepFileName = WritePartBrep(part);
+            if (brepFileName == null) return null;
+            //
+            StringBuilder faceIdsArgument = new StringBuilder(solidNumbers.Count.ToString());
+            for (int i = 0; i < solidNumbers.Count; i++)
+            {
+                faceIdsArgument.Append(" " + solidNumbers[i] + " " + kernelFaceIds[i].Length);
+                foreach (int kernelFaceId in kernelFaceIds[i]) faceIdsArgument.Append(" " + kernelFaceId);
+            }
+            string argument = "BREP_FUSE_FACES " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              faceIdsArgument.ToString();
+            return RunGeometryOperation(part, argument, brepFileName);
+        }
+        public string Repair(GeometryPart part, int kernelOptions, double tolerance)
+        {
+            string brepFileName = WritePartBrep(part);
+            if (brepFileName == null) return null;
+            //
+            string argument = "BREP_REPAIR " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              kernelOptions + " " + tolerance.ToString("R", CultureInfo.InvariantCulture);
+            return RunGeometryOperation(part, argument, brepFileName);
+        }
+        private string WritePartBrep(GeometryPart part)
+        {
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            _controller.SuppressExplodedView(new string[] { part.Name });
+            try
+            {
+                File.WriteAllText(brepFileName, part.CADFileData);
+            }
+            finally
+            {
+                _controller.ResumeExplodedViews(false);
+            }
+            return brepFileName;
+        }
+        // The modelling kernel says why it refused in the output, so a refusal is answered as no file
+        private string RunGeometryOperation(GeometryPart part, string argument, string brepFileName)
+        {
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument,
+                                                           Path.GetDirectoryName(brepFileName),
+                                                           _controller.Form.WriteDataToOutput);
+            return jobStatus == JobStatus.OK ? brepFileName : null;
         }
         // A move returns the one transformed file, and a pattern returns one file per copy, copy k transformed k times
         public string[] Transform(GeometryPart part, GeometryTransform transform)

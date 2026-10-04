@@ -86,6 +86,10 @@ namespace APIs.Python
         // know them: the name is derived from the part the surfaces were taken from
         string[] OffsetFace(GeometrySelection geometrySelection, double offset);
         Dictionary<string, int> DeleteCadPartFaces(GeometrySelection geometrySelection);
+        // Return the number of faces each part lost, zero included, because the modelling kernel answers whether
+        // or not it changed anything
+        Dictionary<string, int> FuseFaces(GeometrySelection geometrySelection);
+        Dictionary<string, int> RepairGeometry(string[] partNames, GeometryRepair geometryRepair);
         // Stl parts
         void FlipStlPartSurfacesNormal(string[] partNames);
         Dictionary<string, int> DeleteStlPartFaces(GeometrySelection geometrySelection);

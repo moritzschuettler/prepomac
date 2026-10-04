@@ -20,6 +20,7 @@ namespace PrePoMax.Forms
         FlipNormal,
         Defeature,
         DeleteCadFaces,
-        DeleteStlFaces
+        DeleteStlFaces,
+        FuseFaces
     }
 }

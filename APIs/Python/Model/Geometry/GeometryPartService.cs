@@ -227,6 +227,27 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.DeleteCadPartFaces(geometrySelection);
         }
+        public Dictionary<string, int> FuseFaces(SelectionAPI selection)
+        {
+            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection", "geometry",
+                                                                         "geometry_surfaces");
+            EnsureCommandsAvailable();
+            return MeshGateway.FuseFaces(geometrySelection);
+        }
+        public Dictionary<string, int> Repair(string[] partNames, GeometryRepair geometryRepair, object tolerance)
+        {
+            if (tolerance != null)
+            {
+                geometryRepair.Tolerance = PythonValueConverter.ToDouble(tolerance, "tolerance");
+                if (geometryRepair.Tolerance <= 0)
+                    throw new PythonAPIException("The argument 'tolerance' must be larger than zero.");
+            }
+            if (geometryRepair.KernelOptions == 0)
+                throw new PythonAPIException("At least one repair must be switched on.");
+            //
+            EnsureCommandsAvailable();
+            return MeshGateway.RepairGeometry(partNames, geometryRepair);
+        }
         public void FlipStlNormals(string[] partNames)
         {
             EnsureCommandsAvailable();

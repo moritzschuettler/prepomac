@@ -207,6 +207,8 @@
     <Compile Include="Commands\0030_Geometry\CDefeature.cs" />
     <Compile Include="Commands\0030_Geometry\CDeleteCadPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\COffsetFace.cs" />
+    <Compile Include="Commands\0030_Geometry\CFuseFaces.cs" />
+    <Compile Include="Commands\0030_Geometry\CRepairGeometry.cs" />
     <Compile Include="Commands\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />
     <Compile Include="Commands\0030_Geometry\CConvertShellToSolid.cs" />
@@ -538,6 +540,9 @@
     <Compile Include="Forms\04_GeometryFeature\FrmSurfaceOperation.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\04_GeometryFeature\FrmRepairGeometry.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\04_GeometryFeature\SurfaceOperationEnum.cs" />
     <Compile Include="Forms\04_GeometryFeature\GeometryFeatureTypes.cs" />
     <Compile Include="Forms\04_GeometryFeature\FeatureSelectionTargetEnum.cs" />
@@ -548,6 +553,7 @@
     <Compile Include="Forms\04_GeometryFeature\ViewSplitByPointAndNormal.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewFaceOffset.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewSurfaceOperation.cs" />
+    <Compile Include="Forms\04_GeometryFeature\ViewGeometryRepair.cs" />
     <Compile Include="Forms\04_GeometryFeature\ViewGeometryFeature.cs" />
     <Compile Include="Forms\11_MeshSetup\Base\ViewMeshSetupItem.cs" />
     <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
@@ -1173,6 +1179,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\04_GeometryFeature\FrmSurfaceOperation.resx">
       <DependentUpon>FrmSurfaceOperation.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\04_GeometryFeature\FrmRepairGeometry.resx">
+      <DependentUpon>FrmRepairGeometry.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\55_Load\FrmLoad.resx">
       <DependentUpon>FrmLoad.cs</DependentUpon>

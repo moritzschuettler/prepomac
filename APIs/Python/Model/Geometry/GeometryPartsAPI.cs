@@ -209,6 +209,52 @@ namespace APIs.Python.Model
             return _service.DeleteCadFaces(selection);
         }
 
+        [PythonAPI("Fuses the selected CAD part faces into one using command history, the way Fuse Faces in the " +
+                   "CAD Part menu does. The selection uses the 'geometry' view and the 'geometry' or " +
+                   "'geometry_surfaces' target. Faces are fused across an edge they share where they lie on one " +
+                   "surface, which gives back a face a split divided, and " +
+                   "the edges left on the outside are joined where the cut left a point on them. The shape does " +
+                   "not change, so a part keeps its name, its id and its bodies. Faces of the sub-parts of a " +
+                   "compound are fused on the compound as a whole, and only faces that bound the same solids are " +
+                   "fused, so the solids still meet. A fused face that closes on itself is divided again as every " +
+                   "closed face is. Returns the number of faces every part lost, so a part whose faces could not " +
+                   "be fused reports zero.",
+                   Arguments = "selection: Selection", Returns = "dict[str, int]",
+                   Example = "fused = pmx.model.geometry.parts.fuse_faces(selection)")]
+        public Dictionary<string, int> fuse_faces(SelectionAPI selection)
+        {
+            return _service.FuseFaces(selection);
+        }
+
+        [PythonAPI("Repairs the whole of the named CAD parts using command history, the way Repair in the CAD " +
+                   "Part menu does. The repairs run in this order: sew_faces sews loose faces and shells of parts " +
+                   "without solids, fix_shape fixes edge tolerances, open wires, missing curves on surfaces and " +
+                   "orientations, remove_small_faces removes faces narrower than the tolerance, remove_small_edges " +
+                   "removes edges shorter than it, fuse_faces fuses neighbouring faces that lie on one surface and " +
+                   "bound the same solids - which also fuses faces a split divided - and join_edges joins edges " +
+                   "that lie on one curve. A sub-part is repaired with its compound. A repair that would change the " +
+                   "number of solids or break a valid shape leaves the part as it was. The tolerance defaults to " +
+                   "one ten-thousandth of the diagonal of each part. Returns the number of faces every part lost.",
+                   Arguments = "part_names: list[str] or str, sew_faces: bool = True, fix_shape: bool = True, " +
+                               "remove_small_faces: bool = True, remove_small_edges: bool = True, " +
+                               "fuse_faces: bool = False, join_edges: bool = False, tolerance: float = None",
+                   Returns = "dict[str, int]",
+                   Example = "removed = pmx.model.geometry.parts.repair('Solid_part-1', fuse_faces=True)")]
+        public Dictionary<string, int> repair(object part_names, bool sew_faces = true, bool fix_shape = true,
+                                              bool remove_small_faces = true, bool remove_small_edges = true,
+                                              bool fuse_faces = false, bool join_edges = false,
+                                              object tolerance = null)
+        {
+            GeometryRepair geometryRepair = new GeometryRepair();
+            geometryRepair.SewFaces = sew_faces;
+            geometryRepair.FixShape = fix_shape;
+            geometryRepair.RemoveSmallFaces = remove_small_faces;
+            geometryRepair.RemoveSmallEdges = remove_small_edges;
+            geometryRepair.FuseFaces = fuse_faces;
+            geometryRepair.JoinEdges = join_edges;
+            return _service.Repair(_service.ResolveNames(part_names), geometryRepair, tolerance);
+        }
+
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void flip_stl_normals(object part_names)

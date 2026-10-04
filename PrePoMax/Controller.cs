@@ -5969,6 +5969,28 @@ namespace PrePoMax
             CDeleteCadPartFaces comm = new CDeleteCadPartFaces(geometrySelection);
             _commands.AddAndExecute(comm);
         }
+        public void FuseFacesCommand(GeometrySelection geometrySelection)
+        {
+            CFuseFaces comm = new CFuseFaces(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
+        public void RepairGeometryCommand(string[] partNames, GeometryRepair geometryRepair)
+        {
+            CRepairGeometry comm = new CRepairGeometry(partNames, geometryRepair);
+            _commands.AddAndExecute(comm);
+        }
+        public async Task RepairGeometryCommandAsync(string[] partNames, GeometryRepair geometryRepair)
+        {
+            bool stateSet = _form.SetStateWorking(Globals.RepairingGeometryText);
+            try
+            {
+                await Task.Run(() => RepairGeometryCommand(partNames, geometryRepair));
+            }
+            finally
+            {
+                if (stateSet) _form.SetStateReady(Globals.RepairingGeometryText);
+            }
+        }
         public async Task SurfaceOperationCommandAsync(SurfaceOperationEnum operation, GeometrySelection geometrySelection)
         {
             string stateText;
@@ -5994,6 +6016,11 @@ namespace PrePoMax
             {
                 stateText = Globals.DeletingFacesText;
                 command = () => DeleteStlPartFacesCommand(geometrySelection);
+            }
+            else if (operation == SurfaceOperationEnum.FuseFaces)
+            {
+                stateText = Globals.FusingFacesText;
+                command = () => FuseFacesCommand(geometrySelection);
             }
             else throw new NotSupportedException();
             //
@@ -9603,6 +9630,232 @@ namespace PrePoMax
             }
             _form.WriteDataToOutput("Defeature finished: " + totalRemoved + " faces were removed from " +
                                     changedParts + " of the " + faceCountsBefore.Count + " selected parts.");
+        }
+        /// <summary>
+        /// Makes the picked faces of CAD parts one across the edges they share where they lie on one surface, which
+        /// gives back a face a split divided. The shape is not changed, so a part keeps its name, its part id and its
+        /// bodies. Faces picked on the sub parts of a compound are fused on the compound as a whole, and only faces
+        /// that bound the same solids are fused, so the solids still meet.
+        /// </summary>
+        public void FuseFaces(GeometrySelection geometrySelection)
+        {
+            if (geometrySelection.CreationData == null)
+                throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            // In order for the Regenerate history to work perform the selection
+            _selection = geometrySelection.CreationData.DeepCopy(true, false);
+            geometrySelection.GeometryIds = GetSelectionIds();
+            _selection.Clear();
+            //
+            List<string> partNames = new List<string>();
+            Dictionary<string, SortedDictionary<int, List<int>>> kernelFaceIdsBySolidByPart =
+                new Dictionary<string, SortedDictionary<int, List<int>>>();
+            HashSet<string> skippedPartNames = new HashSet<string>();
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            foreach (int geometryId in geometrySelection.GeometryIds)
+            {
+                int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                BasePart facePart = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+                if (!(facePart is GeometryPart geometryPart) || !geometryPart.IsCADPart ||
+                    !((GeometryType)itemTypePartIds[1]).IsSurface())
+                {
+                    if (facePart != null) skippedPartNames.Add(facePart.Name);
+                    continue;
+                }
+                // A face of a compound is numbered inside the solid of its sub part, and one of a part of its own in
+                // the part itself, which is solid zero
+                string partName = facePart.Name;
+                int solidNumber = 0;
+                string compoundPartName;
+                if (compoundPartNames.TryGetValue(facePart.Name, out compoundPartName))
+                {
+                    partName = compoundPartName;
+                    CompoundGeometryPart compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[compoundPartName];
+                    solidNumber = Array.IndexOf(compoundPart.SubPartNames, facePart.Name) + 1;
+                }
+                //
+                SortedDictionary<int, List<int>> kernelFaceIdsBySolid;
+                if (!kernelFaceIdsBySolidByPart.TryGetValue(partName, out kernelFaceIdsBySolid))
+                {
+                    kernelFaceIdsBySolid = new SortedDictionary<int, List<int>>();
+                    kernelFaceIdsBySolidByPart.Add(partName, kernelFaceIdsBySolid);
+                    partNames.Add(partName);
+                }
+                List<int> kernelFaceIds;
+                if (!kernelFaceIdsBySolid.TryGetValue(solidNumber, out kernelFaceIds))
+                {
+                    kernelFaceIds = new List<int>();
+                    kernelFaceIdsBySolid.Add(solidNumber, kernelFaceIds);
+                }
+                int kernelFaceId = GetSplitGeometryKernelId(geometryId);
+                if (!kernelFaceIds.Contains(kernelFaceId)) kernelFaceIds.Add(kernelFaceId);
+            }
+            if (partNames.Count == 0)
+                throw new CaeException("None of the selected surfaces belongs to a CAD part, so no faces were fused.");
+            //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
+            List<string> failedPartNames = new List<string>();
+            List<string> refusedPartNames = new List<string>();
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                foreach (string partName in partNames)
+                {
+                    GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+                    int facesBefore = GetGeometryPartFaceCount(partName);
+                    _lastGeometryOperationCounts[partName] = 0;
+                    //
+                    SortedDictionary<int, List<int>> kernelFaceIdsBySolid = kernelFaceIdsBySolidByPart[partName];
+                    string brepFileName = _netgenRunner.FuseFaces(part, kernelFaceIdsBySolid.Keys.ToList(),
+                                                                  kernelFaceIdsBySolid.Values.Select(ids => ids.ToArray())
+                                                                                             .ToList());
+                    if (brepFileName == null) { failedPartNames.Add(partName); continue; }
+                    // A fused face that closes on itself is divided again, as every closed face of a part is
+                    string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+                    try
+                    {
+                        string resultPartName;
+                        if (!ReplaceSplitSurfacePart(part, dividedBrepFileName, out resultPartName))
+                        {
+                            refusedPartNames.Add(partName);
+                            continue;
+                        }
+                        _lastGeometryOperationCounts[partName] = facesBefore - GetGeometryPartFaceCount(resultPartName);
+                    }
+                    finally
+                    {
+                        if (dividedBrepFileName != brepFileName && File.Exists(dividedBrepFileName))
+                            File.Delete(dividedBrepFileName);
+                    }
+                }
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
+            }
+            //
+            WriteGeometryOperationReport("Fuse faces", "faces were fused away");
+            foreach (string partName in failedPartNames)
+                _form.WriteDataToOutput("Fuse faces: the faces of the part " + partName + " were not fused.");
+            foreach (string partName in refusedPartNames)
+                _form.WriteDataToOutput("Fuse faces: the part " + partName + " was left as it was, because fusing " +
+                                        "its faces did not give back the same body.");
+            if (skippedPartNames.Count > 0)
+                _form.WriteDataToOutput("Fuse faces: " + skippedPartNames.Count + " selected parts are not CAD parts " +
+                                        "and were skipped.");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
+        }
+        /// <summary>
+        /// Runs the repairs on the whole of each named CAD part. A sub part is repaired with its compound, which is
+        /// the geometry its solids share faces in. A part keeps its name and part id, and a compound its solids.
+        /// </summary>
+        public void RepairGeometry(string[] partNames, GeometryRepair geometryRepair)
+        {
+            if (geometryRepair.KernelOptions == 0) throw new CaeException("Select at least one repair.");
+            //
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            List<string> repairedPartNames = new List<string>();
+            List<string> skippedPartNames = new List<string>();
+            foreach (string name in partNames)
+            {
+                string partName;
+                if (!compoundPartNames.TryGetValue(name, out partName)) partName = name;
+                //
+                BasePart basePart;
+                if (!_model.Geometry.Parts.TryGetValue(partName, out basePart) ||
+                    !(basePart is GeometryPart part) || !part.IsCADPart)
+                {
+                    if (!skippedPartNames.Contains(name)) skippedPartNames.Add(name);
+                }
+                else if (!repairedPartNames.Contains(partName)) repairedPartNames.Add(partName);
+            }
+            if (repairedPartNames.Count == 0)
+                throw new CaeException("None of the selected parts is a CAD part, so nothing was repaired.");
+            //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
+            List<string> failedPartNames = new List<string>();
+            List<string> refusedPartNames = new List<string>();
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                foreach (string partName in repairedPartNames)
+                {
+                    GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+                    int facesBefore = GetGeometryPartFaceCount(partName);
+                    _lastGeometryOperationCounts[partName] = 0;
+                    //
+                    double tolerance = GetGeometryRepairTolerance(part, geometryRepair);
+                    _form.WriteDataToOutput("Repair geometry: the part " + partName + " is repaired with the " +
+                                            "tolerance " + tolerance.ToString("G3") + ".");
+                    string brepFileName = _netgenRunner.Repair(part, geometryRepair.KernelOptions, tolerance);
+                    if (brepFileName == null) { failedPartNames.Add(partName); continue; }
+                    //
+                    string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
+                    try
+                    {
+                        string resultPartName = partName;
+                        // A compound has to come back as the solids it was, which a part of its own need not, since
+                        // sewing joins its loose faces and shells
+                        if (part is CompoundGeometryPart)
+                        {
+                            if (!ReplaceSplitSurfacePart(part, dividedBrepFileName, out resultPartName))
+                            {
+                                refusedPartNames.Add(partName);
+                                continue;
+                            }
+                        }
+                        else ReplacePartGeometryFromFile(part, dividedBrepFileName, true);
+                        _lastGeometryOperationCounts[partName] = facesBefore - GetGeometryPartFaceCount(resultPartName);
+                    }
+                    finally
+                    {
+                        if (dividedBrepFileName != brepFileName && File.Exists(dividedBrepFileName))
+                            File.Delete(dividedBrepFileName);
+                    }
+                }
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
+            }
+            //
+            WriteGeometryOperationReport("Repair geometry", "faces were removed");
+            foreach (string partName in failedPartNames)
+                _form.WriteDataToOutput("Repair geometry: the part " + partName + " was left as it was.");
+            foreach (string partName in refusedPartNames)
+                _form.WriteDataToOutput("Repair geometry: the part " + partName + " was left as it was, because the " +
+                                        "repair did not give back its solids.");
+            if (skippedPartNames.Count > 0)
+                _form.WriteDataToOutput("Repair geometry: " + string.Join(", ", skippedPartNames) + " are not CAD " +
+                                        "parts and were skipped.");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
+        }
+        // A tolerance that is not given is taken from the size of the part, small enough that no edge or face meant
+        // to be there is taken for a small one
+        private double GetGeometryRepairTolerance(GeometryPart part, GeometryRepair geometryRepair)
+        {
+            if (!double.IsNaN(geometryRepair.Tolerance)) return geometryRepair.Tolerance;
+            //
+            BoundingBox box = part.BoundingBox;
+            if (box == null) return 1E-7;
+            //
+            double diagonal = Math.Sqrt((box.MaxX - box.MinX) * (box.MaxX - box.MinX) +
+                                        (box.MaxY - box.MinY) * (box.MaxY - box.MinY) +
+                                        (box.MaxZ - box.MinZ) * (box.MaxZ - box.MinZ));
+            return diagonal > 0 ? 1E-4 * diagonal : 1E-7;
         }
         // The faces are taken out and the gap is left open, so a solid that loses a face becomes a shell.
         // The part is replaced in place and keeps its name and part id, whatever kind of body it becomes. A

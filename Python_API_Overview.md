@@ -800,9 +800,10 @@ Every `part_names` argument accepts a single name or a list of names.
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
 `split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
-`delete_cad_faces`, `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a selection built in the
-`geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the `parts` target and
-`split_shell` the `geometry_surfaces` target, which is what the two dialogs pick.
+`delete_cad_faces`, `fuse_faces`, `repair`, `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a
+selection built in the `geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the
+`parts` target and `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick. `fuse_faces` takes
+either.
 
 Each of `defeature`, `flip_face_orientations`, `delete_cad_faces` and `delete_stl_faces` reports what
 it did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
@@ -929,6 +930,33 @@ positive: half the wall thickness entered as a negative value on an outer surfac
 A connected patch is offset as a whole, so the faces that meet are trimmed against each other rather
 than coming apart at the edge they share, and an offset the modelling kernel cannot make fails the
 face offset for that part instead of returning the surfaces unmoved.
+
+`fuse_faces(selection)` is Fuse Faces in the CAD Part menu and undoes what `split_shell` did: the
+selected faces become one across every edge two of them share where they lie on one surface, and the
+edges left on the outside are joined where the cut left a point on them. The shape does not change, so
+a part keeps its name, its id and its bodies. Faces of the sub-parts of a compound are fused on the
+compound as a whole, and two faces are only fused when they bound the same solids, so the solids still
+meet. A fused face that closes on itself, such as the two halves of a cylinder, is divided again as
+every closed face is. It returns the number of faces every part lost, and a part whose faces lie on
+different surfaces reports zero rather than being refused.
+
+`repair(part_names, sew_faces=True, fix_shape=True, remove_small_faces=True, remove_small_edges=True,
+fuse_faces=False, join_edges=False, tolerance=None)` is Repair in the CAD Part menu and works on whole
+CAD parts, a sub-part with its compound. The repairs run in that order: sewing joins loose faces and
+shells of a part without solids, fixing the shape fixes edge tolerances, open wires, missing curves on
+surfaces and orientations, the small faces and edges are those narrower or shorter than the tolerance,
+`fuse_faces` fuses every two neighbouring faces on one surface - including those a split divided - and
+`join_edges` joins edges on one curve. The tolerance defaults to one ten-thousandth of the diagonal of
+each part. A repair that would change the number of solids, or leave a valid shape invalid, leaves the
+part as it was. It returns the number of faces every part lost; a part with nothing to repair reports
+zero. Switching every repair off, a tolerance that is not positive and a part that does not exist are
+refused.
+
+```python
+top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [3, 15]})
+fused = pmx.model.geometry.parts.fuse_faces(top)   # {'Solid-1': 1}
+removed = pmx.model.geometry.parts.repair('Solid-1', fuse_faces=True, tolerance=0.01)
+```
 
 `ModelParts` adds `merge` and `find_edges_by_angle`.
 
