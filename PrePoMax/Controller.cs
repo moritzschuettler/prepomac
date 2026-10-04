@@ -5249,9 +5249,7 @@ namespace PrePoMax
             if (_currentView != ViewGeometryModelResults.Geometry) return;
             if (_model == null || _model.Geometry == null) return;
             //
-            BasePart subPart;
             bool[] previousVisibilities;
-            PartExchangeData modelEdgesToDraw;
             //
             foreach (var entry in GetCompoundSubPartVisibilities())
             {
@@ -5259,24 +5257,50 @@ namespace PrePoMax
                 if (!IsSharedModelEdgeOwnerChanged(previousVisibilities, entry.Value)) continue;
                 if (!(_model.Geometry.Parts[entry.Key] is CompoundGeometryPart compoundPart)) continue;
                 //
-                foreach (string subPartName in compoundPart.SubPartNames)
+                RefreshSharedModelEdges(compoundPart);
+            }
+        }
+        /// <summary>
+        /// Hands every visible sub part of a compound part the model edges it is to draw. The edges a
+        /// sub part draws depend on which of its siblings are visible, so whatever changes that without
+        /// going through the hiding and showing of parts has to ask for this. A split brings in a new
+        /// compound part, whose sub parts are all visible as they are drawn, and puts the visibilities
+        /// back on the actors afterwards, which would leave every sub part but the first drawing the
+        /// edges of a sibling that is no longer shown.
+        /// </summary>
+        public void RefreshCompoundSharedModelEdges(string compoundPartName)
+        {
+            if (_currentView != ViewGeometryModelResults.Geometry) return;
+            if (_model == null || _model.Geometry == null || compoundPartName == null) return;
+            //
+            BasePart part;
+            if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out part)) return;
+            if (!(part is CompoundGeometryPart compoundPart)) return;
+            //
+            RefreshSharedModelEdges(compoundPart);
+        }
+        private void RefreshSharedModelEdges(CompoundGeometryPart compoundPart)
+        {
+            BasePart subPart;
+            PartExchangeData modelEdgesToDraw;
+            //
+            foreach (string subPartName in compoundPart.SubPartNames)
+            {
+                if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart) || !subPart.Visible) continue;
+                if (!subPart.PartType.HasEdges() || subPart.Visualization == null ||
+                    subPart.Visualization.EdgeCells == null) continue;
+                //
+                modelEdgesToDraw = GetModelEdgesToDraw(_model.Geometry, subPart);
+                if (modelEdgesToDraw == null)
                 {
-                    if (!_model.Geometry.Parts.TryGetValue(subPartName, out subPart) || !subPart.Visible) continue;
-                    if (!subPart.PartType.HasEdges() || subPart.Visualization == null ||
-                        subPart.Visualization.EdgeCells == null) continue;
-                    //
-                    modelEdgesToDraw = GetModelEdgesToDraw(_model.Geometry, subPart);
-                    if (modelEdgesToDraw == null)
-                    {
-                        modelEdgesToDraw = new PartExchangeData();
-                        _model.Geometry.GetNodesAndCellsForModelEdges(subPart,
-                                                                      out modelEdgesToDraw.Nodes.Ids,
-                                                                      out modelEdgesToDraw.Nodes.Coor,
-                                                                      out modelEdgesToDraw.Cells.CellNodeIds,
-                                                                      out modelEdgesToDraw.Cells.Types);
-                    }
-                    _form.UpdateActorModelEdgesToDraw(subPartName, modelEdgesToDraw);
+                    modelEdgesToDraw = new PartExchangeData();
+                    _model.Geometry.GetNodesAndCellsForModelEdges(subPart,
+                                                                  out modelEdgesToDraw.Nodes.Ids,
+                                                                  out modelEdgesToDraw.Nodes.Coor,
+                                                                  out modelEdgesToDraw.Cells.CellNodeIds,
+                                                                  out modelEdgesToDraw.Cells.Types);
                 }
+                _form.UpdateActorModelEdgesToDraw(subPartName, modelEdgesToDraw);
             }
         }
         /// <summary>
@@ -5840,6 +5864,8 @@ namespace PrePoMax
                                               targetGroupId);
             //
             UpdateMeshSetupItems(false);
+            // The sub parts were drawn with all of them visible and were hidden again afterwards
+            RefreshCompoundSharedModelEdges(importedCompoundPart.Name);
             //
             CheckAndUpdateModelValidity();
         }
