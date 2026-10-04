@@ -83,11 +83,14 @@ namespace PrePoMax.Forms
                 throw new CaeException("No surfaces were selected.");
             //
             // The operation replaces the parts the surfaces were picked on and redraws them, so the picks
-            // are not highlighted again while it runs, since they would name other surfaces of the new parts
+            // are not highlighted again while it runs, since they would name other surfaces of the new parts.
+            // Their highlight is taken off first, since it is drawn on the old parts and would be shown over
+            // the new ones once the drawing resumes.
             try
             {
                 _applying = true;
                 Enabled = false;
+                _controller.Clear3DSelection();
                 await _controller.SurfaceOperationCommandAsync(_operation, geometrySelection.DeepClone());
             }
             finally
@@ -171,6 +174,7 @@ namespace PrePoMax.Forms
         {
             _controller.SetSelectItemToGeometrySurface();
             _controller.Selection.MaxNumberOfGeometryIds = -1;
+            _controller.Selection.MaxNumberOfItemIds = -1;
         }
         private void HighlightSelection()
         {

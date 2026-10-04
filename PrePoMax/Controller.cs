@@ -20865,6 +20865,16 @@ namespace PrePoMax
                 else
                 {
                     vtkSelectBy selectBy = _selectBy;
+                    double selectAngle = _selectAngle;
+                    // Where only surfaces can be selected, a click near an edge or a vertex means the surface under
+                    // it rather than nothing. The click is recorded as a surface pick, so the picks recorded before
+                    // are replayed as they were made.
+                    if (_selectBy == vtkSelectBy.Geometry && _selection.SelectItem == vtkSelectItem.GeometrySurface &&
+                        pickedPoint != null && planeParameters == null)
+                    {
+                        selectBy = vtkSelectBy.GeometrySurface;
+                        selectAngle = -1;
+                    }
                     // Query nodes - more than one selection node is needed - change None to Add
                     if (_selectBy == vtkSelectBy.Node && _form.GetQuerySelection())
                     {
@@ -20889,8 +20899,8 @@ namespace PrePoMax
                     SelectionNode selectionNode = new SelectionNodeMouse(pickedPoint, selectionDirection,
                                                                          planeParameters, completelyInside,
                                                                          selectOperation, pickedPartIds,
-                                                                         pickedPartOffsets, _selectBy,
-                                                                         _selectAngle);
+                                                                         pickedPartOffsets, selectBy,
+                                                                         selectAngle);
                     // Change geometry selection to IDs if needed
                     if (selectionNode is SelectionNodeMouse snm && snm.IsGeometryBased &&
                         _geometrySelectMode == GeometrySelectModeEnum.SelectId)
@@ -22616,7 +22626,14 @@ namespace PrePoMax
             noEdgePartName = null;
             double precision = _form.GetSelectionPrecision();
             FeMesh mesh = DisplayedMesh;
-            int geomId = mesh.GetGeometryIdByPrecision(point, elementId, cellFaceNodeIds, false, precision);
+            int geomId = -1;
+            // The surface a click near its edge selects is the one shown
+            if (_selection.SelectItem == vtkSelectItem.GeometrySurface)
+            {
+                int[] surfaceIds = mesh.GetGeometrySurfaceIdsByAngle(elementId, cellFaceNodeIds, false, -1);
+                if (surfaceIds != null && surfaceIds.Length > 0) geomId = surfaceIds[0];
+            }
+            if (geomId == -1) geomId = mesh.GetGeometryIdByPrecision(point, elementId, cellFaceNodeIds, false, precision);
             int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geomId);
             GeometryType geomType = (GeometryType)itemTypePartIds[1];
             //
