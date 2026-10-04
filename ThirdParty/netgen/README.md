@@ -63,7 +63,9 @@ the list of which solids were opened. Its `BREP_FUSE_FACES` makes the named face
 they share where they lie on one surface and bound the same solids, and joins the edges at the vertices of
 the edges it took out, which is what Fuse Faces runs; `BREP_REPAIR` sews, fixes, removes small faces and
 edges, fuses faces and joins edges on the whole shape as its options say, and refuses a result with other
-solids or one that is no longer valid, which is what Repair runs. Its `BREP_OFFSET_FACES`
+solids or one that is no longer valid, which is what Repair runs. `BREP_REPAIR_PREVIEW` repairs the same way and
+writes only what the repair would take away - the removed and sewn edges as polylines and the removed vertices
+as points - which is what the Repair dialog previews. Its `BREP_OFFSET_FACES`
 writes every sewn patch as a shell of its own, so that `BREP_ASSEMBLY_SPLIT_TO_PARTS` writes the patches
 that share no edge to separate files. Its `VOL_VOLUME_MESH` meshes a given boundary - triangles and
 quadrilaterals in a `.vol` file, one domain per cell - by tetrahedra, standing a pyramid on every

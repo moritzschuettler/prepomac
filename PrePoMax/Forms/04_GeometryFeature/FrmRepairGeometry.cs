@@ -24,6 +24,7 @@ namespace PrePoMax.Forms
         private ViewGeometryRepair _viewGeometryRepair;
         private Controller _controller;
         private bool _applying;
+        private Button btnPreview;
 
 
         // Properties
@@ -46,18 +47,61 @@ namespace PrePoMax.Forms
         }
         private void InitializeComponent()
         {
+            this.btnPreview = new System.Windows.Forms.Button();
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
+            //
+            // btnPreview
+            //
+            this.btnPreview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPreview.Image = global::PrePoMax.Properties.Resources.Show;
+            this.btnPreview.Location = new System.Drawing.Point(45, 376);
+            this.btnPreview.Name = "btnPreview";
+            this.btnPreview.Size = new System.Drawing.Size(28, 23);
+            this.btnPreview.TabIndex = 18;
+            this.btnPreview.UseVisualStyleBackColor = true;
+            this.btnPreview.Click += new System.EventHandler(this.btnPreview_Click);
             //
             // FrmRepairGeometry
             //
             this.ClientSize = new System.Drawing.Size(334, 411);
+            this.Controls.Add(this.btnPreview);
             this.MinimumSize = new System.Drawing.Size(350, 350);
             this.Name = "FrmRepairGeometry";
             this.Text = "Repair Geometry";
+            this.Controls.SetChildIndex(this.gbProperties, 0);
+            this.Controls.SetChildIndex(this.btnCancel, 0);
+            this.Controls.SetChildIndex(this.btnOK, 0);
+            this.Controls.SetChildIndex(this.btnOkAddNew, 0);
+            this.Controls.SetChildIndex(this.btnPreview, 0);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
 
+        }
+
+
+        // Event handlers
+        private async void btnPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                GeometryRepair geometryRepair = GeometryRepair;
+                if (geometryRepair == null) throw new CaeException("No repair was prepared.");
+                //
+                string error = geometryRepair.CheckValidity();
+                if (error != null) throw new CaeException(error);
+                //
+                btnPreview.Enabled = false;
+                await _controller.PreviewRepairGeometryAsync(GetPartNames(geometryRepair), geometryRepair.DeepClone());
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                btnPreview.Enabled = true;
+            }
         }
 
 
@@ -65,9 +109,21 @@ namespace PrePoMax.Forms
         protected override void OnVisibleChanged(EventArgs e)
         {
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
-            else _controller.ClearAllSelection();
+            else
+            {
+                _controller.ClearRepairGeometryPreview();
+                _controller.ClearAllSelection();
+            }
             //
             base.OnVisibleChanged(e);
+        }
+        // A preview shows the repair as it stood when the button was pressed, so a change of a repair, of the
+        // tolerance or of the picked parts takes it off the screen rather than leaving a stale one there
+        protected override void OnPropertyGridPropertyValueChanged()
+        {
+            _controller.ClearRepairGeometryPreview();
+            //
+            base.OnPropertyGridPropertyValueChanged();
         }
         protected override async Task OnApplyAsync(bool onOkAddNew)
         {
@@ -77,11 +133,11 @@ namespace PrePoMax.Forms
             string error = geometryRepair.CheckValidity();
             if (error != null) throw new CaeException(error);
             //
-            string[] partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(geometryRepair.CreationIds);
-            if (partNames == null || partNames.Length == 0) throw new CaeException("No parts were selected.");
+            string[] partNames = GetPartNames(geometryRepair);
             // The repair replaces the parts and redraws them, so the highlight drawn on the old parts is taken off
             try
             {
+                _controller.ClearRepairGeometryPreview();
                 _applying = true;
                 Enabled = false;
                 _controller.Clear3DSelection();
@@ -138,6 +194,12 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        private string[] GetPartNames(GeometryRepair geometryRepair)
+        {
+            string[] partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(geometryRepair.CreationIds);
+            if (partNames == null || partNames.Length == 0) throw new CaeException("No parts were selected.");
+            return partNames;
+        }
         // The value offered beside the default, sized as the default is but on the whole geometry
         private double GetInitialTolerance()
         {
@@ -181,6 +243,8 @@ namespace PrePoMax.Forms
         public void SelectionChanged(int[] ids)
         {
             if (GeometryRepair == null) return;
+            //
+            _controller.ClearRepairGeometryPreview();
             //
             GeometryRepair.CreationIds = ids;
             GeometryRepair.CreationData = _controller.Selection.DeepCopy(true, false);

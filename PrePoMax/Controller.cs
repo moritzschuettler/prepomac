@@ -6784,6 +6784,8 @@ namespace PrePoMax
         [NonSerialized] private SplitToolSymbol _splitToolSymbolRecorder;
         // A face offset preview is drawn on the selection layer, which is cleared only as a whole
         [NonSerialized] private bool _offsetFacePreviewDrawn;
+        // A repair preview is drawn on the selection layer as well
+        [NonSerialized] private bool _repairGeometryPreviewDrawn;
         // While a split dialog is open, the geometry and the annotations as they were before each of its splits,
         // with the command each split was recorded as, so that the splits can be undone without replaying the
         // history. Null while no split dialog keeps an undo.
@@ -8099,7 +8101,7 @@ namespace PrePoMax
             // The parts of the operation share one exploded view offset, or the preview was refused
             double[] offset;
             TryGetSplitGeometryFeatureOffset(geometryFeature, out offset);
-            DrawSplitGeometryPreview(polylines, offset);
+            DrawPreviewPolylines("splitGeometryPreview", polylines, offset);
             //
             string operationName = geometryFeature.SplitType == SplitTypeEnum.Shell ?
                                    "Split shell preview" : "Split solid preview";
@@ -8143,7 +8145,7 @@ namespace PrePoMax
         }
         // The preview is highlighted as the other previews are, so it is taken off the screen with the
         // selection by the next pick and by every redraw of the tool symbols
-        private void DrawSplitGeometryPreview(List<double[][]> polylines, double[] offset)
+        private void DrawPreviewPolylines(string name, List<double[][]> polylines, double[] offset)
         {
             List<double[]> nodeCoor = new List<double[]>();
             List<int[]> cells = new List<int[]>();
@@ -8168,7 +8170,7 @@ namespace PrePoMax
             if (cells.Count == 0) return;
             //
             vtkMaxActorData data = new vtkMaxActorData();
-            data.Name = "splitGeometryPreview";
+            data.Name = name;
             data.Color = _settings.Pre.PrimaryHighlightColor;
             data.Layer = vtkRendererLayer.Selection;
             data.LineWidth = 2;
@@ -9757,26 +9759,8 @@ namespace PrePoMax
         /// </summary>
         public void RepairGeometry(string[] partNames, GeometryRepair geometryRepair)
         {
-            if (geometryRepair.KernelOptions == 0) throw new CaeException("Select at least one repair.");
-            //
-            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
-            List<string> repairedPartNames = new List<string>();
-            List<string> skippedPartNames = new List<string>();
-            foreach (string name in partNames)
-            {
-                string partName;
-                if (!compoundPartNames.TryGetValue(name, out partName)) partName = name;
-                //
-                BasePart basePart;
-                if (!_model.Geometry.Parts.TryGetValue(partName, out basePart) ||
-                    !(basePart is GeometryPart part) || !part.IsCADPart)
-                {
-                    if (!skippedPartNames.Contains(name)) skippedPartNames.Add(name);
-                }
-                else if (!repairedPartNames.Contains(partName)) repairedPartNames.Add(partName);
-            }
-            if (repairedPartNames.Count == 0)
-                throw new CaeException("None of the selected parts is a CAD part, so nothing was repaired.");
+            List<string> skippedPartNames;
+            string[] repairedPartNames = GetRepairGeometryPartNames(partNames, geometryRepair, out skippedPartNames);
             //
             _lastGeometryOperationCounts = new Dictionary<string, int>();
             List<string> failedPartNames = new List<string>();
@@ -9796,7 +9780,7 @@ namespace PrePoMax
                     double tolerance = GetGeometryRepairTolerance(part, geometryRepair);
                     _form.WriteDataToOutput("Repair geometry: the part " + partName + " is repaired with the " +
                                             "tolerance " + tolerance.ToString("G3") + ".");
-                    string brepFileName = _netgenRunner.Repair(part, geometryRepair.KernelOptions, tolerance);
+                    string brepFileName = _netgenRunner.Repair(part, geometryRepair.KernelOptions, tolerance, false);
                     if (brepFileName == null) { failedPartNames.Add(partName); continue; }
                     //
                     string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
@@ -9842,6 +9826,130 @@ namespace PrePoMax
             //
             ClearAllSelection();
             CheckAndUpdateModelValidity();
+        }
+        // The CAD parts the named parts stand for, each once: a sub part stands for its compound
+        private string[] GetRepairGeometryPartNames(string[] partNames, GeometryRepair geometryRepair,
+                                                    out List<string> skippedPartNames)
+        {
+            if (geometryRepair.KernelOptions == 0) throw new CaeException("Select at least one repair.");
+            //
+            Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
+            List<string> repairedPartNames = new List<string>();
+            skippedPartNames = new List<string>();
+            foreach (string name in partNames)
+            {
+                string partName;
+                if (!compoundPartNames.TryGetValue(name, out partName)) partName = name;
+                //
+                BasePart basePart;
+                if (!_model.Geometry.Parts.TryGetValue(partName, out basePart) ||
+                    !(basePart is GeometryPart part) || !part.IsCADPart)
+                {
+                    if (!skippedPartNames.Contains(name)) skippedPartNames.Add(name);
+                }
+                else if (!repairedPartNames.Contains(partName)) repairedPartNames.Add(partName);
+            }
+            if (repairedPartNames.Count == 0)
+                throw new CaeException("None of the selected parts is a CAD part, so nothing was repaired.");
+            //
+            return repairedPartNames.ToArray();
+        }
+        // What the repair would take away, drawn on the parts, so that a tolerance can be judged before the repair is
+        // applied. It records nothing and changes nothing.
+        public async Task PreviewRepairGeometryAsync(string[] partNames, GeometryRepair geometryRepair)
+        {
+            ClearRepairGeometryPreview();
+            //
+            _form.SetStateWorking(Globals.PreviewText, false);
+            try
+            {
+                await Task.Run(() => PreviewRepairGeometry(partNames, geometryRepair));
+            }
+            finally
+            {
+                _form.SetStateReady(Globals.PreviewText);
+            }
+        }
+        public void ClearRepairGeometryPreview()
+        {
+            if (!_repairGeometryPreviewDrawn) return;
+            // Redrawing the selection clears the layer the preview was drawn on
+            _repairGeometryPreviewDrawn = false;
+            HighlightSelection();
+        }
+        private void PreviewRepairGeometry(string[] partNames, GeometryRepair geometryRepair)
+        {
+            List<string> skippedPartNames;
+            string[] repairedPartNames = GetRepairGeometryPartNames(partNames, geometryRepair, out skippedPartNames);
+            //
+            int numOfChangedParts = 0;
+            foreach (string partName in repairedPartNames)
+            {
+                GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+                double tolerance = GetGeometryRepairTolerance(part, geometryRepair);
+                string previewFileName = _netgenRunner.Repair(part, geometryRepair.KernelOptions, tolerance, true);
+                double[][][] polylines = previewFileName == null ? null : ReadSplitGeometryPreviewEdges(previewFileName);
+                double[][] points = previewFileName == null ? null : ReadRepairGeometryPreviewPoints(previewFileName);
+                if (polylines == null || points == null)
+                {
+                    _form.WriteDataToOutput("Repair preview: the part " + partName + " would be left as it was.");
+                    continue;
+                }
+                if (polylines.Length == 0 && points.Length == 0)
+                {
+                    _form.WriteDataToOutput("Repair preview: nothing would change on the part " + partName + ".");
+                    continue;
+                }
+                //
+                double[] offset = GetExplodedViewOffsetForGeneratedMeshPart(part, null);
+                DrawPreviewPolylines("repairGeometryPreview_" + partName, polylines.ToList(), offset);
+                DrawRepairGeometryPreviewPoints("repairGeometryPreviewPoints_" + partName, points, offset);
+                _repairGeometryPreviewDrawn = true;
+                numOfChangedParts++;
+            }
+            if (skippedPartNames.Count > 0)
+                _form.WriteDataToOutput("Repair preview: " + string.Join(", ", skippedPartNames) + " are not CAD " +
+                                        "parts and would be skipped.");
+            _form.WriteDataToOutput("Repair preview finished: the repair would change " + numOfChangedParts +
+                                    " of the " + repairedPartNames.Length + " selected parts.");
+        }
+        // The vertices the repair would take away, one point per line
+        private static double[][] ReadRepairGeometryPreviewPoints(string previewFileName)
+        {
+            if (!File.Exists(previewFileName)) return null;
+            //
+            List<double[]> points = new List<double[]>();
+            char[] separators = new char[] { ' ', '\t' };
+            foreach (string line in File.ReadLines(previewFileName))
+            {
+                if (!line.StartsWith("Point:")) continue;
+                //
+                string[] values = line.Substring(6).Split(separators, StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length != 3) return null;
+                double[] point = new double[3];
+                for (int k = 0; k < 3; k++)
+                    if (!double.TryParse(values[k], System.Globalization.NumberStyles.Float,
+                                         System.Globalization.CultureInfo.InvariantCulture, out point[k])) return null;
+                points.Add(point);
+            }
+            return points.ToArray();
+        }
+        private void DrawRepairGeometryPreviewPoints(string name, double[][] points, double[] offset)
+        {
+            if (points.Length == 0) return;
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = name;
+            data.Color = _settings.Pre.PrimaryHighlightColor;
+            data.Layer = vtkRendererLayer.Selection;
+            data.NodeSize = _settings.Pre.HighlightNodeSymbolSize;
+            data.Pickable = false;
+            data.Geometry.Nodes.Coor = points.Select(point => offset == null ? point :
+                                                    new double[] { point[0] + offset[0], point[1] + offset[1],
+                                                                   point[2] + offset[2] }).ToArray();
+            //
+            ApplyLighting(data);
+            _form.Add3DNodes(data);
         }
         // A tolerance that is not given is taken from the size of the part, small enough that no edge or face meant
         // to be there is taken for a small one

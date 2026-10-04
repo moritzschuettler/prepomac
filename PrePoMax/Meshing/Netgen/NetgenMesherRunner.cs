@@ -102,16 +102,20 @@ namespace PrePoMax
                               faceIdsArgument.ToString();
             return RunGeometryOperation(part, argument, brepFileName);
         }
-        public string Repair(GeometryPart part, int kernelOptions, double tolerance)
+        // A preview writes what the repair would take away in place of the result: every edge as a polyline and
+        // every vertex as a point
+        public string Repair(GeometryPart part, int kernelOptions, double tolerance, bool preview)
         {
             string brepFileName = WritePartBrep(part);
             if (brepFileName == null) return null;
             //
-            string argument = "BREP_REPAIR " +
+            string outputFileName = preview ? brepFileName + ".preview" : brepFileName;
+            if (preview && File.Exists(outputFileName)) File.Delete(outputFileName);
+            string argument = (preview ? "BREP_REPAIR_PREVIEW " : "BREP_REPAIR ") +
                               "\"" + brepFileName.ToUTF8() + "\" " +
-                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + outputFileName.ToUTF8() + "\" " +
                               kernelOptions + " " + tolerance.ToString("R", CultureInfo.InvariantCulture);
-            return RunGeometryOperation(part, argument, brepFileName);
+            return RunGeometryOperation(part, argument, outputFileName);
         }
         private string WritePartBrep(GeometryPart part)
         {
@@ -136,13 +140,13 @@ namespace PrePoMax
             return brepFileName;
         }
         // The modelling kernel says why it refused in the output, so a refusal is answered as no file
-        private string RunGeometryOperation(GeometryPart part, string argument, string brepFileName)
+        private string RunGeometryOperation(GeometryPart part, string argument, string outputFileName)
         {
             string executable = Application.StartupPath + Globals.NetGenMesher;
             JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument,
-                                                           Path.GetDirectoryName(brepFileName),
+                                                           Path.GetDirectoryName(outputFileName),
                                                            _controller.Form.WriteDataToOutput);
-            return jobStatus == JobStatus.OK ? brepFileName : null;
+            return jobStatus == JobStatus.OK ? outputFileName : null;
         }
         // A move returns the one transformed file, and a pattern returns one file per copy, copy k transformed k times
         public string[] Transform(GeometryPart part, GeometryTransform transform)
