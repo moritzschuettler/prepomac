@@ -12,6 +12,8 @@
 #    and part ids of their own.
 #  - The overlap grouped under the box makes the box whole again, and regenerating the compound keeps the grouping.
 #    Meshed, every sub-part is one mesh part.
+#  - Regenerating the meshed compound keeps its name, the names and ids of its mesh parts and the model group of its
+#    mesh: renamed and renamed back, the group follows it and does not hold its old name.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Split_Cells_Compound.py -g No -x Yes -w <dir>
 #
@@ -128,6 +130,18 @@ def main():
     check(mesh_names == sorted([box_part, copy_part]), "every sub-part must be one mesh part: " + str(mesh_names))
     mesh_ids = [part.id for part in pmx.model.parts]
     check(len(set(mesh_ids)) == len(mesh_ids), "every sub-part must be meshed with an id of its own: " + str(mesh_ids))
+    #
+    mesh_parts = dict((part.name, part.id) for part in pmx.model.parts)
+    parts().regenerate_compound([compound])
+    check(parts().contains(compound), "regenerating the meshed compound must keep its name: " + str(parts().get_names()))
+    check(state(compound) == grouped, "regenerating the meshed compound must keep the grouping: " +
+          str(state(compound)) + " instead of " + str(grouped))
+    regenerated_mesh_parts = dict((part.name, part.id) for part in pmx.model.parts)
+    check(regenerated_mesh_parts == mesh_parts, "regenerating the meshed compound must keep its mesh parts: " +
+          str(regenerated_mesh_parts) + " instead of " + str(mesh_parts))
+    parts().rename(compound, "Renamed_compound")
+    parts().rename("Renamed_compound", compound)
+    check(parts().contains(compound), "the regenerated compound must keep the model group of its mesh")
     print("TEST PASSED")
 
 

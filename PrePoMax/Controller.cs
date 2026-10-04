@@ -4321,7 +4321,7 @@ namespace PrePoMax
             ReplaceGeometryPartProperties(oldPartName, newPartProperties, true);
         }
         private void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties,
-                                                   bool regenerateTree)
+                                                   bool regenerateTree, bool takesNameOfRemovedPart = false)
         {
             bool nameChanged = oldPartName != newPartProperties.Name;
             GeometryPart geomPart = GetGeometryPart(oldPartName);
@@ -4331,6 +4331,10 @@ namespace PrePoMax
                 // A cell may carry the name of its sub part, which is the only reservation of that name
                 string cellSubPartName = GetSplitSubPartNameOfCell(oldPartName);
                 if (cellSubPartName != null) reservedNames.Remove(cellSubPartName);
+                // The name of a removed part is still held by its mesh part and by the model group of its compound,
+                // which the part taking its place takes over
+                if (takesNameOfRemovedPart && !_model.Geometry.Parts.ContainsKey(newPartProperties.Name))
+                    reservedNames.Remove(newPartProperties.Name);
                 CheckName(oldPartName, newPartProperties.Name, reservedNames, "part");
             }
             // Replace geometry part
@@ -5731,11 +5735,13 @@ namespace PrePoMax
             else _form.HideActors(new string[] { newCompoundPartName }, false);
             // Update part id
             _model.Geometry.ChangePartId(newCompoundPartName, compoundPart.PartId);
+            // Keep the model group of the meshed compound
+            importedCompoundPart.LinkedGroupId = compoundPart.LinkedGroupId;
             // Update properties
             properties = importedCompoundPart.GetProperties();
             properties.Name = oldCompoundPartName;
             properties.Color = compoundPart.Color;
-            ReplaceGeometryPartProperties(newCompoundPartName, properties);
+            ReplaceGeometryPartProperties(newCompoundPartName, properties, true, removeOldCompoundPart);
             // Sub parts                                            
             for (int i = 0; i < importedSubParts.Length; i++)
             {
@@ -5749,7 +5755,7 @@ namespace PrePoMax
                 properties = importedSubParts[i].GetProperties();
                 properties.Name = subParts[i].Name;
                 properties.Color = subParts[i].Color;
-                ReplaceGeometryPartProperties(importedSubParts[i].Name, properties);
+                ReplaceGeometryPartProperties(importedSubParts[i].Name, properties, true, removeOldCompoundPart);
             }
             importedCompoundPart.CellSubPartNames = cellSubPartNames;
             importedCompoundPart.CellSubPartIds = cellSubPartIds;

@@ -45,7 +45,7 @@ namespace CaeMesh
                 _subPartNames = value;
             }
         }
-        public Guid LinkedGroupId { get { return _linkedGroupId; } }
+        public Guid LinkedGroupId { get { return _linkedGroupId; } set { _linkedGroupId = value; } }
         /// <summary>
         /// The sub part each cell of a split compound belongs to, one for every name in SubPartNames.
         /// A split cuts a part into cells, and the part it cut is what the user still sees and meshes,
