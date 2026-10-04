@@ -23372,14 +23372,36 @@ namespace PrePoMax
                 FeMesh mesh = DisplayedMesh;
                 List<Color> partColors = new List<Color>();
                 List<string> partNames = new List<string>();
+                Dictionary<string, string> cellNameSubPartName = new Dictionary<string, string>();
+                foreach (var entry in mesh.Parts)
+                {
+                    if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.CreatedBySplit)
+                    {
+                        for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
+                        {
+                            if (compoundPart.CellSubPartNames[i] != null)
+                                cellNameSubPartName[compoundPart.SubPartNames[i]] = compoundPart.CellSubPartNames[i];
+                        }
+                    }
+                }
+                HashSet<string> shownSubPartNames = new HashSet<string>();
                 foreach (var entry in mesh.Parts)
                 {
                     if (entry.Value.Visible)
                     {
                         if (!(entry.Value is CompoundGeometryPart))
                         {
-                            partColors.Add(entry.Value.Color);
-                            partNames.Add(entry.Value.Name);
+                            if (cellNameSubPartName.TryGetValue(entry.Value.Name, out string subPartName))
+                            {
+                                if (!shownSubPartNames.Add(subPartName)) continue;
+                                partColors.Add(entry.Value.Color);
+                                partNames.Add(subPartName);
+                            }
+                            else
+                            {
+                                partColors.Add(entry.Value.Color);
+                                partNames.Add(entry.Value.Name);
+                            }
                         }
                     }
                 }
