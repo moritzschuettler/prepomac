@@ -33,6 +33,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def settings(items, name):
     return items[name].get_settings()
 
@@ -138,6 +147,13 @@ def test_quad_wild(items, selection):
     check(values["alpha"] == 0.02, "the omitted alpha was not kept")
     check(values["triangulation_mesher"] == "Netgen", "the omitted triangulation mesher was not kept")
     check(values["keep_files_on_failure"] is True, "the file retention flag was not kept")
+    # The model refuses an alpha outside 0 to 1, on a replace without a selection as on an add
+    message = raised_message(lambda: items.add_shell_quad_wild(PREFIX + "QuadWild_Bad", selection, alpha=1.5))
+    check(message is not None and "alpha" in message, "an alpha above 1 was accepted by the add: " + str(message))
+    check(not items.contains(PREFIX + "QuadWild_Bad"), "a refused add left an item behind")
+    message = raised_message(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", alpha=1.5))
+    check(message is not None and "alpha" in message, "an alpha above 1 was accepted by the replace: " + str(message))
+    check(settings(items, PREFIX + "QuadWild")["alpha"] == 0.02, "a refused replace changed the alpha")
 
 
 def test_rejection_leaves_no_trace(items):

@@ -26,6 +26,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean():
     for collection in [pmx.model.steps, pmx.model.contact_pairs, pmx.model.surface_interactions,
                        pmx.model.surfaces]:
@@ -121,6 +130,17 @@ def test_contact_pairs():
     pair = pairs.replace(PAIR, adjustment_size=0.01)
     check(pair.adjust, "an adjustment size must turn the adjustment on")
     check(abs(pair.adjustment_size - 0.01) < 1e-12, "the adjustment size was not set")
+    # The model clears small sliding when the method becomes surface to surface, so that change has to
+    # say so explicitly
+    message = raised_message(lambda: pairs.replace(PAIR, method="SurfaceToSurface"))
+    check(message is not None and "small_sliding=False" in message,
+          "a surface to surface method that drops small sliding unasked must be refused: " + str(message))
+    pair = pmx.model.contact_pairs[PAIR]
+    check(pair.method == "NodeToSurface" and pair.small_sliding, "the refused replace changed the contact pair")
+    pair = pairs.replace(PAIR, method="SurfaceToSurface", small_sliding=False)
+    check(pair.method == "SurfaceToSurface", "the method was not replaced")
+    check(not pair.small_sliding, "small sliding was not turned off")
+    pair = pairs.replace(PAIR, method="NodeToSurface", small_sliding=True)
     # Swap and the collection verbs
     master_before = pair.master_region_name
     slave_before = pair.slave_region_name

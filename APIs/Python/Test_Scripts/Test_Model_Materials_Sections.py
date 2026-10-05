@@ -27,6 +27,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean(collection):
     names = [n for n in collection.get_names() if n.startswith(PREFIX)]
     if names:
@@ -141,6 +150,20 @@ def test_materials():
     # Collection verbs
     materials.rename(PREFIX + "Simple", PREFIX + "Renamed")
     check(materials.contains(PREFIX + "Renamed"), "the material was not renamed")
+    # The model keys its materials without regard to case and surrounding spaces, and so does the name check
+    message = raised_message(lambda: materials.rename(PREFIX + "Steel", (PREFIX + "Renamed").lower()))
+    check(message is not None and "already exists" in message,
+          "a rename onto another material in other case must be refused: " + str(message))
+    check(materials[PREFIX + "Steel"].name == PREFIX + "Steel",
+          "the refused rename changed the name to " + materials[PREFIX + "Steel"].name)
+    message = raised_message(lambda: materials.add(" " + (PREFIX + "Steel").lower() + " ",
+                                                   pmx.create.elastic(1, 0.3)))
+    check(message is not None and "already exists" in message,
+          "a material named like another in other case must be refused: " + str(message))
+    materials.rename(PREFIX + "Steel", (PREFIX + "Steel").upper())
+    check(materials[(PREFIX + "Steel").upper()].name == (PREFIX + "Steel").upper(),
+          "a rename to the same name in other case must be allowed")
+    materials.rename((PREFIX + "Steel").upper(), PREFIX + "Steel")
     materials.duplicate([PREFIX + "Renamed"])
     check(len(materials) == count_before + 9, "the material was not duplicated")
     return PREFIX + "Steel"

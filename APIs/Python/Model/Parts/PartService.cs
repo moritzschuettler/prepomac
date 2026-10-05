@@ -354,11 +354,11 @@ namespace APIs.Python.Model
         {
             if (name == null || name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'new_name' must not be empty.");
-            if (string.Equals(name, allowedExistingName)) return;
+            if (PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in _modelResolver.GetAllMeshEntityNames())
             {
-                if (string.Equals(name, existingName))
+                if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The name '" + name + "' is already used by another model item.");
             }
         }

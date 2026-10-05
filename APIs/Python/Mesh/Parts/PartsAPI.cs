@@ -165,7 +165,11 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             CaeMesh.PartProperties properties =
                 _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[old_name].GetProperties();
-            if (name != null) properties.Name = name;
+            if (name != null)
+            {
+                ValidateNewPartName(name, old_name);
+                properties.Name = name;
+            }
             if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
             _commandGateway.ReplaceResultPartProperties(old_name, properties);
         }
@@ -183,6 +187,17 @@ namespace APIs.Python
             if (_commandGateway == null)
                 throw new PythonAPIException("Result modifications are not available in this Python API context.");
             _meshService.EnsureCurrentResult(_resultName);
+        }
+        // The replace renames the live part before the collection is told, so a name the collection would refuse
+        // is refused here, against the result part names the dialog checks
+        private void ValidateNewPartName(string name, string oldName)
+        {
+            if (name.Trim().Length == 0) throw new PythonAPIException("The argument 'name' must not be empty.");
+            string error = CaeGlobals.NamedClass.CheckNameError(name, null);
+            if (error != null) throw new PythonAPIException("The argument 'name' is not valid: " + error);
+            if (!PythonNameComparer.AreSame(name, oldName) &&
+                PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), name))
+                throw new PythonAPIException("The result part '" + name + "' already exists.");
         }
         private string[] ResolvePartNames(object value)
         {

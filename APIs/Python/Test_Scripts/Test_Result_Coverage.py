@@ -22,6 +22,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def test_part_commands():
     parts = pmx.results.current.mesh.parts
     names = parts.get_names().to_array()
@@ -58,6 +67,26 @@ def test_part_commands():
     parts.set_representation(name, True)
     parts.replace_properties(name)
     check(parts.contains(name), "the part disappeared after the property replacement")
+    # A name the result parts would refuse is refused before the part is renamed in place
+    message = raised_message(lambda: parts.replace_properties(name, name="  "))
+    check(message is not None and "must not be empty" in message, "an empty part name was accepted: " + str(message))
+    message = raised_message(lambda: parts.replace_properties(name, name="two words"))
+    check(message is not None and "is not valid" in message, "an invalid part name was accepted: " + str(message))
+    check(list(parts.get_names().to_array()) == list(names), "a refused rename changed the part names")
+    check(parts[name].name == name, "a refused rename changed the part name to " + parts[name].name)
+    if len(names) > 1:
+        message = raised_message(lambda: parts.replace_properties(name, name=names[1].swapcase()))
+        check(message is not None and "already exists" in message,
+              "a rename onto another result part in other case was accepted: " + str(message))
+        check(parts[name].name == name, "a refused rename changed the part name to " + parts[name].name)
+    # The cube result has a single part, so there the check against the other parts shows only through the case
+    other_case = name.lower() if name != name.lower() else name.upper()
+    parts.replace_properties(name, name=other_case)
+    renamed_names = list(parts.get_names().to_array())
+    check(other_case in renamed_names and name not in renamed_names and len(renamed_names) == len(names),
+          "a rename to the same name in other case was not applied: " + str(renamed_names))
+    parts.replace_properties(other_case, name=name)
+    check(parts.contains(name) and parts[name].name == name, "the part was not renamed back")
     # A name that does not exist is refused before the command is recorded
     check_raises(lambda: parts.hide("__missing_part__"), "a missing part name was accepted")
     check_raises(lambda: parts.set_transparency(name, 300), "an out of range transparency was accepted")

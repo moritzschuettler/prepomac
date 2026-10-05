@@ -162,11 +162,11 @@ namespace APIs.Python.Model
         {
             if (name == null || name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'name' must not be empty.");
-            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames(stepName))
             {
-                if (string.Equals(name, existingName))
+                if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' already exists in " +
                                                  "the step '" + stepName + "'.");
             }

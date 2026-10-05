@@ -24,6 +24,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean():
     names = [n for n in pmx.model.steps.get_names() if n.startswith(PREFIX)]
     if names:
@@ -104,6 +113,19 @@ def test_collection_verbs():
     check(not steps[name].active, "the step was not deactivated")
     steps.activate([name])
     check(steps[name].active, "the step was not activated")
+    # The model keys its steps without regard to case and surrounding spaces, and so does the name check
+    steps.add_static(PREFIX + "S2")
+    message = raised_message(lambda: steps.rename(name, (PREFIX + "S2").lower()))
+    check(message is not None and "already exists" in message,
+          "a rename onto another step in other case must be refused: " + str(message))
+    check(steps[name].name == name, "the refused rename changed the name to " + steps[name].name)
+    message = raised_message(lambda: steps.add_static(" " + name.upper() + " "))
+    check(message is not None and "already exists" in message,
+          "a step named like another in other case must be refused: " + str(message))
+    steps.replace_static(name, name=name.upper())
+    check(steps[name.upper()].name == name.upper(), "a rename to the same name in other case must be allowed")
+    steps.rename(name.upper(), name)
+    steps.remove([PREFIX + "S2"])
 
 
 def test_frequency_types():

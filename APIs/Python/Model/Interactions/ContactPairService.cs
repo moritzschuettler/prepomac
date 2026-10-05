@@ -97,8 +97,17 @@ namespace APIs.Python.Model
                                 object adjustmentSize)
         {
             if (method != null)
-                contactPair.Method =
+            {
+                ContactPairMethod value =
                     PythonValueConverter.ToEnum<ContactPairMethod>(AsString(method, "method"), "method");
+                // The model clears small sliding when the method becomes surface to surface, so a replace that
+                // would lose it without being told is refused
+                if (value == ContactPairMethod.SurfaceToSurface && contactPair.SmallSliding && smallSliding == null)
+                    throw new PythonAPIException("The contact pair '" + contactPair.Name + "' uses small sliding, " +
+                                                 "which the SurfaceToSurface method does not support. Give " +
+                                                 "small_sliding=False together with the method.");
+                contactPair.Method = value;
+            }
             if (smallSliding != null)
             {
                 // The model clears small sliding for a surface to surface pair instead of refusing it,
@@ -178,11 +187,11 @@ namespace APIs.Python.Model
         {
             if (name == null || name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'name' must not be empty.");
-            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
             {
-                if (string.Equals(name, existingName))
+                if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The contact pair '" + name + "' already exists.");
             }
         }

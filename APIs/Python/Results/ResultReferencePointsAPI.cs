@@ -287,9 +287,9 @@ namespace APIs.Python
         {
             if (name == null || name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'name' must not be empty.");
-            if (allowedExistingName != null && name == allowedExistingName) return;
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
-            if (GetNames().Contains(name))
+            if (PythonNameComparer.Contains(GetNames(), name))
                 throw new PythonAPIException("The result reference point '" + name + "' already exists.");
         }
         private void EnsureCommandsAvailable()

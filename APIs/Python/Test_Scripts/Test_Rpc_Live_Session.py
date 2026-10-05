@@ -203,6 +203,19 @@ def check_read_only(client):
     check("blocked" not in value["value"], "the refused parameter must not exist: " + str(value["value"]))
     status = client.result("status")
     check(status["model"]["commandCount"] == before, "the history must not have grown")
+    # A new model clears the history, so it is refused before the history is touched
+    check(before > 0, "the opened model must have commands in its history: " + str(before))
+    result = client.result("exec", {"source": "pmx.new_model('ThreeD', 'MM_TON_S_C')"})
+    check(result["failed"], "a new model must fail in read only mode")
+    check("read only" in result["error"], "the refusal must say why: " + result["error"])
+    check(result["recordedCommands"] == [], "nothing may be recorded: " + str(result["recordedCommands"]))
+    status = client.result("status")
+    check(status["model"]["commandCount"] == before,
+          "a refused new model must keep the history of " + str(before) + " commands, it has " +
+          str(status["model"]["commandCount"]))
+    result = client.result("history")
+    check(result["commandCount"] == before and len(result["commands"]) == before,
+          "the history must still list " + str(before) + " commands: " + str(result["commandCount"]))
     print("read only: a change refused by the history, reading unaffected")
 
 

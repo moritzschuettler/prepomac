@@ -886,6 +886,9 @@ namespace PrePoMax
         //******************************************************************************************
         public void New()
         {
+            // Clearing the history is a change the read only mode refuses as well, and it happens before the
+            // clear command that would be refused
+            _commands.RefuseWhenBlocked(new CClear());
             _currentView = ViewGeometryModelResults.Geometry;
             _openedPmxVersion = 0;
             _defaultMeshTypesDisabled = false;

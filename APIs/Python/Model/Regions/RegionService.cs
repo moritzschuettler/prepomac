@@ -57,11 +57,11 @@ namespace APIs.Python.Model
         {
             if (name == null || name.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'name' must not be empty.");
-            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             // A region shares the name space with the other mesh entities
             foreach (string existingName in _modelResolver.GetAllMeshEntityNames())
             {
-                if (string.Equals(name, existingName))
+                if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The name '" + name + "' is already used by another model item.");
             }
         }

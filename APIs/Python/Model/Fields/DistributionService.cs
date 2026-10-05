@@ -11,6 +11,7 @@ using CaeGlobals;
 using CaeModel;
 using CaeResults;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -73,8 +74,40 @@ namespace APIs.Python.Model
                                               "argument 'equation' must be given to replace it.");
             distribution.Name = newName;
             distribution.CoordinateSystemName = existing.CoordinateSystemName;
+            if (distribution.DistributionType != existing.DistributionType)
+                EnsureUnused(existing, "change it from a " + existing.DistributionType + " to a " +
+                                       distribution.DistributionType + " distribution");
             //
             return distribution;
+        }
+        // An item that takes a distribution was checked against the type it had when the item was defined, and the
+        // model reports a mismatch only when the deck is written, so the type of a used distribution is kept
+        private void EnsureUnused(Distribution distribution, string change)
+        {
+            List<string> users = new List<string>();
+            FeModel model = ModelResolver.GetModel();
+            foreach (InitialCondition condition in model.InitialConditions.Values)
+                AddUser(users, condition as IDistribution, distribution, "initial condition " + condition.Name);
+            foreach (Step step in model.StepCollection.StepsList)
+            {
+                string inStep = " in step " + step.Name;
+                foreach (BoundaryCondition condition in step.BoundaryConditions.Values)
+                    AddUser(users, condition as IDistribution, distribution,
+                            "boundary condition " + condition.Name + inStep);
+                foreach (Load load in step.Loads.Values)
+                    AddUser(users, load as IDistribution, distribution, "load " + load.Name + inStep);
+                foreach (DefinedField field in step.DefinedFields.Values)
+                    AddUser(users, field as IDistribution, distribution, "defined field " + field.Name + inStep);
+            }
+            if (users.Count > 0)
+                throw new PythonAPIException("The distribution '" + distribution.Name + "' is used by the " +
+                                             string.Join(", ", users) + ", so the replacement cannot " + change +
+                                             ".");
+        }
+        private static void AddUser(List<string> users, IDistribution user, Distribution distribution, string label)
+        {
+            if (user != null && PythonNameComparer.AreSame(user.DistributionName, distribution.Name))
+                users.Add(label);
         }
         private static Distribution CreateFromEquation(string name, object equation)
         {

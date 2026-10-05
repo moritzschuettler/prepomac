@@ -27,6 +27,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean(collection):
     names = [n for n in collection.get_names() if n.startswith(PREFIX)]
     if names:
@@ -186,6 +195,26 @@ def test_initial_conditions():
                                                distribution_name="Constant")
     check(condition.get_value("distribution_name") == "Constant",
           "the replacement did not change the distribution")
+    # A used distribution keeps its scalar or vector type, because its users were checked against it
+    distributions = pmx.model.distributions
+    condition = conditions.replace_temperature(PREFIX + "Temp_D", region=selection,
+                                               distribution_name=PREFIX + "Scalar")
+    message = raised_message(lambda: distributions.replace_from_equation(PREFIX + "Scalar",
+                                                                         equation=["x", "y", "z"]))
+    check(message is not None and "initial condition " + PREFIX + "Temp_D" in message,
+          "a used scalar distribution was made a vector one: " + str(message))
+    distributions.replace_from_equation(PREFIX + "Scalar", equation="2 + 0.01 * x")
+    condition = conditions.replace_temperature(PREFIX + "Temp_D", region=selection, temperature=30)
+    check(condition.get_value("distribution_name") == PREFIX + "Scalar",
+          "the scalar distribution no longer serves the temperature")
+    condition = conditions.replace_temperature(PREFIX + "Temp_D", region=selection,
+                                               distribution_name="Constant")
+    # Unused, it may change its type
+    distributions.replace_from_equation(PREFIX + "Scalar", equation=["x", "y", "z"])
+    check_raises(lambda: conditions.add_temperature(PREFIX + "Bad", selection, 20,
+                                                    distribution_name=PREFIX + "Scalar"),
+                 "the unused distribution did not become a vector one")
+    distributions.replace_from_equation(PREFIX + "Scalar", equation="1 + 0.01 * x")
     check_raises(lambda: conditions.add_temperature(PREFIX + "Bad", selection, 20,
                                                     distribution_name="NoSuchDistribution"),
                  "an unknown distribution must be rejected")

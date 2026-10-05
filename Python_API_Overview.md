@@ -26,6 +26,9 @@ The root object available in the Python console is `pmx`.
   **model** side a value that is not given is kept, so a replace changes only what it is told; on the
   **results** side a replace re-specifies the whole definition, because a result draft is built whole
   rather than cloned.
+- Names are compared the way the model keys its collections: regardless of case and of surrounding spaces, so
+  `steel` clashes with `Steel`. Renaming an item to its own name in another case is allowed. Coordinate systems have a
+  name space of their own; the parts, sets, surfaces and reference points share one.
 
 ## Script execution and regeneration
 
@@ -719,6 +722,10 @@ This is what the dialog does when the selection changes and nothing was typed in
 grid. Only sizes that still equal the part defaults of the item's previous region follow it: sizes
 an earlier call set are kept, the way the dialog keeps the stored values of an item it edits.
 
+Every `add_*` and `replace_*` of a mesh setup item asks the model whether it can define the item, the way every apply of
+the dialog does, so a value the model refuses - a QuadWild `alpha` outside 0 to 1, for one - is refused by a replace that
+changes only that value, and nothing is recorded.
+
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
 Like the dialog, it derives `hausdorff` from the size of the selected parts - the bounding box
@@ -1124,7 +1131,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | --- | --- |
 | `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
 | `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Reads the distribution from a point cloud file. |
-| `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. |
+| `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
 
 `Distribution` exposes `name` and `distribution_type`.
@@ -1475,7 +1482,7 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 | Member | Description |
 | --- | --- |
 | `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface` or `Mortar`. |
-| `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. |
+| `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. A `method` of `SurfaceToSurface` on a pair with small sliding is refused unless `small_sliding=False` is given too, because that method does not support it. |
 | `swap_master_slave(names)` | Swaps the two sides. |
 | `merge_by_master_slave(names)` | Merges the contact pairs that share a master and a slave surface. |
 | `hide(names)`, `show(names)` | Symbol visibility. |

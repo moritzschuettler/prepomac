@@ -143,7 +143,7 @@ namespace PrePoMax.Commands
         {
             _commandBlockReason = null;
         }
-        private void RefuseWhenBlocked(Command command)
+        public void RefuseWhenBlocked(Command command)
         {
             if (_commandBlockReason == null) return;
             //

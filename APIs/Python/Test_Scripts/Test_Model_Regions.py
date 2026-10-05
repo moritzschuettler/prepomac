@@ -24,6 +24,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean(collection):
     names = [n for n in collection.get_names() if n.startswith(PREFIX)]
     if names:
@@ -131,6 +140,15 @@ def test_coordinate_systems():
     check(not system.name_visible, "the replacement dropped the name visibility")
     system = pmx.model.coordinate_systems.replace(PREFIX + "CS_N", name_visible=True)
     check(system.name_visible, "the replacement did not change the name visibility")
+    # Coordinate system names are checked against the other coordinate systems only
+    message = raised_message(lambda: pmx.model.coordinate_systems.add(PREFIX + "CS_C", [0, 0, 0], [1, 0, 0],
+                                                                      [0, 1, 0]))
+    check(message is not None and "already exists" in message,
+          "a second coordinate system of the same name must be refused: " + str(message))
+    check(pmx.model.node_sets.contains(PREFIX + "NS"), "the node set the next check shares a name with is missing")
+    pmx.model.coordinate_systems.add(PREFIX + "NS", [0, 0, 0], [1, 0, 0], [0, 1, 0])
+    check(pmx.model.coordinate_systems.contains(PREFIX + "NS"),
+          "a coordinate system must be allowed to share its name with a node set")
 
 
 def test_derived_reference_points():

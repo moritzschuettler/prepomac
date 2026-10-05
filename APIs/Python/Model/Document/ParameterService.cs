@@ -192,11 +192,11 @@ namespace APIs.Python.Model
         private void ValidateName(string name, string allowedExistingName)
         {
             ValidateNameFormat(name, "name");
-            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
             {
-                if (string.Equals(name, existingName))
+                if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The parameter '" + name + "' already exists.");
             }
         }

@@ -65,6 +65,7 @@
     <Compile Include="Python\Model\Meshing\MeshSetupItemService.cs" />
     <Compile Include="Python\Model\Meshing\MeshSetupItemsAPI.cs" />
     <Compile Include="Python\Common\PythonColorConverter.cs" />
+    <Compile Include="Python\Common\PythonNameComparer.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataAPI.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntitiesAPI.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntityAPI.cs" />

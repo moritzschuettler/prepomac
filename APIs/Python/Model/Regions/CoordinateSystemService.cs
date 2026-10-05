@@ -25,6 +25,16 @@ namespace APIs.Python.Model
 
 
         // Methods
+        // A coordinate system has a name space of its own, as in FrmCoordinateSystem, rather than the one the
+        // parts, the sets and the reference points share
+        private void ValidateCoordinateSystemName(string name, string allowedExistingName)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
+            if (PythonNameComparer.Contains(GetNames(), name))
+                throw new PythonAPIException("The coordinate system '" + name + "' already exists.");
+        }
         public string[] GetNames()
         {
             FeMesh mesh = GetMeshOrNull();
@@ -53,7 +63,7 @@ namespace APIs.Python.Model
         public void Add(string name, string type, object origin, object pointOnX, object pointInXY,
                         object nameVisible)
         {
-            ValidateNewName(name, null);
+            ValidateCoordinateSystemName(name, null);
             CoordinateSystem coordinateSystem = Build(name, type, origin, pointOnX, pointInXY);
             ApplyNameVisible(coordinateSystem, nameVisible);
             ValidateDefinition(coordinateSystem);
@@ -66,7 +76,7 @@ namespace APIs.Python.Model
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
             string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            ValidateCoordinateSystemName(newName, oldName);
             CoordinateSystem coordinateSystem = existing.DeepClone();
             coordinateSystem.Name = newName;
             if (type != null)
@@ -88,7 +98,7 @@ namespace APIs.Python.Model
                                        SelectionAPI pointInXYSelection, object origin, object pointOnX,
                                        object pointInXY, object nameVisible)
         {
-            ValidateNewName(name, null);
+            ValidateCoordinateSystemName(name, null);
             CoordinateSystem item = new CoordinateSystem(name, GetIsTwoDimensional());
             if (type != null)
                 item.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type, "coordinate_system_type");
@@ -108,7 +118,7 @@ namespace APIs.Python.Model
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
             string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            ValidateCoordinateSystemName(newName, oldName);
             CoordinateSystem item = existing.DeepClone();
             item.Name = newName;
             if (type != null)
@@ -151,7 +161,7 @@ namespace APIs.Python.Model
         }
         public void Rename(NamedClass item, string newName)
         {
-            ValidateNewName(newName, item.Name);
+            ValidateCoordinateSystemName(newName, item.Name);
             //
             EnsureCommandsAvailable();
             ModelGateway.RenameModelItem(item, newName, null);
