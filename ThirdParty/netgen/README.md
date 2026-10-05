@@ -30,7 +30,10 @@ the OpenCASCADE and runtime dlls change when their corresponding dependencies ar
 Deploy `NetGenMesher.exe` and `nglib.dll` as a matched pair. The current pair supports
 `STL_SURFACE_MESH` for open STL shells and open-boundary `STL_EDGE_MESH`; optional refinement and
 edge-node files may be omitted. `BREP_DEFEATURE` removes selected 1-based face IDs from a CAD solid
-with OpenCASCADE 8.0.1 and checks that the result is still a valid solid. Its `BREP_SPLIT` takes
+with OpenCASCADE 8.0.1 and checks that the result is still a valid solid. It and `BREP_DEFEATURE_COMPOUND`
+cut the splits the defeaturing joins back into the result - the kernel makes every two neighbouring faces on
+one surface one face, anywhere in the solid - so the halves of a periodic face and the pieces of a shell split
+survive the removal of another feature. Its `BREP_SPLIT` takes
 `Split target: Shell` with `Target solid`
 and `Target face ids`, which divides only the named faces and leaves the body they belong to whole, and
 `Tool type: TwoPointLine`, which divides them along the line between two points drawn in the parameter space

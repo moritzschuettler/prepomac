@@ -6,6 +6,8 @@
 #asked for. The part keeps its name, its id and its body, and a part with nothing left to split reports zero. A
 #sub-part is split with its compound, under whose name it is reported, and the sub-parts keep their names. Faces
 #fused back into a closed face stay one face, which they did not while every geometry operation split them again.
+#A defeaturing keeps the splits of every face it does not remove, although the modelling kernel joins the faces that
+#lie on one surface anywhere in the solid it returns.
 #
 #blind_holes.brep is a 60 x 40 x 20 box with two blind holes drilled from the top face and one hole that goes all
 #the way through. sweep_holes_side.brep is a compound of two boxes side by side with a bore through each.
@@ -40,7 +42,8 @@ def faces(part):
     for i in range(data.count):
         rows.append({"id": int(list(data.ids)[i]),
                      "type": list(data.types)[i],
-                     "area": float(list(data.areas)[i])})
+                     "area": float(list(data.areas)[i]),
+                     "x": float(list(data.centroids[i])[0])})
     return rows
 
 
@@ -90,6 +93,23 @@ def test_more_faces():
     check(dict(added) == {part.name: 6}, "each bore split into three must gain two faces: " + str(dict(added)))
 
 
+def test_defeature_keeps_splits():
+    parts = pmx.model.geometry.parts
+    part = import_parts("blind_holes.brep")[0]
+    parts.split_periodic_faces(part.name)
+    part = parts[part.name]
+    # The blind hole nearest the end of the box: its two halves and its cap
+    first_x = min(row["x"] for row in cylinders(part))
+    hole = [row for row in faces(part) if abs(row["x"] - first_x) < 1 and
+            (row["type"] == "Cylinder" or row["area"] < 100)]
+    check(len(hole) == 3, "the blind hole must be two halves and a cap: " + str(hole))
+    removed = parts.defeature(pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces',
+                                                          {part.id: [row["id"] for row in hole]}))
+    check(dict(removed) == {part.name: 3}, "only the faces of the blind hole must be removed: " + str(dict(removed)))
+    check(len(cylinders(parts[part.name])) == 4,
+          "the other two bores must keep their halves: " + str(cylinders(parts[part.name])))
+
+
 def test_compound():
     parts = pmx.model.geometry.parts
     added_parts = import_parts("sweep_holes_side.brep")
@@ -115,6 +135,7 @@ def test_not_cad():
 def main():
     test_part()
     test_more_faces()
+    test_defeature_keeps_splits()
     test_compound()
     test_not_cad()
     print("TEST PASSED")
