@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -257,8 +258,18 @@ namespace CaeMesh
                 }
             }
             //
-            IntPtr lp = LpSolve.make_lp(0, lower.Count);
-            if (lp == IntPtr.Zero) throw new InvalidOperationException("lp_solve could not create a model.");
+            IntPtr lp;
+            try
+            {
+                lp = LpSolve.make_lp(0, lower.Count);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is BadImageFormatException ||
+                                       ex is EntryPointNotFoundException)
+            {
+                throw new CaeException("lp_solve, which settles the numbers of elements on the edges, could not be loaded " +
+                                       "from lpsolve55.dll next to GmshCaller.exe: " + ex.Message);
+            }
+            if (lp == IntPtr.Zero) throw new CaeException("lp_solve could not create a model.");
             try
             {
                 LpSolve.set_verbose(lp, LpSolve.Critical);
