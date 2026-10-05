@@ -8,7 +8,9 @@
 // Contributors:
 
 using APIs.Python;
+using CaeGlobals;
 using CaeMesh;
+using CaeModel;
 using CaeResults;
 using System.Drawing;
 
@@ -39,6 +41,11 @@ namespace PrePoMax.Python
         public void ClearResults()
         {
             _controller.ClearResultsCommand();
+        }
+        public void RenameResultItem(NamedClass item, string newName)
+        {
+            // The view is passed explicitly so that a script does not depend on the view the user left behind
+            _controller.RenameCommand(item, newName, null, ViewGeometryModelResults.Results);
         }
         // Result parts
         public void HideResultParts(string[] names)
@@ -103,6 +110,11 @@ namespace PrePoMax.Python
             _controller.RemoveResultReferencePointsCommand(names);
         }
         // Result coordinate systems
+        // The coordinate system dialog takes the plane of a new system from the model space in the results view too
+        public bool GetIsModelTwoDimensional()
+        {
+            return _controller.Model != null && _controller.Model.Properties.ModelSpace.IsTwoD();
+        }
         public void AddResultCoordinateSystem(CoordinateSystem coordinateSystem)
         {
             _controller.AddResultCoordinateSystemCommand(coordinateSystem);

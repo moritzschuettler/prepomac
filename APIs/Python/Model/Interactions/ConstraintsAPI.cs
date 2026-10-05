@@ -71,9 +71,9 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a cyclic symmetry constraint using command history. The master and the slave " +
                    "region are the two sector faces and their selection target is surfaces. The region is " +
-                   "the result expansion region, its selection target is elements, and it is only used " +
-                   "when number_of_graph_sectors is larger than 1. The axis is given by a point and a " +
-                   "direction.",
+                   "the result expansion region, its selection target is elements, and it is required " +
+                   "when number_of_graph_sectors is larger than 1 and refused otherwise. The axis is given " +
+                   "by a point and a direction.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, region: Selection or Region = None, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, number_of_sectors: int = None, " +
@@ -97,14 +97,18 @@ namespace APIs.Python.Model
                                       number_of_graph_sectors, check_sector_angle);
             ApplyExpansionRegion(constraint, region);
             ApplyTieValues(constraint, position_tolerance, adjust);
+            CheckExpansionRegion(constraint, name);
             _service.Add(constraint);
             //
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing cyclic symmetry constraint using command history.",
+        [PythonAPI("Replaces an existing cyclic symmetry constraint using command history. A replace that " +
+                   "lowers number_of_graph_sectors to 1 must also drop the result expansion region, which " +
+                   "clear_expansion_region=True does; it cannot be combined with region.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
-                               "add_cyclic_symmetry, all optional", Returns = "Constraint")]
+                               "add_cyclic_symmetry, all optional, clear_expansion_region: bool = None",
+                   Returns = "Constraint")]
         public ConstraintAPI replace_cyclic_symmetry(string old_name, string name = null,
                                                      object master_region = null, object slave_region = null,
                                                      object region = null, object axis_point = null,
@@ -112,15 +116,23 @@ namespace APIs.Python.Model
                                                      object number_of_sectors = null,
                                                      object number_of_graph_sectors = null,
                                                      object check_sector_angle = null,
-                                                     object position_tolerance = null, object adjust = null)
+                                                     object position_tolerance = null, object adjust = null,
+                                                     object clear_expansion_region = null)
         {
             CyclicSymmetry constraint = _service.CloneForReplace<CyclicSymmetry>(old_name, "CyclicSymmetry");
+            bool clearExpansionRegion = clear_expansion_region != null &&
+                PythonValueConverter.ToBool(clear_expansion_region, "clear_expansion_region");
+            if (clearExpansionRegion && region != null)
+                throw new PythonAPIException("The arguments 'region' and 'clear_expansion_region' cannot be " +
+                                             "given together.");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
             ApplyCyclicSymmetryValues(constraint, axis_point, axis_direction, number_of_sectors,
                                       number_of_graph_sectors, check_sector_angle);
+            if (clearExpansionRegion) ClearExpansionRegion(constraint);
             ApplyExpansionRegion(constraint, region);
             ApplyTieValues(constraint, position_tolerance, adjust);
+            CheckExpansionRegion(constraint, old_name);
             //
             return Replace(old_name, name, constraint);
         }
@@ -560,8 +572,14 @@ namespace APIs.Python.Model
             if (numberOfSectors != null)
                 constraint.NumberOfSectors = PythonValueConverter.ToInt(numberOfSectors, "number_of_sectors");
             if (numberOfGraphSectors != null)
-                constraint.NumberOfGraphSectors =
-                    PythonValueConverter.ToInt(numberOfGraphSectors, "number_of_graph_sectors");
+            {
+                int graphSectors = PythonValueConverter.ToInt(numberOfGraphSectors, "number_of_graph_sectors");
+                if (graphSectors < 1 || graphSectors > constraint.NumberOfSectors)
+                    throw new PythonAPIException("The argument 'number_of_graph_sectors' must be between 1 and " +
+                                                 "number_of_sectors, which is " + constraint.NumberOfSectors +
+                                                 ", but it is " + graphSectors + ".");
+                constraint.NumberOfGraphSectors = graphSectors;
+            }
             if (checkSectorAngle != null)
                 constraint.CheckSectorAngle =
                     PythonValueConverter.ToBool(checkSectorAngle, "check_sector_angle");
@@ -569,13 +587,35 @@ namespace APIs.Python.Model
         private void ApplyExpansionRegion(CyclicSymmetry constraint, object region)
         {
             if (region == null) return;
-            // The controller converts the result expansion region only for more than one graph sector,
-            // and discards it otherwise, so the combination that would be dropped is rejected here
-            if (constraint.NumberOfGraphSectors <= 1)
-                throw new PythonAPIException("The result expansion region of a cyclic symmetry is only " +
-                                             "used when 'number_of_graph_sectors' is larger than 1.");
             //
             _service.ApplyRegion(constraint, region, ElementTarget);
+        }
+        private static void ClearExpansionRegion(CyclicSymmetry constraint)
+        {
+            constraint.RegionName = "";
+            constraint.RegionType = RegionTypeEnum.Selection;
+            constraint.CreationData = null;
+            constraint.CreationIds = null;
+        }
+        // The controller needs the result expansion region for more than one graph sector and discards it
+        // otherwise, so the final state is checked rather than any single argument
+        private static void CheckExpansionRegion(CyclicSymmetry constraint, string name)
+        {
+            bool hasExpansionRegion = constraint.CreationData != null ||
+                                      (constraint.RegionType != RegionTypeEnum.Selection &&
+                                       constraint.RegionType != RegionTypeEnum.None &&
+                                       !string.IsNullOrEmpty(constraint.RegionName));
+            int numberOfGraphSectors = constraint.NumberOfGraphSectors;
+            if (numberOfGraphSectors > 1 && !hasExpansionRegion)
+                throw new PythonAPIException("The cyclic symmetry '" + name + "' has 'number_of_graph_sectors' " +
+                                             numberOfGraphSectors + ", which needs a result expansion region. " +
+                                             "Give it as 'region'.");
+            if (numberOfGraphSectors <= 1 && hasExpansionRegion)
+                throw new PythonAPIException("The cyclic symmetry '" + name + "' has a result expansion region " +
+                                             "and 'number_of_graph_sectors' " + numberOfGraphSectors + ", but " +
+                                             "the region is only used when 'number_of_graph_sectors' is " +
+                                             "larger than 1. Give a larger 'number_of_graph_sectors', or drop " +
+                                             "the region with 'clear_expansion_region=True' on a replace.");
         }
         private static void ApplyDistributingValues(DistributingCoupling constraint, object u1, object u2,
                                                     object u3, object ur1, object ur2, object ur3)

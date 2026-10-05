@@ -51,7 +51,8 @@ def test_generated_keywords():
 
 def test_user_keywords(generated):
     keywords = pmx.model.keywords
-    keywords.clear_overrides()
+    if keywords.override_count > 0:
+        keywords.clear_overrides()
     for entry in keywords.get_user_keywords():
         keywords.remove_user_keyword(entry.indices)
     check(keywords.count == 0, "the user keywords were not cleared")
@@ -115,6 +116,9 @@ def test_overrides(generated):
     check(first.data == "** first", "editing the second override changed the first")
     keywords.clear_overrides()
     check(keywords.override_count == 0, "the overrides were not cleared")
+    # Clearing nothing would record a command that changes nothing, so it is refused like removing a missing one
+    check_refused(lambda: keywords.clear_overrides(), "no keyword overrides to clear",
+                  "clearing an empty set of overrides was accepted")
 
 
 def test_tree():
@@ -189,6 +193,15 @@ def test_tree_existence():
         # A part group shares the names of the parts themselves
         check_refused(lambda: tree.create_group('femodel', 'parts', part_names[0]), "part group",
                       "a part group named as a part was accepted")
+        # Its name follows the rules of a part name, and a bad one is refused in the API's own words
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad#'), "group_name",
+                      "a part group name with a character a name cannot hold was accepted")
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest Bad'), "group_name",
+                      "a part group name with a space was accepted")
+        check_refused(lambda: tree.create_group('geometry', 'parts', 'PyTest_Bad#'), "group_name",
+                      "a geometry part group name with a character a name cannot hold was accepted")
+        check_refused(lambda: tree.rename_group('femodel', 'parts', second, 'PyTest_Bad#'), "group_name",
+                      "renaming a part group to a name with a character a name cannot hold was accepted")
         # The index may name the position after the last entry, but no further
         top_level = len(part_names) - 1 + 2
         check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', target_index=top_level + 1),

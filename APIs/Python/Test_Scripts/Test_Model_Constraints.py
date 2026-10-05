@@ -25,6 +25,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean():
     for collection in [pmx.model.constraints, pmx.model.reference_points, pmx.model.surfaces]:
         names = [n for n in collection.get_names() if n.startswith(PREFIX)]
@@ -97,6 +106,44 @@ def test_cyclic_symmetry():
     check_raises(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
                                                          surface_selection(2), axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
+    # More than one graph sector needs the result expansion region, which the controller would otherwise
+    # refuse in its own words
+    message = raised_message(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
+                                                                     surface_selection(2), number_of_sectors=6,
+                                                                     number_of_graph_sectors=3))
+    check(message is not None and "number_of_graph_sectors" in message and "'region'" in message,
+          "more graph sectors without an expansion region must be refused: " + str(message))
+    check(not constraints.contains(PREFIX + "Bad"), "a refused cyclic symmetry was added")
+    # More graph sectors than sectors is refused in the API's words, not the model's
+    message = raised_message(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
+                                                                     surface_selection(2), number_of_sectors=2,
+                                                                     number_of_graph_sectors=3))
+    check(message is not None and "number_of_graph_sectors" in message and "between 1" in message,
+          "more graph sectors than sectors must be refused by the API: " + str(message))
+    # A cyclic symmetry derives from a tie, yet a tie replace does not edit it
+    message = raised_message(lambda: constraints.replace_tie(PREFIX + "CS", adjust=False))
+    check(message is not None and "CyclicSymmetry" in message,
+          "replacing a cyclic symmetry by a tie must be refused: " + str(message))
+    # The final state is checked, so lowering the graph sectors must also drop the region
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=1))
+    check(message is not None and "number_of_graph_sectors" in message and "clear_expansion_region" in message,
+          "one graph sector with a kept expansion region must be refused: " + str(message))
+    check(constraints[PREFIX + "CS"].get_value("number_of_graph_sectors") == 2, "a refused replace changed the count")
+    check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", region=element_selection([1]),
+                                                             clear_expansion_region=True),
+                 "a region and clear_expansion_region together must be refused")
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", clear_expansion_region=True))
+    check(message is not None and "number_of_graph_sectors" in message,
+          "clearing the region of two graph sectors must be refused: " + str(message))
+    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=1, clear_expansion_region=True)
+    check(cs.get_value("number_of_graph_sectors") == 1, "the graph sector count was not lowered")
+    check(cs.get_value("region_type") != "ElementSetName", "the expansion region was not cleared")
+    # Raising the count again needs the region again
+    check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3),
+                 "more graph sectors without an expansion region must be refused on a replace")
+    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3, region=element_selection([1]))
+    check(cs.get_value("number_of_graph_sectors") == 3, "the graph sector count was not raised")
+    check(cs.get_value("region_type") == "ElementSetName", "the expansion region was not set again")
     constraints.remove([PREFIX + "CS"])
 
 

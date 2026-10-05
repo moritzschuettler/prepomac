@@ -236,18 +236,27 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a From Field history output and adds it to the current result, in one call. " +
-                   "It takes the arguments of create_history_output_from_field plus the optional filters.",
+                   "It takes the arguments of create_history_output_from_field, the options of its draft and " +
+                   "the optional filters. An option that is not given keeps the default of the draft.",
                    Arguments = "name: str, field_name: str, component_names: list[str], " +
-                               "region: Selection or NodeSet or Surface, " +
+                               "region: Selection or NodeSet or Surface, complex_result_type: str = None, " +
+                               "complex_angle_deg: float = None, step_id: int = None, increment_id: int = None, " +
+                               "harmonic: bool = None, output_node_coordinates: str = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_field(string name, string field_name, object component_names,
-                                                     object region,
+                                                     object region, string complex_result_type = null,
+                                                     object complex_angle_deg = null, object step_id = null,
+                                                     object increment_id = null, object harmonic = null,
+                                                     string output_node_coordinates = null,
                                                      ResultHistoryOutputFilterAPI filter1 = null,
                                                      ResultHistoryOutputFilterAPI filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromField(name, field_name, component_names, region),
-                                   filter1, filter2));
+            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(name, field_name, component_names,
+                                                                                  region);
+            ApplyFromFieldOptions(draft, complex_result_type, complex_angle_deg, step_id, increment_id, harmonic,
+                                  output_node_coordinates);
+            return add(WithFilters(draft, filter1, filter2));
         }
 
         [PythonAPI("Replaces a result history output by a From Field one, in one call.",
@@ -255,11 +264,18 @@ namespace APIs.Python
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_field(string old_name, string name, string field_name,
                                                          object component_names, object region,
+                                                         string complex_result_type = null,
+                                                         object complex_angle_deg = null, object step_id = null,
+                                                         object increment_id = null, object harmonic = null,
+                                                         string output_node_coordinates = null,
                                                          ResultHistoryOutputFilterAPI filter1 = null,
                                                          ResultHistoryOutputFilterAPI filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromField(name, field_name, component_names,
-                                                                          region), filter1, filter2));
+            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(name, field_name, component_names,
+                                                                                  region);
+            ApplyFromFieldOptions(draft, complex_result_type, complex_angle_deg, step_id, increment_id, harmonic,
+                                  output_node_coordinates);
+            return replace(old_name, WithFilters(draft, filter1, filter2));
         }
 
         [PythonAPI("Creates a From Equation history output and adds it to the current result, in one call.",
@@ -504,6 +520,13 @@ namespace APIs.Python
             return this[name];
         }
 
+        [PythonAPI("Renames a user-defined result history output using command history. Solver-generated " +
+                   "history outputs cannot be renamed.", Arguments = "old_name: str, new_name: str", Returns = "None")]
+        public void rename(string old_name, string new_name)
+        {
+            _service.RenameHistoryOutput(_resultName, old_name, new_name);
+        }
+
         [PythonAPI("Validates and duplicates user-defined result history outputs using command history. " +
                    "Solver-generated history outputs cannot be duplicated.",
                    Arguments = "history_output_names: list[str]", Returns = "None")]
@@ -543,6 +566,18 @@ namespace APIs.Python
             _service.ExportHistoryOutputsToCsv(_resultName, file_name, history_output_names, delimiter);
         }
 
+        private static void ApplyFromFieldOptions(ResultHistoryOutputFromFieldDraftAPI draft, string complexResultType,
+                                                  object complexAngleDeg, object stepId, object incrementId,
+                                                  object harmonic, string outputNodeCoordinates)
+        {
+            if (complexResultType != null) draft.complex_result_type = complexResultType;
+            if (complexAngleDeg != null)
+                draft.complex_angle_deg = PythonValueConverter.ToFiniteDouble(complexAngleDeg, "complex_angle_deg");
+            if (stepId != null) draft.step_id = PythonValueConverter.ToInt(stepId, "step_id");
+            if (incrementId != null) draft.increment_id = PythonValueConverter.ToInt(incrementId, "increment_id");
+            if (harmonic != null) draft.harmonic = PythonValueConverter.ToBool(harmonic, "harmonic");
+            if (outputNodeCoordinates != null) draft.output_node_coordinates = outputNodeCoordinates;
+        }
         private static TDraft WithFilters<TDraft>(TDraft draft, ResultHistoryOutputFilterAPI filter1,
                                                   ResultHistoryOutputFilterAPI filter2)
             where TDraft : ResultHistoryOutputDraftAPI

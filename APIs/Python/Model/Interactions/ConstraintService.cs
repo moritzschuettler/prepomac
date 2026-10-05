@@ -58,13 +58,13 @@ namespace APIs.Python.Model
             where TConstraint : Constraint
         {
             Constraint constraint = ResolveConstraint(name);
-            TConstraint typed = constraint as TConstraint;
-            if (typed == null)
+            // A cyclic symmetry derives from a tie, so only the exact type is the one being replaced
+            if (constraint.GetType() != typeof(TConstraint))
                 throw new PythonAPIException("The constraint '" + name + "' is a " + constraint.GetType().Name +
                                              ", so it cannot be replaced by a " + typeName +
                                              ". Remove it and add the new type instead.");
             //
-            TConstraint clone = typed.DeepClone();
+            TConstraint clone = ((TConstraint)constraint).DeepClone();
             // Controller.ReplaceConstraint always deletes the internal sets of the old constraint and
             // converts the new one, without the guard the boundary conditions and the loads have. Every
             // region that was selection based is therefore reset to its selection, so that the conversion

@@ -87,6 +87,20 @@ def test_part_commands():
           "a rename to the same name in other case was not applied: " + str(renamed_names))
     parts.replace_properties(other_case, name=name)
     check(parts.contains(name) and parts[name].name == name, "the part was not renamed back")
+    # The rename the results view records refuses the same names before anything is recorded
+    parts.rename(name, other_case)
+    renamed_names = list(parts.get_names().to_array())
+    check(other_case in renamed_names and name not in renamed_names, "rename() was not applied: " + str(renamed_names))
+    parts.rename(other_case, name)
+    check(parts.contains(name) and parts[name].name == name, "rename() did not rename the part back")
+    message = raised_message(lambda: parts.rename(name, "two words"))
+    check(message is not None and "is not valid" in message, "an invalid new name was accepted: " + str(message))
+    check_raises(lambda: parts.rename("__missing_part__", "PyTest_Part"), "renaming a missing part was accepted")
+    if len(names) > 1:
+        message = raised_message(lambda: parts.rename(name, names[1].swapcase()))
+        check(message is not None and "already exists" in message,
+              "a rename onto another result part in other case was accepted: " + str(message))
+    check(list(parts.get_names().to_array()) == list(names), "a refused rename changed the part names")
     # A name that does not exist is refused before the command is recorded
     check_raises(lambda: parts.hide("__missing_part__"), "a missing part name was accepted")
     check_raises(lambda: parts.set_transparency(name, 300), "an out of range transparency was accepted")

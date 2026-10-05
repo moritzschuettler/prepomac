@@ -52,7 +52,8 @@ namespace APIs.Python.Model
         }
         [PythonAPI("Creates a model tree group and optionally moves items into it. The view is 'geometry', " +
                    "'femodel' or 'results'. It returns the group id, which is generated when it is not given. " +
-                   "A step owned collection also needs the name of the step that owns it.",
+                   "A step owned collection also needs the name of the step that owns it. A group of the " +
+                   "geometry or the mesh parts shares the names of the parts, so its name follows the same rules.",
                    Arguments = "view: str, item_type: str, group_name: str, group_id: str = None, " +
                                "parent_group_id: str = None, target_index: int = 0, " +
                                "item_names: list[str] = None, step_name: str = None", Returns = "str",
@@ -62,6 +63,7 @@ namespace APIs.Python.Model
                                    string step_name = null)
         {
             string viewName = Validate(view, item_type, step_name, group_name, target_index);
+            ValidateGroupName(viewName, item_type, group_name);
             string id = group_id == null ? Guid.NewGuid().ToString() : group_id;
             Guid groupId = ValidateGroupId(id, "group_id");
             Guid? parentGroupId = null;
@@ -87,13 +89,15 @@ namespace APIs.Python.Model
                                                          id, parent_group_id, target_index, group_name);
             return id;
         }
-        [PythonAPI("Renames a model tree group. The view is 'geometry', 'femodel' or 'results'.",
+        [PythonAPI("Renames a model tree group. The view is 'geometry', 'femodel' or 'results'. A group of the " +
+                   "geometry or the mesh parts follows the rules of a part name.",
                    Arguments = "view: str, item_type: str, group_id: str, group_name: str, " +
                                "step_name: str = None", Returns = "None")]
         public void rename_group(string view, string item_type, string group_id, string group_name,
                                  string step_name = null)
         {
             string viewName = Validate(view, item_type, step_name, group_name, 0);
+            ValidateGroupName(viewName, item_type, group_name);
             Guid groupId = ValidateGroupId(group_id, "group_id");
             //
             IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
@@ -381,7 +385,15 @@ namespace APIs.Python.Model
                                                  "letters are regarded as equal.");
             }
         }
-        // A part group of the geometry and the mesh shares the namespace of the parts themselves
+        // A part group of the geometry and the mesh shares the namespace of the parts themselves, so its name
+        // follows the rules of a part name, which the model checks only after the command is recorded
+        private static void ValidateGroupName(string view, string itemType, string name)
+        {
+            if (name == null) throw new PythonAPIException("The argument 'group_name' must not be None.");
+            if (view == "results" || itemType != "parts") return;
+            //
+            PythonNameComparer.ValidateFormat(name, "group_name", null);
+        }
         private void CheckPartGroupName(string view, string itemType, Guid groupId, string name)
         {
             if (view == "results" || itemType != "parts") return;

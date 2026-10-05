@@ -76,6 +76,12 @@ namespace APIs.Python
         {
             return new StringListAPI(GetNames());
         }
+        [PythonAPI("Returns true if the result mesh contains the result reference point. Names are compared " +
+                   "without regard to case.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
+        {
+            return name != null && PythonNameComparer.Contains(GetNames(), name);
+        }
         [PythonAPI("Returns the stored coordinates of a result reference point, as the values or equations " +
                    "they were entered with.", Arguments = "name: str", Returns = "list[str]")]
         public string[] get_definition(string name)
@@ -215,6 +221,19 @@ namespace APIs.Python
             string[] resolved = ResolveNames(names);
             EnsureCommandsAvailable();
             _commandGateway.DuplicateResultReferencePoints(resolved);
+        }
+        [PythonAPI("Renames a result reference point using command history.",
+                   Arguments = "old_name: str, new_name: str", Returns = "None")]
+        public void rename(string old_name, string new_name)
+        {
+            FeReferencePoint point = Resolve(old_name);
+            PythonNameComparer.ValidateFormat(new_name, "new_name", point.Name);
+            if (string.Equals(point.Name, new_name)) return;
+            if (!PythonNameComparer.AreSame(new_name, point.Name) && PythonNameComparer.Contains(GetNames(), new_name))
+                throw new PythonAPIException("The result reference point '" + new_name + "' already exists.");
+            //
+            EnsureCommandsAvailable();
+            _commandGateway.RenameResultItem(point, new_name);
         }
         [PythonAPI("Removes result reference points using command history.",
                    Arguments = "names: list[str] or str", Returns = "None")]

@@ -152,7 +152,7 @@ namespace APIs.Python
             _options = options;
             return this;
         }
-        [PythonAPI("Returns a copy of the persisted selection-construction options.", Returns = "dict")]
+        [PythonAPI("Returns a copy of the persisted selection-construction options.", Returns = "dict[str, Any]")]
         public Dictionary<string, object> get_options()
         {
             return new Dictionary<string, object>

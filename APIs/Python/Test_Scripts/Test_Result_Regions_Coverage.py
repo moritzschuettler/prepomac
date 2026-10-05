@@ -68,6 +68,18 @@ def test_reference_points(points):
     check(points.get_name_visible(PREFIX + "Point_D"), "the replacement did not set the name visibility")
     check(list(points.get_color(PREFIX + "Point_D"))[:3] == [70, 80, 90],
           "the replacement did not set the colour")
+    # The rename is the one the results view records, and names are compared without regard to case
+    check(points.contains(PREFIX + "point_r"), "contains must compare names without regard to case")
+    check(not points.contains("__missing_result_point__"), "a missing reference point was found")
+    points.rename(PREFIX + "Point_R", PREFIX + "Point_N")
+    check(points.contains(PREFIX + "Point_N") and not points.contains(PREFIX + "Point_R"),
+          "the reference point was not renamed: " + str(list(points.get_names())))
+    check_raises(lambda: points.rename(PREFIX + "Point_N", PREFIX + "point_d"),
+                 "a rename onto an existing name in another case was accepted")
+    check_raises(lambda: points.rename(PREFIX + "Point_N", ""), "an empty new name was accepted")
+    check_raises(lambda: points.rename("__missing_result_point__", PREFIX + "Point_X"),
+                 "renaming a missing reference point was accepted")
+    check(not points.contains(PREFIX + "Point_X"), "a refused rename changed the reference points")
     clean(points)
     check(len(points) == 0, "the reference points left behind " + str(list(points.get_names())))
 
@@ -199,6 +211,18 @@ def test_coordinate_systems(systems):
     systems.replace(PREFIX + "CS_N", origin=[0, 0, 0], point_on_x=[3, 0, 0], point_in_xy=[0, 1, 0],
                     name_visible=True)
     check(systems.get_name_visible(PREFIX + "CS_N"), "the replacement did not set the name visibility")
+    # The rename is the one the results view records, and names are compared without regard to case
+    check(systems.contains(PREFIX + "cs_r"), "contains must compare names without regard to case")
+    check(not systems.contains("__missing_result_cs__"), "a missing coordinate system was found")
+    systems.rename(PREFIX + "CS_R", PREFIX + "CS_M")
+    check(systems.contains(PREFIX + "CS_M") and not systems.contains(PREFIX + "CS_R"),
+          "the coordinate system was not renamed: " + str(list(systems.get_names())))
+    check_raises(lambda: systems.rename(PREFIX + "CS_M", PREFIX + "cs_n"),
+                 "a rename onto an existing name in another case was accepted")
+    check_raises(lambda: systems.rename(PREFIX + "CS_M", ""), "an empty new name was accepted")
+    check_raises(lambda: systems.rename("__missing_result_cs__", PREFIX + "CS_X"),
+                 "renaming a missing coordinate system was accepted")
+    check(not systems.contains(PREFIX + "CS_X"), "a refused rename changed the coordinate systems")
     clean(systems)
     check(len(systems) == 0, "the coordinate systems left behind " + str(list(systems.get_names())))
 

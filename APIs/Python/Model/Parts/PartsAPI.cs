@@ -66,7 +66,7 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces the properties of a part using command history. A property that is not given " +
                    "is kept. The element types are a map of the element type name to its value, the way " +
-                   "get_element_types names them.",
+                   "get_element_types names them. An element kind the part does not contain is refused.",
                    Arguments = "old_name: str, name: str = None, color: list[int] or str = None, " +
                                "element_types: dict[str, str] = None", Returns = "None",
                    Example = "parts.replace_properties('Solid-1', name='Bracket', " +
@@ -84,7 +84,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns the element types of a part as a map of the element type name to its value, in " +
-                   "the form set_element_type and replace_properties take them.",
+                   "the form set_element_type and replace_properties take them. Only the element kinds " +
+                   "the part contains are listed.",
                    Arguments = "part_name: str", Returns = "dict[str, str]",
                    Example = "types = parts.get_element_types('Solid-1')  # {'linear_tetra': 'C3D4', ...}")]
         public Dictionary<string, string> get_element_types(string part_name)
@@ -92,7 +93,8 @@ namespace APIs.Python.Model
             return _service.GetElementTypes(part_name);
         }
 
-        [PythonAPI("Sets one element type of the named parts using command history.",
+        [PythonAPI("Sets one element type of the named parts using command history. An element kind a " +
+                   "part does not contain is refused.",
                    Arguments = "part_names: list[str] or str, element_type: str, value: str", Returns = "None",
                    Example = "parts.set_element_type('Solid-1', 'linear_tetra', 'C3D4')")]
         public void set_element_type(object part_names, string element_type, string value)

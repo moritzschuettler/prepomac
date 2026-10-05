@@ -47,7 +47,7 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns all compatible history entries for this component.", Returns = "HistoryData")]
+        [PythonAPI("Returns all compatible history entries for this component.", Returns = "HistoryComponentData")]
         public ResultHistoryOutputComponentDataAPI get_data()
         {
             return _resultHistoryService.GetComponentData(_resultName, _historyOutputName, _fieldName, _componentName);

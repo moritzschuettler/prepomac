@@ -30,6 +30,16 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def check_refused(function, fragment, message):
+    # The refusal must be the API's own, which names what is wrong
+    try:
+        function()
+    except Exception as ex:
+        check(fragment in str(ex), message + ": " + str(ex)[0:200])
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def clean():
     names = [n for n in pmx.model.steps.get_names() if n.startswith(PREFIX)]
     if names:
@@ -112,6 +122,11 @@ def test_field_outputs():
     check(not following.contains(PREFIX + "NF"), "the following step must not carry it yet")
     outputs.propagate(PREFIX + "NF")
     check(following.contains(PREFIX + "NF"), "the field output was not propagated")
+    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    last = pmx.model.steps[THERMAL_STEP].field_outputs
+    check(len(last) > 0, "the last step must carry its default field outputs")
+    check_refused(lambda: last.propagate(last.get_names()[0]), "no following step",
+                  "propagating a field output from the last step must be refused")
 
 
 def test_history_outputs():
@@ -153,6 +168,10 @@ def test_history_outputs():
     following = pmx.model.steps[NEXT_STEP].history_outputs
     outputs.propagate(PREFIX + "HN")
     check(following.contains(PREFIX + "HN"), "the history output was not propagated")
+    last = pmx.model.steps[THERMAL_STEP].history_outputs
+    check(last.contains(PREFIX + "HN"), "the history output was not propagated to the last step")
+    check_refused(lambda: last.propagate(PREFIX + "HN"), "no following step",
+                  "propagating a history output from the last step must be refused")
     outputs.remove([PREFIX + "HE"])
     check(not outputs.contains(PREFIX + "HE"), "the history output was not removed")
 
@@ -174,6 +193,18 @@ def test_defined_fields():
     check_raises(lambda: fields.add_temperature(PREFIX + "Bad", node_selection([1]), 100,
                                                 amplitude_name="NoSuchAmplitude"),
                  "an unknown amplitude must be rejected")
+    # A temperature is a scalar, which the model would only find out when the deck is written
+    vector = PREFIX + "Vector"
+    pmx.model.distributions.add_from_equation(vector, ["x", "y", "z"])
+    try:
+        check_refused(lambda: fields.add_temperature(PREFIX + "Bad", node_selection([1]), 100,
+                                                     distribution_name=vector),
+                      "needs a Scalar one", "a vector distribution of a defined temperature must be refused")
+        check(not fields.contains(PREFIX + "Bad"), "the refused defined temperature was recorded")
+        check_refused(lambda: fields.replace_temperature(PREFIX + "DF", distribution_name=vector),
+                      "needs a Scalar one", "a vector distribution of a replaced defined temperature must be refused")
+    finally:
+        pmx.model.distributions.remove([vector])
     # A thermal step carries no defined temperature
     thermal = pmx.model.steps[THERMAL_STEP].defined_fields
     check_raises(lambda: thermal.add_temperature(PREFIX + "Bad", node_selection([1]), 100),
@@ -198,6 +229,9 @@ def test_defined_fields():
         # Back to a value needs the region that a field read from a file does not carry
         check_raises(lambda: fields.replace_temperature(PREFIX + "DF", temperature=300),
                      "a from file defined field was given a value without a region")
+        # Nor does it carry a temperature, so a region alone would leave the field at zero
+        check_refused(lambda: fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2])),
+                      "'temperature'", "a from file defined field was given a region without a temperature")
         check(fields[PREFIX + "DF"].get_value("type") == "FromFile",
               "the refused replacement changed the type")
         field = fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2]), temperature=300)
@@ -216,6 +250,12 @@ def test_defined_fields():
     following = pmx.model.steps[NEXT_STEP].defined_fields
     fields.propagate(PREFIX + "DF")
     check(following.contains(PREFIX + "DF"), "the defined field was not propagated")
+    # The thermal step carries no defined temperature, so a static step is added after it to be the last one
+    pmx.model.steps.add_static(PREFIX + "Static_Last", time_period=1.0)
+    last = pmx.model.steps[PREFIX + "Static_Last"].defined_fields
+    last.add_temperature(PREFIX + "DF_Last", node_selection([1, 2]), 100)
+    check_refused(lambda: last.propagate(PREFIX + "DF_Last"), "no following step",
+                  "propagating a defined field from the last step must be refused")
 
 
 def main():

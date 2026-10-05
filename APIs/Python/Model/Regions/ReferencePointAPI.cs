@@ -50,12 +50,12 @@ namespace APIs.Python.Model
             return new NumericArrayAPI(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
                                                       referencePoint.Z.Value });
         }
-        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict")]
+        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve());
         }
-        [PythonAPI("Returns the stored region construction mode and name.", Returns = "dict")]
+        [PythonAPI("Returns the stored region construction mode and name.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_construction()
         {
             FeReferencePoint item = Resolve();

@@ -16,7 +16,8 @@ import tempfile
 LIMIT_NAME = "PyTest_Stress_limit"
 ENVELOPE_NAME = "PyTest_Strain_envelope"
 EQUATION_NAME = "PyTest_Normalized_stress"
-TEST_NAMES = [LIMIT_NAME, ENVELOPE_NAME, EQUATION_NAME]
+RENAMED_EQUATION_NAME = "PyTest_Normalized_stress_R"
+TEST_NAMES = [LIMIT_NAME, ENVELOPE_NAME, EQUATION_NAME, RENAMED_EQUATION_NAME]
 
 
 def check(condition, message):
@@ -178,6 +179,23 @@ try:
     check(not current_increment.fields[ENVELOPE_NAME].components.contains("AVERAGE"),
           "remove_components() did not remove AVERAGE.")
     print("PASS: remove field-output component")
+
+    # RENAME: the rename the results view records. A new name must not collide with any field of the
+    # result, in any case, and a refused rename changes nothing.
+    field_outputs.rename(EQUATION_NAME, RENAMED_EQUATION_NAME)
+    check(field_outputs.contains(RENAMED_EQUATION_NAME) and not field_outputs.contains(EQUATION_NAME),
+          "rename() did not rename the equation output.")
+    check_raises(lambda: field_outputs.rename(RENAMED_EQUATION_NAME, LIMIT_NAME.upper()),
+                 "a rename onto another field output in other case was accepted")
+    check_raises(lambda: field_outputs.rename(RENAMED_EQUATION_NAME, "stress"),
+                 "a rename onto a field of the result was accepted")
+    check_raises(lambda: field_outputs.rename(RENAMED_EQUATION_NAME, ""), "an empty new name was accepted")
+    check_raises(lambda: field_outputs.rename("__missing_field_output__", EQUATION_NAME),
+                 "renaming a missing field output was accepted")
+    check(field_outputs.contains(RENAMED_EQUATION_NAME), "a refused rename changed the field outputs")
+    field_outputs.rename(RENAMED_EQUATION_NAME, EQUATION_NAME)
+    check(field_outputs.contains(EQUATION_NAME), "rename() did not rename the equation output back.")
+    print("PASS: rename field output")
 
     # REMOVE: exercise both a single-item command and a multi-item command.
     field_outputs.remove([EQUATION_NAME])

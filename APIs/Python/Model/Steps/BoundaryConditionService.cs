@@ -84,6 +84,7 @@ namespace APIs.Python.Model
         public void Propagate(string stepName, string name)
         {
             ResolveItem(stepName, name);
+            EnsureFollowingStepExists(stepName, name);
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateBoundaryCondition(stepName, name);

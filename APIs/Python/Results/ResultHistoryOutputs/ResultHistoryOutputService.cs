@@ -225,6 +225,25 @@ namespace APIs.Python
             _commandGateway.ReplaceResultHistoryOutput(oldName, historyOutput);
             return historyOutput.Name;
         }
+        public void RenameHistoryOutput(string resultName, string oldName, string newName)
+        {
+            ValidateRequiredString(oldName, "old_name");
+            FeResults result = ResolveCurrentResult(resultName);
+            ResolveHistorySet(result, oldName);
+            // Only a user-defined history output carries a definition the rename can be applied to
+            ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(oldName);
+            if (historyOutput == null)
+                throw new PythonAPIException("The history output '" + oldName +
+                                             "' is not a user-defined history output and cannot be renamed.");
+            PythonNameComparer.ValidateFormat(newName, "new_name", historyOutput.Name);
+            if (string.Equals(historyOutput.Name, newName)) return;
+            if (!PythonNameComparer.AreSame(newName, historyOutput.Name) &&
+                PythonNameComparer.Contains(result.GetHistory().Sets.Keys, newName))
+                throw new PythonAPIException("A history output named '" + newName + "' already exists in the result.");
+            //
+            EnsureCommandsAvailable();
+            _commandGateway.RenameResultItem(historyOutput, newName);
+        }
         public void DuplicateHistoryOutputs(string resultName, object historyOutputNames)
         {
             string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");

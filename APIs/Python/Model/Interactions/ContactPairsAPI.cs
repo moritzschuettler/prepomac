@@ -30,7 +30,7 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a contact pair using command history. Possible method values are NodeToSurface, " +
-                   "SurfaceToSurface and Mortar; all the contact pairs of a model must use the same one. " +
+                   "SurfaceToSurface and Mortar; pairs may mix methods, which the analysis warns about. " +
                    "Small sliding is supported by NodeToSurface and Mortar only, so it is rejected " +
                    "together with SurfaceToSurface rather than silently dropped. The selection target is " +
                    "surfaces for both sides.",

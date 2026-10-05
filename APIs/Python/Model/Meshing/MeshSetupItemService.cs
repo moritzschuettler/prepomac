@@ -134,6 +134,7 @@ namespace APIs.Python.Model
         // arguments of the call are applied on top of them
         public void ApplyPartDefaults(MeshingParameters item)
         {
+            EnsureCommandsAvailable();
             MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,
                                                                                           item.CreationIds);
             if (partDefaults == null) return;
@@ -146,6 +147,7 @@ namespace APIs.Python.Model
         }
         public void ApplyPartDefaults(ShellMmg item)
         {
+            EnsureCommandsAvailable();
             ShellMmg partDefaults = _meshGateway.GetPartDefaultShellMmg(item.Name, item.CreationIds);
             if (partDefaults == null) return;
             //
@@ -160,6 +162,7 @@ namespace APIs.Python.Model
         // it edits, so they are kept
         public bool HasPartDefaults(MeshSetupItem item)
         {
+            EnsureCommandsAvailable();
             if (item is MeshingParameters meshingParameters)
             {
                 MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,

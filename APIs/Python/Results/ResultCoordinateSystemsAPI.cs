@@ -76,6 +76,12 @@ namespace APIs.Python
         {
             return new StringListAPI(GetNames());
         }
+        [PythonAPI("Returns true if the result mesh contains the result coordinate system. Names are compared " +
+                   "without regard to case.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
+        {
+            return name != null && PythonNameComparer.Contains(GetNames(), name);
+        }
         [PythonAPI("Returns the nine stored coordinates of a result coordinate system, as the values or " +
                    "equations they were entered with: the origin, the point on X and the point in XY.",
                    Arguments = "name: str", Returns = "list[str]")]
@@ -119,7 +125,7 @@ namespace APIs.Python
                         string coordinate_system_type = null, object name_visible = null)
         {
             ValidateName(name, null);
-            CoordinateSystem system = new CoordinateSystem(name, false);
+            CoordinateSystem system = new CoordinateSystem(name, GetIsTwoDimensional());
             ApplyType(system, coordinate_system_type);
             ApplyPointOrCoordinates(system, null, null, origin, 1, true);
             ApplyPointOrCoordinates(system, null, null, point_on_x, 2, true);
@@ -149,7 +155,7 @@ namespace APIs.Python
                                         SelectionAPI point_in_xy_selection = null, object name_visible = null)
         {
             ValidateName(name, null);
-            CoordinateSystem system = new CoordinateSystem(name, false);
+            CoordinateSystem system = new CoordinateSystem(name, GetIsTwoDimensional());
             ApplyType(system, coordinate_system_type);
             ApplyPointOrCoordinates(system, origin_created_from, origin_selection, origin, 1, false);
             ApplyPointOrCoordinates(system, point_on_x_created_from, point_on_x_selection, point_on_x, 2, false);
@@ -222,6 +228,19 @@ namespace APIs.Python
             string[] resolved = ResolveNames(names);
             EnsureCommandsAvailable();
             _commandGateway.DuplicateResultCoordinateSystems(resolved);
+        }
+        [PythonAPI("Renames a result coordinate system using command history.",
+                   Arguments = "old_name: str, new_name: str", Returns = "None")]
+        public void rename(string old_name, string new_name)
+        {
+            CoordinateSystem system = Resolve(old_name);
+            PythonNameComparer.ValidateFormat(new_name, "new_name", system.Name);
+            if (string.Equals(system.Name, new_name)) return;
+            if (!PythonNameComparer.AreSame(new_name, system.Name) && PythonNameComparer.Contains(GetNames(), new_name))
+                throw new PythonAPIException("The result coordinate system '" + new_name + "' already exists.");
+            //
+            EnsureCommandsAvailable();
+            _commandGateway.RenameResultItem(system, new_name);
         }
         [PythonAPI("Removes result coordinate systems using command history.",
                    Arguments = "names: list[str] or str", Returns = "None")]
@@ -305,6 +324,11 @@ namespace APIs.Python
                 throw new PythonAPIException("Result modifications are not available in this Python API context.");
             //
             ResolveResult();
+        }
+        // A new system lies in the plane of a two dimensional model, the way the dialog creates it from the model space
+        private bool GetIsTwoDimensional()
+        {
+            return _commandGateway != null && _commandGateway.GetIsModelTwoDimensional();
         }
         private CoordinateSystem CloneForReplace(string oldName, string name)
         {

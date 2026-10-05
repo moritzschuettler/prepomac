@@ -16,6 +16,8 @@ STEP = PREFIX + "Static"
 NEXT_STEP = PREFIX + "Static_2"
 THERMAL_STEP = PREFIX + "Thermal"
 SURFACE = PREFIX + "Top"
+SCALAR_DISTRIBUTION = PREFIX + "Scalar"
+VECTOR_DISTRIBUTION = PREFIX + "Vector"
 
 
 def check(condition, message):
@@ -27,6 +29,16 @@ def check_raises(function, message):
     try:
         function()
     except Exception:
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
+def check_refused(function, fragment, message):
+    # The refusal must be the API's own, which names what is wrong
+    try:
+        function()
+    except Exception as ex:
+        check(fragment in str(ex), message + ": " + str(ex)[0:200])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -54,6 +66,9 @@ def clean():
     names = [n for n in pmx.model.materials.get_names() if n.startswith(PREFIX)]
     if names:
         pmx.model.materials.remove(names)
+    names = [n for n in pmx.model.distributions.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.distributions.remove(names)
 
 
 def node_selection(ids):
@@ -73,6 +88,8 @@ def setup():
     pmx.model.steps.add_static(STEP, time_period=1.0)
     pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
+    pmx.model.distributions.add_from_equation(SCALAR_DISTRIBUTION, "1 + 0.01 * x")
+    pmx.model.distributions.add_from_equation(VECTOR_DISTRIBUTION, ["x", "y", "z"])
 
 
 def test_concentrated():
@@ -124,6 +141,19 @@ def test_surface_loads():
     pmx.model.parameters.add(PREFIX + "p", 1.25)
     load = loads.replace_pressure(PREFIX + "P", magnitude=PREFIX + "p * 2")
     check(load.get_value("magnitude") == 2.5, "the equation did not evaluate")
+    # A pressure is a scalar, which the model would only find out when the deck is written
+    message = raised_message(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), 1,
+                                                        distribution_name=VECTOR_DISTRIBUTION))
+    check(message is not None and VECTOR_DISTRIBUTION in message and "Scalar" in message,
+          "a vector distribution of a pressure must be refused: " + str(message))
+    check(not loads.contains(PREFIX + "Bad"), "the refused pressure was recorded")
+    message = raised_message(lambda: loads.replace_pressure(PREFIX + "P", distribution_name=VECTOR_DISTRIBUTION))
+    check(message is not None and VECTOR_DISTRIBUTION in message and "Scalar" in message,
+          "a vector distribution of a replaced pressure must be refused: " + str(message))
+    check(loads[PREFIX + "P"].get_value("distribution_name") == "Constant",
+          "the refused replacement changed the distribution")
+    load = loads.replace_pressure(PREFIX + "P", distribution_name=SCALAR_DISTRIBUTION)
+    check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
     # Hydrostatic pressure
     load = loads.add_hydrostatic_pressure(PREFIX + "HP", surface_selection(1),
                                           first_point=[0, 0, 0], second_point=[0, 0, 1],
@@ -147,6 +177,11 @@ def test_surface_loads():
     load = loads.replace_surface_traction(PREFIX + "ST", p2=3.5)
     check(load.get_value("p2") == 3.5, "p2 was not set")
     check(load.get_value("f1") == 100, "f1 must survive a replace")
+    # A surface traction scales its components by either kind of distribution
+    load = loads.replace_surface_traction(PREFIX + "ST", distribution_name=VECTOR_DISTRIBUTION)
+    check(load.get_value("distribution_name") == VECTOR_DISTRIBUTION, "the vector distribution was not set")
+    load = loads.replace_surface_traction(PREFIX + "ST", distribution_name=SCALAR_DISTRIBUTION)
+    check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
     # Shell edge load
     load = loads.add_shell_edge_load(PREFIX + "SE", pmx.create.region('SurfaceName', SURFACE), 7.5)
     check(load.get_value("magnitude") == 7.5, "the shell edge magnitude was not set")
@@ -329,6 +364,11 @@ def test_propagate():
     loads.propagate(name)
     check(following.contains(name), "the load was not propagated")
     check_raises(lambda: loads.propagate("NoSuchLoad"), "propagating an unknown name must be rejected")
+    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    last = pmx.model.steps[THERMAL_STEP].loads
+    check(last.contains(PREFIX + "CF"), "the last step must carry the concentrated flux")
+    check_refused(lambda: last.propagate(PREFIX + "CF"), "no following step",
+                  "propagating from the last step must be refused")
 
 
 def main():

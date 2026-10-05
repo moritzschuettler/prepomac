@@ -18,7 +18,8 @@ namespace PrePoMax.Python.Journal
     // The part property dialog changes the name, the colour and the element types together, and the
     // history records that as one command, so one call carries all of them. The element types are
     // named the way get_element_types names them, and the type of the part itself is not among them
-    // because it describes the part rather than choosing anything.
+    // because it describes the part rather than choosing anything. A part keeps an element type only
+    // for the element kinds it contains, and the API refuses the others, so a None slot is left out.
     public static class PythonPartPropertiesEmitter
     {
         // Methods                                                                                                                  
@@ -43,6 +44,7 @@ namespace PrePoMax.Python.Journal
                 if (field.Name == "PartType") continue;
                 //
                 object value = field.GetValue(properties);
+                if (Convert.ToInt32(value) == 0) continue;
                 entries.Add(PythonValueFormatter.Text(ToPythonName(field.Name)) + ": " +
                             PythonValueFormatter.Text(value.ToString()));
             }

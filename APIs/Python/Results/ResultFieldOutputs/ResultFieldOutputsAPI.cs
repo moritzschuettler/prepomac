@@ -288,6 +288,13 @@ namespace APIs.Python
             return _service.ReplaceFieldOutput(_resultName, old_name, output);
         }
 
+        [PythonAPI("Renames a result field output using command history.",
+                   Arguments = "old_name: str, new_name: str", Returns = "None")]
+        public void rename(string old_name, string new_name)
+        {
+            _service.RenameFieldOutput(_resultName, old_name, new_name);
+        }
+
         [PythonAPI("Duplicates result field outputs using command history.",
                    Arguments = "field_output_names: list[str] or str", Returns = "None")]
         public void duplicate(object field_output_names)

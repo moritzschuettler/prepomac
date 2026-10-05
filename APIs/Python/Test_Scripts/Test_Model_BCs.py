@@ -14,6 +14,8 @@ NEXT_STEP = PREFIX + "Static_2"
 THERMAL_STEP = PREFIX + "Thermal"
 NODE_SET = PREFIX + "Bottom"
 REFERENCE_POINT = PREFIX + "RP"
+SCALAR_DISTRIBUTION = PREFIX + "Scalar"
+VECTOR_DISTRIBUTION = PREFIX + "Vector"
 
 
 def check(condition, message):
@@ -29,6 +31,25 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def check_refused(function, fragment, message):
+    # The refusal must be the API's own, which names what is wrong
+    try:
+        function()
+    except Exception as ex:
+        check(fragment in str(ex), message + ": " + str(ex)[0:200])
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean():
     names = [n for n in pmx.model.steps.get_names() if n.startswith(PREFIX)]
     if names:
@@ -39,6 +60,9 @@ def clean():
     names = [n for n in pmx.model.reference_points.get_names() if n.startswith(PREFIX)]
     if names:
         pmx.model.reference_points.remove(names)
+    names = [n for n in pmx.model.distributions.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.distributions.remove(names)
 
 
 def setup():
@@ -47,6 +71,8 @@ def setup():
     pmx.model.steps.add_static(STEP, time_period=1.0)
     pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
+    pmx.model.distributions.add_from_equation(SCALAR_DISTRIBUTION, "1 + 0.01 * x")
+    pmx.model.distributions.add_from_equation(VECTOR_DISTRIBUTION, ["x", "y", "z"])
 
 
 def test_regions():
@@ -159,6 +185,20 @@ def test_temperature():
                  "an unknown distribution must be rejected")
     bc = thermal.replace_temperature(PREFIX + "T", temperature=250)
     check(bc.get_value("temperature") == 250, "the temperature was not replaced")
+    # A temperature is a scalar, which the model would only find out when the deck is written
+    message = raised_message(lambda: thermal.add_temperature(PREFIX + "Bad", selection, 100,
+                                                             distribution_name=VECTOR_DISTRIBUTION))
+    check(message is not None and VECTOR_DISTRIBUTION in message and "Scalar" in message,
+          "a vector distribution of a temperature must be refused: " + str(message))
+    check(not thermal.contains(PREFIX + "Bad"), "the refused temperature boundary condition was recorded")
+    message = raised_message(lambda: thermal.replace_temperature(PREFIX + "T",
+                                                                 distribution_name=VECTOR_DISTRIBUTION))
+    check(message is not None and VECTOR_DISTRIBUTION in message and "Scalar" in message,
+          "a vector distribution of a replaced temperature must be refused: " + str(message))
+    check(thermal[PREFIX + "T"].get_value("distribution_name") == "Constant",
+          "the refused replacement changed the distribution")
+    bc = thermal.replace_temperature(PREFIX + "T", distribution_name=SCALAR_DISTRIBUTION)
+    check(bc.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
     # A temperature boundary condition does not accept a reference point region either
     check_raises(lambda: thermal.add_temperature(PREFIX + "Bad",
                                                  pmx.create.region('ReferencePointName', REFERENCE_POINT),
@@ -216,6 +256,11 @@ def test_propagate():
     bcs.propagate(name)
     check(following.contains(name), "the boundary condition was not propagated")
     check_raises(lambda: bcs.propagate("NoSuchBC"), "propagating an unknown name must be rejected")
+    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    last = pmx.model.steps[THERMAL_STEP].bcs
+    check(last.contains(PREFIX + "T"), "the last step must carry the temperature boundary condition")
+    check_refused(lambda: last.propagate(PREFIX + "T"), "no following step",
+                  "propagating from the last step must be refused")
 
 
 def main():

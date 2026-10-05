@@ -24,6 +24,7 @@ import time
 
 CHILD_TIMEOUT = 180
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
+KILL_PROBE = "read_only_kill_probe"
 
 
 def check(condition, message):
@@ -86,14 +87,16 @@ class Client(object):
 class ChildSession(object):
     """A PrePoMax session with no window of its own, driven through its automation server."""
 
-    def __init__(self, mode):
+    def __init__(self, mode, file_name=None):
         self.directory = tempfile.mkdtemp(prefix="rpc_child_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
-        # The cube is given explicitly. A session with no window still opens the last file of the
+        # The model is given explicitly. A session with no window still opens the last file of the
         # interactive user when the setting says so, and the history of that model is not what this
         # test is about
+        if file_name is None:
+            file_name = os.path.join(MODELS, "cube.inp")
         self.process = subprocess.Popen([sys.executable, "--rpc", mode, "-g", "No", "--noSettingsSave",
-                                         "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
+                                         "-f", file_name, "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory],
                                         stdout=self.log, stderr=subprocess.STDOUT)
         self.client = None
@@ -216,7 +219,22 @@ def check_read_only(client):
     result = client.result("history")
     check(result["commandCount"] == before and len(result["commands"]) == before,
           "the history must still list " + str(before) + " commands: " + str(result["commandCount"]))
-    print("read only: a change refused by the history, reading unaffected")
+    # Killing an analysis records no command, so it is refused by the read only mode itself
+    value = client.result("eval", {"expression": "len(pmx.jobs)"})
+    check(not value["failed"] and value["value"] == 1, "the saved analysis must be readable: " + str(value))
+    result = client.result("exec", {"source": "pmx.jobs['" + KILL_PROBE + "'].kill()"})
+    check(result["failed"], "killing an analysis must fail in read only mode")
+    check("read only" in result["error"], "the refusal must say why: " + result["error"])
+    check(result["recordedCommands"] == [], "nothing may be recorded: " + str(result["recordedCommands"]))
+    print("read only: a change refused by the history, an analysis kill refused, reading unaffected")
+
+
+def save_model_with_analysis(client, file_name):
+    """The read only session is given a model with an analysis, because it may not add one itself."""
+    result = client.result("exec", {"source": "pmx.jobs.add('" + KILL_PROBE + "')" + os.linesep +
+                                              "pmx.save(r'" + file_name + "')"})
+    check(not result["failed"], "the model with an analysis must be saved: " + result["error"])
+    check(os.path.isfile(file_name), "the saved model is missing: " + file_name)
 
 
 def check_history(client):
@@ -319,12 +337,14 @@ def main():
         check_history(client)
         check_journal_of_replaces(client)
         check_exit_guards(client)
+        read_only_model = os.path.join(session.directory, "read_only.pmx")
+        save_model_with_analysis(client, read_only_model)
     finally:
         code = session.close()
     check(code == 0, "the child must exit cleanly, but it returned " + str(code))
     print("exit: the child closed itself with code " + str(code))
     #
-    session = ChildSession("ReadOnly")
+    session = ChildSession("ReadOnly", read_only_model)
     try:
         check_read_only(session.connect())
     finally:

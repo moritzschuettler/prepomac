@@ -115,7 +115,7 @@ namespace APIs.Python.Model
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
-                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+                load.DistributionName = _service.ResolveScalarDistributionName(distribution_name, "a pressure");
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
@@ -132,7 +132,7 @@ namespace APIs.Python.Model
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
-                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+                load.DistributionName = _service.ResolveScalarDistributionName(distribution_name, "a pressure");
             //
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }

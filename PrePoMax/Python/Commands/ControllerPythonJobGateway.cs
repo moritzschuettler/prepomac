@@ -72,6 +72,8 @@ namespace PrePoMax.Python
         }
         public void KillJob(string jobName, string message)
         {
+            // Killing an analysis is recorded by no command, so the read only mode refuses it here
+            _controller.RefuseWhenCommandsBlocked("Kill analysis");
             AnalysisJob job = _controller.GetJob(jobName);
             if (job != null) job.Kill(message);
         }

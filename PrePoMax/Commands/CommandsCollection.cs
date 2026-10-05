@@ -147,8 +147,13 @@ namespace PrePoMax.Commands
         {
             if (_commandBlockReason == null) return;
             //
-            string name = command == null ? "A command" : command.Name;
-            throw new CaeException(name + " was refused. " + _commandBlockReason);
+            RefuseWhenBlocked(command == null ? "A command" : command.Name);
+        }
+        public void RefuseWhenBlocked(string actionName)
+        {
+            if (_commandBlockReason == null) return;
+            //
+            throw new CaeException(actionName + " was refused. " + _commandBlockReason);
         }
         public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
         public void BeginCommandRecordingSuppression()

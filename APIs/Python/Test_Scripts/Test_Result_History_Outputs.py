@@ -14,6 +14,7 @@ import os
 import tempfile
 
 FROM_FIELD_NAME = "PyTest_History_from_field"
+FROM_FIELD_OPTIONS_NAME = "PyTest_History_from_field_options"
 EQUATION_NAME = "PyTest_History_equation"
 ELEMENT_SIZE_NAME = "PyTest_History_element_volume"
 INTEGRATION_NAME = "PyTest_History_volume_integration"
@@ -26,7 +27,8 @@ TABLE_NAME = "PyTest_History_table"
 
 # Derived outputs must be removed before the outputs their equations and sources reference.
 CLEANUP_ORDER = [EQUATION_NAME, XY_NAME, MERGED_NAME, EXTRACTED_NAME, TABLE_NAME, INTEGRATION_NAME,
-                 ELEMENT_SIZE_NAME, MERGE_SOURCE_2_NAME, MERGE_SOURCE_1_NAME, FROM_FIELD_NAME]
+                 ELEMENT_SIZE_NAME, MERGE_SOURCE_2_NAME, MERGE_SOURCE_1_NAME, FROM_FIELD_NAME,
+                 FROM_FIELD_OPTIONS_NAME]
 
 
 def check(condition, message):
@@ -446,6 +448,31 @@ try:
     def set_old_complex_result_type():
         options_draft.complex_result_type = "angle"
     check_raises(set_old_complex_result_type, "the old complex_result_type spelling was accepted")
+    # The one call form takes the options of the draft, which is the form the session journal writes
+    options_output = history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME, "DISP", [disp_component],
+                                                    node_selection, step_id=step.id, increment_id=increment.id,
+                                                    output_node_coordinates="deformed")
+    created_names.append(FROM_FIELD_OPTIONS_NAME)
+    check(options_output.step_id == step.id and options_output.increment_id == increment.id and
+          options_output.output_node_coordinates == "Deformed",
+          "add_from_field() did not apply its options: %s, %s, %s" % (options_output.step_id,
+                                                                     options_output.increment_id,
+                                                                     options_output.output_node_coordinates))
+    check_raises(lambda: history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME + "_bad", "DISP",
+                                                        [disp_component], node_selection,
+                                                        increment_id=increment.id),
+                 "an increment without a step was accepted")
+    check(not history_outputs.contains(FROM_FIELD_OPTIONS_NAME + "_bad"), "a refused From Field output was added")
+    # A result replace re-specifies the whole definition, so an option it is not given returns to its default
+    options_output = history_outputs.replace_from_field(FROM_FIELD_OPTIONS_NAME, FROM_FIELD_OPTIONS_NAME, "DISP",
+                                                        [disp_component], node_selection, step_id=step.id)
+    check(options_output.step_id == step.id and options_output.increment_id is None and
+          options_output.output_node_coordinates == "Off",
+          "replace_from_field() did not re-specify the options: %s, %s" % (options_output.increment_id,
+                                                                          options_output.output_node_coordinates))
+    history_outputs.remove([FROM_FIELD_OPTIONS_NAME])
+    created_names.remove(FROM_FIELD_OPTIONS_NAME)
+    print("PASS: add and replace a From Field history output with its options in one call")
     equation_output = history_outputs[EQUATION_NAME]
     check(equation_output.type_name == "ResultHistoryOutputFromEquation",
           "The equation output reported the wrong type name: %s" % equation_output.type_name)
@@ -461,6 +488,23 @@ try:
     check(history_outputs[duplicated_name].type_name == "ResultHistoryOutputFromTable",
           "The duplicated history output has the wrong type.")
     print("PASS: duplicate a history output")
+
+    # RENAME: the rename the results view records, exercised on the duplicate, which nothing references.
+    # A new name must not collide with another history output in any case, and a refused rename
+    # changes nothing.
+    renamed_name = TABLE_NAME + "_renamed"
+    history_outputs.rename(duplicated_name, renamed_name)
+    check(history_outputs.contains(renamed_name) and not history_outputs.contains(duplicated_name),
+          "rename() did not rename the duplicated output.")
+    duplicated_name = renamed_name
+    check_raises(lambda: history_outputs.rename(duplicated_name, FROM_FIELD_NAME.upper()),
+                 "a rename onto another history output in other case was accepted")
+    check_raises(lambda: history_outputs.rename(duplicated_name, ""), "an empty new name was accepted")
+    check_raises(lambda: history_outputs.rename("__missing_history_output__", TABLE_NAME + "_x"),
+                 "renaming a missing history output was accepted")
+    check(history_outputs.contains(duplicated_name) and not history_outputs.contains(TABLE_NAME + "_x"),
+          "a refused rename changed the history outputs")
+    print("PASS: rename a history output")
 
     # REMOVE FIELDS AND COMPONENTS: exercised on the duplicate so the tested outputs stay intact.
     duplicated = history_outputs[duplicated_name]

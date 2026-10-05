@@ -415,7 +415,7 @@ Read-only list wrapper for strings.
 | `list[index]` | String at zero-based index. |
 | `item in list` | Checks whether the string exists. |
 | `contains(item)` | Checks whether the string exists. |
-| `to_array()` | Returns a copied CLR string array. |
+| `to_array()` | Returns a copied array of strings, as a `list[str]`. |
 
 ### `IntList`
 
@@ -428,7 +428,7 @@ Read-only list wrapper for integers.
 | `list[index]` | ID at zero-based index. |
 | `item in list` | Checks whether the ID exists. |
 | `contains(item)` | Checks whether the ID exists. |
-| `to_array()` | Returns a copied CLR integer array. |
+| `to_array()` | Returns a copied array of integers, as a `list[int]`. |
 
 ### `StringDoubleMap`
 
@@ -674,7 +674,7 @@ Reached as `pmx.model.mesh`.
 | `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
 | `create_boundary_layer(selection, thickness)` | Creates a prismatic boundary layer on the selected faces. |
 | `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. |
-| `thicken_shell_mesh(selection, thickness, number_of_layers=1, offset=0)` | Thickens the selected shell mesh. |
+| `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. |
 | `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
@@ -778,7 +778,7 @@ failed = {name: why for name, why in pmx.model.mesh.create(part.name).items() if
 | `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from. |
-| `get_settings()` | The stored mesher settings of this item type, as a dictionary. List valued settings such as `layer_sizes` and `num_of_elements_per_layer` are included, so the dictionary is the complete definition. |
+| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`. List valued settings such as `layer_sizes` and `num_of_elements_per_layer` are included, so the dictionary is the complete definition. |
 
 ### `Nodes` and `Elements` of the model mesh
 
@@ -809,9 +809,9 @@ Every `part_names` argument accepts a single name or a list of names.
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
 | `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. |
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
-| `get_element_types(part_name)` | The element type of every slot of a part, as a `dict[str, str]` of slot name to element type name, for example `{'linear_tetra': 'C3D4'}` - the form `set_element_type` and `replace_properties` take. The part type is not a slot. |
-| `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused. |
-| `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. |
+| `get_element_types(part_name)` | The element type of every slot of a part, as a `dict[str, str]` of slot name to element type name, for example `{'linear_tetra': 'C3D4'}` - the form `set_element_type` and `replace_properties` take. The part type is not a slot, and only the element kinds the part contains are listed. |
+| `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused, and so is `None`. An element kind the part does not contain is refused with an error naming the kinds it has. |
+| `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. An element kind the part does not contain is refused, naming the kinds it has, and so is the value `None`. |
 
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
@@ -1288,8 +1288,11 @@ type is `NodeSetName` or `SurfaceName`.
 their defaults when they are not given.
 
 `ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
-`get_coordinates()` and `get_construction()`, which returns how the point is defined: its mode, and
+`get_coordinates()`, `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which returns how the point is defined: its mode, and
 the region or the selected point IDs it is built from.
+
+`replace_from_selection` and `replace_from_region` keep the stored selection or region only while the point is still of
+that kind. A replace that switches the kind drops the data of the old kind, so a later replace cannot bring it back.
 
 ### `CoordinateSystems`
 
@@ -1305,7 +1308,7 @@ A point given as coordinates and a point given as a selection can be mixed in on
 which is what the dialog offers when one point is picked and another typed.
 
 `CoordinateSystem` exposes `name`, `coordinate_system_type`, `name_visible`, `visible`, `valid`, `get_origin()`,
-`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` and `get_construction_modes()`, which
+`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` (a `dict[str, str]`) and `get_construction_modes()` (a `dict[str, str]`), which
 tells how each of the three points is defined.
 
 ```python
@@ -1334,7 +1337,7 @@ edits the keyword the user would click.
 | `remove_user_keyword(indices)` | Removes one user keyword. |
 | `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. |
 | `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
-| `remove_override(indices)`, `clear_overrides()` | Removes the user edits. |
+| `remove_override(indices)`, `clear_overrides()` | Removes the user edits. `clear_overrides()` is refused when there are no overrides. |
 
 An override also stores a fingerprint of the generated keyword it was made against, which the
 application uses to drop an edit whose keyword has since changed. It is derived here rather than
@@ -1377,6 +1380,10 @@ name that already exists.
 | `remove_groups(view, item_type, group_ids, step_name=None)` | Removes groups. The items they hold stay in the tree. |
 | `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. |
 | `move_group(view, item_type, group_id, target_group_id=None, target_index=0, step_name=None)` | Moves a group. |
+
+A group of the geometry or mesh `parts` shares the namespace of the parts, so `create_group` and `rename_group`
+validate its name like a part name and refuse a bad one with an error naming `group_name`. The groups of
+every other collection take free text.
 
 A group is identified by a GUID that the application stores with the layout. `create_group` generates
 one when it is not given and returns it, so a script does not have to invent an id while a journal
@@ -1429,8 +1436,10 @@ The three region shapes are not obvious from the type names:
   the master side.
 
 A cyclic symmetry adds a third region on top of its master and slave surfaces: the **result expansion
-region**, used only when `number_of_graph_sectors` is larger than 1. Giving it with a single graph
-sector is rejected, because the application would discard it. `sector_angle_deg` is derived as
+region**, required when `number_of_graph_sectors` is larger than 1 and refused otherwise, because the
+application would discard it. The rule is checked on the final state, so a replace sees the values it keeps.
+`replace_cyclic_symmetry` takes `clear_expansion_region=None`; `True` drops the region, which a replace that lowers
+`number_of_graph_sectors` to 1 needs, and it cannot be combined with `region`. `sector_angle_deg` is derived as
 `360 / number_of_sectors` and is read through `get_value`.
 
 A **joint** connects two surfaces of a 3D model and locks their relative motion about the joint centre
@@ -1505,7 +1514,7 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 pmx.model.contact_pairs.add('CP-1', 'SI-1', master_selection, slave_selection)
 ```
 
-All the contact pairs of a model must use the same method. **Small sliding is supported by
+Contact pairs may mix methods; the analysis warns before a run. **Small sliding is supported by
 `NodeToSurface` and `Mortar` only** - the model clears it for `SurfaceToSurface` rather than refusing
 it, so the API rejects that combination instead of letting the request be dropped. An
 `adjustment_size` turns the adjustment on, the way the dialog presents the two together, and
@@ -1522,7 +1531,11 @@ Two rules hold everywhere in this section:
   item therefore keeps the application default, and `replace_*` keeps whatever the item already
   carries. `replace_static('Step-1', nlgeom=False)` changes one value and leaves the rest alone.
 - **The type cannot change on a replace**, because `replace_*` clones the existing item, the same
-  restriction the dialog has. Changing the type is a `remove` followed by an `add`.
+  restriction the dialog has. Changing the type is a `remove` followed by an `add`. A `replace_<type>` edits
+  only that exact type, even where one type derives from another: `replace_static` refuses a heat transfer,
+  dynamic, modal dynamic, slip wear or temperature displacement step, `replace_heat_transfer` refuses a coupled or
+  uncoupled temperature displacement step, and `replace_tie` refuses a cyclic symmetry. This holds for steps,
+  constraints and step items.
 
 Every `add_*` listed below has a matching `replace_*` - `add_static` and `replace_static`,
 `add_pressure` and `replace_pressure`, and so on. A `replace_*` takes `old_name` first, then an
@@ -1617,7 +1630,7 @@ Reached as `step.bcs`. It shares the collection verbs. Every `region` argument i
 | `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. |
 | `add_submodel(name, region, step_number=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
-| `propagate(name)` | Copies the boundary condition to every following step. |
+| `propagate(name)` | Copies the boundary condition to every following step. Refused from the last step. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
 ```python
@@ -1671,7 +1684,7 @@ a `Region`; the selection target follows the load type.
 | `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
 | `add_film_heat_transfer(name, region, sink_temperature, film_coefficient, coefficient_amplitude_name=None, ...)` | surfaces | A film heat transfer load. |
 | `add_radiation_heat_transfer(name, region, sink_temperature, emissivity, cavity_radiation=None, cavity_name=None, emissivity_amplitude_name=None, ...)` | surfaces | A radiation heat transfer load. |
-| `propagate(name)` | | Copies the load to every following step. |
+| `propagate(name)` | | Copies the load to every following step. Refused from the last step. |
 | `hide(names)`, `show(names)` | | Symbol visibility. |
 
 Every `add_*` ends with `amplitude_name`, `coordinate_system_name`, `phase_deg` and `color`, and has
@@ -1719,7 +1732,7 @@ variables are given by name, one or a list of them.
 | `add_nodal(name, variables, last_iterations=None, contact_elements=None, global_output=None)` | A nodal field output. `RF`, `U`, `PU`, `V`, `NT`, `PNT`, `RFL`. |
 | `add_element(name, variables, output=None, ...)` | An element field output. `S`, `PHS`, `E`, `ME`, `PEEQ`, `ENER`, `HFL`, `ERR`, `HER`, `ZZS`, `SDV`. `output` is `Default`, `TwoD` or `ThreeD`. |
 | `add_contact(name, variables, ...)` | A contact field output. `CDIS`, `CSTR`, `CELS`, `PCON`. |
-| `propagate(name)` | Copies the field output to every following step. |
+| `propagate(name)` | Copies the field output to every following step. Refused from the last step. |
 
 ```python
 step.field_outputs.add_nodal('NF-Output-1', ['U', 'RF'])
@@ -1749,7 +1762,7 @@ Reached as `step.history_outputs`. Unlike a field output it carries a region.
 | `add_element(name, region, variables, ...)` | elements | An element history output. `S`, `E`, `ME`, `PEEQ`, `HFL`, `ENER`, `ELSE`, `ELKE`, `EVOL`, `EBHE`, `SDV`. |
 | `add_section(name, region, variables, ...)` | surfaces | A section history output. `SOF`, `SOM`, `SOAREA`. |
 | `add_contact(name, contact_pair_name, variables, ...)` | - | A contact history output. It names a **contact pair** instead of a region. `CDIS`, `CSTR`, `CELS`, `CNUM`, `CF`. |
-| `propagate(name)` | | Copies the history output to every following step. |
+| `propagate(name)` | | Copies the history output to every following step. Refused from the last step. |
 
 `totals_type` is `Yes`, `Only` or `No`, and decides whether the sum of the external forces is printed
 in addition to, or instead of, the individual values.
@@ -1779,13 +1792,18 @@ method, so the type follows from the method that is used.
 | --- | --- |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `nodes`. |
 | `add_temperature_from_file(name, file_name, step_number=None, amplitude_name=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region. |
-| `propagate(name)` | Copies the defined field to every following step. |
+| `propagate(name)` | Copies the defined field to every following step. Refused from the last step. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
 `replace_temperature` and `replace_temperature_from_file` switch the defined temperature type: `replace_temperature` on
-a defined field read from a file needs a `region` and makes it one given by value, and
+a defined field read from a file needs both a `region` and a `temperature` and makes it one given by value, and
 `replace_temperature_from_file` on one given by value needs a `file_name` and makes it one read from a file. Values not
 given are kept.
+
+A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature` and `bcs.replace_temperature`,
+`defined_fields.add_temperature` and `defined_fields.replace_temperature`, and `loads.add_pressure` and
+`loads.replace_pressure`. `loads.add_surface_traction` and `loads.replace_surface_traction` accept a `Scalar` or a
+`Vector` distribution.
 
 ### `DefinedField`
 
@@ -1919,6 +1937,9 @@ analysis added without arguments is the one the dialog would offer.
 | `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_num_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. |
 | `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
 
+`len(pmx.jobs)` and `contains(name)` also work where there is no job gateway, and report no analyses; every command
+that changes or runs an analysis is refused there.
+
 A value given here is an override: the application settings fill in only what the analysis does not
 carry itself, so adding another analysis or changing the settings leaves an explicit executable, work
 directory, CPU count or environment alone. An `inherit_*` switch is how an override is given back, so
@@ -1945,7 +1966,7 @@ pmx.jobs.replace('Job-1', inherit_num_cpus=True)
 | `is_up_to_date` | True when the results match the current model. |
 | `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. The timeout is in seconds and needs `wait`; it kills the solver and leaves the analysis with the status `TimedOut`. A preparation the application refuses raises instead of returning a stale status. |
 | `check_model(wait=True, timeout=None)` | The same, but only checks the model without solving it. |
-| `kill()` | Kills a running analysis. |
+| `kill()` | Kills a running analysis. Refused in read-only automation mode. |
 | `get_output()` | Everything the solver wrote to its output. |
 
 ```python
@@ -2182,7 +2203,7 @@ Three things to know about how the application resolves a selection:
 | `add_by_ids(source, ids, operation=None, geometry_select_mode='SelectId')` | Adds another compatible ID source. The select mode applies only to geometry source IDs. |
 | `add_all(operation=None)` | Adds everything the view holds. |
 | `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
-| `get_options()` | The recorded selection options. |
+| `get_options()` | The recorded selection options, as a `dict[str, Any]`. |
 | `get_sources()` | Returns the source types as `StringList`. |
 | `get_ids()` | Resolves the selection against the current mesh and returns the IDs. |
 | `preview()` | Resolves the selection and reports what it found, as `SelectionPreview`. |
@@ -2305,6 +2326,7 @@ Collection of user-defined result field outputs. These are postprocessing defini
 | `create_smooth_filter(source="AllNodes", layers=1, iterations=1)` | Creates a smooth filter. `source` can be `"AllNodes"` or `"SurfaceNodes"`, in any case. |
 | `add(output)` | Validates and adds a `FieldOutputDraft` using command history. |
 | `replace(old_name, output)` | Validates and replaces a field-output definition using command history. |
+| `rename(old_name, new_name)` | Renames a result field output using command history. |
 | `remove(field_output_names)` | Removes field outputs using command history. The argument is a non-empty list of names. |
 | `remove_components(field_output_name, component_names)` | Removes components from a field output using command history. |
 | `export_to_csv(file_name, field_output_name, step_id, increment_id)` | Exports all field components at one result increment using command history. |
@@ -2843,6 +2865,7 @@ Collection of mesh parts.
 | `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
 | `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
+| `rename(old_name, new_name)` | Renames a result part using command history. Only a part the result was read with can be renamed; use `replace_properties` for any other. |
 
 The commands that change result parts (`replace_properties`, `set_representation`, `merge`, `remove`) act on the current
 result, so they are refused for a result that is not the current one.
@@ -2876,6 +2899,11 @@ result field transformation is expressed in a result coordinate system.
 | `coordinate_systems.replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None, name_visible=None)` | Replaces one. The three points are the whole definition. |
 | `coordinate_systems.replace_from_selections(old_name, name=None, coordinate_system_type=None, ...)` | Replaces one the way `add_from_selections` builds it. A result replacement re-specifies the whole definition, so every point is required. |
 | `duplicate(names)`, `remove(names)`, `hide(names)`, `show(names)` | The shared verbs. |
+| `rename(old_name, new_name)` | Renames a result reference point or coordinate system using command history. |
+| `contains(name)` | True when the result mesh has a reference point or coordinate system of that name, regardless of case. |
+
+`add` and `add_from_selections` on `coordinate_systems` create the system in the plane of a two dimensional model, as the
+dialog does.
 
 ### `Part`
 
@@ -2947,6 +2975,7 @@ Collection of result history outputs.
 | `create_average_filter(operate_on="Columns")` | Creates an average filter; `operate_on` is `"Rows"` or `"Columns"`. |
 | `add(output)` | Validates and adds a draft using command history. |
 | `replace(old_name, output)` | Validates and replaces a result history-output definition. |
+| `rename(old_name, new_name)` | Renames a user-defined result history output using command history. Solver-generated history outputs cannot be renamed. |
 | `duplicate(history_output_names)` | Duplicates user-defined history outputs using command history. Solver-generated history outputs cannot be duplicated. |
 | `remove(history_output_names)` | Removes history outputs using command history. |
 | `remove_fields(history_output_name, field_names)` | Removes fields from a history output using command history. |
@@ -3133,7 +3162,9 @@ Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface
 
 The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
 `add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`,
-`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. The affine fit measures
+`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. `add_from_field` and `replace_from_field`
+also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
+`harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The affine fit measures
 the strain of a circular patch of the result mesh, so it names the circle - `center_x`, `center_y`
 and `radius` - rather than a region, and the rest of its values carry the defaults the dialog offers. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.

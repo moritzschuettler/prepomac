@@ -177,6 +177,10 @@ namespace PrePoMax
         }
         public bool IsCommandRecordingSuppressed { get { return _commands.IsCommandRecordingSuppressed; } }
         public bool AreCommandsBlocked { get { return _commands.AreCommandsBlocked; } }
+        public void RefuseWhenCommandsBlocked(string actionName)
+        {
+            _commands.RefuseWhenBlocked(actionName);
+        }
         public void BlockCommands(string reason)
         {
             _commands.BlockCommands(reason);
@@ -12579,7 +12583,7 @@ namespace PrePoMax
                 }
                 //
                 if (mesherSetupItem is ShellGmsh shellGmsh)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.TransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.IsTransfiniteThreeSided,
                                                                     shellGmsh.TransfiniteFourSided,
                                                                     shellGmsh.TransfiniteAngleDeg);
                 else if (mesherSetupItem is ShellQuadWild shellQuadWild)

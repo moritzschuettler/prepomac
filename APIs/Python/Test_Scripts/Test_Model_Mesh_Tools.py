@@ -25,6 +25,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def test_nodes_and_elements():
     check(pmx.model.nodes.count > 0, "the model has no nodes")
     check(pmx.model.elements.count > 0, "the model has no elements")
@@ -52,6 +61,9 @@ def test_element_types():
     #
     types = parts.get_element_types(part_name)
     check("linear_hexa" in types, "linear_hexa is missing from the part element types")
+    # A part keeps an element type only for the element kinds it contains, and the cube holds
+    # hexahedra only, so that is the one slot listed
+    check(list(dict(types)) == ["linear_hexa"], "only the present element kinds must be listed: " + str(dict(types)))
     check("part" not in types and "part" not in names, "the part type must not be an element type slot")
     # The values read back are the names the setters take, so every slot round trips
     for slot, value in types.items():
@@ -75,6 +87,18 @@ def test_element_types():
                  "an undefined numeric element type value must be rejected by replace_properties")
     check_raises(lambda: parts.set_element_type(part_name, "part", "Solid"),
                  "the part type must not be settable as an element type")
+    # None marks an absent element kind and the part ignores it, so it is not a value
+    check_raises(lambda: parts.set_element_type(part_name, "linear_hexa", "None"),
+                 "None must be rejected as an element type value")
+    # An element kind the part does not contain would be silently dropped by the part
+    message = raised_message(lambda: parts.set_element_type(part_name, "linear_tetra", "C3D4"))
+    check(message is not None and "linear_tetra" in message and "linear_hexa" in message,
+          "an absent element kind must be refused naming the slot and the kinds present: " + str(message))
+    message = raised_message(lambda: parts.replace_properties(part_name, element_types={"linear_tetra": "C3D4"}))
+    check(message is not None and "linear_tetra" in message and "linear_hexa" in message,
+          "replace_properties must refuse an absent element kind naming the kinds present: " + str(message))
+    check(list(dict(parts.get_element_types(part_name))) == ["linear_hexa"],
+          "a refused element kind must not appear in the element types")
     check(parts.get_element_types(part_name)["linear_hexa"] == "C3D8", "a rejected value changed the element type")
 
 

@@ -139,6 +139,7 @@ namespace APIs.Python.Model
             //
             return new StringListAPI(names.ToArray());
         }
+        // A part keeps an element type only for the element kinds it contains, so only those are listed
         public Dictionary<string, string> GetElementTypes(string partName)
         {
             ResolvePart(partName);
@@ -146,7 +147,7 @@ namespace APIs.Python.Model
             Dictionary<string, string> values = new Dictionary<string, string>();
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
             {
-                if (IsElementTypeField(field))
+                if (IsElementTypeField(field) && IsElementKindPresent(field, properties))
                     values.Add(ToPythonName(field.Name), field.GetValue(properties).ToString());
             }
             //
@@ -174,7 +175,9 @@ namespace APIs.Python.Model
                 foreach (var entry in values)
                 {
                     FieldInfo field = ResolveElementTypeField(entry.Key);
-                    field.SetValue(boxed, ParseElementTypeValue(field, entry.Key, entry.Value));
+                    object parsed = ParseElementTypeValue(field, entry.Key, entry.Value);
+                    EnsureElementKindPresent(oldPartName, properties, field, entry.Key);
+                    field.SetValue(boxed, parsed);
                 }
             }
             //
@@ -190,6 +193,9 @@ namespace APIs.Python.Model
             //
             FieldInfo field = ResolveElementTypeField(elementType);
             object parsed = ParseElementTypeValue(field, elementType, value);
+            foreach (string partName in partNames)
+                EnsureElementKindPresent(partName, GetPartProperties(partName), field, elementType);
+            //
             EnsureCommandsAvailable();
             foreach (string partName in partNames)
             {
@@ -319,7 +325,30 @@ namespace APIs.Python.Model
         {
             return field.FieldType.IsEnum && field.Name.EndsWith("Type") && field.Name != "PartType";
         }
-        // Enum.Parse accepts any number, so a value is also checked to name a member of the enumeration
+        // None marks an element kind the part does not contain, so it is neither listed nor settable
+        private static bool IsElementKindPresent(FieldInfo field, PartProperties properties)
+        {
+            return Convert.ToInt32(field.GetValue(properties)) != 0;
+        }
+        private static void EnsureElementKindPresent(string partName, PartProperties properties, FieldInfo field,
+                                                     string elementType)
+        {
+            if (IsElementKindPresent(field, properties)) return;
+            //
+            List<string> presentKinds = new List<string>();
+            foreach (FieldInfo otherField in typeof(PartProperties).GetFields())
+            {
+                if (IsElementTypeField(otherField) && IsElementKindPresent(otherField, properties))
+                    presentKinds.Add(ToPythonName(otherField.Name));
+            }
+            string message = "The part '" + partName + "' contains no " + elementType.Trim() +
+                             " elements, so their element type cannot be set. ";
+            if (presentKinds.Count == 0) message += "The part contains no elements that take an element type.";
+            else message += "The part contains " + string.Join(", ", presentKinds) + " elements.";
+            throw new PythonAPIException(message);
+        }
+        // Enum.Parse accepts any number, so a value is also checked to name a member of the enumeration.
+        // None is not a value: it marks an absent element kind, and the part ignores it
         private static object ParseElementTypeValue(FieldInfo field, string elementType, string value)
         {
             object parsed = null;
@@ -328,10 +357,17 @@ namespace APIs.Python.Model
                 parsed = Enum.Parse(field.FieldType, value.Trim(), true);
             }
             catch (Exception) { }
-            if (parsed == null || !Enum.IsDefined(field.FieldType, parsed))
+            if (parsed == null || !Enum.IsDefined(field.FieldType, parsed) || Convert.ToInt32(parsed) == 0)
+            {
+                List<string> possibleValues = new List<string>();
+                foreach (object member in Enum.GetValues(field.FieldType))
+                {
+                    if (Convert.ToInt32(member) != 0) possibleValues.Add(member.ToString());
+                }
                 throw new PythonAPIException("The value '" + value + "' is not supported for the element type '" +
                                              elementType + "'. Possible values are " +
-                                             string.Join(", ", Enum.GetNames(field.FieldType)) + ".");
+                                             string.Join(", ", possibleValues) + ".");
+            }
             //
             return parsed;
         }

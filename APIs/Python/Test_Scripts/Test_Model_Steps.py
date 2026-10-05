@@ -231,6 +231,20 @@ def test_thermal_and_wear_types():
     check(step.max_increments == 20, "max_increments was not set on the boundary displacement step")
     check_raises(lambda: steps.add_boundary_displacement(PREFIX + "Bad", perturbation=True),
                  "a perturbation boundary displacement step must be rejected")
+    # These step types derive from another one in the model, yet a replace still only edits the exact type
+    refused_replaces = [(steps.replace_static, PREFIX + "HT1", "HeatTransferStep"),
+                        (steps.replace_static, PREFIX + "D1", "DynamicStep"),
+                        (steps.replace_static, PREFIX + "MD1", "ModalDynamicsStep"),
+                        (steps.replace_static, PREFIX + "SW1", "SlipWearStep"),
+                        (steps.replace_static, PREFIX + "UTD1", "UncoupledTempDispStep"),
+                        (steps.replace_heat_transfer, PREFIX + "UTD1", "UncoupledTempDispStep"),
+                        (steps.replace_heat_transfer, PREFIX + "CTD1", "CoupledTempDispStep"),
+                        (steps.replace_uncoupled_temp_disp, PREFIX + "CTD1", "CoupledTempDispStep")]
+    for replace, step_name, step_type in refused_replaces:
+        message = raised_message(lambda: replace(step_name, time_period=7.0))
+        check(message is not None and step_type in message,
+              "replacing the " + step_type + " " + step_name + " by a base type must be refused: " + str(message))
+        check(steps[step_name].step_type == step_type, "a refused replace changed the type of " + step_name)
 
 
 def test_controls():

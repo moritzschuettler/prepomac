@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeMesh;
 using CaeResults;
 using System.Drawing;
@@ -19,6 +20,7 @@ namespace APIs.Python
         void SetCurrentResults(string resultName);
         void RemoveCurrentResults();
         void ClearResults();
+        void RenameResultItem(NamedClass item, string newName);
         // Result parts
         void HideResultParts(string[] names);
         void ShowResultParts(string[] names);
@@ -37,6 +39,7 @@ namespace APIs.Python
         void DuplicateResultReferencePoints(string[] names);
         void RemoveResultReferencePoints(string[] names);
         // Result coordinate systems
+        bool GetIsModelTwoDimensional();
         void AddResultCoordinateSystem(CoordinateSystem coordinateSystem);
         void ReplaceResultCoordinateSystem(string oldName, CoordinateSystem coordinateSystem);
         void HideResultCoordinateSystems(string[] names);

@@ -51,13 +51,13 @@ namespace APIs.Python.Model
         public TStep CloneForReplace<TStep>(string name, string stepTypeName) where TStep : Step
         {
             Step step = ResolveStep(name);
-            TStep typed = step as TStep;
-            if (typed == null)
+            // Several step types derive from another, so only the exact type is the one being replaced
+            if (step.GetType() != typeof(TStep))
                 throw new PythonAPIException("The step '" + name + "' is a " + step.GetType().Name +
                                              ", so it cannot be replaced by a " + stepTypeName +
                                              ". Remove it and add the new step type instead.");
             //
-            return typed.DeepClone();
+            return ((TStep)step).DeepClone();
         }
         // The dialog applies the default solver type from the application settings to every new step
         public void ApplyNewStepDefaults(Step step)

@@ -65,7 +65,7 @@ namespace APIs.Python
             return _items.Contains(item);
         }
 
-        [PythonAPI("Returns the list as a copied CLR string array.", Returns = "str[]")]
+        [PythonAPI("Returns the list as a copied CLR string array.", Returns = "list[str]")]
         public string[] to_array()
         {
             return _items.ToArray();

@@ -158,6 +158,9 @@ namespace APIs.Python.Model
         [PythonAPI("Removes every user edit of the generated CalculiX keywords.", Returns = "None")]
         public void clear_overrides()
         {
+            if (GetOverrides().Count == 0)
+                throw new PythonAPIException("There are no keyword overrides to clear.");
+            //
             SetOverrides(new List<CalculixKeywordOverride>());
         }
         public override string ToString()

@@ -64,12 +64,12 @@ namespace APIs.Python.Model
             return new NumericArrayAPI(new double[] { coordinateSystem.X3.Value, coordinateSystem.Y3.Value,
                                                       coordinateSystem.Z3.Value });
         }
-        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict")]
+        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve());
         }
-        [PythonAPI("Returns how each defining point was constructed.", Returns = "dict")]
+        [PythonAPI("Returns how each defining point was constructed.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_construction_modes()
         {
             CoordinateSystem item = Resolve();

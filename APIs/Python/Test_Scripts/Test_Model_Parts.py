@@ -96,7 +96,8 @@ def test_model_parts():
     # property dialog records. The cube holds hexahedra only, and a part keeps the element type of
     # the element kinds it has, so the hexahedron slot is the one that is set
     slots = dict(parts.get_element_types(name))
-    check(len(slots) > 0, "the part carries no element type slots")
+    check(slots == {'linear_hexa': slots.get('linear_hexa')} and slots['linear_hexa'] != 'None',
+          "only the element kinds the part contains must be listed: " + str(slots))
     parts.replace_properties(name, name="PyTest_Renamed", color=[1, 2, 3],
                              element_types={'linear_hexa': 'C3D8R'})
     check(parts.contains("PyTest_Renamed"), "the part was not renamed by replace_properties")
@@ -110,8 +111,14 @@ def test_model_parts():
     parts.reset_color(name)
     check_raises(lambda: parts.replace_properties(name, element_types={'no_such_slot': 'C3D4'}),
                  "an unknown element type slot must be rejected")
-    check_raises(lambda: parts.replace_properties(name, element_types={'linear_tetra': 'NoSuchType'}),
+    check_raises(lambda: parts.replace_properties(name, element_types={'linear_hexa': 'NoSuchType'}),
                  "an unknown element type value must be rejected")
+    # The cube holds no tetrahedra, so the part would drop the tetrahedron slot without a word
+    check_raises(lambda: parts.replace_properties(name, name="PyTest_Refused",
+                                                  element_types={'linear_tetra': 'C3D4'}),
+                 "an element kind the part does not contain must be rejected")
+    check(parts.contains(name) and not parts.contains("PyTest_Refused"),
+          "a refused replace_properties must change nothing")
     # Argument validation
     check_raises(lambda: parts.translate(name, [1, 2]), "a 2 value vector must be rejected")
     check_raises(lambda: parts.set_color(name, [300, 0, 0]), "an out of range channel must be rejected")

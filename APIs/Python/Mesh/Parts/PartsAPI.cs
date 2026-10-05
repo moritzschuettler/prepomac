@@ -173,6 +173,26 @@ namespace APIs.Python
             if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
             _commandGateway.ReplaceResultPartProperties(old_name, properties);
         }
+        [PythonAPI("Renames a result part using command history.", Arguments = "old_name: str, new_name: str",
+                   Returns = "None")]
+        public void rename(string old_name, string new_name)
+        {
+            if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
+            ResolvePartNames(old_name);
+            CaeMesh.BasePart part = _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[old_name];
+            PythonNameComparer.ValidateFormat(new_name, "new_name", part.Name);
+            if (string.Equals(part.Name, new_name)) return;
+            if (!PythonNameComparer.AreSame(new_name, part.Name) &&
+                PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), new_name))
+                throw new PythonAPIException("The result part '" + new_name + "' already exists.");
+            // The results view renames only the parts a result was read with
+            if (!(part is CaeMesh.ResultPart))
+                throw new PythonAPIException("The result part '" + old_name + "' is a " + part.GetType().Name +
+                                             ", which cannot be renamed. Use replace_properties instead.");
+            //
+            EnsureCommandsAvailable();
+            _commandGateway.RenameResultItem(part, new_name);
+        }
         [PythonAPI("Removes result parts using command history.", Arguments = "part_names: list[str] or str",
                    Returns = "None")]
         public void remove(object part_names)

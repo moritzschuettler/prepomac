@@ -47,14 +47,15 @@ namespace APIs.Python.Model
                 PythonValueConverter.ToEquationString(temperature, "temperature");
             _service.ApplyRegion(definedField, region, "nodes");
             if (distribution_name != null)
-                definedField.DistributionName = _service.ResolveDistributionName(distribution_name);
+                definedField.DistributionName =
+                    _service.ResolveScalarDistributionName(distribution_name, "a temperature");
             //
             return Add(definedField, amplitude_name, color);
         }
 
         [PythonAPI("Replaces an existing defined temperature using command history, keeping every value " +
                    "that is not given. A defined temperature read from a file becomes one given by value, " +
-                   "which needs a region.",
+                   "which needs a region and a temperature.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_temperature with " +
                                "region and temperature optional", Returns = "DefinedField")]
         public DefinedFieldAPI replace_temperature(string old_name, string name = null, object region = null,
@@ -65,9 +66,10 @@ namespace APIs.Python.Model
                 _service.CloneForReplace<DefinedTemperature>(StepName, old_name, "DefinedTemperature");
             if (definedField.Type == DefinedTemperatureTypeEnum.FromFile)
             {
-                if (region == null)
+                if (region == null || temperature == null)
                     throw new PythonAPIException("The defined field '" + old_name + "' is read from a file, so " +
-                                                 "the argument 'region' must be given to define it by value.");
+                                                 "the arguments 'region' and 'temperature' must be given to " +
+                                                 "define it by value.");
                 definedField.Type = DefinedTemperatureTypeEnum.ByValue;
             }
             if (temperature != null)
@@ -75,7 +77,8 @@ namespace APIs.Python.Model
                     PythonValueConverter.ToEquationString(temperature, "temperature");
             if (region != null) _service.ApplyRegion(definedField, region, "nodes");
             if (distribution_name != null)
-                definedField.DistributionName = _service.ResolveDistributionName(distribution_name);
+                definedField.DistributionName =
+                    _service.ResolveScalarDistributionName(distribution_name, "a temperature");
             //
             return Replace(old_name, name, definedField, amplitude_name, color);
         }

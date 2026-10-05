@@ -31,14 +31,12 @@ namespace APIs.Python
         // Methods
         public string[] GetNames()
         {
-            EnsureCommandsAvailable();
+            if (_jobGateway == null) return new string[0];
             return _jobGateway.GetAllJobs().Select(job => job.Name).ToArray();
         }
         public AnalysisJob GetJob(string name)
         {
-            if (name == null) return null;
-            //
-            EnsureCommandsAvailable();
+            if (name == null || _jobGateway == null) return null;
             return _jobGateway.GetJob(name);
         }
         public AnalysisJob ResolveJob(string name)
@@ -83,6 +81,7 @@ namespace APIs.Python
                                             object inheritExecutable, object inheritWorkDirectory,
                                             object inheritNumCPUs, object inheritEnvironment)
         {
+            EnsureCommandsAvailable();
             AnalysisJob existing = ResolveJob(oldName);
             if (existing.JobStatus == JobStatus.Running || existing.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("A running analysis cannot be replaced.");
@@ -166,10 +165,10 @@ namespace APIs.Python
         }
         public void Replace(string oldName, AnalysisJob job)
         {
+            EnsureCommandsAvailable();
             ResolveJob(oldName);
             ValidateName(job.Name, oldName);
             //
-            EnsureCommandsAvailable();
             _jobGateway.ReplaceJob(oldName, job);
         }
         public void Duplicate(string[] names)
@@ -191,6 +190,7 @@ namespace APIs.Python
         }
         public string Run(string name, bool onlyCheckModel, object wait, object timeout)
         {
+            EnsureCommandsAvailable();
             AnalysisJob job = ResolveJob(name);
             bool runSynchronous = wait == null ? true : PythonValueConverter.ToBool(wait, "wait");
             double timeoutSeconds = timeout == null ? 0 : PythonValueConverter.ToFiniteDouble(timeout, "timeout");
@@ -201,7 +201,6 @@ namespace APIs.Python
                 throw new PythonAPIException("A timeout needs 'wait' to be True, because a run that is not " +
                                              "waited for has nothing to time out.");
             //
-            EnsureCommandsAvailable();
             if (job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("The analysis is already running.");
             int milliseconds = timeoutSeconds == 0 ? 0 : Math.Max(1, (int)Math.Ceiling(timeoutSeconds * 1000));
@@ -211,16 +210,16 @@ namespace APIs.Python
         }
         public void Kill(string name)
         {
+            EnsureCommandsAvailable();
             ResolveJob(name);
             //
-            EnsureCommandsAvailable();
             _jobGateway.KillJob(name, "The analysis was killed from the Python API.");
         }
         public void OpenResults(string name)
         {
+            EnsureCommandsAvailable();
             ResolveJob(name);
             //
-            EnsureCommandsAvailable();
             _jobGateway.OpenResults(name);
         }
         public void ValidateName(string name, string allowedExistingName)

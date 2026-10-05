@@ -109,7 +109,7 @@ namespace APIs.Python.Model
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
             string region = regionType != null ? regionType : GetKeptRegionType(referencePoint);
-            string keptRegionName = regionName != null ? regionName : referencePoint.RegionName;
+            string keptRegionName = regionName != null ? regionName : GetKeptRegionName(referencePoint);
             ApplyRegion(referencePoint, mode, region, keptRegionName);
             ApplyDisplayValues(referencePoint, nameVisible, color);
             //
@@ -177,6 +177,7 @@ namespace APIs.Python.Model
             referencePoint.X.Equation = point[0];
             referencePoint.Y.Equation = point[1];
             referencePoint.Z.Equation = point[2];
+            ClearOtherKinds(referencePoint);
         }
         private void ApplySelection(FeReferencePoint referencePoint, string createdFrom, SelectionAPI selection)
         {
@@ -197,6 +198,7 @@ namespace APIs.Python.Model
             referencePoint.CreatedFrom = mode;
             referencePoint.CreationData = compilation.Selection;
             referencePoint.CreationIds = compilation.Ids;
+            ClearOtherKinds(referencePoint);
         }
         private void ApplyRegion(FeReferencePoint referencePoint, string createdFrom, string regionType,
                                  string regionName)
@@ -218,6 +220,7 @@ namespace APIs.Python.Model
             referencePoint.CreatedFrom = mode;
             referencePoint.RegionType = region;
             referencePoint.RegionName = regionName;
+            ClearOtherKinds(referencePoint);
         }
         private static string GetKeptCreatedFrom(FeReferencePoint referencePoint, string argumentName)
         {
@@ -227,13 +230,23 @@ namespace APIs.Python.Model
             //
             return referencePoint.CreatedFrom.ToString();
         }
+        // A value is kept only while the construction kind stays the same, so a region left over from an
+        // earlier kind is never brought back
         private static string GetKeptRegionType(FeReferencePoint referencePoint)
         {
-            if (referencePoint.RegionName == null)
+            if (!IsRegionKind(referencePoint.CreatedFrom) || referencePoint.RegionName == null)
                 throw new PythonAPIException("The argument 'region_type' must be given, because the reference " +
                                              "point is not defined by a region.");
             //
             return referencePoint.RegionType.ToString();
+        }
+        private static string GetKeptRegionName(FeReferencePoint referencePoint)
+        {
+            if (!IsRegionKind(referencePoint.CreatedFrom) || referencePoint.RegionName == null)
+                throw new PythonAPIException("The argument 'region_name' must be given, because the reference " +
+                                             "point is not defined by a region.");
+            //
+            return referencePoint.RegionName;
         }
         // Only the mode is being changed, so the stored selection is reused for the new mode
         private static void ApplyKeptSelection(FeReferencePoint referencePoint, string createdFrom)
@@ -246,7 +259,8 @@ namespace APIs.Python.Model
                                              "CircleCenter when a selection is kept.");
             Selection keptSelection = referencePoint.CreationData;
             int[] keptIds = referencePoint.CreationIds;
-            if (keptSelection == null || keptIds == null || keptIds.Length == 0)
+            if (!IsSelectionKind(referencePoint.CreatedFrom) || keptSelection == null || keptIds == null ||
+                keptIds.Length == 0)
                 throw new PythonAPIException("The argument 'selection' must be given, because the reference " +
                                              "point is not defined by a selection.");
             int expected = mode == FeReferencePointCreatedFrom.OnPoint
@@ -258,6 +272,32 @@ namespace APIs.Python.Model
             referencePoint.CreatedFrom = mode;
             referencePoint.CreationData = keptSelection;
             referencePoint.CreationIds = keptIds;
+            ClearOtherKinds(referencePoint);
+        }
+        // A replace that switches the construction kind drops what belonged to the old kind, whether or not
+        // the mode itself changed, so a later replace cannot bring it back
+        private static void ClearOtherKinds(FeReferencePoint referencePoint)
+        {
+            if (!IsSelectionKind(referencePoint.CreatedFrom))
+            {
+                referencePoint.CreationData = null;
+                referencePoint.CreationIds = null;
+            }
+            if (!IsRegionKind(referencePoint.CreatedFrom))
+            {
+                referencePoint.RegionName = null;
+                referencePoint.RegionType = RegionTypeEnum.NodeSetName;
+            }
+        }
+        private static bool IsSelectionKind(FeReferencePointCreatedFrom mode)
+        {
+            return mode == FeReferencePointCreatedFrom.OnPoint || mode == FeReferencePointCreatedFrom.BetweenTwoPoints ||
+                   mode == FeReferencePointCreatedFrom.CircleCenter;
+        }
+        private static bool IsRegionKind(FeReferencePointCreatedFrom mode)
+        {
+            return mode == FeReferencePointCreatedFrom.CenterOfGravity ||
+                   mode == FeReferencePointCreatedFrom.BoundingBoxCenter;
         }
         private void ValidateRegionExists(RegionTypeEnum region, string regionName)
         {

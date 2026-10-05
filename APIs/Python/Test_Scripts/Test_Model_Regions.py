@@ -172,6 +172,34 @@ def test_derived_reference_points():
     check_raises(lambda: pmx.model.reference_points.add_from_region(PREFIX + "Bad", "OnPoint",
                                                                     "NodeSetName", PREFIX + "NS"),
                  "a selection mode with a region must be rejected")
+    # A replace that switches the construction kind drops what belonged to the old one, so a later
+    # replace that keeps a value cannot bring back a selection or a region the point no longer uses
+    points = pmx.model.reference_points
+    name = PREFIX + "RP_Kind"
+    points.add_from_selection(name, "OnPoint", one)
+    point = points.replace(name, coordinates=[0.25, 0.25, 0.25])
+    check(point.created_from == "Coordinates", "the coordinates did not switch the construction kind")
+    message = raised_message(lambda: points.replace_from_selection(name, created_from="OnPoint"))
+    check(message is not None and "'selection'" in message,
+          "a selection replaced by coordinates must not come back: " + str(message))
+    check(points[name].created_from == "Coordinates", "the refused replace changed the construction kind")
+    check(list(points[name].get_coordinates()) == [0.25, 0.25, 0.25], "the refused replace moved the point")
+    point = points.replace_from_region(name, created_from="CenterOfGravity", region_type="NodeSetName",
+                                       region_name=PREFIX + "NS")
+    check(point.get_construction()["region_name"] == PREFIX + "NS", "the region was not set")
+    message = raised_message(lambda: points.replace_from_selection(name, created_from="OnPoint"))
+    check(message is not None and "'selection'" in message,
+          "a selection replaced by a region must not come back: " + str(message))
+    point = points.replace(name, coordinates=[0.5, 0.5, 0.5])
+    check(point.get_construction()["region_name"] is None, "the coordinates kept the region of the old kind")
+    message = raised_message(lambda: points.replace_from_region(name, created_from="CenterOfGravity"))
+    check(message is not None and "'region_type'" in message,
+          "a region replaced by coordinates must not come back: " + str(message))
+    message = raised_message(lambda: points.replace_from_region(name, created_from="CenterOfGravity",
+                                                                region_type="NodeSetName"))
+    check(message is not None and "'region_name'" in message,
+          "a region name replaced by coordinates must not come back: " + str(message))
+    check(points[name].created_from == "Coordinates", "the refused replace changed the construction kind")
 
 
 def test_derived_coordinate_systems():

@@ -72,7 +72,7 @@ namespace APIs.Python.Model
         public TTyped CloneForReplace<TTyped>(string stepName, string name, string typeName) where TTyped : TItem
         {
             TItem item = ResolveItem(stepName, name);
-            if (!(item is TTyped))
+            if (item.GetType() != typeof(TTyped))
                 throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' is a " +
                                              item.GetType().Name + ", so it cannot be replaced by a " +
                                              typeName + ". Remove it and add the new type instead.");
@@ -123,6 +123,21 @@ namespace APIs.Python.Model
             //
             return name;
         }
+        // A temperature and a pressure are scalars, and the model refuses a vector distribution for them only
+        // when the deck is written, so the combination is rejected here instead
+        public string ResolveScalarDistributionName(object distributionName, string quantityName)
+        {
+            string name = ResolveDistributionName(distributionName);
+            if (name == Distribution.DefaultDistributionName) return name;
+            //
+            Distribution distribution = _modelResolver.GetModel().Distributions[name];
+            if (distribution.DistributionType != DistributionTypeEnum.Scalar)
+                throw new PythonAPIException("The distribution '" + name + "' is a " +
+                                             distribution.DistributionType + " distribution, and " +
+                                             quantityName + " needs a Scalar one.");
+            //
+            return name;
+        }
         public string ResolveExistingFileName(object fileName, string argumentName)
         {
             string name = AsString(fileName, argumentName);
@@ -169,6 +184,16 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' already exists in " +
                                                  "the step '" + stepName + "'.");
             }
+        }
+        // A propagation copies the item to the steps that follow, so from the last step it would record a command
+        // that changes nothing
+        public void EnsureFollowingStepExists(string stepName, string name)
+        {
+            Step step = _stepService.ResolveStep(stepName);
+            if (_modelResolver.GetModel().StepCollection.GetNextStepNames(step.Name).Length == 0)
+                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' cannot be propagated, " +
+                                             "because the step '" + step.Name + "' is the last step and has no " +
+                                             "following step.");
         }
         protected void EnsureCommandsAvailable()
         {

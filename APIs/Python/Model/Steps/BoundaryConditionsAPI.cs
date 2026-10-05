@@ -174,7 +174,8 @@ namespace APIs.Python.Model
                 PythonValueConverter.ToEquationString(temperature, "temperature");
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (distribution_name != null)
-                boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
+                boundaryCondition.DistributionName =
+                    _service.ResolveScalarDistributionName(distribution_name, "a temperature");
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
@@ -199,7 +200,8 @@ namespace APIs.Python.Model
                 boundaryCondition.Temperature.Equation =
                     PythonValueConverter.ToEquationString(temperature, "temperature");
             if (distribution_name != null)
-                boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
+                boundaryCondition.DistributionName =
+                    _service.ResolveScalarDistributionName(distribution_name, "a temperature");
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //

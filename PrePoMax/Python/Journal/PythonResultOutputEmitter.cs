@@ -85,6 +85,21 @@ namespace PrePoMax.Python.Journal
                 arguments.Add(PythonValueFormatter.List(fromField.ComponentNames));
                 arguments.Add(PythonRegionEmitter.Emit(writer, output.RegionName, output.RegionType,
                                                        output.CreationData));
+                // A result replace re-specifies the whole definition, so an option left at its default is
+                // left out on a replace as well
+                if (fromField.ComplexResultType != ComplexResultTypeEnum.Real)
+                    arguments.Add("complex_result_type=" +
+                                  PythonValueFormatter.Text(fromField.ComplexResultType.ToString()));
+                if (fromField.ComplexAngleDeg != 0)
+                    arguments.Add("complex_angle_deg=" + PythonValueFormatter.Number(fromField.ComplexAngleDeg));
+                if (fromField.StepId != -1)
+                    arguments.Add("step_id=" + PythonValueFormatter.Format(fromField.StepId));
+                if (fromField.StepIncrementId != -1)
+                    arguments.Add("increment_id=" + PythonValueFormatter.Format(fromField.StepIncrementId));
+                if (fromField.Harmonic) arguments.Add("harmonic=" + PythonValueFormatter.Format(true));
+                if (fromField.OutputNodeCoordinates != OutputNodeCoordinatesEnum.Off)
+                    arguments.Add("output_node_coordinates=" +
+                                  PythonValueFormatter.Text(fromField.OutputNodeCoordinates.ToString()));
             }
             else if (output is ResultHistoryOutputFromEquation fromEquation)
             {

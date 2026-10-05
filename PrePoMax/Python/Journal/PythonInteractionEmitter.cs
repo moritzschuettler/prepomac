@@ -27,6 +27,9 @@ namespace PrePoMax.Python.Journal
             //
             string verb = oldName == null ? "add" : "replace";
             string method = verb + "_" + AddConstraintArguments(writer, arguments, constraint);
+            // A replace keeps the expansion region it does not name, so one the model would discard is cleared
+            if (oldName != null && constraint is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.NumberOfGraphSectors < 2)
+                arguments.Add("clear_expansion_region=" + PythonValueFormatter.Format(true));
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, constraint);
@@ -81,8 +84,12 @@ namespace PrePoMax.Python.Journal
             {
                 AddMasterSlave(writer, arguments, constraint);
                 // The expansion region is discarded below two graph sectors, so it is emitted only when
-                // the model kept it
-                if (cyclicSymmetry.NumberOfGraphSectors >= 2 && cyclicSymmetry.CreationData != null)
+                // the model kept it, whether it is a selection or a named element set
+                bool hasExpansionRegion = cyclicSymmetry.CreationData != null ||
+                                          (cyclicSymmetry.RegionType != CaeGlobals.RegionTypeEnum.Selection &&
+                                           cyclicSymmetry.RegionType != CaeGlobals.RegionTypeEnum.None &&
+                                           !string.IsNullOrEmpty(cyclicSymmetry.RegionName));
+                if (cyclicSymmetry.NumberOfGraphSectors >= 2 && hasExpansionRegion)
                     arguments.Add("region=" + PythonRegionEmitter.Emit(writer, cyclicSymmetry.RegionName,
                                                                        cyclicSymmetry.RegionType,
                                                                        cyclicSymmetry.CreationData));

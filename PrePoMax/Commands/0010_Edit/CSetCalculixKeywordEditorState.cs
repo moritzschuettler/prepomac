@@ -51,7 +51,9 @@ namespace PrePoMax.Commands
             }
             writer.Statement(writer.Call("pmx.model.keywords", "replace_user_keywords",
                                          "[" + string.Join(", ", pairs) + "]"));
-            writer.Statement(writer.Call("pmx.model.keywords", "clear_overrides"));
+            // Clearing refuses when there is nothing to clear, and the replayed model may have no overrides yet
+            writer.Statement("if pmx.model.keywords.override_count > 0: " +
+                             writer.Call("pmx.model.keywords", "clear_overrides"));
             foreach (Calculix.CalculixKeywordOverride keywordOverride in _keywordOverrides)
             {
                 writer.Statement(writer.Call("pmx.model.keywords", "set_override",
