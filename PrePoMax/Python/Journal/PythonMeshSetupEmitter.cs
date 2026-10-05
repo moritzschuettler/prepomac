@@ -128,7 +128,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("algorithm_3d=" +
                               PythonValueFormatter.Text(transfinite.AlgorithmMesh3D.ToString()));
                 arguments.Add("recombine=" +
-                              PythonValueFormatter.Text(transfinite.AlgorithmRecombine.ToString()));
+                              PythonValueFormatter.Format(transfinite.AlgorithmRecombine !=
+                                                          GmshAlgorithmRecombineEnum.None));
                 arguments.Add("transfinite_angle=" +
                               PythonValueFormatter.Number(transfinite.TransfiniteAngleDeg));
                 return "transfinite_mesh";

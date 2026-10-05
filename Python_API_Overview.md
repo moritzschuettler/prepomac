@@ -747,7 +747,7 @@ item:
 
 | Item | Settings |
 | --- | --- |
-| `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `optimize_first_order_solid`, `optimize_high_order` |
+| `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_solid`, `optimize_high_order` |
 | `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle` |
 | `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default), `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`) |

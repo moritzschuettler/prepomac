@@ -237,8 +237,8 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a Gmsh tetrahedral mesh item for the selected geometry.",
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "algorithm_3d: str = None, recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", optimize_first_order_solid: str = None, " +
-                               "optimize_high_order: str = None",
+                               GmshRecombineArguments + ", transfinite_angle: float = None, " +
+                               "optimize_first_order_solid: str = None, optimize_high_order: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_tetrahedral_gmsh(string name, SelectionAPI selection, string algorithm_2d = null,
                                                      string algorithm_3d = null,
@@ -246,14 +246,15 @@ namespace APIs.Python.Model
                                                      string algorithm_recombine = null,
                                                      object transfinite_three_sided = null,
                                                      object transfinite_four_sided = null,
+                                                     object transfinite_angle = null,
                                                      string optimize_first_order_solid = null,
                                                      string optimize_high_order = null)
         {
             _service.ValidateNewName(name);
             TetrahedralGmsh item = new TetrahedralGmsh(name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, optimize_first_order_solid,
-                                 optimize_high_order);
+                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                                 optimize_first_order_solid, optimize_high_order);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -268,13 +269,14 @@ namespace APIs.Python.Model
                                                          string algorithm_recombine = null,
                                                          object transfinite_three_sided = null,
                                                          object transfinite_four_sided = null,
+                                                         object transfinite_angle = null,
                                                          string optimize_first_order_solid = null,
                                                          string optimize_high_order = null)
         {
             TetrahedralGmsh item = _service.CloneItem<TetrahedralGmsh>(old_name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, optimize_first_order_solid,
-                                 optimize_high_order);
+                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                                 optimize_first_order_solid, optimize_high_order);
             return Replace(old_name, name, item, selection);
         }
 
@@ -631,11 +633,13 @@ namespace APIs.Python.Model
         private static void ApplyTetrahedralGmsh(TetrahedralGmsh item, string algorithm2D, string algorithm3D,
                                                  object recombineMinQuality, string algorithmRecombine,
                                                  object transfiniteThreeSided, object transfiniteFourSided,
-                                                 string optimizeFirstOrderSolid, string optimizeHighOrder)
+                                                 object transfiniteAngle, string optimizeFirstOrderSolid,
+                                                 string optimizeHighOrder)
         {
             ApplyAlgorithms(item, algorithm2D, algorithm3D);
             ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
                                transfiniteFourSided);
+            ApplyTransfiniteAngle(item, transfiniteAngle);
             if (optimizeFirstOrderSolid != null)
                 item.OptimizeFirstOrderSolid =
                     PythonValueConverter.ToEnum<GmshOptimizeFirstOrderSolidEnum>(optimizeFirstOrderSolid,
