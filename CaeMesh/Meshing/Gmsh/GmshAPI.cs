@@ -2007,10 +2007,18 @@ namespace CaeMesh
                 throw new CaeException(GetRefusedSurfacesMessage(ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds,
                                                                                         logLength)));
             }
-            // The walls closed along a single seam get the grid of their layers
+            // The walls closed along a single seam get the grid of their layers, as many as the walls beside them
+            // carry: the quasi-structured quad algorithm splits every quadrilateral in four after the counts are set, so the
+            // other walls carry twice the count set on the seam
+            int seamCountFactor = GetMeshedCountFactor(walls.Where(wall => !SweepSeamWallMesher.IsSeamWall(wall))
+                                                            .SelectMany(wall => wall.DirectionEdgeIds));
             foreach (var wall in walls)
             {
-                if (SweepSeamWallMesher.IsSeamWall(wall)) SweepSeamWallMesher.Mesh(wall);
+                int seamNumOfElements;
+                if (SweepSeamWallMesher.IsSeamWall(wall))
+                    SweepSeamWallMesher.Mesh(wall, _gmshData.EdgeIdNumElements.TryGetValue(wall.DirectionEdgeIds[0],
+                                                                                            out seamNumOfElements) ?
+                                                   seamCountFactor * seamNumOfElements : 0);
             }
             // The three-sided structured sources become three blocks of quads around one inner node
             foreach (var face in _structuredSourceFaces.Values)
@@ -3396,6 +3404,21 @@ namespace CaeMesh
             List<Tuple<int, int>> dimTags = new List<Tuple<int, int>>();
             foreach (var edgeId in edgeIds) dimTags.Add(new Tuple<int, int>(1, edgeId));
             Gmsh.Model.Mesh.RemoveConstraints(dimTags.ToArray());
+        }
+        /// <summary>
+        /// How many elements the 2D pass left on an edge for every element set on it, read off the given edges: 2 after the
+        /// subdivision of the quasi-structured quad algorithm, else 1.
+        /// </summary>
+        private int GetMeshedCountFactor(IEnumerable<int> edgeIds)
+        {
+            int numOfElements;
+            foreach (var edgeId in edgeIds)
+            {
+                if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements) || numOfElements < 1) continue;
+                int meshed = SweepWallTopology.GetElementCount(edgeId);
+                if (meshed > 0 && meshed % numOfElements == 0) return meshed / numOfElements;
+            }
+            return 1;
         }
         private static bool WereWallsRefused(int logLength)
         {

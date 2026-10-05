@@ -30,7 +30,41 @@ namespace CaeMesh.Sweep
             return wall.DirectionEdgeIds.Length == 1 && wall.SourceEdgeIds.Length == 1 && wall.TargetEdgeIds.Length == 1 &&
                    IsClosedEdge(wall.SourceEdgeIds[0]) && IsClosedEdge(wall.TargetEdgeIds[0]);
         }
-        public static void Mesh(SweepWall wall)
+        /// <summary>
+        /// The points inside a seam that divide it into the given number of pieces of equal length, from the end at start.
+        /// </summary>
+        private static List<double[]> GetSeamLevels(int seamId, double[] start, int numOfElements)
+        {
+            double[] min;
+            double[] max;
+            Gmsh.Model.GetParametrizationBounds(1, seamId, out min, out max);
+            int numOfSamples = 200;
+            double[] parameters = new double[numOfSamples + 1];
+            for (int i = 0; i <= numOfSamples; i++) parameters[i] = min[0] + (max[0] - min[0]) * i / numOfSamples;
+            double[] coor;
+            Gmsh.Model.GetValue(1, seamId, parameters, out coor);
+            double[][] points = Enumerable.Range(0, numOfSamples + 1)
+                                          .Select(i => new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] }).ToArray();
+            if (Distance(points[numOfSamples], start) < Distance(points[0], start)) Array.Reverse(points);
+            double[] length = new double[numOfSamples + 1];
+            for (int i = 1; i <= numOfSamples; i++) length[i] = length[i - 1] + Distance(points[i - 1], points[i]);
+            //
+            List<double[]> levels = new List<double[]>();
+            int k = 1;
+            for (int j = 1; j < numOfElements; j++)
+            {
+                double target = length[numOfSamples] * j / numOfElements;
+                while (k < numOfSamples && length[k] < target) k++;
+                double t = length[k] > length[k - 1] ? (target - length[k - 1]) / (length[k] - length[k - 1]) : 0;
+                double[] point = new double[3];
+                for (int c = 0; c < 3; c++) point[c] = points[k - 1][c] + (points[k][c] - points[k - 1][c]) * t;
+                double[] closest;
+                Gmsh.Model.GetClosestPoint(1, seamId, point, out closest, out _);
+                levels.Add(closest.Length >= 3 ? closest : point);
+            }
+            return levels;
+        }
+        public static void Mesh(SweepWall wall, int seamNumOfElements)
         {
             int surfaceId = wall.SurfaceId;
             int seamId = wall.DirectionEdgeIds[0];
@@ -41,6 +75,22 @@ namespace CaeMesh.Sweep
             List<double[]> seamXyz;
             GmshThreeBlockMesher.GetSideNodes(surfaceId, sourceVertexId, targetVertexId, new int[] { seamId },
                                               out seamTags, out seamXyz);
+            // The quasi-structured quad algorithm hands the inner nodes of a seam to the face it closes, deletes the elements
+            // of the seam and goes on optimizing the face (transferSeamGEdgesVerticesToGFace in gmsh), so the nodes are no
+            // longer on the seam. The levels are then laid along it as a transfinite curve of the count would lay them;
+            // read as one level against the six of the walls beside it, the seam of sweep_51 sent every sweep under
+            // that algorithm back to the Frontal-Delaunay one
+            int numOfNewSeamNodes = 0;
+            if (seamTags.Count == 2 && seamNumOfElements > 1)
+            {
+                List<double[]> levels = GetSeamLevels(seamId, seamXyz[0], seamNumOfElements);
+                for (int j = 0; j < levels.Count; j++)
+                {
+                    seamTags.Insert(1 + j, IntPtr.Zero);
+                    seamXyz.Insert(1 + j, levels[j]);
+                }
+                numOfNewSeamNodes = levels.Count;
+            }
             List<IntPtr> sourceTags;
             List<double[]> sourceXyz;
             GetRingNodes(wall.SourceEdgeIds[0], sourceVertexId, out sourceTags, out sourceXyz);
@@ -82,6 +132,13 @@ namespace CaeMesh.Sweep
             List<IntPtr> newTags = new List<IntPtr>();
             List<double> newXyz = new List<double>();
             List<double> newUv = new List<double>();
+            for (int j = 1; j <= numOfNewSeamNodes; j++)
+            {
+                seamTags[j] = new IntPtr(++nodeTag);
+                newTags.Add(seamTags[j]);
+                newXyz.AddRange(seamXyz[j]);
+                newUv.AddRange(seamUv[j]);
+            }
             grid[0] = sourceOrder.Select(i => sourceTags[i]).ToArray();
             grid[m] = targetOrder.Select(i => targetTags[i]).ToArray();
             for (int j = 1; j < m; j++)
