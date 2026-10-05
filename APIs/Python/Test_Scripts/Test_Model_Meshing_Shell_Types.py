@@ -18,6 +18,8 @@
 #  - A structured grid divides the opposite sides of a face equally, so the number of elements set on one edge
 #    of the open box carries over to the edges parallel to it. Set to a different number on a second of those
 #    edges it cannot be kept, and the meshing is refused rather than overriding either of them.
+#  - The open quarter cylinder by a gmsh shell item with transfinite_three_sided="Polar": a quarter circle is the grid
+#    gmsh collapses at its centre, so its triangles fan around that one node and everything else is quadrilaterals.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Shell_Types.py -g No -x Yes -w <dir>
 #
@@ -147,6 +149,32 @@ def check_chained_sides(part):
           " irregular nodes")
 
 
+def check_polar(part):
+    items = pmx.model.mesh.setup_items
+    items.add_shell_gmsh("PyTest_Polar", pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id]),
+                         algorithm_recombine="Simple", transfinite_three_sided="Polar")
+    kinds = mesh(part)
+    items.remove(["PyTest_Polar"])
+    check(kinds.get("triangle", 0) > 0 and kinds.get("quadrilateral", 0) > kinds.get("triangle", 0),
+          "the polar open quarter cylinder must be quadrilaterals and a fan of triangles: " + str(kinds))
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    node_counts = [int(n) for n in data.node_counts]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    triangles = [connectivity[offsets[i]:offsets[i] + 3] for i in (index[int(e)] for e in meshed.get_element_ids())
+                 if node_counts[i] in (3, 6)]
+    uses = {}
+    for triangle in triangles:
+        for node in triangle:
+            uses[node] = uses.get(node, 0) + 1
+    # One centre for each of the two quarter circles
+    centres = set(sorted(uses, key=lambda node: -uses[node])[:2])
+    check(all(any(node in centres for node in triangle) for triangle in triangles),
+          "the triangles of the polar open quarter cylinder do not fan around the centres of the quarter circles")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     cad = list(pmx.model.geometry.parts)
@@ -169,6 +197,7 @@ def main():
     print("irregular nodes:", irregular, "of at most", allowed, "vertices and inner nodes")
     check(irregular <= allowed, "the quarter circles of the open quarter cylinder are not meshed as three blocks: " +
           str(irregular) + " irregular nodes")
+    check_polar(open_cylinder)
     print("TEST PASSED")
 
 

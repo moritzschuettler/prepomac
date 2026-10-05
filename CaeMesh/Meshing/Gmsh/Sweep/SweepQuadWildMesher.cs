@@ -114,7 +114,7 @@ namespace CaeMesh.Sweep
             // The structured faces of the sources are those of the one definition all meshers follow, read by
             // quad_from_patches beside the prescribed nodes instead of finding its own
             QuadWildRuntime.DeleteIfExists(transfiniteFileName);
-            if (sweepMesh.TransfiniteThreeSided || sweepMesh.TransfiniteFourSided)
+            if (sweepMesh.IsTransfiniteThreeSided || sweepMesh.TransfiniteFourSided)
                 WriteTransfiniteFile(transfiniteFileName, group, input, transfiniteFaces);
             //
             QuadWildRuntime.WritePrepConfig(runtimeDirectory, prepConfigFileName, false);
@@ -134,7 +134,7 @@ namespace CaeMesh.Sweep
             // The transfinite faces of a source follow the transfinite settings of the item, like the gmsh sources
             List<string> flowOptions = new List<string> { "input_line_count 0", "smooth_curves 0", "rotate_edges 0",
                                                           "boundary_layer 0" };
-            flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(sweepMesh.TransfiniteThreeSided,
+            flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(sweepMesh.IsTransfiniteThreeSided,
                                                                            sweepMesh.TransfiniteFourSided,
                                                                            sweepMesh.TransfiniteAngleDeg));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, sweepMesh.QuadWildFlowProfile,

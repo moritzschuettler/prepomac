@@ -41,6 +41,9 @@ namespace CaeMesh
         // The sweep sources structured by the one definition all meshers follow that the edge graph of the opposite
         // edges cannot carry: those with a side of several edges, and the three-sided ones, meshed as three blocks
         private Dictionary<int, TransfiniteFace> _structuredSourceFaces = new Dictionary<int, TransfiniteFace>();
+        // How the three-sided faces are structured, and the corner a polar grid collapses on each of them
+        private TransfiniteThreeSidedEnum _transfiniteThreeSided;
+        private Dictionary<int, int> _surfaceIdPolarCornerIndex = new Dictionary<int, int>();
         private bool _sweepRecombine;
         private const int _intervalTimeoutSeconds = 20;
         private SweepCountConflictException _intervalConflict;
@@ -226,14 +229,16 @@ namespace CaeMesh
                         Gmsh.Option.SetNumber("Mesh.RecombineMinimumQuality", gsi.RecombineMinQuality);
                     }
                     // Transfinite
-                    bool transfiniteVolume = gsi is TransfiniteMesh && gsi.TransfiniteThreeSided && gsi.TransfiniteFourSided;
+                    _transfiniteThreeSided = gsi.TransfiniteThreeSided;
+                    bool transfiniteVolume = gsi is TransfiniteMesh && gsi.IsTransfiniteThreeSided &&
+                                             gsi.TransfiniteFourSided;
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
                     // A shell is structured on the faces the one definition all meshers follow found
                     if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
                         SetTransfiniteShellFaces(_gmshData.TransfiniteFaces);
-                    else if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
+                    else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
-                        SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
+                        SetTransfiniteSurfaces(gsi.IsTransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
                                                gsi.TransfiniteAngleDeg, recombine, gsi.AlgorithmRecombine);
                     // Optimization On/Off
                     int optimize = 1;
@@ -1003,6 +1008,11 @@ namespace CaeMesh
                 }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
+                // QuadWild has no polar grid
+                if (sweepMesh.TransfiniteThreeSided == TransfiniteThreeSidedEnum.Polar && _gmshData.TransfiniteFaces != null &&
+                    _gmshData.TransfiniteFaces.Any(face => face.NumberOfSides == 3 && _quadWildSourceIds.Contains(face.FaceId)))
+                    _writeOutput?.Invoke("Sweep: QuadWild lays no polar grid - its 3-sided source surfaces are mapped as " +
+                                         "three blocks of quads.");
             }
         }
         /// <summary>
@@ -2032,10 +2042,10 @@ namespace CaeMesh
                                                                                             out seamNumOfElements) ?
                                                    seamCountFactor * seamNumOfElements : 0);
             }
-            // The three-sided structured sources become three blocks of quads around one inner node
+            // The three-sided structured sources mapped become three blocks of quads around one inner node
             foreach (var face in _structuredSourceFaces.Values)
             {
-                if (face.NumberOfSides == 3)
+                if (face.NumberOfSides == 3 && !IsPolar(face))
                     GmshThreeBlockMesher.Mesh(face, sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
@@ -3758,6 +3768,12 @@ namespace CaeMesh
                     problem.AddEqualSums("Structured Surface " + face.FaceId + " sides 2-4", IntervalRowTierEnum.Structured,
                                          face.SideEdgeIds[1], face.SideEdgeIds[3], face.FaceId);
                 }
+                else if (IsPolar(face))
+                {
+                    TransfiniteSidePair pair = face.GetPolarSidePair(GetPolarCornerIndex(face));
+                    problem.AddEqualSums("Structured Surface " + face.FaceId + " polar sides", IntervalRowTierEnum.Structured,
+                                         pair.SideA, pair.SideB, face.FaceId);
+                }
                 else if (face.NumberOfSides == 3)
                     problem.AddThreeSided("Structured Surface " + face.FaceId + " three blocks", IntervalRowTierEnum.Structured,
                                           face.SideEdgeIds, face.FaceId);
@@ -4206,8 +4222,9 @@ namespace CaeMesh
                                               transfiniteAngleDeg);
             // The sources of a sweep are structured on the faces the one definition all meshers follow finds
             if (_sweepBlocks != null) SetStructuredSweepSources(surfaceIdSurface, surfaceIdsWithInternalCurves);
-            // The caps of a five-faced volume are meshed as three blocks of quads, and the volume by hexahedra
-            if (transfiniteVolume && recombine) SetThreeBlockPrisms(surfaceIdSurface, volumeIdVolume, edgeIdEdge);
+            // The caps of a five-faced volume mapped are meshed as three blocks of quads, and the volume by hexahedra
+            if (transfiniteVolume && recombine && _transfiniteThreeSided == TransfiniteThreeSidedEnum.Mapped)
+                SetThreeBlockPrisms(surfaceIdSurface, volumeIdVolume, edgeIdEdge);
             // Edge graph
             Node<GmshEdge> edgeNode;
             Graph<GmshEdge> edgeGraph = new Graph<GmshEdge>();
@@ -4378,12 +4395,17 @@ namespace CaeMesh
                     //Gmsh.Model.Mesh.SetSmoothing(2, surface.Id, 100);
                 }
             }
-            // A four-sided source with a side of several edges is given its corners; a three-sided one is meshed free
-            // first and its three blocks replace that mesh
+            // A four-sided source with a side of several edges is given its corners, and a polar three-sided one its
+            // corners from the collapsed one; a mapped three-sided one is meshed free first and its three blocks replace
+            // that mesh
             foreach (var face in _structuredSourceFaces.Values)
             {
-                if (face.NumberOfSides != 4) continue;
-                Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                if (face.NumberOfSides == 4)
+                    Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                else if (IsPolar(face))
+                    Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft",
+                                                          face.GetPolarCornerNodeIds(GetPolarCornerIndex(face)));
+                else continue;
                 _transfiniteSurfaceIds.Add(face.FaceId);
             }
             //
@@ -4627,8 +4649,10 @@ namespace CaeMesh
             foreach (var face in _structuredSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
             {
                 int[] counts = face.SideEdgeIds.Select(sideCount).ToArray();
+                TransfiniteSidePair polarPair = IsPolar(face) ? face.GetPolarSidePair(GetPolarCornerIndex(face)) : null;
                 bool valid = face.NumberOfSides == 4 ? counts[0] == counts[2] && counts[1] == counts[3] :
-                                                       TransfiniteSideTriple.AreCountsValid(counts);
+                             polarPair != null ? sideCount(polarPair.SideA) == sideCount(polarPair.SideB) :
+                                                 TransfiniteSideTriple.AreCountsValid(counts);
                 if (valid) continue;
                 string description = "Sweep: the walls gave the structured source Surface " + face.FaceId + " " +
                                      string.Join(", ", counts) + " elements on its sides, which its grid cannot have";
@@ -4646,9 +4670,10 @@ namespace CaeMesh
         /// Lays a structured grid over the faces of a shell the one definition all meshers follow found. A side is a
         /// chain of edges, so every surface is given its corners. Opposite sides are balanced to the same number of
         /// elements for the coarser mesh; when the numbers the user set on edges make that impossible, the meshing is
-        /// refused. A three-sided face is meshed as three blocks of quads around one inner node, which needs an even
-        /// sum on its sides and no side with as many elements as the other two; gmsh meshes it free first and the
-        /// blocks replace that mesh.
+        /// refused. A three-sided face mapped is meshed as three blocks of quads around one inner node, which needs an
+        /// even sum on its sides and no side with as many elements as the other two; gmsh meshes it free first and the
+        /// blocks replace that mesh. A polar one is the grid gmsh collapses at one corner, which needs the two sides
+        /// meeting there to carry the same number of elements.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces)
         {
@@ -4698,6 +4723,7 @@ namespace CaeMesh
                     pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
                     pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
                 }
+                else if (IsPolar(face)) pairs.Add(face.GetPolarSidePair(GetPolarCornerIndex(face)));
                 else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
             }
             List<TransfiniteSideTriple> unbalancedTriples;
@@ -4712,14 +4738,36 @@ namespace CaeMesh
             foreach (var entry in edgeIdCount) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             foreach (var face in faces)
             {
-                if (face.NumberOfSides == 3)
+                if (IsPolar(face))
+                    Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft",
+                                                          face.GetPolarCornerNodeIds(GetPolarCornerIndex(face)));
+                else if (face.NumberOfSides == 3)
                 {
                     _threeBlockFaces.Add(face);
                     continue;
                 }
-                Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                else Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
                 _transfiniteSurfaceIds.Add(face.FaceId);
             }
+        }
+        private bool IsPolar(TransfiniteFace face)
+        {
+            return face.NumberOfSides == 3 && _transfiniteThreeSided == TransfiniteThreeSidedEnum.Polar;
+        }
+        /// <summary>
+        /// The corner the polar grid of a three-sided face collapses, chosen once per face by the lengths of its sides.
+        /// </summary>
+        private int GetPolarCornerIndex(TransfiniteFace face)
+        {
+            int polarCornerIndex;
+            if (!_surfaceIdPolarCornerIndex.TryGetValue(face.FaceId, out polarCornerIndex))
+            {
+                double[] sideLengths = face.SideEdgeIds.Select(side => SweepWallTopology.GetEdgeLengths(side).Sum())
+                                                       .ToArray();
+                polarCornerIndex = face.GetPolarCornerIndex(sideLengths);
+                _surfaceIdPolarCornerIndex.Add(face.FaceId, polarCornerIndex);
+            }
+            return polarCornerIndex;
         }
         private static string GetUnbalancedSidesMessage(List<TransfiniteSidePair> unbalanced,
                                                         List<TransfiniteSideTriple> unbalancedTriples,

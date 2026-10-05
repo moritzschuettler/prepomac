@@ -10,6 +10,8 @@
 #    three blocks of both caps.
 #  - The quarter cylinder again with numbers of elements set on the three edges of one cap that three blocks of
 #    quads cannot fill: refused.
+#  - The quarter cylinder with transfinite_three_sided="Polar": the caps collapse at the axis as gmsh collapses a
+#    triangle, so the mesh is hexahedra and a fan of wedges around the axis.
 #  - The quarter cylinder again without recombination, which gmsh meshes as before.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Transfinite_Prism.py -g No -x Yes -w <dir>
@@ -37,11 +39,12 @@ def mesh_part(part_name):
     return [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part_name][0]
 
 
-def mesh(part, recombine=True):
+def mesh(part, recombine=True, transfinite_three_sided=None):
     items = pmx.model.mesh.setup_items
     if TRANSFINITE in list(items.get_names()):
         items.remove([TRANSFINITE])
-    items.add_transfinite_mesh(TRANSFINITE, part_selection(part), recombine=recombine)
+    items.add_transfinite_mesh(TRANSFINITE, part_selection(part), recombine=recombine,
+                               transfinite_three_sided=transfinite_three_sided)
     check(items[TRANSFINITE].valid, "the transfinite mesh item on " + part.name + " is not valid")
     return pmx.model.mesh.create(part.name)[part.name]
 
@@ -139,6 +142,24 @@ def test_invalid_cap_counts(cylinder):
     items.remove([SIZE + str(k) for k in range(3)])
 
 
+def test_polar_caps(cylinder):
+    set_size(cylinder)
+    report = mesh(cylinder, transfinite_three_sided="Polar")
+    pmx.model.mesh.setup_items.remove([SIZE])
+    check(report == "", "meshing the polar quarter cylinder reported: " + report)
+    data = pmx.model.elements.get_data()
+    node_counts = dict((int(element_id), int(n)) for element_id, n in zip(data.ids, data.node_counts))
+    counts = [node_counts[int(element_id)] for element_id in mesh_part(cylinder.name).get_element_ids()]
+    wedges = sum(1 for n in counts if n in (6, 15))
+    hexahedra = sum(1 for n in counts if n in (8, 20))
+    print("the polar quarter cylinder:", hexahedra, "hexahedra,", wedges, "wedges")
+    check(wedges + hexahedra == len(counts) and wedges > 0 and hexahedra > wedges,
+          "the polar quarter cylinder must be hexahedra and a fan of wedges: " + str(hexahedra) + " hexahedra, " +
+          str(wedges) + " wedges of " + str(len(counts)) + " elements")
+    inverted = [int(i) for i in mesh_part(cylinder.name).get_inverted_element_ids()]
+    check(len(inverted) == 0, "the polar quarter cylinder has " + str(len(inverted)) + " inverted elements")
+
+
 def test_without_recombination(cylinder):
     report = mesh(cylinder, recombine=False)
     check(report == "", "meshing the quarter cylinder without recombination reported: " + report)
@@ -150,6 +171,7 @@ def main():
     cylinder = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 5][0]
     test_three_block_caps(cylinder)
     test_invalid_cap_counts(cylinder)
+    test_polar_caps(cylinder)
     test_without_recombination(cylinder)
     print("TEST PASSED")
 

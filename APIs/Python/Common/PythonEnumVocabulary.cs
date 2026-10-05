@@ -133,6 +133,10 @@ namespace APIs.Python
             types.Add("replace_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
             types.Add("quad_wild_flow_profile", typeof(QuadWildFlowProfileEnum));
             types.Add("symmetry", typeof(SweepSymmetryEnum));
+            foreach (var member in new string[] { "add_tetrahedral_gmsh", "replace_tetrahedral_gmsh", "add_shell_gmsh",
+                                                  "replace_shell_gmsh", "add_transfinite_mesh",
+                                                  "replace_transfinite_mesh", "add_sweep_mesh", "replace_sweep_mesh" })
+                types.Add(member + ".transfinite_three_sided", typeof(TransfiniteThreeSidedEnum));
             types.Add("nodes_to_keep", typeof(NodesToKeepEnum));
             // Analyses and results
             types.Add("fem_solver", typeof(FEMSolverEnum));

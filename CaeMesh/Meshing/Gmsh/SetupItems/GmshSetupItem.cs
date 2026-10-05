@@ -27,7 +27,7 @@ namespace CaeMesh
         private GmshAlgorithmMesh3DEnum _algorithmMesh3D;                   // ISerializable
         private GmshAlgorithmRecombineEnum _algorithmRecombine;             // ISerializable
         private double _recombineMinQuality;                                // ISerializable
-        private bool _transfiniteThreeSided;                                // ISerializable
+        private TransfiniteThreeSidedEnum _transfiniteThreeSided;           // ISerializable
         private bool _transfiniteFourSided;                                 // ISerializable
         private double _transfiniteAngleDeg;                                // ISerializable
         private GmshOptimizeFirstOrderShellEnum _optimizeFirstOrderShell;   // ISerializable
@@ -51,7 +51,12 @@ namespace CaeMesh
             set { _algorithmRecombine = value; }
         }
         public double RecombineMinQuality { get { return _recombineMinQuality; } set { _recombineMinQuality = value; } }
-        public bool TransfiniteThreeSided { get { return _transfiniteThreeSided; } set { _transfiniteThreeSided = value; } }
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
+        {
+            get { return _transfiniteThreeSided; }
+            set { _transfiniteThreeSided = value; }
+        }
+        public bool IsTransfiniteThreeSided { get { return _transfiniteThreeSided != TransfiniteThreeSidedEnum.No; } }
         public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
         public double TransfiniteAngleDeg { get { return _transfiniteAngleDeg; } set { _transfiniteAngleDeg = value; } }
         public double TransfiniteAngleRad { get { return _transfiniteAngleDeg * Math.PI / 180; } }
@@ -136,7 +141,12 @@ namespace CaeMesh
                     case "_recombineMinQuality":
                         _recombineMinQuality = (double)entry.Value; break;
                     case "_transfiniteThreeSided":
-                        _transfiniteThreeSided = (bool)entry.Value; break;
+                        // Compatibility for version v2.6.4: a switch, on for the polar grid gmsh made then
+                        if (entry.Value is bool threeSided)
+                            _transfiniteThreeSided = threeSided ? TransfiniteThreeSidedEnum.Polar :
+                                                                  TransfiniteThreeSidedEnum.No;
+                        else _transfiniteThreeSided = (TransfiniteThreeSidedEnum)entry.Value;
+                        break;
                     case "_transfinite":
                     case "_transfiniteFourSided":
                         _transfiniteFourSided = (bool)entry.Value; break;
@@ -181,7 +191,7 @@ namespace CaeMesh
             _algorithmMesh3D = GmshAlgorithmMesh3DEnum.Delaunay;
             _algorithmRecombine = GmshAlgorithmRecombineEnum.None;
             _recombineMinQuality = 0.01;
-            _transfiniteThreeSided = true;
+            _transfiniteThreeSided = TransfiniteThreeSidedEnum.Mapped;
             _transfiniteFourSided = true;
             _transfiniteAngleDeg = 135;
             _optimizeFirstOrderShell = GmshOptimizeFirstOrderShellEnum.None;
@@ -226,7 +236,7 @@ namespace CaeMesh
             info.AddValue("_algorithmMesh3D", _algorithmMesh3D, typeof(GmshAlgorithmMesh3DEnum));
             info.AddValue("_algorithmRecombine", _algorithmRecombine, typeof(GmshAlgorithmRecombineEnum));
             info.AddValue("_recombineMinQuality", _recombineMinQuality, typeof(double));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(bool));
+            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
             info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
             info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
             info.AddValue("_optimizeFirstOrderShell", _optimizeFirstOrderShell, typeof(GmshOptimizeFirstOrderShellEnum));

@@ -132,6 +132,8 @@ namespace PrePoMax.Python.Journal
                                                           GmshAlgorithmRecombineEnum.None));
                 arguments.Add("transfinite_angle=" +
                               PythonValueFormatter.Number(transfinite.TransfiniteAngleDeg));
+                arguments.Add("transfinite_three_sided=" +
+                              PythonValueFormatter.Text(transfinite.TransfiniteThreeSided.ToString()));
                 return "transfinite_mesh";
             }
             if (item is ShellGmsh shellGmsh)
@@ -183,7 +185,7 @@ namespace PrePoMax.Python.Journal
             arguments.Add("algorithm_recombine=" +
                           PythonValueFormatter.Text(item.AlgorithmRecombine.ToString()));
             arguments.Add("transfinite_three_sided=" +
-                          PythonValueFormatter.Format(item.TransfiniteThreeSided));
+                          PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
             arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
@@ -196,7 +198,7 @@ namespace PrePoMax.Python.Journal
             arguments.Add("algorithm_recombine=" +
                           PythonValueFormatter.Text(item.AlgorithmRecombine.ToString()));
             arguments.Add("transfinite_three_sided=" +
-                          PythonValueFormatter.Format(item.TransfiniteThreeSided));
+                          PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
             arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));

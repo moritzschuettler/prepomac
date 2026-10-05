@@ -83,9 +83,11 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Mesh settings")]
         [OrderedDisplayName(5, 20, "Transfinite 3-sided faces")]
-        [DescriptionAttribute("Use automatic transfinite meshing constraints on 3-sided model faces.")]
+        [DescriptionAttribute("Select how the 3-sided model faces are meshed with a structured grid: Polar collapses " +
+                              "one corner, with triangles there and arcs around it as a revolution about it would make; " +
+                              "Mapped meshes three blocks of quads around one inner node; No meshes them free.")]
         [Id(5, 3)]
-        public bool TransfiniteThreeSided
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
         {
             get { return _gmshSetupItem.TransfiniteThreeSided; }
             set { _gmshSetupItem.TransfiniteThreeSided = value; UpdateVisibility(); }
@@ -262,7 +264,6 @@ namespace PrePoMax.Forms
             //
             UpdateVisibility();
             //
-            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteThreeSided));
             _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
         }
         public override MeshSetupItem GetBase()
@@ -286,7 +287,8 @@ namespace PrePoMax.Forms
             // Transfinite
             if (_dctd.GetProperty(nameof(TransfiniteFourSided)).IsBrowsable)
             {
-                _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(TransfiniteThreeSided || TransfiniteFourSided);
+                _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(_gmshSetupItem.IsTransfiniteThreeSided ||
+                                                                              TransfiniteFourSided);
             }
             // Element size
             if (_dctd.GetProperty(nameof(ElementSizeType)).IsBrowsable)

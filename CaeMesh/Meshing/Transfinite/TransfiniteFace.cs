@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using System.Linq;
 
 namespace CaeMesh
 {
@@ -64,6 +65,55 @@ namespace CaeMesh
             _cornerNodeIds = cornerNodeIds;
             _cornerAnglesDeg = cornerAnglesDeg;
             _sideEdgeIds = sideEdgeIds;
+        }
+
+
+        // Methods
+        /// <summary>
+        /// The corner a polar grid of a three-sided face collapses: the grid maps the other two corners to right angles,
+        /// so the corner whose other two lie closest to a right angle. Of corners within a degree of each other the one
+        /// between the two sides closest in length is taken, which is the axis of a pie cut from a cylinder. sideLengths
+        /// holds the length of every side, in the order of the sides.
+        /// </summary>
+        public int GetPolarCornerIndex(double[] sideLengths)
+        {
+            if (_cornerNodeIds.Length != 3) return -1;
+            //
+            Func<int, double> getDeviationDeg = corner =>
+                Math.Max(Math.Abs(_cornerAnglesDeg[(corner + 1) % 3] - 90),
+                         Math.Abs(_cornerAnglesDeg[(corner + 2) % 3] - 90));
+            Func<int, double> getLengthDifference = corner =>
+            {
+                double length1 = sideLengths[(corner + 2) % 3];
+                double length2 = sideLengths[corner];
+                double max = Math.Max(length1, length2);
+                return max > 0 ? Math.Abs(length1 - length2) / max : 0;
+            };
+            int polar = 0;
+            for (int corner = 1; corner < 3; corner++)
+            {
+                double difference = getDeviationDeg(corner) - getDeviationDeg(polar);
+                if (difference < -1 || (difference <= 1 && getLengthDifference(corner) < getLengthDifference(polar)))
+                    polar = corner;
+            }
+            return polar;
+        }
+        /// <summary>
+        /// The corners of a three-sided face starting at its polar corner, in loop order, as gmsh takes them: the first
+        /// corner of a three-sided transfinite surface is the one it collapses.
+        /// </summary>
+        public int[] GetPolarCornerNodeIds(int polarCornerIndex)
+        {
+            return Enumerable.Range(0, 3).Select(i => _cornerNodeIds[(polarCornerIndex + i) % 3]).ToArray();
+        }
+        /// <summary>
+        /// The two sides of a three-sided face that meet at its polar corner, which a polar grid divides equally: the
+        /// side that ends at the corner and the side that starts from it.
+        /// </summary>
+        public TransfiniteSidePair GetPolarSidePair(int polarCornerIndex)
+        {
+            return new TransfiniteSidePair(_faceId, _sideEdgeIds[(polarCornerIndex + 2) % 3],
+                                           _sideEdgeIds[polarCornerIndex]);
         }
     }
 }

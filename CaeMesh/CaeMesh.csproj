@@ -207,6 +207,7 @@
     <Compile Include="Meshing\Gmsh\Enums\SweepSymmetryEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSourceMesherEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\TransfiniteThreeSidedEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildEdgeGrid.cs" />

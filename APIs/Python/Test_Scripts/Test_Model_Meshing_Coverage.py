@@ -105,11 +105,11 @@ def test_thicken_shell(items, selection):
 
 def test_gmsh_items(items, selection, shell_selection, box_selection):
     items.add_tetrahedral_gmsh(PREFIX + "Tet", selection, algorithm_recombine="Simple",
-                               transfinite_three_sided=True)
+                               transfinite_three_sided="Polar")
     items.replace_tetrahedral_gmsh(PREFIX + "Tet", optimize_high_order="HighOrder")
     values = settings(items, PREFIX + "Tet")
     check(values["algorithm_recombine"] == "Simple", "the omitted recombine algorithm was not kept")
-    check(values["transfinite_three_sided"], "the omitted transfinite flag was not kept")
+    check(values["transfinite_three_sided"] == "Polar", "the omitted transfinite setting was not kept")
     #
     items.add_shell_gmsh(PREFIX + "Shell", shell_selection, transfinite_angle=120.0)
     items.replace_shell_gmsh(PREFIX + "Shell", algorithm_recombine="Blossom")

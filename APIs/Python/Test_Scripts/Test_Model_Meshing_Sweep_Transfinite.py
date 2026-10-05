@@ -3,14 +3,18 @@
 #
 #Checks the structured sources of a gmsh sweep. They are the faces the one definition all PrePoMax meshers follow
 #finds, by the transfinite settings of the sweep item, as for a shell: a side may be a chain of edges, the opposite
-#sides get one count, a 3-sided source is three blocks of quads around one inner node, and counts the user set that
-#make this impossible refuse the meshing instead of a free mesh.
+#sides get one count, a 3-sided source is three blocks of quads around one inner node (Mapped, the default) or a grid
+#collapsed at one corner (Polar), and counts the user set that make this impossible refuse the meshing instead of a
+#free mesh.
 #
 #  - box_and_cylinder.brep: the box with one side face split down the middle, swept from its bottom, whose side along
 #    the split face is two edges. The mesh is hexahedra only and a structured grid: every node has 1, 2, 4 or 8
 #    hexahedra around it.
 #  - The quarter cylinder swept along its axis from a quarter disc, a 3-sided source: hexahedra only, and the only
 #    irregular nodes lie on one line along the sweep, through the inner node of the three blocks.
+#  - The quarter cylinder again with transfinite_three_sided="Polar": the quarter disc is collapsed at the axis, as a
+#    revolution about the axis would mesh it, so the mesh is hexahedra and a fan of wedges around the axis, every
+#    wedge with an edge on the axis.
 #  - The box again with different numbers of elements set on the two opposite sides of its source: refused.
 #  - The split box and the quarter cylinder again with QuadWild meshing the sources, which are given the same faces.
 #
@@ -59,6 +63,26 @@ def split_side_face(part):
     return geometry_part(part.name)
 
 
+def element_nodes(part_name):
+    """The corner nodes of every element of the mesh part, and the coordinates of the nodes."""
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    node_counts = [int(n) for n in data.node_counts]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part_name][0]
+    corners = {8: 8, 20: 8, 6: 6, 15: 6}
+    elements = []
+    for element_id in meshed.get_element_ids():
+        i = index[int(element_id)]
+        check(node_counts[i] in corners, part_name + " must be meshed by hexahedra and wedges only: an element has " +
+              str(node_counts[i]) + " nodes")
+        elements.append(connectivity[offsets[i]:offsets[i] + corners[node_counts[i]]])
+    coordinates = dict((int(node_id), list(c)) for node_id, c in zip(meshed.get_node_ids(),
+                                                                      meshed.get_node_coordinates()))
+    return elements, coordinates
+
+
 def hexahedron_valences(part_name):
     """The number of hexahedra around every node of the mesh part, and the coordinates of the nodes."""
     data = pmx.model.elements.get_data()
@@ -79,14 +103,12 @@ def hexahedron_valences(part_name):
     return valence, coordinates
 
 
-def sweep(part, face_id, algorithm_2d=None):
+def sweep(part, face_id, algorithm_2d=None, transfinite_three_sided=None):
     items = pmx.model.mesh.setup_items
     if SWEEP in list(items.get_names()):
         items.remove([SWEEP])
-    if algorithm_2d is None:
-        items.add_sweep_mesh(SWEEP, face_selection(part, face_id))
-    else:
-        items.add_sweep_mesh(SWEEP, face_selection(part, face_id), algorithm_2d=algorithm_2d)
+    items.add_sweep_mesh(SWEEP, face_selection(part, face_id), algorithm_2d=algorithm_2d,
+                         transfinite_three_sided=transfinite_three_sided)
     check(items[SWEEP].valid, "the sweep mesh item on " + part.name + " is not valid")
     return pmx.model.mesh.create(part.name)[part.name]
 
@@ -100,6 +122,64 @@ def test_split_box(box, algorithm_2d=None):
     print(what + ":", len(valence), "nodes,", len(irregular), "irregular")
     check(len(irregular) == 0, what + " is not swept from a structured source: " + str(len(irregular)) +
           " irregular nodes")
+
+
+def quarter_disc(cylinder):
+    data = cylinder.get_face_data()
+    ids = [int(i) for i in data.ids]
+    normals = [list(n) for n in data.normals]
+    flat = [ids[i] for i in range(data.count)
+            if any(abs(sum(a * b for a, b in zip(normals[i], normals[j]))) > 0.99 for j in range(data.count) if j != i)]
+    check(len(flat) == 2, "the quarter cylinder must have two quarter discs: " + str(flat))
+    return flat[0]
+
+
+def test_polar_quarter_cylinder(cylinder):
+    vertices = [list(c) for c in cylinder.get_vertex_data().coordinates]
+    size = min(max(c[k] for c in vertices) - min(c[k] for c in vertices) for k in range(3)) / 8
+    items = pmx.model.mesh.setup_items
+    items.add_meshing_parameters(SIZE, pmx.create.selection_by_ids("geometry", "geometry", "parts", [cylinder.id]),
+                                 relative_size=False, max_size=size, min_size=size / 4)
+    report = sweep(cylinder, quarter_disc(cylinder), transfinite_three_sided="Polar")
+    items.remove([SIZE])
+    check(report == "", "sweeping the quarter cylinder polar reported: " + report)
+    elements, coordinates = element_nodes(cylinder.name)
+    wedges = [element for element in elements if len(element) == 6]
+    hexahedra = [element for element in elements if len(element) == 8]
+    print("the polar quarter cylinder:", len(hexahedra), "hexahedra,", len(wedges), "wedges")
+    check(len(wedges) > 0 and len(hexahedra) > len(wedges),
+          "the polar quarter cylinder must be hexahedra and a fan of wedges: " + str(len(hexahedra)) + " hexahedra, " +
+          str(len(wedges)) + " wedges")
+    # The axis: the nodes every wedge of a layer shares, which are the nodes in the most wedges
+    wedge_count = {}
+    for wedge in wedges:
+        for node in wedge:
+            wedge_count[node] = wedge_count.get(node, 0) + 1
+    most = max(wedge_count.values())
+    axis = [node for node, count in wedge_count.items() if count == most]
+    check(most > 2 and len(axis) > 1, "the wedges of the polar quarter cylinder do not fan around one line")
+    spread = [max(coordinates[n][k] for n in axis) - min(coordinates[n][k] for n in axis) for k in range(3)]
+    check(sorted(spread)[1] < 1e-6 * max(spread), "the fan nodes of the polar quarter cylinder do not lie on one " +
+          "line along the sweep: " + str(spread))
+    # The nodes at the two ends of the axis are in half as many wedges, so the axis is every node on that line
+    start = coordinates[axis[0]]
+    direction = [coordinates[axis[-1]][k] - start[k] for k in range(3)]
+    length = sum(d * d for d in direction) ** 0.5
+    direction = [d / length for d in direction]
+
+    def distance_to_axis(node):
+        offset = [coordinates[node][k] - start[k] for k in range(3)]
+        along = sum(o * d for o, d in zip(offset, direction))
+        return sum((o - along * d) ** 2 for o, d in zip(offset, direction)) ** 0.5
+
+    axis_nodes = set(node for node in wedge_count if distance_to_axis(node) < 1e-6 * length)
+    on_axis = {}
+    for wedge in wedges:
+        k = sum(1 for node in wedge if node in axis_nodes)
+        on_axis[k] = on_axis.get(k, 0) + 1
+    check(list(on_axis.keys()) == [2], "every wedge of the polar quarter cylinder must have one edge on the axis: " +
+          "wedges by their nodes on the axis " + str(on_axis) + ", axis " + str(coordinates[axis[0]]) + ", vertices " +
+          str(vertices))
 
 
 def test_quarter_cylinder(cylinder, algorithm_2d=None):
@@ -169,6 +249,7 @@ def main():
     box = split_side_face(box)
     test_split_box(box)
     test_quarter_cylinder(cylinder)
+    test_polar_quarter_cylinder(cylinder)
     test_split_box(box, "QuadWild")
     test_quarter_cylinder(cylinder, "QuadWild")
     print("TEST PASSED")

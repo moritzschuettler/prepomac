@@ -4497,7 +4497,7 @@ namespace CaeMesh
                 BasePart part = _parts[partName];
                 if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
                 //
-                foreach (var face in TransfiniteFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteThreeSided,
+                foreach (var face in TransfiniteFaceDetector.Detect(this, part, gmshSetupItem.IsTransfiniteThreeSided,
                                                                     gmshSetupItem.TransfiniteFourSided,
                                                                     gmshSetupItem.TransfiniteAngleDeg))
                 {
