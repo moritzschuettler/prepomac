@@ -105,15 +105,15 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the element ID exists.", Arguments = "element_id: int", Returns = "bool")]
-        public bool contains(int elementId)
+        public bool contains(int element_id)
         {
-            return _meshService.GetElementIds(_resultName).Contains(elementId);
+            return _meshService.GetElementIds(_resultName).Contains(element_id);
         }
 
         [PythonAPI("Returns node IDs for the specified element ID.", Arguments = "element_id: int", Returns = "IntList")]
-        public IntListAPI get_node_ids(int elementId)
+        public IntListAPI get_node_ids(int element_id)
         {
-            return new IntListAPI(_meshService.GetElementInfo(_resultName, elementId).NodeIds);
+            return new IntListAPI(_meshService.GetElementInfo(_resultName, element_id).NodeIds);
         }
         public override string ToString()
         {

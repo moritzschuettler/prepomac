@@ -91,9 +91,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result mesh contains the specified part.", Arguments = "part_name: str", Returns = "bool")]
-        public bool contains(string partName)
+        public bool contains(string part_name)
         {
-            return _meshService.GetPartNames(_resultName).Contains(partName);
+            return _meshService.GetPartNames(_resultName).Contains(part_name);
         }
         [PythonAPI("Hides result parts using command history.", Arguments = "part_names: list[str] or str",
                    Returns = "None")]

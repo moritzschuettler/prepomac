@@ -19,10 +19,12 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The X history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string x_source { get { return _xSource.GetDisplayName(); } }
-        [PythonAPI("The Y history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string y_source { get { return _ySource.GetDisplayName(); } }
+        [PythonAPI("The X history component as [history_output_name, field_name, component_name], the form " +
+                   "the x_source argument takes.", Returns = "StringList")]
+        public StringListAPI x_source { get { return ResultHistoryOutputAPI.ToSourceNames(_xSource); } }
+        [PythonAPI("The Y history component as [history_output_name, field_name, component_name], the form " +
+                   "the y_source argument takes.", Returns = "StringList")]
+        public StringListAPI y_source { get { return ResultHistoryOutputAPI.ToSourceNames(_ySource); } }
 
 
         // Constructors
@@ -46,8 +48,8 @@ namespace APIs.Python
         public override string ToString()
         {
             return "HistoryOutputXYDraft(name=" + StringListAPI.ToDisplayString(name) +
-                   ", x_source=" + StringListAPI.ToDisplayString(x_source) +
-                   ", y_source=" + StringListAPI.ToDisplayString(y_source) + ")";
+                   ", x_source=" + StringListAPI.ToDisplayString(_xSource.GetDisplayName()) +
+                   ", y_source=" + StringListAPI.ToDisplayString(_ySource.GetDisplayName()) + ")";
         }
     }
 }

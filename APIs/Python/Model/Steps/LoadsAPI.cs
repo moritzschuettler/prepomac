@@ -686,7 +686,11 @@ namespace APIs.Python.Model
                                 object coordinateSystemName, object phaseDeg, object color)
         {
             _service.ApplyCommonValues(load, amplitudeName, coordinateSystemName, phaseDeg, color);
-            if (name != null) load.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(StepName, name, oldName);
+                load.Name = name;
+            }
             _service.Replace(StepName, oldName, load);
             //
             return this[load.Name];

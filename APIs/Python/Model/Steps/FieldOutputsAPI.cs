@@ -193,7 +193,11 @@ namespace APIs.Python.Model
                                        object lastIterations, object contactElements, object global)
         {
             _service.ApplyCommonValues(fieldOutput, lastIterations, contactElements, global);
-            if (name != null) fieldOutput.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(StepName, name, oldName);
+                fieldOutput.Name = name;
+            }
             _service.Replace(StepName, oldName, fieldOutput);
             //
             return this[fieldOutput.Name];

@@ -142,6 +142,15 @@ namespace APIs.Python
             types.Add("interpolator_type", typeof(InterpolatorEnum));
             types.Add("add_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
             types.Add("replace_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
+            types.Add("based_on", typeof(LimitPlotBasedOnEnum));
+            types.Add("ResultFieldOutputsAPI.create_median_filter.source", typeof(FieldResultFilterSourceTypeEnum));
+            types.Add("ResultFieldOutputsAPI.create_average_filter.source", typeof(FieldResultFilterSourceTypeEnum));
+            types.Add("ResultFieldOutputsAPI.create_smooth_filter.source", typeof(FieldResultFilterSourceTypeEnum));
+            types.Add("integral_type", typeof(IntegralTypeEnum));
+            types.Add("integral_result", typeof(IntegralResultEnum));
+            types.Add("cross_section", typeof(IntegrationScaleType));
+            types.Add("complex_result_type", typeof(ComplexResultTypeEnum));
+            types.Add("output_node_coordinates", typeof(OutputNodeCoordinatesEnum));
             // View
             types.Add("deformation_type", typeof(DeformationScaleFactorTypeEnum));
             types.Add("undeformed_model", typeof(UndeformedModelTypeEnum));

@@ -14,9 +14,9 @@ namespace APIs.Python
     public class ResultHistoryOutputFromMergedHistoriesAPI : ResultHistoryOutputAPI
     {
         // Properties
-        [PythonAPI("The merged history source components as 'history_output_name.field_name.component_name'.",
-                   Returns = "StringList")]
-        public StringListAPI sources { get { return new StringListAPI(GetSourceNames()); } }
+        [PythonAPI("The merged history source components, each as [history_output_name, field_name, " +
+                   "component_name], the form the source1 to source4 arguments take.", Returns = "list[StringList]")]
+        public StringListAPI[] sources { get { return ToSourceNames(ResolveFromMergedHistories().GetSources()); } }
 
 
         // Constructors
@@ -37,17 +37,10 @@ namespace APIs.Python
                                              "' is not a From Merged Histories history output.");
             return historyOutput;
         }
-        private string[] GetSourceNames()
-        {
-            HistoryResultData[] sources = ResolveFromMergedHistories().GetSources();
-            string[] sourceNames = new string[sources.Length];
-            for (int i = 0; i < sources.Length; i++) sourceNames[i] = sources[i].GetDisplayName();
-            return sourceNames;
-        }
         public override string ToString()
         {
             return "HistoryOutputFromMergedHistories(name=" + StringListAPI.ToDisplayString(_historyOutputName) +
-                   ", sources=" + GetSourceNames().Length + ")";
+                   ", sources=" + ResolveFromMergedHistories().GetSources().Length + ")";
         }
     }
 }

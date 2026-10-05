@@ -24,6 +24,14 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
+def check_raises(function, message):
+    try:
+        function()
+    except Exception:
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def get_component_name(increment, field_name, preferred_names):
     check(increment.fields.contains(field_name),
           "The field '%s' is not available in the last increment." % field_name)
@@ -76,16 +84,16 @@ try:
         name=LIMIT_NAME,
         field_name="STRESS",
         component_name=stress_component,
-        based_on="all_elements",
+        based_on="AllElements",
         item_limits={"All elements": 235.0}
     )
     output.filter1 = field_outputs.create_median_filter(
-        source="surface_nodes",
+        source="SurfaceNodes",
         layers=2,
         iterations=1
     )
     output.filter2 = field_outputs.create_smooth_filter(
-        source="all_nodes",
+        source="AllNodes",
         layers=1,
         iterations=2
     )
@@ -100,11 +108,11 @@ try:
         name=LIMIT_NAME,
         field_name="STRESS",
         component_name=stress_component,
-        based_on="all_elements",
+        based_on="AllElements",
         item_limits={"All elements": 250.0}
     )
     replacement.filter1 = field_outputs.create_average_filter(
-        source="surface_nodes",
+        source="SurfaceNodes",
         layers=2,
         iterations=1
     )
@@ -112,6 +120,25 @@ try:
     check(field_outputs.contains(LIMIT_NAME), "replace() removed the limit output.")
     check(replaced.name == LIMIT_NAME, "replace() returned the wrong limit output.")
     print("PASS: replace limit field output")
+
+    # OPTIONS: an option is the name of its enumeration, matched ignoring case like every model side
+    # option, and read back in the spelling the argument takes
+    limit_output = field_outputs[LIMIT_NAME]
+    check(limit_output.based_on == "AllElements", "based_on read back as %s" % limit_output.based_on)
+    check(limit_output.filter1.type == "Average" and limit_output.filter1.source == "SurfaceNodes",
+          "the filter read back as %s, %s" % (limit_output.filter1.type, limit_output.filter1.source))
+    check(field_outputs.create_median_filter(source="surfacenodes").source == "SurfaceNodes",
+          "the filter source is compared with its case")
+    check(field_outputs.create_smooth_filter().source == "AllNodes", "the default filter source is not AllNodes")
+    check(field_outputs.create_field_output_limit(LIMIT_NAME, "STRESS", stress_component, "allelements",
+                                                  {"All elements": 1.0}).based_on == "AllElements",
+          "based_on is compared with its case")
+    check_raises(lambda: field_outputs.create_median_filter(source="surface_nodes"),
+                 "the old filter source spelling was accepted")
+    check_raises(lambda: field_outputs.create_field_output_limit(LIMIT_NAME, "STRESS", stress_component,
+                                                                 "all_elements", {"All elements": 1.0}),
+                 "the old based_on spelling was accepted")
+    print("PASS: field output options")
 
     # ADD: envelope output. Its generated AVERAGE component is removed below.
     output = field_outputs.create_field_output_envelope(

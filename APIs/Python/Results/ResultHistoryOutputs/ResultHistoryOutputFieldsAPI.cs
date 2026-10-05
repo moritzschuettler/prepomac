@@ -95,9 +95,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history field exists in this history output.", Arguments = "field_name: str", Returns = "bool")]
-        public bool contains(string fieldName)
+        public bool contains(string field_name)
         {
-            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(fieldName);
+            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(field_name);
         }
         public override string ToString()
         {

@@ -160,6 +160,18 @@ def test_rejection_leaves_no_trace(items):
     before = list(items.get_names())
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=2.5),
                  "a fractional element count was accepted")
+    # A replace meant for another item type is refused naming the item and its type, not by a failed cast
+    message = raised_message(lambda: items.replace_shell_mmg(PREFIX + "Local", relative_hausdorff=0.003))
+    check(message is not None and PREFIX + "Local" in message and "LocalMeshSize" in message,
+          "a replace of another item type must name the item and its type: " + str(message))
+    # A name the model could not take is refused before the item is built or its defaults are fetched
+    for add in [lambda: items.add_local_mesh_size(PREFIX + "Bad Name", None, element_size=0.4),
+                lambda: items.add_meshing_parameters(PREFIX + "Bad#", None),
+                lambda: items.add_shell_mmg(" " + PREFIX + "Spaced", None)]:
+        message = raised_message(add)
+        check(message is not None and "'name'" in message, "a bad name must be refused naming it: " + str(message))
+    message = raised_message(lambda: items.replace_local_mesh_size(PREFIX + "Local", name=PREFIX + "Bad Name"))
+    check(message is not None and "'name'" in message, "a replace to a bad name must be refused: " + str(message))
     check(list(items.get_names()) == before, "a refused replacement changed the collection")
 
 

@@ -118,9 +118,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "result_name: str", Returns = "bool")]
-        public bool contains(string resultName)
+        public bool contains(string result_name)
         {
-            return _resolver.ContainsResult(resultName);
+            return _resolver.ContainsResult(result_name);
         }
 
         //

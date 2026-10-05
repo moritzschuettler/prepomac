@@ -40,14 +40,16 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing surface interaction using command history.",
-                   Arguments = "old_name: str, name: str, properties: SurfaceInteractionProperty or " +
-                               "list[SurfaceInteractionProperty]", Returns = "SurfaceInteraction")]
-        public SurfaceInteractionAPI replace(string old_name, string name, object properties)
+        [PythonAPI("Replaces an existing surface interaction using command history. A value that is not " +
+                   "given keeps the value the surface interaction already carries; the properties, when " +
+                   "given, replace the whole property list.",
+                   Arguments = "old_name: str, name: str = None, properties: SurfaceInteractionProperty or " +
+                               "list[SurfaceInteractionProperty] = None", Returns = "SurfaceInteraction")]
+        public SurfaceInteractionAPI replace(string old_name, string name = null, object properties = null)
         {
-            _service.Replace(old_name, _service.Build(name, properties));
+            SurfaceInteraction surfaceInteraction = _service.Replace(old_name, name, properties);
             //
-            return this[name];
+            return this[surfaceInteraction.Name];
         }
         //
         protected override string[] GetItemNames()

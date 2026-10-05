@@ -86,6 +86,7 @@ namespace APIs.Python
             AnalysisJob existing = ResolveJob(oldName);
             if (existing.JobStatus == JobStatus.Running || existing.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("A running analysis cannot be replaced.");
+            if (name != null) ValidateName(name, oldName);
             AnalysisJob job = existing.DeepClone();
             job.Name = name ?? existing.Name;
             if (femSolver != null)
@@ -224,8 +225,7 @@ namespace APIs.Python
         }
         public void ValidateName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())

@@ -70,9 +70,9 @@ namespace PrePoMax.Python.Journal
         }
         private static string GetViewName(ViewGeometryModelResults view)
         {
-            if (view == ViewGeometryModelResults.Geometry) return "Geometry";
-            if (view == ViewGeometryModelResults.Model) return "Model";
-            if (view == ViewGeometryModelResults.Results) return "Results";
+            if (view == ViewGeometryModelResults.Geometry) return "geometry";
+            if (view == ViewGeometryModelResults.Model) return "femodel";
+            if (view == ViewGeometryModelResults.Results) return "results";
             //
             throw new NotSupportedException("the tree view " + view + " has no name in the API");
         }

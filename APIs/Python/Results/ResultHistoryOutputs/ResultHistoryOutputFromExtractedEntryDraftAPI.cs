@@ -19,8 +19,9 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The source history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string source { get { return _source.GetDisplayName(); } }
+        [PythonAPI("The source history component as [history_output_name, field_name, component_name], the " +
+                   "form the source argument takes.", Returns = "StringList")]
+        public StringListAPI source { get { return ResultHistoryOutputAPI.ToSourceNames(_source); } }
         [PythonAPI("The name of the extracted history entry.", Returns = "str")]
         public string entry_name { get { return _entryName; } }
 
@@ -46,7 +47,7 @@ namespace APIs.Python
         public override string ToString()
         {
             return "HistoryOutputFromExtractedEntryDraft(name=" + StringListAPI.ToDisplayString(name) +
-                   ", source=" + StringListAPI.ToDisplayString(source) +
+                   ", source=" + StringListAPI.ToDisplayString(_source.GetDisplayName()) +
                    ", entry_name=" + StringListAPI.ToDisplayString(_entryName) + ")";
         }
     }

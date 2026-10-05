@@ -121,7 +121,7 @@ namespace APIs.Python.Model
         public void Rename(string partName, string newName)
         {
             BasePart part = ResolvePart(partName);
-            ValidateNewName(newName, partName);
+            ValidateNewName(newName, partName, "new_name");
             PartProperties properties = part.GetProperties();
             properties.Name = newName;
             //
@@ -133,25 +133,24 @@ namespace APIs.Python.Model
             List<string> names = new List<string>();
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
             {
-                if (field.FieldType.IsEnum && field.Name.EndsWith("Type")) names.Add(ToPythonName(field.Name));
+                if (IsElementTypeField(field)) names.Add(ToPythonName(field.Name));
             }
             names.Sort(StringComparer.OrdinalIgnoreCase);
             //
             return new StringListAPI(names.ToArray());
         }
-        public StringDoubleMapAPI GetElementTypes(string partName)
+        public Dictionary<string, string> GetElementTypes(string partName)
         {
             ResolvePart(partName);
             PartProperties properties = GetPartProperties(partName);
-            OrderedDictionary<string, double> values =
-                new OrderedDictionary<string, double>("Element types", StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> values = new Dictionary<string, string>();
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
             {
-                if (field.FieldType.IsEnum && field.Name.EndsWith("Type"))
-                    values.Add(ToPythonName(field.Name), Convert.ToDouble(field.GetValue(properties)));
+                if (IsElementTypeField(field))
+                    values.Add(ToPythonName(field.Name), field.GetValue(properties).ToString());
             }
             //
-            return new StringDoubleMapAPI(values);
+            return values;
         }
         // A part property dialog changes the name, the colour and the element types together, and the
         // history records that as one command, so the API applies them in one call too
@@ -163,9 +162,8 @@ namespace APIs.Python.Model
             //
             if (name != null)
             {
-                if (name.Trim().Length == 0)
-                    throw new PythonAPIException("The argument 'name' must not be empty.");
-                typeof(PartProperties).GetProperty("Name").SetValue(boxed, name.Trim(), null);
+                ValidateNewName(name, oldPartName, "name");
+                typeof(PartProperties).GetProperty("Name").SetValue(boxed, name, null);
             }
             if (color != null)
                 typeof(PartProperties).GetField("Color").SetValue(boxed, PythonColorConverter.ToColor(color, "color"));
@@ -176,18 +174,7 @@ namespace APIs.Python.Model
                 foreach (var entry in values)
                 {
                     FieldInfo field = ResolveElementTypeField(entry.Key);
-                    object parsed;
-                    try
-                    {
-                        parsed = Enum.Parse(field.FieldType, entry.Value.Trim(), true);
-                    }
-                    catch (Exception)
-                    {
-                        throw new PythonAPIException("The value '" + entry.Value + "' is not supported for the " +
-                                                     "element type '" + entry.Key + "'. Possible values are " +
-                                                     string.Join(", ", Enum.GetNames(field.FieldType)) + ".");
-                    }
-                    field.SetValue(boxed, parsed);
+                    field.SetValue(boxed, ParseElementTypeValue(field, entry.Key, entry.Value));
                 }
             }
             //
@@ -202,21 +189,11 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'value' must not be empty.");
             //
             FieldInfo field = ResolveElementTypeField(elementType);
+            object parsed = ParseElementTypeValue(field, elementType, value);
             EnsureCommandsAvailable();
             foreach (string partName in partNames)
             {
                 PartProperties properties = GetPartProperties(partName);
-                object parsed;
-                try
-                {
-                    parsed = Enum.Parse(field.FieldType, value.Trim(), true);
-                }
-                catch (Exception)
-                {
-                    throw new PythonAPIException("The value '" + value + "' is not supported for the element type '" +
-                                                 elementType + "'. Possible values are " +
-                                                 string.Join(", ", Enum.GetNames(field.FieldType)) + ".");
-                }
                 // PartProperties is a struct, so the field is set on a boxed copy and unboxed back
                 object boxed = properties;
                 field.SetValue(boxed, parsed);
@@ -329,13 +306,34 @@ namespace APIs.Python.Model
         {
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
             {
-                if (!field.FieldType.IsEnum || !field.Name.EndsWith("Type")) continue;
+                if (!IsElementTypeField(field)) continue;
                 if (string.Equals(ToPythonName(field.Name), elementType.Trim(), StringComparison.OrdinalIgnoreCase))
                     return field;
             }
             //
             throw new PythonAPIException("The element type '" + elementType + "' does not exist. Use " +
                                          "get_element_type_names() to list the supported names.");
+        }
+        // The type of the part describes the part rather than choosing an element, so it is not a slot
+        private static bool IsElementTypeField(FieldInfo field)
+        {
+            return field.FieldType.IsEnum && field.Name.EndsWith("Type") && field.Name != "PartType";
+        }
+        // Enum.Parse accepts any number, so a value is also checked to name a member of the enumeration
+        private static object ParseElementTypeValue(FieldInfo field, string elementType, string value)
+        {
+            object parsed = null;
+            try
+            {
+                parsed = Enum.Parse(field.FieldType, value.Trim(), true);
+            }
+            catch (Exception) { }
+            if (parsed == null || !Enum.IsDefined(field.FieldType, parsed))
+                throw new PythonAPIException("The value '" + value + "' is not supported for the element type '" +
+                                             elementType + "'. Possible values are " +
+                                             string.Join(", ", Enum.GetNames(field.FieldType)) + ".");
+            //
+            return parsed;
         }
         private static string ToPythonName(string fieldName)
         {
@@ -350,10 +348,9 @@ namespace APIs.Python.Model
             //
             return builder.ToString();
         }
-        private void ValidateNewName(string name, string allowedExistingName)
+        private void ValidateNewName(string name, string allowedExistingName, string argumentName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'new_name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, argumentName, allowedExistingName);
             if (PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in _modelResolver.GetAllMeshEntityNames())

@@ -113,15 +113,23 @@ def test_collection_verbs():
     check(not steps[name].active, "the step was not deactivated")
     steps.activate([name])
     check(steps[name].active, "the step was not activated")
-    # The model keys its steps without regard to case and surrounding spaces, and so does the name check
+    # The model keys its steps without regard to case, and so does the name check
     steps.add_static(PREFIX + "S2")
     message = raised_message(lambda: steps.rename(name, (PREFIX + "S2").lower()))
     check(message is not None and "already exists" in message,
           "a rename onto another step in other case must be refused: " + str(message))
     check(steps[name].name == name, "the refused rename changed the name to " + steps[name].name)
-    message = raised_message(lambda: steps.add_static(" " + name.upper() + " "))
+    message = raised_message(lambda: steps.add_static(name.upper()))
     check(message is not None and "already exists" in message,
           "a step named like another in other case must be refused: " + str(message))
+    # The model would trim surrounding spaces and throw on a space inside, so both are refused naming the argument
+    for bad_name in [" " + name + " ", PREFIX + "Bad Name"]:
+        message = raised_message(lambda: steps.add_static(bad_name))
+        check(message is not None and "'name'" in message,
+              "the step name " + repr(bad_name) + " must be refused: " + str(message))
+    message = raised_message(lambda: steps.replace_static(name, name=PREFIX + "Bad Name"))
+    check(message is not None and "'name'" in message, "a replace to a bad name must be refused: " + str(message))
+    check(steps.contains(name) and not steps.contains(PREFIX + "Bad Name"), "a refused step name was recorded")
     steps.replace_static(name, name=name.upper())
     check(steps[name.upper()].name == name.upper(), "a rename to the same name in other case must be allowed")
     steps.rename(name.upper(), name)

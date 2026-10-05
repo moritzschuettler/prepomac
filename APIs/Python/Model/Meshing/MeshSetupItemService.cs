@@ -61,9 +61,24 @@ namespace APIs.Python.Model
             //
             return item;
         }
-        public MeshSetupItem CloneItem(string name)
+        // A replace method edits one item type, so an item of another type is refused by name rather than by a
+        // failed cast
+        public TItem CloneItem<TItem>(string name) where TItem : MeshSetupItem
         {
             MeshSetupItem item = ResolveItem(name);
+            if (!(item is TItem))
+                throw new PythonAPIException("The mesh setup item '" + name + "' is a " + item.GetType().Name +
+                                             ", so it cannot be replaced by a " + typeof(TItem).Name +
+                                             ". Remove it and add the new type instead.");
+            //
+            return (TItem)CloneItem(item);
+        }
+        public void ValidateNewName(string name)
+        {
+            ValidateName(name, null);
+        }
+        private static MeshSetupItem CloneItem(MeshSetupItem item)
+        {
             if (item is MeshingParameters) return new MeshingParameters((MeshingParameters)item);
             if (item is LocalMeshSize) return new LocalMeshSize((LocalMeshSize)item);
             if (item is ShellMmg) return new ShellMmg((ShellMmg)item);
@@ -283,8 +298,7 @@ namespace APIs.Python.Model
         }
         private void ValidateName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())

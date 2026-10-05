@@ -51,7 +51,15 @@ def test_element_types():
     check("linear_hexa" in names, "linear_hexa is missing from " + str(names))
     #
     types = parts.get_element_types(part_name)
-    check("linear_hexa" in list(types.get_names()), "linear_hexa is missing from the part element types")
+    check("linear_hexa" in types, "linear_hexa is missing from the part element types")
+    check("part" not in types and "part" not in names, "the part type must not be an element type slot")
+    # The values read back are the names the setters take, so every slot round trips
+    for slot, value in types.items():
+        check(isinstance(value, str) and not value.isdigit(), "the slot " + slot + " reads back " + repr(value))
+        parts.set_element_type(part_name, slot, value)
+    check(dict(parts.get_element_types(part_name)) == dict(types), "the read back element types did not round trip")
+    parts.replace_properties(part_name, element_types=dict(types))
+    check(dict(parts.get_element_types(part_name)) == dict(types), "replace_properties did not round trip")
     # The cube is a linear hexahedral mesh, so the type can be switched between the supported values
     parts.set_element_type(part_name, "linear_hexa", "C3D8R")
     parts.set_element_type(part_name, "linear_hexa", "C3D8")
@@ -60,6 +68,14 @@ def test_element_types():
                  "an unknown element type must be rejected")
     check_raises(lambda: parts.set_element_type(part_name, "linear_hexa", "NotAValue"),
                  "an unknown element type value must be rejected")
+    # Enum.Parse accepts any number, so an undefined numeric value must be refused by name
+    check_raises(lambda: parts.set_element_type(part_name, "linear_hexa", "999"),
+                 "an undefined numeric element type value must be rejected")
+    check_raises(lambda: parts.replace_properties(part_name, element_types={"linear_hexa": "999"}),
+                 "an undefined numeric element type value must be rejected by replace_properties")
+    check_raises(lambda: parts.set_element_type(part_name, "part", "Solid"),
+                 "the part type must not be settable as an element type")
+    check(parts.get_element_types(part_name)["linear_hexa"] == "C3D8", "a rejected value changed the element type")
 
 
 def test_activate_deactivate():

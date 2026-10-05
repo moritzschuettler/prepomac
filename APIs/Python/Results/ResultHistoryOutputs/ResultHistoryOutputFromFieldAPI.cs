@@ -18,19 +18,13 @@ namespace APIs.Python
         public string field_name { get { return ResolveFromField().FieldName; } }
         [PythonAPI("The selected field component names.", Returns = "StringList")]
         public StringListAPI component_names { get { return new StringListAPI(ResolveFromField().ComponentNames); } }
-        [PythonAPI("The region type. Possible values are 'selection', 'node_set', and 'surface'.", Returns = "str")]
-        public string region_type { get { return FormatRegionType(ResolveFromField().RegionType); } }
+        [PythonAPI("The region type: Selection, NodeSetName or SurfaceName.", Returns = "str")]
+        public string region_type { get { return ResolveFromField().RegionType.ToString(); } }
         [PythonAPI("The region name, or None when the region is a selection.", Returns = "str or None")]
         public string region_name { get { return FormatRegionName(ResolveFromField()); } }
-        [PythonAPI("The complex result representation.", Returns = "str")]
-        public string complex_result_type
-        {
-            get
-            {
-                return ResultHistoryOutputFromFieldDraftAPI.FormatComplexResultType(
-                    ResolveFromField().ComplexResultType);
-            }
-        }
+        [PythonAPI("The complex result representation: Real, Imaginary, Magnitude, Phase, RealAtAngle, Max, " +
+                   "AngleAtMax, Min or AngleAtMin.", Returns = "str")]
+        public string complex_result_type { get { return ResolveFromField().ComplexResultType.ToString(); } }
         [PythonAPI("The complex result angle in degrees.", Returns = "float")]
         public double complex_angle_deg { get { return ResolveFromField().ComplexAngleDeg; } }
         [PythonAPI("The result step ID, or None when all steps are used.", Returns = "int or None")]
@@ -53,15 +47,10 @@ namespace APIs.Python
         }
         [PythonAPI("Whether harmonic oscillations are included.", Returns = "bool")]
         public bool harmonic { get { return ResolveFromField().Harmonic; } }
-        [PythonAPI("Node coordinate output. Possible values are 'off', 'undeformed', and 'deformed'.",
-                   Returns = "str")]
+        [PythonAPI("Node coordinate output: Off, Undeformed or Deformed.", Returns = "str")]
         public string output_node_coordinates
         {
-            get
-            {
-                return ResultHistoryOutputFromFieldDraftAPI.FormatOutputNodeCoordinates(
-                    ResolveFromField().OutputNodeCoordinates);
-            }
+            get { return ResolveFromField().OutputNodeCoordinates.ToString(); }
         }
 
 

@@ -54,9 +54,9 @@ namespace APIs.Python
             return _dataService.GetExtremes(_resultName, _stepId, _incrementId, _fieldName, _componentName);
         }
         [PythonAPI("Returns this component value for one node ID.", Arguments = "node_id: int", Returns = "float")]
-        public float get_value(int nodeId)
+        public float get_value(int node_id)
         {
-            return _dataService.GetNodalValue(_resultName, _stepId, _incrementId, _fieldName, _componentName, nodeId);
+            return _dataService.GetNodalValue(_resultName, _stepId, _incrementId, _fieldName, _componentName, node_id);
         }
         public override string ToString()
         {

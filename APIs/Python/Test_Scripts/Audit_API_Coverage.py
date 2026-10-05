@@ -38,8 +38,6 @@ EMITTED_NAME_EXCEPTIONS = {
     "femodel": "a selection view",
     "edges": "a selection target",
     "geometry_surfaces": "a selection target",
-    "all_nodes": "a field filter source",
-    "surface_nodes": "a field filter source",
     "cavity_name": "an argument name",
     "coefficient_amplitude_name": "an argument name",
     "distribution_name": "an argument name",

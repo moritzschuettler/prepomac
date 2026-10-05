@@ -18,19 +18,8 @@ namespace APIs.Python
         public string field_name { get { return ResolveLimit().FieldName; } }
         [PythonAPI("The source field component name.", Returns = "str")]
         public string component_name { get { return ResolveLimit().ComponentName; } }
-        [PythonAPI("How limits are assigned. Possible values are 'parts', 'element_sets', and 'all_elements'.",
-                   Returns = "str")]
-        public string based_on
-        {
-            get
-            {
-                LimitPlotBasedOnEnum basedOn = ResolveLimit().LimitPlotBasedOn;
-                if (basedOn == LimitPlotBasedOnEnum.Parts) return "parts";
-                if (basedOn == LimitPlotBasedOnEnum.ElementSets) return "element_sets";
-                if (basedOn == LimitPlotBasedOnEnum.AllElements) return "all_elements";
-                throw new PythonAPIException("Unsupported limit assignment type '" + basedOn + "'.");
-            }
-        }
+        [PythonAPI("How limits are assigned: Parts, ElementSets or AllElements.", Returns = "str")]
+        public string based_on { get { return ResolveLimit().LimitPlotBasedOn.ToString(); } }
         [PythonAPI("Limit values indexed by part or element set name.", Returns = "StringDoubleMap")]
         public StringDoubleMapAPI item_limits { get { return new StringDoubleMapAPI(ResolveLimit().ItemNameLimit); } }
 

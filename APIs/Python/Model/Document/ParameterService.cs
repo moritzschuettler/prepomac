@@ -104,8 +104,8 @@ namespace APIs.Python.Model
             HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < parameterNames.Length; i++)
             {
-                ValidateNameFormat(parameterNames[i], "names");
-                parameterNames[i] = parameterNames[i].Trim();
+                if (parameterNames[i] != null) parameterNames[i] = parameterNames[i].Trim();
+                ValidateNameFormat(parameterNames[i], "names", null);
                 if (!usedNames.Add(parameterNames[i]))
                     throw new PythonAPIException("The parameter '" + parameterNames[i] + "' is given more than once.");
             }
@@ -191,7 +191,7 @@ namespace APIs.Python.Model
         }
         private void ValidateName(string name, string allowedExistingName)
         {
-            ValidateNameFormat(name, "name");
+            ValidateNameFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
@@ -200,10 +200,9 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The parameter '" + name + "' already exists.");
             }
         }
-        private static void ValidateNameFormat(string name, string argumentName)
+        private static void ValidateNameFormat(string name, string argumentName, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, argumentName, allowedExistingName);
             // The parameter name is used inside equations, so it must not carry the minus character
             if (name.Contains("-"))
                 throw new PythonAPIException("The parameter name must not contain the hyphen character.");

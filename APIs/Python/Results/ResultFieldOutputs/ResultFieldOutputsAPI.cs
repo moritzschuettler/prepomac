@@ -95,14 +95,14 @@ namespace APIs.Python
 
         [PythonAPI("Returns true if the result field output exists.",
                    Arguments = "field_output_name: str", Returns = "bool")]
-        public bool contains(string fieldOutputName)
+        public bool contains(string field_output_name)
         {
-            return _service.GetNames(_resultName).Contains(fieldOutputName);
+            return _service.GetNames(_resultName).Contains(field_output_name);
         }
 
-        [PythonAPI("Creates a limit field-output draft. Possible based_on values are 'parts', " +
-                   "'element_sets', and 'all_elements'. For 'all_elements', item_limits must contain " +
-                   "one item named 'All elements'. This does not modify the result.",
+        [PythonAPI("Creates a limit field-output draft. Possible based_on values are Parts, ElementSets " +
+                   "and AllElements. For AllElements, item_limits must contain one item named 'All elements'. " +
+                   "This does not modify the result.",
                    Arguments = "name: str, field_name: str, component_name: str, based_on: str, " +
                                "item_limits: dict[str, float]",
                    Returns = "FieldOutputLimitDraft")]
@@ -143,31 +143,31 @@ namespace APIs.Python
             return _service.CreateFieldOutputCoordinateSystemTransform(name, field_name, coordinate_system_name);
         }
 
-        [PythonAPI("Creates a median field-output filter. Possible source values are " +
-                   "'all_nodes' and 'surface_nodes'.",
-                   Arguments = "source: str = 'all_nodes', layers: int = 1, iterations: int = 1",
+        [PythonAPI("Creates a median field-output filter. Possible source values are AllNodes and " +
+                   "SurfaceNodes.",
+                   Arguments = "source: str = 'AllNodes', layers: int = 1, iterations: int = 1",
                    Returns = "FieldOutputFilter")]
-        public ResultFieldOutputFilterAPI create_median_filter(string source = "all_nodes", int layers = 1,
+        public ResultFieldOutputFilterAPI create_median_filter(string source = "AllNodes", int layers = 1,
                                                                int iterations = 1)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Median, source, layers, iterations);
         }
 
-        [PythonAPI("Creates an average field-output filter. Possible source values are " +
-                   "'all_nodes' and 'surface_nodes'.",
-                   Arguments = "source: str = 'all_nodes', layers: int = 1, iterations: int = 1",
+        [PythonAPI("Creates an average field-output filter. Possible source values are AllNodes and " +
+                   "SurfaceNodes.",
+                   Arguments = "source: str = 'AllNodes', layers: int = 1, iterations: int = 1",
                    Returns = "FieldOutputFilter")]
-        public ResultFieldOutputFilterAPI create_average_filter(string source = "all_nodes", int layers = 1,
+        public ResultFieldOutputFilterAPI create_average_filter(string source = "AllNodes", int layers = 1,
                                                                 int iterations = 1)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Average, source, layers, iterations);
         }
 
-        [PythonAPI("Creates a smooth field-output filter. Possible source values are " +
-                   "'all_nodes' and 'surface_nodes'.",
-                   Arguments = "source: str = 'all_nodes', layers: int = 1, iterations: int = 1",
+        [PythonAPI("Creates a smooth field-output filter. Possible source values are AllNodes and " +
+                   "SurfaceNodes.",
+                   Arguments = "source: str = 'AllNodes', layers: int = 1, iterations: int = 1",
                    Returns = "FieldOutputFilter")]
-        public ResultFieldOutputFilterAPI create_smooth_filter(string source = "all_nodes", int layers = 1,
+        public ResultFieldOutputFilterAPI create_smooth_filter(string source = "AllNodes", int layers = 1,
                                                                int iterations = 1)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Smooth, source, layers, iterations);
@@ -339,10 +339,8 @@ namespace APIs.Python
         private static ResultFieldOutputFilterAPI CreateFilter(FieldResultFilterTypeEnum type, string source,
                                                                 int layers, int iterations)
         {
-            FieldResultFilterSourceTypeEnum sourceType;
-            if (source == "all_nodes") sourceType = FieldResultFilterSourceTypeEnum.AllNodes;
-            else if (source == "surface_nodes") sourceType = FieldResultFilterSourceTypeEnum.SurfaceNodes;
-            else throw new PythonAPIException("The argument 'source' must be 'all_nodes' or 'surface_nodes'.");
+            FieldResultFilterSourceTypeEnum sourceType =
+                PythonValueConverter.ToEnum<FieldResultFilterSourceTypeEnum>(source, "source");
             if (layers < 1) throw new PythonAPIException("The argument 'layers' must be at least 1.");
             if (iterations < 1) throw new PythonAPIException("The argument 'iterations' must be at least 1.");
             return new ResultFieldOutputFilterAPI(type, sourceType, layers, iterations);

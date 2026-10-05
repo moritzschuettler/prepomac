@@ -83,7 +83,7 @@ namespace APIs.Python.Model
         [PythonAPI("Returns true if an item with the specified name exists.", Arguments = "name: str", Returns = "bool")]
         public bool contains(string name)
         {
-            return GetItemNames().Contains(name);
+            return PythonNameComparer.Contains(GetItemNames(), name);
         }
 
         [PythonAPI("Returns the item with the specified name.", Arguments = "name: str")]
@@ -142,7 +142,7 @@ namespace APIs.Python.Model
         public void rename(string old_name, string new_name)
         {
             TItem item = ResolveItem(old_name);
-            ValidateNewName(new_name, "new_name");
+            PythonNameComparer.ValidateFormat(new_name, "new_name", old_name, GetAdditionalNameCharacters());
             if (string.Equals(old_name, new_name)) return;
             //
             RenameItem(item, new_name);
@@ -162,6 +162,11 @@ namespace APIs.Python.Model
         protected virtual void DuplicateItems(string[] names)
         {
             throw new PythonAPIException("Duplicating a " + _itemTypeName + " is not supported.");
+        }
+        // Only the characters a plain model item name takes, unless the item type accepts more
+        protected virtual HashSet<char> GetAdditionalNameCharacters()
+        {
+            return null;
         }
         // Controller.ActivateDeactivate only knows a fixed set of item types
         protected virtual void SetItemsActive(TItem[] items, bool active)
@@ -196,11 +201,6 @@ namespace APIs.Python.Model
             foreach (string name in resolved) ResolveItem(name);
             //
             return resolved;
-        }
-        protected void ValidateNewName(string name, string argumentName)
-        {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
         }
     }
 }

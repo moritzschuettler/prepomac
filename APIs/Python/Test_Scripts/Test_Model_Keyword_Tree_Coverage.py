@@ -26,6 +26,16 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def check_refused(function, fragment, message):
+    # The refusal must be the API's own, which names what is wrong, not an exception of the tree
+    try:
+        function()
+    except Exception as ex:
+        check(fragment in str(ex), message + ": " + str(ex)[0:200])
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def generated_roots(generated):
     return [entry for entry in generated if len(entry.indices) == 1]
 
@@ -111,53 +121,123 @@ def test_tree():
     tree = pmx.model.tree
     part_names = list(pmx.model.parts.get_names())
     check(len(part_names) > 0, "a mesh part is required")
-    group = tree.create_group('Model', 'parts', 'PyTest_Group', item_names=[part_names[0]])
+    group = tree.create_group('femodel', 'parts', 'PyTest_Group', item_names=[part_names[0]])
     check(len(group) > 0, "create_group returned no group id")
-    tree.rename_group('Model', 'parts', group, 'PyTest_Group_Renamed')
-    tree.move_items('Model', 'parts', [part_names[0]])
-    tree.move_group('Model', 'parts', group)
-    tree.remove_groups('Model', 'parts', group)
+    tree.rename_group('femodel', 'parts', group, 'PyTest_Group_Renamed')
+    tree.move_items('femodel', 'parts', [part_names[0]])
+    tree.move_group('femodel', 'parts', group)
+    tree.remove_groups('femodel', 'parts', group)
     #
     check_raises(lambda: tree.create_group('NotAView', 'parts', 'PyTest_Bad'), "an unknown view was accepted")
-    check_raises(lambda: tree.create_group('Model', 'widgets', 'PyTest_Bad'),
+    check_raises(lambda: tree.create_group('femodel', 'widgets', 'PyTest_Bad'),
                  "an unknown item type was accepted")
-    check_raises(lambda: tree.create_group('Model', 'parts', 'PyTest_Bad', group_id='not-a-guid'),
+    check_raises(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', group_id='not-a-guid'),
                  "an invalid group id was accepted")
-    check_raises(lambda: tree.create_group('Model', 'parts', '   '), "an empty group name was accepted")
+    check_raises(lambda: tree.create_group('femodel', 'parts', '   '), "an empty group name was accepted")
+
+
+def test_tree_views():
+    tree = pmx.model.tree
+    # The tree names its views the way the selections and pmx.view do, ignoring case like them
+    check(list(tree.get_item_types('FEModel')) == list(tree.get_item_types('femodel')),
+          "the view name is compared with its case")
+    check('mesh_setup_items' in list(tree.get_item_types('geometry')), "the geometry view is not offered")
+    check('surfaces' in list(tree.get_item_types('results')), "the results view is not offered")
+    # The old name of the finite element model view is gone rather than kept beside the new one
+    for old_name in ('Model', 'fe_model'):
+        check_refused(lambda: tree.get_item_types(old_name), "'femodel'",
+                      "the old view name '" + old_name + "' was accepted")
+
+
+def test_tree_existence():
+    tree = pmx.model.tree
+    part_names = list(pmx.model.parts.get_names())
+    missing_id = '00000000-0000-0000-0000-000000000001'
+    group = tree.create_group('femodel', 'parts', 'PyTest_Exists', item_names=[part_names[0]])
+    second = tree.create_group('femodel', 'parts', 'PyTest_Exists_Second')
+    try:
+        # A group id, an item name, a step and an index are checked against the tree before anything
+        # is recorded, and the refusal names the argument instead of surfacing a dictionary exception
+        check_refused(lambda: tree.rename_group('femodel', 'parts', missing_id, 'PyTest_Bad'), "group_id",
+                      "renaming an unknown group was accepted")
+        check_refused(lambda: tree.remove_groups('femodel', 'parts', [missing_id]), "group_ids",
+                      "removing an unknown group was accepted")
+        check_refused(lambda: tree.remove_groups('femodel', 'parts', [group, group]), "more than once",
+                      "removing a group twice in one call was accepted")
+        check_refused(lambda: tree.move_group('femodel', 'parts', missing_id), "group_id",
+                      "moving an unknown group was accepted")
+        check_refused(lambda: tree.move_group('femodel', 'parts', group, target_group_id=missing_id),
+                      "target_group_id", "moving a group into an unknown group was accepted")
+        check_refused(lambda: tree.move_group('femodel', 'parts', group, target_group_id=group), "into itself",
+                      "moving a group into itself was accepted")
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', parent_group_id=missing_id),
+                      "parent_group_id", "a group under an unknown parent was accepted")
+        check_refused(lambda: tree.move_items('femodel', 'parts', ['__missing_part__']), "item_names",
+                      "moving an unknown item was accepted")
+        check_refused(lambda: tree.move_items('femodel', 'parts', [part_names[0], part_names[0]]),
+                      "more than once", "moving one item twice was accepted")
+        check_refused(lambda: tree.move_items('femodel', 'parts', [part_names[0]], target_group_id=missing_id),
+                      "target_group_id", "moving items into an unknown group was accepted")
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', item_names=['__missing_part__']),
+                      "item_names", "a group holding an unknown item was accepted")
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', group_id=group), "already exists",
+                      "a duplicate group id was accepted")
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Exists_second'), "already exists",
+                      "a sibling group of the same name was accepted")
+        check_refused(lambda: tree.rename_group('femodel', 'parts', second, 'PyTest_Exists'), "already exists",
+                      "renaming onto a sibling group name was accepted")
+        # A part group shares the names of the parts themselves
+        check_refused(lambda: tree.create_group('femodel', 'parts', part_names[0]), "part group",
+                      "a part group named as a part was accepted")
+        # The index may name the position after the last entry, but no further
+        top_level = len(part_names) - 1 + 2
+        check_refused(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', target_index=top_level + 1),
+                      "target_index", "a group index past the last position was accepted")
+        check_refused(lambda: tree.move_items('femodel', 'parts', [part_names[0]], target_group_id=second,
+                                              target_index=1),
+                      "target_index", "an item index past the end of an empty group was accepted")
+        check_refused(lambda: tree.move_group('femodel', 'parts', second, target_index=top_level),
+                      "target_index", "a group index past the last position was accepted")
+        tree.move_group('femodel', 'parts', second, target_index=top_level - 1)
+        # A step owned collection names a step that exists
+        check_refused(lambda: tree.create_group('femodel', 'loads', 'PyTest_Bad', step_name='__missing_step__'),
+                      "__missing_step__", "an unknown owning step was accepted")
+    finally:
+        tree.remove_groups('femodel', 'parts', [group, second])
 
 
 def test_tree_item_types():
     tree = pmx.model.tree
     # Every collection the application can organize has a name here, and each one is exercised
-    model_types = list(tree.get_item_types('Model'))
+    model_types = list(tree.get_item_types('femodel'))
     for name in ('materials', 'node_sets', 'coordinate_systems', 'jobs', 'loads'):
-        check(name in model_types, "the Model view does not offer " + name)
-    check('parts' in list(tree.get_item_types('Geometry')), "the Geometry view does not offer parts")
-    check('surfaces' in list(tree.get_item_types('Results')), "the Results view does not offer surfaces")
+        check(name in model_types, "the femodel view does not offer " + name)
+    check('parts' in list(tree.get_item_types('geometry')), "the geometry view does not offer parts")
+    check('surfaces' in list(tree.get_item_types('results')), "the results view does not offer surfaces")
     # The steps are not a groupable collection, and the controller has no layout for them
     check('steps' not in model_types, "steps are offered although they cannot be organized")
-    check_raises(lambda: tree.create_group('Model', 'steps', 'PyTest_Bad'), "steps were accepted")
+    check_raises(lambda: tree.create_group('femodel', 'steps', 'PyTest_Bad'), "steps were accepted")
     #
     # A collection the tree API could not reach before is now organized like any other
     material_name = PREFIX + "Material"
     if material_name not in list(pmx.model.materials.get_names()):
         pmx.model.materials.add(material_name, pmx.create.elastic(210000, 0.3))
-    group = tree.create_group('Model', 'materials', GROUP_NAME, item_names=[material_name])
-    tree.move_items('Model', 'materials', [material_name], target_group_id=group)
-    tree.remove_groups('Model', 'materials', group)
+    group = tree.create_group('femodel', 'materials', GROUP_NAME, item_names=[material_name])
+    tree.move_items('femodel', 'materials', [material_name], target_group_id=group)
+    tree.remove_groups('femodel', 'materials', group)
     pmx.model.materials.remove([material_name])
     # A step owned collection is named by its step, and only such a collection takes one
     step_name = PREFIX + "Step"
     if step_name not in list(pmx.model.steps.get_names()):
         pmx.model.steps.add_static(step_name)
-    check_raises(lambda: tree.create_group('Model', 'loads', 'PyTest_Bad'),
+    check_raises(lambda: tree.create_group('femodel', 'loads', 'PyTest_Bad'),
                  "a step owned collection without its step was accepted")
-    check_raises(lambda: tree.create_group('Model', 'loads', 'PyTest_Bad', step_name='__missing_step__'),
+    check_raises(lambda: tree.create_group('femodel', 'loads', 'PyTest_Bad', step_name='__missing_step__'),
                  "an unknown owning step was accepted")
-    step_group = tree.create_group('Model', 'loads', GROUP_NAME, step_name=step_name)
-    tree.remove_groups('Model', 'loads', step_group, step_name=step_name)
+    step_group = tree.create_group('femodel', 'loads', GROUP_NAME, step_name=step_name)
+    tree.remove_groups('femodel', 'loads', step_group, step_name=step_name)
     pmx.model.steps.remove([step_name])
-    check_raises(lambda: tree.create_group('Model', 'parts', 'PyTest_Bad', step_name=step_name),
+    check_raises(lambda: tree.create_group('femodel', 'parts', 'PyTest_Bad', step_name=step_name),
                  "a step name on a collection no step owns was accepted")
 
 
@@ -167,6 +247,8 @@ def main():
     test_user_keywords(generated)
     test_overrides(generated)
     test_tree()
+    test_tree_views()
+    test_tree_existence()
     test_tree_item_types()
     print("TEST PASSED")
 

@@ -14,10 +14,12 @@ namespace APIs.Python
     public class ResultHistoryOutputXYAPI : ResultHistoryOutputAPI
     {
         // Properties
-        [PythonAPI("The X history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string x_source { get { return ResolveXY().XSource.GetDisplayName(); } }
-        [PythonAPI("The Y history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string y_source { get { return ResolveXY().YSource.GetDisplayName(); } }
+        [PythonAPI("The X history component as [history_output_name, field_name, component_name], the form " +
+                   "the x_source argument takes.", Returns = "StringList")]
+        public StringListAPI x_source { get { return ToSourceNames(ResolveXY().XSource); } }
+        [PythonAPI("The Y history component as [history_output_name, field_name, component_name], the form " +
+                   "the y_source argument takes.", Returns = "StringList")]
+        public StringListAPI y_source { get { return ToSourceNames(ResolveXY().YSource); } }
 
 
         // Constructors

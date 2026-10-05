@@ -60,6 +60,7 @@ namespace APIs.Python.Model
                                                        object merge_compound_parts = null,
                                                        object merge_cells = null)
         {
+            _service.ValidateNewName(name);
             MeshingParameters item = _service.CreateDefaultMeshingParameters(name);
             _service.PrepareItem(item, name, selection);
             _service.ApplyPartDefaults(item);
@@ -88,7 +89,7 @@ namespace APIs.Python.Model
                                                            object merge_compound_parts = null,
                                                            object merge_cells = null)
         {
-            MeshingParameters item = (MeshingParameters)_service.CloneItem(old_name);
+            MeshingParameters item = _service.CloneItem<MeshingParameters>(old_name);
             bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
                                           elements_per_curve, second_order, midside_nodes_on_geometry,
                                           relative_size, factor_max, factor_min, split_compound_mesh,
@@ -110,6 +111,7 @@ namespace APIs.Python.Model
             if (element_size == null && number_of_elements == null)
                 throw new PythonAPIException("Either 'element_size' or 'number_of_elements' must be given.");
             //
+            _service.ValidateNewName(name);
             LocalMeshSize item = new LocalMeshSize(name);
             ApplyLocalMeshSize(item, element_size, number_of_elements);
             _service.Add(item, name, selection);
@@ -124,7 +126,7 @@ namespace APIs.Python.Model
                                                         SelectionAPI selection = null, object element_size = null,
                                                         object number_of_elements = null)
         {
-            LocalMeshSize item = (LocalMeshSize)_service.CloneItem(old_name);
+            LocalMeshSize item = _service.CloneItem<LocalMeshSize>(old_name);
             ApplyLocalMeshSize(item, element_size, number_of_elements);
             return Replace(old_name, name, item, selection);
         }
@@ -137,6 +139,7 @@ namespace APIs.Python.Model
                                               object relative_hausdorff = null, object hausdorff = null,
                                               object keep_model_edges = null)
         {
+            _service.ValidateNewName(name);
             ShellMmg item = _service.CreateDefaultShellMmg(name);
             _service.PrepareItem(item, name, selection);
             _service.ApplyPartDefaults(item);
@@ -154,7 +157,7 @@ namespace APIs.Python.Model
                                                   object relative_hausdorff = null, object hausdorff = null,
                                                   object keep_model_edges = null)
         {
-            ShellMmg item = (ShellMmg)_service.CloneItem(old_name);
+            ShellMmg item = _service.CloneItem<ShellMmg>(old_name);
             bool valuesGiven = IsAnyGiven(relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
@@ -167,6 +170,7 @@ namespace APIs.Python.Model
                                                        int number_of_layers = 1, object offset = null,
                                                        bool keep_model_edges = false)
         {
+            _service.ValidateNewName(name);
             ThickenShellMesh item = new ThickenShellMesh(name);
             item.Thickness = PythonValueConverter.ToFiniteDouble(thickness, "thickness");
             item.NumberOfLayers = number_of_layers;
@@ -185,7 +189,7 @@ namespace APIs.Python.Model
                                                            object number_of_layers = null, object offset = null,
                                                            object keep_model_edges = null)
         {
-            ThickenShellMesh item = (ThickenShellMesh)_service.CloneItem(old_name);
+            ThickenShellMesh item = _service.CloneItem<ThickenShellMesh>(old_name);
             if (thickness != null) item.Thickness = PythonValueConverter.ToFiniteDouble(thickness, "thickness");
             if (number_of_layers != null)
                 item.NumberOfLayers = PythonValueConverter.ToInt(number_of_layers, "number_of_layers");
@@ -205,6 +209,7 @@ namespace APIs.Python.Model
                                                 object transfinite_four_sided = null,
                                                 object transfinite_angle = null)
         {
+            _service.ValidateNewName(name);
             NetgenMesh item = new NetgenMesh(name);
             ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
                             transfinite_four_sided, transfinite_angle);
@@ -223,7 +228,7 @@ namespace APIs.Python.Model
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle = null)
         {
-            NetgenMesh item = (NetgenMesh)_service.CloneItem(old_name);
+            NetgenMesh item = _service.CloneItem<NetgenMesh>(old_name);
             ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
                             transfinite_four_sided, transfinite_angle);
             return Replace(old_name, name, item, selection);
@@ -244,6 +249,7 @@ namespace APIs.Python.Model
                                                      string optimize_first_order_solid = null,
                                                      string optimize_high_order = null)
         {
+            _service.ValidateNewName(name);
             TetrahedralGmsh item = new TetrahedralGmsh(name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                                  transfinite_three_sided, transfinite_four_sided, optimize_first_order_solid,
@@ -265,7 +271,7 @@ namespace APIs.Python.Model
                                                          string optimize_first_order_solid = null,
                                                          string optimize_high_order = null)
         {
-            TetrahedralGmsh item = (TetrahedralGmsh)_service.CloneItem(old_name);
+            TetrahedralGmsh item = _service.CloneItem<TetrahedralGmsh>(old_name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                                  transfinite_three_sided, transfinite_four_sided, optimize_first_order_solid,
                                  optimize_high_order);
@@ -286,6 +292,7 @@ namespace APIs.Python.Model
                                                object transfinite_angle = null,
                                                string optimize_first_order_shell = null)
         {
+            _service.ValidateNewName(name);
             ShellGmsh item = new ShellGmsh(name);
             ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
@@ -306,7 +313,7 @@ namespace APIs.Python.Model
                                                    object transfinite_angle = null,
                                                    string optimize_first_order_shell = null)
         {
-            ShellGmsh item = (ShellGmsh)_service.CloneItem(old_name);
+            ShellGmsh item = _service.CloneItem<ShellGmsh>(old_name);
             ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle,
                            optimize_first_order_shell);
@@ -322,6 +329,7 @@ namespace APIs.Python.Model
                                                      string algorithm_3d = null, object recombine = null,
                                                      object transfinite_angle = null)
         {
+            _service.ValidateNewName(name);
             TransfiniteMesh item = new TransfiniteMesh(name);
             item.AllowPyramidElements = allow_pyramid_elements;
             ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle);
@@ -338,7 +346,7 @@ namespace APIs.Python.Model
                                                          string algorithm_2d = null, string algorithm_3d = null,
                                                          object recombine = null, object transfinite_angle = null)
         {
-            TransfiniteMesh item = (TransfiniteMesh)_service.CloneItem(old_name);
+            TransfiniteMesh item = _service.CloneItem<TransfiniteMesh>(old_name);
             if (allow_pyramid_elements != null)
                 item.AllowPyramidElements = PythonValueConverter.ToBool(allow_pyramid_elements,
                                                                         "allow_pyramid_elements");
@@ -378,6 +386,7 @@ namespace APIs.Python.Model
                                                string quad_wild_flow_profile = null, object quad_wild_alpha = null,
                                                object quad_wild_smooth = null, string symmetry = null)
         {
+            _service.ValidateNewName(name);
             SweepMesh item = new SweepMesh(name);
             if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
             item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
@@ -407,7 +416,7 @@ namespace APIs.Python.Model
                                                    string quad_wild_flow_profile = null, object quad_wild_alpha = null,
                                                    object quad_wild_smooth = null, string symmetry = null)
         {
-            SweepMesh item = (SweepMesh)_service.CloneItem(old_name);
+            SweepMesh item = _service.CloneItem<SweepMesh>(old_name);
             if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
             if (number_of_global_smooth_steps != null)
                 item.NumberOfGlobalSmoothSteps =
@@ -443,6 +452,7 @@ namespace APIs.Python.Model
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle = null)
         {
+            _service.ValidateNewName(name);
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
@@ -468,7 +478,7 @@ namespace APIs.Python.Model
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle = null)
         {
-            ShellQuadWild item = (ShellQuadWild)_service.CloneItem(old_name);
+            ShellQuadWild item = _service.CloneItem<ShellQuadWild>(old_name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
                                pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer,

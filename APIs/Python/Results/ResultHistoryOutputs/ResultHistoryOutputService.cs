@@ -629,36 +629,30 @@ namespace APIs.Python
         }
         private static IntegralTypeEnum ParseIntegralType(string integralType)
         {
-            if (integralType == "line") return IntegralTypeEnum.Line;
-            if (integralType == "surface") return IntegralTypeEnum.Surface;
-            if (integralType == "volume") return IntegralTypeEnum.Volume;
-            throw new PythonAPIException("The argument 'integral_type' must be 'line', 'surface' or 'volume'.");
+            return PythonValueConverter.ToEnum<IntegralTypeEnum>(integralType, "integral_type");
         }
         private static IntegralResultEnum ParseIntegralResult(string integralResult)
         {
-            if (integralResult == null || integralResult == "geometry") return IntegralResultEnum.Geometry;
-            if (integralResult == "field") return IntegralResultEnum.Field;
-            if (integralResult == "field_by_geometry") return IntegralResultEnum.FieldByGeometry;
-            throw new PythonAPIException("The argument 'integral_result' must be 'geometry', 'field' or " +
-                                         "'field_by_geometry'.");
+            if (integralResult == null) return IntegralResultEnum.Geometry;
+            //
+            return PythonValueConverter.ToEnum<IntegralResultEnum>(integralResult, "integral_result");
         }
         private static IntegrationScaleType ParseCrossSection(string crossSection)
         {
-            if (crossSection == null || crossSection == "none") return IntegrationScaleType.None;
-            if (crossSection == "thickness") return IntegrationScaleType.Thickness;
-            if (crossSection == "axisymmetric") return IntegrationScaleType.Axisymmetric;
-            throw new PythonAPIException("The argument 'cross_section' must be 'none', 'thickness' or 'axisymmetric'.");
+            if (crossSection == null) return IntegrationScaleType.None;
+            //
+            return PythonValueConverter.ToEnum<IntegrationScaleType>(crossSection, "cross_section");
         }
         private static void ValidateCrossSection(IntegralTypeEnum integralType, IntegrationScaleType crossSection,
                                                  double thickness)
         {
             // Out-of-plane scaling only makes sense for the line and (2D) volume integrals
             if (integralType == IntegralTypeEnum.Surface && crossSection != IntegrationScaleType.None)
-                throw new PythonAPIException("The 'cross_section' scaling is only supported for 'line' and " +
-                                             "'volume' integral types.");
+                throw new PythonAPIException("The 'cross_section' scaling is only supported for the Line and " +
+                                             "Volume integral types.");
             if (crossSection == IntegrationScaleType.Thickness && thickness <= 0)
                 throw new PythonAPIException("The argument 'thickness' must be larger than zero when " +
-                                             "cross_section is 'thickness'.");
+                                             "cross_section is Thickness.");
         }
         private static void ValidateDeformationVariableName(string deformationVariableName)
         {

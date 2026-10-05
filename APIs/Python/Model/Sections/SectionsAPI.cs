@@ -34,6 +34,7 @@ namespace APIs.Python.Model
                    Example = "pmx.model.sections.add_solid('Sec-1', 'Steel', selection)")]
         public SectionAPI add_solid(string name, string material_name, object region, object thickness = null)
         {
+            _service.ValidateNewName(name, null);
             SolidSection section = new SolidSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
@@ -50,6 +51,7 @@ namespace APIs.Python.Model
         public SectionAPI add_shell(string name, string material_name, object region, object thickness = null,
                                     object offset = null)
         {
+            _service.ValidateNewName(name, null);
             ShellSection section = new ShellSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
@@ -67,6 +69,7 @@ namespace APIs.Python.Model
         public SectionAPI add_membrane(string name, string material_name, object region,
                                        object thickness = null, object offset = null)
         {
+            _service.ValidateNewName(name, null);
             MembraneSection section = new MembraneSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                           _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
@@ -80,6 +83,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
         public SectionAPI add_point_mass(string name, object region, object mass)
         {
+            _service.ValidateNewName(name, null);
             PointMassSection section = new PointMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                             _service.GetIsTwoDimensional());
             section.Mass.Equation = PythonValueConverter.ToEquationString(mass, "mass");
@@ -88,14 +92,15 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a distributed mass section using command history. The region is a selection or a " +
-                   "named region; the selection target is elements.",
+                   "named region; the selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
         public SectionAPI add_distributed_mass(string name, object region, object mass)
         {
+            _service.ValidateNewName(name, null);
             DistributedMassSection section = new DistributedMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                                         _service.GetIsTwoDimensional());
             section.Mass.Equation = PythonValueConverter.ToEquationString(mass, "mass");
-            AddSection(name, null, section, region, "elements");
+            AddSection(name, null, section, region, "surfaces");
             return this[name];
         }
         //
@@ -163,7 +168,7 @@ namespace APIs.Python.Model
             DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed mass");
             section.Mass.Equation = ToEquationOrKeep(mass, section.Mass, "mass");
             //
-            return Replace(old_name, name, null, region, section, "elements");
+            return Replace(old_name, name, null, region, section, "surfaces");
         }
         //
         protected override string[] GetItemNames()
@@ -199,7 +204,6 @@ namespace APIs.Python.Model
         private void AddSection(string name, string materialName, Section section, object region,
                                 string target)
         {
-            _service.ValidateNewName(name, null);
             if (materialName != null) _service.ValidateMaterialName(materialName);
             _service.ApplyRegion(section, region, target);
             _service.Add(section);

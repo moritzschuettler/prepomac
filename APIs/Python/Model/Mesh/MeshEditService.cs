@@ -103,8 +103,8 @@ namespace APIs.Python.Model
         public void CreateElementSetFromQuality(string name, string metric, object partNames, bool largerThan,
                                                 object limit)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            // An element set name also takes the characters FeElementSet adds to the ones every name may contain
+            PythonNameComparer.ValidateFormat(name, "name", null, new HashSet<char>() { '@' });
             if (metric == null || metric.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'metric' must not be empty.");
             //

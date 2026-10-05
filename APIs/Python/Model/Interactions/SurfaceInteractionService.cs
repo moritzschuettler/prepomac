@@ -54,17 +54,8 @@ namespace APIs.Python.Model
         }
         public SurfaceInteraction Build(string name, object properties)
         {
-            List<SurfaceInteractionProperty> converted =
-                PythonObjectListConverter.ToList<SurfaceInteractionProperty>(properties, "properties",
-                                                                              "a surface interaction property " +
-                                                                              "created by pmx.create, or a list " +
-                                                                              "of them");
-            if (converted.Count == 0)
-                throw new PythonAPIException("The argument 'properties' must contain at least one surface " +
-                                             "interaction property.");
-            //
             SurfaceInteraction surfaceInteraction = new SurfaceInteraction(name);
-            foreach (SurfaceInteractionProperty property in converted) surfaceInteraction.AddProperty(property);
+            ApplyProperties(surfaceInteraction, properties);
             //
             return surfaceInteraction;
         }
@@ -73,13 +64,20 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.AddSurfaceInteraction(surfaceInteraction);
         }
-        public void Replace(string oldName, SurfaceInteraction surfaceInteraction)
+        public SurfaceInteraction Replace(string oldName, string name, object properties)
         {
-            ResolveSurfaceInteraction(oldName);
-            ValidateName(surfaceInteraction.Name, oldName);
+            SurfaceInteraction surfaceInteraction = ResolveSurfaceInteraction(oldName).DeepClone();
+            if (name != null)
+            {
+                ValidateName(name, oldName);
+                surfaceInteraction.Name = name;
+            }
+            if (properties != null) ApplyProperties(surfaceInteraction, properties);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSurfaceInteraction(oldName, surfaceInteraction);
+            //
+            return surfaceInteraction;
         }
         public void Duplicate(string[] names)
         {
@@ -100,8 +98,7 @@ namespace APIs.Python.Model
         }
         public void ValidateName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
@@ -111,6 +108,20 @@ namespace APIs.Python.Model
             }
         }
         //
+        private static void ApplyProperties(SurfaceInteraction surfaceInteraction, object properties)
+        {
+            List<SurfaceInteractionProperty> converted =
+                PythonObjectListConverter.ToList<SurfaceInteractionProperty>(properties, "properties",
+                                                                              "a surface interaction property " +
+                                                                              "created by pmx.create, or a list " +
+                                                                              "of them");
+            if (converted.Count == 0)
+                throw new PythonAPIException("The argument 'properties' must contain at least one surface " +
+                                             "interaction property.");
+            //
+            surfaceInteraction.Properties.Clear();
+            foreach (SurfaceInteractionProperty property in converted) surfaceInteraction.AddProperty(property);
+        }
         private void EnsureCommandsAvailable()
         {
             if (_modelGateway == null)

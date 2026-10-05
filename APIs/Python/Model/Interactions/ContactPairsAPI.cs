@@ -72,7 +72,11 @@ namespace APIs.Python.Model
             if (master_region != null) _service.ApplyMaster(contactPair, master_region);
             if (slave_region != null) _service.ApplySlave(contactPair, slave_region);
             _service.ApplyValues(contactPair, method, small_sliding, adjust, adjustment_size);
-            if (name != null) contactPair.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(name, old_name);
+                contactPair.Name = name;
+            }
             _service.Replace(old_name, contactPair);
             //
             return this[contactPair.Name];

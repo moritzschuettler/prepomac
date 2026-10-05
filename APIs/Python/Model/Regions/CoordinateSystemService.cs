@@ -29,8 +29,7 @@ namespace APIs.Python.Model
         // parts, the sets and the reference points share
         private void ValidateCoordinateSystemName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             if (PythonNameComparer.Contains(GetNames(), name))
                 throw new PythonAPIException("The coordinate system '" + name + "' already exists.");

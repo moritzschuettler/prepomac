@@ -99,9 +99,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if this increment contains the specified field.", Arguments = "field_name: str", Returns = "bool")]
-        public bool contains(string fieldName)
+        public bool contains(string field_name)
         {
-            return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Contains(fieldName);
+            return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Contains(field_name);
         }
         public override string ToString()
         {

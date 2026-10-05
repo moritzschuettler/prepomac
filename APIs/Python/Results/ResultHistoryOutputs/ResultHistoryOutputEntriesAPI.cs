@@ -104,10 +104,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history entry exists in this component.", Arguments = "entry_name: str", Returns = "bool")]
-        public bool contains(string entryName)
+        public bool contains(string entry_name)
         {
             return _resultHistoryService.GetEntryNames(_resultName, _historyOutputName, _fieldName,
-                                                 _componentName).Contains(entryName);
+                                                 _componentName).Contains(entry_name);
         }
         public override string ToString()
         {

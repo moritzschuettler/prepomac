@@ -615,7 +615,11 @@ namespace APIs.Python.Model
         }
         private ConstraintAPI Replace(string oldName, string name, Constraint constraint)
         {
-            if (name != null) constraint.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(name, oldName);
+                constraint.Name = name;
+            }
             _service.Replace(oldName, constraint);
             //
             return this[constraint.Name];

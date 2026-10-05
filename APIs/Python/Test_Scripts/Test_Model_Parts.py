@@ -93,16 +93,16 @@ def test_model_parts():
     parts.remove(created)
     check(len(parts) == count_before, "the copy was not removed")
     # The name, the colour and the element types are replaced in one call, which is what one part
-    # property dialog records
+    # property dialog records. The cube holds hexahedra only, and a part keeps the element type of
+    # the element kinds it has, so the hexahedron slot is the one that is set
     slots = dict(parts.get_element_types(name))
     check(len(slots) > 0, "the part carries no element type slots")
     parts.replace_properties(name, name="PyTest_Renamed", color=[1, 2, 3],
-                             element_types={'linear_tetra': 'C3D4'})
+                             element_types={'linear_hexa': 'C3D8R'})
     check(parts.contains("PyTest_Renamed"), "the part was not renamed by replace_properties")
     check(list(parts["PyTest_Renamed"].color)[0:3] == [1, 2, 3], "the colour was not replaced")
-    check(dict(parts.get_element_types("PyTest_Renamed"))['linear_tetra'] ==
-          dict(parts.get_element_types("PyTest_Renamed"))['linear_tetra'],
-          "the element type slot is unreadable")
+    check(parts.get_element_types("PyTest_Renamed")['linear_hexa'] == 'C3D8R',
+          "the element type slot does not read back the name it was given")
     # A value that is not given is kept
     parts.replace_properties("PyTest_Renamed", name=name)
     check(parts.contains(name), "the part was not renamed back")

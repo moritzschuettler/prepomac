@@ -34,6 +34,14 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
+def check_raises(function, message):
+    try:
+        function()
+    except Exception:
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def get_component_name(increment, field_name, preferred_names):
     check(increment.fields.contains(field_name),
           "The field '%s' is not available in the last increment." % field_name)
@@ -148,9 +156,9 @@ try:
     )
     output.step_id = step.id
     output.increment_id = increment.id
-    output.output_node_coordinates = "undeformed"
-    output.filter1 = history_outputs.create_average_filter(operate_on="rows")
-    output.filter2 = history_outputs.create_maximum_filter(return_value="row")
+    output.output_node_coordinates = "Undeformed"
+    output.filter1 = history_outputs.create_average_filter(operate_on="Rows")
+    output.filter2 = history_outputs.create_maximum_filter(return_value="Row")
     added = history_outputs.add(output)
     created_names.append(FROM_FIELD_NAME)
     check(history_outputs.contains(FROM_FIELD_NAME), "add() did not create the From Field output.")
@@ -168,8 +176,8 @@ try:
     )
     replacement.step_id = step.id
     replacement.increment_id = increment.id
-    replacement.output_node_coordinates = "off"
-    replacement.filter1 = history_outputs.create_minimum_filter(return_value="column")
+    replacement.output_node_coordinates = "Off"
+    replacement.filter1 = history_outputs.create_minimum_filter(return_value="Column")
     replaced = history_outputs.replace(FROM_FIELD_NAME, replacement)
     check(history_outputs.contains(FROM_FIELD_NAME), "replace() removed the From Field output.")
     check(replaced.name == FROM_FIELD_NAME, "replace() returned the wrong From Field output.")
@@ -231,9 +239,9 @@ try:
 
         output = history_outputs.create_history_output_from_integration(
             name=ELEMENT_SIZE_NAME,
-            integral_type="volume",
+            integral_type="Volume",
             region=volume_region,
-            integral_result="geometry",
+            integral_result="Geometry",
             deformation_variable_name="Displacements",
             unit="/"
         )
@@ -245,11 +253,11 @@ try:
 
         output = history_outputs.create_history_output_from_integration(
             name=INTEGRATION_NAME,
-            integral_type="volume",
+            integral_type="Volume",
             field_name="STRESS",
             component_names=[stress_component],
             region=volume_region,
-            integral_result="field",
+            integral_result="Field",
             deformation_variable_name="Displacements",
             unit="/"
         )
@@ -258,6 +266,28 @@ try:
         check(history_outputs.contains(INTEGRATION_NAME),
               "add() did not create the volume-integration output.")
         print("PASS: add From Integration history output")
+
+        # OPTIONS: an option is the name of its enumeration, matched ignoring case like every model
+        # side option, and read back in the spelling the argument takes
+        integration_output = history_outputs[INTEGRATION_NAME]
+        check(integration_output.integral_type == "Volume" and integration_output.integral_result == "Field" and
+              integration_output.cross_section == "None",
+              "the integration options read back as %s, %s, %s" % (integration_output.integral_type,
+                                                                    integration_output.integral_result,
+                                                                    integration_output.cross_section))
+        check(integration_output.region_type in ["Selection", "ElementSetName"],
+              "the integration region type read back as %s" % integration_output.region_type)
+        draft = history_outputs.create_history_output_from_integration(
+            name=INTEGRATION_NAME, integral_type="volume", region=volume_region, integral_result="GEOMETRY",
+            cross_section="none")
+        check(draft.integral_type == "Volume" and draft.integral_result == "Geometry" and
+              draft.cross_section == "None", "the integration options are compared with their case")
+        check_raises(lambda: history_outputs.create_history_output_from_integration(
+                         name=INTEGRATION_NAME, integral_type="Volume", field_name="STRESS",
+                         component_names=[stress_component], region=volume_region,
+                         integral_result="field_by_geometry"),
+                     "the old integral_result spelling was accepted")
+        print("PASS: From Integration history output options")
     else:
         print("SKIP: geometry- and field-volume-integration tests require a 3D element")
 
@@ -338,7 +368,7 @@ try:
         y_axis_unit="mm"
     )
     check(str(replacement.y_column_names[0]) == "Y1", "The table draft did not generate default column names.")
-    replacement.filter1 = history_outputs.create_maximum_filter(return_value="column")
+    replacement.filter1 = history_outputs.create_maximum_filter(return_value="Column")
     history_outputs.replace(TABLE_NAME, replacement)
     check(history_outputs.contains(TABLE_NAME), "replace() removed the table output.")
     print("PASS: replace From Table history output")
@@ -352,7 +382,7 @@ try:
     check(table_output.x_axis_unit == "s", "The table output reported the wrong X-axis unit.")
     check(table_output.y_axis_unit == "mm", "The table output reported the wrong Y-axis unit.")
     check(table_output.filter1 is not None, "The table output did not return its filter.")
-    check(table_output.filter1.type == "maximum" and table_output.filter1.option == "column",
+    check(table_output.filter1.type == "Maximum" and table_output.filter1.option == "Column",
           "The table output returned the wrong filter.")
     check(table_output.filter2 is None, "The table output returned an unused second filter.")
     print("PASS: read back a From Table history-output definition")
@@ -360,20 +390,62 @@ try:
     merged_output = history_outputs[MERGED_NAME]
     check(merged_output.type_name == "ResultHistoryOutputFromMergedHistories",
           "The merged output reported the wrong type name: %s" % merged_output.type_name)
-    check(len(merged_output.sources) == 2, "The merged output reported the wrong source count.")
+    merge_source_1 = [MERGE_SOURCE_1_NAME, merge_field.name, merge_component.name]
+    merge_source_2 = [MERGE_SOURCE_2_NAME, merge_field.name, merge_component.name]
+    check([list(source) for source in merged_output.sources] == [merge_source_1, merge_source_2],
+          "The merged output reported the wrong sources: %s" % [list(s) for s in merged_output.sources])
     extracted_output = history_outputs[EXTRACTED_NAME]
     check(extracted_output.entry_name == str(entry_names[0]),
           "The extracted-entry output reported the wrong entry name.")
+    check(list(extracted_output.source) == merge_source_1,
+          "The extracted-entry output reported the wrong source: %s" % extracted_output.source)
     xy_output = history_outputs[XY_NAME]
-    expected_x_source = "%s.%s.%s" % (EXTRACTED_NAME, extracted_field.name, extracted_component.name)
-    check(xy_output.x_source == expected_x_source,
+    expected_x_source = [EXTRACTED_NAME, extracted_field.name, extracted_component.name]
+    check(list(xy_output.x_source) == expected_x_source,
           "The XY output reported the wrong X source: %s" % xy_output.x_source)
+    check(list(xy_output.y_source) == merge_source_1,
+          "The XY output reported the wrong Y source: %s" % xy_output.y_source)
+    # ROUND TRIP: a source read back is the form a source argument takes, so it is passed straight back.
+    history_outputs.replace_xy(XY_NAME, XY_NAME, xy_output.x_source, xy_output.y_source)
+    check(list(history_outputs[XY_NAME].x_source) == expected_x_source and
+          list(history_outputs[XY_NAME].y_source) == merge_source_1,
+          "The XY sources read back did not round trip through replace_xy().")
+    history_outputs.replace_from_merged_histories(MERGED_NAME, MERGED_NAME, *merged_output.sources)
+    check([list(source) for source in history_outputs[MERGED_NAME].sources] == [merge_source_1, merge_source_2],
+          "The merged sources read back did not round trip through replace_from_merged_histories().")
+    # A table column name may contain a dot, so a source is three names rather than one dotted string.
+    dotted_source = [TABLE_NAME, "Y", "Force.Measured"]
+    dotted_draft = history_outputs.create_history_output_xy(name=XY_NAME, x_source=expected_x_source,
+                                                            y_source=dotted_source)
+    check(list(dotted_draft.y_source) == dotted_source,
+          "A source with a dotted component name did not read back as its three names: %s" % dotted_draft.y_source)
+    print("PASS: read back history sources in the form the source arguments take")
     from_field_output = history_outputs[FROM_FIELD_NAME]
     check(from_field_output.type_name == "ResultHistoryOutputFromField",
           "The From Field output reported the wrong type name: %s" % from_field_output.type_name)
     check(len(from_field_output.field_name) > 0, "The From Field output did not report its field name.")
-    check(from_field_output.region_type in ["selection", "node_set", "surface"],
+    check(from_field_output.region_type in ["Selection", "NodeSetName", "SurfaceName"],
           "The From Field output reported an unexpected region type: %s" % from_field_output.region_type)
+    check(from_field_output.output_node_coordinates == "Off" and from_field_output.complex_result_type == "Real",
+          "The From Field output read back %s, %s" % (from_field_output.output_node_coordinates,
+                                                      from_field_output.complex_result_type))
+    # A filter option is matched ignoring case and read back in the spelling the argument takes
+    check(history_outputs.create_sum_filter(operate_on="rows").option == "Rows",
+          "operate_on is compared with its case")
+    check(history_outputs.create_minimum_filter().option == "Column", "the default return_value is not Column")
+    check(history_outputs.create_average_filter().type == "Average", "the filter type is not read back as Average")
+    check_raises(lambda: history_outputs.create_maximum_filter(return_value="Rows"),
+                 "a min/max filter took an aggregate option")
+    options_draft = history_outputs.create_history_output_from_field(
+        name=FROM_FIELD_NAME, field_name="DISP", component_names=[disp_component], region=node_selection)
+    options_draft.output_node_coordinates = "deformed"
+    options_draft.complex_result_type = "realatangle"
+    check(options_draft.output_node_coordinates == "Deformed" and options_draft.complex_result_type == "RealAtAngle",
+          "the From Field options are compared with their case")
+
+    def set_old_complex_result_type():
+        options_draft.complex_result_type = "angle"
+    check_raises(set_old_complex_result_type, "the old complex_result_type spelling was accepted")
     equation_output = history_outputs[EQUATION_NAME]
     check(equation_output.type_name == "ResultHistoryOutputFromEquation",
           "The equation output reported the wrong type name: %s" % equation_output.type_name)

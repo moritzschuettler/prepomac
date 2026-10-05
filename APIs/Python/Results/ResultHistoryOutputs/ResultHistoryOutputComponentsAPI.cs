@@ -98,9 +98,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history component exists in this field.", Arguments = "component_name: str", Returns = "bool")]
-        public bool contains(string componentName)
+        public bool contains(string component_name)
         {
-            return _resultHistoryService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Contains(componentName);
+            return _resultHistoryService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Contains(component_name);
         }
         public override string ToString()
         {

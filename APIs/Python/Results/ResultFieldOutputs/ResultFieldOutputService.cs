@@ -309,11 +309,7 @@ namespace APIs.Python
         }
         private static LimitPlotBasedOnEnum ParseBasedOn(string basedOn)
         {
-            if (basedOn == "parts") return LimitPlotBasedOnEnum.Parts;
-            if (basedOn == "element_sets") return LimitPlotBasedOnEnum.ElementSets;
-            if (basedOn == "all_elements") return LimitPlotBasedOnEnum.AllElements;
-            throw new PythonAPIException("The argument 'based_on' must be 'parts', 'element_sets', or " +
-                                         "'all_elements'.");
+            return PythonValueConverter.ToEnum<LimitPlotBasedOnEnum>(basedOn, "based_on");
         }
         private static void ValidateDefinition(string name, string fieldName, string componentName,
                                                OrderedDictionary<string, double> itemLimits)

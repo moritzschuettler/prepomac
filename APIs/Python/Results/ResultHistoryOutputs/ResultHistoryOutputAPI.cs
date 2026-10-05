@@ -85,18 +85,22 @@ namespace APIs.Python
                                              "' is not a user-defined history output.");
             return historyOutput;
         }
-        protected static string FormatRegionType(RegionTypeEnum regionType)
-        {
-            if (regionType == RegionTypeEnum.Selection) return "selection";
-            if (regionType == RegionTypeEnum.NodeSetName) return "node_set";
-            if (regionType == RegionTypeEnum.ElementSetName) return "element_set";
-            if (regionType == RegionTypeEnum.SurfaceName) return "surface";
-            return "none";
-        }
         protected static string FormatRegionName(ResultHistoryOutput historyOutput)
         {
             if (string.IsNullOrEmpty(historyOutput.RegionName)) return null;
             return historyOutput.RegionName;
+        }
+        // A history name, a field name or a component name may contain a dot, so a source is read back as
+        // the three names a source argument takes rather than as the dotted display name
+        internal static StringListAPI ToSourceNames(HistoryResultData source)
+        {
+            return new StringListAPI(new string[] { source.SetName, source.FieldName, source.ComponentName });
+        }
+        internal static StringListAPI[] ToSourceNames(HistoryResultData[] sources)
+        {
+            StringListAPI[] sourceNames = new StringListAPI[sources.Length];
+            for (int i = 0; i < sources.Length; i++) sourceNames[i] = ToSourceNames(sources[i]);
+            return sourceNames;
         }
         public override string ToString()
         {

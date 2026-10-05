@@ -63,6 +63,33 @@ def test_surface_interactions():
     check(interaction.property_count == 2, "the properties were not replaced")
     check(sorted(list(interaction.get_property_types())) == ["Friction", "SurfaceBehavior"],
           "unexpected property types " + str(list(interaction.get_property_types())))
+    # A value that is not given is kept: a rename alone keeps the properties, and properties alone keep the name
+    interaction = interactions.replace(INTERACTION, INTERACTION + "_K")
+    check(interaction.name == INTERACTION + "_K", "the surface interaction was not renamed by the replace")
+    check(interaction.property_count == 2, "a rename alone must keep the properties")
+    interaction = interactions.replace(INTERACTION + "_K", properties=pmx.create.friction(0.3))
+    check(interaction.name == INTERACTION + "_K", "a replace of the properties alone must keep the name")
+    check(list(interaction.get_property_types()) == ["Friction"], "the properties were not replaced")
+    interaction = interactions.replace(INTERACTION + "_K", INTERACTION,
+                                       [pmx.create.friction(0.2, stick_slope=1000),
+                                        pmx.create.surface_behavior('Linear', k=2000)])
+    # The model keys its collections without regard to case, and so does contains
+    check(interactions.contains(INTERACTION.lower()), "contains must not depend on the case of the name")
+    check(not interactions.contains(INTERACTION + "_Missing"), "contains found a missing surface interaction")
+    # A name the model could not take is refused before anything is recorded, naming the argument
+    count_before_refusals = len(interactions)
+    for bad_name in [PREFIX + "Bad Name", PREFIX + "Bad#", " " + PREFIX + "Spaced", "123"]:
+        message = raised_message(lambda: interactions.add(bad_name, pmx.create.friction(0.1)))
+        check(message is not None and "'name'" in message,
+              "the name " + repr(bad_name) + " must be refused naming the argument: " + str(message))
+    check(len(interactions) == count_before_refusals, "a refused add was recorded")
+    message = raised_message(lambda: interactions.replace(INTERACTION, PREFIX + "Bad#"))
+    check(message is not None and "'name'" in message, "a replace to a bad name must be refused: " + str(message))
+    message = raised_message(lambda: interactions.rename(INTERACTION, PREFIX + "Bad Name"))
+    check(message is not None and "'new_name'" in message,
+          "a rename to a bad name must be refused naming new_name: " + str(message))
+    check(interactions.contains(INTERACTION) and interactions[INTERACTION].property_count == 2,
+          "a refused replace or rename changed the surface interaction")
     # The gap conductance is either constant or tabular, never both and never neither
     check_raises(lambda: pmx.create.gap_conductance(),
                  "a gap conductance without a value must be rejected")

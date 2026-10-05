@@ -150,22 +150,38 @@ def test_materials():
     # Collection verbs
     materials.rename(PREFIX + "Simple", PREFIX + "Renamed")
     check(materials.contains(PREFIX + "Renamed"), "the material was not renamed")
-    # The model keys its materials without regard to case and surrounding spaces, and so does the name check
+    # The model keys its materials without regard to case, and so does the name check
     message = raised_message(lambda: materials.rename(PREFIX + "Steel", (PREFIX + "Renamed").lower()))
     check(message is not None and "already exists" in message,
           "a rename onto another material in other case must be refused: " + str(message))
     check(materials[PREFIX + "Steel"].name == PREFIX + "Steel",
           "the refused rename changed the name to " + materials[PREFIX + "Steel"].name)
-    message = raised_message(lambda: materials.add(" " + (PREFIX + "Steel").lower() + " ",
-                                                   pmx.create.elastic(1, 0.3)))
+    message = raised_message(lambda: materials.add((PREFIX + "Steel").lower(), pmx.create.elastic(1, 0.3)))
     check(message is not None and "already exists" in message,
           "a material named like another in other case must be refused: " + str(message))
+    # The model would trim a name with surrounding spaces and store it under another spelling than the one the
+    # script goes on to use, and it cannot take a space or a character it does not allow at all, so all of those
+    # are refused before anything is recorded
+    count_before_refusals = len(materials)
+    for bad_name in [" " + PREFIX + "Spaced ", PREFIX + "Bad Name", PREFIX + "Bad#", "123"]:
+        message = raised_message(lambda: materials.add(bad_name, pmx.create.elastic(1, 0.3)))
+        check(message is not None and "'name'" in message,
+              "the name " + repr(bad_name) + " must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: materials.replace(PREFIX + "Steel", name=PREFIX + "Bad Name"))
+    check(message is not None and "'name'" in message, "a replace to a bad name must be refused: " + str(message))
+    check(len(materials) == count_before_refusals and materials.contains(PREFIX + "Steel"),
+          "a refused material name was recorded")
+    check(materials.contains((PREFIX + "Steel").lower()), "contains must not depend on the case of the name")
     materials.rename(PREFIX + "Steel", (PREFIX + "Steel").upper())
     check(materials[(PREFIX + "Steel").upper()].name == (PREFIX + "Steel").upper(),
           "a rename to the same name in other case must be allowed")
     materials.rename((PREFIX + "Steel").upper(), PREFIX + "Steel")
     materials.duplicate([PREFIX + "Renamed"])
     check(len(materials) == count_before + 9, "the material was not duplicated")
+    # A material name also takes the character Material adds to the ones every name may contain
+    materials.add(PREFIX + "At@1", pmx.create.elastic(1, 0.3))
+    check(materials.contains(PREFIX + "At@1"), "a material name with an at sign must be accepted")
+    materials.remove([PREFIX + "At@1"])
     return PREFIX + "Steel"
 
 
@@ -200,6 +216,26 @@ def test_sections(material_name):
     check_raises(lambda: sections.add_solid(PREFIX + "Bad", material_name,
                                             pmx.create.region('ElementSetName', 'NoSuchSet')),
                  "an unknown element set must be rejected")
+    # A named region of a type the section cannot be defined on is refused, rather than recorded and only
+    # flagged invalid later
+    pmx.model.node_sets.add(PREFIX + "NS", node_selection)
+    message = raised_message(lambda: sections.add_solid(PREFIX + "Bad", material_name,
+                                                        pmx.create.region('NodeSetName', PREFIX + "NS")))
+    check(message is not None and "ElementSetName" in message and "NodeSetName" in message,
+          "a node set region must be refused for a solid section: " + str(message))
+    check(not sections.contains(PREFIX + "Bad"), "a section with a refused region must not be recorded")
+    pmx.model.node_sets.remove([PREFIX + "NS"])
+    # A distributed mass is defined on a surface, as in its dialog, both by selection and by name
+    pmx.model.surfaces.add(PREFIX + "SU", pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
+                                                                      {1: [1]}))
+    mass = sections.add_distributed_mass(PREFIX + "DMass_R", pmx.create.region('SurfaceName', PREFIX + "SU"), 0.1)
+    check(mass.region_type == "SurfaceName" and mass.region_name == PREFIX + "SU",
+          "the distributed mass did not keep its surface region")
+    mass = sections.add_distributed_mass(PREFIX + "DMass_S", pmx.create.selection_by_ids('femodel', 'surfaces',
+                                                                                        'surfaces', {1: [2]}), 0.1)
+    check(mass.region_type == "SurfaceName", "a surface selection was not converted, it is " + mass.region_type)
+    sections.remove([PREFIX + "DMass_R", PREFIX + "DMass_S"])
+    pmx.model.surfaces.remove([PREFIX + "SU"])
     # The solid section dialog picks parts rather than elements, and the controller turns a part
     # selection into an element set that follows those parts, so an element region takes either target
     part_selection = pmx.create.selection_by_ids('femodel', 'parts', 'parts', [1])

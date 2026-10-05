@@ -27,11 +27,10 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The integration type. Possible values are 'line', 'surface' and 'volume'.", Returns = "str")]
-        public string integral_type { get { return IntegralTypeToString(_integralType); } }
-        [PythonAPI("The integral result. Possible values are 'geometry', 'field' and 'field_by_geometry'.",
-                   Returns = "str")]
-        public string integral_result { get { return IntegralResultToString(_integralResult); } }
+        [PythonAPI("The integration type: Line, Surface or Volume.", Returns = "str")]
+        public string integral_type { get { return _integralType.ToString(); } }
+        [PythonAPI("The integral result: Geometry, Field or FieldByGeometry.", Returns = "str")]
+        public string integral_result { get { return _integralResult.ToString(); } }
         [PythonAPI("The source result field name.", Returns = "str")]
         public string field_name { get { return _fieldName; } }
         [PythonAPI("The selected field component names.", Returns = "StringList")]
@@ -40,10 +39,10 @@ namespace APIs.Python
         public string deformation_variable_name { get { return _deformationVariableName; } }
         [PythonAPI("The user-defined result unit.", Returns = "str")]
         public string unit { get { return _unit; } set { _unit = value; } }
-        [PythonAPI("The out-of-plane cross section scaling for 2D output. Possible values are 'none', " +
-                   "'thickness' and 'axisymmetric'.", Returns = "str")]
-        public string cross_section { get { return CrossSectionToString(_crossSection); } }
-        [PythonAPI("The out-of-plane thickness used when cross_section is 'thickness'.", Returns = "float")]
+        [PythonAPI("The out-of-plane cross section scaling for 2D output: None, Thickness or Axisymmetric.",
+                   Returns = "str")]
+        public string cross_section { get { return _crossSection.ToString(); } }
+        [PythonAPI("The out-of-plane thickness used when cross_section is Thickness.", Returns = "float")]
         public double thickness { get { return _thickness; } }
 
 
@@ -84,24 +83,6 @@ namespace APIs.Python
             if (_integralType == IntegralTypeEnum.Line) return "edges";
             if (_integralType == IntegralTypeEnum.Surface) return "surfaces";
             return "elements";
-        }
-        internal static string IntegralTypeToString(IntegralTypeEnum integralType)
-        {
-            if (integralType == IntegralTypeEnum.Line) return "line";
-            if (integralType == IntegralTypeEnum.Surface) return "surface";
-            return "volume";
-        }
-        internal static string IntegralResultToString(IntegralResultEnum integralResult)
-        {
-            if (integralResult == IntegralResultEnum.Geometry) return "geometry";
-            if (integralResult == IntegralResultEnum.FieldByGeometry) return "field_by_geometry";
-            return "field";
-        }
-        internal static string CrossSectionToString(IntegrationScaleType crossSection)
-        {
-            if (crossSection == IntegrationScaleType.Thickness) return "thickness";
-            if (crossSection == IntegrationScaleType.Axisymmetric) return "axisymmetric";
-            return "none";
         }
         public override string ToString()
         {

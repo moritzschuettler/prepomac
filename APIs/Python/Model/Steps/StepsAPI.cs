@@ -620,7 +620,11 @@ namespace APIs.Python.Model
         }
         private StepAPI Replace(string oldName, string name, Step step)
         {
-            if (name != null) step.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(name, oldName);
+                step.Name = name;
+            }
             _service.Replace(oldName, step);
             //
             return this[step.Name];

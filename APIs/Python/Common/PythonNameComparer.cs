@@ -32,5 +32,27 @@ namespace APIs.Python
             }
             return false;
         }
+        // The name setter of a model item throws on a name it cannot take and trims the one it can, so a name is
+        // refused here, before anything is constructed or recorded, and is never stored under a different spelling
+        // than the one the script goes on to look up. The name an item already carries is not checked again, so an
+        // item named by an import can still be replaced without being renamed.
+        public static void ValidateFormat(string name, string argumentName, string allowedExistingName)
+        {
+            ValidateFormat(name, argumentName, allowedExistingName, null);
+        }
+        public static void ValidateFormat(string name, string argumentName, string allowedExistingName,
+                                          HashSet<char> additionalCharacters)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
+            if (allowedExistingName != null && string.Equals(name, allowedExistingName, StringComparison.Ordinal))
+                return;
+            if (name.Trim().Length != name.Length)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not start or end with a " +
+                                             "space: '" + name + "'.");
+            //
+            string error = CaeGlobals.NamedClass.CheckNameError(name, additionalCharacters);
+            if (error != null) throw new PythonAPIException("The argument '" + argumentName + "' is not valid: " + error);
+        }
     }
 }

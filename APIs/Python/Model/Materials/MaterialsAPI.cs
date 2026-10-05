@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -52,6 +53,11 @@ namespace APIs.Python.Model
             return this[material.Name];
         }
         //
+        // The characters Material adds to the ones every name may contain
+        protected override HashSet<char> GetAdditionalNameCharacters()
+        {
+            return new HashSet<char>() { '@' };
+        }
         protected override string[] GetItemNames()
         {
             return _service.GetNames();

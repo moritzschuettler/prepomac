@@ -19,12 +19,11 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The filter type. Possible values are 'minimum', 'maximum', 'sum', and 'average'.",
-                   Returns = "str")]
-        public string type { get { return GetTypeName(_type); } }
-        [PythonAPI("The filter option. Possible values are 'row', 'column', 'rows', and 'columns'.",
-                   Returns = "str")]
-        public string option { get { return GetOptionName(_option); } }
+        [PythonAPI("The filter type: Minimum, Maximum, Sum or Average.", Returns = "str")]
+        public string type { get { return _type.ToString(); } }
+        [PythonAPI("The filter option: Row or Column for a Minimum or Maximum filter, Rows or Columns for a Sum " +
+                   "or Average filter.", Returns = "str")]
+        public string option { get { return _option; } }
 
 
         // Constructors
@@ -52,22 +51,6 @@ namespace APIs.Python
         {
             return "HistoryOutputFilter(type=" + StringListAPI.ToDisplayString(type) +
                    ", option=" + StringListAPI.ToDisplayString(option) + ")";
-        }
-        private static string GetTypeName(HistoryResultFilterTypeEnum type)
-        {
-            if (type == HistoryResultFilterTypeEnum.Minimum) return "minimum";
-            if (type == HistoryResultFilterTypeEnum.Maximum) return "maximum";
-            if (type == HistoryResultFilterTypeEnum.Sum) return "sum";
-            if (type == HistoryResultFilterTypeEnum.Average) return "average";
-            throw new PythonAPIException("Unsupported history filter type '" + type + "'.");
-        }
-        private static string GetOptionName(string option)
-        {
-            if (option == HistoryResultFilter.Row) return "row";
-            if (option == HistoryResultFilter.Column) return "column";
-            if (option == HistoryResultFilter.Rows) return "rows";
-            if (option == HistoryResultFilter.Columns) return "columns";
-            throw new PythonAPIException("Unsupported history filter option '" + option + "'.");
         }
     }
 }

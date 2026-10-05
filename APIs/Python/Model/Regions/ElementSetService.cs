@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeMesh;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -24,6 +25,11 @@ namespace APIs.Python.Model
 
 
         // Methods
+        // The characters FeElementSet adds to the ones every name may contain
+        protected override HashSet<char> GetAdditionalNameCharacters()
+        {
+            return new HashSet<char>() { '@' };
+        }
         public string[] GetNames()
         {
             FeMesh mesh = GetMeshOrNull();

@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -47,15 +48,15 @@ namespace APIs.Python.Model
                                              "by pmx.create.selection_by_ids, or a named region created by " +
                                              "pmx.create.region.");
             //
-            ValidateRegionName(named, modelResolver, item);
+            ValidateRegionName(named, argumentName, targets, modelResolver, item);
             item.RegionType = named.RegionType;
             item.RegionName = named.name;
             item.CreationData = null;
             item.CreationIds = null;
         }
         //
-        private static void ValidateRegionName(RegionAPI region, ModelResolver modelResolver,
-                                               IMultiRegion item)
+        private static void ValidateRegionName(RegionAPI region, string argumentName, string[] targets,
+                                               ModelResolver modelResolver, IMultiRegion item)
         {
             FeModel model = modelResolver.GetModel();
             // A mass section names a section of the model rather than an entity of the mesh, and only
@@ -69,6 +70,8 @@ namespace APIs.Python.Model
                 ValidateMassSectionName(region, model);
                 return;
             }
+            //
+            ValidateRegionType(region.RegionType, argumentName, targets, item);
             //
             FeMesh mesh = model.Mesh;
             if (mesh == null)
@@ -96,6 +99,61 @@ namespace APIs.Python.Model
             if (!exists)
                 throw new PythonAPIException("The " + region.RegionType + " region '" + region.name +
                                              "' does not exist.");
+        }
+        // The model accepts any named region on any item and only flags the item invalid later, so the region types
+        // the dialog of the item offers are the ones a script may name
+        private static void ValidateRegionType(RegionTypeEnum regionType, string argumentName, string[] targets,
+                                               IMultiRegion item)
+        {
+            List<RegionTypeEnum> accepted = GetAcceptedRegionTypes(targets, item);
+            if (accepted == null || accepted.Contains(regionType)) return;
+            //
+            string[] names = new string[accepted.Count];
+            for (int i = 0; i < names.Length; i++) names[i] = accepted[i].ToString();
+            throw new PythonAPIException("The argument '" + argumentName + "' accepts a selection or a " +
+                                         string.Join(", ", names) + " region, but a " + regionType +
+                                         " region was given.");
+        }
+        // A target the item is not defined on through a named region, such as geometry, is checked by its caller
+        private static List<RegionTypeEnum> GetAcceptedRegionTypes(string[] targets, IMultiRegion item)
+        {
+            List<RegionTypeEnum> accepted = new List<RegionTypeEnum>();
+            foreach (string target in targets)
+            {
+                if (target == "nodes")
+                {
+                    AddOnce(accepted, RegionTypeEnum.NodeSetName);
+                    if (AcceptsSurfaceForNodes(item)) AddOnce(accepted, RegionTypeEnum.SurfaceName);
+                    if (AcceptsReferencePoint(item)) AddOnce(accepted, RegionTypeEnum.ReferencePointName);
+                }
+                else if (target == "elements")
+                {
+                    AddOnce(accepted, RegionTypeEnum.ElementSetName);
+                    if (!(item is ElementHistoryOutput)) AddOnce(accepted, RegionTypeEnum.PartName);
+                }
+                else if (target == "parts") AddOnce(accepted, RegionTypeEnum.PartName);
+                else if (target == "surfaces") AddOnce(accepted, RegionTypeEnum.SurfaceName);
+                else return null;
+            }
+            //
+            return accepted;
+        }
+        private static void AddOnce(List<RegionTypeEnum> regionTypes, RegionTypeEnum regionType)
+        {
+            if (!regionTypes.Contains(regionType)) regionTypes.Add(regionType);
+        }
+        // A concentrated load, a point spring and a point mass act on nodes or on a reference point only
+        private static bool AcceptsSurfaceForNodes(IMultiRegion item)
+        {
+            return !(item is CLoad || item is MomentLoad || item is CFlux || item is PointSpring ||
+                     item is PointMassSection);
+        }
+        // BoundaryConditionService narrows the boundary conditions down to the types that support it
+        private static bool AcceptsReferencePoint(IMultiRegion item)
+        {
+            return item is BoundaryCondition || item is CLoad || item is MomentLoad || item is PointSpring ||
+                   item is PointMassSection || item is NodalHistoryOutput ||
+                   item is InitialTranslationalVelocity || item is InitialAngularVelocity;
         }
         //
         private static void ValidateMassSectionName(RegionAPI region, FeModel model)

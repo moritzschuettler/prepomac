@@ -225,7 +225,11 @@ namespace APIs.Python.Model
                                          object totalsType, object global)
         {
             _service.ApplyCommonValues(historyOutput, totalsType, global);
-            if (name != null) historyOutput.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(StepName, name, oldName);
+                historyOutput.Name = name;
+            }
             _service.Replace(StepName, oldName, historyOutput);
             //
             return this[historyOutput.Name];

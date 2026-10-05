@@ -160,8 +160,7 @@ namespace APIs.Python.Model
         }
         public void ValidateName(string stepName, string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames(stepName))

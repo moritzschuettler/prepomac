@@ -101,9 +101,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history output exists.", Arguments = "history_output_name: str", Returns = "bool")]
-        public bool contains(string historyOutputName)
+        public bool contains(string history_output_name)
         {
-            return _dataService.GetHistoryOutputNames(_resultName).Contains(historyOutputName);
+            return _dataService.GetHistoryOutputNames(_resultName).Contains(history_output_name);
         }
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +
@@ -126,29 +126,29 @@ namespace APIs.Python
             return _service.CreateFromEquation(name, equation, unit);
         }
 
-        [PythonAPI("Creates a From Integration draft. Possible integral_type values are 'line', 'surface' and " +
-                   "'volume'. Line integration accepts an edges-target selection; surface integration accepts a " +
+        [PythonAPI("Creates a From Integration draft. Possible integral_type values are Line, Surface and " +
+                   "Volume. Line integration accepts an edges-target selection; surface integration accepts a " +
                    "surface-target selection or result surface; volume integration accepts an element-target " +
-                   "selection or result element set. Possible integral_result values are 'geometry' (the region " +
-                   "length/area/volume), 'field' (the field integral) and 'field_by_geometry' (the region average " +
-                   "of the field); field_name and component_names are ignored for 'geometry'. The cross_section " +
-                   "scaling ('none', 'thickness' or 'axisymmetric') applies to 'line' and 'volume' integrals of " +
-                   "2D output, and 'thickness' additionally uses the thickness argument. Possible " +
+                   "selection or result element set. Possible integral_result values are Geometry (the region " +
+                   "length/area/volume), Field (the field integral) and FieldByGeometry (the region average " +
+                   "of the field); field_name and component_names are ignored for Geometry. The cross_section " +
+                   "scaling (None, Thickness or Axisymmetric) applies to Line and Volume integrals of " +
+                   "2D output, and Thickness additionally uses the thickness argument. Possible " +
                    "deformation_variable_name values are 'Displacements', " +
                    "'Forces', 'Surface Normals', 'Wear Depths', 'Mesh Deformation', 'Disp&Def', and " +
                    "'Disp&Def&Depth'.",
                    Arguments = "name: str, integral_type: str, field_name: str = None, " +
                                "component_names: list[str] = None, " +
                                "region: Selection or ElementSet or Surface = None, " +
-                               "integral_result: str = 'geometry', " +
+                               "integral_result: str = 'Geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
-                               "unit: str = '/', cross_section: str = 'none', thickness: float = 1.0",
+                               "unit: str = '/', cross_section: str = 'None', thickness: float = 1.0",
                    Returns = "HistoryOutputFromIntegrationDraft")]
         public ResultHistoryOutputFromIntegrationDraftAPI create_history_output_from_integration(
             string name, string integral_type, string field_name = null, object component_names = null,
-            object region = null, string integral_result = "geometry",
+            object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "none", double thickness = 1.0)
+            string cross_section = "None", double thickness = 1.0)
         {
             return _service.CreateFromIntegration(name, integral_type, field_name, component_names, region,
                                                   integral_result, deformation_variable_name, unit,
@@ -207,30 +207,30 @@ namespace APIs.Python
             return _service.CreateFromTable(name, data_points, y_column_names, x_axis_unit, y_axis_unit);
         }
 
-        [PythonAPI("Creates a minimum history-output filter. Possible return_value values are 'row' and 'column'.",
-                   Arguments = "return_value: str = 'column'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_minimum_filter(string return_value = "column")
+        [PythonAPI("Creates a minimum history-output filter. Possible return_value values are Row and Column.",
+                   Arguments = "return_value: str = 'Column'", Returns = "HistoryOutputFilter")]
+        public ResultHistoryOutputFilterAPI create_minimum_filter(string return_value = "Column")
         {
             return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Minimum, return_value);
         }
 
-        [PythonAPI("Creates a maximum history-output filter. Possible return_value values are 'row' and 'column'.",
-                   Arguments = "return_value: str = 'column'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_maximum_filter(string return_value = "column")
+        [PythonAPI("Creates a maximum history-output filter. Possible return_value values are Row and Column.",
+                   Arguments = "return_value: str = 'Column'", Returns = "HistoryOutputFilter")]
+        public ResultHistoryOutputFilterAPI create_maximum_filter(string return_value = "Column")
         {
             return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Maximum, return_value);
         }
 
-        [PythonAPI("Creates a sum history-output filter. Possible operate_on values are 'rows' and 'columns'.",
-                   Arguments = "operate_on: str = 'columns'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_sum_filter(string operate_on = "columns")
+        [PythonAPI("Creates a sum history-output filter. Possible operate_on values are Rows and Columns.",
+                   Arguments = "operate_on: str = 'Columns'", Returns = "HistoryOutputFilter")]
+        public ResultHistoryOutputFilterAPI create_sum_filter(string operate_on = "Columns")
         {
             return CreateAggregateFilter(HistoryResultFilterTypeEnum.Sum, operate_on);
         }
 
-        [PythonAPI("Creates an average history-output filter. Possible operate_on values are 'rows' and 'columns'.",
-                   Arguments = "operate_on: str = 'columns'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_average_filter(string operate_on = "columns")
+        [PythonAPI("Creates an average history-output filter. Possible operate_on values are Rows and Columns.",
+                   Arguments = "operate_on: str = 'Columns'", Returns = "HistoryOutputFilter")]
+        public ResultHistoryOutputFilterAPI create_average_filter(string operate_on = "Columns")
         {
             return CreateAggregateFilter(HistoryResultFilterTypeEnum.Average, operate_on);
         }
@@ -358,9 +358,9 @@ namespace APIs.Python
                                "create_history_output_from_integration", Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_integration(
             string name, string integral_type, string field_name = null, object component_names = null,
-            object region = null, string integral_result = "geometry",
+            object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "none", double thickness = 1.0,
+            string cross_section = "None", double thickness = 1.0,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
         {
             return add(WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
@@ -375,9 +375,9 @@ namespace APIs.Python
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_integration(
             string old_name, string name, string integral_type, string field_name = null,
-            object component_names = null, object region = null, string integral_result = "geometry",
+            object component_names = null, object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "none", double thickness = 1.0,
+            string cross_section = "None", double thickness = 1.0,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
         {
             return replace(old_name, WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
@@ -571,20 +571,31 @@ namespace APIs.Python
         private static ResultHistoryOutputFilterAPI CreateMinMaxFilter(HistoryResultFilterTypeEnum type,
                                                                         string returnValue)
         {
-            string option;
-            if (returnValue == "row") option = HistoryResultFilter.Row;
-            else if (returnValue == "column") option = HistoryResultFilter.Column;
-            else throw new PythonAPIException("The argument 'return_value' must be 'row' or 'column'.");
+            string option = ToFilterOption(returnValue, "return_value", HistoryResultFilter.Row,
+                                           HistoryResultFilter.Column);
             return new ResultHistoryOutputFilterAPI(type, option);
         }
         private static ResultHistoryOutputFilterAPI CreateAggregateFilter(HistoryResultFilterTypeEnum type,
                                                                            string operateOn)
         {
-            string option;
-            if (operateOn == "rows") option = HistoryResultFilter.Rows;
-            else if (operateOn == "columns") option = HistoryResultFilter.Columns;
-            else throw new PythonAPIException("The argument 'operate_on' must be 'rows' or 'columns'.");
+            string option = ToFilterOption(operateOn, "operate_on", HistoryResultFilter.Rows,
+                                           HistoryResultFilter.Columns);
             return new ResultHistoryOutputFilterAPI(type, option);
+        }
+        // A filter option is a name of the results rather than an enumeration, so it is matched here the
+        // way ToEnum matches one: ignoring case, and read back in the spelling the results keep
+        private static string ToFilterOption(string value, string argumentName, params string[] options)
+        {
+            if (value == null)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
+            //
+            foreach (string option in options)
+            {
+                if (string.Equals(option, value.Trim(), System.StringComparison.OrdinalIgnoreCase)) return option;
+            }
+            throw new PythonAPIException("The value '" + value + "' is not supported for the argument '" +
+                                         argumentName + "'. Possible values are " + string.Join(", ", options) +
+                                         ".");
         }
     }
 }

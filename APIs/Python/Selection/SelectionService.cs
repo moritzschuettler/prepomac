@@ -34,7 +34,7 @@ namespace APIs.Python
         public SelectionAPI CreateByIds(string view, string target, string source, object ids,
                                         string geometrySelectMode = "SelectId")
         {
-            ValidateView(view);
+            view = ValidateView(view);
             ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByIds(selection, source, ids, null, geometrySelectMode);
@@ -44,7 +44,7 @@ namespace APIs.Python
                                          object angle, object direction, object partIds,
                                          object completelyInside, object precision = null, object partOffsets = null)
         {
-            ValidateView(view);
+            view = ValidateView(view);
             ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByPick(selection, point, selectBy, angle, direction, partIds, completelyInside, null, precision, partOffsets);
@@ -73,7 +73,7 @@ namespace APIs.Python
         public SelectionAPI CreateByArea(string view, string target, object planes, string selectBy,
                                          object angle, object partIds, object completelyInside, object partOffsets = null)
         {
-            ValidateView(view);
+            view = ValidateView(view);
             ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByArea(selection, planes, selectBy, angle, partIds, completelyInside, null, partOffsets);
@@ -108,7 +108,8 @@ namespace APIs.Python
                                                      ParseOperation(operation)));
         }
         public SelectionAPI CreateByBox(string view, string target, object corner1, object corner2,
-                                        string selectBy, object partIds, object completelyInside)
+                                        string selectBy, object partIds, object completelyInside,
+                                        object partOffsets)
         {
             double[] first = ToVector(corner1, "corner1");
             double[] second = ToVector(corner2, "corner2");
@@ -130,7 +131,7 @@ namespace APIs.Python
                 planes[2 * axis + 1] = highPlane;
             }
             //
-            return CreateByArea(view, target, planes, selectBy, null, partIds, completelyInside);
+            return CreateByArea(view, target, planes, selectBy, null, partIds, completelyInside, partOffsets);
         }
         public void AddInvert(SelectionAPI selection)
         {
@@ -144,7 +145,7 @@ namespace APIs.Python
         }
         public SelectionAPI CreateAll(string view, string target)
         {
-            ValidateView(view);
+            view = ValidateView(view);
             ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddAll(selection, "None");
@@ -622,10 +623,15 @@ namespace APIs.Python
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
             return _meshResolver.GetMesh(selection.view, resultName);
         }
-        private static void ValidateView(string view)
+        // The view is matched regardless of case, as pmx.view and pmx.model.tree match it, and passed on in the
+        // spelling the rest of the selection compares against
+        private static string ValidateView(string view)
         {
-            if (view != "geometry" && view != "femodel" && view != "results")
-                throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel', or 'results'.");
+            foreach (string name in new string[] { "geometry", "femodel", "results" })
+            {
+                if (string.Equals(view, name, System.StringComparison.OrdinalIgnoreCase)) return name;
+            }
+            throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel', or 'results'.");
         }
         private static void ValidateTarget(string target)
         {

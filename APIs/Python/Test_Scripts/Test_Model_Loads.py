@@ -31,6 +31,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def clean():
     names = [n for n in pmx.model.steps.get_names() if n.startswith(PREFIX)]
     if names:
@@ -86,6 +95,13 @@ def test_concentrated():
     load = loads.add_moment(PREFIX + "M", pmx.create.region('NodeSetName', load.region_name), m2=5.5)
     check(load.get_value("m2") == 5.5, "m2 was not set")
     check(load.region_type == "NodeSetName", "unexpected region type " + load.region_type)
+    # A named region the load dialog does not offer is refused before anything is recorded: a concentrated
+    # force acts on nodes or on a reference point, not on a surface
+    message = raised_message(lambda: loads.add_concentrated_force(PREFIX + "Bad",
+                                                                  pmx.create.region('SurfaceName', SURFACE), f3=-1))
+    check(message is not None and "SurfaceName" in message and "NodeSetName" in message,
+          "a surface region must be refused for a concentrated force: " + str(message))
+    check(not loads.contains(PREFIX + "Bad"), "a load with a refused region must not be recorded")
     # The type cannot change on a replace
     check_raises(lambda: loads.replace_concentrated_force(PREFIX + "M"),
                  "replacing a moment by a concentrated force must be rejected")

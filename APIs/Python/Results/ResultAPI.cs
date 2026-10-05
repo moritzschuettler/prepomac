@@ -77,40 +77,40 @@ namespace APIs.Python
         [PythonAPI("Returns one nodal field component value by node ID.",
                    Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str, node_id: int",
                    Returns = "float")]
-        public float get_nodal_value(int stepId, int incrementId, string fieldName, string componentName, int nodeId)
+        public float get_nodal_value(int step_id, int increment_id, string field_name, string component_name, int node_id)
         {
-            return _dataService.GetNodalValue(_resultName, stepId, incrementId, fieldName, componentName, nodeId);
+            return _dataService.GetNodalValue(_resultName, step_id, increment_id, field_name, component_name, node_id);
         }
         [PythonAPI("Returns the undeformed nodal coordinates [x, y, z] by node ID.",
                    Arguments = "node_id: int",
                    Returns = "numpy.ndarray or NumericArray")]
-        public object get_nodal_coordinates(int nodeId)
+        public object get_nodal_coordinates(int node_id)
         {
-            return _meshService.GetNodeCoordinates(_resultName, nodeId);
+            return _meshService.GetNodeCoordinates(_resultName, node_id);
         }
         [PythonAPI("Returns the true-scale deformed nodal coordinates [x, y, z] using the DISP field.",
                    Arguments = "step_id: int, increment_id: int, node_id: int",
                    Returns = "numpy.ndarray or NumericArray")]
-        public object get_deformed_nodal_coordinates(int stepId, int incrementId, int nodeId)
+        public object get_deformed_nodal_coordinates(int step_id, int increment_id, int node_id)
         {
-            return _dataService.GetDeformedNodalCoordinates(_resultName, stepId, incrementId, nodeId);
+            return _dataService.GetDeformedNodalCoordinates(_resultName, step_id, increment_id, node_id);
         }
         [PythonAPI("Returns the entries in a history output field component.",
                    Arguments = "history_name: str, field_name: str, component_name: str",
                    Returns = "HistoryEntries")]
-        public ResultHistoryOutputEntriesAPI get_history_output_entries(string historyName, string fieldName, string componentName)
+        public ResultHistoryOutputEntriesAPI get_history_output_entries(string history_name, string field_name, string component_name)
         {
-            _resultHistoryService.ResolveComponent(_resultName, historyName, fieldName, componentName);
-            return new ResultHistoryOutputEntriesAPI(_resultName, historyName, fieldName, componentName, _resultHistoryService);
+            _resultHistoryService.ResolveComponent(_resultName, history_name, field_name, component_name);
+            return new ResultHistoryOutputEntriesAPI(_resultName, history_name, field_name, component_name, _resultHistoryService);
         }
         [PythonAPI("Returns one named entry in a history output field component.",
                    Arguments = "history_name: str, field_name: str, component_name: str, entry_name: str",
                    Returns = "HistoryEntry")]
-        public ResultHistoryOutputEntryAPI get_history_output_entry(string historyName, string fieldName, string componentName,
-                                                        string entryName)
+        public ResultHistoryOutputEntryAPI get_history_output_entry(string history_name, string field_name, string component_name,
+                                                        string entry_name)
         {
-            _resultHistoryService.ResolveEntry(_resultName, historyName, fieldName, componentName, entryName);
-            return new ResultHistoryOutputEntryAPI(_resultName, historyName, fieldName, componentName, entryName,
+            _resultHistoryService.ResolveEntry(_resultName, history_name, field_name, component_name, entry_name);
+            return new ResultHistoryOutputEntryAPI(_resultName, history_name, field_name, component_name, entry_name,
                                                    _resultHistoryService);
         }
         private FeResults Resolve()

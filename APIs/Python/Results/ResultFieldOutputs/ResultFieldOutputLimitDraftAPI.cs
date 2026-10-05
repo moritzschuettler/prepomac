@@ -26,18 +26,8 @@ namespace APIs.Python
         public string field_name { get { return _fieldName; } }
         [PythonAPI("The source field component name.", Returns = "str")]
         public string component_name { get { return _componentName; } }
-        [PythonAPI("How limits are assigned. Possible values are 'parts', 'element_sets', and 'all_elements'.",
-                   Returns = "str")]
-        public string based_on
-        {
-            get
-            {
-                if (_basedOn == LimitPlotBasedOnEnum.Parts) return "parts";
-                if (_basedOn == LimitPlotBasedOnEnum.ElementSets) return "element_sets";
-                if (_basedOn == LimitPlotBasedOnEnum.AllElements) return "all_elements";
-                throw new PythonAPIException("Unsupported limit assignment type '" + _basedOn + "'.");
-            }
-        }
+        [PythonAPI("How limits are assigned: Parts, ElementSets or AllElements.", Returns = "str")]
+        public string based_on { get { return _basedOn.ToString(); } }
         [PythonAPI("Limit values indexed by part, element set, or all-elements name.",
                    Returns = "StringDoubleMap")]
         public StringDoubleMapAPI item_limits { get { return new StringDoubleMapAPI(_itemLimits); } }

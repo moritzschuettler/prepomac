@@ -17,6 +17,8 @@ namespace APIs.Python.Model
     internal class MaterialService
     {
         // Variables
+        // The characters Material adds to the ones every name may contain
+        private static readonly HashSet<char> _additionalNameCharacters = new HashSet<char>() { '@' };
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
 
@@ -62,13 +64,16 @@ namespace APIs.Python.Model
                                 object temperatureDependent)
         {
             Material material = ResolveMaterial(oldName).DeepClone();
-            if (name != null) material.Name = name;
+            if (name != null)
+            {
+                ValidateName(name, oldName);
+                material.Name = name;
+            }
             if (properties != null) ApplyProperties(material, properties);
             if (description != null) material.Description = description;
             if (temperatureDependent != null)
                 material.TemperatureDependent =
                     PythonValueConverter.ToBool(temperatureDependent, "temperature_dependent");
-            ValidateName(material.Name, oldName);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceMaterial(oldName, material);
@@ -125,8 +130,7 @@ namespace APIs.Python.Model
         }
         private void ValidateName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName, _additionalNameCharacters);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())

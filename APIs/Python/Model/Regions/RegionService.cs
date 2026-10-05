@@ -9,6 +9,7 @@
 
 using CaeMesh;
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -53,10 +54,14 @@ namespace APIs.Python.Model
             //
             return _selectionService.CompileForView(selection, "femodel", target);
         }
+        // Only the characters a plain model item name takes, unless the region type accepts more
+        protected virtual HashSet<char> GetAdditionalNameCharacters()
+        {
+            return null;
+        }
         protected void ValidateNewName(string name, string allowedExistingName)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName, GetAdditionalNameCharacters());
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             // A region shares the name space with the other mesh entities
             foreach (string existingName in _modelResolver.GetAllMeshEntityNames())

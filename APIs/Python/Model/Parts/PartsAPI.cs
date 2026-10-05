@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -82,9 +83,11 @@ namespace APIs.Python.Model
             return _service.GetElementTypeNames();
         }
 
-        [PythonAPI("Returns the element types of a part as a name to value mapping.",
-                   Arguments = "part_name: str", Returns = "StringDoubleMap")]
-        public StringDoubleMapAPI get_element_types(string part_name)
+        [PythonAPI("Returns the element types of a part as a map of the element type name to its value, in " +
+                   "the form set_element_type and replace_properties take them.",
+                   Arguments = "part_name: str", Returns = "dict[str, str]",
+                   Example = "types = parts.get_element_types('Solid-1')  # {'linear_tetra': 'C3D4', ...}")]
+        public Dictionary<string, string> get_element_types(string part_name)
         {
             return _service.GetElementTypes(part_name);
         }

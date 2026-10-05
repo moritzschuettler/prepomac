@@ -85,14 +85,15 @@ namespace APIs.Python
                    "selection_by_area. The box is given by its two opposite corners.",
                    Arguments = "view: str, target: str, corner1: list[float], corner2: list[float], " +
                                "select_by: str, part_ids: list[int] = None, " +
-                               "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection",
+                               "completely_inside: bool = False, part_offsets: list[list[float]] = None",
+                   Returns = "Selection",
                    Example = "pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node')")]
         public SelectionAPI selection_by_box(string view, string target, object corner1, object corner2,
                                              string select_by, object part_ids = null,
-                                             object completely_inside = null)
+                                             object completely_inside = null, object part_offsets = null)
         {
             return _selectionService.CreateByBox(view, target, corner1, corner2, select_by, part_ids,
-                                                  completely_inside);
+                                                  completely_inside, part_offsets);
         }
 
         [PythonAPI("Selects every visible active node, element or surface in the requested view.",
@@ -114,18 +115,18 @@ namespace APIs.Python
         [PythonAPI("Creates a density material property. Give one value, or a list of " +
                    "[density, temperature] rows.", Arguments = "density: float or list[list[float]]",
                    Returns = "MaterialProperty")]
-        public Density density(object density_value)
+        public Density density(object density)
         {
-            return MaterialPropertyFactory.CreateDensity(density_value);
+            return MaterialPropertyFactory.CreateDensity(density);
         }
 
         [PythonAPI("Creates a combined elastic and density material property.",
                    Arguments = "youngs_modulus: float, poissons_ratio: float, density: float",
                    Returns = "MaterialProperty")]
         public ElasticWithDensity elastic_with_density(object youngs_modulus, object poissons_ratio,
-                                                       object density_value)
+                                                       object density)
         {
-            return MaterialPropertyFactory.CreateElasticWithDensity(youngs_modulus, poissons_ratio, density_value);
+            return MaterialPropertyFactory.CreateElasticWithDensity(youngs_modulus, poissons_ratio, density);
         }
 
         [PythonAPI("Creates an orthotropic elastic property. Every row is [E1, E2, E3, v12, v13, v23, " +
@@ -164,17 +165,17 @@ namespace APIs.Python
         [PythonAPI("Creates a specific heat material property. Give one value, or a list of " +
                    "[specific_heat, temperature] rows.", Arguments = "specific_heat: float or list[list[float]]",
                    Returns = "MaterialProperty")]
-        public SpecificHeat specific_heat(object specific_heat_value)
+        public SpecificHeat specific_heat(object specific_heat)
         {
-            return MaterialPropertyFactory.CreateSpecificHeat(specific_heat_value);
+            return MaterialPropertyFactory.CreateSpecificHeat(specific_heat);
         }
 
         [PythonAPI("Creates a thermal conductivity material property. Give one value, or a list of " +
                    "[conductivity, temperature] rows.",
                    Arguments = "thermal_conductivity: float or list[list[float]]", Returns = "MaterialProperty")]
-        public ThermalConductivity thermal_conductivity(object thermal_conductivity_value)
+        public ThermalConductivity thermal_conductivity(object thermal_conductivity)
         {
-            return MaterialPropertyFactory.CreateThermalConductivity(thermal_conductivity_value);
+            return MaterialPropertyFactory.CreateThermalConductivity(thermal_conductivity);
         }
 
         [PythonAPI("Creates a thermal expansion material property. Give one value, or a list of " +
@@ -184,9 +185,9 @@ namespace APIs.Python
                                "zero_temperature: float = None",
                    Returns = "MaterialProperty",
                    Example = "pmx.create.thermal_expansion(1.2e-5, zero_temperature=0)")]
-        public ThermalExpansion thermal_expansion(object thermal_expansion_value, object zero_temperature = null)
+        public ThermalExpansion thermal_expansion(object thermal_expansion, object zero_temperature = null)
         {
-            return MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion_value, zero_temperature);
+            return MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion, zero_temperature);
         }
         [PythonAPI("Creates a friction surface interaction property.",
                    Arguments = "coefficient: float, stick_slope: float = None",
@@ -381,10 +382,10 @@ namespace APIs.Python
         [PythonAPI("Creates a viscous damping ratio for a mode range, used by the Direct modal damping type.",
                    Arguments = "damping_ratio: float, lowest_mode: int, highest_mode: int",
                    Returns = "DampingRatio", Example = "pmx.create.damping_ratio(0.02, 1, 10)")]
-        public DampingRatioAndRange damping_ratio(object damping_ratio_value, object lowest_mode,
+        public DampingRatioAndRange damping_ratio(object damping_ratio, object lowest_mode,
                                                   object highest_mode)
         {
-            return StepPartFactory.CreateDampingRatio(damping_ratio_value, lowest_mode, highest_mode);
+            return StepPartFactory.CreateDampingRatio(damping_ratio, lowest_mode, highest_mode);
         }
 
         [PythonAPI("Creates a time incrementation step control parameter. Only the given values override " +

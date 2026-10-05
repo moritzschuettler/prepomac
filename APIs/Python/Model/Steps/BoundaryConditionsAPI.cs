@@ -308,7 +308,11 @@ namespace APIs.Python.Model
         }
         private BoundaryConditionAPI Replace(string oldName, string name, BoundaryCondition boundaryCondition)
         {
-            if (name != null) boundaryCondition.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(StepName, name, oldName);
+                boundaryCondition.Name = name;
+            }
             _service.Replace(StepName, oldName, boundaryCondition);
             //
             return this[boundaryCondition.Name];

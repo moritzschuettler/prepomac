@@ -112,12 +112,30 @@ namespace PrePoMax.Python
         {
             _controller.ReplaceModelPropertiesCommand(newModelName, newModelProperties);
         }
+        public IOrderedDictionaryItemLayout<string> GetTreeLayout(string view, string itemType, string parentName)
+        {
+            IOrderedDictionaryItemLayout<string> dictionary;
+            try
+            {
+                if (!_controller.TryGetOrderedDictionaryItemLayout(GetTreeItemType(itemType), GetTreeView(view),
+                                                                   parentName, out dictionary))
+                    return null;
+            }
+            // The controller reports a collection its view does not currently hold as not supported
+            catch (NotSupportedException)
+            {
+                return null;
+            }
+            return dictionary;
+        }
         public void ChangeTreeLayout(string action, string view, string itemType, string parentName,
                                      string[] itemNames, string[] groupIds, string groupId, string targetGroupId,
                                      int targetIndex, string groupName)
         {
             // The API keeps the tree vocabulary in its own words, and this is where it becomes the tree types
-            ViewType viewValue = (ViewType)Enum.Parse(typeof(ViewType), view, true);
+            ViewGeometryModelResults treeView = GetTreeView(view);
+            ViewType viewValue = treeView == ViewGeometryModelResults.Geometry ? ViewType.Geometry
+                                 : treeView == ViewGeometryModelResults.Model ? ViewType.Model : ViewType.Results;
             OrderedDictionaryTreeLayoutAction actionValue =
                 (OrderedDictionaryTreeLayoutAction)Enum.Parse(typeof(OrderedDictionaryTreeLayoutAction), action, true);
             Type itemTypeValue = GetTreeItemType(itemType);
@@ -152,6 +170,15 @@ namespace PrePoMax.Python
                                                                      Guid.Parse(groupId), target, targetIndex);
             }
             _controller.ChangeOrderedDictionaryItemLayoutCommand(change);
+        }
+        // The tree views are named the way the selections and pmx.view name them
+        private static ViewGeometryModelResults GetTreeView(string view)
+        {
+            if (view == "geometry") return ViewGeometryModelResults.Geometry;
+            if (view == "femodel") return ViewGeometryModelResults.Model;
+            if (view == "results") return ViewGeometryModelResults.Results;
+            //
+            throw new CaeException("The model tree view '" + view + "' does not exist.");
         }
         private static Type GetTreeItemType(string itemType)
         {

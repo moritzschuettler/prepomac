@@ -18,9 +18,9 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The merged history source components as 'history_output_name.field_name.component_name'.",
-                   Returns = "StringList")]
-        public StringListAPI sources { get { return new StringListAPI(GetSourceNames()); } }
+        [PythonAPI("The merged history source components, each as [history_output_name, field_name, " +
+                   "component_name], the form the source1 to source4 arguments take.", Returns = "list[StringList]")]
+        public StringListAPI[] sources { get { return ResultHistoryOutputAPI.ToSourceNames(_sources); } }
 
 
         // Constructors
@@ -41,12 +41,6 @@ namespace APIs.Python
         protected override string GetRequiredTarget()
         {
             return null;
-        }
-        private string[] GetSourceNames()
-        {
-            string[] sourceNames = new string[_sources.Length];
-            for (int i = 0; i < _sources.Length; i++) sourceNames[i] = _sources[i].GetDisplayName();
-            return sourceNames;
         }
         public override string ToString()
         {

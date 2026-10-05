@@ -106,6 +106,7 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("deformation_variable_name=" +
                               PythonValueFormatter.Text(fromIntegration.DeformationVariableName));
                 arguments.Add("unit=" + PythonValueFormatter.Text(fromIntegration.Unit));
+                arguments.Add("cross_section=" + PythonValueFormatter.Text(fromIntegration.CrossSection.ToString()));
                 arguments.Add("thickness=" + PythonValueFormatter.Number(fromIntegration.Thickness));
             }
             else if (output is ResultHistoryOutputFromMergedHistories merged)
@@ -199,9 +200,8 @@ namespace PrePoMax.Python.Journal
             else if (filter.Type == FieldResultFilterTypeEnum.Smooth) method = "create_smooth_filter";
             else throw new NotSupportedException("the field filter " + filter.Type + " has no factory");
             //
-            string source = filter.SourceType == FieldResultFilterSourceTypeEnum.SurfaceNodes ? "surface_nodes"
-                                                                                              : "all_nodes";
-            return PythonJournalWriter.Join(FieldOutputs + "." + method, PythonValueFormatter.Text(source),
+            return PythonJournalWriter.Join(FieldOutputs + "." + method,
+                                            PythonValueFormatter.Text(filter.SourceType.ToString()),
                                             "layers=" + filter.NumberOfNeighbouringLayers,
                                             "iterations=" + filter.NumberOfIterations);
         }

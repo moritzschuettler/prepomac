@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeMesh;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -50,6 +51,11 @@ namespace APIs.Python.Model
             _service.ConvertToMeshParts(ResolveNames(names, "names"));
         }
         //
+        // The characters FeElementSet adds to the ones every name may contain
+        protected override HashSet<char> GetAdditionalNameCharacters()
+        {
+            return new HashSet<char>() { '@' };
+        }
         protected override string[] GetItemNames()
         {
             return _service.GetNames();

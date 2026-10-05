@@ -21,10 +21,10 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The filter type. Possible values are 'median', 'average', and 'smooth'.", Returns = "str")]
-        public string type { get { return GetTypeName(_type); } }
-        [PythonAPI("The source nodes. Possible values are 'all_nodes' and 'surface_nodes'.", Returns = "str")]
-        public string source { get { return GetSourceName(_source); } }
+        [PythonAPI("The filter type: Median, Average or Smooth.", Returns = "str")]
+        public string type { get { return _type.ToString(); } }
+        [PythonAPI("The source nodes: AllNodes or SurfaceNodes.", Returns = "str")]
+        public string source { get { return _source.ToString(); } }
         [PythonAPI("The number of neighbouring node layers.", Returns = "int")]
         public int layers { get { return _layers; } }
         [PythonAPI("The number of filter iterations.", Returns = "int")]
@@ -65,19 +65,6 @@ namespace APIs.Python
             return "FieldOutputFilter(type=" + StringListAPI.ToDisplayString(type) +
                    ", source=" + StringListAPI.ToDisplayString(source) +
                    ", layers=" + _layers + ", iterations=" + _iterations + ")";
-        }
-        private static string GetTypeName(FieldResultFilterTypeEnum type)
-        {
-            if (type == FieldResultFilterTypeEnum.Median) return "median";
-            if (type == FieldResultFilterTypeEnum.Average) return "average";
-            if (type == FieldResultFilterTypeEnum.Smooth) return "smooth";
-            throw new PythonAPIException("Unsupported field filter type '" + type + "'.");
-        }
-        private static string GetSourceName(FieldResultFilterSourceTypeEnum source)
-        {
-            if (source == FieldResultFilterSourceTypeEnum.AllNodes) return "all_nodes";
-            if (source == FieldResultFilterSourceTypeEnum.SurfaceNodes) return "surface_nodes";
-            throw new PythonAPIException("Unsupported field filter source '" + source + "'.");
         }
     }
 }

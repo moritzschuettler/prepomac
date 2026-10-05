@@ -14,8 +14,9 @@ namespace APIs.Python
     public class ResultHistoryOutputFromExtractedEntryAPI : ResultHistoryOutputAPI
     {
         // Properties
-        [PythonAPI("The source history component as 'history_output_name.field_name.component_name'.", Returns = "str")]
-        public string source { get { return ResolveFromExtractedEntry().Source.GetDisplayName(); } }
+        [PythonAPI("The source history component as [history_output_name, field_name, component_name], the " +
+                   "form the source argument takes.", Returns = "StringList")]
+        public StringListAPI source { get { return ToSourceNames(ResolveFromExtractedEntry().Source); } }
         [PythonAPI("The name of the extracted history entry.", Returns = "str")]
         public string entry_name { get { return ResolveFromExtractedEntry().EntryName; } }
 

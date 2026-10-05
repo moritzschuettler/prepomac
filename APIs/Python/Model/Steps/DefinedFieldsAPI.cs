@@ -190,7 +190,11 @@ namespace APIs.Python.Model
                                         object amplitudeName, object color)
         {
             _service.ApplyCommonValues(definedField, amplitudeName, color);
-            if (name != null) definedField.Name = name;
+            if (name != null)
+            {
+                _service.ValidateName(StepName, name, oldName);
+                definedField.Name = name;
+            }
             _service.Replace(StepName, oldName, definedField);
             //
             return this[definedField.Name];

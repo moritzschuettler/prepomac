@@ -39,6 +39,8 @@ namespace APIs.Python
         // Model properties
         void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType);
         void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties);
+        // Null when the view holds no such collection, as a model without a mesh or without an open result
+        IOrderedDictionaryItemLayout<string> GetTreeLayout(string view, string itemType, string parentName);
         void ChangeTreeLayout(string action, string view, string itemType, string parentName, string[] itemNames,
                               string[] groupIds, string groupId, string targetGroupId, int targetIndex, string groupName);
         // CalculiX keyword editor
