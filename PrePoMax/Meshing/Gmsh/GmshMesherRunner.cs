@@ -154,10 +154,12 @@ namespace PrePoMax
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
             string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
+            string conflictFileName = inpFileName + CaeMesh.Sweep.SweepCountConflictException.FileExtension;
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(inpFileName)) File.Delete(inpFileName);
             if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
+            if (File.Exists(conflictFileName)) File.Delete(conflictFileName);
             //
             _controller.SuppressExplodedView(new string[] { part.Name });
             File.WriteAllText(brepFileName, part.CADFileData);
@@ -248,9 +250,32 @@ namespace PrePoMax
                     double[][] nodeCoor = mesh.GetAllNodeCoor();
                     _controller.HighlightNodes(nodeCoor);
                 }
+                if (File.Exists(conflictFileName)) HighlightSweepCountConflict(conflictFileName);
                 return true;
             }
             else return false;
+        }
+        /// <summary>
+        /// Highlights the surfaces and edges of a sweep whose counts cannot hold together, which the preview lists by the
+        /// ids the model knows them by, in the secondary highlight color beside the nodes of the preview.
+        /// </summary>
+        private void HighlightSweepCountConflict(string conflictFileName)
+        {
+            int topologyId;
+            List<int> edgeIds = new List<int>();
+            foreach (var line in File.ReadAllLines(conflictFileName))
+            {
+                string[] parts = line.Split(' ');
+                if (parts.Length != 2 || !int.TryParse(parts[1], out topologyId)) continue;
+                //
+                int itemId = FeMesh.GetItemIdFromGmshTopologyId(topologyId);
+                int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+                if (parts[0] == "SURFACE")
+                    _controller.HighlightItemsBySurfaceIds(new int[] { FeMesh.GetGeometryId(itemId,
+                                                                       (int)GeometryType.SolidSurface, partId) }, true);
+                else if (parts[0] == "EDGE") edgeIds.Add(FeMesh.GetGeometryId(itemId, (int)GeometryType.Edge, partId));
+            }
+            if (edgeIds.Count > 0) _controller.HighlightItemsByGeometryEdgeIds(edgeIds.ToArray(), true);
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)

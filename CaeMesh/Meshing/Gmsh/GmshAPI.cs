@@ -46,6 +46,7 @@ namespace CaeMesh
         private HashSet<int> _sharedCrossEdgeIds = new HashSet<int>();
         private Dictionary<int, int> _crossEdgeMinimums;
         private const int _intervalTimeoutSeconds = 20;
+        private SweepCountConflictException _intervalConflict;
         private const double _chosenCountWeight = 1000;
         private const double _quadWildDownWeight = 100;
         private Dictionary<int, int> _parityRaisedEdgeIdNumOfElements = new Dictionary<int, int>();
@@ -275,6 +276,7 @@ namespace CaeMesh
                 if (!_gmshData.Preview) ReportMeshQuality();
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
+                if (_intervalConflict != null) WriteSweepCountConflict(_intervalConflict);
                 //Gmsh.Write(@"c:\Temp\mesh.mesh");
                 //
                 _writeOutput?.Invoke("Meshing done.");
@@ -782,7 +784,22 @@ namespace CaeMesh
                 foreach (var prism in _threeBlockPrisms) prism.Build(capNodeTags, capGrids);
             }
         }
+        /// <summary>
+        /// The sweep. The preview of one whose counts no assignment keeps meshes the curves with the counts closest to its
+        /// rows instead, and shows them with the surfaces and edges of the rows that cannot be kept.
+        /// </summary>
         private void SweepMesh(SweepMesh sweepMesh, MeshingParameters meshingParameters, bool preview)
+        {
+            try
+            {
+                MeshSweep(sweepMesh, meshingParameters, preview);
+            }
+            catch (SweepCountConflictException) when (preview)
+            {
+                GenerateMesh(1);
+            }
+        }
+        private void MeshSweep(SweepMesh sweepMesh, MeshingParameters meshingParameters, bool preview)
         {
             if (sweepMesh == null) throw new NotSupportedException();
             //
@@ -3762,7 +3779,7 @@ namespace CaeMesh
                 _sharedCrossEdgeIds = GetSharedCrossEdgeIds(walls);
                 _transfiniteSourcePins = new Dictionary<int, int>();
                 foreach (var entry in edgeIdNumOfElements) _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
-                CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
+                if (_intervalConflict == null) CheckWallElementCounts(walls, chains, edgeIdNumOfElements);
             }
             else
             {
@@ -3780,6 +3797,7 @@ namespace CaeMesh
             SweepIntervalShadow.Report(intervalProblem, edgeIdNumOfElements, null, NameGmshEntities);
             Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
             foreach (var entry in edgeIdNumOfElements) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
+            if (_intervalConflict != null) throw _intervalConflict;
             return directionEdgeIdNumOfElements;
         }
         /// <summary>
@@ -3811,13 +3829,13 @@ namespace CaeMesh
                                   row.Sides.All(side => side.All(problem.EdgeIdFixedCount.ContainsKey)))
                     .ToList();
                 if (refusedRows.Count == 0) return solution;
-                throw new CaeException(NameGmshEntities("Sweep: " + string.Join(Environment.NewLine, refusedRows.Select(row =>
+                return RefuseSweepCounts("Sweep: " + string.Join(Environment.NewLine, refusedRows.Select(row =>
                     string.Join(", ", row.Sides.SelectMany(side => side).Distinct()
                                          .Select(edgeId => "Edge " + edgeId + " (set to " + problem.EdgeIdFixedCount[edgeId] + ")")) +
                     " are tied together by the transfinite source Surface " + row.SurfaceId +
                     " and cannot all carry one number of elements.")) + Environment.NewLine +
                     "Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
-                    "3-sided and 4-sided surfaces."));
+                    "3-sided and 4-sided surfaces.", refusedRows, solution);
             }
             if (solution.Status != LpSolve.Infeasible)
             {
@@ -3852,7 +3870,42 @@ namespace CaeMesh
             }
             message.AppendLine();
             message.Append("Change the number of elements set on these edges, or select the source surfaces by hand.");
-            throw new CaeException(NameGmshEntities(message.ToString()));
+            return RefuseSweepCounts(message.ToString(), conflicts, relaxed);
+        }
+        /// <summary>
+        /// Refuses the sweep with the message. A preview keeps the counts closest to the rows that cannot be kept instead,
+        /// and remembers the rows, so that it shows those counts with the surfaces and edges of the rows.
+        /// </summary>
+        private IntervalSolution RefuseSweepCounts(string message, List<IntervalRow> rows, IntervalSolution counts)
+        {
+            // The error is named by the caller
+            if (!_gmshData.Preview || counts == null || !counts.HasCounts) throw new CaeException(message);
+            //
+            _intervalConflict = new SweepCountConflictException(NameGmshEntities(message),
+                rows.Select(row => row.SurfaceId).Where(id => id > 0).Distinct().ToArray(),
+                rows.SelectMany(row => row.Sides.SelectMany(side => side)).Distinct().ToArray());
+            return counts;
+        }
+        /// <summary>
+        /// Writes the surfaces and the edges of the rows a previewed sweep cannot keep next to the mesh file, one to a line
+        /// as SURFACE or EDGE and the id the model knows it by, and the refusal to the output.
+        /// </summary>
+        private void WriteSweepCountConflict(SweepCountConflictException conflict)
+        {
+            int topologyId;
+            List<string> lines = new List<string>();
+            foreach (var surfaceId in conflict.SurfaceIds)
+            {
+                if (_gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId)) lines.Add("SURFACE " + topologyId);
+            }
+            foreach (var edgeId in conflict.EdgeIds)
+            {
+                if (_gmshCurveIdTopologyId.TryGetValue(edgeId, out topologyId)) lines.Add("EDGE " + topologyId);
+            }
+            File.WriteAllLines(_gmshData.InpFileName + SweepCountConflictException.FileExtension, lines);
+            _writeOutput?.Invoke(conflict.Message);
+            _writeOutput?.Invoke("Sweep: the preview shows the element counts closest to these and highlights the surfaces " +
+                                 "and edges that cannot hold together.");
         }
         private Dictionary<int, int> SettleWallEdges(List<SweepWall> walls, List<SweepChain> chains,
                                                      List<int> chainBlockIndices,
@@ -3921,7 +3974,7 @@ namespace CaeMesh
                 if (wall.SourceEdgeIds.Length > 0 && wall.TargetEdgeIds.Length > 0)
                 {
                     problem.AddEqualSums("Surface " + wall.SurfaceId + " across the sweep", IntervalRowTierEnum.Hard,
-                                         wall.SourceEdgeIds, wall.TargetEdgeIds);
+                                         wall.SourceEdgeIds, wall.TargetEdgeIds, wall.SurfaceId);
                     int[][] segments = GetOppositeSegments(wall.SourceEdgeIds, wall.TargetEdgeIds);
                     if (segments != null)
                     {
@@ -3935,7 +3988,7 @@ namespace CaeMesh
                                                      .Select(group => group.ToArray()).ToArray();
                 if (sides.Length == 2)
                     problem.AddEqualSums("Surface " + wall.SurfaceId + " along the sweep", IntervalRowTierEnum.Hard,
-                                         sides[0], sides[1]);
+                                         sides[0], sides[1], wall.SurfaceId);
                 foreach (var edgeId in wall.DirectionEdgeIds) problem.AddEdge(edgeId);
             }
             // The levels along the sweep: every chain carries one count between two levels it runs through
