@@ -267,9 +267,12 @@ namespace CaeMesh
                 foreach (var candidate in _partIdShape)
                 {
                     if (sides[candidate.Key] == sides[entry.Key]) continue;
-                    // The two triangulate their curved faces apart, so their areas and volumes agree only as closely
-                    if (Math.Abs(candidate.Value.Volume - entry.Value.Volume) > 1E-3 * Math.Abs(entry.Value.Volume)) continue;
-                    if (Math.Abs(candidate.Value.Area - entry.Value.Area) > 1E-3 * entry.Value.Area) continue;
+                    // The two triangulate their curved faces apart, so their areas and volumes agree only as closely. A
+                    // periodic face closed along a single seam is measured from where its seam lies, which the mirror
+                    // does not carry over, and two images of a bore come out a tenth of a percent apart; the box and the
+                    // edges decide the pairing, the measurements only rule out cells that are plainly different
+                    if (Math.Abs(candidate.Value.Volume - entry.Value.Volume) > 5E-3 * Math.Abs(entry.Value.Volume)) continue;
+                    if (Math.Abs(candidate.Value.Area - entry.Value.Area) > 5E-3 * entry.Value.Area) continue;
                     double error = BoxError(mirrored, candidate.Value.Box);
                     if (error > _signatureTolerance || error >= bestError) continue;
                     bestError = error;
@@ -289,7 +292,9 @@ namespace CaeMesh
         /// <summary>
         /// Whether the master mirrored across the planes of the bits has the shape of the cell and carries every edge
         /// of it: every vertex of the cell is a mirrored vertex of the master, every edge of the cell runs along
-        /// mirrored edges of the master, and every mirrored vertex of the master lies on the cell.
+        /// mirrored edges of the master, and every mirrored vertex of the master lies on the cell. The seam of a
+        /// periodic face closed along a single seam lies where the modelling kernel put it and not where the mirror
+        /// does, and a seam wall is meshed around its seam, so a seam and its vertices only have to lie on the master.
         /// </summary>
         private bool Covers(int masterId, int partId, double[][] planes, int bits)
         {
@@ -298,15 +303,25 @@ namespace CaeMesh
             List<double[]> masterVertices = master.VertexCoors.Select(coor => Transform(coor, planes, bits)).ToList();
             List<double[][][]> masterEdges = master.EdgeSegments.Select(segments => TransformSegments(segments, planes, bits))
                                                    .ToList();
-            foreach (var coor in cell.VertexCoors)
+            for (int i = 0; i < cell.VertexCoors.Count; i++)
             {
-                if (!masterVertices.Any(vertex => Distance(vertex, coor) <= _vertexTolerance)) return false;
-            }
-            foreach (var segments in cell.EdgeSegments)
-            {
-                foreach (var coor in segments.SelectMany(segment => segment))
+                double[] coor = cell.VertexCoors[i];
+                if (cell.SeamVertexIndices.Contains(i))
                 {
-                    if (!masterEdges.Any(edge => DistanceToSegments(coor, edge) <= _curveTolerance)) return false;
+                    if (master.DistanceToSurface(Transform(coor, planes, bits)) > _curveTolerance) return false;
+                }
+                else if (!masterVertices.Any(vertex => Distance(vertex, coor) <= _vertexTolerance)) return false;
+            }
+            for (int edgeId = 0; edgeId < cell.EdgeSegments.Count; edgeId++)
+            {
+                bool seam = cell.SeamEdgeIds.Contains(edgeId);
+                foreach (var coor in cell.EdgeSegments[edgeId].SelectMany(segment => segment))
+                {
+                    if (seam)
+                    {
+                        if (master.DistanceToSurface(Transform(coor, planes, bits)) > _curveTolerance) return false;
+                    }
+                    else if (!masterEdges.Any(edge => DistanceToSegments(coor, edge) <= _curveTolerance)) return false;
                 }
             }
             foreach (var vertex in masterVertices)
@@ -536,6 +551,8 @@ namespace CaeMesh
             public readonly List<double[][][]> EdgeSegments = new List<double[][][]>();
             public readonly List<double[][]> EdgeEnds = new List<double[][]>();
             public readonly List<List<double[][]>> FaceTriangles = new List<List<double[][]>>();
+            public readonly HashSet<int> SeamEdgeIds = new HashSet<int>();
+            public readonly HashSet<int> SeamVertexIndices = new HashSet<int>();
             public readonly double Area;
             public readonly double Volume;
             //
@@ -550,9 +567,25 @@ namespace CaeMesh
                     NodeCoors.Add(coor);
                     Box.IncludeCoor(coor);
                 }
+                // The seams of the periodic faces closed along a single seam, and their vertices
+                HashSet<int> seamVertexNodeIds = new HashSet<int>();
+                if (vis.FaceEdgeIds != null && vis.EdgeCellIdsByEdge != null)
+                {
+                    for (int faceId = 0; faceId < vis.FaceEdgeIds.Length; faceId++)
+                    {
+                        int seamEdgeId;
+                        if (!vis.IsSurfaceACylinderLike(faceId, out seamEdgeId)) continue;
+                        SeamEdgeIds.Add(seamEdgeId);
+                        seamVertexNodeIds.UnionWith(vis.GetVertexNodeIdsForEdgeId(seamEdgeId));
+                    }
+                }
                 if (vis.VertexNodeIds != null)
                 {
-                    foreach (var nodeId in vis.VertexNodeIds) VertexCoors.Add(geometry.Nodes[nodeId].Coor);
+                    foreach (var nodeId in vis.VertexNodeIds)
+                    {
+                        if (seamVertexNodeIds.Contains(nodeId)) SeamVertexIndices.Add(VertexCoors.Count);
+                        VertexCoors.Add(geometry.Nodes[nodeId].Coor);
+                    }
                 }
                 if (vis.EdgeCellIdsByEdge != null)
                 {

@@ -4619,11 +4619,13 @@ namespace CaeModel
                 layerSideSurfaceIds = null;
                 return "The source surfaces (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") are not connected.";
             }
-            // Are there any free edge loops with a single edge - cylinder with a single seam line
+            // Are there any free edge loops with a single edge that no periodic wall with a single seam continues
             HashSet<int>[] freeEdgeLoops = vis.GetFreeEdgeLoops(sourceSurfaceIdsArray, maps.GetVertexIdEdgeIds(part));
             for (int i = 0; i < freeEdgeLoops.Length; i++)
             {
-                if (freeEdgeLoops[i].Count == 1)
+                if (freeEdgeLoops[i].Count == 1 &&
+                    !vis.IsSingleEdgeLoopOnSeamWall(freeEdgeLoops[i].First(), sourceSurfaceIds,
+                                                    surfaceIdSurfaceNeighbourIds))
                 {
                     sideSurfaceIds = null;
                     targetSurfaceIds = null;

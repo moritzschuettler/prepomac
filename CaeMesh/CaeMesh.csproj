@@ -147,6 +147,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepMethods.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\GmshElementType.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlock.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepSeamWallMesher.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepIntervalShadow.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepCountConflictException.cs" />
     <Compile Include="Meshing\IntervalAssignment\IntervalProblem.cs" />

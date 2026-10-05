@@ -2007,6 +2007,11 @@ namespace CaeMesh
                 throw new CaeException(GetRefusedSurfacesMessage(ReportRefusedSurfaces(walls, blocks, surfaceIdEdgeIds,
                                                                                         logLength)));
             }
+            // The walls closed along a single seam get the grid of their layers
+            foreach (var wall in walls)
+            {
+                if (SweepSeamWallMesher.IsSeamWall(wall)) SweepSeamWallMesher.Mesh(wall);
+            }
             // The three-sided structured sources become three blocks of quads around one inner node
             foreach (var face in _structuredSourceFaces.Values)
             {
@@ -3494,6 +3499,8 @@ namespace CaeMesh
         {
             foreach (var wall in walls)
             {
+                // A wall closed along a single seam is meshed free by gmsh and given its grid afterwards
+                if (SweepSeamWallMesher.IsSeamWall(wall)) continue;
                 int[] corners = SweepWallTopology.GetCorners(wall);
                 if (corners != null) Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft", corners);
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft");

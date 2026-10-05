@@ -1446,6 +1446,25 @@ namespace CaeMesh
             }
             return false;
         }
+        /// <summary>
+        /// A free edge loop of a single edge is the rim of a bore or of a boss. It can be swept when the surface beyond
+        /// it is a periodic wall closed along a single seam, whose grid the sweep lays around the seam.
+        /// </summary>
+        public bool IsSingleEdgeLoopOnSeamWall(int edgeId, IEnumerable<int> sourceSurfaceIds,
+                                               Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds)
+        {
+            HashSet<int> sources = new HashSet<int>(sourceSurfaceIds);
+            foreach (var sourceSurfaceId in sources)
+            {
+                foreach (var neighbourId in surfaceIdSurfaceNeighbourIds[sourceSurfaceId])
+                {
+                    if (sources.Contains(neighbourId)) continue;
+                    if (_faceEdgeIds[neighbourId].Contains(edgeId) && IsSurfaceACylinderLike(neighbourId, out _))
+                        return true;
+                }
+            }
+            return false;
+        }
         public bool IsEdgeAClosedLoop(int edgeId, out int[] edgeNodeIds)
         {
             edgeNodeIds = null;
@@ -1910,7 +1929,9 @@ namespace CaeMesh
             HashSet<int>[] freeEdgeLoops = GetFreeEdgeLoops(sourceSurfaceIds.ToArray(), vertexIdEdgeIds);
             for (int i = 0; i < freeEdgeLoops.Length; i++)
             {
-                if (freeEdgeLoops[i].Count == 1) singleEdgeLoops++;
+                if (freeEdgeLoops[i].Count == 1 &&
+                    !IsSingleEdgeLoopOnSeamWall(freeEdgeLoops[i].First(), sourceSurfaceIds, surfaceIdSurfaceNeighbourIds))
+                    singleEdgeLoops++;
             }
             // If there are free edge loops with a single edge return false
             if (singleEdgeLoops != 0) return false;
@@ -1969,8 +1990,11 @@ namespace CaeMesh
                         // with exceptions for a cylindrical faces
                         foreach (var surfaceLoop in surfaceLoops)
                         {
-                            // One cylindrical face
-                            if (surfaceLoop.Count == 1) loop = false;
+                            // One cylindrical face, closed along a single seam
+                            if (surfaceLoop.Count == 1)
+                            {
+                                if (!IsSurfaceACylinderLike(surfaceLoop.GetValues().First(), out _)) loop = false;
+                            }
                             // Two cylindrical faces
                             else if (surfaceLoop.Count == 2)
                             {
