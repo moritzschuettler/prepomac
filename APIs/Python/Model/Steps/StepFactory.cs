@@ -63,10 +63,8 @@ namespace APIs.Python.Model
         {
             if (numOfFrequencies != null)
                 step.NumOfFrequencies = PythonValueConverter.ToInt(numOfFrequencies, "num_of_frequencies");
-            if (lowerFrequency != null)
-                step.LowerFrequency = PythonValueConverter.ToDouble(lowerFrequency, "lower_frequency");
-            if (upperFrequency != null)
-                step.UpperFrequency = PythonValueConverter.ToDouble(upperFrequency, "upper_frequency");
+            SetFrequencyRange(lowerFrequency, upperFrequency, step.UpperFrequency,
+                              value => step.LowerFrequency = value, value => step.UpperFrequency = value);
             if (storage != null) step.Storage = PythonValueConverter.ToBool(storage, "storage");
             if (cyclicSymmetryModeMin != null)
                 step.CyclicSymmetryModeMin =
@@ -102,10 +100,8 @@ namespace APIs.Python.Model
                                                           object timeUpper, object modalDamping)
         {
             if (harmonic != null) step.Harmonic = PythonValueConverter.ToBool(harmonic, "harmonic");
-            if (lowerFrequency != null)
-                step.LowerFrequency = PythonValueConverter.ToDouble(lowerFrequency, "lower_frequency");
-            if (upperFrequency != null)
-                step.UpperFrequency = PythonValueConverter.ToDouble(upperFrequency, "upper_frequency");
+            SetFrequencyRange(lowerFrequency, upperFrequency, step.UpperFrequency,
+                              value => step.LowerFrequency = value, value => step.UpperFrequency = value);
             if (numDataPoints != null)
                 step.NumDataPoints = PythonValueConverter.ToInt(numDataPoints, "num_data_points");
             if (bias != null) step.Bias = PythonValueConverter.ToDouble(bias, "bias");
@@ -140,6 +136,21 @@ namespace APIs.Python.Model
             if (deltmx != null) step.Deltmx = PythonValueConverter.ToDouble(deltmx, "deltmx");
         }
         //
+        // The model refuses a lower frequency at or above the stored upper one and the other way round, so a call
+        // that moves both limits past each other sets the upper one first
+        private static void SetFrequencyRange(object lowerFrequency, object upperFrequency, double storedUpper,
+                                              System.Action<double> setLower, System.Action<double> setUpper)
+        {
+            double lower = lowerFrequency == null ? double.NaN :
+                           PythonValueConverter.ToDouble(lowerFrequency, "lower_frequency");
+            double upper = upperFrequency == null ? double.NaN :
+                           PythonValueConverter.ToDouble(upperFrequency, "upper_frequency");
+            bool upperFirst = upperFrequency != null && lowerFrequency != null && lower >= storedUpper;
+            //
+            if (upperFirst) setUpper(upper);
+            if (lowerFrequency != null) setLower(lower);
+            if (upperFrequency != null && !upperFirst) setUpper(upper);
+        }
         private static ModalDamping ToModalDamping(object value)
         {
             ModalDamping converted = value as ModalDamping;

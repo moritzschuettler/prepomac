@@ -388,23 +388,25 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, name, null);
             PreTensionLoad load = new PreTensionLoad(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
-            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type);
+            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type, null);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Replaces an existing pre-tension load using command history.",
+        [PythonAPI("Replaces an existing pre-tension load using command history, keeping every value that is " +
+                   "not given. A load_type that changes the type needs the magnitude as well, and " +
+                   "auto_direction=True returns to the surface normal.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_pre_tension with " +
-                               "magnitude optional", Returns = "Load")]
+                               "magnitude optional, and auto_direction: bool = None", Returns = "Load")]
         public LoadAPI replace_pre_tension(string old_name, string name = null, object region = null,
                                            object magnitude = null, object direction = null,
                                            object load_type = null, object amplitude_name = null,
                                            object coordinate_system_name = null, object phase_deg = null,
-                                           object color = null)
+                                           object color = null, object auto_direction = null)
         {
             PreTensionLoad load = _service.CloneForReplace<PreTensionLoad>(StepName, old_name, "PreTensionLoad");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
-            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type);
+            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type, auto_direction);
             //
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }

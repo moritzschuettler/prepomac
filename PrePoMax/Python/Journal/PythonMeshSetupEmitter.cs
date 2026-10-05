@@ -30,14 +30,16 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonValueFormatter.Text(item.Name));
             arguments.Add(selection);
             //
-            string method = (oldName == null ? "add_" : "replace_") + AddTypeArguments(arguments, item);
+            bool replace = oldName != null;
+            string method = (replace ? "replace_" : "add_") + AddTypeArguments(arguments, item, replace);
             //
             writer.Statement(writer.Call(SetupItems, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, SetupItems, item);
             writer.CountEmittedCommand();
         }
-        // The most derived type first, because the Gmsh items form a chain
-        private static string AddTypeArguments(List<string> arguments, MeshSetupItem item)
+        // The most derived type first, because the Gmsh items form a chain. A replace keeps every value it is not
+        // given, so the values an add leaves out at their default are written out on a replace
+        private static string AddTypeArguments(List<string> arguments, MeshSetupItem item, bool replace)
         {
             if (item is FeMeshRefinement refinement)
             {
@@ -73,21 +75,24 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Format(quadWild.KeepFilesOnFailure));
                 arguments.Add("debug_visualization=" +
                               PythonValueFormatter.Format(quadWild.DebugVisualization));
-                if (quadWild.OldAlgorithm)
+                if (replace || quadWild.OldAlgorithm)
                     arguments.Add("old_algorithm=" + PythonValueFormatter.Format(quadWild.OldAlgorithm));
-                if (quadWild.PinEdgeNodes)
+                if (replace || quadWild.PinEdgeNodes)
                     arguments.Add("pin_edge_nodes=" + PythonValueFormatter.Format(quadWild.PinEdgeNodes));
-                if (quadWild.EdgeRotations)
+                if (replace || quadWild.EdgeRotations)
                     arguments.Add("edge_rotations=" + PythonValueFormatter.Format(quadWild.EdgeRotations));
-                if (quadWild.SingularityPosition > 0)
-                    arguments.Add("singularity_position=" + PythonValueFormatter.Number(quadWild.SingularityPosition));
-                if (quadWild.CountSearch > 0)
-                    arguments.Add("count_search=" + quadWild.CountSearch.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                if (!quadWild.TransfiniteThreeSided)
-                    arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Format(quadWild.TransfiniteThreeSided));
-                if (!quadWild.TransfiniteFourSided)
-                    arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(quadWild.TransfiniteFourSided));
-                if (quadWild.TransfiniteAngleDeg != 135)
+                if (replace || quadWild.SingularityPosition > 0)
+                    arguments.Add("singularity_position=" +
+                                  PythonValueFormatter.Number(quadWild.SingularityPosition));
+                if (replace || quadWild.CountSearch > 0)
+                    arguments.Add("count_search=" + PythonValueFormatter.Format(quadWild.CountSearch));
+                if (replace || !quadWild.TransfiniteThreeSided)
+                    arguments.Add("transfinite_three_sided=" +
+                                  PythonValueFormatter.Format(quadWild.TransfiniteThreeSided));
+                if (replace || !quadWild.TransfiniteFourSided)
+                    arguments.Add("transfinite_four_sided=" +
+                                  PythonValueFormatter.Format(quadWild.TransfiniteFourSided));
+                if (replace || quadWild.TransfiniteAngleDeg != 135)
                     arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(quadWild.TransfiniteAngleDeg));
                 return "shell_quad_wild";
             }

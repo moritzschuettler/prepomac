@@ -114,6 +114,17 @@ def test_frequency_types():
     check(step.get_value("lower_frequency") == 1.0, "lower_frequency was not set")
     check(step.get_value("storage"), "storage was not set")
     check(step.perturbation, "a frequency step supports a perturbation step")
+    # A range moved wholly above the stored upper frequency is accepted, whatever order the model
+    # would check the two limits in
+    steps.add_frequency(PREFIX + "F2", lower_frequency=1.0, upper_frequency=100.0)
+    step = steps.replace_frequency(PREFIX + "F2", lower_frequency=200.0, upper_frequency=300.0)
+    check(step.get_value("lower_frequency") == 200.0, "the lower frequency was not replaced")
+    check(step.get_value("upper_frequency") == 300.0, "the upper frequency was not replaced")
+    step = steps.replace_frequency(PREFIX + "F2", lower_frequency=5.0, upper_frequency=50.0)
+    check(step.get_value("lower_frequency") == 5.0 and step.get_value("upper_frequency") == 50.0,
+          "a range moved below the stored one was not accepted")
+    check_raises(lambda: steps.replace_frequency(PREFIX + "F2", lower_frequency=80.0),
+                 "a lower frequency above the stored upper one must be rejected")
     #
     step = steps.add_complex_frequency(PREFIX + "CF1", num_of_frequencies=5)
     check(step.get_value("num_of_frequencies") == 5, "the complex frequency count was not set")
@@ -159,6 +170,13 @@ def test_dynamic_types():
     check(not step.get_value("harmonic"), "harmonic was not set")
     check(step.get_value("num_data_points") == 10, "num_data_points was not set")
     check(step.get_value("damping_viscous_damping_ratio") == 0.02, "the viscous damping ratio was not set")
+    # The default upper frequency is 10, so a range above it is set upper limit first
+    step = steps.add_steady_state_dynamics(PREFIX + "SSD2", lower_frequency=20.0, upper_frequency=100.0)
+    check(step.get_value("lower_frequency") == 20.0, "the lower frequency above the default was not set")
+    check(step.get_value("upper_frequency") == 100.0, "the upper frequency was not set")
+    step = steps.replace_steady_state_dynamics(PREFIX + "SSD2", lower_frequency=200.0, upper_frequency=300.0)
+    check(step.get_value("lower_frequency") == 200.0 and step.get_value("upper_frequency") == 300.0,
+          "a range moved above the stored one was not accepted")
 
 
 def test_thermal_and_wear_types():

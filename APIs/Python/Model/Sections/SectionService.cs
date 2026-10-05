@@ -96,9 +96,15 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSection(oldName, section);
         }
+        // Controller.ReplaceSection deletes the internal set of the old section and converts the new one, so a
+        // region that was selection based is reset to its selection for the conversion to recreate it, the way
+        // FrmSection does before it replaces
         public Section Clone(string name)
         {
-            return ResolveSection(name).DeepClone();
+            Section clone = ResolveSection(name).DeepClone();
+            if (clone.CreationData != null) clone.RegionType = RegionTypeEnum.Selection;
+            //
+            return clone;
         }
         public void Duplicate(string[] names)
         {

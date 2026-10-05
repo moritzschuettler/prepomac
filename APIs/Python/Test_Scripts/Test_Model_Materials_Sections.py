@@ -196,6 +196,11 @@ def test_sections(material_name):
     shell = sections.replace_shell(PREFIX + "Shell", thickness=3)
     check(shell.get_equations()["offset"] == "0.5", "the replacement dropped the shell offset")
     check(shell.thickness == 3, "the replacement did not change the thickness")
+    # The selection based region is converted again rather than left at the deleted internal set
+    check(shell.region_type == "ElementSetName" and pmx.model.element_sets.contains(shell.region_name),
+          "the replacement lost the shell region: " + str(shell.region_name))
+    check(list(pmx.model.element_sets[shell.region_name].get_element_ids()) == [1],
+          "the shell region no longer resolves to the selected element")
     shell = sections.replace_shell(PREFIX + "Shell", offset=-0.5)
     check(shell.get_equations()["offset"] == "-0.5", "the replacement did not change the shell offset")
     # A default offset stays zero rather than becoming undefined

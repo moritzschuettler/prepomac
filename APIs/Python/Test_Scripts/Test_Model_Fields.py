@@ -44,6 +44,16 @@ def test_amplitudes():
     #
     amplitudes.add(PREFIX + "Amp_T", [[0, 0], [1, 1]], time_span="TotalTime")
     check(amplitudes[PREFIX + "Amp_T"].time_span == "TotalTime", "the time span was not set")
+    # A replacement given only the table keeps the time span
+    amplitude = amplitudes.replace(PREFIX + "Amp_T", time_amplitude=[[0, 0], [1, 2], [2, 3]])
+    check(amplitude.row_count == 3, "the table was not replaced, found " + str(amplitude.row_count))
+    check(amplitude.time_span == "TotalTime", "the replacement dropped the time span: " + amplitude.time_span)
+    check([list(row) for row in amplitude.get_time_amplitude()] == [[0, 0], [1, 2], [2, 3]],
+          "unexpected table " + str([list(row) for row in amplitude.get_time_amplitude()]))
+    # and one given only the time span keeps the table
+    amplitude = amplitudes.replace(PREFIX + "Amp_T", time_span="StepTime")
+    check(amplitude.time_span == "StepTime", "the time span was not replaced")
+    check(amplitude.row_count == 3, "the replacement dropped the table")
     # Every row is a time and an amplitude value
     check_raises(lambda: amplitudes.add(PREFIX + "Bad", [[0, 0, 0]]), "a 3 value row must be rejected")
     check_raises(lambda: amplitudes.add(PREFIX + "Bad", []), "an empty table must be rejected")
@@ -82,6 +92,38 @@ def test_distributions():
     distributions.add_from_equation(PREFIX + "Vector", ["x", "y", "z"])
     # An equation that already carries the sign is stored unchanged
     distributions.add_from_equation(PREFIX + "Signed", "=1")
+    # A replacement may keep the name, given or not
+    distribution = distributions.replace_from_equation(PREFIX + "Signed", PREFIX + "Signed", "=2")
+    check(distribution.name == PREFIX + "Signed", "the replacement under the same name failed")
+    distribution = distributions.replace_from_equation(PREFIX + "Signed", equation="x + 1")
+    check(distribution.name == PREFIX + "Signed" and distributions.contains(PREFIX + "Signed"),
+          "a replacement of the equation alone did not keep the name")
+    # A replacement that only renames keeps the equation, so a vector distribution stays one and is still
+    # refused for a temperature
+    distributions.add_from_equation(PREFIX + "Kept", ["x", "y", "z"])
+    distribution = distributions.replace_from_equation(PREFIX + "Kept", name=PREFIX + "Kept_R")
+    check(distributions.contains(PREFIX + "Kept_R") and not distributions.contains(PREFIX + "Kept"),
+          "the distribution was not renamed")
+    check(distribution.distribution_type == "DistributionFromEquation", "the replacement changed the type")
+    check_raises(lambda: pmx.model.initial_conditions.add_temperature(
+                     PREFIX + "Bad", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]), 20,
+                     distribution_name=PREFIX + "Kept_R"),
+                 "the replacement did not keep the three equations of the vector distribution")
+    # A distribution read from a file has no equation to keep, so the replacement must be given one
+    file_name = os.path.join(tempfile.gettempdir(), "pytest_distribution.txt")
+    with open(file_name, "w") as writer:
+        writer.write("0 0 0 1\n1 0 0 1\n0 1 0 1\n0 0 1 1\n")
+    try:
+        distributions.add_from_file(PREFIX + "File", file_name)
+        check_raises(lambda: distributions.replace_from_equation(PREFIX + "File"),
+                     "a file distribution was replaced without an equation")
+        check(distributions[PREFIX + "File"].distribution_type == "DistributionFromFile",
+              "the refused replacement changed the file distribution")
+        distribution = distributions.replace_from_equation(PREFIX + "File", equation="1")
+        check(distribution.distribution_type == "DistributionFromEquation",
+              "the file distribution was not replaced by an equation one")
+    finally:
+        os.remove(file_name)
 
 
 def test_initial_conditions():
@@ -105,6 +147,25 @@ def test_initial_conditions():
     #
     check_raises(lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0], [0, 0, 1], 1),
                  "a 2 value axis point must be rejected")
+    # A replacement that is not given a region keeps the selection, which is converted again because
+    # the replacement deletes the internal node set of the old initial condition
+    condition = conditions.replace_temperature(PREFIX + "Temp", temperature=25)
+    check(float(condition.get_equations()["temperature"].split(" ")[0]) == 25, "the temperature was not replaced")
+    check(condition.region_type == "NodeSetName" and pmx.model.node_sets.contains(condition.region_name),
+          "the replacement lost the region: " + str(condition.region_name))
+    check(pmx.model.node_sets[condition.region_name].count == 4,
+          "the region no longer resolves to the selected nodes")
+    check(condition.valid, "the region is no longer valid after the replacement")
+    # A replacement of another type is refused with a message rather than failing on a cast
+    try:
+        conditions.replace_translational_velocity(PREFIX + "Temp", v1=1)
+        refused = None
+    except Exception as ex:
+        refused = str(ex)
+    check(refused is not None, "an initial temperature was replaced as a translational velocity")
+    check("is not an initial translational velocity" in refused, "the refusal must name the type: " + refused)
+    check(conditions[PREFIX + "Temp"].condition_type == "InitialTemperature",
+          "the refused replacement changed the initial condition")
     #
     # An initial condition with no distribution carries the default one
     check(condition.get_value("distribution_name") == "Constant",

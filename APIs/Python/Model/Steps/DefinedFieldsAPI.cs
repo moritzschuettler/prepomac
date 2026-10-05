@@ -52,7 +52,9 @@ namespace APIs.Python.Model
             return Add(definedField, amplitude_name, color);
         }
 
-        [PythonAPI("Replaces an existing defined temperature using command history.",
+        [PythonAPI("Replaces an existing defined temperature using command history, keeping every value " +
+                   "that is not given. A defined temperature read from a file becomes one given by value, " +
+                   "which needs a region.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_temperature with " +
                                "region and temperature optional", Returns = "DefinedField")]
         public DefinedFieldAPI replace_temperature(string old_name, string name = null, object region = null,
@@ -61,6 +63,13 @@ namespace APIs.Python.Model
         {
             DefinedTemperature definedField =
                 _service.CloneForReplace<DefinedTemperature>(StepName, old_name, "DefinedTemperature");
+            if (definedField.Type == DefinedTemperatureTypeEnum.FromFile)
+            {
+                if (region == null)
+                    throw new PythonAPIException("The defined field '" + old_name + "' is read from a file, so " +
+                                                 "the argument 'region' must be given to define it by value.");
+                definedField.Type = DefinedTemperatureTypeEnum.ByValue;
+            }
             if (temperature != null)
                 definedField.Temperature.Equation =
                     PythonValueConverter.ToEquationString(temperature, "temperature");
@@ -90,7 +99,9 @@ namespace APIs.Python.Model
             return Add(definedField, amplitude_name, color);
         }
 
-        [PythonAPI("Replaces an existing defined temperature read from a results file using command history.",
+        [PythonAPI("Replaces an existing defined temperature read from a results file using command history, " +
+                   "keeping every value that is not given. A defined temperature given by value becomes one " +
+                   "read from a file, which needs a file name.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_temperature_from_file with file_name optional", Returns = "DefinedField")]
         public DefinedFieldAPI replace_temperature_from_file(string old_name, string name = null,
@@ -99,12 +110,13 @@ namespace APIs.Python.Model
         {
             DefinedTemperature definedField =
                 _service.CloneForReplace<DefinedTemperature>(StepName, old_name, "DefinedTemperature");
-            if (definedField.Type != DefinedTemperatureTypeEnum.FromFile)
-                throw new PythonAPIException("The defined field '" + old_name + "' is given by value, so it " +
-                                             "cannot be replaced by one read from a file. Use " +
-                                             "replace_temperature instead.");
+            // A field given by value may still carry the file it was once read from, so the file is named anew
+            if (definedField.Type != DefinedTemperatureTypeEnum.FromFile && file_name == null)
+                throw new PythonAPIException("The defined field '" + old_name + "' is given by value, so the " +
+                                             "argument 'file_name' must be given to read it from a file.");
             if (file_name != null)
                 definedField.FileName = _service.ResolveExistingFileName(file_name, "file_name");
+            definedField.Type = DefinedTemperatureTypeEnum.FromFile;
             if (step_number != null)
                 definedField.StepNumber = PythonValueConverter.ToInt(step_number, "step_number");
             //

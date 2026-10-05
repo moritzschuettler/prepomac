@@ -38,18 +38,21 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonValueFormatter.Text(load.Name));
             arguments.Add(region);
             //
-            string method = verb + "_" + AddTypeArguments(arguments, load);
+            bool replace = oldName != null;
+            string method = verb + "_" + AddTypeArguments(arguments, load, replace);
             //
             PythonStepItemEmitter.AddAmplitude(arguments, load.AmplitudeName);
             PythonStepItemEmitter.AddCoordinateSystem(arguments, load.CoordinateSystemName);
             PythonStepItemEmitter.AddPhase(arguments, load.Complex, load.PhaseDeg);
-            PythonStepItemEmitter.AddColor(arguments, load.Color, DefaultColor());
+            PythonStepItemEmitter.AddColor(arguments, load.Color, DefaultColor(), replace);
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, load);
             writer.CountEmittedCommand();
         }
-        private static string AddTypeArguments(List<string> arguments, Load load)
+        // A replace keeps every value it is not given, so what an add leaves to the default - a flag that is off,
+        // the surface normal - is written out on a replace
+        private static string AddTypeArguments(List<string> arguments, Load load, bool replace)
         {
             if (load is CLoad concentratedForce)
             {
@@ -133,6 +136,7 @@ namespace PrePoMax.Python.Journal
                                                                            : preTension.ForceMagnitude));
                 if (!preTension.AutoComputeDirection)
                     arguments.Add("direction=" + Point(preTension.X, preTension.Y, preTension.Z));
+                else if (replace) arguments.Add("auto_direction=True");
                 arguments.Add("load_type=" + PythonValueFormatter.Text(preTension.Type.ToString()));
                 return "pre_tension";
             }
@@ -140,6 +144,7 @@ namespace PrePoMax.Python.Journal
             {
                 arguments.Add(PythonValueFormatter.Equation(concentratedFlux.Magnitude));
                 if (concentratedFlux.AddFlux) arguments.Add("add_flux=True");
+                else if (replace) arguments.Add("add_flux=False");
                 return "concentrated_flux";
             }
             if (load is DFlux surfaceFlux)
@@ -168,6 +173,7 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("cavity_radiation=True");
                     AddName(arguments, "cavity_name", radiation.CavityName);
                 }
+                else if (replace) arguments.Add("cavity_radiation=False");
                 AddName(arguments, "emissivity_amplitude_name", radiation.EmissivityAmplitudeName);
                 return "radiation_heat_transfer";
             }

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -104,7 +104,7 @@ namespace APIs.Python.Model
                                                        object temperature = null,
                                                        object distribution_name = null)
         {
-            InitialTemperature item = (InitialTemperature)_service.Clone(old_name);
+            InitialTemperature item = _service.Clone<InitialTemperature>(old_name, "initial temperature");
             ApplyReplacedName(item, old_name, name, region);
             if (temperature != null)
                 item.Temperature.Equation = PythonValueConverter.ToEquationString(temperature, "temperature");
@@ -122,7 +122,8 @@ namespace APIs.Python.Model
                                                                   object region = null, object v1 = null,
                                                                   object v2 = null, object v3 = null)
         {
-            InitialTranslationalVelocity item = (InitialTranslationalVelocity)_service.Clone(old_name);
+            InitialTranslationalVelocity item =
+                _service.Clone<InitialTranslationalVelocity>(old_name, "initial translational velocity");
             ApplyReplacedName(item, old_name, name, region);
             if (v1 != null) item.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
             if (v2 != null) item.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
@@ -140,7 +141,8 @@ namespace APIs.Python.Model
                                                             object axis_direction = null,
                                                             object rotational_speed = null)
         {
-            InitialAngularVelocity item = (InitialAngularVelocity)_service.Clone(old_name);
+            InitialAngularVelocity item =
+                _service.Clone<InitialAngularVelocity>(old_name, "initial angular velocity");
             ApplyReplacedName(item, old_name, name, region);
             if (axis_point != null)
             {

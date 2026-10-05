@@ -160,13 +160,14 @@ namespace APIs.Python
                    Returns = "None")]
         public void replace_properties(string old_name, string name = null, object color = null)
         {
-            string[] names = ResolvePartNames(old_name);
+            if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
+            ResolvePartNames(old_name);
             EnsureCommandsAvailable();
             CaeMesh.PartProperties properties =
-                _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[names[0]].GetProperties();
+                _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[old_name].GetProperties();
             if (name != null) properties.Name = name;
             if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
-            _commandGateway.ReplaceResultPartProperties(names[0], properties);
+            _commandGateway.ReplaceResultPartProperties(old_name, properties);
         }
         [PythonAPI("Removes result parts using command history.", Arguments = "part_names: list[str] or str",
                    Returns = "None")]
@@ -181,6 +182,7 @@ namespace APIs.Python
         {
             if (_commandGateway == null)
                 throw new PythonAPIException("Result modifications are not available in this Python API context.");
+            _meshService.EnsureCurrentResult(_resultName);
         }
         private string[] ResolvePartNames(object value)
         {

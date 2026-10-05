@@ -3,7 +3,8 @@
 #
 #Checks what the automation server promises about a session it drives: that a change an agent makes
 #is recorded as the command a user would have produced by hand, and that read only mode refuses to
-#change the model whatever Python is sent.
+#change the model whatever Python is sent. It also replays the journal of replaces that set values back
+#to their defaults, which a journal must write out because a replace keeps what it is not given.
 #
 #Neither can be checked from inside a recorded script, because a recorded script suppresses the
 #recording of the commands inside it. So this script starts sessions of its own - PrePoMax with
@@ -229,6 +230,64 @@ def check_history(client):
     check(result["firstIndex"] == result["commandCount"] - 2, "a limit must return the tail: " + str(result))
 
 
+def read_replaced_values(client):
+    step = "pmx.model.steps['journal_static']"
+    expressions = [step + ".bcs['journal_dr'].get_value('" + dof + "')" for dof in ("u1", "u2", "u3")]
+    expressions += [step + ".bcs['journal_sm'].get_value('" + dof + "')" for dof in ("u1", "u2")]
+    expressions += ["pmx.model.materials['journal_steel'].description",
+                    step + ".loads['journal_pt'].get_value('auto_compute_direction')"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the replaced items must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_replaces(client):
+    """A replace keeps what it is not given, so the journal must write out a value set back to its default."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    # Each value is set by the add and taken back to its default by the replace
+    source = os.linesep.join([
+        "pmx.model.steps.add_static('journal_static', time_period=1.0)",
+        "bcs = pmx.model.steps['journal_static'].bcs",
+        "bcs.add_displacement_rotation('journal_dr', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', "
+        "[7, 8]), u1=0, u2=0, u3=1.5)",
+        "bcs.replace_displacement_rotation('journal_dr', free_dofs=['U3'])",
+        "bcs.add_submodel('journal_sm', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]), "
+        "step_number=1, u1=True, u2=True)",
+        "bcs.replace_submodel('journal_sm', u2=False)",
+        "pmx.model.materials.add('journal_steel', pmx.create.elastic(210000, 0.3), description='Steel')",
+        "pmx.model.materials.replace('journal_steel', description='')",
+        "loads = pmx.model.steps['journal_static'].loads",
+        "loads.add_pre_tension('journal_pt', pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', "
+        "{1: [1]}), 500, direction=[0, 0, 1])",
+        "loads.replace_pre_tension('journal_pt', auto_direction=True)"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the replaces must not fail: " + result["error"])
+    recorded = read_replaced_values(client)
+    check(recorded[2] is None, "u3 was not freed: " + str(recorded))
+    check(recorded[3] is True and recorded[4] is False, "the submodel u2 flag was not turned off: " + str(recorded))
+    check(not recorded[5], "the material description was not cleared: " + str(recorded))
+    check(recorded[6] is True, "the pre-tension did not return to the surface normal: " + str(recorded))
+    # The journal writes the defaults out
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    for expected in ["free_dofs=['U3'", "u2=False", "description=''", "auto_direction=True"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    # The journal replayed on a new model rebuilds the same values
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal must replay: " + result["error"])
+    replayed = read_replaced_values(client)
+    check(replayed == recorded, "the replayed journal differs: " + str(replayed) + " against " + str(recorded))
+    print("journal: a replace back to the defaults replays to " + str(replayed))
+
+
 def check_exit_guards(client):
     """Closing a session that has unsaved changes has to be asked for explicitly."""
     client.result("exec", {"source": "pmx.model.parameters.add('exit_guard', 1.0)"})
@@ -245,6 +304,7 @@ def main():
         client = session.connect()
         check_recording(client)
         check_history(client)
+        check_journal_of_replaces(client)
         check_exit_guards(client)
     finally:
         code = session.close()

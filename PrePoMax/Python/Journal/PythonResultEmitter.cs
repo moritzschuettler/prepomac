@@ -62,10 +62,12 @@ namespace PrePoMax.Python.Journal
             else throw new NotSupportedException("a reference point created from " + createdFrom +
                                                  " has no API form");
             //
+            // A replace keeps what it is not given, so there both display values are written out
             FeReferencePoint defaults = new FeReferencePoint("Default", 0, 0, 0);
-            if (referencePoint.NameVisible != defaults.NameVisible)
+            bool replace = oldName != null;
+            if (replace || referencePoint.NameVisible != defaults.NameVisible)
                 arguments.Add("name_visible=" + PythonValueFormatter.Format(referencePoint.NameVisible));
-            if (referencePoint.Color.ToArgb() != defaults.Color.ToArgb())
+            if (replace || referencePoint.Color.ToArgb() != defaults.Color.ToArgb())
                 arguments.Add("color=" + PythonValueFormatter.Channels(referencePoint.Color));
             //
             writer.Statement(writer.Call(ReferencePoints, method, arguments.ToArray()));

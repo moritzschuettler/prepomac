@@ -153,8 +153,9 @@ namespace APIs.Python
             _commandGateway.AddResultReferencePoint(point);
         }
         [PythonAPI("Replaces a result reference point using command history. The coordinates are the whole " +
-                   "definition and are always given; only the name may be left out.",
-                   Arguments = "old_name: str, name: str = None, coordinates: list[float] = None, " +
+                   "definition and are always given; the name and the display values may be left out and " +
+                   "are kept.",
+                   Arguments = "old_name: str, name: str = None, coordinates: list[float], " +
                                "name_visible: bool = None, color: list[int] = None",
                    Returns = "None")]
         public void replace(string old_name, string name = null, object coordinates = null,

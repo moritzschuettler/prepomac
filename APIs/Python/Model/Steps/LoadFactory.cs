@@ -125,12 +125,20 @@ namespace APIs.Python.Model
             }
             SetEquation(load.RotationalSpeed, rotationalSpeed, "rotational_speed");
         }
+        // The force and the displacement are stored apart, so a type change without a magnitude would silently
+        // take whatever the other one holds; it is refused instead
         public static void ApplyPreTension(PreTensionLoad load, object magnitude, object direction,
-                                           object loadType)
+                                           object loadType, object autoDirection)
         {
             if (loadType != null)
-                load.Type = PythonValueConverter.ToEnum<PreTensionLoadType>(AsString(loadType, "load_type"),
-                                                                            "load_type");
+            {
+                PreTensionLoadType type =
+                    PythonValueConverter.ToEnum<PreTensionLoadType>(AsString(loadType, "load_type"), "load_type");
+                if (type != load.Type && magnitude == null)
+                    throw new PythonAPIException("The argument 'magnitude' must be given when 'load_type' changes " +
+                                                 "the pre-tension from " + load.Type + " to " + type + ".");
+                load.Type = type;
+            }
             if (magnitude != null)
             {
                 // The magnitude is a force or a displacement, depending on the pre-tension type
@@ -138,6 +146,10 @@ namespace APIs.Python.Model
                     SetEquation(load.DisplacementMagnitude, magnitude, "magnitude");
                 else SetEquation(load.ForceMagnitude, magnitude, "magnitude");
             }
+            bool useSurfaceNormal = autoDirection != null && PythonValueConverter.ToBool(autoDirection,
+                                                                                          "auto_direction");
+            if (useSurfaceNormal && direction != null)
+                throw new PythonAPIException("The arguments 'direction' and 'auto_direction' cannot be combined.");
             if (direction != null)
             {
                 // A direction that is given is used instead of the surface normal
@@ -146,6 +158,13 @@ namespace APIs.Python.Model
                 load.X.Equation = values[0];
                 load.Y.Equation = values[1];
                 load.Z.Equation = values[2];
+            }
+            else if (autoDirection != null)
+            {
+                if (!useSurfaceNormal && load.AutoComputeDirection)
+                    throw new PythonAPIException("The argument 'direction' must be given to stop using the " +
+                                                 "surface normal.");
+                load.AutoComputeDirection = useSurfaceNormal;
             }
         }
         public static void ApplyConcentratedFlux(CFlux load, object magnitude, object addFlux)

@@ -24,7 +24,7 @@ namespace PrePoMax.Python.Journal
         {
             writer.Statement(writer.Call("pmx.model.parameters", "add", PythonValueFormatter.Text(parameter.Name),
                                          PythonValueFormatter.Equation(parameter.Equation),
-                                         GetDescription(parameter)));
+                                         GetDescription(parameter, false)));
             writer.CountEmittedCommand();
         }
         public static void Replace(PythonJournalWriter writer, string oldName, EquationParameter parameter)
@@ -32,7 +32,7 @@ namespace PrePoMax.Python.Journal
             writer.Statement(writer.Call("pmx.model.parameters", "replace", PythonValueFormatter.Text(oldName),
                                          PythonValueFormatter.Text(parameter.Name),
                                          PythonValueFormatter.Equation(parameter.Equation),
-                                         GetDescription(parameter)));
+                                         GetDescription(parameter, true)));
             writer.CountEmittedCommand();
         }
         public static void SetAll(PythonJournalWriter writer, EquationParameter[] parameters)
@@ -57,11 +57,13 @@ namespace PrePoMax.Python.Journal
                                          PythonValueFormatter.List(equations), descriptionArgument));
             writer.CountEmittedCommand();
         }
-        private static string GetDescription(EquationParameter parameter)
+        // A replace keeps a description it is not given, so a cleared one is written out as an empty string
+        private static string GetDescription(EquationParameter parameter, bool replace)
         {
-            if (string.IsNullOrEmpty(parameter.Description)) return null;
+            if (!replace && string.IsNullOrEmpty(parameter.Description)) return null;
             //
-            return PythonValueFormatter.Argument("description", PythonValueFormatter.Text(parameter.Description));
+            return PythonValueFormatter.Argument("description",
+                                                 PythonValueFormatter.Text(parameter.Description ?? ""));
         }
     }
 }

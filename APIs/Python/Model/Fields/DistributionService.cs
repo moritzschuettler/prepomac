@@ -55,6 +55,29 @@ namespace APIs.Python.Model
         public Distribution BuildFromEquation(string name, object equation)
         {
             ValidateNewName(name, null);
+            return CreateFromEquation(name, equation);
+        }
+        // An equation that is given may change a scalar distribution into a vector one or replace one read from
+        // a file, so it builds the distribution anew; the coordinate system, which the API does not expose, is
+        // carried over either way
+        public Distribution BuildReplacementFromEquation(string oldName, string name, object equation)
+        {
+            Distribution existing = ResolveDistribution(oldName);
+            string newName = name == null ? oldName : name;
+            ValidateNewName(newName, oldName);
+            //
+            Distribution distribution;
+            if (equation != null) distribution = CreateFromEquation(newName, equation);
+            else if (existing is DistributionFromEquation) distribution = existing.DeepClone();
+            else throw new PythonAPIException("The distribution '" + oldName + "' is read from a file, so the " +
+                                              "argument 'equation' must be given to replace it.");
+            distribution.Name = newName;
+            distribution.CoordinateSystemName = existing.CoordinateSystemName;
+            //
+            return distribution;
+        }
+        private static Distribution CreateFromEquation(string name, object equation)
+        {
             string single = equation as string;
             if (single != null) return new DistributionFromEquation(name, ToEquationText(single));
             //

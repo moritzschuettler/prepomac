@@ -140,6 +140,31 @@ namespace APIs.Python.Model
             item.CreationIds = creationIds;
             item.CreationData = creationData;
         }
+        // Sizes that still equal the part defaults of the region the item has follow its region, and sizes that
+        // differ from them were set by an earlier call or in the dialog, which keeps the stored values of an item
+        // it edits, so they are kept
+        public bool HasPartDefaults(MeshSetupItem item)
+        {
+            if (item is MeshingParameters meshingParameters)
+            {
+                MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,
+                                                                                              item.CreationIds);
+                if (partDefaults == null) return true;
+                //
+                partDefaults.AdvancedView = meshingParameters.AdvancedView;
+                partDefaults.RelativeSize = meshingParameters.RelativeSize;
+                return MeshingParameters.Equals(meshingParameters, partDefaults);
+            }
+            else if (item is ShellMmg shellMmg)
+            {
+                ShellMmg partDefaults = _meshGateway.GetPartDefaultShellMmg(item.Name, item.CreationIds);
+                if (partDefaults == null) return true;
+                //
+                partDefaults.RelativeSize = shellMmg.RelativeSize;
+                return ShellMmg.Equals(shellMmg, partDefaults);
+            }
+            return true;
+        }
         public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection)
         {
             Replace(oldName, item, name, selection, null);
@@ -156,6 +181,7 @@ namespace APIs.Python.Model
             // A replacement keeps the region it was created from until a new selection is given
             if (selection != null)
             {
+                if (afterSelectionChanged != null && !HasPartDefaults(item)) afterSelectionChanged = null;
                 ApplySelection(item, selection);
                 if (afterSelectionChanged != null) afterSelectionChanged(item);
             }

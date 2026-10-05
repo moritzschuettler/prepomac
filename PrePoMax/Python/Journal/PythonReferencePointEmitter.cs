@@ -62,20 +62,21 @@ namespace PrePoMax.Python.Journal
             else throw new NotSupportedException("a reference point created from " + createdFrom +
                                                  " has no API form");
             //
-            AddDisplayValues(arguments, referencePoint);
+            AddDisplayValues(arguments, referencePoint, oldName != null);
             //
             writer.Statement(writer.Call("pmx.model.reference_points", method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, "pmx.model.reference_points", referencePoint);
             writer.CountEmittedCommand();
         }
-        // Only what the user changed from a new reference point is worth a named argument
-        private static void AddDisplayValues(List<string> arguments, FeReferencePoint referencePoint)
+        // Only what the user changed from a new reference point is worth a named argument on an add, while a
+        // replace keeps what it is not given, so there both values are written out
+        private static void AddDisplayValues(List<string> arguments, FeReferencePoint referencePoint, bool replace)
         {
             FeReferencePoint defaults = new FeReferencePoint("Default", 0, 0, 0);
             //
-            if (referencePoint.NameVisible != defaults.NameVisible)
+            if (replace || referencePoint.NameVisible != defaults.NameVisible)
                 arguments.Add("name_visible=" + PythonValueFormatter.Format(referencePoint.NameVisible));
-            if (referencePoint.Color.ToArgb() != defaults.Color.ToArgb())
+            if (replace || referencePoint.Color.ToArgb() != defaults.Color.ToArgb())
                 arguments.Add("color=" + PythonValueFormatter.Channels(referencePoint.Color));
         }
     }

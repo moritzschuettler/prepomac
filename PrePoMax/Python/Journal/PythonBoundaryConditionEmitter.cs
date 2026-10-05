@@ -15,8 +15,9 @@ using CaeModel;
 namespace PrePoMax.Python.Journal
 {
     // The four boundary condition types, each with its own API member. An unconstrained degree of
-    // freedom carries a NaN, which the value formatter writes as None, and a None argument leaves the
-    // degree of freedom free, so the two agree without a special case.
+    // freedom carries a NaN and is left out of an add, which leaves it free. A replace keeps every value it
+    // is not given, so there the free degrees of freedom are named in free_dofs and a submodel flag that is
+    // off is written out.
     public static class PythonBoundaryConditionEmitter
     {
         // Methods                                                                                                                  
@@ -35,8 +36,9 @@ namespace PrePoMax.Python.Journal
             string collection = PythonStepItemEmitter.GetCollection(stepName, "bcs");
             string region = PythonRegionEmitter.Emit(writer, condition.RegionName, condition.RegionType,
                                                      condition.CreationData);
+            bool replace = oldName != null;
             List<string> arguments = new List<string>();
-            if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
+            if (replace) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(condition.Name));
             arguments.Add(region);
             //
@@ -54,17 +56,18 @@ namespace PrePoMax.Python.Journal
                 AddDegreeOfFreedom(arguments, "ur1", displacementRotation.UR1);
                 AddDegreeOfFreedom(arguments, "ur2", displacementRotation.UR2);
                 AddDegreeOfFreedom(arguments, "ur3", displacementRotation.UR3);
+                if (replace) AddFreeDegreesOfFreedom(arguments, displacementRotation);
             }
             else if (condition is SubmodelBC submodel)
             {
                 method = verb + "_submodel";
                 arguments.Add("step_number=" + PythonValueFormatter.Equation(submodel.StepNumber));
-                AddFlag(arguments, "u1", submodel.U1);
-                AddFlag(arguments, "u2", submodel.U2);
-                AddFlag(arguments, "u3", submodel.U3);
-                AddFlag(arguments, "ur1", submodel.UR1);
-                AddFlag(arguments, "ur2", submodel.UR2);
-                AddFlag(arguments, "ur3", submodel.UR3);
+                AddFlag(arguments, "u1", submodel.U1, replace);
+                AddFlag(arguments, "u2", submodel.U2, replace);
+                AddFlag(arguments, "u3", submodel.U3, replace);
+                AddFlag(arguments, "ur1", submodel.UR1, replace);
+                AddFlag(arguments, "ur2", submodel.UR2, replace);
+                AddFlag(arguments, "ur3", submodel.UR3, replace);
             }
             else if (condition is TemperatureBC temperature)
             {
@@ -81,7 +84,7 @@ namespace PrePoMax.Python.Journal
             PythonStepItemEmitter.AddPhase(arguments, condition.Complex, condition.PhaseDeg);
             PythonStepItemEmitter.AddColor(arguments, condition.Color, new FixedBC("Default", null,
                                                                                    RegionTypeEnum.Selection,
-                                                                                   false).Color);
+                                                                                   false).Color, replace);
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, condition);
@@ -94,11 +97,27 @@ namespace PrePoMax.Python.Journal
             //
             arguments.Add(name + "=" + PythonValueFormatter.Equation(value));
         }
-        private static void AddFlag(List<string> arguments, string name, bool value)
+        private static void AddFreeDegreesOfFreedom(List<string> arguments, DisplacementRotation condition)
         {
-            if (!value) return;
+            List<string> free = new List<string>();
+            AddIfFree(free, "U1", condition.U1);
+            AddIfFree(free, "U2", condition.U2);
+            AddIfFree(free, "U3", condition.U3);
+            AddIfFree(free, "UR1", condition.UR1);
+            AddIfFree(free, "UR2", condition.UR2);
+            AddIfFree(free, "UR3", condition.UR3);
+            if (free.Count == 0) return;
             //
-            arguments.Add(name + "=True");
+            arguments.Add("free_dofs=[" + string.Join(", ", free.ConvertAll(PythonValueFormatter.Text)) + "]");
+        }
+        private static void AddIfFree(List<string> free, string name, EquationContainer value)
+        {
+            if (value == null || double.IsNaN(value.Value)) free.Add(name);
+        }
+        private static void AddFlag(List<string> arguments, string name, bool value, bool replace)
+        {
+            if (value) arguments.Add(name + "=True");
+            else if (replace) arguments.Add(name + "=False");
         }
     }
 }

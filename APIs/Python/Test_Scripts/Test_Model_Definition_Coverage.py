@@ -44,11 +44,19 @@ def test_section_replacement():
     pmx.model.materials.add(PREFIX + "Steel", pmx.create.elastic(210000, 0.3))
     pmx.model.materials.add(PREFIX + "Alu", pmx.create.elastic(70000, 0.33))
     pmx.model.sections.add_solid(PREFIX + "Solid", PREFIX + "Steel", part_selection)
+    element_count = pmx.model.element_sets[pmx.model.sections[PREFIX + "Solid"].region_name].count
     # A replacement changes only what it is told, so the region survives a material change
     pmx.model.sections.replace_solid(PREFIX + "Solid", material_name=PREFIX + "Alu")
     section = pmx.model.sections[PREFIX + "Solid"]
     check(section.material_name == PREFIX + "Alu", "the material was not replaced")
     check(section.region_type != "Selection", "the converted region was lost")
+    # The replacement deletes the internal set of the old section, so the kept selection must be
+    # converted again rather than left pointing at the deleted set
+    check(section.valid, "the section region is no longer valid after the replacement")
+    check(pmx.model.element_sets.contains(section.region_name),
+          "the section points at an element set that no longer exists: " + str(section.region_name))
+    check(pmx.model.element_sets[section.region_name].count == element_count,
+          "the section region no longer resolves to the same elements")
     # A replacement of the wrong type is refused rather than silently converting the section
     check_raises(lambda: pmx.model.sections.replace_shell(PREFIX + "Solid", thickness=2.0),
                  "a solid section was replaced as a shell section")

@@ -43,9 +43,10 @@ namespace PrePoMax.Python.Journal
             //
             arguments.Add("phase_deg=" + PythonValueFormatter.Equation(phaseDeg));
         }
-        public static void AddColor(List<string> arguments, Color color, Color defaultColor)
+        // A replace keeps a color it is not given, so a color set back to the default is written out as well
+        public static void AddColor(List<string> arguments, Color color, Color defaultColor, bool replace)
         {
-            if (color.ToArgb() == defaultColor.ToArgb()) return;
+            if (!replace && color.ToArgb() == defaultColor.ToArgb()) return;
             //
             arguments.Add("color=" + PythonValueFormatter.Channels(color));
         }

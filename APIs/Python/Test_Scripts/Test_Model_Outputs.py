@@ -8,6 +8,9 @@
 #
 #Expected process exit code 0.
 
+import os
+import tempfile
+
 PREFIX = "PyTest_"
 STEP = PREFIX + "Static"
 NEXT_STEP = PREFIX + "Static_2"
@@ -183,7 +186,28 @@ def test_defined_fields():
     check_raises(lambda: fields.add_temperature_from_file(PREFIX + "Bad", "no_such_file.frd"),
                  "a missing temperature file must be rejected")
     check_raises(lambda: fields.replace_temperature_from_file(PREFIX + "DF"),
-                 "replacing a by value defined field by a from file one must be rejected")
+                 "a by value defined field must need a file name to be read from a file")
+    check(fields[PREFIX + "DF"].get_value("type") == "ByValue", "the refused replacement changed the type")
+    # Any existing file proves the path check; a defined temperature from a file needs no region and its
+    # file is only read when the analysis is written
+    file_name = os.path.join(tempfile.gettempdir(), "pytest_temperature.frd")
+    open(file_name, "w").close()
+    try:
+        field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name, step_number=1)
+        check(field.get_value("type") == "FromFile", "the defined field was not switched to a file")
+        # Back to a value needs the region that a field read from a file does not carry
+        check_raises(lambda: fields.replace_temperature(PREFIX + "DF", temperature=300),
+                     "a from file defined field was given a value without a region")
+        check(fields[PREFIX + "DF"].get_value("type") == "FromFile",
+              "the refused replacement changed the type")
+        field = fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2]), temperature=300)
+        check(field.get_value("type") == "ByValue", "the defined field was not switched back to a value")
+        check(field.get_value("temperature") == 300, "the temperature was not replaced")
+        check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
+        check(pmx.model.node_sets[field.region_name].count == 2,
+              "the region given with the switch back does not resolve to the selected nodes")
+    finally:
+        os.remove(file_name)
     # Hide, show and propagate
     fields.hide([PREFIX + "DF"])
     check(not fields[PREFIX + "DF"].visible, "the defined field was not hidden")

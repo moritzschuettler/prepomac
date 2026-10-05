@@ -71,10 +71,11 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing coordinate system using command history.",
-                   Arguments = "old_name: str, name: str, origin: list[float], point_on_x: list[float], " +
-                               "point_in_xy: list[float], coordinate_system_type: str = None, " +
-                               "name_visible: bool = None",
+        [PythonAPI("Replaces an existing coordinate system using command history, keeping every value that is " +
+                   "not given.",
+                   Arguments = "old_name: str, name: str = None, origin: list[float] = None, " +
+                               "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
+                               "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
         public CoordinateSystemAPI replace(string old_name, string name = null, object origin = null, object point_on_x = null,
                                            object point_in_xy = null, string coordinate_system_type = null,

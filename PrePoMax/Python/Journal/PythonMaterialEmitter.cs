@@ -23,30 +23,32 @@ namespace PrePoMax.Python.Journal
         public static void Add(PythonJournalWriter writer, Material material)
         {
             writer.Statement(writer.Call("pmx.model.materials", "add", PythonValueFormatter.Text(material.Name),
-                                         GetProperties(material), GetDescription(material),
-                                         GetTemperatureDependent(material)));
+                                         GetProperties(material), GetDescription(material, false),
+                                         GetTemperatureDependent(material, false)));
             PythonModelItemEmitter.EmitState(writer, "pmx.model.materials", material);
             writer.CountEmittedCommand();
         }
+        // A replace keeps a value it is not given, so a cleared description and a material that is no longer
+        // temperature dependent are written out
         public static void Replace(PythonJournalWriter writer, string oldName, Material material)
         {
             writer.Statement(writer.Call("pmx.model.materials", "replace", PythonValueFormatter.Text(oldName),
                                          PythonValueFormatter.Text(material.Name), GetProperties(material),
-                                         GetDescription(material), GetTemperatureDependent(material)));
+                                         GetDescription(material, true), GetTemperatureDependent(material, true)));
             PythonModelItemEmitter.EmitState(writer, "pmx.model.materials", material);
             writer.CountEmittedCommand();
         }
-        private static string GetDescription(Material material)
+        private static string GetDescription(Material material, bool replace)
         {
-            if (string.IsNullOrEmpty(material.Description)) return null;
+            if (!replace && string.IsNullOrEmpty(material.Description)) return null;
             //
-            return "description=" + PythonValueFormatter.Text(material.Description);
+            return "description=" + PythonValueFormatter.Text(material.Description ?? "");
         }
-        private static string GetTemperatureDependent(Material material)
+        private static string GetTemperatureDependent(Material material, bool replace)
         {
-            if (!material.TemperatureDependent) return null;
+            if (material.TemperatureDependent) return "temperature_dependent=True";
             //
-            return "temperature_dependent=True";
+            return replace ? "temperature_dependent=False" : null;
         }
         private static string GetProperties(Material material)
         {

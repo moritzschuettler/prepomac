@@ -29,6 +29,14 @@ namespace APIs.Python
 
 
         // Methods
+        // The commands that change result parts act on the current result, so a part of any other one is refused
+        // rather than read from one result and written to another
+        public void EnsureCurrentResult(string resultName)
+        {
+            if (!_resolver.IsCurrentResult(resultName))
+                throw new PythonAPIException("The result '" + resultName + "' is not the current one, and only the " +
+                                             "parts of the current result can be changed.");
+        }
         public NodeDataAPI GetNodeData(string resultName)
         {
             FeResults result = ResolveResultWithMesh(resultName);

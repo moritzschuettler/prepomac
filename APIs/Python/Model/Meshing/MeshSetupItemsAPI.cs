@@ -526,7 +526,8 @@ namespace APIs.Python.Model
         // the selected parts, and it rebuilds them whenever the selection changes and the user has typed
         // none of them in that dialog. One call is one such visit: the values this call gives are the
         // caller's and stop the rebuild, and a call that only moves the item lets the sizes follow the
-        // geometry the way clicking the same change would
+        // geometry the way clicking the same change would - unless they no longer equal the part defaults
+        // of the region the item had, because then an earlier call set them
         private Action<MeshSetupItem> GetPartDefaultsRebuild(bool valuesGiven)
         {
             if (valuesGiven) return null;

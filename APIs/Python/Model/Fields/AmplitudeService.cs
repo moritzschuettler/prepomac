@@ -61,16 +61,12 @@ namespace APIs.Python.Model
             Amplitude existing = ResolveAmplitude(oldName);
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
-            // A value that is not given is kept, so the time span alone is a valid change
-            Amplitude amplitude;
-            if (timeAmplitude == null)
-            {
-                amplitude = existing.DeepClone();
-                amplitude.Name = newName;
-                if (timeSpan != null)
-                    amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
-            }
-            else amplitude = Build(newName, timeAmplitude, timeSpan == null ? existing.TimeSpan.ToString() : timeSpan);
+            // A value that is not given is kept, including the shifts the API does not expose
+            Amplitude amplitude = existing.DeepClone();
+            amplitude.Name = newName;
+            if (timeAmplitude != null) amplitude.TimeAmplitude = ToTimeAmplitude(timeAmplitude);
+            if (timeSpan != null)
+                amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceAmplitude(oldName, amplitude);
@@ -99,6 +95,14 @@ namespace APIs.Python.Model
         }
         private Amplitude Build(string name, object timeAmplitude, string timeSpan)
         {
+            AmplitudeTabular amplitude = new AmplitudeTabular(name, ToTimeAmplitude(timeAmplitude));
+            if (timeSpan != null)
+                amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
+            //
+            return amplitude;
+        }
+        private static double[][] ToTimeAmplitude(object timeAmplitude)
+        {
             double[][] rows = PythonDoubleListConverter.ToDoubleArray2D(timeAmplitude, "time_amplitude");
             if (rows == null || rows.Length == 0)
                 throw new PythonAPIException("The argument 'time_amplitude' must contain at least one row.");
@@ -110,11 +114,7 @@ namespace APIs.Python.Model
                                                  "and an amplitude value.");
             }
             //
-            AmplitudeTabular amplitude = new AmplitudeTabular(name, rows);
-            if (timeSpan != null)
-                amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
-            //
-            return amplitude;
+            return rows;
         }
     }
 }

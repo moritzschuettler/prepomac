@@ -141,6 +141,26 @@ def test_surface_loads():
     check(load.get_value("auto_compute_direction"), "the direction must be computed by default")
     load = loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1])
     check(not load.get_value("auto_compute_direction"), "a given direction turns off the computed one")
+    # auto_direction returns to the surface normal, and cannot be combined with a direction
+    check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1], auto_direction=True),
+                 "a direction together with auto_direction must be rejected")
+    load = loads.replace_pre_tension(PREFIX + "PT", auto_direction=True)
+    check(load.get_value("auto_compute_direction"), "auto_direction did not return to the surface normal")
+    check(load.get_value("force_magnitude") == 500, "the force must survive the direction change")
+    # Stopping the surface normal needs the direction that replaces it
+    check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", auto_direction=False),
+                 "auto_direction=False without a direction must be rejected")
+    check(loads[PREFIX + "PT"].get_value("auto_compute_direction"), "the refused replacement changed the load")
+    # A type change without a magnitude would take the value stored for the other type, so it is refused
+    check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement"),
+                 "a pre-tension type change without a magnitude must be rejected")
+    check(loads[PREFIX + "PT"].get_value("type") == "Force", "the refused replacement changed the type")
+    load = loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement", magnitude=0.2)
+    check(load.get_value("type") == "Displacement", "the pre-tension type was not replaced")
+    check(load.get_value("displacement_magnitude") == 0.2, "the pre-tension displacement was not replaced")
+    # The type that is already set needs no magnitude
+    load = loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement")
+    check(load.get_value("displacement_magnitude") == 0.2, "the displacement must survive a replace")
     load = loads.add_pre_tension(PREFIX + "PT_D", surface_selection(1), 0.5, load_type="Displacement")
     check(load.get_value("type") == "Displacement", "the pre-tension type was not set")
     check(load.get_value("displacement_magnitude") == 0.5, "the pre-tension displacement was not set")

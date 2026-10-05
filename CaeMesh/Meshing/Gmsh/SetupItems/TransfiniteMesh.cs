@@ -67,6 +67,7 @@ namespace CaeMesh
         public void CopyFrom(TransfiniteMesh transfiniteMesh)
         {
             base.CopyFrom(transfiniteMesh);
+            _allowPyramidElements = transfiniteMesh._allowPyramidElements;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)

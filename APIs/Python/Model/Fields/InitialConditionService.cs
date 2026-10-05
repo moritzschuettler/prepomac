@@ -78,9 +78,18 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             ModelGateway.AddInitialCondition(initialCondition);
         }
-        public InitialCondition Clone(string name)
+        // Controller.ReplaceInitialCondition deletes the internal set of the old item and converts the new one,
+        // so a region that was selection based is reset to its selection for the conversion to recreate it,
+        // the way FrmInitialCondition does before it replaces
+        public TInitialCondition Clone<TInitialCondition>(string name, string kind)
+            where TInitialCondition : InitialCondition
         {
-            return ResolveInitialCondition(name).DeepClone();
+            TInitialCondition clone = ResolveInitialCondition(name).DeepClone() as TInitialCondition;
+            if (clone == null)
+                throw new PythonAPIException("The initial condition '" + name + "' is not an " + kind + ".");
+            if (clone.CreationData != null) clone.RegionType = RegionTypeEnum.Selection;
+            //
+            return clone;
         }
         public void Replace(string oldName, InitialCondition initialCondition)
         {

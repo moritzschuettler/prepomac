@@ -107,11 +107,13 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
     check(settings(items, PREFIX + "Shell")["transfinite_angle_deg"] == 120.0,
           "the omitted transfinite angle was not kept")
     #
-    items.add_transfinite_mesh(PREFIX + "Transfinite", box_selection, recombine=True)
+    items.add_transfinite_mesh(PREFIX + "Transfinite", box_selection, recombine=True,
+                               allow_pyramid_elements=True)
     items.replace_transfinite_mesh(PREFIX + "Transfinite", transfinite_angle=110.0)
     values = settings(items, PREFIX + "Transfinite")
     check(values["algorithm_recombine"] != "None", "the omitted recombine switch was not kept")
     check(values["transfinite_angle_deg"] == 110.0, "the transfinite angle was not replaced")
+    check(values["allow_pyramid_elements"] is True, "the omitted pyramid element switch was not kept")
 
 
 def test_derived_arguments(items, selection):
@@ -172,6 +174,13 @@ def test_size_defaults(items, small, small_selection, large, large_selection):
     values = settings(items, name)
     check(values["max_h"] == 7.0, "the given maximum size was not applied: " + str(values["max_h"]))
     check(values["min_h"] == kept_min, "a replace that sets a value must keep the rest: " +
+          str(values["min_h"]) + " against " + str(kept_min))
+    # Sizes an earlier call set are no longer the part defaults, so moving the item does not rebuild them
+    items.replace_meshing_parameters(name, selection=large_selection)
+    values = settings(items, name)
+    check(values["max_h"] == 7.0, "moving the item discarded the maximum size set earlier: " +
+          str(values["max_h"]))
+    check(values["min_h"] == kept_min, "moving the item discarded the minimum size set earlier: " +
           str(values["min_h"]) + " against " + str(kept_min))
     items.remove([name])
 

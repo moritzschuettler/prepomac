@@ -99,6 +99,18 @@ namespace CaeMesh
             _hausdorff = shellMmg.Hausdorff;
             _keepModelEdges = shellMmg.KeepModelEdges;
         }
+        //
+        static public bool Equals(ShellMmg shellMmg1, ShellMmg shellMmg2)
+        {
+            if (shellMmg1 == null) return false;
+            if (shellMmg2 == null) return false;
+            //
+            if (shellMmg1._relativeSize != shellMmg2._relativeSize) return false;
+            if (shellMmg1._relativeHausdorff != shellMmg2._relativeHausdorff) return false;
+            if (shellMmg1._hausdorff != shellMmg2._hausdorff) return false;
+            if (shellMmg1._keepModelEdges != shellMmg2._keepModelEdges) return false;
+            return true;
+        }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

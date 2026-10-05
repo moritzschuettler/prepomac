@@ -1114,7 +1114,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | Member | Description |
 | --- | --- |
 | `add(name, time_amplitude, time_span=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. |
-| `replace(old_name, name=None, time_amplitude=None, time_span=None)` | Replaces an existing amplitude. A value that is not given is kept. |
+| `replace(old_name, name=None, time_amplitude=None, time_span=None)` | Replaces an existing amplitude. Everything that is not given is kept. |
 
 `Amplitude` exposes `name`, `time_span`, `row_count` and `get_time_amplitude()`.
 
@@ -1124,7 +1124,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | --- | --- |
 | `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
 | `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Reads the distribution from a point cloud file. |
-| `replace_from_equation(old_name, name, equation)` | Replaces an equation distribution. |
+| `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. |
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
 
 `Distribution` exposes `name` and `distribution_type`.
@@ -1543,6 +1543,9 @@ Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` 
 | `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
 | `output_frequency` | The results output frequency. |
 | `perturbation` | Makes the step a perturbation step. The model rejects it for a step type that does not support one. |
+
+`replace_frequency` and `replace_steady_state_dynamics` accept `lower_frequency` and `upper_frequency` together, so both limits
+can move past each other in one call.
 | `run_analysis` | False solves nothing and only checks the model. |
 | `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. |
 
@@ -1611,7 +1614,7 @@ unconstrained**, and reads back as `None`. Because a missing argument means "kee
 
 A reference point region is accepted only by a fixed and by a displacement and rotation boundary
 condition, the two types the dialogs offer it for. `add_submodel` and `add_temperature` refuse
-one before a command is recorded.
+one before a command is recorded, and so does a `replace_*` of a type that takes none.
 
 The step decides which types it supports - a static step takes no temperature boundary condition, a
 heat transfer step takes nothing else - and the API rejects an unsupported type before it records a
@@ -1669,7 +1672,9 @@ Three details the model imposes:
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
   force components without a distribution, the force per area components with one.
 - A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
-  normal unless a `direction` is given.
+  normal unless a `direction` is given. `replace_pre_tension` keeps every value that is not given, takes
+  `auto_direction=True` to return to the surface normal (it cannot be combined with `direction`), and refuses a
+  `load_type` that changes the type unless the `magnitude` is given as well.
 - A **cavity name** is truncated to three characters, a solver limit.
 
 An **imported pressure** is read from its results file on every model check, so `pressure_time` and
@@ -1760,8 +1765,10 @@ method, so the type follows from the method that is used.
 | `propagate(name)` | Copies the defined field to every following step. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
-`replace_temperature` and `replace_temperature_from_file` each refuse a defined field of the other
-form, because the two take different arguments.
+`replace_temperature` and `replace_temperature_from_file` switch the defined temperature type: `replace_temperature` on
+a defined field read from a file needs a `region` and makes it one given by value, and
+`replace_temperature_from_file` on one given by value needs a `file_name` and makes it one read from a file. Values not
+given are kept.
 
 ### `DefinedField`
 
@@ -2808,6 +2815,10 @@ Collection of mesh parts.
 | `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
 | `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
+
+The commands that change result parts (`replace_properties`, `set_representation`, `merge`, `remove`) act on the current
+result, so they are refused for a result that is not the current one.
+
 | `merge(part_names)` | Merges result parts into one. |
 | `remove(part_names)` | Removes result parts. |
 
@@ -2826,7 +2837,7 @@ result field transformation is expressed in a result coordinate system.
 | `reference_points.add(name, coordinates, name_visible=None, color=None)` | Adds a result reference point. |
 | `reference_points.add_from_selection(name, created_from, selection, name_visible=None, color=None)` | Adds one from selected result mesh points. The mode is `OnPoint`, `BetweenTwoPoints` or `CircleCenter`. |
 | `reference_points.add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None)` | Adds one from a named result region. The mode is `CenterOfGravity` or `BoundingBoxCenter`, the region type `NodeSetName` or `SurfaceName`. |
-| `reference_points.replace(old_name, name=None, coordinates=None, name_visible=None, color=None)` | Replaces one. The coordinates are the whole definition, and applying them turns the point back into a coordinate point. |
+| `reference_points.replace(old_name, name=None, coordinates, name_visible=None, color=None)` | Replaces one. The name and the display values may be left out and are kept. The coordinates are the whole definition and are always given, and applying them turns the point back into a coordinate point. |
 | `reference_points.replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None)` | Replaces one by selected points. The mode and the selection are the whole definition. |
 | `reference_points.replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None)` | Replaces one by a named region. The mode and the region are the whole definition. |
 | `coordinate_systems.get_coordinate_system_type(name)` | `Rectangular` or `Cylindrical`. |

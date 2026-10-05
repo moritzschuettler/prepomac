@@ -134,6 +134,12 @@ def test_submodel():
                                           step_number=1),
                  "a submodel boundary condition on a reference point must be rejected")
     check(not bcs.contains(PREFIX + "Bad"), "the refused submodel boundary condition was recorded")
+    # A replacement is refused the same way
+    check_raises(lambda: bcs.replace_submodel(PREFIX + "SM",
+                                              region=pmx.create.region('ReferencePointName', REFERENCE_POINT)),
+                 "a submodel boundary condition replaced onto a reference point must be rejected")
+    check(bcs[PREFIX + "SM"].region_type == "NodeSetName",
+          "the refused replacement changed the region to " + bcs[PREFIX + "SM"].region_type)
 
 
 def test_temperature():
@@ -160,6 +166,12 @@ def test_temperature():
                  "a temperature boundary condition on a reference point must be rejected")
     check(not thermal.contains(PREFIX + "Bad"),
           "the refused temperature boundary condition was recorded")
+    check_raises(lambda: thermal.replace_temperature(PREFIX + "T",
+                                                     region=pmx.create.region('ReferencePointName',
+                                                                              REFERENCE_POINT)),
+                 "a temperature boundary condition replaced onto a reference point must be rejected")
+    check(thermal[PREFIX + "T"].region_type == "NodeSetName",
+          "the refused replacement changed the region to " + thermal[PREFIX + "T"].region_type)
 
 
 def test_collection_verbs():

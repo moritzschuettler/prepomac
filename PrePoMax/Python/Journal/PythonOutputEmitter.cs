@@ -134,6 +134,9 @@ namespace PrePoMax.Python.Journal
                                   PythonValueFormatter.Text(temperature.DistributionName));
             }
             PythonStepItemEmitter.AddAmplitude(arguments, field.AmplitudeName);
+            DefinedTemperature defaultField = new DefinedTemperature("Default", null,
+                                                                     CaeGlobals.RegionTypeEnum.Selection, 0);
+            PythonStepItemEmitter.AddColor(arguments, field.Color, defaultField.Color, oldName != null);
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, field);
