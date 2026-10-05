@@ -260,12 +260,24 @@ namespace CaeMesh
                         Gmsh.Option.SetNumber("Mesh.SecondOrderLinear", 1);     // first
                     // Create incomplete second order elements: 8-node quads, 20-node hexas, etc.
                     Gmsh.Option.SetNumber("Mesh.SecondOrderIncomplete", 1);     // second
-                    Gmsh.Model.Mesh.SetOrder(2);                                // third
-                    // Optimize high order
-                    if (gsi.OptimizeHighOrder != GmshOptimizeHighOrderEnum.None)
+                    // gmsh leaves the order alone, saying nothing, once an error was logged while meshing and errors
+                    // abort, which the API sets: the bore walls the quasi-structured quad algorithm makes transfinite on
+                    // its own log one each, the sweep meshes them again, and sweep_51 came out linear
+                    double abortOnError = Gmsh.Option.GetNumber("General.AbortOnError");
+                    Gmsh.Option.SetNumber("General.AbortOnError", 0);
+                    try
                     {
-                        Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
-                        Gmsh.Model.Mesh.Optimize(gsi.OptimizeHighOrder.ToString(), false, 1, dimTags);
+                        Gmsh.Model.Mesh.SetOrder(2);                            // third
+                        // Optimize high order
+                        if (gsi.OptimizeHighOrder != GmshOptimizeHighOrderEnum.None)
+                        {
+                            Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
+                            Gmsh.Model.Mesh.Optimize(gsi.OptimizeHighOrder.ToString(), false, 1, dimTags);
+                        }
+                    }
+                    finally
+                    {
+                        Gmsh.Option.SetNumber("General.AbortOnError", abortOnError);
                     }
                 }
                 // Quality of the mesh that is about to be written, for every setup item type
