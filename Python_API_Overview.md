@@ -35,6 +35,9 @@ The root object available in the Python console is `pmx`.
   it is empty, starts or ends with a space, contains a space or a character other than letters, digits and
   `- _ ( )`, or contains no letter. Materials and element sets also take `@`; parameter names do not take `-`.
   The name an item already carries is not checked again, so an item named by an import can still be replaced.
+- A keyword argument a method does not take is refused with a `TypeError`, as Python refuses one for a function of
+  its own, and nothing is recorded: `add() got an unexpected keyword argument 'descripton'. Did you mean
+  'description'?`. So is a keyword naming an argument already given by position.
 
 ## Script execution and regeneration
 

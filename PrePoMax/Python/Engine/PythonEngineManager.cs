@@ -70,6 +70,7 @@ namespace PrePoMax.Python
             //
             using (Py.GIL())
             {
+                PythonKeywordGuard.Install();
                 CreateScopeAndConsole();
             }
             //

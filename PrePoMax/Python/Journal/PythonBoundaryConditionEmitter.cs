@@ -57,6 +57,9 @@ namespace PrePoMax.Python.Journal
                 AddDegreeOfFreedom(arguments, "ur2", displacementRotation.UR2);
                 AddDegreeOfFreedom(arguments, "ur3", displacementRotation.UR3);
                 if (replace) AddFreeDegreesOfFreedom(arguments, displacementRotation);
+                PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
+                PythonStepItemEmitter.AddCoordinateSystem(arguments, condition.CoordinateSystemName);
+                PythonStepItemEmitter.AddPhase(arguments, condition.Complex, condition.PhaseDeg);
             }
             else if (condition is SubmodelBC submodel)
             {
@@ -75,13 +78,11 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("temperature=" + PythonValueFormatter.Equation(temperature.Temperature));
                 if (!string.IsNullOrEmpty(temperature.DistributionName))
                     arguments.Add("distribution_name=" + PythonValueFormatter.Text(temperature.DistributionName));
+                PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
             }
             else throw new NotSupportedException("the boundary condition type " + condition.GetType().Name +
                                                  " has no API form");
             //
-            PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
-            PythonStepItemEmitter.AddCoordinateSystem(arguments, condition.CoordinateSystemName);
-            PythonStepItemEmitter.AddPhase(arguments, condition.Complex, condition.PhaseDeg);
             PythonStepItemEmitter.AddColor(arguments, condition.Color, new FixedBC("Default", null,
                                                                                    RegionTypeEnum.Selection,
                                                                                    false).Color, replace);
