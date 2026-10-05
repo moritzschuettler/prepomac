@@ -20,29 +20,33 @@ namespace PrePoMax.Python.Journal
     public static class PythonJournalExporter
     {
         // Methods                                                                                                                  
-        public static PythonJournalReport Export(List<Command> commands, string fileName, string sourceDescription)
+        public static PythonJournalReport Export(List<Command> commands, string fileName, string sourceDescription,
+                                                 int numOfLegacySplitFaces = 1)
         {
             if (fileName == null) throw new ArgumentNullException(nameof(fileName));
             //
             PythonJournalReport report;
-            string text = GetText(commands, fileName, sourceDescription, out report);
+            string text = GetText(commands, fileName, sourceDescription, out report, numOfLegacySplitFaces);
             //
             File.WriteAllText(fileName, text, new UTF8Encoding(false));
             //
             return report;
         }
         public static string GetText(List<Command> commands, string fileName, string sourceDescription,
-                                     out PythonJournalReport report)
+                                     out PythonJournalReport report, int numOfLegacySplitFaces = 1)
         {
             int[] commandFirstLineNumbers;
-            return GetText(commands, fileName, sourceDescription, out report, out commandFirstLineNumbers);
+            return GetText(commands, fileName, sourceDescription, out report, out commandFirstLineNumbers,
+                           numOfLegacySplitFaces);
         }
         // The line numbers say where each command's own lines start, so that a caller showing the script next to the
         // command history can point at the lines a selected command produced
         public static string GetText(List<Command> commands, string fileName, string sourceDescription,
-                                     out PythonJournalReport report, out int[] commandFirstLineNumbers)
+                                     out PythonJournalReport report, out int[] commandFirstLineNumbers,
+                                     int numOfLegacySplitFaces = 1)
         {
             PythonJournalWriter writer = new PythonJournalWriter();
+            writer.NumOfLegacySplitFaces = numOfLegacySplitFaces;
             int commandCount = commands == null ? 0 : commands.Count;
             //
             if (commands != null)

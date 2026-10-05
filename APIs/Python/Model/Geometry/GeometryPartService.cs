@@ -240,6 +240,12 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             return MeshGateway.RepairGeometry(partNames, geometryRepair);
         }
+        public Dictionary<string, int> SplitPeriodicFaces(string[] partNames, int numOfFaces)
+        {
+            if (numOfFaces < 2) throw new PythonAPIException("The argument 'number_of_faces' must be at least 2.");
+            EnsureCommandsAvailable();
+            return MeshGateway.SplitPeriodicFaces(partNames, numOfFaces);
+        }
         public Dictionary<string, RepairPreviewAPI> RepairPreview(string[] partNames, GeometryRepair geometryRepair,
                                                                   object tolerance)
         {

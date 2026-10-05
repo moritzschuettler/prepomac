@@ -210,8 +210,9 @@ namespace PrePoMax
             try
             {
                 string source = _cmdOptions.FileName != null ? _cmdOptions.FileName : _cmdOptions.RegenerationFileName;
-                PythonJournalReport journalReport = PythonJournalExporter.Export(controller.GetCommands(),
-                                                                                 _cmdOptions.JournalFileName, source);
+                PythonJournalReport journalReport =
+                    PythonJournalExporter.Export(controller.GetCommands(), _cmdOptions.JournalFileName, source,
+                                                 controller.Settings.General.NumOfSplitFaces);
                 Console.WriteLine(journalReport.GetSummary());
                 foreach (string refusal in journalReport.Refusals) Console.WriteLine("   Not emitted: " + refusal);
             }

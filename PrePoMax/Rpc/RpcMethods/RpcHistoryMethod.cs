@@ -56,15 +56,18 @@ namespace PrePoMax.Rpc
             }
             writer.EndArray();
             //
-            if (request.GetBool("include_journal", false)) WriteJournal(writer, request, commands);
+            if (request.GetBool("include_journal", false))
+                WriteJournal(writer, request, commands, controller.Settings.General.NumOfSplitFaces);
             writer.EndObject();
             return writer.ToString();
         }
-        private static void WriteJournal(JsonWriter writer, RpcRequest request, List<Command> commands)
+        private static void WriteJournal(JsonWriter writer, RpcRequest request, List<Command> commands,
+                                         int numOfLegacySplitFaces)
         {
             string requestedFile = request.GetString("journal_file", null);
             string fileName = requestedFile == null ? GetTemporaryFileName() : requestedFile;
-            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, "the automation server");
+            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, "the automation server",
+                                                                      numOfLegacySplitFaces);
             //
             writer.BeginObject("journal");
             writer.WriteValue("emittedCommandCount", report.EmittedCommandCount);

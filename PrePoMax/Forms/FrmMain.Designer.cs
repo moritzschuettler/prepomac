@@ -252,6 +252,7 @@ namespace PrePoMax
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDeleteFacesCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFuseFaces = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSplitPeriodicFaces = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiRepairGeometry = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -2407,6 +2408,7 @@ namespace PrePoMax
             this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitShell,
+            this.tsmiSplitPeriodicFaces,
             this.tsmiOffsetFace,
             this.tsmiFuseFaces,
             this.tsmiDeleteFacesCAD,
@@ -2458,6 +2460,13 @@ namespace PrePoMax
             this.tsmiSplitShell.Size = new System.Drawing.Size(227, 22);
             this.tsmiSplitShell.Text = "Split Shell";
             this.tsmiSplitShell.Click += new System.EventHandler(this.tsmiSplitShell_Click);
+            // 
+            // tsmiSplitPeriodicFaces
+            // 
+            this.tsmiSplitPeriodicFaces.Name = "tsmiSplitPeriodicFaces";
+            this.tsmiSplitPeriodicFaces.Size = new System.Drawing.Size(227, 22);
+            this.tsmiSplitPeriodicFaces.Text = "Split Periodic Faces";
+            this.tsmiSplitPeriodicFaces.Click += new System.EventHandler(this.tsmiSplitPeriodicFaces_Click);
             // 
             // tsmiOffsetFace
             // 
@@ -5961,6 +5970,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD2;
         private System.Windows.Forms.ToolStripMenuItem tsmiFuseFaces;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSplitPeriodicFaces;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD3;
         private System.Windows.Forms.ToolStripMenuItem tsmiRepairGeometry;
         private System.Windows.Forms.ToolStripMenuItem tsmiDistribution;

@@ -60,9 +60,25 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             string onlyMaterials = _onlyMaterials ? "only_materials=True" : null;
+            // An older import split the periodic faces of the CAD parts it added, which an import no longer does
+            bool splitPeriodicFaces = SplitsPeriodicFacesAutomatically && writer.NumOfLegacySplitFaces > 1 &&
+                                      IsCadFile(_fileName);
+            if (splitPeriodicFaces)
+                writer.Assign("part_names_before_import", "set(pmx.model.geometry.parts.get_names())");
             writer.Statement(writer.Call("pmx", "import_file", writer.Path(Tools.GetGlobalPath(_fileName)),
                                          onlyMaterials));
+            if (splitPeriodicFaces)
+                writer.Statement(writer.Call("pmx.model.geometry.parts", "split_periodic_faces",
+                                             "[name for name in pmx.model.geometry.parts.get_names() " +
+                                             "if name not in part_names_before_import]",
+                                             "number_of_faces=" + writer.Value(writer.NumOfLegacySplitFaces)));
             writer.CountEmittedCommand();
+        }
+        private static bool IsCadFile(string fileName)
+        {
+            string extension = System.IO.Path.GetExtension(fileName).ToLower();
+            return extension == ".stp" || extension == ".step" || extension == ".igs" || extension == ".iges" ||
+                   extension == ".brep";
         }
         public override string GetCommandString()
         {

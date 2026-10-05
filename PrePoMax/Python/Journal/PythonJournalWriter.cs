@@ -27,6 +27,7 @@ namespace PrePoMax.Python.Journal
         private int _emittedCommandCount;
         private int _commandIndex;
         private int _lineIndex;
+        private int _numOfLegacySplitFaces;
 
 
         // Properties                                                                                                               
@@ -39,6 +40,13 @@ namespace PrePoMax.Python.Journal
         public int RefusedCommandCount { get { return _refusals.Count; } }
         // The line each command started at, so that a caller showing the script can pair a line with its command
         public List<int> CommandFirstLineIndices { get { return _commandFirstLineIndices; } }
+        // The number of faces a command made before Split Periodic Faces became a command split the periodic faces
+        // into, so that its script splits them as its regeneration does
+        public int NumOfLegacySplitFaces
+        {
+            get { return _numOfLegacySplitFaces; }
+            set { _numOfLegacySplitFaces = Math.Max(value, 1); }
+        }
 
 
         // Constructors                                                                                                             
@@ -51,6 +59,7 @@ namespace PrePoMax.Python.Journal
             _emittedCommandCount = 0;
             _commandIndex = 0;
             _lineIndex = 0;
+            _numOfLegacySplitFaces = 1;
         }
 
 

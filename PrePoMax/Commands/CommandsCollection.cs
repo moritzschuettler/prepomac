@@ -325,6 +325,10 @@ namespace PrePoMax.Commands
             Stopwatch stopwatch = Stopwatch.StartNew();
             //
             if (batchKeywordStateNotifications) _controller.BeginKeywordStateNotificationBatch();
+            // A command executed inside an older one, such as by its Python script, splits the way the older one does
+            int numOfAutomaticSplitFaces = _controller.NumOfAutomaticSplitFaces;
+            if (command.SplitsPeriodicFacesAutomatically)
+                _controller.NumOfAutomaticSplitFaces = _controller.Settings.General.NumOfSplitFaces;
             try
             {
                 if (executeWithDialog && command is ICommandWithDialog cwd)
@@ -340,6 +344,7 @@ namespace PrePoMax.Commands
             }
             finally
             {
+                _controller.NumOfAutomaticSplitFaces = numOfAutomaticSplitFaces;
                 if (batchKeywordStateNotifications)
                     keywordStateMessages = _controller.EndKeywordStateNotificationBatch();
             }

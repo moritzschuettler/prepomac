@@ -115,9 +115,22 @@ namespace PrePoMax
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + outputFileName.ToUTF8() + "\" " +
                               kernelOptions + " " + tolerance.ToString("R", CultureInfo.InvariantCulture);
-            // A repaired part has its closed faces divided again, so the preview compares it divided as well
-            if (preview) argument += " " + _controller.Settings.General.NumOfSplitFaces;
+            // A repaired part has its closed faces divided again only while an older command is regenerated, so the
+            // preview compares it divided the same way
+            if (preview) argument += " " + _controller.NumOfAutomaticSplitFaces;
             return RunGeometryOperation(part, argument, outputFileName);
+        }
+        // Every closed face of the whole part is divided, so a face two solids of a compound share stays shared
+        public string SplitPeriodicFaces(GeometryPart part, int numOfFaces)
+        {
+            string brepFileName = WritePartBrep(part);
+            if (brepFileName == null) return null;
+            //
+            string argument = "BREP_SPLIT_CLOSED_FACES " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              "\"" + brepFileName.ToUTF8() + "\" " +
+                              numOfFaces;
+            return RunGeometryOperation(part, argument, brepFileName);
         }
         private string WritePartBrep(GeometryPart part)
         {

@@ -107,9 +107,11 @@ namespace PrePoMax.Settings
             }
         }
         //
-        [Category("Import CAD")]
+        [Category("Regenerate older files")]
         [OrderedDisplayName(0, 10, "Split periodic faces")]
-        [Description("Select yes to split CAD periodic faces during geometry import.")]
+        [Description("Older files split the CAD periodic faces automatically during geometry import and after " +
+                     "every geometry operation. Select yes to regenerate their history the same way. New " +
+                     "models split them using Geometry -> CAD Part -> Split Periodic Faces.")]
         public bool SplitPeriodicFaces
         {
             get { return _splitPeriodicFaces; }
@@ -126,9 +128,10 @@ namespace PrePoMax.Settings
                 UpdateVisibility();
             }
         }
-        [Category("Import CAD")]
+        [Category("Regenerate older files")]
         [OrderedDisplayName(1, 10, "Number of resulting faces")]
-        [Description("Select the number of faces the CAD periodic faces will be split into during geometry import.")]
+        [Description("Select the number of faces the CAD periodic faces of older files are split into when " +
+                     "their history is regenerated.")]
         public int NumOfSplitFaces
         {
             get { return _generalSettings.NumOfSplitFaces; }

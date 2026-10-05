@@ -26,10 +26,16 @@ namespace PrePoMax.Commands
         protected string _name;
         protected DateTime _dateCreated;
         protected TimeSpan _timeSpan;
+        [OptionalField] private bool _periodicFacesSplitOnlyOnRequest;
 
         // Properties                                                                                                               
         public string Name { get { return _name; } }
         public TimeSpan TimeSpan { get { return _timeSpan; } set { _timeSpan = value; } }
+        /// <summary>
+        /// A command made before Split Periodic Faces became a command of its own was executed while CAD import and
+        /// every geometry operation split the periodic faces, and it has to be regenerated the same way.
+        /// </summary>
+        public bool SplitsPeriodicFacesAutomatically { get { return !_periodicFacesSplitOnlyOnRequest; } }
 
 
         // Constructors                                                                                                             
@@ -37,6 +43,7 @@ namespace PrePoMax.Commands
         {
             _name = name;
             _dateCreated = DateTime.Now;
+            _periodicFacesSplitOnlyOnRequest = true;
         }
         protected Command(SerializationInfo info, StreamingContext context)
         {
@@ -53,6 +60,8 @@ namespace PrePoMax.Commands
                     case "Command+_timeSpan":                           // Compatibility for version v.2.5.2
                     case "_timeSpan":
                         _timeSpan = (TimeSpan)entry.Value; break;
+                    case "_periodicFacesSplitOnlyOnRequest":
+                        _periodicFacesSplitOnlyOnRequest = (bool)entry.Value; break;
                 }
             }
         }
@@ -104,6 +113,7 @@ namespace PrePoMax.Commands
             info.AddValue("_name", _name, typeof(string));
             info.AddValue("_dateCreated", _dateCreated, typeof(DateTime));
             info.AddValue("_timeSpan", _timeSpan, typeof(TimeSpan));
+            info.AddValue("_periodicFacesSplitOnlyOnRequest", _periodicFacesSplitOnlyOnRequest, typeof(bool));
         }
     }
 }

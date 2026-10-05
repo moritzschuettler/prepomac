@@ -121,6 +121,7 @@ namespace PrePoMax
         private FrmOffsetFace _frmOffsetFace;
         private FrmSurfaceOperation _frmSurfaceOperation;
         private FrmRepairGeometry _frmRepairGeometry;
+        private FrmSplitPeriodicFaces _frmSplitPeriodicFaces;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmBoundaryLayer _frmBoundaryLayer;
@@ -535,6 +536,9 @@ namespace PrePoMax
                 //
                 _frmRepairGeometry = new FrmRepairGeometry(_controller);
                 AddFormToAllForms(_frmRepairGeometry);
+                //
+                _frmSplitPeriodicFaces = new FrmSplitPeriodicFaces(_controller);
+                AddFormToAllForms(_frmSplitPeriodicFaces);
                 //
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
@@ -2088,7 +2092,8 @@ namespace PrePoMax
         }
         private void WriteSessionJournal(List<PrePoMax.Commands.Command> commands, string fileName, string source)
         {
-            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, source);
+            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, source,
+                                                                      _controller.Settings.General.NumOfSplitFaces);
             //
             WriteDataToOutput(report.GetSummary());
             foreach (string refusal in report.Refusals) WriteDataToOutput("   Not emitted: " + refusal);
@@ -4509,6 +4514,24 @@ namespace PrePoMax
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmRepairGeometry);
             ShowForm(_frmRepairGeometry, "Repair Geometry", null);
+        }
+        private void tsmiSplitPeriodicFaces_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateSplitPeriodicFaces();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void CreateSplitPeriodicFaces()
+        {
+            if (_controller.Model.Geometry == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitPeriodicFaces);
+            ShowForm(_frmSplitPeriodicFaces, "Split Periodic Faces", null);
         }
         //
         private void ConvertShellToSolid(string[] partNames)
@@ -10357,6 +10380,7 @@ namespace PrePoMax
             if (_frmOffsetFace != null && _frmOffsetFace.Visible) _frmOffsetFace.SelectionChanged(ids);
             if (_frmSurfaceOperation != null && _frmSurfaceOperation.Visible) _frmSurfaceOperation.SelectionChanged(ids);
             if (_frmRepairGeometry != null && _frmRepairGeometry.Visible) _frmRepairGeometry.SelectionChanged(ids);
+            if (_frmSplitPeriodicFaces != null && _frmSplitPeriodicFaces.Visible) _frmSplitPeriodicFaces.SelectionChanged(ids);
             //
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);
             if (_frmRemeshingParameters != null && _frmRemeshingParameters.Visible) _frmRemeshingParameters.SelectionChanged(ids);

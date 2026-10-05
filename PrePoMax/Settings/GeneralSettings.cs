@@ -43,7 +43,7 @@ namespace PrePoMax
         private bool _saveResultsInPmx;
         private CompressionLevel _compressionLevel;
         private UnitSystemType _unitSystemType;
-        // CAD periodic surface split
+        // CAD periodic surface split of older files when their history is regenerated
         private int _numOfSplitFaces;
         // Mesh edge angle
         private double _edgeAngle;

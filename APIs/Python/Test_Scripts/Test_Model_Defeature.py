@@ -17,7 +17,7 @@
 #Expected process exit code 0.
 
 # A blind hole wall stops at its cap, so it covers less area than one that spans the whole thickness
-THROUGH_WALL_AREA = 200.0
+THROUGH_WALL_AREA = 400.0
 # The cap of a blind hole is the only plane face smaller than this
 CAP_AREA = 100.0
 
@@ -101,8 +101,7 @@ def main():
     removed = pmx.model.geometry.parts.defeature(selection(part, walls_of_through_holes(rows)))
     check(removed[part.name] > 0, "a through hole must be removed: " + str(removed))
     # A blind hole closes once its cap is selected together with its wall. Every cylinder left is a
-    # blind hole wall, and the kernel merges the halves it split, so the areas of the first pass no
-    # longer separate them
+    # blind hole wall
     part = pmx.model.geometry.parts.first()
     rows = faces(part)
     before = len(rows)

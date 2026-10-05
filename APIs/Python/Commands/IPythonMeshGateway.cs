@@ -90,6 +90,8 @@ namespace APIs.Python
         // or not it changed anything
         Dictionary<string, int> FuseFaces(GeometrySelection geometrySelection);
         Dictionary<string, int> RepairGeometry(string[] partNames, GeometryRepair geometryRepair);
+        // Returns the number of faces each part gained, zero included
+        Dictionary<string, int> SplitPeriodicFaces(string[] partNames, int numOfFaces);
         // Runs the repair on a copy of each part and records nothing
         Dictionary<string, GeometryRepairPreview> PreviewRepairGeometry(string[] partNames,
                                                                          GeometryRepair geometryRepair);

@@ -131,8 +131,9 @@ namespace PrePoMax.Forms
                     {
                         // The dialog may hold a reordered or shortened history, so what is shown is emitted
                         List<Command> commands = _viewCommands != null ? Commands : _controller.GetCommands();
-                        PythonJournalReport report = PythonJournalExporter.Export(commands, saveFileDialog.FileName,
-                                                                                  _controller.OpenedFileName);
+                        PythonJournalReport report =
+                            PythonJournalExporter.Export(commands, saveFileDialog.FileName, _controller.OpenedFileName,
+                                                         _controller.Settings.General.NumOfSplitFaces);
                         if (report.RefusedCommandCount > 0)
                             MessageBoxes.ShowWarning(report.GetSummary() + Environment.NewLine +
                                                      string.Join(Environment.NewLine, report.Refusals));
@@ -484,7 +485,8 @@ namespace PrePoMax.Forms
             PythonJournalReport report;
             int[] commandFirstLines;
             string text = PythonJournalExporter.GetText(Commands, PythonScriptName, _controller.OpenedFileName,
-                                                        out report, out commandFirstLines);
+                                                        out report, out commandFirstLines,
+                                                        _controller.Settings.General.NumOfSplitFaces);
             //
             _pythonCommandFirstLines = commandFirstLines;
             _pythonScriptOutdated = false;

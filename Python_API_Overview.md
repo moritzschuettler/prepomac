@@ -716,7 +716,8 @@ arguments of the call are applied on top of those. `replace_meshing_parameters` 
 it is given a new `selection` and no other value, so the sizes follow the geometry the item now
 covers; a replace that also sets a value is the caller's and keeps everything it is not told about.
 This is what the dialog does when the selection changes and nothing was typed into the property
-grid.
+grid. Only sizes that still equal the part defaults of the item's previous region follow it: sizes
+an earlier call set are kept, the way the dialog keeps the stored values of an item it edits.
 
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
@@ -800,7 +801,8 @@ Every `part_names` argument accepts a single name or a list of names.
 `GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
 `split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
-`delete_cad_faces`, `fuse_faces`, `repair`, `repair_preview`, `flip_stl_normals` and `delete_stl_faces`. The selection based methods take a
+`delete_cad_faces`, `fuse_faces`, `repair`, `repair_preview`, `split_periodic_faces`, `flip_stl_normals` and
+`delete_stl_faces`. The selection based methods take a
 selection built in the `geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the
 `parts` target and `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick. `fuse_faces` takes
 either.
@@ -936,9 +938,9 @@ selected faces become one across every edge two of them share where they lie on 
 edges left on the outside are joined where the cut left a point on them. The shape does not change, so
 a part keeps its name, its id and its bodies. Faces of the sub-parts of a compound are fused on the
 compound as a whole, and two faces are only fused when they bound the same solids, so the solids still
-meet. A fused face that closes on itself, such as the two halves of a cylinder, is divided again as
-every closed face is. It returns the number of faces every part lost, and a part whose faces lie on
-different surfaces reports zero rather than being refused.
+meet. A fused face that closes on itself, such as the two halves of a cylinder, stays one face. It
+returns the number of faces every part lost, and a part whose faces lie on different surfaces reports
+zero rather than being refused.
 
 `repair(part_names, sew_faces=True, fix_shape=True, remove_small_faces=True, remove_small_edges=True,
 fuse_faces=False, join_edges=False, tolerance=None)` is Repair in the CAD Part menu and works on whole
@@ -957,9 +959,19 @@ Repair dialog does: nothing changes and no command is recorded. It returns a `Re
 the repair would run on, keyed by its name, so a sub-part is answered under its compound. `edges` lists the
 edges the repair would remove or sew, each as an array of the points sampled on it with shape `(n, 3)`, and
 `points` the vertices it would remove with shape `(point_count, 3)`; `edge_count` and `point_count` count
-them, and `refused` is `True` when the repair would leave the part as it was. The closed faces of the
-result are divided again before it is compared, as they are after a repair, so the seams of a cylinder are
-not reported as taken away.
+them, and `refused` is `True` when the repair would leave the part as it was.
+
+`split_periodic_faces(part_names, number_of_faces=2)` is Split Periodic Faces in the CAD Part menu. Every
+periodic face of the named CAD parts - a face that closes on itself, such as the side of a cylinder with
+a single seam - is split into `number_of_faces` faces. A sub-part is split with its compound, so the faces
+its solids share stay shared, and a part keeps its name, its id and its bodies. It returns the number of
+faces every part gained; a part without periodic faces reports zero. Fewer than two faces and a part that
+does not exist are refused. Neither the import of a CAD file nor any geometry operation splits periodic
+faces, and none of them has to be split for meshing: a sweep meshes a wall closed along a single seam with
+the structured grid of its layers around the seam, and finds the mirror symmetry of a compound whatever
+angle the seams lie at. The split is for the pieces wanted as faces of their own, to select or to load one
+half of a bore. Only the history of an older file, regenerated with Split periodic faces in Settings ->
+General, still splits them as it was recorded.
 
 ```python
 top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [3, 15]})
@@ -967,6 +979,7 @@ fused = pmx.model.geometry.parts.fuse_faces(top)   # {'Solid-1': 1}
 preview = pmx.model.geometry.parts.repair_preview('Solid-1', fuse_faces=True, tolerance=0.01)['Solid-1']
 print(preview.edge_count, preview.point_count)   # 1 2
 removed = pmx.model.geometry.parts.repair('Solid-1', fuse_faces=True, tolerance=0.01)
+added = pmx.model.geometry.parts.split_periodic_faces('Solid-1')   # the faces each part gained
 ```
 
 `ModelParts` adds `merge` and `find_edges_by_angle`.

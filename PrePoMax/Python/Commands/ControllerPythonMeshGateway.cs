@@ -395,6 +395,11 @@ namespace PrePoMax.Python
             _controller.RepairGeometryCommand(partNames, geometryRepair);
             return _controller.LastGeometryOperationCounts;
         }
+        public Dictionary<string, int> SplitPeriodicFaces(string[] partNames, int numOfFaces)
+        {
+            _controller.SplitPeriodicFacesCommand(partNames, numOfFaces);
+            return _controller.LastGeometryOperationCounts;
+        }
         public Dictionary<string, GeometryRepairPreview> PreviewRepairGeometry(string[] partNames,
                                                                                 GeometryRepair geometryRepair)
         {

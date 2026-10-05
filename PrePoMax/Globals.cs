@@ -58,6 +58,7 @@ namespace PrePoMax
         public static string DeletingFacesText = "Deleting faces...";
         public static string FusingFacesText = "Fusing faces...";
         public static string RepairingGeometryText = "Repairing geometry...";
+        public static string SplittingPeriodicFacesText = "Splitting periodic faces...";
         public static string MergingText = "Merging...";
         public static string ExplodePartsText = "Explode parts...";
         public static string SelectionText = "Selection...";

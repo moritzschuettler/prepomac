@@ -286,6 +286,20 @@ namespace APIs.Python.Model
             return geometryRepair;
         }
 
+        [PythonAPI("Splits every periodic face of the named CAD parts - a face that closes on itself, such as the " +
+                   "side of a cylinder with a single seam - into number_of_faces faces using command history, the " +
+                   "way Split Periodic Faces in the CAD Part menu does. A sweep meshes such a face around its seam, " +
+                   "so the split is only needed where the pieces are wanted as faces of their own. A sub-part is " +
+                   "split with its compound, so the faces its solids share stay shared. Returns the number of faces " +
+                   "every part gained.",
+                   Arguments = "part_names: list[str] or str, number_of_faces: int = 2",
+                   Returns = "dict[str, int]",
+                   Example = "added = pmx.model.geometry.parts.split_periodic_faces('Solid_part-1')")]
+        public Dictionary<string, int> split_periodic_faces(object part_names, int number_of_faces = 2)
+        {
+            return _service.SplitPeriodicFaces(_service.ResolveNames(part_names), number_of_faces);
+        }
+
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void flip_stl_normals(object part_names)

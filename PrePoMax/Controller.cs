@@ -108,6 +108,7 @@ namespace PrePoMax
         [NonSerialized] protected string[] _lastOffsetFacePartNames;
         [NonSerialized] protected Dictionary<string, int> _lastGeometryOperationCounts;
         [NonSerialized] protected string _lastFusedSplitCellName;
+        [NonSerialized] private int _numOfAutomaticSplitFaces;
         [NonSerialized] private Dictionary<string, MeshTypeEnum[]> _effectiveMeshTypes;
         [NonSerialized] private int _openedPmxVersion;
         [NonSerialized] private bool _defaultMeshTypesDisabled;
@@ -251,6 +252,15 @@ namespace PrePoMax
                 return _lastGeometryOperationCounts == null ? new Dictionary<string, int>()
                                                             : _lastGeometryOperationCounts;
             }
+        }
+        /// <summary>
+        /// The number of faces CAD import and the geometry operations split every periodic face into, which is
+        /// only more than one while a command made before Split Periodic Faces became a command is regenerated.
+        /// </summary>
+        public int NumOfAutomaticSplitFaces
+        {
+            get { return Math.Max(_numOfAutomaticSplitFaces, 1); }
+            set { _numOfAutomaticSplitFaces = value; }
         }
         public bool ExecutableJobIdle
         {
@@ -2173,8 +2183,7 @@ namespace PrePoMax
             string outFileName = Tools.GetNonExistentRandomFileName(workDirectory, ".brep");
             //
             string argumentSplit = "";
-            int numOfSplitFaces = numOfSplitFacesOverride >= 1 ? numOfSplitFacesOverride :
-                                                                _settings.General.NumOfSplitFaces;
+            int numOfSplitFaces = numOfSplitFacesOverride >= 1 ? numOfSplitFacesOverride : NumOfAutomaticSplitFaces;
             if (numOfSplitFaces > 1) argumentSplit = " " + numOfSplitFaces;
 
             string argument = splitCommand +
@@ -2305,10 +2314,11 @@ namespace PrePoMax
                                             out string[] importedPartNames, string keptCompoundPartName = null,
                                             int keptCompoundPartId = -1)
         {
-            // A part written out of a compound has its closed faces divided, and the compound has to
-            // carry the same division: the compound is what the mesher is given, and a face of a part
-            // that the compound does not hold is a surface id the mesher cannot be asked for. The
-            // division is therefore made once, on the whole shape, and the parts are taken from that
+            // While an older command is regenerated a part written out of a compound has its closed faces
+            // divided, and the compound has to carry the same division: the compound is what the mesher is
+            // given, and a face of a part that the compound does not hold is a surface id the mesher cannot
+            // be asked for. The division is therefore made once, on the whole shape, and the parts are taken
+            // from that
             string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
             try
             {
@@ -2411,7 +2421,10 @@ namespace PrePoMax
         /// </summary>
         private string SplitClosedFacesOfBrep(string brepFileName)
         {
-            int numOfSplitFaces = _settings.General.NumOfSplitFaces;
+            return SplitClosedFacesOfBrep(brepFileName, NumOfAutomaticSplitFaces);
+        }
+        private string SplitClosedFacesOfBrep(string brepFileName, int numOfSplitFaces)
+        {
             if (numOfSplitFaces <= 1) return brepFileName;
             //
             string workDirectory = _settings.GetWorkDirectory();
@@ -6017,6 +6030,23 @@ namespace PrePoMax
                 if (stateSet) _form.SetStateReady(Globals.RepairingGeometryText);
             }
         }
+        public void SplitPeriodicFacesCommand(string[] partNames, int numOfFaces)
+        {
+            CSplitPeriodicFaces comm = new CSplitPeriodicFaces(partNames, numOfFaces);
+            _commands.AddAndExecute(comm);
+        }
+        public async Task SplitPeriodicFacesCommandAsync(string[] partNames, int numOfFaces)
+        {
+            bool stateSet = _form.SetStateWorking(Globals.SplittingPeriodicFacesText);
+            try
+            {
+                await Task.Run(() => SplitPeriodicFacesCommand(partNames, numOfFaces));
+            }
+            finally
+            {
+                if (stateSet) _form.SetStateReady(Globals.SplittingPeriodicFacesText);
+            }
+        }
         public async Task SurfaceOperationCommandAsync(SurfaceOperationEnum operation, GeometrySelection geometrySelection)
         {
             string stateText;
@@ -9515,7 +9545,7 @@ namespace PrePoMax
                 if (brepFileName != null)
                 {
                     string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
-                    if (_settings.General.NumOfSplitFaces > 1 && dividedBrepFileName == brepFileName)
+                    if (NumOfAutomaticSplitFaces > 1 && dividedBrepFileName == brepFileName)
                         throw new CaeException("Defeaturing failed to split periodic faces on part '" + gp.Name + "'.");
                     try
                     {
@@ -9591,7 +9621,7 @@ namespace PrePoMax
                 throw new CaeException("Defeaturing failed for the compound part '" + compoundPart.Name + "'.");
             //
             string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
-            if (_settings.General.NumOfSplitFaces > 1 && dividedBrepFileName == brepFileName)
+            if (NumOfAutomaticSplitFaces > 1 && dividedBrepFileName == brepFileName)
                 throw new CaeException("Defeaturing failed to split periodic faces on part '" + compoundPart.Name + "'.");
             try
             {
@@ -9756,7 +9786,7 @@ namespace PrePoMax
                                                                   kernelFaceIdsBySolid.Values.Select(ids => ids.ToArray())
                                                                                              .ToList());
                     if (brepFileName == null) { failedPartNames.Add(partName); continue; }
-                    // A fused face that closes on itself is divided again, as every closed face of a part is
+                    // A fused face that closes on itself is divided again only while an older command is regenerated
                     string dividedBrepFileName = SplitClosedFacesOfBrep(brepFileName);
                     try
                     {
@@ -9874,12 +9904,20 @@ namespace PrePoMax
             ClearAllSelection();
             CheckAndUpdateModelValidity();
         }
-        // The CAD parts the named parts stand for, each once: a sub part stands for its compound
         private string[] GetRepairGeometryPartNames(string[] partNames, GeometryRepair geometryRepair,
                                                     out List<string> skippedPartNames)
         {
             if (geometryRepair.KernelOptions == 0) throw new CaeException("Select at least one repair.");
             //
+            string[] repairedPartNames = GetWholeCadPartNames(partNames, out skippedPartNames);
+            if (repairedPartNames.Length == 0)
+                throw new CaeException("None of the selected parts is a CAD part, so nothing was repaired.");
+            //
+            return repairedPartNames;
+        }
+        // The CAD parts the named parts stand for, each once: a sub part stands for its compound
+        private string[] GetWholeCadPartNames(string[] partNames, out List<string> skippedPartNames)
+        {
             Dictionary<string, string> compoundPartNames = GetCompoundPartNamesBySubPartName();
             List<string> repairedPartNames = new List<string>();
             skippedPartNames = new List<string>();
@@ -9896,10 +9934,72 @@ namespace PrePoMax
                 }
                 else if (!repairedPartNames.Contains(partName)) repairedPartNames.Add(partName);
             }
-            if (repairedPartNames.Count == 0)
-                throw new CaeException("None of the selected parts is a CAD part, so nothing was repaired.");
             //
             return repairedPartNames.ToArray();
+        }
+        /// <summary>
+        /// Splits every periodic face of each named CAD part - a face that closes on itself, such as the side of a
+        /// cylinder with a single seam - into the given number of faces. A sweep meshes such a face around its seam, so
+        /// the split is only needed where the pieces are wanted as faces of their own. A sub part is split with its
+        /// compound, so a face its solids share stays shared. A part keeps its name and part id, and a compound its
+        /// solids.
+        /// </summary>
+        public void SplitPeriodicFaces(string[] partNames, int numOfFaces)
+        {
+            if (numOfFaces < 2) throw new CaeException("A periodic face must be split into at least two faces.");
+            //
+            List<string> skippedPartNames;
+            string[] splitPartNames = GetWholeCadPartNames(partNames, out skippedPartNames);
+            if (splitPartNames.Length == 0)
+                throw new CaeException("None of the selected parts is a CAD part, so no faces were split.");
+            //
+            _lastGeometryOperationCounts = new Dictionary<string, int>();
+            List<string> failedPartNames = new List<string>();
+            List<string> refusedPartNames = new List<string>();
+            bool rendering = _form.RenderingOn;
+            bool screenUpdating = _form.ScreenUpdating;
+            _form.RenderingOn = false;
+            _form.ScreenUpdating = false;
+            try
+            {
+                foreach (string partName in splitPartNames)
+                {
+                    GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+                    int facesBefore = GetGeometryPartFaceCount(partName);
+                    _lastGeometryOperationCounts[partName] = 0;
+                    //
+                    string brepFileName = _netgenRunner.SplitPeriodicFaces(part, numOfFaces);
+                    if (brepFileName == null) { failedPartNames.Add(partName); continue; }
+                    //
+                    string resultPartName;
+                    if (!ReplaceSplitSurfacePart(part, brepFileName, out resultPartName))
+                    {
+                        refusedPartNames.Add(partName);
+                        continue;
+                    }
+                    _lastGeometryOperationCounts[partName] = GetGeometryPartFaceCount(resultPartName) - facesBefore;
+                }
+            }
+            finally
+            {
+                _form.ScreenUpdating = screenUpdating;
+                if (screenUpdating) _form.RegenerateTree();
+                _form.RenderingOn = rendering;
+            }
+            //
+            WriteGeometryOperationReport("Split periodic faces", "faces were added");
+            foreach (string partName in failedPartNames)
+                _form.WriteDataToOutput("Split periodic faces: the periodic faces of the part " + partName +
+                                        " were not split.");
+            foreach (string partName in refusedPartNames)
+                _form.WriteDataToOutput("Split periodic faces: the part " + partName + " was left as it was, " +
+                                        "because the split did not give back the same body.");
+            if (skippedPartNames.Count > 0)
+                _form.WriteDataToOutput("Split periodic faces: " + string.Join(", ", skippedPartNames) + " are not " +
+                                        "CAD parts and were skipped.");
+            //
+            ClearAllSelection();
+            CheckAndUpdateModelValidity();
         }
         // What the repair would take away, drawn on the parts, so that a tolerance can be judged before the repair is
         // applied. It records nothing and changes nothing.

@@ -91,7 +91,7 @@ def main():
           "the largest piece must keep the name and id of the part")
     pieces = [n for n in names if n.startswith(name + "-")]
     check(len(pieces) == 2, "the two other pieces must be parts of their own: " + str(names))
-    through_wall_area = max(row["area"] for row in walls) * 2
+    through_wall_area = max(row["area"] for row in walls)
     check(abs(sum(row["area"] for row in faces(parts[name])) - through_wall_area) < 1e-6,
           "the part must keep the largest piece, the wall of the through hole")
     check(sum(len(faces(parts[n])) for n in pieces + [name]) == len(walls), "the pieces must hold every wall")
