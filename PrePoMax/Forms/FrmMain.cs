@@ -1045,6 +1045,7 @@ namespace PrePoMax
                         _controller.Settings = settings;                    // update values and save to file
                         //
                         _controller.DeleteHistoryFiles();
+                        _controller.DeleteStaleMeshBatchDirectories();
                         //
                         _vtk.RenderingOn = false;       // the viewport is being destroyed; do not queue redraws while clearing it
                         _vtk.Clear();

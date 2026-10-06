@@ -338,6 +338,7 @@ namespace CaeJob
                         {
                             Process childProcess = Process.GetProcessById((int)childProcessId);
                             childProcess.Kill();
+                            childProcess.WaitForExit(5000);
                         }
                         catch
                         {

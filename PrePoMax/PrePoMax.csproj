@@ -90,6 +90,7 @@
     <Compile Include="Meshing\Base\IMesherRunner.cs" />
     <Compile Include="Meshing\Base\MesherRegistry.cs" />
     <Compile Include="Meshing\Base\GeneratedMeshData.cs" />
+    <Compile Include="Meshing\Base\MeshBatchDirectory.cs" />
     <Compile Include="Meshing\Base\MeshBatchPerformance.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromExtractedEntry.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromMergedHistories.cs" />

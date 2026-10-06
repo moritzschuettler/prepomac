@@ -606,6 +606,9 @@ namespace PrePoMax
             _settings = new SettingsContainer();
             _settings.LoadFromFile();
             ApplySettings();
+            //
+            string workDirectory = _settings.GetWorkDirectory();
+            Task.Run(() => MeshBatchDirectory.DeleteStaleDirectories(workDirectory));
         }
 
         //public Controller(SerializationInfo info, StreamingContext context)
@@ -711,6 +714,10 @@ namespace PrePoMax
         public void DeleteHistoryFiles()
         {
             if (_commands != null) _commands.DeleteHistoryFile();
+        }
+        public void DeleteStaleMeshBatchDirectories()
+        {
+            MeshBatchDirectory.DeleteStaleDirectories(_settings.GetWorkDirectory());
         }
 
         #endregion #################################################################################################################
@@ -11097,16 +11104,8 @@ namespace PrePoMax
                 return false;
             }
             //
-            int counter = 1;
-            string batchDirectory;
-            do
-            {
-                string directoryName = $"MeshBatch_{counter++:D4}";
-                batchDirectory = Path.Combine(workDirectory, directoryName);
-            }
-            while (Directory.Exists(batchDirectory));
-            //string batchDirectory = Path.Combine(workDirectory, "MeshBatch_" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(batchDirectory);
+            MeshBatchDirectory meshBatchDirectory = MeshBatchDirectory.Create(workDirectory);
+            string batchDirectory = meshBatchDirectory.Path;
             //
             try
             {
@@ -11190,17 +11189,16 @@ namespace PrePoMax
             }
             finally
             {
-                try
+                if (retainBatchDirectory)
                 {
-                    if (Directory.Exists(batchDirectory))
-                    {
-                        if (retainBatchDirectory)
-                            _form.WriteDataToOutput("QuadWild meshing files retained for debugging: " +
-                                                    batchDirectory);
-                        else Directory.Delete(batchDirectory, true);
-                    }
+                    meshBatchDirectory.Retain();
+                    _form.WriteDataToOutput("QuadWild meshing files retained for debugging: " + batchDirectory);
                 }
-                catch { }
+                else if (!meshBatchDirectory.Delete())
+                {
+                    _form.WriteDataToOutput("The meshing folder could not be deleted and will be deleted at the " +
+                                            "next start: " + batchDirectory);
+                }
             }
             //
             totalWatch.Stop();
