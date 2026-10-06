@@ -25565,13 +25565,15 @@ namespace PrePoMax
             CoordinateSystem cs;
             _model.Mesh.CoordinateSystems.TryGetValue(boundaryCondition.CoordinateSystemName, out cs);
             bool cylindrical = cs != null && cs.Type == CoordinateSystemTypeEnum.Cylindrical;
+            bool distributed = boundaryCondition is DisplacementRotation dr &&
+                               dr.DistributionName != Distribution.DefaultDistributionName;
             vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
             //
             if (boundaryCondition.RegionType == RegionTypeEnum.NodeSetName)
             {
                 if (!_model.Mesh.NodeSets.ContainsKey(boundaryCondition.RegionName)) return;
                 FeNodeSet nodeSet = _model.Mesh.NodeSets[boundaryCondition.RegionName];
-                if (cylindrical) coor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels, onlyVisible);
+                if (cylindrical || distributed) coor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels, onlyVisible);
                 else coor = new double[][] { nodeSet.CenterOfGravity };
                 //
                 count += DrawNodeSet(prefixName, nodeSet.Name, color, layer, true, nodeSymbolSize, false, onlyVisible);
@@ -25581,7 +25583,7 @@ namespace PrePoMax
                 if (!_model.Mesh.Surfaces.ContainsKey(boundaryCondition.RegionName)) return;
                 FeSurface surface = _model.Mesh.Surfaces[boundaryCondition.RegionName];
                 FeNodeSet nodeSet = _model.Mesh.NodeSets[surface.NodeSetName];
-                if (cylindrical) coor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels, onlyVisible);
+                if (cylindrical || distributed) coor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels, onlyVisible);
                 else coor = new double[][] { _model.Mesh.GetSurfaceCG(surface.Name) };
                 //
                 count += DrawSurface(prefixName, surface.Name, color, layer, true, false, onlyVisible);
@@ -25741,14 +25743,19 @@ namespace PrePoMax
                                                     Color color, int symbolSize, vtkRendererLayer layer)
         {
             if (symbolCoor.Length == 0) return;
-            // Reduce the coor for cylindrical coordinate system
-            if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
+            bool distributed = dispRot.DistributionName != Distribution.DefaultDistributionName;
+            // Reduce the coor for cylindrical coordinate system or a distribution
+            bool cylindrical = coordinateSystem != null &&
+                               coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical;
+            if (distributed || cylindrical)
             {
                 int[] distributedCoorIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
             }
+            double[][] distributedValues = null;
+            if (distributed) distributedValues = dispRot.GetConstrainValuesForPoints(_model, symbolCoor);
             //
             double[] normal;
             double[] normalX;
@@ -25833,9 +25840,14 @@ namespace PrePoMax
             allCoor.Clear();
             allNormals.Clear();
             // Arrows
-            if (dispRot.GetDofType(1) == DOFType.Prescribed ||
-                dispRot.GetDofType(2) == DOFType.Prescribed ||
-                dispRot.GetDofType(3) == DOFType.Prescribed)
+            if (distributedValues != null)
+            {
+                DrawDistributedDisplacementSymbols(prefixName, dispRot, coordinateSystem, symbolCoor, distributedValues,
+                                                   color, symbolSize, layer);
+            }
+            else if (dispRot.GetDofType(1) == DOFType.Prescribed ||
+                     dispRot.GetDofType(2) == DOFType.Prescribed ||
+                     dispRot.GetDofType(3) == DOFType.Prescribed)
             {
                 for (int i = 0; i < symbolCoor.Length; i++)
                 {
@@ -25860,9 +25872,19 @@ namespace PrePoMax
             allNormals.Clear();
             if (coordinateSystem == null) // user coordinate system cannot be used to prescribe rotations
             {
-                if (dispRot.GetDofType(4) == DOFType.Prescribed ||
-                    dispRot.GetDofType(5) == DOFType.Prescribed ||
-                    dispRot.GetDofType(6) == DOFType.Prescribed)
+                if (distributedValues != null)
+                {
+                    for (int i = 0; i < symbolCoor.Length; i++)
+                    {
+                        normal = GetDistributedPrescribedValues(dispRot, distributedValues[i], 4);
+                        if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) continue;
+                        allCoor.Add(symbolCoor[i]);
+                        allNormals.Add(normal);
+                    }
+                }
+                else if (dispRot.GetDofType(4) == DOFType.Prescribed ||
+                         dispRot.GetDofType(5) == DOFType.Prescribed ||
+                         dispRot.GetDofType(6) == DOFType.Prescribed)
                 {
                     normal = new double[3];
                     if (dispRot.GetDofType(4) == DOFType.Prescribed) normal[0] = dispRot.UR1.Value;
@@ -25887,6 +25909,57 @@ namespace PrePoMax
                     _form.AddOrientedDoubleArrowsActor(data, symbolSize);
                 }
             }
+        }
+        private void DrawDistributedDisplacementSymbols(string prefixName, DisplacementRotation dispRot,
+                                                        CoordinateSystem coordinateSystem, double[][] symbolCoor,
+                                                        double[][] distributedValues, Color color, int symbolSize,
+                                                        vtkRendererLayer layer)
+        {
+            double[] u;
+            double maxMagnitude = 0;
+            Vec3D[] displacements = new Vec3D[symbolCoor.Length];
+            for (int i = 0; i < symbolCoor.Length; i++)
+            {
+                u = GetDistributedPrescribedValues(dispRot, distributedValues[i], 1);
+                displacements[i] = u[0] * dispRot.GetDirectionX(coordinateSystem, symbolCoor[i]) +
+                                   u[1] * dispRot.GetDirectionY(coordinateSystem, symbolCoor[i]) +
+                                   u[2] * dispRot.GetDirectionZ(coordinateSystem, symbolCoor[i]);
+                maxMagnitude = Math.Max(maxMagnitude, displacements[i].Len);
+            }
+            if (maxMagnitude == 0) return;
+            //
+            double relativeSize;
+            vtkMaxActorData data;
+            for (int i = 0; i < symbolCoor.Length; i++)
+            {
+                // Where the distribution is zero nothing moves
+                relativeSize = displacements[i].Len / maxMagnitude;
+                if (relativeSize < 1E-6) continue;
+                if (relativeSize < 0.01) relativeSize = 0.01;
+                //
+                data = new vtkMaxActorData();
+                data.Name = prefixName + "_" + i.ToString();
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = new double[][] { symbolCoor[i] };
+                data.Geometry.Nodes.Normals = new double[][] { displacements[i].Coor };
+                ApplyLighting(data);
+                _form.AddOrientedArrowsActor(data, symbolSize, false, relativeSize);
+            }
+        }
+        private static double[] GetDistributedPrescribedValues(DisplacementRotation dispRot, double[] constrainValues,
+                                                               int firstDof)
+        {
+            int dof;
+            double[] values = new double[3];
+            int[] directions = dispRot.GetConstrainedDirections();
+            for (int j = 0; j < directions.Length; j++)
+            {
+                dof = directions[j];
+                if (dof >= firstDof && dof < firstDof + 3 && dispRot.GetDofType(dof) == DOFType.Prescribed)
+                    values[dof - firstDof] = constrainValues[j];
+            }
+            return values;
         }
         public void DrawSubmodelBCSymbols(string prefixName, SubmodelBC submodel, double[][] symbolCoor, Color color,
                                           int symbolSize, vtkRendererLayer layer)
