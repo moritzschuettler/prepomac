@@ -243,7 +243,7 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates the splitting tool of a line drawn on the surfaces through two points, which only " +
-                   "split_shell takes. Give the points, or a 'geometry' selection in the 'geometry' view that " +
+                   "split_face takes. Give the points, or a 'geometry' selection in the 'geometry' view that " +
                    "gives them: a vertex gives its own position and a circular edge its center. The line " +
                    "follows the surface and is continued to its boundary.",
                    Arguments = "points: list[list[float]] = None, splitter: Selection = None",

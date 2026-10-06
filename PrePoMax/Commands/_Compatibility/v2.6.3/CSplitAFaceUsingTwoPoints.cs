@@ -46,7 +46,7 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Comment("Split a face using two points has no Python form. Its successor is split_shell " +
+            writer.Comment("Split a face using two points has no Python form. Its successor is split_face " +
                            "with pmx.create.split_tool_line_by_two_points.");
         }
         public override string GetCommandString()

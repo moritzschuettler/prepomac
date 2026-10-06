@@ -2,7 +2,7 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks fuse_faces, repair and repair_preview. Fusing faces makes faces that lie on one surface one again across the
-#edges they share, so a face a shell split divided comes back whole and the part keeps its name and
+#edges they share, so a face a face split divided comes back whole and the part keeps its name and
 #its body. Faces on different surfaces cannot be fused, which is reported as nothing fused rather
 #than refused. Repair runs on whole parts; with fuse_faces it gives back the faces a split divided,
 #and a repair that has nothing to do leaves every face where it was. Both report the number of faces
@@ -66,7 +66,7 @@ def split_top_face(part):
     high = [max(p[j] for p in xyz) for j in range(3)]
     y = low[1] + 2.0
     line = pmx.create.split_tool_line_by_two_points([[low[0] + 5.0, y, high[2]], [high[0] - 5.0, y, high[2]]])
-    added = pmx.model.geometry.parts.split_shell(surfaces(part, [top_face_id(part, high[2])]), line)
+    added = pmx.model.geometry.parts.split_face(surfaces(part, [top_face_id(part, high[2])]), line)
     check(added[part.name] > 0, "the top face must be divided: " + str(dict(added)))
     return added[part.name]
 
@@ -103,12 +103,12 @@ def test_repair():
     check(face_count(part()) == before, "a repair with nothing to do must leave the faces alone")
     # Fusing faces gives back the faces a split divided
     added = split_top_face(part())
-    removed = parts.repair(name, fuse_faces=True, join_edges=True, tolerance=0.001)
+    removed = parts.repair(name, tolerance=0.001)
     check(removed[name] == added, "the repair must fuse the faces the split added: " + str(dict(removed)))
     check(part().name == name and face_count(part()) == before, "the repaired part must be the part it was")
     #
     refused(lambda: parts.repair(name, sew_faces=False, fix_shape=False, remove_small_faces=False,
-                                 remove_small_edges=False), "one repair")
+                                 remove_small_edges=False, fuse_faces=False, join_edges=False), "one repair")
     refused(lambda: parts.repair(name, tolerance=-1), "tolerance")
     refused(lambda: parts.repair("No_such_part"), "No_such_part")
 
@@ -117,14 +117,14 @@ def test_repair_preview():
     parts = pmx.model.geometry.parts
     name = part().name
     before = face_count(part())
-    clean = parts.repair_preview(name, fuse_faces=True, join_edges=True)
+    clean = parts.repair_preview(name)
     check(name in clean, "the preview must name the part: " + str(dict(clean)))
     check(not clean[name].refused and clean[name].edge_count == 0 and clean[name].point_count == 0,
           "a clean part must have nothing to take away: " + str(clean[name]))
-    # The line a shell split drew across the top face is the edge the fuse takes away, and its two ends are the
+    # The line a face split drew across the top face is the edge the fuse takes away, and its two ends are the
     # points on the edges it crossed that the joining takes out
     added = split_top_face(part())
-    preview = parts.repair_preview(name, fuse_faces=True, join_edges=True)[name]
+    preview = parts.repair_preview(name)[name]
     check(preview.edge_count == 1 and len(preview.edges) == 1, "the split line must be previewed: " + str(preview))
     check(len(preview.edges[0]) >= 2 and len(preview.edges[0][0]) == 3,
           "an edge must come as points of three coordinates")
@@ -132,7 +132,7 @@ def test_repair_preview():
     check(face_count(part()) == before + added, "a preview must leave the part as it was")
     #
     refused(lambda: parts.repair_preview(name, tolerance=0), "tolerance")
-    parts.repair(name, fuse_faces=True, join_edges=True)
+    parts.repair(name)
     check(face_count(part()) == before, "the repair must take away what the preview showed")
 
 

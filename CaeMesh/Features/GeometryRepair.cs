@@ -68,8 +68,8 @@ namespace CaeMesh
             _removeSmallEdges = true;
             _removeSmallFaces = true;
             _sewFaces = true;
-            _fuseFaces = false;
-            _joinEdges = false;
+            _fuseFaces = true;
+            _joinEdges = true;
             _tolerance = double.NaN;
         }
         public GeometryRepair(SerializationInfo info, StreamingContext context)

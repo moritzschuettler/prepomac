@@ -58,7 +58,7 @@ def split_side_face(part):
     y = 0.5 * (low[1] + high[1])
     tool = pmx.create.split_tool_line_by_two_points(points=[[high[0], y, low[2]], [high[0], y, high[2]]])
     selection = pmx.create.selection_by_ids("geometry", "geometry_surfaces", "surfaces", {part.id: [face]})
-    added = pmx.model.geometry.parts.split_shell(selection, tool)
+    added = pmx.model.geometry.parts.split_face(selection, tool)
     check(added[part.name] == 1, "the side face of " + part.name + " must be split in two: " + str(dict(added)))
     return geometry_part(part.name)
 

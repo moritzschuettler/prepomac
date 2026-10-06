@@ -4429,7 +4429,7 @@ namespace PrePoMax
             if (_controller.Model.Geometry == null) return;
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmSplitShell);
-            ShowForm(_frmSplitShell, "Split Shell", null);
+            ShowForm(_frmSplitShell, "Split Face", null);
         }
         private void tsmiOffsetFace_Click(object sender, EventArgs e)
         {
@@ -4455,7 +4455,7 @@ namespace PrePoMax
             //
             string text;
             if (operation == SurfaceOperationEnum.FlipNormal) text = "Flip Face Normal";
-            else if (operation == SurfaceOperationEnum.Defeature) text = "Defeature";
+            else if (operation == SurfaceOperationEnum.Defeature) text = "Defeature Solid";
             else if (operation == SurfaceOperationEnum.DeleteCadFaces) text = "Delete Faces";
             else if (operation == SurfaceOperationEnum.DeleteStlFaces) text = "Delete Part Faces";
             else if (operation == SurfaceOperationEnum.FuseFaces) text = "Fuse Faces";

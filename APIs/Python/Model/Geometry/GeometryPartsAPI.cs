@@ -100,7 +100,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Splits the selected surfaces of CAD parts with a splitting tool made by " +
-                   "pmx.create.split_tool_*, the way the Split Shell dialog does. The selection uses the " +
+                   "pmx.create.split_tool_*, the way the Split Face dialog does. The selection uses the " +
                    "'geometry' view and the 'geometry_surfaces' target. Only the selected surfaces are " +
                    "divided; the part keeps its name and stays the kind of body it is, and a part whose " +
                    "divided surfaces would not give back the same body is left as it was. Returns the number " +
@@ -109,8 +109,8 @@ namespace APIs.Python.Model
                    Arguments = "selection: Selection, tool: SplitTool, fuzzy_tolerance: float = 0",
                    Returns = "dict[str, int]",
                    Example = "tool = pmx.create.split_tool_line_by_two_points(splitter=vertices)\n" +
-                             "added = pmx.model.geometry.parts.split_shell(surfaces, tool)")]
-        public Dictionary<string, int> split_shell(SelectionAPI selection, SplitToolAPI tool,
+                             "added = pmx.model.geometry.parts.split_face(surfaces, tool)")]
+        public Dictionary<string, int> split_face(SelectionAPI selection, SplitToolAPI tool,
                                                    object fuzzy_tolerance = null)
         {
             return _service.SplitGeometry(selection, tool, fuzzy_tolerance, SplitTypeEnum.Shell);
@@ -237,12 +237,12 @@ namespace APIs.Python.Model
                    "one ten-thousandth of the diagonal of each part. Returns the number of faces every part lost.",
                    Arguments = "part_names: list[str] or str, sew_faces: bool = True, fix_shape: bool = True, " +
                                "remove_small_faces: bool = True, remove_small_edges: bool = True, " +
-                               "fuse_faces: bool = False, join_edges: bool = False, tolerance: float = None",
+                               "fuse_faces: bool = True, join_edges: bool = True, tolerance: float = None",
                    Returns = "dict[str, int]",
-                   Example = "removed = pmx.model.geometry.parts.repair('Solid_part-1', fuse_faces=True)")]
+                   Example = "removed = pmx.model.geometry.parts.repair('Solid_part-1', join_edges=False)")]
         public Dictionary<string, int> repair(object part_names, bool sew_faces = true, bool fix_shape = true,
                                               bool remove_small_faces = true, bool remove_small_edges = true,
-                                              bool fuse_faces = false, bool join_edges = false,
+                                              bool fuse_faces = true, bool join_edges = true,
                                               object tolerance = null)
         {
             GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,
@@ -258,7 +258,7 @@ namespace APIs.Python.Model
                    "refused is True when the repair would leave the part as it was.",
                    Arguments = "part_names: list[str] or str, sew_faces: bool = True, fix_shape: bool = True, " +
                                "remove_small_faces: bool = True, remove_small_edges: bool = True, " +
-                               "fuse_faces: bool = False, join_edges: bool = False, tolerance: float = None",
+                               "fuse_faces: bool = True, join_edges: bool = True, tolerance: float = None",
                    Returns = "dict[str, RepairPreview]",
                    Example = "preview = pmx.model.geometry.parts.repair_preview('Solid_part-1', tolerance=0.01)\n" +
                              "print(preview['Solid_part-1'].edge_count)")]
@@ -266,7 +266,7 @@ namespace APIs.Python.Model
                                                                    bool fix_shape = true,
                                                                    bool remove_small_faces = true,
                                                                    bool remove_small_edges = true,
-                                                                   bool fuse_faces = false, bool join_edges = false,
+                                                                   bool fuse_faces = true, bool join_edges = true,
                                                                    object tolerance = null)
         {
             GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,

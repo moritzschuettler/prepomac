@@ -35,7 +35,7 @@ namespace PrePoMax.Commands
         // Constructor                                                                                                              
         public CSplitGeometry(GeometryFeature geometryFeature)
             : base(geometryFeature.SplitType == SplitTypeEnum.Shell ?
-                   "Split shell" : "Split solid")
+                   "Split face" : "Split solid")
         {
             _geometryFeature = geometryFeature.DeepClone();
         }
@@ -64,7 +64,7 @@ namespace PrePoMax.Commands
             string tool = GetToolCall(writer);
             string fuzzyTolerance = _geometryFeature.FuzzyValue > 0 ?
                                     "fuzzy_tolerance=" + PythonValueFormatter.Number(_geometryFeature.FuzzyValue) : null;
-            string method = _geometryFeature.SplitType == SplitTypeEnum.Shell ? "split_shell" : "split_solid";
+            string method = _geometryFeature.SplitType == SplitTypeEnum.Shell ? "split_face" : "split_solid";
             writer.Statement(writer.Call("pmx.model.geometry.parts", method, region, tool, fuzzyTolerance));
             writer.CountEmittedCommand();
         }

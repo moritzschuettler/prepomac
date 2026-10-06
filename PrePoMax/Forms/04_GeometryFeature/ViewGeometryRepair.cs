@@ -83,7 +83,7 @@ namespace PrePoMax.Forms
         [CategoryAttribute("Repairs")]
         [OrderedDisplayName(4, 10, "Fuse faces")]
         [DescriptionAttribute("Fuse every two neighbouring faces that lie on one surface and bound the same solids " +
-                              "into one face. This also fuses the faces a Split Shell divided.")]
+                              "into one face. This also fuses the faces a Split Face divided.")]
         [Id(5, 2)]
         public bool FuseFaces { get { return _geometryRepair.FuseFaces; } set { _geometryRepair.FuseFaces = value; } }
         //

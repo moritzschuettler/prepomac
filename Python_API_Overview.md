@@ -874,11 +874,11 @@ Every `part_names` argument accepts a single name or a list of names.
 
 `GeometryParts` adds `add_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
-`split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
+`split_solid`, `split_face`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
 `delete_cad_faces`, `fuse_faces`, `repair`, `repair_preview`, `split_periodic_faces`, `flip_stl_normals` and
 `delete_stl_faces`. The selection based methods take a
 selection built in the `geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the
-`parts` target and `split_shell` the `geometry_surfaces` target, which is what the two dialogs pick. `fuse_faces` takes
+`parts` target and `split_face` the `geometry_surfaces` target, which is what the two dialogs pick. `fuse_faces` takes
 either.
 
 Each of `defeature`, `flip_face_orientations`, `delete_cad_faces` and `delete_stl_faces` reports what
@@ -905,15 +905,15 @@ The modelling kernel returns a shape whether or not it closed anything, so a par
 is a feature it could not remove: a blind hole is only closed when its bottom face is selected as
 well as its wall.
 
-`split_solid(selection, tool, fuzzy_tolerance=0)` and `split_shell(selection, tool,
-fuzzy_tolerance=0)` are the Split Solid and Split Shell dialogs. The tool is made by one of the
+`split_solid(selection, tool, fuzzy_tolerance=0)` and `split_face(selection, tool,
+fuzzy_tolerance=0)` are the Split Solid and Split Face dialogs. The tool is made by one of the
 `pmx.create.split_tool_*` methods, and both return the number of faces every part of the selection
 gained, as a `dict[str, int]`, so a part the tool missed reports zero. A solid split names parts: one
 sub-part of a compound names that solid only and the compound names all of them, and a part the tool
-cuts in two is replaced by a compound part of the pieces, which does not keep its name. A shell split
+cuts in two is replaced by a compound part of the pieces, which does not keep its name. A face split
 names surfaces: only those are divided, the part keeps its name and stays the kind of body it is, and
 a part whose divided surfaces would not give back the same body is left as it was. The line through
-two points is drawn on a surface, so only `split_shell` takes it. The fuzzy tolerance is how far apart
+two points is drawn on a surface, so only `split_face` takes it. The fuzzy tolerance is how far apart
 the modelling kernel still takes geometry as coincident; leave it at zero unless an imported geometry
 is too inaccurate to be split. A split whose parts the exploded view holds at different offsets is
 refused, because the tool would not cut where it appears to.
@@ -925,7 +925,7 @@ added = pmx.model.geometry.parts.split_solid(region, tool)   # {'Solid-1': 1}
 
 top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [3]})
 line = pmx.create.split_tool_line_by_two_points([[0, 0, 20], [60, 40, 20]])
-pmx.model.geometry.parts.split_shell(top, line)
+pmx.model.geometry.parts.split_face(top, line)
 ```
 
 A compound part made by a solid split gathers its cells under the solids they were cut from, and
@@ -1007,7 +1007,7 @@ A connected patch is offset as a whole, so the faces that meet are trimmed again
 than coming apart at the edge they share, and an offset the modelling kernel cannot make fails the
 face offset for that part instead of returning the surfaces unmoved.
 
-`fuse_faces(selection)` is Fuse Faces in the CAD Part menu and undoes what `split_shell` did: the
+`fuse_faces(selection)` is Fuse Faces in the CAD Part menu and undoes what `split_face` did: the
 selected faces become one across every edge two of them share where they lie on one surface, and the
 edges left on the outside are joined where the cut left a point on them. The shape does not change, so
 a part keeps its name, its id and its bodies. Faces of the sub-parts of a compound are fused on the
@@ -1017,7 +1017,7 @@ returns the number of faces every part lost, and a part whose faces lie on diffe
 zero rather than being refused.
 
 `repair(part_names, sew_faces=True, fix_shape=True, remove_small_faces=True, remove_small_edges=True,
-fuse_faces=False, join_edges=False, tolerance=None)` is Repair in the CAD Part menu and works on whole
+fuse_faces=True, join_edges=True, tolerance=None)` is Repair in the CAD Part menu and works on whole
 CAD parts, a sub-part with its compound. The repairs run in that order: sewing joins loose faces and
 shells of a part without solids, fixing the shape fixes edge tolerances, open wires, missing curves on
 surfaces and orientations, the small faces and edges are those narrower or shorter than the tolerance,
@@ -1050,9 +1050,9 @@ General, still splits them as it was recorded.
 ```python
 top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {part.id: [3, 15]})
 fused = pmx.model.geometry.parts.fuse_faces(top)   # {'Solid-1': 1}
-preview = pmx.model.geometry.parts.repair_preview('Solid-1', fuse_faces=True, tolerance=0.01)['Solid-1']
+preview = pmx.model.geometry.parts.repair_preview('Solid-1', tolerance=0.01)['Solid-1']
 print(preview.edge_count, preview.point_count)   # 1 2
-removed = pmx.model.geometry.parts.repair('Solid-1', fuse_faces=True, tolerance=0.01)
+removed = pmx.model.geometry.parts.repair('Solid-1', tolerance=0.01)
 added = pmx.model.geometry.parts.split_periodic_faces('Solid-1')   # the faces each part gained
 ```
 
@@ -1964,7 +1964,7 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `thermal_expansion(thermal_expansion, zero_temperature=None)` | Thermal expansion, same shape. `zero_temperature` is the temperature the expansion starts from and defaults to 20 in model units. |
 | `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
 | `region(region_type, name)` | Names an existing region of the model. |
-| `split_tool_line_by_two_points(points=None, splitter=None)` | A line drawn on the surfaces through two points, for `split_shell` only. |
+| `split_tool_line_by_two_points(points=None, splitter=None)` | A line drawn on the surfaces through two points, for `split_face` only. |
 | `split_tool_plane_by_three_points(points=None, splitter=None, offset=0)` | A plane through three points. |
 | `split_tool_plane_by_point_and_normal(point=None, normal=None, splitter=None, offset=0)` | A plane given by a point and a normal. |
 | `split_tool_extend_face(faces, offset=0)` | The surfaces of the selected faces, continued past their boundaries. |
@@ -1989,7 +1989,7 @@ takes `delcon`, `alea`, `kscalemax` and `itf2f`.
 
 ### `SplitTool`
 
-Created by a `pmx.create.split_tool_*` method and taken by `split_solid` and `split_shell`. Its only
+Created by a `pmx.create.split_tool_*` method and taken by `split_solid` and `split_face`. Its only
 member is `tool_type`, the operation as the split dialogs name it. A tool is a detached description:
 its selections are built in the `geometry` view and resolved only when a split applies it, so one
 tool can be used on several regions, and a pick is read again when the history is regenerated.

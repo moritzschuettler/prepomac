@@ -1,8 +1,8 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the two splitting operations, split_shell and split_solid, and the splitting tools
-#pmx.create makes for them. A shell split divides the selected surfaces and leaves the part the
+#Checks the two splitting operations, split_face and split_solid, and the splitting tools
+#pmx.create makes for them. A face split divides the selected surfaces and leaves the part the
 #kind of body it was, under its own name; a solid split that cuts a part in two replaces it by a
 #compound part of the pieces, whose sub-part can then be renamed. Both report the number of faces
 #every part gained.
@@ -94,15 +94,15 @@ def test_refusals(part):
     refused(lambda: pmx.create.split_tool_extrude_edges(vertex), "direction")
     refused(lambda: pmx.create.split_tool_extrude_edges(vertex, [0, 0, 1], vertex), "either")
     refused(lambda: pmx.create.split_tool_extrude_edges(vertex, [0, 0, 1], length=0), "length")
-    # A line is drawn on a surface, so it only splits a shell
+    # A line is drawn on a surface, so it only splits faces
     line = pmx.create.split_tool_line_by_two_points([[0, 0, 0], [1, 0, 0]])
     check(line.tool_type == "Line by two points", "the tool must report its type: " + line.tool_type)
-    refused(lambda: parts.split_solid(part_region(part), line), "split_shell")
-    # A solid split names parts and a shell split names surfaces, as the two dialogs pick
+    refused(lambda: parts.split_solid(part_region(part), line), "split_face")
+    # A solid split names parts and a face split names surfaces, as the two dialogs pick
     plane = pmx.create.split_tool_plane_by_point_and_normal(normal=[0, 0, 1])
     surfaces = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {part.id: [1]})
     refused(lambda: parts.split_solid(surfaces, plane), "parts")
-    refused(lambda: parts.split_shell(part_region(part), plane), "geometry_surfaces")
+    refused(lambda: parts.split_face(part_region(part), plane), "geometry_surfaces")
     refused(lambda: parts.split_solid(part_region(part), plane, -1), "fuzzy_tolerance")
     # Three points on one line define no plane, which is known only once the tool is applied
     collinear = pmx.create.split_tool_plane_by_three_points([[0, 0, 0], [1, 0, 0], [2, 0, 0]])
@@ -116,7 +116,7 @@ def test_refusals(part):
     check(face_count(parts[part.name]) == faces, "a refused split must not change the faces")
 
 
-def test_split_shell(part):
+def test_split_face(part):
     parts = pmx.model.geometry.parts
     rows, low, high = corners(part)
     before = face_count(part)
@@ -125,10 +125,10 @@ def test_split_shell(part):
     line = pmx.create.split_tool_line_by_two_points([[low[0] + 5.0, y, high[2]], [high[0] - 5.0, y, high[2]]])
     top = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                       {part.id: [top_face_id(part, high)]})
-    added = parts.split_shell(top, line)
+    added = parts.split_face(top, line)
     check(part.name in added, "the report must name the part: " + str(dict(added)))
     check(added[part.name] > 0, "the top face must be divided: " + str(dict(added)))
-    check(part.name in list(parts.get_names()), "a shell split must keep the part name")
+    check(part.name in list(parts.get_names()), "a face split must keep the part name")
     after = face_count(parts[part.name])
     check(after - before == added[part.name],
           "the reported count must be the faces the part gained: " + str(before) + " -> " + str(after) +
@@ -194,7 +194,7 @@ def import_box():
 def main():
     part = pmx.model.geometry.parts.first()
     test_refusals(part)
-    test_split_shell(part)
+    test_split_face(part)
     test_split_solid_by_point_and_normal(pmx.model.geometry.parts[part.name])
     test_split_solid_by_vertices(import_box())
     print("TEST PASSED")

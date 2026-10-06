@@ -2409,8 +2409,8 @@ namespace PrePoMax
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitShell,
             this.tsmiSplitPeriodicFaces,
-            this.tsmiOffsetFace,
             this.tsmiFuseFaces,
+            this.tsmiOffsetFace,
             this.tsmiDeleteFacesCAD,
             this.tsmiDividerCAD2,
             this.tsmiSplitSolid,
@@ -2458,7 +2458,7 @@ namespace PrePoMax
             // 
             this.tsmiSplitShell.Name = "tsmiSplitShell";
             this.tsmiSplitShell.Size = new System.Drawing.Size(227, 22);
-            this.tsmiSplitShell.Text = "Split Shell";
+            this.tsmiSplitShell.Text = "Split Face";
             this.tsmiSplitShell.Click += new System.EventHandler(this.tsmiSplitShell_Click);
             // 
             // tsmiSplitPeriodicFaces
@@ -2484,7 +2484,7 @@ namespace PrePoMax
             // 
             this.tsmiDefeature.Name = "tsmiDefeature";
             this.tsmiDefeature.Size = new System.Drawing.Size(227, 22);
-            this.tsmiDefeature.Text = "Defeature";
+            this.tsmiDefeature.Text = "Defeature Solid";
             this.tsmiDefeature.Click += new System.EventHandler(this.tsmiDefeature_Click);
             //
             // tsmiDeleteFacesCAD

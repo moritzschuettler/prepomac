@@ -40,7 +40,7 @@ namespace PrePoMax.Forms
             // FrmSplitShell
             //
             this.Name = "FrmSplitShell";
-            this.Text = "Split Shell";
+            this.Text = "Split Face";
             this.ResumeLayout(false);
 
         }

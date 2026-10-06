@@ -30,7 +30,7 @@ namespace PrePoMax.Commands
 
         // Constructor                                                                                                              
         public CDefeature(GeometrySelection geometrySelection)
-            : base("Defeature")
+            : base("Defeature solid")
         {
             _geometrySelection = geometrySelection.DeepClone();
         }

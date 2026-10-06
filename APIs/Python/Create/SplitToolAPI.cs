@@ -11,7 +11,7 @@ using CaeMesh;
 
 namespace APIs.Python
 {
-    // The splitting tool of a split shell or split solid operation. It is a detached description: its
+    // The splitting tool of a split face or split solid operation. It is a detached description: its
     // selections are resolved against the geometry only when the split that takes it is applied, so the
     // same tool can be used again after the geometry has changed.
     public class SplitToolAPI : BaseAPI

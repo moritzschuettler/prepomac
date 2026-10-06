@@ -7133,7 +7133,7 @@ namespace PrePoMax
             }
             //
             string operationName = geometryFeature.SplitType == SplitTypeEnum.Shell ?
-                                   "Split shell" : "Split solid";
+                                   "Split face" : "Split solid";
             WriteGeometryOperationReport(operationName, "faces were added");
             //
             foreach (string partName in failedPartNames)
@@ -8222,7 +8222,7 @@ namespace PrePoMax
             DrawPreviewPolylines("splitGeometryPreview", polylines, offset);
             //
             string operationName = geometryFeature.SplitType == SplitTypeEnum.Shell ?
-                                   "Split shell preview" : "Split solid preview";
+                                   "Split face preview" : "Split solid preview";
             foreach (string partName in failedPartNames)
                 _form.WriteDataToOutput(operationName + ": the part " + partName + " would not be split.");
         }

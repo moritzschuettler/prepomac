@@ -79,12 +79,12 @@ namespace APIs.Python.Model
         {
             if (tool == null) throw new PythonAPIException("The argument 'tool' must not be None.");
             if (splitType == SplitTypeEnum.Solid && tool.GeometryFeature is SplitByLineTwoPoints)
-                throw new PythonAPIException("A line drawn on the surfaces only splits a shell. Use split_shell " +
+                throw new PythonAPIException("A line drawn on the surfaces only splits faces. Use split_face " +
                                              "with the surfaces the line is drawn on.");
             // The tool can be used again, so what is resolved for this split goes on a copy of it
             GeometryFeature geometryFeature = tool.GeometryFeature.DeepClone();
             geometryFeature.SplitType = splitType;
-            // A solid is split part by part, and a shell by the surfaces that are divided, which is what the
+            // A solid is split part by part, and faces by the surfaces that are divided, which is what the
             // two dialogs pick
             GeometrySelection region = BuildGeometrySelection(selection, "selection",
                                                               splitType == SplitTypeEnum.Solid ? "parts" :
