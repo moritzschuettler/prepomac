@@ -67,6 +67,9 @@ def clean():
     names = [n for n in pmx.model.distributions.get_names() if n.startswith(PREFIX)]
     if names:
         pmx.model.distributions.remove(names)
+    names = [n for n in pmx.model.coordinate_systems.get_names() if n.startswith(PREFIX)]
+    if names:
+        pmx.model.coordinate_systems.remove(names)
 
 
 def setup():
@@ -231,6 +234,56 @@ def test_displacement_rotation_distribution():
     bcs.remove([name])
 
 
+def read_deck_lines():
+    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "bcs_cs.inp")
+    pmx.export_to_calculix(file_name)
+    with open(file_name) as f:
+        lines = [line.strip() for line in f]
+    os.remove(file_name)
+    return lines
+
+
+def test_displacement_rotation_distribution_local_system():
+    # CalculiX applies *Transform to nodes, so the per-node lines of a distributed boundary condition are
+    # rotated only when the transformed node set holds every node they name
+    bcs = pmx.model.steps[STEP].bcs
+    system = PREFIX + "Rotated"
+    pmx.model.coordinate_systems.add(system, [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    name = PREFIX + "DR_Local"
+    bcs.add_displacement_rotation(name, pmx.create.region('NodeSetName', NODE_SET), u1=0.1, u3=1.5,
+                                  distribution_name=SCALAR_DISTRIBUTION, coordinate_system_name=system)
+    coordinates, rows = read_boundary_lines(name)
+    lines = read_deck_lines()
+    transforms = [i for i, line in enumerate(lines) if line.lower().startswith("*transform")]
+    check(len(transforms) == 1, "expected one *Transform, got " + str([lines[i] for i in transforms]))
+    keyword = lines[transforms[0]]
+    check("nset=" + NODE_SET.lower() in keyword.lower().replace(" ", ""),
+          "the *Transform does not name the node set of the boundary condition: " + keyword)
+    check("type=r" in keyword.lower().replace(" ", ""), "the *Transform is not rectangular: " + keyword)
+    axes = [float(v) for v in lines[transforms[0] + 1].split(",")]
+    expected_axes = [0, 1, 0, -1, 0, 0]
+    check(all(abs(a - b) < 1e-9 for a, b in zip(axes, expected_axes)),
+          "the *Transform axes are " + str(axes) + " instead of " + str(expected_axes))
+    # Every node the per-node lines name is a node the transform rotates
+    start = lines.index("*Nset, Nset=" + NODE_SET)
+    transformed = set()
+    for line in lines[start + 1:]:
+        if not line or line.startswith("*"):
+            break
+        transformed.update(int(v) for v in line.split(",") if v.strip())
+    named = set(int(row[0]) for row in rows)
+    check(len(named) == 4 and named <= transformed, "the per-node lines name nodes " + str(sorted(named)) +
+          " outside the transformed node set " + str(sorted(transformed)))
+    # The values stay in the local directions; the solver does the rotation
+    for row in rows:
+        node_id, dof, value = int(row[0]), int(row[1]), float(row[3])
+        expected = (0.1 if dof == 1 else 1.5) * (1 + 0.01 * coordinates[node_id][0])
+        check(dof in (1, 3) and abs(value - expected) < 1e-9, "node " + str(node_id) + " dof " + str(dof) +
+              " has " + str(value) + " instead of the local value " + str(expected))
+    bcs.remove([name])
+    pmx.model.coordinate_systems.remove([system])
+
+
 def test_submodel():
     bcs = pmx.model.steps[STEP].bcs
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
@@ -358,6 +411,7 @@ def main():
     test_regions()
     test_displacement_rotation()
     test_displacement_rotation_distribution()
+    test_displacement_rotation_distribution_local_system()
     test_submodel()
     test_temperature()
     test_collection_verbs()
