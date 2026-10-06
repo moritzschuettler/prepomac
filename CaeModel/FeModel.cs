@@ -6555,102 +6555,60 @@ namespace CaeModel
         public InitialTemperature[] GetNodalTemperaturesFromVariableInitialTemperature(InitialTemperature initialTemperature)
         {
             if (initialTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
-            // Node set
-            FeNodeSet nodeSet;
-            if (initialTemperature.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeSet = _mesh.NodeSets[initialTemperature.RegionName];
-            }
-            else if (initialTemperature.RegionType == RegionTypeEnum.SurfaceName)
-            {
-                FeSurface surface = _mesh.Surfaces[initialTemperature.RegionName];
-                nodeSet = _mesh.NodeSets[surface.NodeSetName];
-            }
-            else throw new NotSupportedException();
-            //
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            // Parallel
-            Parallel.For(0, nodeSet.Labels.Length, i =>
-            {
-                int nodeId = nodeSet.Labels[i];
-                coor[i] = _mesh.Nodes[nodeId].Coor;
-            });
+            int[] nodeIds;
+            double[][] coor;
+            _mesh.GetRegionNodeIdsAndCoordinates(initialTemperature.RegionName, initialTemperature.RegionType,
+                                                 out nodeIds, out coor);
             // Temperature
             double[] temperatures;
             initialTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
-            // Parallel
-            ConcurrentBag<InitialTemperature> initialTemperatures = new ConcurrentBag<InitialTemperature>();
-            Parallel.For(0, nodeSet.Labels.Length, i =>
+            //
+            InitialTemperature[] initialTemperatures = new InitialTemperature[nodeIds.Length];
+            Parallel.For(0, nodeIds.Length, i =>
             {
-                int nodeId = nodeSet.Labels[i];
+                int nodeId = nodeIds[i];
                 // Temperature conditions
                 InitialTemperature it = new InitialTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
-                initialTemperatures.Add(it);
+                initialTemperatures[i] = it;
             });
             //
-            return initialTemperatures.ToArray();
+            return initialTemperatures;
         }
         // Boundary conditions                                                                      
         public TemperatureBC[] GetNodalTemperaturesFromVariableTemperatureBC(TemperatureBC temperatureBC)
         {
             if (temperatureBC.DistributionName == Distribution.DefaultDistributionName) return null;
-            // Node set
-            FeNodeSet nodeSet;
-            if (temperatureBC.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeSet = _mesh.NodeSets[temperatureBC.RegionName];
-            }
-            else if (temperatureBC.RegionType == RegionTypeEnum.SurfaceName)
-            {
-                FeSurface surface = _mesh.Surfaces[temperatureBC.RegionName];
-                nodeSet = _mesh.NodeSets[surface.NodeSetName];
-            }
-            else throw new NotSupportedException();
-            //
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            // Parallel
-            Parallel.For(0, nodeSet.Labels.Length, i =>
-            {
-                int nodeId = nodeSet.Labels[i];
-                coor[i] = _mesh.Nodes[nodeId].Coor;
-            });
+            int[] nodeIds;
+            double[][] coor;
+            _mesh.GetRegionNodeIdsAndCoordinates(temperatureBC.RegionName, temperatureBC.RegionType,
+                                                 out nodeIds, out coor);
             // Temperature
             double[] temperatures;
             temperatureBC.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
-            // Parallel
-            ConcurrentBag<TemperatureBC> temperatureBCs = new ConcurrentBag<TemperatureBC>();
-            Parallel.For(0, nodeSet.Labels.Length, i =>
+            //
+            TemperatureBC[] temperatureBCs = new TemperatureBC[nodeIds.Length];
+            Parallel.For(0, nodeIds.Length, i =>
             {
-                int nodeId = nodeSet.Labels[i];
+                int nodeId = nodeIds[i];
                 // Temperature bcs
                 TemperatureBC tbc = new TemperatureBC("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
                 tbc.AmplitudeName = temperatureBC.AmplitudeName;
-                temperatureBCs.Add(tbc);
+                temperatureBCs[i] = tbc;
             });
             //
-            return temperatureBCs.ToArray();
+            return temperatureBCs;
         }
         public double[][] GetNodalValuesFromVariableDisplacementRotation(DisplacementRotation displacementRotation,
                                                                          out int[] nodeIds)
         {
             nodeIds = null;
             if (displacementRotation.DistributionName == Distribution.DefaultDistributionName) return null;
-            // Node set
-            FeNodeSet nodeSet;
-            if (displacementRotation.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeSet = _mesh.NodeSets[displacementRotation.RegionName];
-            }
-            else if (displacementRotation.RegionType == RegionTypeEnum.SurfaceName)
-            {
-                FeSurface surface = _mesh.Surfaces[displacementRotation.RegionName];
-                nodeSet = _mesh.NodeSets[surface.NodeSetName];
-            }
-            else throw new CaeException("A distribution cannot be applied to a reference point.");
+            if (displacementRotation.RegionType == RegionTypeEnum.ReferencePointName)
+                throw new CaeException("A distribution cannot be applied to a reference point.");
             //
-            nodeIds = nodeSet.Labels.ToArray();
-            double[][] coor = new double[nodeIds.Length][];
-            for (int i = 0; i < nodeIds.Length; i++) coor[i] = _mesh.Nodes[nodeIds[i]].Coor;
+            double[][] coor;
+            _mesh.GetRegionNodeIdsAndCoordinates(displacementRotation.RegionName, displacementRotation.RegionType,
+                                                 out nodeIds, out coor);
             //
             return displacementRotation.GetConstrainValuesForPoints(this, coor);
         }
@@ -7460,41 +7418,25 @@ namespace CaeModel
         {
             if (definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile) return null;
             if (definedTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
-            // Node set
-            FeNodeSet nodeSet;
-            if (definedTemperature.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeSet = _mesh.NodeSets[definedTemperature.RegionName];
-            }
-            else if (definedTemperature.RegionType == RegionTypeEnum.SurfaceName)
-            {
-                FeSurface surface = _mesh.Surfaces[definedTemperature.RegionName];
-                nodeSet = _mesh.NodeSets[surface.NodeSetName];
-            }
-            else throw new NotSupportedException();
-            //
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            // Parallel
-            Parallel.For(0, nodeSet.Labels.Length, i =>
-            {
-                int nodeId = nodeSet.Labels[i];
-                coor[i] = _mesh.Nodes[nodeId].Coor;
-            });
+            int[] nodeIds;
+            double[][] coor;
+            _mesh.GetRegionNodeIdsAndCoordinates(definedTemperature.RegionName, definedTemperature.RegionType,
+                                                 out nodeIds, out coor);
             // Temperature
             double[] temperatures;
             definedTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
-            // Parallel
-            ConcurrentBag<DefinedTemperature> definedTemperatures = new ConcurrentBag<DefinedTemperature>();
-            Parallel.For(0, nodeSet.Labels.Length, i =>
+            //
+            DefinedTemperature[] definedTemperatures = new DefinedTemperature[nodeIds.Length];
+            Parallel.For(0, nodeIds.Length, i =>
             {
-                int nodeId = nodeSet.Labels[i];
+                int nodeId = nodeIds[i];
                 // Temperature definitions
                 DefinedTemperature dt = new DefinedTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
                 dt.AmplitudeName = definedTemperature.AmplitudeName;
-                definedTemperatures.Add(dt);
+                definedTemperatures[i] = dt;
             });
             //
-            return definedTemperatures.ToArray();
+            return definedTemperatures;
         }
         // Parameters                                                                               
         public void UpdateNCalcParameters()

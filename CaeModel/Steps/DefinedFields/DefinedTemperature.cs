@@ -136,19 +136,11 @@ namespace CaeModel
                     model.Distributions[_distributionName] is MappedDistribution md &&
                     md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
                 //
-                FeNodeSet nodeSet;
-                if (RegionType == RegionTypeEnum.NodeSetName)
-                {
-                    nodeSet = targetMesh.NodeSets[RegionName];
-                }
-                else if (RegionType == RegionTypeEnum.SurfaceName)
-                {
-                    FeSurface surface = targetMesh.Surfaces[RegionName];
-                    nodeSet = targetMesh.NodeSets[surface.NodeSetName];
-                }
-                else throw new NotSupportedException();
-                //
-                HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
+                int[] regionNodeIds;
+                double[][] coor;
+                targetMesh.GetRegionNodeIdsAndCoordinates(RegionName, RegionType, out regionNodeIds, out coor);
+                Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+                for (int i = 0; i < regionNodeIds.Length; i++) nodeIdArrayId.Add(regionNodeIds[i], i);
                 //
                 float[] distancesAll = new float[allData.Nodes.Coor.Length];
                 float[] distances1 = new float[allData.Nodes.Coor.Length];
@@ -156,20 +148,6 @@ namespace CaeModel
                 float[] distances3 = new float[allData.Nodes.Coor.Length];
                 float[] temperaturesAll = new float[allData.Nodes.Coor.Length];
                 //
-                int count = 0;
-                int nodeId;
-                double[][] coor = new double[nodeSet.Labels.Length][];
-                Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
-                for (int i = 0; i < allData.Nodes.Coor.Length; i++)
-                {
-                    nodeId = allData.Nodes.Ids[i];
-                    if (nodeIds.Contains(nodeId))
-                    {
-                        coor[count] = allData.Nodes.Coor[i];
-                        nodeIdArrayId[nodeId] = count;
-                        count++;
-                    }
-                }
                 double[][] distances;
                 double[] temperatures;
                 GetTemperaturesAndDistancesForPoints(model, coor, out distances, out temperatures);
@@ -183,7 +161,7 @@ namespace CaeModel
                     double temperature;
                     //
                     nId = allData.Nodes.Ids[i];
-                    if (nodeIds.Contains(nId))
+                    if (nodeIdArrayId.ContainsKey(nId))
                     {
                         arrayId = nodeIdArrayId[nId];
                         temperature = temperatures[arrayId];

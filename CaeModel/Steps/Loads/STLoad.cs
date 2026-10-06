@@ -337,9 +337,12 @@ namespace CaeModel
                 md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
             double area = model.GetAreaForSTLoad(this);
-            FeSurface surface = targetMesh.Surfaces[SurfaceName];
-            FeNodeSet nodeSet = targetMesh.NodeSets[surface.NodeSetName];
-            HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
+            int[] regionNodeIds;
+            double[][] coor;
+            targetMesh.GetRegionNodeIdsAndCoordinates(SurfaceName, RegionTypeEnum.SurfaceName, out regionNodeIds,
+                                                      out coor);
+            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+            for (int i = 0; i < regionNodeIds.Length; i++) nodeIdArrayId.Add(regionNodeIds[i], i);
             //
             float[] distancesAll = new float[allData.Nodes.Coor.Length];
             float[] distances1 = new float[allData.Nodes.Coor.Length];
@@ -350,20 +353,6 @@ namespace CaeModel
             float[] forces2 = new float[allData.Nodes.Coor.Length];
             float[] forces3 = new float[allData.Nodes.Coor.Length];
             //
-            int count = 0;
-            int nodeId;
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
-            for (int i = 0; i < allData.Nodes.Coor.Length; i++)
-            {
-                nodeId = allData.Nodes.Ids[i];
-                if (nodeIds.Contains(nodeId))
-                {
-                    coor[count] = allData.Nodes.Coor[i];
-                    nodeIdArrayId[nodeId] = count;
-                    count++;
-                }
-            }
             double[][] distances;
             double[][] forces;
             GetForcesPerAreaAndDistancesForPoints(model, coor, out distances, out forces);
@@ -380,7 +369,7 @@ namespace CaeModel
                 double[] force;
                 //
                 nId = allData.Nodes.Ids[i];
-                if (nodeIds.Contains(nId))
+                if (nodeIdArrayId.ContainsKey(nId))
                 {
                     arrayId = nodeIdArrayId[nId];
                     // Direction

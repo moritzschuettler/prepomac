@@ -110,9 +110,12 @@ namespace CaeModel
                 model.Distributions[_distributionName] is MappedDistribution md &&
                 md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
-            FeSurface surface = targetMesh.Surfaces[_surfaceName];
-            FeNodeSet nodeSet = targetMesh.NodeSets[surface.NodeSetName];
-            HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
+            int[] regionNodeIds;
+            double[][] coor;
+            targetMesh.GetRegionNodeIdsAndCoordinates(_surfaceName, RegionTypeEnum.SurfaceName, out regionNodeIds,
+                                                      out coor);
+            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+            for (int i = 0; i < regionNodeIds.Length; i++) nodeIdArrayId.Add(regionNodeIds[i], i);
             //
             float[] distancesAll = new float[allData.Nodes.Coor.Length];
             float[] distances1 = new float[allData.Nodes.Coor.Length];
@@ -120,20 +123,6 @@ namespace CaeModel
             float[] distances3 = new float[allData.Nodes.Coor.Length];
             float[] pressuresAll = new float[allData.Nodes.Coor.Length];
             //
-            int count = 0;
-            int nodeId;
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
-            for (int i = 0; i < allData.Nodes.Coor.Length; i++)
-            {
-                nodeId = allData.Nodes.Ids[i];
-                if (nodeIds.Contains(nodeId))
-                {
-                    coor[count] = allData.Nodes.Coor[i];
-                    nodeIdArrayId[nodeId] = count;
-                    count++;
-                }
-            }
             double[][] distances;
             double[] pressures;
             GetPressuresAndDistancesForPoints(model, coor, out distances, out pressures);
@@ -147,7 +136,7 @@ namespace CaeModel
                 double pressure;
                 //
                 nId = allData.Nodes.Ids[i];
-                if (nodeIds.Contains(nId))
+                if (nodeIdArrayId.ContainsKey(nId))
                 {
                     arrayId = nodeIdArrayId[nId];
                     pressure = pressures[arrayId];

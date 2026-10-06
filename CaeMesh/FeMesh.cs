@@ -5855,6 +5855,19 @@ namespace CaeMesh
             if (_surfaces.TryGetValue(surfaceName, out surface)) return _nodeSets[surface.NodeSetName];
             else return null;
         }
+        public FeNodeSet GetRegionNodeSet(string regionName, RegionTypeEnum regionType)
+        {
+            if (regionType == RegionTypeEnum.NodeSetName) return _nodeSets[regionName];
+            else if (regionType == RegionTypeEnum.SurfaceName) return _nodeSets[_surfaces[regionName].NodeSetName];
+            else throw new NotSupportedException();
+        }
+        public void GetRegionNodeIdsAndCoordinates(string regionName, RegionTypeEnum regionType, out int[] nodeIds,
+                                                   out double[][] coordinates)
+        {
+            nodeIds = GetRegionNodeSet(regionName, regionType).Labels.ToArray();
+            coordinates = new double[nodeIds.Length][];
+            for (int i = 0; i < nodeIds.Length; i++) coordinates[i] = _nodes[nodeIds[i]].Coor;
+        }
         public double GetSurfaceArea(int geometrySurfaceId)
         {
             int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometrySurfaceId);

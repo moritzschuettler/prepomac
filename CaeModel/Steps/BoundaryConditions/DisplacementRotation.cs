@@ -355,27 +355,13 @@ namespace CaeModel
                 model.Distributions[_distributionName] is MappedDistribution md &&
                 md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
-            FeNodeSet nodeSet;
-            if (RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeSet = targetMesh.NodeSets[RegionName];
-            }
-            else if (RegionType == RegionTypeEnum.SurfaceName)
-            {
-                FeSurface surface = targetMesh.Surfaces[RegionName];
-                nodeSet = targetMesh.NodeSets[surface.NodeSetName];
-            }
-            else if (RegionType == RegionTypeEnum.ReferencePointName)
+            if (RegionType == RegionTypeEnum.ReferencePointName)
                 throw new CaeException("A boundary condition applied to a reference point cannot be previewed.");
-            else throw new NotSupportedException();
-            //
+            int[] regionNodeIds;
+            double[][] coor;
+            targetMesh.GetRegionNodeIdsAndCoordinates(RegionName, RegionType, out regionNodeIds, out coor);
             Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
-            double[][] coor = new double[nodeSet.Labels.Length][];
-            for (int i = 0; i < nodeSet.Labels.Length; i++)
-            {
-                nodeIdArrayId[nodeSet.Labels[i]] = i;
-                coor[i] = targetMesh.Nodes[nodeSet.Labels[i]].Coor;
-            }
+            for (int i = 0; i < regionNodeIds.Length; i++) nodeIdArrayId.Add(regionNodeIds[i], i);
             double[][] distances;
             double[][] values = GetConstrainValuesAndDistancesForPoints(model, coor, out distances);
             int[] directions = GetConstrainedDirections();
