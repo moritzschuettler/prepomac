@@ -16,13 +16,13 @@ namespace APIs.Python
     {
         // Variables
         private readonly int _count;
-        private readonly object _ids;
+        private readonly IntListAPI _ids;
         private readonly object _coordinates;
 
 
         // Properties
-        [PythonAPI("Node IDs.", Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+        [PythonAPI("Node IDs.", Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("Undeformed node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or NumericArray" )]
         public object coordinates { get { return _coordinates; } }
         [PythonAPI("The number of nodes.", Returns = "int")]
@@ -33,7 +33,7 @@ namespace APIs.Python
         internal NodeDataAPI(int[] ids, double[,] coordinates)
         {
             _count = ids != null ? ids.Length : 0;
-            _ids = NumPyConverter.ToPythonArray(ids);
+            _ids = new IntListAPI(ids);
             _coordinates = NumPyConverter.ToPythonArray(coordinates);
         }
 

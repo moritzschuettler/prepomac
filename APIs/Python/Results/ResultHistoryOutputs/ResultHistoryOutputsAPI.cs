@@ -107,9 +107,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +
-                   "a result node set, or a result surface. This does not modify the result.",
+                   "a NodeSetName or SurfaceName region created by pmx.create.region and resolved against the " +
+                   "result mesh, or a result node set or surface. This does not modify the result.",
                    Arguments = "name: str, field_name: str, component_names: list[str], " +
-                               "region: Selection or NodeSet or Surface",
+                               "region: Selection or Region or NodeSet or Surface",
                    Returns = "HistoryOutputFromFieldDraft")]
         public ResultHistoryOutputFromFieldDraftAPI create_history_output_from_field(
             string name, string field_name, object component_names, object region)
@@ -128,10 +129,11 @@ namespace APIs.Python
 
         [PythonAPI("Creates a From Integration draft. Possible integral_type values are Line, Surface and " +
                    "Volume. Line integration accepts an edges-target selection; surface integration accepts a " +
-                   "surface-target selection or result surface; volume integration accepts an element-target " +
-                   "selection or result element set. Possible integral_result values are Geometry (the region " +
-                   "length/area/volume), Field (the field integral) and FieldByGeometry (the region average " +
-                   "of the field); field_name and component_names are ignored for Geometry. The cross_section " +
+                   "surface-target selection, a SurfaceName region or a result surface; volume integration accepts " +
+                   "an element-target selection, an ElementSetName region or a result element set, where a " +
+                   "region created by pmx.create.region is resolved against the result mesh. Possible " +
+                   "integral_result values are Geometry (the region length/area/volume), Field (the field " +
+                   "integral) and FieldByGeometry (the region average of the field); field_name and component_names are ignored for Geometry. The cross_section " +
                    "scaling (None, Thickness or Axisymmetric) applies to Line and Volume integrals of " +
                    "2D output, and Thickness additionally uses the thickness argument. Possible " +
                    "deformation_variable_name values are 'Displacements', " +
@@ -139,7 +141,7 @@ namespace APIs.Python
                    "'Disp&Def&Depth'.",
                    Arguments = "name: str, integral_type: str, field_name: str = None, " +
                                "component_names: list[str] = None, " +
-                               "region: Selection or ElementSet or Surface = None, " +
+                               "region: Selection or Region or ElementSet or Surface = None, " +
                                "integral_result: str = 'Geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
                                "unit: str = '/', cross_section: str = 'None', thickness: float = 1.0",
@@ -239,7 +241,7 @@ namespace APIs.Python
                    "It takes the arguments of create_history_output_from_field, the options of its draft and " +
                    "the optional filters. An option that is not given keeps the default of the draft.",
                    Arguments = "name: str, field_name: str, component_names: list[str], " +
-                               "region: Selection or NodeSet or Surface, complex_result_type: str = None, " +
+                               "region: Selection or Region or NodeSet or Surface, complex_result_type: str = None, " +
                                "complex_angle_deg: float = None, step_id: int = None, increment_id: int = None, " +
                                "harmonic: bool = None, output_node_coordinates: str = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",

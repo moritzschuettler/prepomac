@@ -24,7 +24,7 @@ namespace APIs.Python
 
 
         // Properties
-        public int Count { get { return _items.GetLength(0); } }
+        int IReadOnlyCollection<object>.Count { get { return _items.GetLength(0); } }
 
         [PythonAPI("The array dimensions.", Returns = "IntList")]
         public IntListAPI shape
@@ -36,8 +36,9 @@ namespace APIs.Python
                 return new IntListAPI(dimensions);
             }
         }
-        [PythonAPI("The total number of values.", Returns = "int")]
-        public int count { get { return _items.Length; } }
+        [PythonAPI("The total number of values: the product of the shape, as numpy reports it. len() is the " +
+                   "number of rows.", Returns = "int")]
+        public int size { get { return _items.Length; } }
         public object this[int index]
         {
             get
@@ -61,11 +62,35 @@ namespace APIs.Python
             if (items == null) throw new ArgumentNullException("items");
             if (items.Rank < 1 || items.Rank > 2)
                 throw new ArgumentException("Only one- and two-dimensional arrays are supported.", "items");
-            _items = items;
+            _items = ToRectangular(items);
         }
 
 
         // Methods
+        // A table handed over as rows of equal length is stored as the two-dimensional array it is, so shape and size
+        // describe the table rather than the list of rows
+        private static Array ToRectangular(Array items)
+        {
+            if (items.Rank != 1 || items.Length == 0 || !items.GetType().GetElementType().IsArray) return items;
+            //
+            Array first = items.GetValue(0) as Array;
+            if (first == null || first.Rank != 1) return items;
+            int columns = first.Length;
+            Type elementType = first.GetType().GetElementType();
+            foreach (object row in items)
+            {
+                Array values = row as Array;
+                if (values == null || values.Rank != 1 || values.Length != columns ||
+                    values.GetType().GetElementType() != elementType) return items;
+            }
+            Array table = Array.CreateInstance(elementType, items.Length, columns);
+            for (int i = 0; i < items.Length; i++)
+            {
+                Array values = (Array)items.GetValue(i);
+                for (int j = 0; j < columns; j++) table.SetValue(values.GetValue(j), i, j);
+            }
+            return table;
+        }
         public int __len__()
         {
             return _items.GetLength(0);

@@ -59,6 +59,11 @@ def test_amplitudes():
     check(amplitude.time_span == "TotalTime", "the replacement dropped the time span: " + amplitude.time_span)
     check([list(row) for row in amplitude.get_time_amplitude()] == [[0, 0], [1, 2], [2, 3]],
           "unexpected table " + str([list(row) for row in amplitude.get_time_amplitude()]))
+    # A NumericArray counts the way numpy does: len() the rows and size every value
+    table = amplitude.get_time_amplitude()
+    check(len(table) == 3 and table.size == 6 and list(table.shape) == [3, 2],
+          "len() must count the rows and size the values: %d, %d" % (len(table), table.size))
+    check(not hasattr(table, "Count"), "the .NET Count of a NumericArray must not be exposed")
     # and one given only the time span keeps the table
     amplitude = amplitudes.replace(PREFIX + "Amp_T", time_span="StepTime")
     check(amplitude.time_span == "StepTime", "the time span was not replaced")

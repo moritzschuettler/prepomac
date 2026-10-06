@@ -17,14 +17,14 @@ namespace APIs.Python
         private readonly int _count;
         private readonly string _location;
         private readonly string _unit;
-        private readonly object _ids;
+        private readonly IntListAPI _ids;
         private readonly object _values;
         private readonly StringListAPI _componentNames;
 
 
         // Properties
-        [PythonAPI("The node IDs corresponding to the rows of the values matrix.", Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+        [PythonAPI("The node IDs corresponding to the rows of the values matrix.", Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("The field values with shape (node_count, component_count).", Returns = "numpy.ndarray or NumericArray" )]
         public object values { get { return _values; } }
         [PythonAPI("The component names corresponding to the value columns.", Returns = "StringList")]
@@ -43,7 +43,7 @@ namespace APIs.Python
             _count = ids != null ? ids.Length : 0;
             _location = location;
             _unit = unit;
-            _ids = NumPyConverter.ToPythonArray(ids);
+            _ids = new IntListAPI(ids);
             _values = NumPyConverter.ToPythonArray(values);
             _componentNames = new StringListAPI(componentNames);
         }

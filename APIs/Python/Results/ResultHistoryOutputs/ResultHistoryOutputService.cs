@@ -639,13 +639,30 @@ namespace APIs.Python
             }
             if (region is ResultMeshRegionAPI meshRegion)
             {
-                if (!namedRegionTypes.Contains(meshRegion.RegionType))
-                    throw new PythonAPIException("The region type '" + meshRegion.RegionType +
-                                                 "' is not supported by this history output.");
+                ValidateNamedRegionType(meshRegion.RegionType, namedRegionTypes);
+                return;
+            }
+            if (region is RegionAPI named)
+            {
+                ValidateNamedRegionType(named.RegionType, namedRegionTypes);
                 return;
             }
             if (region == null) throw new PythonAPIException("The argument 'region' must not be None.");
-            throw new PythonAPIException("The argument 'region' must be a Selection, NodeSet, ElementSet, or Surface.");
+            throw new PythonAPIException("The argument 'region' must be a selection created by " +
+                                         "pmx.create.selection_by_ids, a named region created by " +
+                                         "pmx.create.region, or a result node set, element set or surface.");
+        }
+        private static void ValidateNamedRegionType(RegionTypeEnum regionType, RegionTypeEnum[] namedRegionTypes)
+        {
+            if (namedRegionTypes.Contains(regionType)) return;
+            //
+            if (namedRegionTypes.Length == 0)
+                throw new PythonAPIException("The argument 'region' accepts only a selection for this history " +
+                                             "output, but a " + regionType + " region was given.");
+            string[] names = new string[namedRegionTypes.Length];
+            for (int i = 0; i < names.Length; i++) names[i] = namedRegionTypes[i].ToString();
+            throw new PythonAPIException("The argument 'region' accepts a selection or a " + string.Join(", ", names) +
+                                         " region, but a " + regionType + " region was given.");
         }
         private static IntegralTypeEnum ParseIntegralType(string integralType)
         {

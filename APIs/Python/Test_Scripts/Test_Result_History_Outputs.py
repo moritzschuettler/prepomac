@@ -198,6 +198,36 @@ try:
         replaced = history_outputs.replace(FROM_FIELD_NAME, replacement)
         print("PASS: replace From Field history output using " + named_region.name)
 
+    # NAMED REGION: pmx.create.region names a region the way the model side does, and it is resolved by
+    # its name against the result mesh
+    for named_region in named_field_regions:
+        region_type = "NodeSetName" if result.mesh.node_sets.contains(named_region.name) else "SurfaceName"
+        draft = history_outputs.create_history_output_from_field(
+            name=FROM_FIELD_NAME, field_name="FORC", component_names=[force_component],
+            region=pmx.create.region(region_type, named_region.name))
+        check(draft.region.region_type == region_type and draft.region.name == named_region.name,
+              "the draft read its named region back as %s" % draft.region)
+        replaced = history_outputs.replace(FROM_FIELD_NAME, draft)
+        check(replaced.region_type == region_type and replaced.region_name == named_region.name,
+              "the named region read back as %s '%s'" % (replaced.region_type, replaced.region_name))
+        print("PASS: replace From Field history output using pmx.create.region " + named_region.name)
+    names_before = get_history_output_names(history_outputs)
+    check_raises(lambda: history_outputs.add_from_field(
+                     name="PyTest_History_missing_region", field_name="DISP", component_names=[disp_component],
+                     region=pmx.create.region("NodeSetName", "PyTest_History_no_such_node_set")),
+                 "a named region missing from the result mesh was accepted")
+    check_raises(lambda: history_outputs.create_history_output_from_field(
+                     name="PyTest_History_part_region", field_name="DISP", component_names=[disp_component],
+                     region=pmx.create.region("PartName", "PyTest_History_any_part")),
+                 "a From Field history output accepted a PartName region")
+    check_raises(lambda: history_outputs.create_history_output_from_integration(
+                     name="PyTest_History_node_set_integration", integral_type="Volume",
+                     region=pmx.create.region("NodeSetName", "PyTest_History_any_node_set")),
+                 "a volume integration accepted a NodeSetName region")
+    check(get_history_output_names(history_outputs) == names_before,
+          "a refused named region left a history output behind")
+    print("PASS: refuse a named region the result mesh or the history output cannot take")
+
     # ADD: equation output referencing the generated history set, field, and component.
     generated_field = replaced.fields.first()
     check(generated_field is not None, "The From Field output contains no generated field.")
@@ -290,6 +320,15 @@ try:
                          integral_result="field_by_geometry"),
                      "the old integral_result spelling was accepted")
         print("PASS: From Integration history output options")
+        if solid_element_set is not None:
+            replaced = history_outputs.replace_from_integration(
+                INTEGRATION_NAME, name=INTEGRATION_NAME, integral_type="Volume", field_name="STRESS",
+                component_names=[stress_component],
+                region=pmx.create.region("ElementSetName", solid_element_set.name), integral_result="Field")
+            check(replaced.region_type == "ElementSetName" and replaced.region_name == solid_element_set.name,
+                  "the named integration region read back as %s '%s'" % (replaced.region_type,
+                                                                         replaced.region_name))
+            print("PASS: replace From Integration history output using pmx.create.region")
     else:
         print("SKIP: geometry- and field-volume-integration tests require a 3D element")
 

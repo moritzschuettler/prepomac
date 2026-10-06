@@ -52,15 +52,15 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns the node IDs in this part.", Returns = "numpy.ndarray or IntList")]
-        public object get_node_ids()
+        [PythonAPI("Returns the node IDs in this part.", Returns = "IntList")]
+        public IntListAPI get_node_ids()
         {
-            return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).NodeIds);
+            return new IntListAPI(_meshService.GetPartData(_resultName, _partName).NodeIds);
         }
-        [PythonAPI("Returns the element IDs in this part.", Returns = "numpy.ndarray or IntList")]
-        public object get_element_ids()
+        [PythonAPI("Returns the element IDs in this part.", Returns = "IntList")]
+        public IntListAPI get_element_ids()
         {
-            return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).ElementIds);
+            return new IntListAPI(_meshService.GetPartData(_resultName, _partName).ElementIds);
         }
         [PythonAPI("Returns the result mesh part bounding box as [xMin, xMax, yMin, yMax, zMin, zMax].",
                    Returns = "NumericArray")]

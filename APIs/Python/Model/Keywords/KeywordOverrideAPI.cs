@@ -23,8 +23,8 @@ namespace APIs.Python.Model
 
 
         // Properties
-        [PythonAPI("The index path of the overridden keyword inside the generated keyword tree.", Returns = "list[int]")]
-        public int[] indices { get { return (int[])_indices.Clone(); } }
+        [PythonAPI("The index path of the overridden keyword inside the generated keyword tree.", Returns = "IntList")]
+        public IntListAPI indices { get { return new IntListAPI(_indices); } }
         [PythonAPI("The replacement keyword text.", Returns = "str")]
         public string data { get { return _data; } }
         [PythonAPI("Whether the generated keyword is written as a comment.", Returns = "bool")]

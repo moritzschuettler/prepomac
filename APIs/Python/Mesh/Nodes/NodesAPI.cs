@@ -39,8 +39,8 @@ namespace APIs.Python
             return _meshService.GetNodeData(_resultName);
         }
 
-        [PythonAPI("Returns all node IDs.", Returns = "numpy.ndarray or IntList")]
-        public object get_ids()
+        [PythonAPI("Returns all node IDs.", Returns = "IntList")]
+        public IntListAPI get_ids()
         {
             return get_data().ids;
         }

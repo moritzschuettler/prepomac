@@ -49,7 +49,7 @@ namespace APIs.Python.Model
         public string amplitude_name { get { return Resolve().AmplitudeName; } }
         [PythonAPI("The coordinate system name.", Returns = "str")]
         public string coordinate_system_name { get { return Resolve().CoordinateSystemName; } }
-        [PythonAPI("The red, green and blue channels of the symbol color.", Returns = "IntList")]
+        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
         public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
 
 

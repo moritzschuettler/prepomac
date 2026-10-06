@@ -46,27 +46,38 @@ def test_the_plotted_field():
     check("DISP" in field_names, "the solved cube must have a displacement field: " + str(field_names))
     #
     pmx.view.set_result_field("DISP", "U3")
-    plotted = list(pmx.view.get_result_field())
-    check(plotted[0] == "DISP" and plotted[1] == "U3",
+    plotted = pmx.view.get_result_field()
+    # The plotted field reads back under the names of the arguments that set it, with the IDs as integers
+    check(isinstance(plotted, dict), "the plotted field must be a dict: " + str(type(plotted)))
+    check(sorted(plotted.keys()) == ["component_name", "field_name", "increment_id", "step_id"],
+          "the plotted field must be keyed by the argument names: " + str(plotted))
+    check(plotted["field_name"] == "DISP" and plotted["component_name"] == "U3",
           "the plotted field must be the one that was asked for: " + str(plotted))
+    check(type(plotted["step_id"]) is int and type(plotted["increment_id"]) is int,
+          "the plotted step and increment must be integers: " + str(plotted))
     # The component that is not given is the first one of the field
     pmx.view.set_result_field("DISP")
-    check(list(pmx.view.get_result_field())[0] == "DISP", "the field must still be DISP")
+    check(pmx.view.get_result_field()["field_name"] == "DISP", "the field must still be DISP")
     # A field or a component the result does not have is refused, and the refusal lists what it has
     check_raises(lambda: pmx.view.set_result_field("NOSUCHFIELD"), "an unknown field must be rejected")
     check_raises(lambda: pmx.view.set_result_field("DISP", "U9"), "an unknown component must be rejected")
     #
     pmx.view.set_result_increment(step_id, increment_ids[-1])
-    plotted = list(pmx.view.get_result_field())
-    check(int(plotted[2]) == step_id and int(plotted[3]) == increment_ids[-1],
+    plotted = pmx.view.get_result_field()
+    check(plotted["step_id"] == step_id and plotted["increment_id"] == increment_ids[-1],
           "the plotted increment must be the one that was asked for: " + str(plotted))
+    # What it reads back sets the same plot again
+    pmx.view.set_result_field(plotted["field_name"], plotted["component_name"])
+    pmx.view.set_result_increment(plotted["step_id"], plotted["increment_id"])
+    check(pmx.view.get_result_field() == plotted, "the plotted field must round trip: " + str(plotted))
     # An increment the result does not have must be refused, not replaced by the default one
     check_raises(lambda: pmx.view.set_result_increment(step_id, 9999),
                  "an increment the result does not have must be rejected")
     check_raises(lambda: pmx.view.set_result_increment(999, increment_ids[-1]),
                  "a step the result does not have must be rejected")
-    plotted = list(pmx.view.get_result_field())
-    check(int(plotted[3]) == increment_ids[-1], "a refused increment must leave the plot alone: " + str(plotted))
+    plotted = pmx.view.get_result_field()
+    check(plotted["increment_id"] == increment_ids[-1],
+          "a refused increment must leave the plot alone: " + str(plotted))
 
 
 def test_the_plot_type():

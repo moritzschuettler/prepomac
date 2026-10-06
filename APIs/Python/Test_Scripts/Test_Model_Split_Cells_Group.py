@@ -47,6 +47,12 @@ def split_boxes():
     compound = [part for part in parts if len(list(part.split_sub_part_names)) > 0][0]
     check(len(list(compound.split_sub_part_names)) == 2,
           "the split compound must have two sub-parts: " + str(list(compound.split_sub_part_names)))
+    # Names come back as a StringList, like every other name collection
+    check(type(compound.split_sub_part_names).__name__ == "StringListAPI",
+          "the sub-part names must be a StringList: " + type(compound.split_sub_part_names).__name__)
+    first = list(compound.split_sub_part_names)[0]
+    check(type(compound.get_split_cell_names(first)).__name__ == "StringListAPI",
+          "the cell names must be a StringList: " + type(compound.get_split_cell_names(first)).__name__)
     return compound
 
 

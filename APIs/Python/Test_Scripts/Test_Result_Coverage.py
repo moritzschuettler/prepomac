@@ -54,6 +54,19 @@ def test_part_commands():
     lookup = dict(zip(list(mesh_nodes.ids), [list(row) for row in mesh_nodes.coordinates]))
     check(lookup[node_ids[0]] == list(coordinates[0]),
           "the part coordinates must be the undeformed result mesh coordinates")
+    # A list of IDs is an IntList on the results side as on the model side
+    mesh = pmx.results.current.mesh
+    id_lists = [part.get_node_ids(), part.get_element_ids(), mesh.nodes.get_ids(), mesh.elements.get_ids(),
+                mesh_nodes.ids, mesh.elements.get_data().ids]
+    for region in list(mesh.node_sets)[:1]:
+        id_lists.append(region.get_node_ids())
+    for region in list(mesh.element_sets)[:1]:
+        id_lists.append(region.get_element_ids())
+    for region in list(mesh.surfaces)[:1]:
+        id_lists.append(region.get_face_ids())
+        id_lists.append(region.get_node_ids())
+    for ids in id_lists:
+        check(type(ids).__name__ == "IntListAPI", "a result ID list must be an IntList: " + type(ids).__name__)
     metadata = part.get_geometry_metadata()
     check(metadata.format_version >= 0, "the result metadata format version is invalid")
     check(len(metadata.get_entities("face")) >= 0, "the result metadata is unreadable")
@@ -62,7 +75,7 @@ def test_part_commands():
     parts.show(name)
     parts.set_color(name, [10, 20, 30])
     parts.reset_color(name)
-    parts.set_transparency(name, 128)
+    parts.set_opacity(name, 128)
     parts.set_representation(name, False)
     parts.set_representation(name, True)
     parts.replace_properties(name)
@@ -103,8 +116,9 @@ def test_part_commands():
     check(list(parts.get_names().to_array()) == list(names), "a refused rename changed the part names")
     # A name that does not exist is refused before the command is recorded
     check_raises(lambda: parts.hide("__missing_part__"), "a missing part name was accepted")
-    check_raises(lambda: parts.set_transparency(name, 300), "an out of range transparency was accepted")
-    check_raises(lambda: parts.set_transparency(name, 12.5), "a fractional transparency was accepted")
+    check_raises(lambda: parts.set_opacity(name, 300), "an out of range opacity was accepted")
+    check_raises(lambda: parts.set_opacity(name, 12.5), "a fractional opacity was accepted")
+    check(not hasattr(parts, "set_transparency"), "set_transparency was renamed to set_opacity")
 
 
 def test_field_extremes():
@@ -120,6 +134,8 @@ def test_field_extremes():
     # The extremes must be the extremes of the values the bulk transfer reports
     data = field.components[component_name].get_data()
     values = list(data.values)
+    check(type(data.ids).__name__ == "IntListAPI", "the field data IDs must be an IntList: " +
+          type(data.ids).__name__)
     ids = list(data.ids)
     check(extremes.max_value == max(values), "the maximum does not match the transferred values")
     check(extremes.min_value == min(values), "the minimum does not match the transferred values")

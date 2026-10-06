@@ -184,11 +184,11 @@ namespace APIs.Python.Model
                    "offset moves the new surfaces along their own normals, outwards when it " +
                    "is positive, so half the wall thickness entered as a negative value on an outer " +
                    "surface gives a mid-surface. Returns the names of the parts that were created.",
-                   Arguments = "selection: Selection, offset: float = 0", Returns = "list[str]",
+                   Arguments = "selection: Selection, offset: float = 0", Returns = "StringList",
                    Example = "names = pmx.model.geometry.parts.offset_face(selection, -1.5)")]
-        public string[] offset_face(SelectionAPI selection, object offset = null)
+        public StringListAPI offset_face(SelectionAPI selection, object offset = null)
         {
-            return _service.OffsetFace(selection, offset);
+            return new StringListAPI(_service.OffsetFace(selection, offset));
         }
 
         [PythonAPI("Deletes the selected CAD part faces using command history and leaves the gap open. " +

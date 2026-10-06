@@ -7,6 +7,8 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System.Collections.Generic;
+
 namespace APIs.Python.Model
 {
     public class ModelPropertiesAPI : BaseAPI
@@ -53,24 +55,25 @@ namespace APIs.Python.Model
             get { return _service.GetSlipWearResults(); }
             set { Update(slip_wear_results: value); }
         }
-        [PythonAPI("The number of slip wear cycles, as the value or equation it was entered with.",
-                   Returns = "str")]
-        public string number_of_cycles
+        [PythonAPI("The number of slip wear cycles, a whole number evaluated from the value or equation it was " +
+                   "entered with; get_equations() returns the equation.", Returns = "int")]
+        public int number_of_cycles
         {
-            get { return _service.GetPropertyEquation("number_of_cycles"); }
+            get { return _service.GetNumberOfCycles(); }
             set { Update(number_of_cycles: value); }
         }
-        [PythonAPI("The slip wear cycle increment, as the value or equation it was entered with.", Returns = "str")]
-        public string cycles_increment
+        [PythonAPI("The slip wear cycle increment, a whole number evaluated from the value or equation it was " +
+                   "entered with; get_equations() returns the equation.", Returns = "int")]
+        public int cycles_increment
         {
-            get { return _service.GetPropertyEquation("cycles_increment"); }
+            get { return _service.GetCyclesIncrement(); }
             set { Update(cycles_increment: value); }
         }
-        [PythonAPI("The number of slip wear smoothing steps, as the value or equation it was entered with.",
-                   Returns = "str")]
-        public string number_of_smoothing_steps
+        [PythonAPI("The number of slip wear smoothing steps, a whole number evaluated from the value or equation " +
+                   "it was entered with; get_equations() returns the equation.", Returns = "int")]
+        public int number_of_smoothing_steps
         {
-            get { return _service.GetPropertyEquation("number_of_smoothing_steps"); }
+            get { return _service.GetNumberOfSmoothingSteps(); }
             set { Update(number_of_smoothing_steps: value); }
         }
         [PythonAPI("Whether a slip wear model uses BDM remeshing.", Returns = "bool")]
@@ -108,11 +111,13 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Replaces the model properties using command history. A property that is not given is kept, " +
-                   "unless clear_undefined_constants makes the omitted physical constants undefined.",
+                   "unless clear_undefined_constants makes the omitted physical constants undefined. " +
+                   "number_of_cycles, cycles_increment and number_of_smoothing_steps are whole numbers, or an " +
+                   "equation given as a str whose value is rounded to a whole number.",
                    Arguments = "name: str = None, model_type: str = None, " +
                                "global_results_file_name: str = None, slip_wear_results: str = None, " +
-                               "number_of_cycles: float = None, cycles_increment: float = None, " +
-                               "number_of_smoothing_steps: float = None, bdm_remeshing: bool = None, " +
+                               "number_of_cycles: int or str = None, cycles_increment: int or str = None, " +
+                               "number_of_smoothing_steps: int or str = None, bdm_remeshing: bool = None, " +
                                "absolute_zero: float = None, stefan_boltzmann: float = None, " +
                                "newton_gravity: float = None, clear_undefined_constants: bool = False",
                    Returns = "None",
@@ -128,6 +133,12 @@ namespace APIs.Python.Model
             _service.UpdateProperties(name, model_type, global_results_file_name, slip_wear_results,
                                       number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
                                       absolute_zero, stefan_boltzmann, newton_gravity, clear_undefined_constants);
+        }
+        [PythonAPI("Returns the equations of number_of_cycles, cycles_increment and number_of_smoothing_steps " +
+                   "without evaluating them.", Returns = "dict[str, str]")]
+        public Dictionary<string, string> get_equations()
+        {
+            return _service.GetPropertyEquations();
         }
         public override string ToString()
         {

@@ -40,8 +40,8 @@ namespace APIs.Python.Model
         {
             return _service.GetElementData();
         }
-        [PythonAPI("Returns all model mesh IDs in ascending order.", Returns = "numpy.ndarray or IntList")]
-        public object get_ids()
+        [PythonAPI("Returns all model mesh IDs in ascending order.", Returns = "IntList")]
+        public IntListAPI get_ids()
         {
             return get_data().ids;
         }

@@ -26,15 +26,15 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns the result surface face IDs.", Returns = "numpy.ndarray or IntList")]
-        public object get_face_ids()
+        [PythonAPI("Returns the result surface face IDs.", Returns = "IntList")]
+        public IntListAPI get_face_ids()
         {
-            return NumPyConverter.ToPythonArray(MeshService.GetSurfaceFaceIds(ResultName, name));
+            return new IntListAPI(MeshService.GetSurfaceFaceIds(ResultName, name));
         }
-        [PythonAPI("Returns the node IDs belonging to the result surface.", Returns = "numpy.ndarray or IntList")]
-        public object get_node_ids()
+        [PythonAPI("Returns the node IDs belonging to the result surface.", Returns = "IntList")]
+        public IntListAPI get_node_ids()
         {
-            return NumPyConverter.ToPythonArray(MeshService.GetSurfaceNodeIds(ResultName, name));
+            return new IntListAPI(MeshService.GetSurfaceNodeIds(ResultName, name));
         }
         public override string ToString()
         {

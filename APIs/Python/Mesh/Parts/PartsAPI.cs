@@ -111,7 +111,8 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             _commandGateway.ShowResultParts(partNames);
         }
-        [PythonAPI("Sets the color of result parts using command history.",
+        [PythonAPI("Sets the color of result parts using command history. The color is [R, G, B] or " +
+                   "[R, G, B, A] with channels from 0 to 255, or a .NET color name such as 'Red'.",
                    Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None")]
         public void set_color(object part_names, object color)
         {
@@ -128,13 +129,13 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             _commandGateway.ResetResultPartColor(names);
         }
-        [PythonAPI("Sets the transparency of result parts using command history. The value is the alpha " +
-                   "channel, from 0 for invisible to 255 for opaque.",
-                   Arguments = "part_names: list[str] or str, transparency: int", Returns = "None")]
-        public void set_transparency(object part_names, object transparency)
+        [PythonAPI("Sets the opacity of result parts using command history: the alpha channel of their color, " +
+                   "as an integer from 0 for fully transparent to 255 for opaque.",
+                   Arguments = "part_names: list[str] or str, opacity: int", Returns = "None")]
+        public void set_opacity(object part_names, object opacity)
         {
             string[] names = ResolvePartNames(part_names);
-            byte alpha = PythonColorConverter.ToAlpha(transparency, "transparency");
+            byte alpha = PythonColorConverter.ToAlpha(opacity, "opacity");
             EnsureCommandsAvailable();
             _commandGateway.SetResultPartTransparency(names, alpha);
         }

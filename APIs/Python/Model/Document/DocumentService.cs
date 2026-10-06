@@ -13,6 +13,7 @@ using CaeModel;
 using CaeResults;
 using FileInOut.Output;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace APIs.Python.Model
@@ -162,14 +163,26 @@ namespace APIs.Python.Model
         {
             return _modelResolver.GetModel().Properties.BdmRemeshing;
         }
-        public string GetPropertyEquation(string name)
+        public int GetNumberOfCycles()
+        {
+            return (int)_modelResolver.GetModel().Properties.NumberOfCycles.Value;
+        }
+        public int GetCyclesIncrement()
+        {
+            return (int)_modelResolver.GetModel().Properties.CyclesIncrement.Value;
+        }
+        public int GetNumberOfSmoothingSteps()
+        {
+            return (int)_modelResolver.GetModel().Properties.NumOfSmoothingSteps.Value;
+        }
+        public Dictionary<string, string> GetPropertyEquations()
         {
             ModelProperties properties = _modelResolver.GetModel().Properties;
-            if (name == "number_of_cycles") return properties.NumberOfCycles.String;
-            if (name == "cycles_increment") return properties.CyclesIncrement.String;
-            if (name == "number_of_smoothing_steps") return properties.NumOfSmoothingSteps.String;
-            //
-            throw new PythonAPIException("The model property '" + name + "' is not an equation.");
+            Dictionary<string, string> equations = new Dictionary<string, string>();
+            equations["number_of_cycles"] = properties.NumberOfCycles.String;
+            equations["cycles_increment"] = properties.CyclesIncrement.String;
+            equations["number_of_smoothing_steps"] = properties.NumOfSmoothingSteps.String;
+            return equations;
         }
         // An undefined physical constant is stored as an infinity, and reads back as None
         public object GetAbsoluteZero()

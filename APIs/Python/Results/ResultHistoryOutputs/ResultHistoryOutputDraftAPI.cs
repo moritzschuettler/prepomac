@@ -24,8 +24,9 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The result history output name.", Returns = "str")]
         public string name { get { return _name; } }
-        [PythonAPI("The selection or read-only result mesh region used by the history output, or None for an " +
-                   "equation output.", Returns = "Selection, NodeSet, ElementSet, Surface, or None")]
+        [PythonAPI("The selection, named region or read-only result mesh region used by the history output, or " +
+                   "None for an output without a region.",
+                   Returns = "Selection, Region, NodeSet, ElementSet, Surface, or None")]
         public object region { get { return _region; } }
         [PythonAPI("The optional first history-output filter.", Returns = "HistoryOutputFilter or None")]
         public ResultHistoryOutputFilterAPI filter1
@@ -69,6 +70,11 @@ namespace APIs.Python
                 meshRegion.ValidateForResult(resultName);
                 output.RegionType = meshRegion.RegionType;
                 output.RegionName = meshRegion.name;
+            }
+            else if (_region is RegionAPI named)
+            {
+                output.RegionType = named.RegionType;
+                output.RegionName = named.name;
             }
             else if (_region != null)
                 throw new PythonAPIException("The history output region type '" + _region.GetType().Name +

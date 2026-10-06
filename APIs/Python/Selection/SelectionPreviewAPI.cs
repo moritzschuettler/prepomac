@@ -17,7 +17,7 @@ namespace APIs.Python
         // Variables
         private readonly string _target;
         private readonly int _count;
-        private readonly object _ids;
+        private readonly IntListAPI _ids;
         private readonly StringListAPI _partNames;
         private readonly NumericArrayAPI _boundingBox;
         private readonly NumericArrayAPI _centroid;
@@ -30,8 +30,8 @@ namespace APIs.Python
                    Returns = "int")]
         public int count { get { return _count; } }
         [PythonAPI("The resolved IDs: node IDs, element IDs, part IDs or geometry IDs, following the target.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+                   Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("The names of the parts the resolved items belong to.", Returns = "StringList")]
         public StringListAPI part_names { get { return _partNames; } }
         [PythonAPI("The bounding box of the resolved items as [xMin, xMax, yMin, yMax, zMin, zMax], or an " +
@@ -48,7 +48,7 @@ namespace APIs.Python
         {
             _target = target;
             _count = ids == null ? 0 : ids.Length;
-            _ids = NumPyConverter.ToPythonArray(ids);
+            _ids = new IntListAPI(ids);
             _partNames = new StringListAPI(partNames);
             _boundingBox = new NumericArrayAPI(boundingBox);
             _centroid = new NumericArrayAPI(centroid);

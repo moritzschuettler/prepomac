@@ -38,7 +38,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
-                               "color: list[int] = None", Returns = "Load",
+                               "color: list[int] or str = None", Returns = "Load",
                    Example = "step.loads.add_concentrated_force('Force-1', selection, f3=-1000)")]
         public LoadAPI add_concentrated_force(string name, object region, object f1 = null, object f2 = null,
                                               object f3 = null, object amplitude_name = null,
@@ -339,7 +339,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a centrifugal load using command history. The axis is given by a point and a " +
-                   "direction. The selection target is elements.",
+                   "direction, and the rotational_speed is in rad/s. The selection target is elements.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, rotational_speed: float = None, and the " +
                                "shared load arguments", Returns = "Load")]

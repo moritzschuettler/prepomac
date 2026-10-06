@@ -98,9 +98,17 @@ def test_model_properties():
     #
     properties.replace(model_type="SlipWearModel", number_of_cycles=10, cycles_increment=2,
                        number_of_smoothing_steps=3, bdm_remeshing=True, slip_wear_results="All")
-    check(magnitude(properties.number_of_cycles) == 10, "the cycle count did not read back: " +
+    check(properties.number_of_cycles == 10 and isinstance(properties.number_of_cycles, int),
+          "the cycle count did not read back as a whole number: " + str(properties.number_of_cycles))
+    check(properties.cycles_increment == 2, "the cycle increment did not read back")
+    check(properties.number_of_smoothing_steps == 3, "the smoothing step count did not read back")
+    # A slip wear count is evaluated from its equation, which get_equations() returns as it was entered
+    properties.replace(number_of_cycles="=4*5")
+    check(properties.number_of_cycles == 20, "the cycle count equation was not evaluated: " +
           str(properties.number_of_cycles))
-    check(magnitude(properties.cycles_increment) == 2, "the cycle increment did not read back")
+    equations = properties.get_equations()
+    check(equations["number_of_cycles"] == "=4*5", "the cycle count equation did not read back: " + str(equations))
+    check(magnitude(equations["cycles_increment"]) == 2, "the cycle increment equation did not read back")
     check(properties.bdm_remeshing, "BDM remeshing was not set")
     check(properties.slip_wear_results == "All", "the slip wear results were not set")
     # An undefined physical constant reads back as None, and only clear_undefined_constants clears one

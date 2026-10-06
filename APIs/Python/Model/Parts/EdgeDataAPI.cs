@@ -15,8 +15,8 @@ namespace APIs.Python.Model
     {
         // Variables
         private readonly int _count;
-        private readonly object _ids;
-        private readonly object _geometryIds;
+        private readonly IntListAPI _ids;
+        private readonly IntListAPI _geometryIds;
         private readonly object _lengths;
         private readonly object _centroids;
         private readonly StringListAPI _types;
@@ -26,11 +26,11 @@ namespace APIs.Python.Model
         [PythonAPI("The number of edges.", Returns = "int")]
         public int count { get { return _count; } }
         [PythonAPI("The 1-based edge IDs of the part, as the 'edges' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+                   Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("The geometry ID of every edge, as the 'geometry' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object geometry_ids { get { return _geometryIds; } }
+                   Returns = "IntList")]
+        public IntListAPI geometry_ids { get { return _geometryIds; } }
         [PythonAPI("The canonical length of every edge, in model units. Geometry parts use exact CAD values; " +
                    "model and result parts keep their mesh-computed values.", Returns = "numpy.ndarray or NumericArray")]
         public object lengths { get { return _lengths; } }
@@ -47,8 +47,8 @@ namespace APIs.Python.Model
         internal EdgeDataAPI(int[] ids, int[] geometryIds, double[] lengths, double[,] centroids, string[] types)
         {
             _count = ids == null ? 0 : ids.Length;
-            _ids = NumPyConverter.ToPythonArray(ids);
-            _geometryIds = NumPyConverter.ToPythonArray(geometryIds);
+            _ids = new IntListAPI(ids);
+            _geometryIds = new IntListAPI(geometryIds);
             _lengths = NumPyConverter.ToPythonArray(lengths);
             _centroids = NumPyConverter.ToPythonArray(centroids);
             _types = new StringListAPI(types);

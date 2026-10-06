@@ -16,8 +16,8 @@ namespace APIs.Python.Model
     {
         // Variables
         private readonly int _count;
-        private readonly object _nodeIds;
-        private readonly object _geometryIds;
+        private readonly IntListAPI _nodeIds;
+        private readonly IntListAPI _geometryIds;
         private readonly object _coordinates;
 
 
@@ -25,11 +25,11 @@ namespace APIs.Python.Model
         [PythonAPI("The number of vertices.", Returns = "int")]
         public int count { get { return _count; } }
         [PythonAPI("The node ID of every vertex, as the 'vertices' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object node_ids { get { return _nodeIds; } }
+                   Returns = "IntList")]
+        public IntListAPI node_ids { get { return _nodeIds; } }
         [PythonAPI("The geometry ID of every vertex, as the 'geometry' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object geometry_ids { get { return _geometryIds; } }
+                   Returns = "IntList")]
+        public IntListAPI geometry_ids { get { return _geometryIds; } }
         [PythonAPI("The coordinates of every vertex with shape (vertex_count, 3).",
                    Returns = "numpy.ndarray or NumericArray")]
         public object coordinates { get { return _coordinates; } }
@@ -39,8 +39,8 @@ namespace APIs.Python.Model
         internal VertexDataAPI(int[] nodeIds, int[] geometryIds, double[,] coordinates)
         {
             _count = nodeIds == null ? 0 : nodeIds.Length;
-            _nodeIds = NumPyConverter.ToPythonArray(nodeIds);
-            _geometryIds = NumPyConverter.ToPythonArray(geometryIds);
+            _nodeIds = new IntListAPI(nodeIds);
+            _geometryIds = new IntListAPI(geometryIds);
             _coordinates = NumPyConverter.ToPythonArray(coordinates);
         }
 

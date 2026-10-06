@@ -19,15 +19,15 @@ namespace APIs.Python
         private readonly int[] _rawIds;
         private readonly int[] _rawOffsets;
         private readonly int[] _rawConnectivity;
-        private readonly object _ids;
+        private readonly IntListAPI _ids;
         private readonly object _offsets;
         private readonly object _nodeCounts;
         private readonly object _connectivity;
 
 
         // Properties
-        [PythonAPI("Element IDs.", Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+        [PythonAPI("Element IDs.", Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("Compressed connectivity offsets with length element_count + 1.", Returns = "numpy.ndarray or IntList")]
         public object offsets { get { return _offsets; } }
         [PythonAPI("Number of nodes for each element.", Returns = "numpy.ndarray or IntList")]
@@ -47,7 +47,7 @@ namespace APIs.Python
             _rawConnectivity = connectivity != null ? connectivity.ToArray() : new int[0];
             int[] nodeCounts = new int[_count];
             for (int i = 0; i < _count; i++) nodeCounts[i] = _rawOffsets[i + 1] - _rawOffsets[i];
-            _ids = NumPyConverter.ToPythonArray(_rawIds);
+            _ids = new IntListAPI(_rawIds);
             _offsets = NumPyConverter.ToPythonArray(_rawOffsets);
             _nodeCounts = NumPyConverter.ToPythonArray(nodeCounts);
             _connectivity = NumPyConverter.ToPythonArray(_rawConnectivity);

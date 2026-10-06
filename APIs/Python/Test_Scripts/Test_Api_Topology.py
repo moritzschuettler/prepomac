@@ -37,6 +37,9 @@ def test_face_data(part):
     faces = part.get_face_data()
     check(faces.count == 6, "the cube must have 6 faces, got " + str(faces.count))
     check(len(list(faces.ids)) == 6, "the face IDs must match the count")
+    # A list of IDs is an IntList wherever it comes from, the data columns of the topology included
+    for ids in (faces.ids, faces.geometry_ids):
+        check(type(ids).__name__ == "IntListAPI", "a face ID list must be an IntList: " + type(ids).__name__)
     check(sorted(int(i) for i in faces.ids) == [1, 2, 3, 4, 5, 6],
           "the face IDs must be 1-based and contiguous: " + str(list(faces.ids)))
     check(len(list(faces.types)) == 6, "every face must carry a type")
@@ -85,6 +88,9 @@ def test_edge_and_vertex_data(part):
     #
     vertices = part.get_vertex_data()
     check(vertices.count == 8, "the cube must have 8 vertices, got " + str(vertices.count))
+    for ids in (edges.ids, edges.geometry_ids, vertices.node_ids, vertices.geometry_ids):
+        check(type(ids).__name__ == "IntListAPI", "an edge or vertex ID list must be an IntList: " +
+              type(ids).__name__)
     node_ids = sorted(int(i) for i in vertices.node_ids)
     check(node_ids == sorted(int(i) for i in part.get_node_ids()),
           "every node of a single hexahedron is a vertex: " + str(node_ids))
@@ -101,6 +107,8 @@ def test_preview(part, top_face_id):
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {part.id: [top_face_id]})
     preview = selection.preview()
     check(preview.target == "nodes", "the preview must report the target: " + preview.target)
+    check(type(preview.ids).__name__ == "IntListAPI" and len(preview.ids) == preview.count,
+          "the preview IDs must be an IntList of count IDs: " + type(preview.ids).__name__)
     check(preview.count == 4, "the top face of a hexahedron covers 4 nodes, got " + str(preview.count))
     check(list(preview.part_names) == [part.name],
           "the preview must name the part: " + str(list(preview.part_names)))

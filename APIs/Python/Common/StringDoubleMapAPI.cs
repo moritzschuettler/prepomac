@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using Python.Runtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,9 +28,12 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The number of name-value pairs.", Returns = "int")]
         public int count { get { return _keys.Length; } }
-        public int Count { get { return _keys.Length; } }
-        public IEnumerable<string> Keys { get { return _keys; } }
-        public IEnumerable<double> Values { get { return _keys.Select(key => _values[key]); } }
+        int IReadOnlyCollection<KeyValuePair<string, double>>.Count { get { return _keys.Length; } }
+        IEnumerable<string> IReadOnlyDictionary<string, double>.Keys { get { return _keys; } }
+        IEnumerable<double> IReadOnlyDictionary<string, double>.Values
+        {
+            get { return _keys.Select(key => _values[key]); }
+        }
         public double this[string key] { get { return _values[key]; } }
 
 
@@ -63,6 +67,45 @@ namespace APIs.Python
         public StringListAPI get_names()
         {
             return new StringListAPI(_keys);
+        }
+
+        [PythonAPI("Returns the item names, the way dict.keys() does.", Returns = "StringList")]
+        public StringListAPI keys()
+        {
+            return new StringListAPI(_keys);
+        }
+        [PythonAPI("Returns the values in the order of keys().", Returns = "numpy.ndarray or NumericArray")]
+        public object values()
+        {
+            return NumPyConverter.ToPythonArray(_keys.Select(key => _values[key]).ToArray());
+        }
+        [PythonAPI("Returns the name-value pairs as a list of (name, value) tuples, the way dict.items() does.",
+                   Returns = "list[tuple[str, float]]",
+                   Example = "for name, limit in output.item_limits.items(): print(name, limit)")]
+        public PyObject items()
+        {
+            using (Py.GIL())
+            {
+                PyList pairs = new PyList();
+                foreach (string key in _keys)
+                {
+                    using (PyString name = new PyString(key))
+                    using (PyFloat value = new PyFloat(_values[key]))
+                    using (PyTuple pair = new PyTuple(new PyObject[] { name, value }))
+                    {
+                        pairs.Append(pair);
+                    }
+                }
+                return pairs;
+            }
+        }
+        [PythonAPI("Returns the value of the named item, or the default when there is no such item, the way " +
+                   "dict.get() does.", Arguments = "name: str, default: float = None", Returns = "float or None")]
+        public object get(string name, object @default = null)
+        {
+            double value;
+            if (name != null && _values.TryGetValue(name, out value)) return value;
+            return @default;
         }
 
         [PythonAPI("Returns true if the item name exists.", Arguments = "name: str", Returns = "bool")]

@@ -105,6 +105,9 @@ def test_the_other_methods(sub_parts):
     cube = boxes([cube_part()])
     pmx.view.apply_exploded_view(0.5, "Disassembly", 2, "Z", True)
     check(pmx.view.exploded_view_active, "the disassembly method must apply")
+    # The coordinate axes the movement is limited to are 'axes', not a direction vector
+    pmx.view.apply_exploded_view(0.5, "AssemblyCenter", 2, axes="xy")
+    check(pmx.view.exploded_view_active, "the axes must be taken regardless of case")
     pmx.view.apply_exploded_view(1, "CenterPoint", 500, center=[0, 0, 0])
     check(pmx.view.exploded_view_active, "the center point method must apply")
     check_moved_as_one_body(unexploded, boxes(sub_parts), largest_shift(cube, boxes([cube_part()])) > 1E-6)
@@ -126,7 +129,8 @@ def test_refusals():
                  "the CenterPoint method without a center must be refused")
     check_raises(lambda: pmx.view.apply_exploded_view(1, "CenterPoint", 2, center=[0, 0]),
                  "a center without 3 coordinates must be refused")
-    check_raises(lambda: pmx.view.apply_exploded_view(1, direction="W"), "an unknown direction must be refused")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, axes="W"), "unknown axes must be refused")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, direction="XY"), "direction was renamed to axes")
     check_raises(lambda: pmx.view.apply_exploded_view(1, tolerance=-1), "a negative tolerance must be refused")
     check(not pmx.view.exploded_view_active, "a refused call must apply nothing")
 

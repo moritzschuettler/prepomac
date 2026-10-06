@@ -47,7 +47,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.geometry.parts", "set_transparency", PythonValueFormatter.List(_partNames),
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "set_opacity", PythonValueFormatter.List(_partNames),
                                          PythonValueFormatter.Format(_alpha)));
             writer.CountEmittedCommand();
         }

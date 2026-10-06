@@ -48,6 +48,7 @@ namespace PrePoMax.Rpc
         private volatile bool _isStopping;
         private bool _isReadOnlyRequested;
         private int _requestedPort;
+        private int _requestedTimeout;
         private string _lastError;
 
 
@@ -83,6 +84,13 @@ namespace PrePoMax.Rpc
             get { return _requestedPort; }
             set { _requestedPort = value; }
         }
+        // The request timeout the command line asked for, for this run only. Zero means the settings decide
+        public int RequestedTimeout
+        {
+            get { return _requestedTimeout; }
+            set { _requestedTimeout = value; }
+        }
+        public int RequestTimeout { get { return _requestedTimeout > 0 ? _requestedTimeout : Settings.RequestTimeout; } }
         public bool IsReadOnly { get { return _isReadOnlyRequested || Settings.IsReadOnly; } }
         public AutomationSettings Settings
         {
@@ -118,6 +126,7 @@ namespace PrePoMax.Rpc
             _isStopping = false;
             _isReadOnlyRequested = false;
             _requestedPort = 0;
+            _requestedTimeout = 0;
             _lastError = null;
         }
 

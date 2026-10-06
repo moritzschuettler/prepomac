@@ -32,7 +32,7 @@ MAXIMUM_BODY = 4 * 1024 * 1024
 SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 EXPECTED_TOOLS = ["get_guide", "list_sessions", "get_status", "describe_api", "read_model",
-                  "read_topology", "eval_expression", "run_python", "get_history", "run_job",
+                  "read_topology", "eval_expression", "run_python", "get_call", "get_history", "run_job",
                   "get_job", "screenshot"]
 
 
@@ -366,6 +366,36 @@ def check_writing_tools(endpoint):
     print("get_history: " + str(history["commandCount"]) + " commands, journalled")
 
 
+def check_a_long_call(endpoint):
+    """run_python past its timeout is answered with a call id, keeps running, and get_call collects it."""
+    status = json.loads(endpoint.tool("get_status"))
+    check(status["calls"] == [], "no call may be pending yet: " + str(status["calls"]))
+    source = os.linesep.join(["import time", "time.sleep(4)", "pmx.model.parameters.add('mcp_long', 2.5)",
+                              "print('mcp_long done')"])
+    started = time.time()
+    answer = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 1}))
+    check(answer.get("running") is True and answer["callId"] > 0, "the call must be answered as running: " + str(answer))
+    check(time.time() - started < 3.0, "the caller must be answered after its timeout, not after the call")
+    call_id = answer["callId"]
+    status = json.loads(endpoint.tool("get_status"))
+    check(not status["isIdle"] and ("Automation call " + str(call_id)) in status["busyReason"],
+          "get_status must name the running call: " + str(status))
+    answer = json.loads(endpoint.tool("get_call", {"call_id": call_id, "timeout": 30}))
+    check("running" not in answer and not answer["failed"], "get_call must return the finished call: " + str(answer))
+    check("mcp_long done" in answer["output"], "the output must be handed over: " + answer["output"])
+    check([entry["type"] for entry in answer["recordedCommands"]] == ["CAddParameter"],
+          "the call must have recorded its command: " + str(answer["recordedCommands"]))
+    text = endpoint.failing_tool("get_call", {"call_id": call_id})
+    check(str(call_id) in text, "a collected answer must not be handed over twice: " + text)
+    text = endpoint.failing_tool("run_python", {"source": "pmx.model.parameters.add('mcp_never', 1.0)",
+                                                "timeout": 601})
+    check("timeout" in text, "a timeout out of range must be refused by name: " + text)
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.model.parameters.get_names()"}))
+    check("mcp_long" in value["value"] and "mcp_never" not in value["value"],
+          "the long call must have changed the model and the refused one not: " + str(value["value"]))
+    print("run_python: a 4 s call answered as running after 1 s, collected by get_call with its command")
+
+
 def check_screenshot(endpoint):
     result = json.loads(endpoint.tool("screenshot"))
     check(os.path.exists(result["fileName"]), "the screenshot must exist: " + result["fileName"])
@@ -463,6 +493,7 @@ def main():
         check_reading_tools(endpoint, session)
         check_describing_a_type(endpoint)
         check_writing_tools(endpoint)
+        check_a_long_call(endpoint)
         check_screenshot(endpoint)
         check_refusals(endpoint)
         second = check_second_instance(endpoint, session, port)

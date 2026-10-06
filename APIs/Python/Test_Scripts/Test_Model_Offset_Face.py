@@ -58,8 +58,11 @@ def selection(part, rows):
 
 def offset_faces(selection_to_use, offset=None):
     if offset is None:
-        return list(pmx.model.geometry.parts.offset_face(selection_to_use))
-    return list(pmx.model.geometry.parts.offset_face(selection_to_use, offset))
+        names = pmx.model.geometry.parts.offset_face(selection_to_use)
+    else:
+        names = pmx.model.geometry.parts.offset_face(selection_to_use, offset)
+    check(type(names).__name__ == "StringListAPI", "offset_face must return a StringList: " + type(names).__name__)
+    return list(names)
 
 
 def part_named(name):

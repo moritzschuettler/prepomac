@@ -114,7 +114,7 @@ namespace APIs.Python
         }
         [PythonAPI("Adds a result reference point using command history.",
                    Arguments = "name: str, coordinates: list[float], name_visible: bool = None, " +
-                               "color: list[int] = None", Returns = "ReferencePoint",
+                               "color: list[int] or str = None", Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add('RP-1', [0, 0, 0])")]
         public ResultReferencePointAPI add(string name, object coordinates, object name_visible = null,
                                            object color = null)
@@ -132,7 +132,7 @@ namespace APIs.Python
                    "The mode is OnPoint, BetweenTwoPoints or CircleCenter, and the coordinates are " +
                    "computed by the result mesh.",
                    Arguments = "name: str, created_from: str, selection: Selection, " +
-                               "name_visible: bool = None, color: list[int] = None",
+                               "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add_from_selection('RP-1', " +
                              "'CircleCenter', selection)")]
@@ -152,7 +152,7 @@ namespace APIs.Python
                    "mode is CenterOfGravity or BoundingBoxCenter, and the region type is NodeSetName or " +
                    "SurfaceName.",
                    Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
-                               "name_visible: bool = None, color: list[int] = None",
+                               "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
         public ResultReferencePointAPI add_from_region(string name, string created_from, string region_type,
                                                        string region_name, object name_visible = null,
@@ -171,7 +171,7 @@ namespace APIs.Python
                    "definition and are always given; the name and the display values may be left out and " +
                    "are kept.",
                    Arguments = "old_name: str, name: str = None, coordinates: list[float], " +
-                               "name_visible: bool = None, color: list[int] = None",
+                               "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
         public ResultReferencePointAPI replace(string old_name, string name = null, object coordinates = null,
                                                object name_visible = null, object color = null)
@@ -191,7 +191,7 @@ namespace APIs.Python
                    "always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "selection: Selection = None, name_visible: bool = None, " +
-                               "color: list[int] = None", Returns = "ReferencePoint")]
+                               "color: list[int] or str = None", Returns = "ReferencePoint")]
         public ResultReferencePointAPI replace_from_selection(string old_name, string name = null,
                                                               string created_from = null,
                                                               SelectionAPI selection = null,
@@ -211,7 +211,7 @@ namespace APIs.Python
                    "does. The mode and the region are the whole definition and are always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "region_type: str = None, region_name: str = None, " +
-                               "name_visible: bool = None, color: list[int] = None",
+                               "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
         public ResultReferencePointAPI replace_from_region(string old_name, string name = null,
                                                            string created_from = null, string region_type = null,

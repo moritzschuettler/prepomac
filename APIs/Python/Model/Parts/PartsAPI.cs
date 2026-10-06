@@ -42,7 +42,8 @@ namespace APIs.Python.Model
             _service.Show(_service.ResolveNames(names, "names"));
         }
 
-        [PythonAPI("Sets the color of the named parts. The color is [R, G, B], [R, G, B, A] or a color name.",
+        [PythonAPI("Sets the color of the named parts. The color is [R, G, B] or [R, G, B, A] with channels " +
+                   "from 0 to 255, or a .NET color name such as 'Red'.",
                    Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None",
                    Example = "parts.set_color('Solid-1', [255, 0, 0])")]
         public void set_color(object part_names, object color)
@@ -57,11 +58,13 @@ namespace APIs.Python.Model
             _service.ResetColor(_service.ResolveNames(part_names));
         }
 
-        [PythonAPI("Sets the transparency of the named parts. 0 is fully transparent, 255 is opaque.",
-                   Arguments = "part_names: list[str] or str, transparency: int", Returns = "None")]
-        public void set_transparency(object part_names, object transparency)
+        [PythonAPI("Sets the opacity of the named parts, the alpha channel of their color, as an integer from " +
+                   "0 for fully transparent to 255 for opaque.",
+                   Arguments = "part_names: list[str] or str, opacity: int", Returns = "None",
+                   Example = "parts.set_opacity('Solid-1', 128)")]
+        public void set_opacity(object part_names, object opacity)
         {
-            _service.SetTransparency(_service.ResolveNames(part_names), transparency);
+            _service.SetOpacity(_service.ResolveNames(part_names), opacity);
         }
 
         [PythonAPI("Replaces the properties of a part using command history. A property that is not given " +

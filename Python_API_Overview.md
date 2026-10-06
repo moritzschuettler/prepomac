@@ -21,7 +21,11 @@ The root object available in the Python console is `pmx`.
 - Option strings of the result side are the PascalCase names of the application's enumerations (`AllNodes`, `FieldByGeometry`, `RealAtAngle`, ...). They are matched regardless of case and read back in
   that spelling. Result and mesh members take snake_case arguments (`node_id`, `step_id`, `field_name`, ...). `contains` takes `name`, or
   `id` where the collection is keyed by an ID (result steps, increments and elements).
-- NumPy is optional. Where available, numeric arrays are returned as NumPy arrays. Otherwise, `NumericArray` or typed API list wrappers are returned.
+- Return shapes follow one rule. Every list of IDs (node, element, face, edge, vertex, geometry, step and increment IDs, keyword indices, ...) is an `IntList`
+  and every list of names is a `StringList`, with or without NumPy. Bulk numeric data - coordinates, values, areas, normals, offsets and connectivity
+  columns - is a NumPy array where NumPy is available and a `NumericArray` otherwise. NumPy is optional.
+- Every `color` argument is a `list[int]` or a `str`: `[R, G, B]` or `[R, G, B, A]` with channels from 0 to 255, or a .NET color name such as `'Red'`.
+  A color read back is always `[R, G, B, A]`.
 - A map a member returns (`get_settings`, `get_equations`, `get_element_types`, `mesh.generate`, the geometry operations' counts, ...) is a Python `dict`, so it prints its content and supports `in`, `.items()` and indexing.
 - Methods that construct Python-side objects do not modify PrePoMax. They make either a detached part
   that an `add` takes as an argument - a maker on `pmx.create`, such as `pmx.create.elastic(...)`,
@@ -155,6 +159,7 @@ The server is off until the user turns it on. Unpacking PrePoMax opens nothing.
 | `--rpc On` | Starts the server for the run. It also allows `-g No` on its own, which is a session with no window for an agent to drive. |
 | `--rpc ReadOnly` | The same, with the model protected against change for the whole run. |
 | `--rpcPort <n>` | The port for this run, instead of the one in the settings. |
+| `--rpcTimeout <s>` | The request timeout for this run, 5 to 600 s, instead of the one in the settings. Not `--timeout`, which limits the whole run. |
 
 There is deliberately **no switch for the token**. An unattended run reads the one in the folder's
 settings, so a folder has to be opened once with its window and given a token before `-g No` can
@@ -221,7 +226,8 @@ the PrePoMax folder or unpacking a new version leaves it correct, which the old 
 | `read_model` | A JSON snapshot of the model: properties, collections, steps with their content, analyses with their status. |
 | `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
-| `run_python` | Python against the live model, recorded as commands or as one script. |
+| `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
+| `get_call` | The answer of a `run_python` or `eval_expression` call that outlasted its wait, collected by its `callId`. |
 | `get_history` | The command history, and the journal of it as a Python script. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface. |
 | `get_job` | The status of an analysis, and its solver output on request. |
@@ -291,6 +297,15 @@ to tell the user which address to configure, not to switch.
   connection it arrived on, the way a `--script` run runs it, so the window stays usable and another
   connection is still answered while a six second call is in flight. Calls that reach the model are
   served one at a time, so two agents cannot interleave halfway through a change.
+- **A call that outlasts its wait is answered, not abandoned.** `run_python` and `eval_expression`
+  (`exec` and `eval` over RPC) run on a thread of their own, and the caller waits as long as the request
+  timeout says - 30 s by default, the `--rpcTimeout` of the run - or as long as the call's own optional
+  `timeout` argument says, 0 to 600 s (0 answers at once). A call still running then is answered with
+  `{running, callId, method, elapsed, message}`; it goes on to the end on that thread, is recorded
+  normally, and keeps its answer until `wait` - `get_call` over MCP, with the `callId` and an optional
+  `timeout` - collects it, once. `get_call` answers `running` again when the call is still working. It keeps the turn meanwhile, so another call that would change the model waits
+  for it and is refused as busy with the call named; `status` reports it as the busy reason without
+  asking the window, and lists it under `calls`.
 - **A call that lasts marks the application busy.** Once an agent call has been running for a third
   of a second it takes the state the application uses for its own long operations - the status bar
   says *Automation server...*, the menus and toolbars go quiet, and the view stops redrawing - so the
@@ -456,10 +471,14 @@ Read-only ordered mapping from string names to floating-point values.
 
 | Member | Description |
 | --- | --- |
-| `count` | Number of name-value pairs. |
 | `len(mapping)` | Number of name-value pairs. |
 | `mapping[name]` | Value for the specified name. |
 | `name in mapping` | Checks whether a name exists. |
+| `for name, value in mapping` | Iterating yields the name-value pairs. |
+| `keys()` | Returns the names as `StringList`, the way `dict.keys()` does. |
+| `values()` | Returns the values in the order of `keys()`, as a NumPy array or `NumericArray`. |
+| `items()` | Returns the pairs as a list of `(name, value)` tuples, the way `dict.items()` does. |
+| `get(name, default=None)` | Returns the value of the named item, or `default` when there is no such item. |
 | `get_names()` | Returns names as `StringList`. |
 | `contains(name)` | Checks whether a name exists. |
 
@@ -470,8 +489,8 @@ Read-only fallback for numeric arrays when NumPy is unavailable.
 | Member | Description |
 | --- | --- |
 | `shape` | Array dimensions as an `IntList`. |
-| `count` | Total number of values. |
-| `len(array)` | Length of the first dimension. |
+| `size` | Total number of values: the product of the shape, as NumPy reports it. |
+| `len(array)` | Number of rows, the length of the first dimension. |
 | `array[index]` | Value or row at the specified index. |
 | `to_array()` | Returns a copied CLR array. |
 
@@ -600,10 +619,11 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
 | `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable. |
-| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values, as the value or equation they were entered with. Writable. |
+| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable with an `int` or a `str`; a `str` is an equation and its value is rounded to a whole number. |
+| `get_equations()` | The equations of those three values without evaluating them, as a `dict[str, str]`. |
 | `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants, or `None` while they are undefined. Writable. |
-| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. |
+| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. |
 
 A physical constant that has never been given reads back as `None`. Because a value that is not given
 is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
@@ -808,7 +828,7 @@ failed = {name: why for name, why in pmx.model.mesh.generate(part.name).items() 
 | `item_type` | The item type, named after the `add_*` method that makes it without `add_`: `meshing_parameters`, `local_mesh_size`, `shell_mmg`, `thicken_shell_mesh`, `netgen_mesh`, `tetrahedral_gmsh`, `shell_gmsh`, `transfinite_mesh`, `sweep_mesh` or `shell_quad_wild`. |
 | `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
-| `get_geometry_ids()` | The geometry IDs the item was created from. |
+| `get_geometry_ids()` | The geometry IDs the item was created from, as an `IntList`. |
 | `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `add_*` argument that sets each - `max_size`, `min_size`, `element_size`, `optimize_steps_2d`, `optimize_steps_3d`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg`. A stored value no argument sets keeps the name of its property. List valued settings such as `layer_sizes` and `elements_per_layer` are included, so the dictionary is the complete definition. |
 
 ### `Nodes` and `Elements` of the model mesh
@@ -833,7 +853,7 @@ Every `part_names` argument accepts a single name or a list of names.
 | `hide(names)`, `show(names)` | Part visibility. |
 | `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. |
 | `reset_color(part_names)` | Restores the default color. |
-| `set_transparency(part_names, transparency)` | 0 is fully transparent, 255 is opaque. |
+| `set_opacity(part_names, opacity)` | The alpha channel of the part color as an integer: 0 is fully transparent, 255 is opaque. Geometry, model and result parts take it alike. |
 | `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
 | `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
@@ -900,7 +920,7 @@ pmx.model.geometry.parts.split_shell(top, line)
 ```
 
 A compound part made by a solid split gathers its cells under the solids they were cut from, and
-those are the sub-parts the tree shows. `part.split_sub_part_names` lists them, empty for any other
+those are the sub-parts the tree shows. `part.split_sub_part_names` lists them as a `StringList`, empty for any other
 part, and `rename_split_sub_part(part_name, old_name, new_name)` renames one the way renaming it in
 the tree does: its cells are renamed after it, and so is the mesh part it was meshed into. A name
 another part already uses is refused, compared regardless of case as the tree compares it.
@@ -921,7 +941,7 @@ sub-part named after the one the first cell belongs to. The
 cells that join a sub-part take its color, a sub-part left without cells is gone, and the method
 returns the name of the sub-part. A grouping that would change nothing is refused, and so is putting
 all the cells of one sub-part under a new name, which is what `rename_split_sub_part` does.
-`part.get_split_cell_names(sub_part_name)` lists the cells of a sub-part.
+`part.get_split_cell_names(sub_part_name)` lists the cells of a sub-part as a `StringList`.
 
 ```python
 steel = compound.get_split_cell_names('Web')[:2]
@@ -963,7 +983,7 @@ pmx.model.geometry.parts.fuse_bodies(compound.name, ['Web', 'Flange'])
 `offset_face(selection, offset=0)` is the one that adds rather than changes: the picked surfaces
 are lifted out of the parts that carry them and become new shell parts, named after the part they
 were taken from, and that part is left exactly as it was. It returns the names of the parts that
-were created.
+were created, as a `StringList`.
 
 The unit of a face offset is the geometry the surfaces are written out of, and the surfaces picked on
 one geometry are sewn together where they touch, so they come back as one body rather than as loose
@@ -1036,7 +1056,7 @@ pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
 removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
-names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # ['Solid-1_Offset-1']
+names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # StringList: Solid-1_Offset-1
 ```
 
 `translate` and `rotate` take `number_of_copies`: 0 moves the parts, and a larger value keeps them
@@ -1062,7 +1082,7 @@ transforms can be done while the exploded view is on.
 | `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a meshed solid reports the area of the CAD part it was meshed from, and `0.0` when there is none - an imported mesh has none. The area of the mesh itself is the sum of `get_face_data().areas`. |
 | `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices, or an empty array when unavailable. They are **second moments of volume**: the density is 1, so the values are in model length units to the fifth power, and a mass inertia is the matrix multiplied by the material density. Only CAD geometry computes them, so a meshed part carries the matrices of the CAD part it was meshed from and an imported mesh has none. |
 | `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. Geometry parts use the CAD entity bounds when available. |
-| `get_node_ids()`, `get_element_ids()` | The part node and element IDs. |
+| `get_node_ids()`, `get_element_ids()` | The part node and element IDs, as `IntList`s. |
 | `get_node_coordinates()` | The coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. This is the route to the nodes of a geometry part, because `pmx.model.nodes` is the model mesh and holds nothing until the model is meshed. |
 | `get_face_data()` | The faces of the part as `FaceData`. |
 | `get_edge_data()` | The edges of the part as `EdgeData`. |
@@ -1078,11 +1098,11 @@ cannot reach by tetrahedra. `Revolve` is a solid the sweep between two ends cann
 revolution of a group of coplanar surfaces about an axis they touch; a sweep item, or the default sweep of a
 part with no mesh setup item, meshes it by a revolved block. A revolved solid clear of the axis is left to the sweep.
 The recognition depends on the geometry alone, so an exploded view does not change it.
-It also adds `split_sub_part_names`, the sub-parts of a compound part made by `split_solid`,
+It also adds `split_sub_part_names` (a `StringList`), the sub-parts of a compound part made by `split_solid`,
 which `rename_split_sub_part` renames; it is empty for any other part. `get_split_cell_names(sub_part_name)`
-lists the cells of one of them, which `group_split_cells` takes.
+lists the cells of one of them as a `StringList`, which `group_split_cells` takes.
 
-`ModelPart` adds `get_inverted_element_ids()`, the IDs of the inverted or degenerate solid elements
+`ModelPart` adds `get_inverted_element_ids()`, an `IntList` of the IDs of the inverted or degenerate solid elements
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such
 elements rather than refusing the mesh: it writes `<part> has <n> inverted or degenerate elements`
 to the output window, where the line is a link that highlights them, and highlights them once
@@ -1097,14 +1117,14 @@ a selection takes.
 | Member | Description |
 | --- | --- |
 | `count` | The number of faces, edges or vertices. |
-| `ids` | The 1-based face or edge IDs of the part, as the `surfaces` and `edges` selection sources take them. `VertexData` has `node_ids` instead, because a vertex is named by its node. |
-| `geometry_ids` | The geometry ID of every entity, as the `geometry` selection source takes them. |
+| `ids` | The 1-based face or edge IDs of the part, as an `IntList`, as the `surfaces` and `edges` selection sources take them. `VertexData` has `node_ids` instead, because a vertex is named by its node. |
+| `geometry_ids` | The geometry ID of every entity as an `IntList`, as the `geometry` selection source takes them. |
 | `areas`, `lengths` | The canonical area of every face and length of every edge, in model units. Geometry parts use exact CAD values; model and result parts keep mesh-computed values. |
 | `centroids` | The centroid of every face or edge with shape `(count, 3)`. Geometry parts use exact CAD centroids when available; mesh parts use the mean of their node coordinates. `VertexData` has `coordinates`. |
 | `normals` | Faces only. The mean of the cell normals of every face with shape `(count, 3)`. A curved face has no single normal, so it is the direction the face points on average. |
 | `types` | The geometric type of every entity: `Plane`, `Cylinder`, `Cone` and so on for a face, `Line`, `Circle`, `Ellipse` and so on for an edge. |
 
-Every array is a NumPy array where NumPy is available, and an `IntList` or `NumericArray` otherwise.
+`ids`, `geometry_ids` and `node_ids` are `IntList`s. Every other array is a NumPy array where NumPy is available, and a `NumericArray` otherwise.
 A part type that has no faces - a wire, or a compound whose surfaces are picked on its sub parts -
 reports `count` 0 rather than failing.
 
@@ -1118,7 +1138,7 @@ describe the block. `get_entities(kind)` returns the solids, shells, faces or ed
 Each `GeometryMetadataEntity` exposes `kind`, `id`, `property_names` and
 `get_property(name, default=None)`. Properties are passed through generically, so a new Netgen
 property becomes available without adding a dedicated Python member. Scalar values return `float` or
-`str`; vectors return a NumPy array, `NumericArray` or `StringList`. Common properties include
+`str`; numeric vectors return a NumPy array or `NumericArray`, a property whose name ends in `_ids` an `IntList`, and text vectors a `StringList`. Common properties include
 `axis`, `x_direction`, `y_direction`, `radius`, `center`, `apex`, `major_radius`, `minor_radius`,
 `orientation`, `bounding_box`, `face_ids` and `edge_ids`. Circular edges add `closed` and
 `sweep_angle_rad`. Cylindrical faces belonging to one solid add `convexity`: `Convex` means the
@@ -1192,10 +1212,10 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | --- | --- |
 | `add_temperature(name, region, temperature, distribution_name=None)` | Initial temperature. The selection target is `nodes`. A distribution scales the temperature over the region. |
 | `add_translational_velocity(name, region, v1, v2, v3)` | Initial translational velocity. |
-| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. |
+| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. The `rotational_speed` is in rad/s. |
 | `replace_temperature(old_name, name=None, region=None, temperature=None, distribution_name=None)` | Replaces an initial temperature. A value that is not given is kept. |
 | `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None)` | Replaces an initial translational velocity. |
-| `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. |
+| `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. The `rotational_speed` is in rad/s. |
 | `hide(names)`, `show(names)` | Initial condition visibility. |
 
 `InitialCondition` exposes `name`, `item_type` (`'temperature'`, `'translational_velocity'` or
@@ -1302,7 +1322,7 @@ print(node_set.count, node_set.get_node_ids())
 | `count` | The number of nodes. |
 | `valid` | True when the node set resolved during the last regeneration. |
 | `is_internal` | True when the node set was created internally for another model item. |
-| `get_node_ids()` | The node IDs. |
+| `get_node_ids()` | The node IDs as `IntList`. |
 | `get_center_of_gravity()` | The center of gravity. |
 
 ### `ElementSets`
@@ -1314,7 +1334,7 @@ print(node_set.count, node_set.get_node_ids())
 | `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. It has no `replace_*`; replace the set with `replace`. |
 | `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
 
-`ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()`.
+`ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()` (an `IntList`).
 
 ### `Surfaces`
 
@@ -1326,7 +1346,7 @@ print(node_set.count, node_set.get_node_ids())
 | `replace_from_node_set(old_name, name=None, node_set_name=None)` | Replaces a surface by another node set. A node set that is not given is the one the surface already uses. |
 
 `Surface` exposes `name`, `created_from` (`Selection`, `NodeSet` or `Faces`), `surface_type`
-(`Element` or `Node`), `area`, `node_set_name`, `valid`, `is_internal` and `get_face_ids()`.
+(`Element` or `Node`), `area`, `node_set_name`, `valid`, `is_internal` and `get_face_ids()` (an `IntList`).
 
 ### `ReferencePoints`
 
@@ -1346,7 +1366,7 @@ the mode consumes; `CenterOfGravity` and `BoundingBoxCenter` take a named region
 type is `NodeSetName` or `SurfaceName`.
 
 `name_visible` decides whether the point name is drawn next to its symbol, and `color` takes
-`[red, green, blue]` or `[red, green, blue, alpha]`. Both are part of the stored definition and keep
+`[red, green, blue]`, `[red, green, blue, alpha]` or a color name. Both are part of the stored definition and keep
 their defaults when they are not given.
 
 `ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
@@ -1394,7 +1414,7 @@ edits the keyword the user would click.
 | `count`, `override_count` | The number of user keywords and of edited generated keywords. |
 | `get_model_keywords()` | The generated keywords, each with the index path that addresses it and its complete text. |
 | `get_user_keywords()` | The user keywords, each with the index path it is inserted at. |
-| `get_overrides()` | The user edits of the generated keywords, each with its `indices`, `data`, `disabled`, `suppressed` and `original_signature`. |
+| `get_overrides()` | The user edits of the generated keywords, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
 | `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
 | `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. |
@@ -1756,7 +1776,7 @@ a `Region`; the selection target follows the load type.
 | `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | elements | A gravity load. |
-| `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. |
+| `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. The `rotational_speed` is in rad/s. |
 | `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ...)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
@@ -2095,14 +2115,14 @@ moved the view should put it back itself rather than expecting replay to.
 | `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
 | `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
 | `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports. |
-| `get_result_field()` | What is plotted now, as `[field_name, component_name, step_id, increment_id]`. |
+| `get_result_field()` | What is plotted now, as a `dict` of `field_name`, `component_name`, `step_id` (`int`) and `increment_id` (`int`), the values `set_result_field` and `set_result_increment` take; `None` when no result field is plotted. |
 | `deformation_type` | How much the plotted result is deformed, as the results toolbar sets it: `Undeformed`, `TrueScale`, `Automatic`, its multiples `Automatic025`, `Automatic05`, `Automatic2`, `Automatic5`, or `UserDefined`. Settable; setting it needs an open result. |
 | `deformation_factor` | The scale factor the `UserDefined` deformation type uses. It is kept when another type is set, the way the toolbar keeps it. Settable; setting it needs an open result. |
 | `undeformed_model` | The undeformed model drawn behind a `ColorContours`, `VectorPlot` or `TensorPlot` result: `None`, `WireframeBody` or `SolidBody`. Settable; setting it needs an open result, and is refused for the `Undeformed` and `Deformed` plots, which would discard it. |
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
 | `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
-| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, direction='XYZ', step_by_step=False, tolerance=0, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, which needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `direction` limits the movement to `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`. A compound part moves as one body. `step_by_step` and `tolerance`, where 0 means one thousandth of the assembly diagonal, belong to `Disassembly`. A value out of range is refused, not clamped. |
+| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=False, tolerance=0, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, which needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step` and `tolerance`, where 0 means one thousandth of the assembly diagonal, belong to `Disassembly`. A value out of range is refused, not clamped. |
 | `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
 | `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
 | `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
@@ -2286,7 +2306,7 @@ Three things to know about how the application resolves a selection:
 | `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
 | `get_options()` | The recorded selection options, as a `dict[str, Any]`. |
 | `get_sources()` | Returns the source types as `StringList`. |
-| `get_ids()` | Resolves the selection against the current mesh and returns the IDs. |
+| `get_ids()` | Resolves the selection against the current mesh and returns the IDs as `IntList`. |
 | `preview()` | Resolves the selection and reports what it found, as `SelectionPreview`. |
 
 ### `SelectionPreview`
@@ -2299,7 +2319,7 @@ a boundary condition.
 | --- | --- |
 | `target` | The resolved item type. |
 | `count` | The number of resolved items. Zero means the selection finds nothing in the current view, which is reported rather than thrown. |
-| `ids` | The resolved IDs: node IDs, element IDs, part IDs or geometry IDs, following the target. |
+| `ids` | The resolved IDs as an `IntList`: node IDs, element IDs, part IDs or geometry IDs, following the target. |
 | `part_names` | The names of the parts the resolved items belong to. |
 | `bounding_box` | `[xMin, xMax, yMin, yMax, zMin, zMax]` of the resolved items, or an empty array when nothing resolved. |
 | `centroid` | The mean of the node coordinates of the resolved items, or an empty array. |
@@ -2765,7 +2785,7 @@ Node-based scalar field component data.
 
 | Member | Description |
 | --- | --- |
-| `ids` | Node IDs. |
+| `ids` | Node IDs as an `IntList`. |
 | `values` | Scalar values for the component. |
 | `location` | Result location, normally node-based. |
 | `unit` | Component unit. |
@@ -2786,7 +2806,7 @@ Node-based data for all components of a field.
 
 | Member | Description |
 | --- | --- |
-| `ids` | Node IDs. |
+| `ids` | Node IDs as an `IntList`. |
 | `values` | Values arranged by node and component. |
 | `component_names` | Component names as `StringList`. |
 | `location` | Result location, normally node-based. |
@@ -2850,7 +2870,7 @@ Collection of mesh nodes.
 | --- | --- |
 | `count` | Number of nodes. |
 | `get_data()` | Returns `NodeData`. |
-| `get_ids()` | Returns node IDs. |
+| `get_ids()` | Returns node IDs as `IntList`. |
 | `get_coordinates()` | Returns undeformed node coordinates. |
 
 ### `NodeData`
@@ -2859,7 +2879,7 @@ Undeformed node coordinate data.
 
 | Member | Description |
 | --- | --- |
-| `ids` | Node IDs. |
+| `ids` | Node IDs as an `IntList`. |
 | `coordinates` | Undeformed node coordinates. |
 | `count` | Number of nodes. |
 
@@ -2905,7 +2925,7 @@ Bulk element connectivity data.
 
 | Member | Description |
 | --- | --- |
-| `ids` | Element IDs. |
+| `ids` | Element IDs as an `IntList`. |
 | `offsets` | Start index of each element connectivity span. |
 | `node_counts` | Number of nodes for each element. |
 | `connectivity` | Flattened node IDs for all elements. |
@@ -2942,7 +2962,7 @@ Collection of mesh parts.
 | `contains(name)` | Checks whether the part exists. |
 | `hide(names)`, `show(names)` | Result part visibility. |
 | `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. |
-| `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
+| `set_opacity(part_names, opacity)` | The alpha channel of the result part color, from 0 for fully transparent to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
 | `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
 | `rename(old_name, new_name)` | Renames a result part using command history. Only a part the result was read with can be renamed; use `replace_properties` for any other. |
@@ -2987,7 +3007,7 @@ A result `ReferencePoint`:
 | --- | --- |
 | `name` | The reference point name. |
 | `created_from` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
-| `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour channels, and the visibility. |
+| `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour as `[R, G, B, A]`, and the visibility. |
 | `get_coordinates()` | The coordinates computed on the result mesh, as a `NumericArray`. |
 | `get_equations()` | The stored coordinates as entered, under `x`, `y` and `z`. |
 | `get_construction()` | How the point is built, under `created_from`, `region_type` and `region_name`. |
@@ -3010,8 +3030,8 @@ Single mesh part.
 | Member | Description |
 | --- | --- |
 | `name` | Part name. |
-| `get_node_ids()` | Node IDs belonging to the part. |
-| `get_element_ids()` | Element IDs belonging to the part. |
+| `get_node_ids()` | Node IDs belonging to the part, as `IntList`. |
+| `get_element_ids()` | Element IDs belonging to the part, as `IntList`. |
 | `get_node_coordinates()` | The undeformed coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. |
 | `volume`, `center_of_mass` | Mesh-computed part measurements, with CAD used only when a mesh value was missing. |
 | `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a solid reports the area of the CAD part it was meshed from, and `0.0` when there is none. The area of the mesh itself is the sum of `get_face_data().areas`. |
@@ -3030,9 +3050,9 @@ The `node_sets`, `element_sets`, and `surfaces` collections support indexing by 
 
 | Object | Members |
 | --- | --- |
-| `NodeSet` | `name`, `count`, `get_node_ids()` |
-| `ElementSet` | `name`, `count`, `get_element_ids()` |
-| `Surface` | `name`, `get_face_ids()`, `get_node_ids()`, `area` |
+| `NodeSet` | `name`, `count`, `get_node_ids()` (an `IntList`) |
+| `ElementSet` | `name`, `count`, `get_element_ids()` (an `IntList`) |
+| `Surface` | `name`, `get_face_ids()` and `get_node_ids()` (`IntList`s), `area` |
 
 Example:
 
@@ -3060,9 +3080,9 @@ Collection of result history outputs.
 | `first()` | Returns the first history output. |
 | `last()` | Returns the last history output. |
 | `contains(name)` | Checks whether the history output exists. |
-| `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft using a node selection, node set, or surface. |
+| `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft. The region is a `Selection`, a `Region` (`NodeSetName` or `SurfaceName`), a result `NodeSet` or a result `Surface`. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
-| `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=1.0)` | Creates a line, surface, or volume integration draft. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name`/`component_names` are ignored for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals. |
+| `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=1.0)` | Creates a line, surface, or volume integration draft. The `region` is a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name`/`component_names` are ignored for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals. |
 | `create_history_output_from_merged_histories(name, source1, source2, source3=None, source4=None)` | Creates a From Merged Histories draft that merges two to four history components into one history output. |
 | `create_history_output_from_extracted_entry(name, source, entry_name)` | Creates a From Extracted Entry draft that copies one named entry of a history component into its own history output. |
 | `create_history_output_xy(name, x_source, y_source)` | Creates an XY draft that plots the entries of the Y history component against the values of the X history component. |
@@ -3106,7 +3126,7 @@ output.filter2 = result.history_outputs.create_maximum_filter(return_value="Row"
 result.history_outputs.add(output)
 ```
 
-Existing result regions are passed directly through the same `region` argument:
+Existing result regions, and a `Region` made by `pmx.create.region`, are passed directly through the same `region` argument. A `Region` is resolved by name against the result mesh, and a `PartName` region is refused:
 
 ```python
 output = result.history_outputs.create_history_output_from_field(
@@ -3246,10 +3266,10 @@ The supported region combinations are:
 
 | History output | Mode | Selection target | Existing result region |
 | --- | --- | --- | --- |
-| From Field | All | `"nodes"` | Node set or surface |
+| From Field | All | `"nodes"` | Node set or surface, or a `NodeSetName` or `SurfaceName` `Region` |
 | From Integration | `"Line"` | `"edges"` | None (selection only) |
-| From Integration | `"Surface"` | `"surfaces"` | Surface |
-| From Integration | `"Volume"` | `"elements"` | Element set |
+| From Integration | `"Surface"` | `"surfaces"` | Surface, or a `SurfaceName` `Region` |
+| From Integration | `"Volume"` | `"elements"` | Element set, or an `ElementSetName` `Region` |
 | From Equation | All | None | None |
 | From Merged Histories | All | None | None |
 | From Extracted Entry | All | None | None |
@@ -3260,7 +3280,7 @@ Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface
 
 The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
 `add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`,
-`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. `add_from_field` and `replace_from_field`
+`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. `add_from_field` and `replace_from_field` take the same `region` as the draft and
 also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
 `harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The affine fit measures
 the strain of a circular patch of the result mesh, so it names the circle - `center=[x, y]`
@@ -3284,7 +3304,7 @@ Base object for history-output definitions that have not yet been added to the r
 | Member | Description |
 | --- | --- |
 | `name` | History output name. |
-| `region` | Integrated selection or read-only result mesh region; `None` for the equation, merged, extracted, XY, and table drafts. |
+| `region` | The selection, the named `Region` or the read-only result mesh region the output uses, read back as it was given; `None` for the equation, merged, extracted, XY, and table drafts. |
 | `filter1` | Optional first `HistoryOutputFilter`. |
 | `filter2` | Optional second `HistoryOutputFilter`; requires `filter1`. |
 

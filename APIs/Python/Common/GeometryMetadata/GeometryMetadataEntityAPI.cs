@@ -42,10 +42,11 @@ namespace APIs.Python
         [PythonAPI("Returns a supplemental property, or the default when this entity does not carry it. " +
                    "The property set varies by entity type - a cylinder has a radius, a cone has a semi " +
                    "angle instead - so a caller reads what it wants without testing property_names first. " +
-                   "Numeric vectors are returned as numpy.ndarray or NumericArray; text vectors are " +
-                   "returned as StringList. A one-value property is returned as a scalar.",
+                   "Numeric vectors are returned as numpy.ndarray or NumericArray, an ID list - a property " +
+                   "whose name ends in _ids - as IntList and text vectors as StringList. A one-value " +
+                   "property other than an ID list is returned as a scalar.",
                    Arguments = "name: str, default: object = None",
-                   Returns = "float, str, numpy.ndarray, NumericArray, StringList or the default",
+                   Returns = "float, str, numpy.ndarray, NumericArray, IntList, StringList or the default",
                    Example = "radius = face.get_property('radius')   # None on a face that has no radius")]
         public object get_property(string name, object @default = null)
         {
@@ -60,7 +61,7 @@ namespace APIs.Python
             {
                 double[] values = property.NumericValues;
                 if (name.EndsWith("_ids", StringComparison.OrdinalIgnoreCase))
-                    return NumPyConverter.ToPythonArray(values.Select(value => Convert.ToInt32(value)).ToArray());
+                    return new IntListAPI(values.Select(value => Convert.ToInt32(value)));
                 if (values.Length == 1) return values[0];
                 return NumPyConverter.ToPythonArray(values);
             }

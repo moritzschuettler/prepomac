@@ -20,7 +20,7 @@ namespace PrePoMax.Rpc
     public static class RpcStatusMethod
     {
         // Variables                                                                                                                
-        private static readonly string[] Methods = { "ping", "status", "describe", "eval", "exec", "history",
+        private static readonly string[] Methods = { "ping", "status", "describe", "eval", "exec", "wait", "history",
                                                      "screenshot", "shutdown", "exit" };
 
 
@@ -28,8 +28,13 @@ namespace PrePoMax.Rpc
         public static string Execute(RpcRequest request, RpcServer server)
         {
             AutomationSettings settings = server.Settings;
-            // The reason lives on the thread that owns the window; this runs on a connection thread
-            string busyReason = server.Form == null ? null : server.GetUiThread().GetBusyReason(settings.RequestTimeout);
+            // An agent call that is still running is the reason, and saying so does not need the window,
+            // which a long call may be keeping busy. Otherwise the reason lives on the thread that owns
+            // the window; this runs on a connection thread
+            RpcRunningCall runningCall = server.GetDispatcher().GetRunningCall();
+            string busyReason;
+            if (runningCall != null) busyReason = runningCall.GetBusyReason();
+            else busyReason = server.Form == null ? null : server.GetUiThread().GetBusyReason(server.RequestTimeout);
             if (busyReason != null && busyReason.Length == 0) busyReason = null;
             //
             JsonWriter writer = new JsonWriter();
@@ -45,7 +50,9 @@ namespace PrePoMax.Rpc
             writer.WriteValue("lastError", server.LastError == null ? "" : server.LastError);
             writer.WriteValue("isReadOnly", server.IsReadOnly);
             writer.WriteValue("echoToPythonPanel", settings.EchoToPythonPanel);
-            writer.WriteValue("requestTimeout", settings.RequestTimeout);
+            writer.WriteValue("requestTimeout", server.RequestTimeout);
+            writer.WriteValue("maximumCallTimeout", RpcDispatcher.MaximumWaitSeconds);
+            WriteCalls(writer, server);
             writer.WriteValue("isIdle", busyReason == null);
             // A recorded script suppresses command recording while it runs, so an agent can see
             // whether what it does is reaching the history the user can edit and regenerate
@@ -58,6 +65,22 @@ namespace PrePoMax.Rpc
             writer.EndArray();
             writer.EndObject();
             return writer.ToString();
+        }
+        // The exec and eval calls that outlasted the wait of their caller: the one still running, and
+        // those that finished and whose answer wait has not collected yet
+        private static void WriteCalls(JsonWriter writer, RpcServer server)
+        {
+            writer.BeginArray("calls");
+            foreach (RpcRunningCall call in server.GetDispatcher().GetCalls())
+            {
+                writer.BeginObject();
+                writer.WriteValue("callId", call.Id);
+                writer.WriteValue("method", call.Method);
+                writer.WriteValue("isFinished", call.IsFinished);
+                writer.WriteValue("elapsed", call.Elapsed);
+                writer.EndObject();
+            }
+            writer.EndArray();
         }
         private static void WriteModel(JsonWriter writer, RpcServer server)
         {

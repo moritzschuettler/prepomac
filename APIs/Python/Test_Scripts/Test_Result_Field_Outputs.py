@@ -141,6 +141,21 @@ try:
                  "the old based_on spelling was accepted")
     print("PASS: field output options")
 
+    # MAP: the item limits read back as a map with the methods of a dict, and without the .NET members
+    limits = limit_output.item_limits
+    check(len(limits) == 1 and limits.count == 1, "the item limits must hold one limit: " + str(limits))
+    limit_name = list(limits.keys())[0]
+    check(limits[limit_name] == 250.0, "the item limit read back as %s" % limits[limit_name])
+    check([float(value) for value in limits.values()] == [250.0], "values() must follow keys()")
+    check(limits.items() == [(limit_name, 250.0)], "items() must be (name, value) tuples: " + str(limits.items()))
+    check(dict(limits) == {limit_name: 250.0}, "the map must convert to a dict")
+    check(limit_name in limits and "PyTest_no_such_item" not in limits, "'in' must test the names")
+    check(limits.get(limit_name) == 250.0 and limits.get("PyTest_no_such_item") is None and
+          limits.get("PyTest_no_such_item", -1.0) == -1.0, "get() must return the default for a missing name")
+    for member in ("Keys", "Values", "Count"):
+        check(not hasattr(limits, member), "the .NET member %s must not be exposed" % member)
+    print("PASS: item limits map")
+
     # ADD: envelope output. Its generated AVERAGE component is removed below.
     output = field_outputs.create_field_output_envelope(
         name=ENVELOPE_NAME,

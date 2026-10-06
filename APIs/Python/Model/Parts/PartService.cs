@@ -91,9 +91,9 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             ResetColorForParts(partNames);
         }
-        public void SetTransparency(string[] partNames, object transparency)
+        public void SetOpacity(string[] partNames, object opacity)
         {
-            byte alpha = PythonColorConverter.ToAlpha(transparency, "transparency");
+            byte alpha = PythonColorConverter.ToAlpha(opacity, "opacity");
             EnsureCommandsAvailable();
             SetTransparencyForParts(partNames, alpha);
         }

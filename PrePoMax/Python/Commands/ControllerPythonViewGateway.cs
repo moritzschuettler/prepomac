@@ -222,15 +222,15 @@ namespace PrePoMax.Python
             ResolveForm().SetViewResultsType((ViewResultsTypeEnum)Enum.Parse(typeof(ViewResultsTypeEnum),
                                                                             resultType, true));
         }
-        public string[] GetResultFieldData()
+        public bool GetResultFieldData(out string fieldName, out string componentName, out int stepId,
+                                       out int incrementId)
         {
             FieldData fieldData = _controller.CurrentFieldData;
-            if (fieldData == null) return new string[0];
-            //
-            return new string[] { fieldData.Name == null ? "" : fieldData.Name,
-                                  fieldData.Component == null ? "" : fieldData.Component,
-                                  fieldData.StepId.ToString(CultureInfo.InvariantCulture),
-                                  fieldData.StepIncrementId.ToString(CultureInfo.InvariantCulture) };
+            fieldName = fieldData == null || fieldData.Name == null ? "" : fieldData.Name;
+            componentName = fieldData == null || fieldData.Component == null ? "" : fieldData.Component;
+            stepId = fieldData == null ? 0 : fieldData.StepId;
+            incrementId = fieldData == null ? 0 : fieldData.StepIncrementId;
+            return fieldData != null;
         }
         public void SetResultFieldData(string fieldName, string componentName)
         {

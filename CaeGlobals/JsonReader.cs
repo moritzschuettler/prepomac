@@ -80,11 +80,16 @@ namespace CaeGlobals
         {
             object item = GetItem(node, name);
             if (item is double) return (double)item;
+            if (item is int || item is long) return Convert.ToDouble(item);
             return defaultValue;
         }
+        // Parsed JSON holds every number as a double, while parameters built in code, such as the ones the MCP tools
+        // hand to the RPC methods, hold their integers as they are
         public static int GetInt(object node, string name, int defaultValue)
         {
             object item = GetItem(node, name);
+            if (item is int) return (int)item;
+            if (item is long && (long)item >= int.MinValue && (long)item <= int.MaxValue) return (int)(long)item;
             if (item is double)
             {
                 double value = (double)item;

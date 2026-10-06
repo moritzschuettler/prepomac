@@ -93,7 +93,9 @@ namespace APIs.Python
             types.Add("time_span", typeof(AmplitudeTimeSpanEnum));
             types.Add("cutoff", typeof(HydrostaticPressureCutoffEnum));
             types.Add("tension_type", typeof(PreTensionLoadType));
-            types.Add("method", typeof(ContactPairMethod));
+            // Qualified, because the exploded view takes an argument of the same name with other values
+            types.Add("ContactPairsAPI.add.method", typeof(ContactPairMethod));
+            types.Add("ContactPairsAPI.replace.method", typeof(ContactPairMethod));
             types.Add("joint_type", typeof(JointTypeEnum));
             types.Add("center_defined_by", typeof(JointCenterDefinitionEnum));
             types.Add("axis_defined_by", typeof(JointDefinitionEnum));

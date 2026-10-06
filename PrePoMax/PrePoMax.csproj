@@ -150,6 +150,7 @@
     <Compile Include="Rpc\RpcResponse.cs" />
     <Compile Include="Rpc\RpcBusyState.cs" />
     <Compile Include="Rpc\RpcCall.cs" />
+    <Compile Include="Rpc\RpcRunningCall.cs" />
     <Compile Include="Rpc\RpcUiThread.cs" />
     <Compile Include="Rpc\RpcDescribeBuilder.cs" />
     <Compile Include="Rpc\RpcApiTypeLocator.cs" />
@@ -159,6 +160,7 @@
     <Compile Include="Rpc\RpcMethods\RpcExitMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcEvalMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcExecMethod.cs" />
+    <Compile Include="Rpc\RpcMethods\RpcWaitMethod.cs" />
     <Compile Include="Python\Engine\PythonEvalResult.cs" />
     <Compile Include="Rpc\RpcServer.cs" />
     <Compile Include="Rpc\RpcSession.cs" />

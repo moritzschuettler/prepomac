@@ -45,18 +45,26 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        // Every value the dialog sets is written, because a replace keeps what it is not given and a journal that
+        // left out the slip wear or submodel settings replayed a different analysis
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.properties", "replace",
-                                         "name=" + PythonValueFormatter.Text(_newModelName),
-                                         "model_type=" +
-                                         PythonValueFormatter.Text(_newModelProperties.ModelType.ToString()),
-                                         "absolute_zero=" +
-                                         PythonValueFormatter.Number(_newModelProperties.AbsoluteZero),
-                                         "stefan_boltzmann=" +
-                                         PythonValueFormatter.Number(_newModelProperties.StefanBoltzmann),
-                                         "newton_gravity=" +
-                                         PythonValueFormatter.Number(_newModelProperties.NewtonGravity)));
+            List<string> arguments = new List<string>();
+            arguments.Add("name=" + PythonValueFormatter.Text(_newModelName));
+            arguments.Add("model_type=" + PythonValueFormatter.Text(_newModelProperties.ModelType.ToString()));
+            if (_newModelProperties.GlobalResultsFileName != null)
+                arguments.Add("global_results_file_name=" + writer.Path(_newModelProperties.GlobalResultsFileName));
+            arguments.Add("slip_wear_results=" +
+                          PythonValueFormatter.Text(_newModelProperties.SlipWearResults.ToString()));
+            arguments.Add("number_of_cycles=" + PythonValueFormatter.Equation(_newModelProperties.NumberOfCycles));
+            arguments.Add("cycles_increment=" + PythonValueFormatter.Equation(_newModelProperties.CyclesIncrement));
+            arguments.Add("number_of_smoothing_steps=" +
+                          PythonValueFormatter.Equation(_newModelProperties.NumOfSmoothingSteps));
+            arguments.Add("bdm_remeshing=" + PythonValueFormatter.Format(_newModelProperties.BdmRemeshing));
+            arguments.Add("absolute_zero=" + PythonValueFormatter.Number(_newModelProperties.AbsoluteZero));
+            arguments.Add("stefan_boltzmann=" + PythonValueFormatter.Number(_newModelProperties.StefanBoltzmann));
+            arguments.Add("newton_gravity=" + PythonValueFormatter.Number(_newModelProperties.NewtonGravity));
+            writer.Statement(writer.Call("pmx.model.properties", "replace", arguments.ToArray()));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

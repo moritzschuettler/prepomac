@@ -20,8 +20,8 @@ namespace APIs.Python.Model
 
 
         // Properties
-        [PythonAPI("The index path of the keyword inside the generated keyword tree.", Returns = "list[int]")]
-        public int[] indices { get { return (int[])_indices.Clone(); } }
+        [PythonAPI("The index path of the keyword inside the generated keyword tree.", Returns = "IntList")]
+        public IntListAPI indices { get { return new IntListAPI(_indices); } }
         [PythonAPI("The complete keyword text.", Returns = "str")]
         public string data { get { return _data; } }
 

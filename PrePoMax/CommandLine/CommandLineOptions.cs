@@ -78,6 +78,14 @@ namespace PrePoMax
                                                                       "one in the settings. When it is taken the endpoint " +
                                                                       "takes the first free port above it.")]
         public int RpcPort { get; set; }
+        // Automation server request timeout
+        [Option("rpcTimeout", Required = false, Default = 0, HelpText = "How many seconds the automation server waits for " +
+                                                                         "a request, instead of the request timeout in the " +
+                                                                         "settings. A Python call that takes longer keeps " +
+                                                                         "running and is answered with a call id to collect " +
+                                                                         "its result by. This is not --timeout, which limits " +
+                                                                         "the whole run.")]
+        public int RpcTimeout { get; set; }
         // Settings
         [Option("settings", Required = false, HelpText = "The settings file name to be used instead of the settings file " +
                                                           "located next to the executable.")]
@@ -358,6 +366,13 @@ namespace PrePoMax
                 {
                     throw new CaeException("The rpcPort switch must be between " + AutomationSettings.MinPort +
                                            " and " + AutomationSettings.MaxPort + ".");
+                }
+                if (cmdOptions.RpcTimeout != 0 &&
+                    (cmdOptions.RpcTimeout < AutomationSettings.MinRequestTimeout ||
+                     cmdOptions.RpcTimeout > AutomationSettings.MaxRequestTimeout))
+                {
+                    throw new CaeException("The rpcTimeout switch must be between " + AutomationSettings.MinRequestTimeout +
+                                           " and " + AutomationSettings.MaxRequestTimeout + " seconds.");
                 }
                 // Timeout
                 if (cmdOptions.Timeout < 0)

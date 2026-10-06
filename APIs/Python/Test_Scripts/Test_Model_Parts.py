@@ -36,6 +36,10 @@ def test_part_reading(parts, label):
     check(len(coordinates) == part.node_count, "the node coordinate count does not match")
     check(len(coordinates[0]) == 3, "a node coordinate must have 3 values")
     check(len(part.get_element_ids()) == part.element_count, "the element ID count does not match")
+    # A list of IDs is an IntList, from a part, from the mesh and from its bulk data alike
+    for ids in (part.get_node_ids(), part.get_element_ids(), pmx.model.nodes.get_ids(), pmx.model.elements.get_ids(),
+                pmx.model.nodes.get_data().ids, pmx.model.elements.get_data().ids):
+        check(type(ids).__name__ == "IntListAPI", "a model ID list must be an IntList: " + type(ids).__name__)
     check(part.volume >= 0, "the part volume is invalid")
     check(part.surface_area >= 0, "the part surface area is invalid")
     check(len(part.center_of_mass) in (0, 3), "the center of mass must be empty or have 3 values")
@@ -73,9 +77,15 @@ def test_model_parts():
     parts.set_color(name, "Green")
     check(list(parts[name].color)[0:3] == [0, 128, 0], "the named color was not set")
     parts.reset_color(name)
-    parts.set_transparency(name, 128)
-    check(parts[name].color[3] == 128, "the transparency was not set")
-    parts.set_transparency(name, 255)
+    # The opacity is the alpha channel of the color: 0 is fully transparent, 255 opaque
+    parts.set_opacity(name, 128)
+    check(parts[name].color[3] == 128, "the opacity was not set")
+    parts.set_opacity(name, 0)
+    check(parts[name].color[3] == 0, "an opacity of 0 must be fully transparent")
+    parts.set_opacity(name, 255)
+    check(parts[name].color[3] == 255, "an opacity of 255 must be opaque")
+    check(not hasattr(parts, "set_transparency"), "set_transparency was renamed to set_opacity")
+    check_raises(lambda: parts.set_opacity(name, 256), "an opacity above 255 was accepted")
     # Visibility
     parts.hide(name)
     check(not parts[name].visible, "the part was not hidden")

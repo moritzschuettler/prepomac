@@ -6,6 +6,11 @@
 #change the model whatever Python is sent. It also replays the journal of replaces that set values back
 #to their defaults, which a journal must write out because a replace keeps what it is not given.
 #
+#And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
+#Python that sleeps longer than that: the caller must be answered that the call is still running, with
+#an id, while the call runs to the end and records its command; wait must hand its answer over once,
+#and status must name it while another change waits for its turn and is refused.
+#
 #Neither can be checked from inside a recorded script, because a recorded script suppresses the
 #recording of the commands inside it. So this script starts sessions of its own - PrePoMax with
 #-g No and the automation server, which has no window and no history of its own - and drives them
@@ -25,6 +30,10 @@ import time
 CHILD_TIMEOUT = 180
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 KILL_PROBE = "read_only_kill_probe"
+# The request timeout of the session the long calls are sent to, the smallest the server accepts
+REQUEST_TIMEOUT = 5
+BUSY = -32001
+INVALID_PARAMS = -32602
 
 
 def check(condition, message):
@@ -87,7 +96,7 @@ class Client(object):
 class ChildSession(object):
     """A PrePoMax session with no window of its own, driven through its automation server."""
 
-    def __init__(self, mode, file_name=None):
+    def __init__(self, mode, file_name=None, arguments=None):
         self.directory = tempfile.mkdtemp(prefix="rpc_child_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
         # The model is given explicitly. A session with no window still opens the last file of the
@@ -97,7 +106,8 @@ class ChildSession(object):
             file_name = os.path.join(MODELS, "cube.inp")
         self.process = subprocess.Popen([sys.executable, "--rpc", mode, "-g", "No", "--noSettingsSave",
                                          "-f", file_name, "-u", "MM_TON_S_C",
-                                         "--timeout", str(CHILD_TIMEOUT), "-w", self.directory],
+                                         "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
+                                        (arguments or []),
                                         stdout=self.log, stderr=subprocess.STDOUT)
         self.client = None
 
@@ -329,7 +339,127 @@ def check_exit_guards(client):
     print("exit: refused while the model has unsaved changes")
 
 
+def check_running_answer(answer, method, message):
+    check(answer.get("running") is True, message + ": " + str(answer))
+    check(isinstance(answer.get("callId"), int) and answer["callId"] > 0, "a running call needs an id: " + str(answer))
+    check(answer["method"] == method, "the running call must name its method: " + str(answer))
+    check("get_call" in answer["message"], "the answer must say how to collect it: " + answer["message"])
+    check("failed" not in answer, "a running call has not failed or succeeded yet: " + str(answer))
+    return answer["callId"]
+
+
+def check_long_calls(client):
+    """A call that outlasts the request timeout is answered, keeps running, is recorded and is collected once."""
+    status = client.result("status")
+    check(status["requestTimeout"] == REQUEST_TIMEOUT,
+          "--rpcTimeout must set the request timeout: " + str(status["requestTimeout"]))
+    check("wait" in status["methods"], "status must name wait: " + str(status["methods"]))
+    check(status["calls"] == [], "no call may be pending yet: " + str(status["calls"]))
+    result = client.result("exec", {"source": "import time"})
+    check(not result["failed"], "time must import: " + result["error"])
+    before = client.result("status")["model"]["commandCount"]
+    # The default wait is the request timeout; the call sleeps well past it and then changes the model
+    source = os.linesep.join(["time.sleep(14)", "pmx.model.parameters.add('long_a', 1.0)", "print('long_a done')"])
+    started = time.time()
+    answer = client.result("exec", {"source": source})
+    waited = time.time() - started
+    call_id = check_running_answer(answer, "exec", "a call past the request timeout must be answered as running")
+    check(REQUEST_TIMEOUT - 1 <= waited < REQUEST_TIMEOUT + 4,
+          "the caller must be answered after the request timeout, not after %.1f s" % waited)
+    print("long call: answered after %.1f s that call %d is still running" % (waited, call_id))
+    # It is reported while it runs, without asking a window it may be keeping busy
+    status = client.result("status")
+    check(not status["isIdle"], "a running call must make the session busy: " + str(status))
+    check(("Automation call " + str(call_id)) in status["busyReason"],
+          "the busy reason must name the call: " + status["busyReason"])
+    pending = [entry for entry in status["calls"] if entry["callId"] == call_id]
+    check(len(pending) == 1 and not pending[0]["isFinished"], "status must list the running call: " + str(status["calls"]))
+    client.result("ping")
+    # A change waits for its turn as long as the request timeout, and is then refused with the call named
+    started = time.time()
+    error = client.error("eval", {"expression": "pmx.model.parameters.add('long_refused', 1.0)"})
+    check(error["code"] == BUSY, "a call behind a running one must be refused as busy: " + str(error))
+    check(("Automation call " + str(call_id)) in error["message"] and "get_call" in error["message"],
+          "the refusal must name the running call and how to collect it: " + error["message"])
+    print("long call: a change behind it was refused after %.1f s - %s" % (time.time() - started, error["message"]))
+    # Asking without waiting answers that it is still running
+    answer = client.result("wait", {"call_id": call_id, "timeout": 0})
+    check(check_running_answer(answer, "exec", "the call must still be running") == call_id,
+          "wait must answer for the call it was asked about: " + str(answer))
+    # Waiting long enough hands over exactly what exec would have answered
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check("running" not in answer, "the call must have finished: " + str(answer))
+    check(not answer["failed"], "the long call must not fail: " + answer["error"])
+    check(answer["elapsed"] >= 13.5, "the answer must be the call's own: " + str(answer["elapsed"]))
+    check("long_a done" in answer["output"], "the output of the call must be handed over: " + answer["output"])
+    check([entry["type"] for entry in answer["recordedCommands"]] == ["CAddParameter"] and
+          "long_a" in answer["recordedCommands"][0]["description"],
+          "the call must have recorded its command: " + str(answer["recordedCommands"]))
+    print("long call: collected after %.1f s of work, recorded %s" % (answer["elapsed"], answer["recordedCommands"]))
+    # Once
+    error = client.error("wait", {"call_id": call_id})
+    check(error["code"] == INVALID_PARAMS and str(call_id) in error["message"],
+          "a collected answer must not be handed over twice: " + str(error))
+    status = client.result("status")
+    check(status["isIdle"], "the session must be idle once the call is done: " + status["busyReason"])
+    check(status["calls"] == [], "nothing may be pending: " + str(status["calls"]))
+    check(status["model"]["commandCount"] == before + 1,
+          "the long call, and only it, must have been recorded: " + str(status["model"]["commandCount"]))
+    value = client.result("eval", {"expression": "pmx.model.parameters.get_names()"})
+    check("long_a" in value["value"] and "long_refused" not in value["value"],
+          "the long call must have changed the model and the refused one not: " + str(value["value"]))
+    # A timeout of the call's own, shorter than the request timeout
+    started = time.time()
+    answer = client.result("exec", {"source": "time.sleep(3)" + os.linesep + "pmx.model.parameters.add('long_b', 2.0)",
+                                    "timeout": 1})
+    call_id = check_running_answer(answer, "exec", "a call past its own timeout must be answered as running")
+    check(time.time() - started < 2.5, "the caller must be answered after its own timeout")
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check(not answer["failed"] and len(answer["recordedCommands"]) == 1, "the call must be recorded: " + str(answer))
+    # And one longer than the request timeout, which is waited out
+    answer = client.result("exec", {"source": "time.sleep(7)", "timeout": 20})
+    check("running" not in answer and not answer["failed"], "a call within its own timeout must be answered: " + str(answer))
+    # An expression is answered the same way
+    answer = client.result("eval", {"expression": "time.sleep(3) or 7", "timeout": 1})
+    call_id = check_running_answer(answer, "eval", "a long expression must be answered as running")
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check(answer["value"] == 7, "the value of the expression must be handed over: " + str(answer))
+    print("long call: its own timeout shortens and lengthens the wait, for exec and for eval")
+    # An answer nobody collected yet does not hold the turn
+    answer = client.result("exec", {"source": "time.sleep(2)" + os.linesep + "pmx.model.parameters.add('long_c', 3.0)",
+                                    "timeout": 0})
+    call_id = check_running_answer(answer, "exec", "a timeout of 0 must answer at once")
+    deadline = time.time() + 30
+    while True:
+        pending = [entry for entry in client.result("status")["calls"] if entry["callId"] == call_id]
+        check(len(pending) == 1, "an uncollected call must stay listed: " + str(pending))
+        if pending[0]["isFinished"]:
+            break
+        check(time.time() < deadline, "the call never finished")
+        time.sleep(0.2)
+    started = time.time()
+    result = client.result("exec", {"source": "pmx.model.parameters.add('long_d', 4.0)"})
+    check(not result["failed"] and time.time() - started < 2.0, "a finished call must have given its turn back: " + str(result))
+    answer = client.result("wait", {"call_id": call_id})
+    check("long_c" in answer["recordedCommands"][0]["description"], "the kept answer must be the call's: " + str(answer))
+    # A timeout out of range is refused before anything runs
+    count = client.result("status")["model"]["commandCount"]
+    for method, parameters in (("exec", {"source": "pmx.model.parameters.add('never', 1.0)", "timeout": 601}),
+                               ("exec", {"source": "pmx.model.parameters.add('never', 1.0)", "timeout": -1}),
+                               ("wait", {"call_id": call_id + 1000})):
+        error = client.error(method, parameters)
+        check(error["code"] == INVALID_PARAMS, method + " must refuse " + str(parameters) + ": " + str(error))
+    check(client.result("status")["model"]["commandCount"] == count, "a refused call must record nothing")
+    print("long call: an uncollected answer kept without holding the turn, a bad timeout refused")
+
+
 def main():
+    session = ChildSession("On", arguments=["--rpcTimeout", str(REQUEST_TIMEOUT)])
+    try:
+        check_long_calls(session.connect())
+    finally:
+        session.close()
+    #
     session = ChildSession("On")
     try:
         client = session.connect()

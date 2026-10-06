@@ -26,10 +26,10 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns the element IDs in this result element set.", Returns = "numpy.ndarray or IntList")]
-        public object get_element_ids()
+        [PythonAPI("Returns the element IDs in this result element set.", Returns = "IntList")]
+        public IntListAPI get_element_ids()
         {
-            return NumPyConverter.ToPythonArray(MeshService.GetElementSetIds(ResultName, name));
+            return new IntListAPI(MeshService.GetElementSetIds(ResultName, name));
         }
         public override string ToString()
         {

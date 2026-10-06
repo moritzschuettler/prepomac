@@ -59,8 +59,11 @@ namespace PrePoMax.Settings
         //
         [CategoryAttribute("Server")]
         [OrderedDisplayName(3, 10, "Request timeout [s]")]
-        [DescriptionAttribute("Set the time the automation server waits for a request to finish before it reports the " +
-                              "application as busy.")]
+        [DescriptionAttribute("Set the time the automation server waits for a request to finish. A Python call " +
+                              "that takes longer is not stopped: it runs to the end and is recorded as usual, and " +
+                              "the caller is told it is still running and collects its answer later. A call that " +
+                              "would change the model waits this long for the one before it, and is then refused " +
+                              "as busy.")]
         [Id(4, 1)]
         public int RequestTimeout
         {

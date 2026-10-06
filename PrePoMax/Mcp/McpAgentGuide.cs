@@ -127,10 +127,28 @@ anchor_point)`, `add_node(node_id)`, `add_element(element_id)`, and `show_min_ma
 for the extreme value labels, whose setting `get_min_max()` reads so it can be put back. Every one of
 these that needs an open result says so when there is none.
 
+## Long operations
+
+Meshing a large part, importing a file and regenerating a model can take minutes. A `run_python` or
+`eval_expression` call waits for its answer as long as `requestTimeout` in `get_status` says - 30 s
+unless the user changed it - or as long as its own `timeout` argument says, up to 600 s. A call that
+takes longer is **not stopped and not lost**: it is answered with `running`, a `callId` and how long
+it has run, and it goes on to the end and records its commands as usual.
+
+- Collect the answer with `get_call` and that `callId`. It waits again and returns exactly what the
+  original call would have - output, error and `recordedCommands` - or `running` once more.
+- Do not send the same work again. Every call that changes the model waits for the running one, and
+  is refused as busy if it waits longer than the timeout; `get_status` names the call that holds it.
+- When you know a call is long, pass a larger `timeout` - or `timeout=0` to be answered at once with
+  the `callId` and do the waiting through `get_call`.
+- An answer is handed over once. `get_status` lists under `calls` the ones still running or not
+  collected yet.
+
 ## When a call is refused
 
 - **Busy.** The user has a dialog open or a mesher is running, and nothing was done. Wait and send
-  the same call again. Do not work around it.
+  the same call again. Do not work around it. If the reason names an automation call, it is one of
+  yours that is still running: collect it with `get_call` first.
 - **Read only.** The user has protected the model. Reading still works; ask them before asking for
   more.
 - **An API error.** The message names the reason and usually the accepted values. Read it and fix

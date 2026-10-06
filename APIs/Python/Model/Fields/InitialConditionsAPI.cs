@@ -70,7 +70,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an initial angular velocity using command history. The axis is given by a point " +
-                   "and a direction. The region is a selection or a named region; the selection target is nodes.",
+                   "and a direction. The region is a selection or a named region; the selection target is nodes. " +
+                   "The rotational_speed is in rad/s.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float], " +
                                "axis_direction: list[float], rotational_speed: float",
                    Returns = "InitialCondition")]
@@ -132,7 +133,8 @@ namespace APIs.Python.Model
             return Replace(old_name, item);
         }
 
-        [PythonAPI("Replaces an initial angular velocity, keeping every value that is not given.",
+        [PythonAPI("Replaces an initial angular velocity, keeping every value that is not given. The " +
+                   "rotational_speed is in rad/s.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "axis_point: list[float] = None, axis_direction: list[float] = None, " +
                                "rotational_speed: float = None", Returns = "InitialCondition")]

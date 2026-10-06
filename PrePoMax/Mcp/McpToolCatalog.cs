@@ -90,9 +90,15 @@ namespace PrePoMax.Mcp
             _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
                 "it has a JSON form and as its repr. Use it for reading - a name list, a property, a computed " +
-                "number. It is not meant to change the model; use run_python for that.",
+                "number. It is not meant to change the model; use run_python for that. An expression that takes " +
+                "longer than the wait is answered the way run_python answers a long call.",
                 SessionSchema("\"expression\": {\"type\": \"string\", \"description\": " +
-                              "\"One Python expression, for example pmx.model.parts.get_names().\"}",
+                              "\"One Python expression, for example pmx.model.parts.get_names().\"}, " +
+                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
+                              "requestTimeout get_status reports. A call that takes longer is not " +
+                              "stopped: it is answered with running and a callId, and get_call collects " +
+                              "its answer.\"}",
                               "\"expression\""), true));
             _tools.Add(new McpTool("run_python", "Run Python in the session",
                 "Runs Python against the model the user has open, through the same engine the Python panel in " +
@@ -103,14 +109,36 @@ namespace PrePoMax.Mcp
                 "record: 'commands' (the default) records each API call as its own command. 'script' records the " +
                 "whole source as one command instead, which is what keeps a computed model parametric - " +
                 "regeneration re-runs the source - but the variables do not survive the call.\n\n" +
+                "A long operation - meshing a large part, an import, a regeneration - may outlast the wait, which " +
+                "is the requestTimeout get_status reports unless timeout says otherwise. It is not stopped and not " +
+                "lost: the answer is {\"running\": true, \"callId\": n}, the call runs to the end and records " +
+                "its commands as usual, and get_call with that callId returns the answer this tool would have " +
+                "returned. Until then every call that changes the model waits for it, and get_status names it.\n\n" +
                 "If the answer says the application is busy, the user is editing something. Wait and try again " +
                 "rather than working around it.",
                 SessionSchema("\"source\": {\"type\": \"string\", \"description\": " +
                               "\"The Python source to run. More than one line is fine.\"}, " +
                               "\"record\": {\"type\": \"string\", \"enum\": [\"commands\", \"script\"], " +
                               "\"description\": \"How the source is recorded in the command history. " +
-                              "Defaults to commands.\"}",
+                              "Defaults to commands.\"}, " +
+                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
+                              "requestTimeout get_status reports. A call that takes longer is not " +
+                              "stopped: it is answered with running and a callId, and get_call collects " +
+                              "its answer.\"}",
                               "\"source\""), false));
+            _tools.Add(new McpTool("get_call", "Collect a long call",
+                "Collects the answer of a run_python or eval_expression call that was still running when its wait " +
+                "ran out and was answered with running and a callId. It waits up to timeout seconds and returns " +
+                "the answer that call would have returned - its output, its error and the commands it recorded - " +
+                "or, if it is still working, running and the callId once more; ask again. An answer is handed " +
+                "over once. get_status lists the calls that are running or waiting to be collected.",
+                SessionSchema("\"call_id\": {\"type\": \"integer\", \"description\": " +
+                              "\"The callId the still running call was answered with.\"}, " +
+                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"How many seconds to wait for it, 0 to 600. Defaults to the requestTimeout " +
+                              "get_status reports.\"}",
+                              "\"call_id\""), true));
             _tools.Add(new McpTool("get_history", "Read the command history",
                 "Returns the command history of the session and, on request, the journal of it: the whole session " +
                 "written as the Python script a user would have written. The journal is the best way to learn what " +
@@ -190,7 +218,11 @@ namespace PrePoMax.Mcp
             text.Append("their session, so do not save over their file or close their application.\n\n");
             text.Append("A tool that answers that the application is busy means the user is doing something - a ");
             text.Append("dialog is open, or a mesher is running. Nothing was done. Wait and try the same call ");
-            text.Append("again rather than working around it.");
+            text.Append("again rather than working around it.\n\n");
+            text.Append("A run_python call that outlasts its wait - meshing a large part, an import, a ");
+            text.Append("regeneration - is answered with running and a callId. It is not stopped: it finishes and ");
+            text.Append("records its commands as usual, and get_call with that callId returns its answer. Do not ");
+            text.Append("send the same work again; collect it.");
             return text.ToString();
         }
         public static McpTool Find(string name)
@@ -232,6 +264,7 @@ namespace PrePoMax.Mcp
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("expression", RequireString(arguments, "expression"));
+                AddTimeout(arguments, parameters);
                 return Call(dispatcher, "eval", parameters);
             }
             if (name == "run_python")
@@ -240,7 +273,17 @@ namespace PrePoMax.Mcp
                 parameters.Add("source", RequireString(arguments, "source"));
                 string record = JsonReader.GetString(arguments, "record", null);
                 if (record != null) parameters.Add("record", record);
+                AddTimeout(arguments, parameters);
                 return Call(dispatcher, "exec", parameters);
+            }
+            if (name == "get_call")
+            {
+                Dictionary<string, object> parameters = new Dictionary<string, object>();
+                int callId = JsonReader.GetInt(arguments, "call_id", 0);
+                if (callId <= 0) throw new McpException("The argument call_id is required.");
+                parameters.Add("call_id", callId);
+                AddTimeout(arguments, parameters);
+                return Call(dispatcher, "wait", parameters);
             }
             if (name == "get_history")
             {
@@ -293,7 +336,8 @@ namespace PrePoMax.Mcp
             object document;
             string error;
             if (!JsonReader.TryParse(result, out document, out error)) return result;
-            //
+            // A snapshot of a large model that outlasted the wait comes back from get_call, in its output
+            if (JsonReader.GetBool(document, "running", false)) return result;
             if (JsonReader.GetBool(document, "failed", false))
                 throw new McpException(JsonReader.GetString(document, "error", "The script failed."));
             return JsonReader.GetString(document, "output", "");
@@ -320,6 +364,17 @@ namespace PrePoMax.Mcp
             if (JsonReader.GetBool(arguments, "zoom_to_fit", false)) source.Append("pmx.view.zoom_to_fit()\n");
             //
             return source.ToString();
+        }
+        // The wait is the caller's to choose, within the bound the server checks
+        private static void AddTimeout(object arguments, Dictionary<string, object> parameters)
+        {
+            if (!JsonReader.HasItem(arguments, "timeout")) return;
+            //
+            int timeout = JsonReader.GetInt(arguments, "timeout", -1);
+            if (timeout < 0 || timeout > RpcDispatcher.MaximumWaitSeconds)
+                throw new McpException("The argument timeout must be a number of seconds from 0 to " +
+                                       RpcDispatcher.MaximumWaitSeconds + ".");
+            parameters.Add("timeout", timeout);
         }
         private static Dictionary<string, object> ExecArguments(string source)
         {

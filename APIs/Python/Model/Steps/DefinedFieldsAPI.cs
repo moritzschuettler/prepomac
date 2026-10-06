@@ -32,7 +32,7 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a defined temperature using command history. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
                                "distribution_name: str = None, amplitude_name: str = None, " +
-                               "color: list[int] = None", Returns = "DefinedField",
+                               "color: list[int] or str = None", Returns = "DefinedField",
                    Example = "step.defined_fields.add_temperature('DF-1', selection, 100)")]
         public DefinedFieldAPI add_temperature(string name, object region, object temperature,
                                                object distribution_name = null, object amplitude_name = null,
@@ -86,7 +86,7 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a defined temperature read from a results file using command history. It covers " +
                    "the whole model, so it takes no region.",
                    Arguments = "name: str, file_name: str, step_id: int = None, " +
-                               "amplitude_name: str = None, color: list[int] = None",
+                               "amplitude_name: str = None, color: list[int] or str = None",
                    Returns = "DefinedField")]
         public DefinedFieldAPI add_temperature_from_file(string name, object file_name, object step_id = null,
                                                          object amplitude_name = null, object color = null)

@@ -9,6 +9,7 @@
 
 using CaeResults;
 using System;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
@@ -32,7 +33,7 @@ namespace APIs.Python
                                                          "TensorPlot" };
         private static readonly string[] ExplodedViewMethods = { "Disassembly", "AssemblyCenter", "CenterPoint" };
         private static readonly double[] ExplodedViewMaxMagnifications = { 10, 25, 1000 };
-        private static readonly string[] ExplodedViewDirections = { "XYZ", "X", "Y", "Z", "XY", "XZ", "YZ" };
+        private static readonly string[] ExplodedViewAxes = { "XYZ", "X", "Y", "Z", "XY", "XZ", "YZ" };
 
         private readonly IPythonViewGateway _gateway;
         private readonly ViewAnnotationsAPI _annotations;
@@ -207,12 +208,27 @@ namespace APIs.Python
             int incrementId = PythonValueConverter.ToInt(increment_id, "increment_id");
             Resolve().SetResultIncrement(stepId, incrementId);
         }
-        [PythonAPI("Returns what is plotted right now as [field_name, component_name, step_id, increment_id].",
-                   Returns = "StringList")]
-        public StringListAPI get_result_field()
+        [PythonAPI("Returns what is plotted right now as a dict of field_name, component_name, step_id and " +
+                   "increment_id, the arguments set_result_field and set_result_increment take, with the IDs " +
+                   "as integers. None when no result field is plotted.",
+                   Returns = "dict[str, Any] or None",
+                   Example = "plotted = pmx.view.get_result_field()  # {'field_name': 'DISP', 'component_name': " +
+                             "'U3', 'step_id': 1, 'increment_id': 1}")]
+        public Dictionary<string, object> get_result_field()
         {
-            string[] data = Resolve().GetResultFieldData();
-            return new StringListAPI(data == null ? new string[0] : data);
+            string fieldName;
+            string componentName;
+            int stepId;
+            int incrementId;
+            if (!Resolve().GetResultFieldData(out fieldName, out componentName, out stepId, out incrementId))
+                return null;
+            //
+            Dictionary<string, object> plotted = new Dictionary<string, object>();
+            plotted.Add("field_name", fieldName);
+            plotted.Add("component_name", componentName);
+            plotted.Add("step_id", stepId);
+            plotted.Add("increment_id", incrementId);
+            return plotted;
         }
         [PythonAPI("Fixes the range of the color legend of the plotted field component, so that pictures of " +
                    "different increments or models share one color scale. Values outside the range take the " +
@@ -265,20 +281,20 @@ namespace APIs.Python
                    "which moves the parts away from the center of the assembly, or CenterPoint, which moves them " +
                    "away from the given center. The scale factor, from 0 to 1, is the position of the dialog's " +
                    "slider, and the magnification - from 1 to 10 for Disassembly, 25 for AssemblyCenter and 1000 " +
-                   "for CenterPoint - how far the full separation goes. The direction limits the movement to the " +
-                   "given axes: XYZ, X, Y, Z, XY, XZ or YZ. A compound part moves as one body. Step by step and " +
-                   "the contact tolerance, where 0 means one thousandth of the assembly diagonal, belong to the " +
+                   "for CenterPoint - how far the full separation goes. The axes limit the movement to the " +
+                   "given coordinate axes: XYZ, X, Y, Z, XY, XZ or YZ. A compound part moves as one body. Step " +
+                   "by step and the contact tolerance, where 0 means one thousandth of the assembly diagonal, belong to the " +
                    "Disassembly method. An exploded view is a display translation only: it is not recorded, and " +
                    "meshing always runs without it.",
                    Arguments = "scale_factor: float = 0.5, method: str = 'Disassembly', magnification: float = 2, " +
-                               "direction: str = 'XYZ', step_by_step: bool = False, tolerance: float = 0, " +
+                               "axes: str = 'XYZ', step_by_step: bool = False, tolerance: float = 0, " +
                                "center: list[float] = None",
                    Returns = "None",
                    Example = "pmx.view.current = 'geometry'\n" +
                              "pmx.view.apply_exploded_view(1, 'AssemblyCenter', 5)\n" +
                              "pmx.view.remove_exploded_view()")]
         public void apply_exploded_view(object scale_factor = null, string method = null, object magnification = null,
-                                        string direction = null, object step_by_step = null, object tolerance = null,
+                                        string axes = null, object step_by_step = null, object tolerance = null,
                                         object center = null)
         {
             double scaleFactor = scale_factor == null ? 0.5 : PythonValueConverter.ToFiniteDouble(scale_factor,
@@ -293,8 +309,7 @@ namespace APIs.Python
             if (magnificationValue < 1 || magnificationValue > maxMagnification)
                 throw new PythonAPIException("The argument 'magnification' must be from 1 to " + maxMagnification +
                                              " for the " + methodName + " method.");
-            string directionName = direction == null ? ExplodedViewDirections[0]
-                                                     : ValidateOneOf(direction, ExplodedViewDirections, "direction");
+            string axesName = axes == null ? ExplodedViewAxes[0] : ValidateOneOf(axes, ExplodedViewAxes, "axes");
             bool sequential = step_by_step != null && PythonValueConverter.ToBool(step_by_step, "step_by_step");
             double toleranceValue = tolerance == null ? 0 : PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
             if (toleranceValue < 0) throw new PythonAPIException("The argument 'tolerance' must not be negative.");
@@ -308,7 +323,7 @@ namespace APIs.Python
             else if (methodName == "CenterPoint")
                 throw new PythonAPIException("The CenterPoint method needs the argument 'center'.");
             //
-            Resolve().ApplyExplodedView(methodName, scaleFactor, magnificationValue, directionName, sequential,
+            Resolve().ApplyExplodedView(methodName, scaleFactor, magnificationValue, axesName, sequential,
                                         toleranceValue, centerPoint);
         }
         [PythonAPI("Puts the parts of the displayed view back where they are, the way the exploded view " +

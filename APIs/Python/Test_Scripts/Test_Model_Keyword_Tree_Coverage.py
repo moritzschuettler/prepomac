@@ -45,6 +45,8 @@ def test_generated_keywords():
     generated = keywords.get_model_keywords()
     check(len(generated) > 0, "the model generated no CalculiX keywords")
     check(len(generated[0].indices) == 1, "a top level keyword has a one element index path")
+    check(type(generated[0].indices).__name__ == "IntListAPI", "an index path must be an IntList: " +
+          type(generated[0].indices).__name__)
     check(len(generated[0].data) > 0, "the generated keyword carries no text")
     return generated
 

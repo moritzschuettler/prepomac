@@ -26,6 +26,10 @@ namespace PrePoMax
         // How far above the wanted port the server looks when it is taken. A predictable small range,
         // so that the address stays something the user can write into a client configuration
         public const int PortProbeCount = 16;
+        // How long a caller is waited for: for its turn, for the window, and for an exec or an eval
+        // before it is answered that the call is still running
+        public const int MinRequestTimeout = 5;
+        public const int MaxRequestTimeout = 600;
         private bool _startWithApplication;
         private bool _isReadOnly;
         private bool _echoToPythonPanel;
@@ -53,7 +57,7 @@ namespace PrePoMax
         public int RequestTimeout
         {
             get { return _requestTimeout; }
-            set { _requestTimeout = Math.Min(600, Math.Max(5, value)); }
+            set { _requestTimeout = Math.Min(MaxRequestTimeout, Math.Max(MinRequestTimeout, value)); }
         }
         public int Port
         {

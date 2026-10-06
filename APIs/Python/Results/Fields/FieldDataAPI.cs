@@ -17,13 +17,13 @@ namespace APIs.Python
         private readonly int _count;
         private readonly string _location;
         private readonly string _unit;
-        private readonly object _ids;
+        private readonly IntListAPI _ids;
         private readonly object _values;
 
 
         // Properties
-        [PythonAPI("The node IDs corresponding to the values array.", Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+        [PythonAPI("The node IDs corresponding to the values array.", Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("The scalar component values.", Returns = "numpy.ndarray or NumericArray")]
         public object values { get { return _values; } }
         [PythonAPI("The field location. Field results are node-based in PrePoMax results.", Returns = "str")]
@@ -40,7 +40,7 @@ namespace APIs.Python
             _count = values != null ? values.Length : 0;
             _location = location;
             _unit = unit;
-            _ids = NumPyConverter.ToPythonArray(ids);
+            _ids = new IntListAPI(ids);
             _values = NumPyConverter.ToPythonArray(values);
         }
 

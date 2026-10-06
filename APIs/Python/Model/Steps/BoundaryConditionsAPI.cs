@@ -31,7 +31,7 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a fixed boundary condition using command history. The selection target is nodes.",
-                   Arguments = "name: str, region: Selection or Region, color: list[int] = None",
+                   Arguments = "name: str, region: Selection or Region, color: list[int] or str = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))")]
         public BoundaryConditionAPI add_fixed(string name, object region, object color = null)
@@ -48,7 +48,7 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing fixed boundary condition using command history.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
-                               "color: list[int] = None", Returns = "BoundaryCondition")]
+                               "color: list[int] or str = None", Returns = "BoundaryCondition")]
         public BoundaryConditionAPI replace_fixed(string old_name, string name = null, object region = null,
                                                   object color = null)
         {
@@ -65,7 +65,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
                                "amplitude_name: str = None, coordinate_system_name: str = None, " +
-                               "phase_deg: float = None, color: list[int] = None",
+                               "phase_deg: float = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=0)")]
         public BoundaryConditionAPI add_displacement_rotation(string name, object region, object u1 = null,
@@ -122,7 +122,7 @@ namespace APIs.Python.Model
                    "nodes.",
                    Arguments = "name: str, region: Selection or Region, step_id: int = None, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
-                               "ur2: bool = None, ur3: bool = None, color: list[int] = None",
+                               "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition")]
         public BoundaryConditionAPI add_submodel(string name, object region, object step_id = null,
                                                  object u1 = null, object u2 = null, object u3 = null,
@@ -160,7 +160,7 @@ namespace APIs.Python.Model
                    "nodes.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
                                "distribution_name: str = None, amplitude_name: str = None, " +
-                               "color: list[int] = None", Returns = "BoundaryCondition",
+                               "color: list[int] or str = None", Returns = "BoundaryCondition",
                    Example = "step.bcs.add_temperature('BC-2', selection, 100)")]
         public BoundaryConditionAPI add_temperature(string name, object region, object temperature,
                                                     object distribution_name = null,
@@ -186,7 +186,7 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing temperature boundary condition using command history.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "temperature: float = None, distribution_name: str = None, " +
-                               "amplitude_name: str = None, color: list[int] = None",
+                               "amplitude_name: str = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition")]
         public BoundaryConditionAPI replace_temperature(string old_name, string name = null, object region = null,
                                                         object temperature = null,

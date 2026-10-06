@@ -28,7 +28,7 @@ namespace APIs.Python
         //
         string GetResultType();
         void SetResultType(string resultType);
-        string[] GetResultFieldData();
+        bool GetResultFieldData(out string fieldName, out string componentName, out int stepId, out int incrementId);
         void SetResultFieldData(string fieldName, string componentName);
         void SetResultIncrement(int stepId, int incrementId);
         //

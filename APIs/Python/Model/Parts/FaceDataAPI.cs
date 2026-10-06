@@ -15,8 +15,8 @@ namespace APIs.Python.Model
     {
         // Variables
         private readonly int _count;
-        private readonly object _ids;
-        private readonly object _geometryIds;
+        private readonly IntListAPI _ids;
+        private readonly IntListAPI _geometryIds;
         private readonly object _areas;
         private readonly object _centroids;
         private readonly object _normals;
@@ -27,11 +27,11 @@ namespace APIs.Python.Model
         [PythonAPI("The number of faces.", Returns = "int")]
         public int count { get { return _count; } }
         [PythonAPI("The 1-based face IDs of the part, as the 'surfaces' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object ids { get { return _ids; } }
+                   Returns = "IntList")]
+        public IntListAPI ids { get { return _ids; } }
         [PythonAPI("The geometry ID of every face, as the 'geometry' selection source takes them.",
-                   Returns = "numpy.ndarray or IntList")]
-        public object geometry_ids { get { return _geometryIds; } }
+                   Returns = "IntList")]
+        public IntListAPI geometry_ids { get { return _geometryIds; } }
         [PythonAPI("The canonical area of every face, in model units. Geometry parts use exact CAD values; " +
                    "model and result parts keep their mesh-computed values.", Returns = "numpy.ndarray or NumericArray")]
         public object areas { get { return _areas; } }
@@ -54,8 +54,8 @@ namespace APIs.Python.Model
                              double[,] normals, string[] types)
         {
             _count = ids == null ? 0 : ids.Length;
-            _ids = NumPyConverter.ToPythonArray(ids);
-            _geometryIds = NumPyConverter.ToPythonArray(geometryIds);
+            _ids = new IntListAPI(ids);
+            _geometryIds = new IntListAPI(geometryIds);
             _areas = NumPyConverter.ToPythonArray(areas);
             _centroids = NumPyConverter.ToPythonArray(centroids);
             _normals = NumPyConverter.ToPythonArray(normals);

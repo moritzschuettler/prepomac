@@ -8118,6 +8118,7 @@ namespace PrePoMax
             // written into the settings: a switch for one run must not change the address the user
             // configured a client with
             if (_cmdOptions != null) _automationServer.RequestedPort = _cmdOptions.RpcPort;
+            if (_cmdOptions != null) _automationServer.RequestedTimeout = _cmdOptions.RpcTimeout;
             if (!EnsureAutomationAccessToken()) return;
             _automationServer.Start();
             WriteDataToOutput("The MCP endpoint of the automation server is " + _automationServer.EndpointUrl +

@@ -40,10 +40,10 @@ namespace APIs.Python.Model
             get { return _service.GetRecognizedMeshType(_partName); }
         }
         [PythonAPI("The sub-parts of a compound part made by split_solid: the solids its cells were cut from, " +
-                   "which rename_split_sub_part renames. Empty for any other part.", Returns = "list[str]")]
-        public string[] split_sub_part_names
+                   "which rename_split_sub_part renames. Empty for any other part.", Returns = "StringList")]
+        public StringListAPI split_sub_part_names
         {
-            get { return _service.GetSplitSubPartNames(_partName); }
+            get { return new StringListAPI(_service.GetSplitSubPartNames(_partName)); }
         }
 
 
@@ -58,10 +58,10 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("The cells of one sub-part of a compound part made by split_solid, in the order the compound " +
                    "holds them, which group_split_cells takes.",
-                   Arguments = "sub_part_name: str", Returns = "list[str]")]
-        public string[] get_split_cell_names(string sub_part_name)
+                   Arguments = "sub_part_name: str", Returns = "StringList")]
+        public StringListAPI get_split_cell_names(string sub_part_name)
         {
-            return _service.GetSplitCellNames(_partName, sub_part_name);
+            return new StringListAPI(_service.GetSplitCellNames(_partName, sub_part_name));
         }
         protected override BasePart ResolvePart()
         {
