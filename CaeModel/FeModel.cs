@@ -7357,27 +7357,18 @@ namespace CaeModel
                                                        Dictionary<string, Calculix.CalReferencePoint> referencePoints)
         {
             Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
-            if (initialAngularVelocity.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                FeNodeSet nodeSet = _mesh.NodeSets[initialAngularVelocity.RegionName];
-                for (int i = 0; i < nodeSet.Labels.Length; i++)
-                {
-                    nodeIdCoor[nodeSet.Labels[i]] = _mesh.Nodes[nodeSet.Labels[i]].Coor;
-                }
-            }
-            else if (initialAngularVelocity.RegionType == RegionTypeEnum.SurfaceName)
-            {
-                string nodeSetName = _mesh.Surfaces[initialAngularVelocity.RegionName].NodeSetName;
-                FeNodeSet nodeSet = _mesh.NodeSets[nodeSetName];
-                for (int i = 0; i < nodeSet.Labels.Length; i++)
-                {
-                    nodeIdCoor[nodeSet.Labels[i]] = _mesh.Nodes[nodeSet.Labels[i]].Coor;
-                }
-            }
-            else if (initialAngularVelocity.RegionType == RegionTypeEnum.ReferencePointName)
+            if (initialAngularVelocity.RegionType == RegionTypeEnum.ReferencePointName)
             {
                 FeReferencePoint rp = _mesh.ReferencePoints[initialAngularVelocity.RegionName];
                 nodeIdCoor[referencePoints[rp.Name].ReferenceNodeId] = rp.Coor();
+            }
+            else
+            {
+                int[] nodeIds;
+                double[][] coor;
+                _mesh.GetRegionNodeIdsAndCoordinates(initialAngularVelocity.RegionName,
+                                                     initialAngularVelocity.RegionType, out nodeIds, out coor);
+                for (int i = 0; i < nodeIds.Length; i++) nodeIdCoor[nodeIds[i]] = coor[i];
             }
             //
             Dictionary<int, double[]> nodeIdVelocity;
