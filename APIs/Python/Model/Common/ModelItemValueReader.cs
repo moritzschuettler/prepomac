@@ -69,11 +69,18 @@ namespace APIs.Python.Model
                     else value = string.Join(", ", PythonValueConverter.FromFlagsEnum(enumType, value));
                 }
                 // A list valued setting, such as the layer sizes of a multi layer mesh, is part of the
-                // definition, so a snapshot that leaves it out is not a complete one
+                // definition, so a snapshot that leaves it out is not a complete one. It is handed over as a
+                // Python list, the form the argument that sets it takes
                 else if (property.PropertyType == typeof(double[]) || property.PropertyType == typeof(int[]))
                 {
                     Array storedValues = value as Array;
-                    value = storedValues == null ? null : storedValues.Clone();
+                    if (storedValues == null) value = null;
+                    else
+                    {
+                        object[] items = new object[storedValues.Length];
+                        storedValues.CopyTo(items, 0);
+                        value = PythonListConverter.ToPythonList(items);
+                    }
                 }
                 else if (!IsSimpleType(property.PropertyType)) continue;
                 //

@@ -833,7 +833,7 @@ failed = {name: why for name, why in pmx.model.mesh.generate(part.name).items() 
 | `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from, as an `IntList`. |
-| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `add_*` argument that sets each - `max_size`, `min_size`, `element_size`, `optimize_steps_2d`, `optimize_steps_3d`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg`. A stored value no argument sets keeps the name of its property. List valued settings such as `layer_sizes` and `elements_per_layer` are included, so the dictionary is the complete definition. |
+| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `add_*` argument that sets each - `max_size`, `min_size`, `element_size`, `optimize_steps_2d`, `optimize_steps_3d`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg`. A stored value no argument sets keeps the name of its property. List valued settings such as `layer_sizes` and `elements_per_layer` are included as Python lists, so the dictionary is the complete definition. |
 
 ### `Nodes` and `Elements` of the model mesh
 

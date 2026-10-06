@@ -130,6 +130,10 @@ def test_derived_arguments(items, selection):
     items.replace_sweep_mesh(PREFIX + "Sweep", transfinite_angle_deg=100.0)
     check(settings(items, PREFIX + "Sweep")["number_of_global_smooth_steps"] == 1,
           "the omitted smooth step count was not kept")
+    # A list valued setting reads back as a Python list, the form elements_per_layer takes
+    layers = settings(items, PREFIX + "Sweep")["elements_per_layer"]
+    check(type(layers) is list and all(type(count) is int for count in layers),
+          "the elements per layer must read back as a list of ints: " + repr(layers))
 
 
 def test_layer_validation(items):
