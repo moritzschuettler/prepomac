@@ -133,7 +133,14 @@ namespace APIs.Python.Model
         public static void ApplyHeatTransferValues(HeatTransferStep step, object steadyState, object deltmx)
         {
             if (steadyState != null) step.SteadyState = PythonValueConverter.ToBool(steadyState, "steady_state");
-            if (deltmx != null) step.Deltmx = PythonValueConverter.ToDouble(deltmx, "deltmx");
+            if (deltmx != null)
+            {
+                double value = PythonValueConverter.ToDouble(deltmx, "deltmx");
+                if (double.IsNaN(value) || value <= 0)
+                    throw new PythonAPIException("The argument 'deltmx' must be a positive number, or float('inf') " +
+                                                 "for no limit.");
+                step.Deltmx = value;
+            }
         }
         //
         // The model refuses a lower frequency at or above the stored upper one and the other way round, so a call

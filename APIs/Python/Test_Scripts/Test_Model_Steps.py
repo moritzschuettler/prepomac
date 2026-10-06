@@ -219,6 +219,17 @@ def test_thermal_and_wear_types():
     step = steps.add_uncoupled_temp_disp(PREFIX + "UTD1", steady_state=False, deltmx=2.0)
     check(step.item_type == "uncoupled_temp_disp", "unexpected step type " + step.item_type)
     check(step.get_value("deltmx") == 2.0, "deltmx was not set on the uncoupled step")
+    # A temperature change limit that is not a positive number is refused before anything is recorded
+    count_before_refusals = len(steps)
+    for deltmx in [float("nan"), 0.0, -1.0, float("-inf")]:
+        check_raises(lambda: steps.add_heat_transfer(PREFIX + "Bad", deltmx=deltmx),
+                     "deltmx=" + str(deltmx) + " must be rejected")
+        check_raises(lambda: steps.replace_uncoupled_temp_disp(PREFIX + "UTD1", deltmx=deltmx),
+                     "a replace with deltmx=" + str(deltmx) + " must be rejected")
+    check(len(steps) == count_before_refusals, "a refused add was recorded")
+    check(steps[PREFIX + "UTD1"].get_value("deltmx") == 2.0, "a refused replace changed deltmx")
+    step = steps.replace_uncoupled_temp_disp(PREFIX + "UTD1", deltmx=float("inf"))
+    check(step.get_value("deltmx") == float("inf"), "deltmx was not put back to the default")
     #
     step = steps.add_coupled_temp_disp(PREFIX + "CTD1", time_period=4.0)
     check(step.item_type == "coupled_temp_disp", "unexpected step type " + step.item_type)
