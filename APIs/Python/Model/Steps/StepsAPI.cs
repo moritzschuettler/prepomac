@@ -423,8 +423,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a heat transfer step using command history.",
-                   Arguments = "name: str, steady_state: bool = None, deltmx: float = None, the arguments of " +
-                               "add_static, and the shared step arguments", Returns = "Step")]
+                   Arguments = "name: str, steady_state: bool = None, deltmx: float = None (float('inf'), the " +
+                               "default, does not limit the temperature change), the arguments of add_static, " +
+                               "and the shared step arguments", Returns = "Step")]
         public StepAPI add_heat_transfer(string name, object steady_state = null, object deltmx = null,
                                          object time_period = null, object initial_time_increment = null,
                                          object min_time_increment = null, object max_time_increment = null,

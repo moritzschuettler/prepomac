@@ -143,7 +143,9 @@ namespace PrePoMax.Python.Journal
         private static void AddHeatTransferValues(List<string> arguments, HeatTransferStep step)
         {
             arguments.Add("steady_state=" + PythonValueFormatter.Format(step.SteadyState));
-            arguments.Add("deltmx=" + PythonValueFormatter.Number(step.Deltmx));
+            // An unlimited temperature change is the default, and a replace must be able to restore it
+            arguments.Add("deltmx=" + (double.IsPositiveInfinity(step.Deltmx) ? "float('inf')" :
+                                       PythonValueFormatter.Number(step.Deltmx)));
         }
         private static void AddCommonValues(List<string> arguments, Step step)
         {

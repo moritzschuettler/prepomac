@@ -1593,7 +1593,7 @@ Reached as `pmx.model.steps`. It shares the collection verbs, including `activat
 | `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. It also takes the arguments of `add_static`. |
 | `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. |
 | `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. It also takes the arguments of `add_static`. |
-| `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. It also takes the arguments of `add_static`. |
+| `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. `deltmx` limits the temperature change in an increment; `float('inf')`, the default, does not limit it. It also takes the arguments of `add_static`. |
 | `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
 | `add_coupled_temp_disp(name, ...)` | A coupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
 | `move(names, target_index)` | Moves the named steps. The index is **zero based** and is evaluated after the moved steps have been removed. |

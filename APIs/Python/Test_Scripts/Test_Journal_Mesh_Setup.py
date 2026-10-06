@@ -1,12 +1,14 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks that the journal of the Gmsh mesh setup items replays: a windowless session opened on the model
-#records the items one command each over its MCP endpoint, and this session, which starts from an empty
-#model as the journal does, runs the journal and must end up with the same values.
+#Checks that the journal of the Gmsh mesh setup items and of the heat transfer steps replays: a windowless
+#session opened on the model records the items one command each over its MCP endpoint, and this session,
+#which starts from an empty model as the journal does, runs the journal and must end up with the same values.
 #
-#Every value is given away from its default, so that an argument the emitter writes and the API does
-#not take - or writes in a form the API refuses - fails the replay rather than passing unnoticed.
+#Every mesh setup value is given away from its default, so that an argument the emitter writes and the API
+#does not take - or writes in a form the API refuses - fails the replay rather than passing unnoticed. The
+#steps cover deltmx, whose default is infinite: it must be emitted on an add, and a replace must be able to
+#put a finite value back to the default.
 #
 #  PrePoMax.com --script Test_Journal_Mesh_Setup.py -g No -x Yes -w <dir>
 #
@@ -32,6 +34,9 @@ TETRAHEDRAL = PREFIX + "Tet"
 TRANSFINITE = PREFIX + "Transfinite"
 TRANSFINITE_OFF = PREFIX + "Transfinite_Off"
 SWEEP = PREFIX + "Sweep"
+HEAT_TRANSFER = PREFIX + "Heat_Transfer"
+UNCOUPLED = PREFIX + "Uncoupled"
+COUPLED = PREFIX + "Coupled"
 RECORDED = """
 box = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 6][0]
 cylinder = [part for part in pmx.model.geometry.parts if part.get_face_data().count != 6][0]
@@ -46,13 +51,19 @@ items.add_transfinite_mesh('%(transfinite_off)s', box_selection, recombine=False
 items.add_sweep_mesh('%(sweep)s', pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                                              {box.id: [5]}),
                      transfinite_four_sided=True, transfinite_angle_deg=100.0)
+steps = pmx.model.steps
+steps.add_heat_transfer('%(heat_transfer)s')
+steps.add_uncoupled_temp_disp('%(uncoupled)s', deltmx=5.0)
+steps.add_coupled_temp_disp('%(coupled)s', deltmx=2.5)
+steps.replace_coupled_temp_disp('%(coupled)s', deltmx=float('inf'))
 """ % {"tetrahedral": TETRAHEDRAL, "transfinite": TRANSFINITE, "transfinite_off": TRANSFINITE_OFF,
-       "sweep": SWEEP}
+       "sweep": SWEEP, "heat_transfer": HEAT_TRANSFER, "uncoupled": UNCOUPLED, "coupled": COUPLED}
 CHECKED = [(TETRAHEDRAL, ["algorithm_recombine", "recombine_min_quality", "transfinite_four_sided",
                           "transfinite_angle_deg", "optimize_high_order"]),
            (TRANSFINITE, ["algorithm_recombine", "transfinite_angle_deg"]),
            (TRANSFINITE_OFF, ["algorithm_recombine"]),
            (SWEEP, ["transfinite_four_sided", "transfinite_angle_deg"])]
+STEPS = {HEAT_TRANSFER: "inf", UNCOUPLED: "5.0", COUPLED: "inf"}
 
 
 def check(condition, message):
@@ -165,6 +176,11 @@ def recorded_values(endpoint):
                                     "for key in " + repr(keys) + "]"})
         check(not answer["failed"], "the recorded " + name + " could not be read: " + answer["error"])
         values[name] = dict(zip(keys, answer["value"]))
+    for name in STEPS:
+        answer = endpoint.json_tool("eval_expression", {"expression":
+                                    "str(pmx.model.steps['" + name + "'].get_value('deltmx'))"})
+        check(not answer["failed"], "the recorded " + name + " could not be read: " + answer["error"])
+        values[name] = answer["value"]
     return values
 
 
@@ -192,8 +208,12 @@ def main():
           "the tetrahedral item did not take its transfinite angle: " + str(recorded[TETRAHEDRAL]))
     check(recorded[TRANSFINITE_OFF]["algorithm_recombine"] == "None",
           "the transfinite item did not take recombine=False: " + str(recorded[TRANSFINITE_OFF]))
-    for name, _ in CHECKED:
+    for name, deltmx in STEPS.items():
+        check(recorded[name] == deltmx, name + " recorded deltmx " + recorded[name] + ", expected " + deltmx)
+    for name in [name for name, _ in CHECKED] + list(STEPS):
         check(name in source, name + " is missing from the journal:" + os.linesep + source)
+    check("replace_coupled_temp_disp" in source, "the replace of " + COUPLED + " is missing from the journal:" +
+          os.linesep + source)
     try:
         exec(source, {"pmx": pmx})
     except Exception as ex:
@@ -205,7 +225,11 @@ def main():
             check(str(replayed[key]) == recorded[name][key],
                   name + "." + key + " replayed as " + str(replayed[key]) + ", recorded as " +
                   recorded[name][key])
+    for name, deltmx in STEPS.items():
+        replayed = str(pmx.model.steps[name].get_value("deltmx"))
+        check(replayed == deltmx, name + ".deltmx replayed as " + replayed + ", recorded as " + deltmx)
     items.remove([name for name, _ in CHECKED])
+    pmx.model.steps.remove(list(STEPS))
     print("TEST PASSED")
 
 
