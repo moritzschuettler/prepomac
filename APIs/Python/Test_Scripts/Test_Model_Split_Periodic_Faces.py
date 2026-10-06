@@ -9,8 +9,13 @@
 #A defeaturing keeps the splits of every face it does not remove, although the modelling kernel joins the faces that
 #lie on one surface anywhere in the solid it returns.
 #
+#A part whose CAD system wrote the vertices of its bores a hair past the seam is split as well: the split used to cut
+#them off as edges shorter than any tolerance and the part was left as it was.
+#
 #blind_holes.brep is a 60 x 40 x 20 box with two blind holes drilled from the top face and one hole that goes all
 #the way through. sweep_holes_side.brep is a compound of two boxes side by side with a bore through each.
+#split_periodic_mirrored.brep is the mirrored copy of a part with six periodic faces, as a CAD system wrote it, with
+#the vertices of its small bores 2e-9 rad past the seam.
 #
 #  PrePoMax.com -f blind_holes.brep -u MM_TON_S_C --script Test_Model_Split_Periodic_Faces.py -g No -x Yes -w <dir>
 #
@@ -127,6 +132,15 @@ def test_compound():
     check(sum(len(cylinders(parts[name])) for name in solids) == 4, "each bore must be split into two halves")
 
 
+def test_vertices_past_seam():
+    parts = pmx.model.geometry.parts
+    part = import_parts("split_periodic_mirrored.brep")[0]
+    check(len(faces(part)) == 31, "the mirrored part must import with 31 faces: " + str(len(faces(part))))
+    added = parts.split_periodic_faces(part.name)
+    check(dict(added) == {part.name: 6}, "each of the six periodic faces must gain one face: " + str(dict(added)))
+    check(len(faces(parts[part.name])) == 37, "the split part must hold 37 faces: " + str(len(faces(parts[part.name]))))
+
+
 def test_not_cad():
     stl = import_parts("cube.stl")[0]
     refused(lambda: pmx.model.geometry.parts.split_periodic_faces(stl.name), "CAD part")
@@ -137,6 +151,7 @@ def main():
     test_more_faces()
     test_defeature_keeps_splits()
     test_compound()
+    test_vertices_past_seam()
     test_not_cad()
     print("TEST PASSED")
 
