@@ -38,7 +38,7 @@ def main():
     # this a false failure; the tolerance is the 5 percent that rounding to two digits can move.
     settings = mmg.get_settings()
     hausdorff = settings["hausdorff"]
-    box = [float(value) for value in list(part.get_bounding_box())]
+    box = part.get_bounding_box()
     diagonal = ((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) ** 0.5
     expected = diagonal * settings["relative_hausdorff"]
     check(expected > 0, "the part must have a size: " + str(box))

@@ -99,7 +99,7 @@ def read_png_header(path):
 
 
 def test_the_picture():
-    camera = list(pmx.view.get_parameters())
+    camera = pmx.view.get_parameters()
     pmx.view.set_orientation("Isometric")
     pmx.view.zoom_to_fit()
     path = pmx.view.save_image()
@@ -118,7 +118,7 @@ def test_the_picture():
 
 
 def test_the_picture_options():
-    camera = list(pmx.view.get_parameters())
+    camera = pmx.view.get_parameters()
     pmx.view.set_orientation("Isometric")
     pmx.view.zoom_to_fit()
     plain = pmx.view.save_image()
@@ -210,18 +210,20 @@ def centre_offset(camera, target):
 
 
 def test_the_camera():
-    camera = list(pmx.view.get_parameters())
+    camera = pmx.view.get_parameters()
+    check(type(camera) is list and len(camera) == 10 and all(type(value) is float for value in camera),
+          "the camera must be a list[float] of 10 values: " + repr(camera))
     pmx.view.set_orientation("Front")
-    before = list(pmx.view.get_parameters())
+    before = pmx.view.get_parameters()
     pmx.view.rotate(30, 20)
-    after = list(pmx.view.get_parameters())
+    after = pmx.view.get_parameters()
     check(any(abs(after[i] - before[i]) > 1e-6 for i in range(3)), "a rotation must move the camera: " + str(after))
     pmx.view.rotate(-30, -20)
-    reference = list(pmx.view.get_parameters())
+    reference = pmx.view.get_parameters()
     # Looking at a point keeps the viewing direction and the view up, and puts the point in the centre
     target = [0.5, 0.5, 1.0]
     pmx.view.look_at(target, 2.0)
-    framed = list(pmx.view.get_parameters())
+    framed = pmx.view.get_parameters()
     check(centre_offset(framed, target) < 1e-6, "look_at must put the point in the centre: " + str(framed))
     check(abs(framed[9] - 2.0) < 1e-6, "look_at must set the parallel scale: " + str(framed))
     direction = unit_direction(framed)
@@ -230,7 +232,7 @@ def test_the_camera():
         check(abs(direction[i] - previous[i]) < 1e-6, "look_at must keep the viewing direction: " + str(framed))
         check(abs(framed[6 + i] - reference[6 + i]) < 1e-6, "look_at must keep the view up: " + str(framed))
     pmx.view.look_at([0.0, 0.0, 0.0])
-    check(abs(list(pmx.view.get_parameters())[9] - 2.0) < 1e-6, "a scale that is not given keeps the zoom")
+    check(abs(pmx.view.get_parameters()[9] - 2.0) < 1e-6, "a scale that is not given keeps the zoom")
     check_raises(lambda: pmx.view.look_at([1.0, 2.0]), "a short point must be rejected")
     check_raises(lambda: pmx.view.look_at([0.0, 0.0, 0.0], -1.0), "a negative parallel scale must be rejected")
     check_raises(lambda: pmx.view.rotate("a lot"), "a rotation must be a number")
@@ -256,14 +258,15 @@ def test_the_annotations():
     check_raises(lambda: annotations.remove("PyTest_NoSuchAnnotation"), "an unknown annotation must be rejected")
     check_raises(lambda: annotations.remove("Max_Annotation"), "a reserved annotation cannot be removed")
     # The min/max labels are a setting of the application, so they are put back
-    shown = list(annotations.get_min_max())
-    check(len(shown) == 2, "the min/max setting is two values: " + str(shown))
+    shown = annotations.get_min_max()
+    check(type(shown) is list and len(shown) == 2 and all(type(value) is bool for value in shown),
+          "the min/max setting is a list of two bools: " + repr(shown))
     annotations.show_min_max(True, True)
-    check(list(annotations.get_min_max()) == [True, True], "the min/max labels must be shown")
+    check(annotations.get_min_max() == [True, True], "the min/max labels must be shown")
     annotations.show_min_max(False, False)
-    check(list(annotations.get_min_max()) == [False, False], "the min/max labels must be hidden")
+    check(annotations.get_min_max() == [False, False], "the min/max labels must be hidden")
     annotations.show_min_max(shown[0], shown[1])
-    check(list(annotations.get_min_max()) == shown, "the min/max setting must be put back: " + str(shown))
+    check(annotations.get_min_max() == shown, "the min/max setting must be put back: " + str(shown))
     #
     path = pmx.view.save_image()
     check(os.path.exists(path), "the annotated image must exist: " + path)

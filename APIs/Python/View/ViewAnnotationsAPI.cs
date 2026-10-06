@@ -98,10 +98,11 @@ namespace APIs.Python
         }
         [PythonAPI("Returns whether the minimum and the maximum labels are shown, as [show_min, show_max]. Keep " +
                    "them to put the user setting back after a picture.", Returns = "list[bool]",
-                   Example = "shown = list(pmx.view.annotations.get_min_max())")]
-        public bool[] get_min_max()
+                   Example = "shown = pmx.view.annotations.get_min_max()")]
+        public object get_min_max()
         {
-            return Resolve().GetMinMaxAnnotations();
+            bool[] shown = Resolve().GetMinMaxAnnotations();
+            return PythonListConverter.ToPythonList(shown == null ? null : Array.ConvertAll(shown, value => (object)value));
         }
         //
         private IPythonViewGateway Resolve()

@@ -66,30 +66,31 @@ namespace APIs.Python.Model
             }
         }
         [PythonAPI("The scale factors of the point cloud of a distribution read from a file, one per " +
-                   "direction, or None.", Returns = "NumericArray or None")]
-        public NumericArrayAPI scale
+                   "direction, or None.", Returns = "list[float] or None")]
+        public object scale
         {
             get
             {
                 MappedDistribution distribution = Resolve() as MappedDistribution;
                 if (distribution == null) return null;
                 //
-                return new NumericArrayAPI(new double[] { distribution.ScaleX.Value, distribution.ScaleY.Value,
-                                                          distribution.ScaleZ.Value });
+                return PythonListConverter.ToPythonList(new double[] { distribution.ScaleX.Value,
+                                                                       distribution.ScaleY.Value,
+                                                                       distribution.ScaleZ.Value });
             }
         }
         [PythonAPI("The translation of the point cloud of a distribution read from a file, in model units, or " +
-                   "None.", Returns = "NumericArray or None")]
-        public NumericArrayAPI translate
+                   "None.", Returns = "list[float] or None")]
+        public object translate
         {
             get
             {
                 MappedDistribution distribution = Resolve() as MappedDistribution;
                 if (distribution == null) return null;
                 //
-                return new NumericArrayAPI(new double[] { distribution.TranslateX.Value,
-                                                          distribution.TranslateY.Value,
-                                                          distribution.TranslateZ.Value });
+                return PythonListConverter.ToPythonList(new double[] { distribution.TranslateX.Value,
+                                                                       distribution.TranslateY.Value,
+                                                                       distribution.TranslateZ.Value });
             }
         }
         [PythonAPI("The name of the coordinate system the distribution is defined in.", Returns = "str")]

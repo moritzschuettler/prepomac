@@ -40,29 +40,32 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns the result coordinate system origin, as computed on the result mesh.",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_origin()
+        [PythonAPI("Returns the result coordinate system origin as [x, y, z], as computed on the result mesh.",
+                   Returns = "list[float]")]
+        public object get_origin()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X1.Value, coordinateSystem.Y1.Value,
-                                                      coordinateSystem.Z1.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X1.Value,
+                                                                   coordinateSystem.Y1.Value,
+                                                                   coordinateSystem.Z1.Value });
         }
-        [PythonAPI("Returns the point that defines the local X axis, as computed on the result mesh.",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_point_on_x()
+        [PythonAPI("Returns the point that defines the local X axis as [x, y, z], as computed on the result " +
+                   "mesh.", Returns = "list[float]")]
+        public object get_point_on_x()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X2.Value, coordinateSystem.Y2.Value,
-                                                      coordinateSystem.Z2.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X2.Value,
+                                                                   coordinateSystem.Y2.Value,
+                                                                   coordinateSystem.Z2.Value });
         }
-        [PythonAPI("Returns the point that defines the local XY plane, as computed on the result mesh.",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_point_in_xy()
+        [PythonAPI("Returns the point that defines the local XY plane as [x, y, z], as computed on the result " +
+                   "mesh.", Returns = "list[float]")]
+        public object get_point_in_xy()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X3.Value, coordinateSystem.Y3.Value,
-                                                      coordinateSystem.Z3.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X3.Value,
+                                                                   coordinateSystem.Y3.Value,
+                                                                   coordinateSystem.Z3.Value });
         }
         [PythonAPI("Returns the nine stored coordinate expressions, as the values or equations they were " +
                    "entered with: x1, y1, z1 of the origin, x2, y2, z2 of the point on X and x3, y3, z3 of " +

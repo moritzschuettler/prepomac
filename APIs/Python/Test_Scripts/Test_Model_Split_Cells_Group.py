@@ -57,7 +57,7 @@ def split_boxes():
 
 
 def z_of(cell_name):
-    return float(list(pmx.model.geometry.parts[cell_name].center_of_mass)[2])
+    return pmx.model.geometry.parts[cell_name].center_of_mass[2]
 
 
 def bottom_and_top(compound, sub_part_name):

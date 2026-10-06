@@ -21,9 +21,13 @@ The root object available in the Python console is `pmx`.
 - Option strings of the result side are the PascalCase names of the application's enumerations (`AllNodes`, `FieldByGeometry`, `RealAtAngle`, ...). They are matched regardless of case and read back in
   that spelling. Result and mesh members take snake_case arguments (`node_id`, `step_id`, `field_name`, ...). `contains` takes `name`, or
   `id` where the collection is keyed by an ID (result steps, increments and elements).
-- Return shapes follow one rule. Every list of IDs (node, element, face, edge, vertex, geometry, step and increment IDs, keyword indices, ...) is an `IntList`
-  and every list of names is a `StringList`, with or without NumPy. Bulk numeric data - coordinates, values, areas, normals, offsets and connectivity
-  columns - is a NumPy array where NumPy is available and a `NumericArray` otherwise. NumPy is optional.
+- Return shapes follow one rule. Bulk numeric data - one value or row per node, element, face or edge (coordinates, values, areas, centroids,
+  normals, offsets), tables and history columns - is a NumPy array where NumPy is available and a `NumericArray` otherwise. NumPy is optional.
+  A short value of a fixed size - a point, a vector, a bounding box, the camera parameters, a 3 by 3 matrix as three rows - is a plain Python
+  `list` (`list[float]`, `list[list[float]]`), so it prints, compares and unpacks like the list a script passes in. Every list of IDs (node,
+  element, face, edge, vertex, geometry, step and increment IDs, keyword indices, ...) is an `IntList` and every list of names is a `StringList`,
+  with or without NumPy. The one bulk ID column is the element `connectivity`, a NumPy array (an `IntList` without NumPy) read in slices with
+  `offsets`. A map is a `dict`, below.
 - Every `color` argument is a `list[int]` or a `str`: `[R, G, B]` or `[R, G, B, A]` with channels from 0 to 255, or a .NET color name such as `'Red'`.
   A color read back is always `[R, G, B, A]`.
 - A map a member returns (`get_settings`, `get_equations`, `get_element_types`, `mesh.generate`, the geometry operations' counts, ...) is a Python `dict`, so it prints its content and supports `in`, `.items()` and indexing.
@@ -1078,10 +1082,10 @@ transforms can be done while the exploded view is on.
 | `node_count`, `element_count` | Node and element counts. |
 | `color` | The part color as `[R, G, B, A]`. |
 | `visible`, `active` | Part state. |
-| `volume`, `center_of_mass` | The canonical part measurements. Geometry parts use exact CAD values. Model parts keep mesh-computed values and use CAD only to fill a missing value. |
+| `volume`, `center_of_mass` | The canonical part measurements, the center of mass as `[x, y, z]`. Geometry parts use exact CAD values. Model parts keep mesh-computed values and use CAD only to fill a missing value. |
 | `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a meshed solid reports the area of the CAD part it was meshed from, and `0.0` when there is none - an imported mesh has none. The area of the mesh itself is the sum of `get_face_data().areas`. |
-| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices, or an empty array when unavailable. They are **second moments of volume**: the density is 1, so the values are in model length units to the fifth power, and a mass inertia is the matrix multiplied by the material density. Only CAD geometry computes them, so a meshed part carries the matrices of the CAD part it was meshed from and an imported mesh has none. |
-| `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]`. Geometry parts use the CAD entity bounds when available. |
+| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices as three rows (`list[list[float]]`), or an empty list when unavailable. They are **second moments of volume**: the density is 1, so the values are in model length units to the fifth power, and a mass inertia is the matrix multiplied by the material density. Only CAD geometry computes them, so a meshed part carries the matrices of the CAD part it was meshed from and an imported mesh has none. |
+| `get_bounding_box()` | `[xMin, xMax, yMin, yMax, zMin, zMax]` as a `list[float]`. Geometry parts use the CAD entity bounds when available. |
 | `get_node_ids()`, `get_element_ids()` | The part node and element IDs, as `IntList`s. |
 | `get_node_coordinates()` | The coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. This is the route to the nodes of a geometry part, because `pmx.model.nodes` is the model mesh and holds nothing until the model is meshed. |
 | `get_face_data()` | The faces of the part as `FaceData`. |
@@ -1138,7 +1142,7 @@ describe the block. `get_entities(kind)` returns the solids, shells, faces or ed
 Each `GeometryMetadataEntity` exposes `kind`, `id`, `property_names` and
 `get_property(name, default=None)`. Properties are passed through generically, so a new Netgen
 property becomes available without adding a dedicated Python member. Scalar values return `float` or
-`str`; numeric vectors return a NumPy array or `NumericArray`, a property whose name ends in `_ids` an `IntList`, and text vectors a `StringList`. Common properties include
+`str`; numeric vectors return a `list[float]`, a property whose name ends in `_ids` an `IntList`, and text vectors a `StringList`. Common properties include
 `axis`, `x_direction`, `y_direction`, `radius`, `center`, `apex`, `major_radius`, `minor_radius`,
 `orientation`, `bounding_box`, `face_ids` and `edge_ids`. Circular edges add `closed` and
 `sweep_angle_rad`. Cylindrical faces belonging to one solid add `convexity`: `Convex` means the
@@ -1201,8 +1205,8 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `file_name` | The point cloud file of a file distribution, otherwise `None`. |
 | `interpolator_type` | `ClosestPoint`, `Gauss` or `Shepard` for a file distribution, otherwise `None`. |
 | `interpolator_radius` | The interpolator radius of a file distribution, in model units, otherwise `None`. |
-| `scale` | The scale factors of a file distribution as a `NumericArray` of three, otherwise `None`. |
-| `translate` | The translation of a file distribution in model units as a `NumericArray` of three; `None` on an equation distribution. |
+| `scale` | The scale factors of a file distribution as a `list[float]` of three, otherwise `None`. |
+| `translate` | The translation of a file distribution in model units as a `list[float]` of three; `None` on an equation distribution. |
 | `coordinate_system_name` | The name of the coordinate system the distribution is defined in. Read-only. |
 | `get_equations()` | The stored equations of a file distribution, under the `add_from_file` argument names: `interpolator_radius`, and `scale` and `translate` as a `StringList` of three (`dict[str, str or StringList]`). An expression reads back with its leading `=` and a plain value with its unit. An equation distribution returns an empty `dict`; its equation is the `equation` property. |
 
@@ -1323,7 +1327,7 @@ print(node_set.count, node_set.get_node_ids())
 | `valid` | True when the node set resolved during the last regeneration. |
 | `is_internal` | True when the node set was created internally for another model item. |
 | `get_node_ids()` | The node IDs as `IntList`. |
-| `get_center_of_gravity()` | The center of gravity. |
+| `get_center_of_gravity()` | The center of gravity as `[x, y, z]`, or an empty list when the node set has none. |
 
 ### `ElementSets`
 
@@ -1370,7 +1374,7 @@ type is `NodeSetName` or `SurfaceName`.
 their defaults when they are not given.
 
 `ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
-`get_coordinates()`, `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which returns how the point is defined: its mode, and
+`get_coordinates()` (`[x, y, z]`), `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which returns how the point is defined: its mode, and
 the region or the selected point IDs it is built from.
 
 `replace_from_selection` and `replace_from_region` keep the stored selection or region only while the point is still of
@@ -1390,8 +1394,8 @@ A point given as coordinates and a point given as a selection can be mixed in on
 which is what the dialog offers when one point is picked and another typed.
 
 `CoordinateSystem` exposes `name`, `coordinate_system_type`, `name_visible`, `visible`, `valid`, `get_origin()`,
-`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which
-tells how each of the three points is defined.
+`get_point_on_x()`, `get_point_in_xy()` (each `[x, y, z]`), `get_equations()` (a `dict[str, str]`) and `get_construction()` (a
+`dict[str, str]`), which tells how each of the three points is defined.
 
 ```python
 top = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [1]})
@@ -2109,7 +2113,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `set_orientation(orientation)` | Points the camera along a standard direction: `Front`, `Back`, `Top`, `Bottom`, `Left`, `Right`, `Isometric`, `IsometricNegative`, `Normal` or `Vertical`. |
 | `get_orientation_names()` | The orientation names `set_orientation` accepts. |
 | `zoom_to_fit()` | Fits everything visible in the viewport. |
-| `get_parameters()` | The camera as 10 values: position, focal point and view up, three each, then the parallel scale. |
+| `get_parameters()` | The camera as a `list[float]` of 10 values: position, focal point and view up, three each, then the parallel scale. |
 | `set_parameters(parameters)` | Sets the camera from those 10 values. |
 | `rotate(azimuth_deg, elevation_deg=0, roll_deg=0)` | Turns the camera about the model by angles in degrees: `azimuth_deg` about the vertical axis of the view, `elevation_deg` about its horizontal axis, `roll_deg` about the viewing direction. |
 | `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
@@ -2161,10 +2165,10 @@ command history, the same as a label placed by a query in the application. The n
 | `add_element(element_id)` | Adds the annotation an element query places. Returns the generated name. |
 | `remove(names)` | Removes the named annotations. A single name or a list of names; a reserved or unknown name is refused. |
 | `show_min_max(show_min, show_max)` | Shows or hides the labels at the minimum and the maximum of the plotted result, the way the post-processing settings do. Needs an open result. |
-| `get_min_max()` | Whether those labels are shown, as `[show_min, show_max]`. Keep them to put the user setting back. |
+| `get_min_max()` | Whether those labels are shown, as the `list[bool]` `[show_min, show_max]`. Keep them to put the user setting back. |
 
 ```python
-shown = list(pmx.view.annotations.get_min_max())
+shown = pmx.view.annotations.get_min_max()
 pmx.view.annotations.show_min_max(False, True)
 label = pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])
 name = pmx.view.annotations.add_node(15)
@@ -2321,8 +2325,8 @@ a boundary condition.
 | `count` | The number of resolved items. Zero means the selection finds nothing in the current view, which is reported rather than thrown. |
 | `ids` | The resolved IDs as an `IntList`: node IDs, element IDs, part IDs or geometry IDs, following the target. |
 | `part_names` | The names of the parts the resolved items belong to. |
-| `bounding_box` | `[xMin, xMax, yMin, yMax, zMin, zMax]` of the resolved items, or an empty array when nothing resolved. |
-| `centroid` | The mean of the node coordinates of the resolved items, or an empty array. |
+| `bounding_box` | `[xMin, xMax, yMin, yMax, zMin, zMax]` of the resolved items as a `list[float]`, or an empty list when nothing resolved. |
+| `centroid` | The mean of the node coordinates of the resolved items as `[x, y, z]`, or an empty list. |
 
 ```python
 top = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
@@ -2372,7 +2376,7 @@ Single loaded result file.
 | `field_outputs` | User-defined result field output definitions. |
 | `get_nodal_value(step_id, increment_id, field_name, component_name, node_id)` | Returns one nodal field component value. |
 | `get_nodal_coordinates(node_id)` | Returns the undeformed node coordinates as `[x, y, z]`. |
-| `get_deformed_nodal_coordinates(step_id, increment_id, node_id)` | Returns true-scale deformed coordinates using `DISP`. |
+| `get_deformed_nodal_coordinates(step_id, increment_id, node_id)` | Returns true-scale deformed coordinates as `[x, y, z]` using `DISP`. |
 | `get_history_output_entries(history_output_name, field_name, component_name)` | Returns the entries in a history output component. |
 | `get_history_output_entry(history_output_name, field_name, component_name, entry_name)` | Returns one named history output entry. |
 
@@ -3008,7 +3012,7 @@ A result `ReferencePoint`:
 | `name` | The reference point name. |
 | `created_from` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
 | `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour as `[R, G, B, A]`, and the visibility. |
-| `get_coordinates()` | The coordinates computed on the result mesh, as a `NumericArray`. |
+| `get_coordinates()` | The coordinates computed on the result mesh, as `[x, y, z]`. |
 | `get_equations()` | The stored coordinates as entered, under `x`, `y` and `z`. |
 | `get_construction()` | How the point is built, under `created_from`, `region_type` and `region_name`. |
 
@@ -3019,7 +3023,7 @@ A result `CoordinateSystem`:
 | `name` | The coordinate system name. |
 | `coordinate_system_type` | `Rectangular` or `Cylindrical`. |
 | `name_visible`, `visible` | Whether the name is drawn next to the symbol, and the visibility. |
-| `get_origin()`, `get_point_on_x()`, `get_point_in_xy()` | The three defining points computed on the result mesh, as `NumericArray`s. |
+| `get_origin()`, `get_point_on_x()`, `get_point_in_xy()` | The three defining points computed on the result mesh, each as `[x, y, z]`. |
 | `get_equations()` | The nine stored coordinates as entered, under `x1`, `y1`, `z1` to `x3`, `y3`, `z3`. |
 | `get_construction()` | How each point is built (`Coordinates`, `OnPoint`, `BetweenTwoPoints` or `CircleCenter`), under `origin`, `point_on_x` and `point_in_xy`. |
 
@@ -3033,10 +3037,10 @@ Single mesh part.
 | `get_node_ids()` | Node IDs belonging to the part, as `IntList`. |
 | `get_element_ids()` | Element IDs belonging to the part, as `IntList`. |
 | `get_node_coordinates()` | The undeformed coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. |
-| `volume`, `center_of_mass` | Mesh-computed part measurements, with CAD used only when a mesh value was missing. |
+| `volume`, `center_of_mass` | Mesh-computed part measurements, the center of mass as `[x, y, z]`, with CAD used only when a mesh value was missing. |
 | `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a solid reports the area of the CAD part it was meshed from, and `0.0` when there is none. The area of the mesh itself is the sum of `get_face_data().areas`. |
-| `get_bounding_box()` | The mesh-computed `[xMin, xMax, yMin, yMax, zMin, zMax]` bounds. |
-| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices, or an empty array when unavailable. They are second moments of volume with a density of 1, in model length units to the fifth power, exactly as on a model part. A mesh computes none, so these are the matrices of the CAD part the mesh came from and an imported mesh has none. |
+| `get_bounding_box()` | The mesh-computed `[xMin, xMax, yMin, yMax, zMin, zMax]` bounds as a `list[float]`. |
+| `get_inertia_at_center_of_mass()`, `get_inertia_at_origin()` | The 3 by 3 inertia matrices as three rows, or an empty list when unavailable. They are second moments of volume with a density of 1, in model length units to the fifth power, exactly as on a model part. A mesh computes none, so these are the matrices of the CAD part the mesh came from and an imported mesh has none. |
 | `get_face_data()`, `get_edge_data()`, `get_vertex_data()` | Result-mesh topology using the same `FaceData`, `EdgeData` and `VertexData` objects described for model parts. |
 | `get_geometry_metadata()` | Supplemental CAD metadata transferred through the model mesh into the result. |
 

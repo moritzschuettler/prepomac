@@ -125,7 +125,7 @@ def test_compound():
     rim_part = part_named(names[0])
     check(rim_part.part_type == "Shell", "the offset part must be a shell part: " + rim_part.part_type)
     close(rim_part.surface_area, rim["area"], "the surface offset from a sub-part must keep its area")
-    limits = list(rim_part.get_bounding_box())
+    limits = rim_part.get_bounding_box()
     close(limits[4], rim["z"], "the surface must stay where it was taken from")
     close(limits[5], rim["z"], "the surface must stay where it was taken from")
     # The face ids of a sub-part mean nothing in the compound as a whole, so a wrong solid number would
@@ -192,8 +192,8 @@ def main():
     offset_rows = faces(offset_part)
     check(len(offset_rows) == 1, "the offset part must carry one face: " + str(offset_rows))
     close(offset_part.surface_area, top["area"], "the offset surface must keep its area")
-    box_limits = list(box.get_bounding_box())
-    limits = list(offset_part.get_bounding_box())
+    box_limits = box.get_bounding_box()
+    limits = offset_part.get_bounding_box()
     close(limits[4], 20.0, "the offset surface must stay where it was taken from")
     close(limits[5], 20.0, "the offset surface must stay where it was taken from")
     # The part the surface was taken from is left as it was
@@ -205,7 +205,7 @@ def main():
     check(len(names) == 1, "one part must be created: " + str(names))
     check(names[0] == box.name + "_Offset-2", "the second part must be numbered: " + names[0])
     middle = part_named(names[0])
-    limits = list(middle.get_bounding_box())
+    limits = middle.get_bounding_box()
     close(limits[4], 10.0, "the offset surface must lie halfway through the box")
     close(limits[5], 10.0, "the offset surface must lie halfway through the box")
     close(middle.surface_area, top["area"], "an offset plane must keep its area")
@@ -214,7 +214,7 @@ def main():
     check(names[0] == middle.name + "_Offset-1", "an offset of an offset part must be named after it: " + names[0])
     # A positive offset moves the surface out of the body it was taken from
     names = offset_faces(selection(box, [top]), 5.0)
-    limits = list(part_named(names[0]).get_bounding_box())
+    limits = part_named(names[0]).get_bounding_box()
     close(limits[4], 25.0, "a positive offset must move the surface outwards")
     # Several surfaces of one part become one part, sewn along the edges they share
     sides = side_faces(rows, top)
@@ -234,7 +234,7 @@ def main():
     offset_patch = part_named(names[0])
     check(len(faces(offset_patch)) == len(picked),
           "the offset patch must carry every picked surface: " + str(faces(offset_patch)))
-    limits = list(offset_patch.get_bounding_box())
+    limits = offset_patch.get_bounding_box()
     check(limits[1] - limits[0] < box_limits[1] - box_limits[0] - TOLERANCE,
           "a patch offset inwards must be smaller than the body it was taken from: " + str(limits))
     test_apart(box, sides)

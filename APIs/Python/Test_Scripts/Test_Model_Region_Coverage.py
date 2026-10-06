@@ -35,11 +35,11 @@ def main():
 
     # Equation strings are retained as model inputs and evaluate component-wise.
     rp = pmx.model.reference_points.add(PREFIX + "RP", ["=1", 2, "=3"])
-    check(list(rp.get_coordinates()) == [1.0, 2.0, 3.0], "reference point equations did not evaluate")
+    check(rp.get_coordinates() == [1.0, 2.0, 3.0], "reference point equations did not evaluate")
     pmx.model.reference_points.hide(PREFIX + "RP")
     pmx.model.reference_points.replace(PREFIX + "RP", PREFIX + "RP2", ["=4", "=5", "=6"])
     check(not pmx.model.reference_points[PREFIX + "RP2"].visible, "reference point replace lost visibility")
-    check(list(pmx.model.reference_points[PREFIX + "RP2"].get_coordinates()) == [4.0, 5.0, 6.0],
+    check(pmx.model.reference_points[PREFIX + "RP2"].get_coordinates() == [4.0, 5.0, 6.0],
           "reference point replacement coordinates are wrong")
 
     one = pmx.create.selection_by_ids("femodel", "nodes", "nodes", [1])
@@ -87,12 +87,12 @@ def main():
           "coordinate system replacement reset cylindrical type")
     check(not pmx.model.coordinate_systems[PREFIX + "CS2"].visible,
           "coordinate system replacement lost visibility")
-    check(list(pmx.model.coordinate_systems[PREFIX + "CS2"].get_origin()) == [2.0, 3.0, 4.0],
+    check(pmx.model.coordinate_systems[PREFIX + "CS2"].get_origin() == [2.0, 3.0, 4.0],
           "coordinate system equation origin is wrong")
     # A replacement is checked the way a creation is, so a degenerate axis is refused either way
     raises(lambda: pmx.model.coordinate_systems.replace(PREFIX + "CS2", point_on_x=[2, 3, 4]),
            "a replacement that collapses the X axis was accepted")
-    check(list(pmx.model.coordinate_systems[PREFIX + "CS2"].get_point_on_x()) == [1.0, 0.0, 0.0],
+    check(pmx.model.coordinate_systems[PREFIX + "CS2"].get_point_on_x() == [1.0, 0.0, 0.0],
           "a refused coordinate system replacement changed the model")
 
     # Mixed explicit and selected point definitions: explicit origin, selected X point. Node 2 of the
@@ -103,7 +103,7 @@ def main():
         origin=["=0", "=0", "=0"], point_in_xy=["=0", "=1", "=0"])
     check(len(cs_mix.get_origin()) == 3 and len(cs_mix.get_point_on_x()) == 3,
           "mixed coordinate system definition was not created")
-    check(list(cs_mix.get_point_on_x()) == [1.0, 0.0, 0.0],
+    check(cs_mix.get_point_on_x() == [1.0, 0.0, 0.0],
           "the selected X point was not resolved on the mesh")
     check(cs_mix.get_construction()["point_on_x"] == "OnPoint",
           "the construction of the selected X point was not read back")
@@ -119,13 +119,13 @@ def main():
                        PREFIX + "CSMix", point_on_x_created_from="OnPoint", point_on_x_selection=one,
                        origin=[0, 0, 0], point_in_xy=[0, 1, 0]),
            "a replacement that collapses the X axis onto a selected point was accepted")
-    check(list(pmx.model.coordinate_systems[PREFIX + "CSMix"].get_point_on_x()) == [1.0, 0.0, 0.0],
+    check(pmx.model.coordinate_systems[PREFIX + "CSMix"].get_point_on_x() == [1.0, 0.0, 0.0],
           "a refused mixed replacement changed the definition")
     # The XY point is reevaluated from its own selection, not from the one of the origin
     cs_xy = pmx.model.coordinate_systems.add_from_selections(
         PREFIX + "CSXY", origin=[0, 0, 0], point_on_x=[0, 1, 0],
         point_in_xy_created_from="OnPoint", point_in_xy_selection=on_x)
-    check(list(cs_xy.get_point_in_xy()) == [1.0, 0.0, 0.0],
+    check(cs_xy.get_point_in_xy() == [1.0, 0.0, 0.0],
           "the selected XY point was not resolved on the mesh")
 
     surface = pmx.model.surfaces.add(PREFIX + "SU",

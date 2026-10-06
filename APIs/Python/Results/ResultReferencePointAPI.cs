@@ -43,13 +43,13 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Returns the result reference point coordinates, as computed on the result mesh.",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_coordinates()
+        [PythonAPI("Returns the result reference point coordinates as [x, y, z], as computed on the result " +
+                   "mesh.", Returns = "list[float]")]
+        public object get_coordinates()
         {
             FeReferencePoint referencePoint = Resolve();
-            return new NumericArrayAPI(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
-                                                      referencePoint.Z.Value });
+            return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
+                                                                   referencePoint.Z.Value });
         }
         [PythonAPI("Returns the stored coordinate expressions, as the values or equations they were entered with.",
                    Returns = "dict[str, str]")]

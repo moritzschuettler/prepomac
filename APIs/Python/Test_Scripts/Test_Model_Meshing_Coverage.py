@@ -176,7 +176,7 @@ def test_rejection_leaves_no_trace(items):
 
 
 def diagonal(part):
-    box = list(part.get_bounding_box())
+    box = part.get_bounding_box()
     return ((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) ** 0.5
 
 

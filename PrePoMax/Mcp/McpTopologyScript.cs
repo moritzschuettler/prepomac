@@ -72,7 +72,7 @@ namespace PrePoMax.Mcp
             "def summarize(part, faces, edges, vertices):\n" +
             "    return {'name': part.name, 'id': part.id, 'part_type': part.part_type,\n" +
             "            'node_count': part.node_count, 'element_count': part.element_count,\n" +
-            "            'bounding_box': [round(float(v), 6) for v in list(part.get_bounding_box())],\n" +
+            "            'bounding_box': [round(v, 6) for v in part.get_bounding_box()],\n" +
             "            'face_count': faces.count, 'edge_count': edges.count,\n" +
             "            'vertex_count': vertices.count}\n" +
             "\n" +

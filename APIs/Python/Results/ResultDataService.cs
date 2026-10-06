@@ -119,7 +119,7 @@ namespace APIs.Python
             double[][] coordinates = new double[][] { result.UndeformedNodes[nodeId].Coor };
             result.ScaleNodeCoordinates(FOFieldNames.Disp, 1, stepId, incrementId,
                                         new int[] { nodeId }, ref coordinates);
-            return NumPyConverter.ToPythonArray(coordinates[0]);
+            return PythonListConverter.ToPythonList(coordinates[0]);
         }
         // The extremes are scanned where the values already are, so a caller that wants the peak and the
         // node it sits on does not pay for a transfer of the whole component

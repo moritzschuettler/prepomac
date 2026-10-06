@@ -52,12 +52,12 @@ namespace APIs.Python.Model
             return new IntListAPI(labels == null ? new int[0] : labels);
         }
 
-        [PythonAPI("Returns the center of gravity of the node set.", Returns = "NumericArray")]
-        public NumericArrayAPI get_center_of_gravity()
+        [PythonAPI("Returns the center of gravity of the node set as [x, y, z], or an empty list when it has " +
+                   "none.", Returns = "list[float]")]
+        public object get_center_of_gravity()
         {
             FeNodeSet nodeSet = _service.ResolveNodeSet(_nodeSetName);
-            double[] centerOfGravity = nodeSet.CenterOfGravity;
-            return new NumericArrayAPI(centerOfGravity == null ? new double[0] : centerOfGravity);
+            return PythonListConverter.ToPythonList(nodeSet.CenterOfGravity);
         }
         public override string ToString()
         {

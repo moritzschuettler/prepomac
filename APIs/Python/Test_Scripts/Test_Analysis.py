@@ -115,6 +115,17 @@ def test_results():
     loaded = result.get_nodal_value(step_id, increment_id, 'DISP', 'U3', 5)
     check(abs(fixed) < 1e-12, "the fixed node must not move, got " + str(fixed))
     check(loaded < 0, "the loaded node must move down, got " + str(loaded))
+    # A single point is a plain list, and the deformed one is the undeformed one moved by the displacement
+    undeformed = result.get_nodal_coordinates(5)
+    deformed = result.get_deformed_nodal_coordinates(step_id, increment_id, 5)
+    check(type(undeformed) is list and type(deformed) is list,
+          "nodal coordinates must be lists: " + type(undeformed).__name__ + ", " + type(deformed).__name__)
+    check(len(undeformed) == 3 and len(deformed) == 3, "nodal coordinates must have 3 values")
+    for axis, component in enumerate(('U1', 'U2', 'U3')):
+        moved = result.get_nodal_value(step_id, increment_id, 'DISP', component, 5)
+        check(abs(deformed[axis] - undeformed[axis] - moved) < 1e-5 * (1 + abs(undeformed[axis])),
+              "the deformed coordinates " + str(deformed) + " are not the undeformed " + str(undeformed) +
+              " moved by the displacement")
     print("U3 of the loaded node:", loaded)
 
 

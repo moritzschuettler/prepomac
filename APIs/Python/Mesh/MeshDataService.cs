@@ -68,7 +68,7 @@ namespace APIs.Python
             {
                 for (int i = 0; i < coordinates.Length && i < node.Coor.Length; i++) coordinates[i] = node.Coor[i];
             }
-            return NumPyConverter.ToPythonArray(coordinates);
+            return PythonListConverter.ToPythonList(coordinates);
         }
         public ElementDataAPI GetElementData(string resultName)
         {

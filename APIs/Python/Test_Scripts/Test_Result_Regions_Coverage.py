@@ -66,8 +66,8 @@ def test_reference_point_items(points):
     check(not point.name_visible, "the name visibility did not read back")
     check(list(point.color)[:3] == [10, 20, 30], "the colour did not read back: " + str(list(point.color)))
     check(point.visible, "a new result reference point must be visible")
-    check([float(v) for v in point.get_coordinates()] == [1.0, 2.0, 3.0],
-          "the coordinates did not read back: " + str(list(point.get_coordinates())))
+    check(type(point.get_coordinates()) is list and point.get_coordinates() == [1.0, 2.0, 3.0],
+          "the coordinates did not read back as a list: " + repr(point.get_coordinates()))
     equations = point.get_equations()
     check(magnitude(equations["x"]) == 1 and magnitude(equations["z"]) == 3,
           "the stored coordinate expressions did not read back: " + str(dict(equations)))
@@ -78,8 +78,7 @@ def test_reference_point_items(points):
     points.show(PREFIX + "Item")
     replaced = points.replace(PREFIX + "Item", name=PREFIX + "Item_R", coordinates=[4, 5, 6])
     check(replaced.name == PREFIX + "Item_R", "replace did not return the renamed reference point")
-    check([float(v) for v in replaced.get_coordinates()] == [4.0, 5.0, 6.0],
-          "the replaced coordinates did not read back")
+    check(replaced.get_coordinates() == [4.0, 5.0, 6.0], "the replaced coordinates did not read back")
     check_raises(lambda: points["__missing_result_point__"], "a missing reference point was indexed")
     clean(points)
 
@@ -254,9 +253,12 @@ def test_coordinate_systems(systems):
     check(PREFIX + "CS" in [item.name for item in items], "iteration did not yield coordinate systems")
     check(system.coordinate_system_type == "Rectangular", "the default type did not read back")
     check(system.visible, "a new result coordinate system must be visible")
-    check([float(v) for v in system.get_origin()] == [0.0, 0.0, 0.0], "the origin did not read back")
-    check([float(v) for v in system.get_point_on_x()] == [1.0, 0.0, 0.0], "the point on X did not read back")
-    check([float(v) for v in system.get_point_in_xy()] == [0.0, 1.0, 0.0], "the point in XY did not read back")
+    check(system.get_origin() == [0.0, 0.0, 0.0], "the origin did not read back")
+    check(system.get_point_on_x() == [1.0, 0.0, 0.0], "the point on X did not read back")
+    check(system.get_point_in_xy() == [0.0, 1.0, 0.0], "the point in XY did not read back")
+    for defining_point in (system.get_origin(), system.get_point_on_x(), system.get_point_in_xy()):
+        check(type(defining_point) is list, "a result coordinate system point must be a list: " +
+              type(defining_point).__name__)
     check(construction_modes(system) == ["Coordinates"] * 3, "the construction did not read back")
     check("CoordinateSystem(" in str(system), "the item has no readable string form: " + str(system))
     check_raises(lambda: systems["__missing_result_cs__"], "a missing coordinate system was indexed")
@@ -266,8 +268,7 @@ def test_coordinate_systems(systems):
     replaced = systems.replace(PREFIX + "CS", name=PREFIX + "CS_R", origin=[0, 0, 0],
                                point_on_x=[2, 0, 0], point_in_xy=[0, 1, 0])
     check(replaced.name == PREFIX + "CS_R", "replace did not return the renamed coordinate system")
-    check([float(v) for v in replaced.get_point_on_x()] == [2.0, 0.0, 0.0],
-          "the replaced point on X did not read back")
+    check(replaced.get_point_on_x() == [2.0, 0.0, 0.0], "the replaced point on X did not read back")
     check(PREFIX + "CS_R" in list(systems.get_names()), "the coordinate system was not renamed")
     check_raises(lambda: systems.add(PREFIX + "Bad", [0, 0, 0], [0, 0, 0], [0, 1, 0]),
                  "a degenerate coordinate system was accepted")

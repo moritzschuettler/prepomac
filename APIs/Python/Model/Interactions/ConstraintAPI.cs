@@ -107,7 +107,7 @@ namespace APIs.Python.Model
         [PythonAPI("Returns a value that is specific to this constraint type by the name of the add_* argument " +
                    "that sets it, for example k1 or number_of_sectors; a vector argument such as axis_point " +
                    "returns its components as a list. Use get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool, str or NumericArray")]
+                   Returns = "float, int, bool, str or list[float]")]
         public object get_value(string name)
         {
             Constraint constraint = Resolve();

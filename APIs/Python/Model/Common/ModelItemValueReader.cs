@@ -103,7 +103,8 @@ namespace APIs.Python.Model
                                                             entry.Value[i] + "'.");
                     coveredNames.Add(entry.Value[i]);
                 }
-                values[entry.Key] = components.Length == 1 ? components[0] : new NumericArrayAPI(components);
+                values[entry.Key] = components.Length == 1 ? components[0] :
+                                                             PythonListConverter.ToPythonList(components);
             }
             foreach (var entry in storedValues)
             {

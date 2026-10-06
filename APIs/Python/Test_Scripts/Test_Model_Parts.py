@@ -36,6 +36,14 @@ def test_part_reading(parts, label):
     check(len(coordinates) == part.node_count, "the node coordinate count does not match")
     check(len(coordinates[0]) == 3, "a node coordinate must have 3 values")
     check(len(part.get_element_ids()) == part.element_count, "the element ID count does not match")
+    # A fixed size value is a plain list; the bounding box of a mesh part spans its node coordinates
+    box = part.get_bounding_box()
+    check(type(box) is list and all(type(value) is float for value in box),
+          "the bounding box must be a list[float]: " + type(box).__name__)
+    for axis in range(3):
+        values = [float(row[axis]) for row in coordinates]
+        check(abs(box[2 * axis] - min(values)) < 1e-6 and abs(box[2 * axis + 1] - max(values)) < 1e-6,
+              "the bounding box " + str(box) + " does not span the node coordinates")
     # A list of IDs is an IntList, from a part, from the mesh and from its bulk data alike
     for ids in (part.get_node_ids(), part.get_element_ids(), pmx.model.nodes.get_ids(), pmx.model.elements.get_ids(),
                 pmx.model.nodes.get_data().ids, pmx.model.elements.get_data().ids):
@@ -45,6 +53,14 @@ def test_part_reading(parts, label):
     check(len(part.center_of_mass) in (0, 3), "the center of mass must be empty or have 3 values")
     check(len(part.get_inertia_at_center_of_mass()) in (0, 3), "the center inertia matrix is invalid")
     check(len(part.get_inertia_at_origin()) in (0, 3), "the origin inertia matrix is invalid")
+    center = part.center_of_mass
+    check(type(center) is list, "the center of mass must be a list: " + type(center).__name__)
+    for axis in range(len(center)):
+        check(box[2 * axis] - 1e-6 <= center[axis] <= box[2 * axis + 1] + 1e-6,
+              "the center of mass " + str(center) + " lies outside the bounding box " + str(box))
+    for inertia in (part.get_inertia_at_center_of_mass(), part.get_inertia_at_origin()):
+        check(type(inertia) is list and all(type(row) is list and len(row) == 3 for row in inertia),
+              "an inertia matrix must be a list of three-value lists: " + str(inertia))
     metadata = part.get_geometry_metadata()
     check(metadata.format_version >= 0, "the metadata format version is invalid")
     check(len(metadata.entity_kinds) >= 0, "the metadata entity kinds are unreadable")

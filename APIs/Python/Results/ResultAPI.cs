@@ -83,14 +83,14 @@ namespace APIs.Python
         }
         [PythonAPI("Returns the undeformed nodal coordinates [x, y, z] by node ID.",
                    Arguments = "node_id: int",
-                   Returns = "numpy.ndarray or NumericArray")]
+                   Returns = "list[float]")]
         public object get_nodal_coordinates(int node_id)
         {
             return _meshService.GetNodeCoordinates(_resultName, node_id);
         }
         [PythonAPI("Returns the true-scale deformed nodal coordinates [x, y, z] using the DISP field.",
                    Arguments = "step_id: int, increment_id: int, node_id: int",
-                   Returns = "numpy.ndarray or NumericArray")]
+                   Returns = "list[float]")]
         public object get_deformed_nodal_coordinates(int step_id, int increment_id, int node_id)
         {
             return _dataService.GetDeformedNodalCoordinates(_resultName, step_id, increment_id, node_id);

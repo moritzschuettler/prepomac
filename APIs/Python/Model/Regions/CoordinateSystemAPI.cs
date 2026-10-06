@@ -41,28 +41,31 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Returns the coordinate system origin.", Returns = "NumericArray")]
-        public NumericArrayAPI get_origin()
+        [PythonAPI("Returns the coordinate system origin as [x, y, z].", Returns = "list[float]")]
+        public object get_origin()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X1.Value, coordinateSystem.Y1.Value,
-                                                      coordinateSystem.Z1.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X1.Value,
+                                                                   coordinateSystem.Y1.Value,
+                                                                   coordinateSystem.Z1.Value });
         }
 
-        [PythonAPI("Returns the point that defines the local X axis.", Returns = "NumericArray")]
-        public NumericArrayAPI get_point_on_x()
+        [PythonAPI("Returns the point that defines the local X axis as [x, y, z].", Returns = "list[float]")]
+        public object get_point_on_x()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X2.Value, coordinateSystem.Y2.Value,
-                                                      coordinateSystem.Z2.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X2.Value,
+                                                                   coordinateSystem.Y2.Value,
+                                                                   coordinateSystem.Z2.Value });
         }
 
-        [PythonAPI("Returns the point that defines the local XY plane.", Returns = "NumericArray")]
-        public NumericArrayAPI get_point_in_xy()
+        [PythonAPI("Returns the point that defines the local XY plane as [x, y, z].", Returns = "list[float]")]
+        public object get_point_in_xy()
         {
             CoordinateSystem coordinateSystem = Resolve();
-            return new NumericArrayAPI(new double[] { coordinateSystem.X3.Value, coordinateSystem.Y3.Value,
-                                                      coordinateSystem.Z3.Value });
+            return PythonListConverter.ToPythonList(new double[] { coordinateSystem.X3.Value,
+                                                                   coordinateSystem.Y3.Value,
+                                                                   coordinateSystem.Z3.Value });
         }
         [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()

@@ -32,7 +32,7 @@ def parts():
 
 
 def bounding_box(name):
-    return [float(value) for value in list(parts()[name].get_bounding_box())]
+    return parts()[name].get_bounding_box()
 
 
 def volume(names):

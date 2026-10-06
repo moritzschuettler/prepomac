@@ -410,8 +410,8 @@ def find_face(part, axis, value):
 def test_perpendicular_directions():
     solids, compound = import_geometry("sweep_perpendicular.brep")
     check(compound is not None and len(solids) == 2, "the two boxes must import as a compound of 2")
-    lower = [part for part in solids if list(part.center_of_mass)[1] < 0][0]
-    upper = [part for part in solids if list(part.center_of_mass)[1] > 0][0]
+    lower = [part for part in solids if part.center_of_mass[1] < 0][0]
+    upper = [part for part in solids if part.center_of_mass[1] > 0][0]
     # The lower box is swept along z from its bottom face, the upper one along x from its x = 0 face; the
     # wall at y = 0 is shared and carries both families of sweep lines
     selection = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',

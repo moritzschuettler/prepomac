@@ -30,15 +30,10 @@ namespace APIs.Python
                    "carries the area of the CAD part it was meshed from and reports 0 when there is none. " +
                    "The area of the mesh itself is the sum of get_face_data().areas.", Returns = "float")]
         public double surface_area { get { return ResolvePart().MassProperties.Area; } }
-        [PythonAPI("The mesh-computed center of mass or area centroid.",
-                   Returns = "numpy.ndarray or NumericArray")]
+        [PythonAPI("The mesh-computed center of mass or area centroid as [x, y, z].", Returns = "list[float]")]
         public object center_of_mass
         {
-            get
-            {
-                double[] center = ResolvePart().MassProperties.CenterOfMass;
-                return NumPyConverter.ToPythonArray(center == null ? new double[0] : center);
-            }
+            get { return PythonListConverter.ToPythonList(ResolvePart().MassProperties.CenterOfMass); }
         }
 
 
@@ -63,13 +58,14 @@ namespace APIs.Python
             return new IntListAPI(_meshService.GetPartData(_resultName, _partName).ElementIds);
         }
         [PythonAPI("Returns the result mesh part bounding box as [xMin, xMax, yMin, yMax, zMin, zMax].",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_bounding_box()
+                   Returns = "list[float]")]
+        public object get_bounding_box()
         {
             BoundingBox boundingBox = ResolvePart().BoundingBox;
-            if (boundingBox == null) return new NumericArrayAPI(new double[0]);
-            return new NumericArrayAPI(new double[] { boundingBox.MinX, boundingBox.MaxX, boundingBox.MinY,
-                                                      boundingBox.MaxY, boundingBox.MinZ, boundingBox.MaxZ });
+            if (boundingBox == null) return PythonListConverter.ToPythonList(new double[0]);
+            return PythonListConverter.ToPythonList(new double[] { boundingBox.MinX, boundingBox.MaxX,
+                                                                   boundingBox.MinY, boundingBox.MaxY,
+                                                                   boundingBox.MinZ, boundingBox.MaxZ });
         }
         [PythonAPI("Returns result-mesh faces with selectable IDs, mesh area, centroid, normal and geometric type.",
                    Returns = "FaceData")]
@@ -96,20 +92,20 @@ namespace APIs.Python
             return Model.PartTopologyReader.GetNodeCoordinates(
                        _meshService.ResolveResultWithMesh(_resultName).UndeformedNodes, ResolvePart());
         }
-        [PythonAPI("Returns the 3 by 3 inertia matrix around the center of mass, or an empty array when " +
-                   "unavailable. It is a second moment of volume: the density is 1, so the values are in " +
-                   "model length units to the fifth power, and a mass inertia is this matrix multiplied by " +
-                   "the material density. A mesh does not compute one, so it is the matrix of the CAD part " +
-                   "the mesh came from, and an imported mesh has none.",
-                   Returns = "numpy.ndarray or NumericArray")]
+        [PythonAPI("Returns the 3 by 3 inertia matrix around the center of mass as three rows, or an empty " +
+                   "list when unavailable. It is a second moment of volume: the density is 1, so the values " +
+                   "are in model length units to the fifth power, and a mass inertia is this matrix " +
+                   "multiplied by the material density. A mesh does not compute one, so it is the matrix of " +
+                   "the CAD part the mesh came from, and an imported mesh has none.",
+                   Returns = "list[list[float]]")]
         public object get_inertia_at_center_of_mass()
         {
             return ToPythonMatrix(ResolvePart().MassProperties.InertiaMatrixCG);
         }
-        [PythonAPI("Returns the 3 by 3 inertia matrix around the global origin, or an empty array when " +
-                   "unavailable. It is a second moment of volume, with the same density of 1 and the same " +
-                   "model length units to the fifth power as get_inertia_at_center_of_mass().",
-                   Returns = "numpy.ndarray or NumericArray")]
+        [PythonAPI("Returns the 3 by 3 inertia matrix around the global origin as three rows, or an empty " +
+                   "list when unavailable. It is a second moment of volume, with the same density of 1 and " +
+                   "the same model length units to the fifth power as get_inertia_at_center_of_mass().",
+                   Returns = "list[list[float]]")]
         public object get_inertia_at_origin()
         {
             return ToPythonMatrix(ResolvePart().MassProperties.InertiaMatrixOrigin);
@@ -128,13 +124,8 @@ namespace APIs.Python
         private static object ToPythonMatrix(double[][] values)
         {
             if (values == null || values.Length != 3 || values.Any(row => row == null || row.Length != 3))
-                return NumPyConverter.ToPythonArray(new double[0]);
-            double[,] matrix = new double[3, 3];
-            for (int row = 0; row < 3; row++)
-            {
-                for (int column = 0; column < 3; column++) matrix[row, column] = values[row][column];
-            }
-            return NumPyConverter.ToPythonArray(matrix);
+                return PythonListConverter.ToPythonList(new double[0]);
+            return PythonListConverter.ToPythonList(values);
         }
         public override string ToString()
         {

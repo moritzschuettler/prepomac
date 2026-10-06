@@ -19,8 +19,8 @@ namespace APIs.Python
         private readonly int _count;
         private readonly IntListAPI _ids;
         private readonly StringListAPI _partNames;
-        private readonly NumericArrayAPI _boundingBox;
-        private readonly NumericArrayAPI _centroid;
+        private readonly double[] _boundingBox;
+        private readonly double[] _centroid;
 
 
         // Properties
@@ -35,11 +35,11 @@ namespace APIs.Python
         [PythonAPI("The names of the parts the resolved items belong to.", Returns = "StringList")]
         public StringListAPI part_names { get { return _partNames; } }
         [PythonAPI("The bounding box of the resolved items as [xMin, xMax, yMin, yMax, zMin, zMax], or an " +
-                   "empty array when nothing resolved.", Returns = "NumericArray")]
-        public NumericArrayAPI bounding_box { get { return _boundingBox; } }
-        [PythonAPI("The mean of the node coordinates of the resolved items, or an empty array when nothing " +
-                   "resolved.", Returns = "NumericArray")]
-        public NumericArrayAPI centroid { get { return _centroid; } }
+                   "empty list when nothing resolved.", Returns = "list[float]")]
+        public object bounding_box { get { return PythonListConverter.ToPythonList(_boundingBox); } }
+        [PythonAPI("The mean of the node coordinates of the resolved items as [x, y, z], or an empty list when " +
+                   "nothing resolved.", Returns = "list[float]")]
+        public object centroid { get { return PythonListConverter.ToPythonList(_centroid); } }
 
 
         // Constructors
@@ -50,8 +50,8 @@ namespace APIs.Python
             _count = ids == null ? 0 : ids.Length;
             _ids = new IntListAPI(ids);
             _partNames = new StringListAPI(partNames);
-            _boundingBox = new NumericArrayAPI(boundingBox);
-            _centroid = new NumericArrayAPI(centroid);
+            _boundingBox = boundingBox == null ? new double[0] : (double[])boundingBox.Clone();
+            _centroid = centroid == null ? new double[0] : (double[])centroid.Clone();
         }
 
 

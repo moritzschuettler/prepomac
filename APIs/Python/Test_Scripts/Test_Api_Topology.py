@@ -112,19 +112,24 @@ def test_preview(part, top_face_id):
     check(preview.count == 4, "the top face of a hexahedron covers 4 nodes, got " + str(preview.count))
     check(list(preview.part_names) == [part.name],
           "the preview must name the part: " + str(list(preview.part_names)))
-    box = [float(v) for v in preview.bounding_box]
+    # A fixed size value is a plain list, so it compares and prints like one
+    box = preview.bounding_box
+    check(type(box) is list and type(preview.centroid) is list,
+          "the preview bounding box and centroid must be lists: " + type(box).__name__)
     check(len(box) == 6, "the preview bounding box must have 6 values: " + str(box))
     check(abs(box[4] - 1.0) < 1e-6 and abs(box[5] - 1.0) < 1e-6,
           "the top face nodes must all lie at z = 1: " + str(box))
-    centroid = [float(v) for v in preview.centroid]
+    centroid = preview.centroid
     check(abs(centroid[2] - 1.0) < 1e-6, "the preview centroid must lie at z = 1: " + str(centroid))
+    check(all(box[2 * axis] - 1e-6 <= centroid[axis] <= box[2 * axis + 1] + 1e-6 for axis in range(3)),
+          "the preview centroid must lie inside its bounding box: " + str(centroid))
     # A surface target resolves to element faces, and the preview reduces them to the nodes of the face
     faces = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {part.id: [top_face_id]}).preview()
     check(faces.target == "surfaces", "the face preview must report the target: " + faces.target)
     check(faces.count == 1, "the top face of one hexahedron is one element face, got " + str(faces.count))
     check(list(faces.part_names) == [part.name],
           "the face preview must name the part: " + str(list(faces.part_names)))
-    box = [float(v) for v in faces.bounding_box]
+    box = faces.bounding_box
     check(len(box) == 6 and abs(box[4] - 1.0) < 1e-6 and abs(box[5] - 1.0) < 1e-6,
           "the face preview must lie at z = 1: " + str(box))
     # Nothing was recorded: a preview is a dry run
@@ -144,20 +149,23 @@ def test_empty_preview():
     preview = selection.preview()
     check(preview.count == 0, "a box outside the model must resolve to nothing: " + str(preview.count))
     check(len(list(preview.part_names)) == 0, "an empty preview must name no parts")
-    check(len(preview.bounding_box) == 0, "an empty preview must have no bounding box")
+    check(preview.bounding_box == [] and preview.centroid == [],
+          "an empty preview must have an empty bounding box and centroid: " + str(preview.bounding_box))
 
 
 def test_view():
     check(pmx.view.current == "femodel", "the femodel view must be current: " + pmx.view.current)
     names = list(pmx.view.get_orientation_names())
     check("Isometric" in names, "the orientations must include Isometric: " + str(names))
-    camera = list(pmx.view.get_parameters())
+    camera = pmx.view.get_parameters()
+    check(type(camera) is list and all(type(value) is float for value in camera),
+          "the camera must be a list[float]: " + type(camera).__name__)
     check(len(camera) == 10, "the camera must be 10 values: " + str(camera))
     for orientation in names:
         pmx.view.set_orientation(orientation)
     pmx.view.zoom_to_fit()
     pmx.view.set_parameters(camera)
-    restored = list(pmx.view.get_parameters())
+    restored = pmx.view.get_parameters()
     for i in range(10):
         check(abs(restored[i] - camera[i]) < 1e-6,
               "the camera must be restored: " + str(restored) + " against " + str(camera))
@@ -195,16 +203,18 @@ def test_view_without_a_result():
           "the deformation type must be readable: " + pmx.view.deformation_type)
     check(pmx.view.undeformed_model in ["None", "WireframeBody", "SolidBody"],
           "the undeformed model must be readable: " + pmx.view.undeformed_model)
-    check(len(list(pmx.view.annotations.get_min_max())) == 2, "the min/max setting must be readable")
+    shown = pmx.view.annotations.get_min_max()
+    check(type(shown) is list and len(shown) == 2 and all(type(value) is bool for value in shown),
+          "the min/max setting must be a list of two bools: " + repr(shown))
     # The camera needs no result
-    camera = list(pmx.view.get_parameters())
+    camera = pmx.view.get_parameters()
     pmx.view.set_orientation("Top")
-    before = list(pmx.view.get_parameters())
+    before = pmx.view.get_parameters()
     pmx.view.rotate(45.0)
-    after = list(pmx.view.get_parameters())
+    after = pmx.view.get_parameters()
     check(any(abs(after[i] - before[i]) > 1e-6 for i in range(3)), "a rotation must move the camera: " + str(after))
     pmx.view.look_at([1.0, 1.0, 1.0], 0.5)
-    framed = list(pmx.view.get_parameters())
+    framed = pmx.view.get_parameters()
     check(centre_offset(framed, [1.0, 1.0, 1.0]) < 1e-6, "look_at must put the point in the centre: " + str(framed))
     check(abs(framed[9] - 0.5) < 1e-6, "look_at must set the parallel scale: " + str(framed))
     pmx.view.set_parameters(camera)

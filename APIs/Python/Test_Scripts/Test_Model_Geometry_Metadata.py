@@ -45,6 +45,12 @@ def test_measurements(part):
             check(abs(inertia[row][column] - inertia[column][row]) < 1e-6 * (1 + abs(inertia[row][column])),
                   "the inertia matrix must be symmetric")
     check(len(part.get_inertia_at_origin()) == 3, "the origin inertia matrix must be 3 by 3")
+    # Fixed size values are plain lists: the center as [x, y, z], each matrix as three rows
+    check(type(part.center_of_mass) is list and all(type(value) is float for value in part.center_of_mass),
+          "the center of mass must be a list[float]: " + type(part.center_of_mass).__name__)
+    for matrix in (inertia, part.get_inertia_at_origin()):
+        check(type(matrix) is list and all(type(row) is list and len(row) == 3 for row in matrix),
+              "an inertia matrix must be a list of three-value lists: " + type(matrix).__name__)
 
 
 def test_node_coordinates(part):
@@ -55,6 +61,14 @@ def test_node_coordinates(part):
     check(len(coordinates[0]) == 3, "a node coordinate must have 3 values")
     # The rows are the part nodes, so they lie inside the part bounding box
     box = part.get_bounding_box()
+    check(type(box) is list and len(box) == 6 and all(type(value) is float for value in box),
+          "the bounding box must be a list[float] of 6 values: " + str(box))
+    for axis in range(3):
+        check(box[2 * axis] < box[2 * axis + 1], "the bounding box " + str(box) + " is empty along an axis")
+    center = part.center_of_mass
+    for axis in range(3):
+        check(box[2 * axis] <= center[axis] <= box[2 * axis + 1],
+              "the center of mass " + str(center) + " lies outside the bounding box " + str(box))
     for row in coordinates:
         for axis in range(3):
             check(box[2 * axis] - 1e-6 <= row[axis] <= box[2 * axis + 1] + 1e-6,
@@ -87,6 +101,19 @@ def test_metadata(part):
                   "a solid cylinder face must state which radial side contains material")
             with_radius += 1
     check(with_radius == 1, "exactly one face of the L bracket is a cylinder, found " + str(with_radius))
+    # A numeric vector property - an axis, a direction, a bounding box - is a plain list[float]
+    vectors = 0
+    for face in faces:
+        for property_name in list(face.property_names):
+            value = face.get_property(property_name)
+            if property_name.endswith("_ids") or isinstance(value, (float, str)):
+                continue
+            if type(value).__name__ == "StringListAPI":
+                continue
+            check(type(value) is list and all(type(item) is float for item in value),
+                  "the vector property " + property_name + " must be a list[float]: " + type(value).__name__)
+            vectors += 1
+    check(vectors > 0, "no face carries a numeric vector property")
     # Every circular edge states its angular span directly; closed is consistent with a full turn.
     topology_edges = part.get_edge_data()
     metadata_edges = metadata.get_entities("edge")

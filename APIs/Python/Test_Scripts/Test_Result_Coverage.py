@@ -54,6 +54,25 @@ def test_part_commands():
     lookup = dict(zip(list(mesh_nodes.ids), [list(row) for row in mesh_nodes.coordinates]))
     check(lookup[node_ids[0]] == list(coordinates[0]),
           "the part coordinates must be the undeformed result mesh coordinates")
+    # A fixed size value is a plain list, on the results side as on the model side
+    point = pmx.results.current.get_nodal_coordinates(node_ids[0])
+    check(type(point) is list, "the nodal coordinates must be a list: " + type(point).__name__)
+    check(point == lookup[node_ids[0]], "the nodal coordinates " + str(point) + " do not match the mesh")
+    box = part.get_bounding_box()
+    check(type(box) is list and all(type(value) is float for value in box),
+          "the result bounding box must be a list[float]: " + type(box).__name__)
+    for axis in range(3):
+        values = [float(row[axis]) for row in coordinates]
+        check(abs(box[2 * axis] - min(values)) < 1e-6 and abs(box[2 * axis + 1] - max(values)) < 1e-6,
+              "the result bounding box " + str(box) + " does not span the part nodes")
+    center = part.center_of_mass
+    check(type(center) is list, "the result center of mass must be a list: " + type(center).__name__)
+    for axis in range(len(center)):
+        check(box[2 * axis] - 1e-6 <= center[axis] <= box[2 * axis + 1] + 1e-6,
+              "the result center of mass " + str(center) + " lies outside the bounding box")
+    for inertia in (part.get_inertia_at_center_of_mass(), part.get_inertia_at_origin()):
+        check(type(inertia) is list and all(type(row) is list and len(row) == 3 for row in inertia),
+              "a result inertia matrix must be a list of three-value lists: " + str(inertia))
     # A list of IDs is an IntList on the results side as on the model side
     mesh = pmx.results.current.mesh
     id_lists = [part.get_node_ids(), part.get_element_ids(), mesh.nodes.get_ids(), mesh.elements.get_ids(),

@@ -160,7 +160,9 @@ def test_surface_loads():
                                           direction=[0, 0, -1], first_point_pressure=0,
                                           second_point_pressure=10, cutoff="Positive")
     check(load.get_value("second_point_pressure") == 10, "the second point pressure was not set")
-    check(list(load.get_value("second_point")) == [0, 0, 1], "the second point was not set")
+    check(type(load.get_value("second_point")) is list, "a vector value must read back as a list: " +
+          type(load.get_value("second_point")).__name__)
+    check(load.get_value("second_point") == [0, 0, 1], "the second point was not set")
     check(load.get_value("cutoff") == "Positive", "the cutoff was not set")
     # The values read back under the names of the arguments that set them, not of the stored properties
     names = list(load.get_value_names())
@@ -196,7 +198,7 @@ def test_surface_loads():
     check(load.get_value("auto_direction"), "the direction must be computed by default")
     load = loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1])
     check(not load.get_value("auto_direction"), "a given direction turns off the computed one")
-    check(list(load.get_value("direction")) == [0, 0, 1], "the pre-tension direction was not set")
+    check(load.get_value("direction") == [0, 0, 1], "the pre-tension direction was not set")
     # auto_direction returns to the surface normal, and cannot be combined with a direction
     check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1], auto_direction=True),
                  "a direction together with auto_direction must be rejected")

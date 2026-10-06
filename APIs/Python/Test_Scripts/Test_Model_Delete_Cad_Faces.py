@@ -132,7 +132,7 @@ def import_stack():
     pmx.import_file(os.path.join(MODELS, "sweep_stack3.brep"))
     compound = [p for p in parts if p.name not in before and p.part_type == "Compound"][0]
     sub_parts = sorted([p for p in parts if p.name not in before and p.part_type != "Compound"],
-                       key=lambda p: float(list(p.center_of_mass)[2]))
+                       key=lambda p: p.center_of_mass[2])
     check(len(sub_parts) == 3, "sweep_stack3 must be three sub-parts: " + str([p.name for p in sub_parts]))
     return compound.name, compound.id, [(p.name, p.id) for p in sub_parts]
 
@@ -225,7 +225,7 @@ def test_split_compound():
     tool = pmx.create.split_tool_plane_by_point_and_normal([0, 0, 15], [0, 0, 1])
     parts.split_solid(pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]), tool)
     compound = [p for p in parts if len(list(p.split_sub_part_names)) > 0][-1]
-    cells = sorted(compound.get_split_cell_names(name), key=lambda c: float(list(parts[c].center_of_mass)[2]))
+    cells = sorted(compound.get_split_cell_names(name), key=lambda c: parts[c].center_of_mass[2])
     check(len(cells) == 2, "the plane must cut the part in two: " + str(cells))
     compound_name = compound.name
     top_name, top_id = cells[1], parts[cells[1]].id

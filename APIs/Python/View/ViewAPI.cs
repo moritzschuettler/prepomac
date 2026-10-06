@@ -118,11 +118,10 @@ namespace APIs.Python
         }
         [PythonAPI("Returns the camera as 10 values: the position, the focal point and the view up vector, " +
                    "three each, and the parallel scale. Keep them to put the view back after changing it.",
-                   Returns = "NumericArray")]
-        public NumericArrayAPI get_parameters()
+                   Returns = "list[float]")]
+        public object get_parameters()
         {
-            double[] parameters = Resolve().GetViewParameters();
-            return new NumericArrayAPI(parameters == null ? new double[0] : parameters);
+            return PythonListConverter.ToPythonList(Resolve().GetViewParameters());
         }
         [PythonAPI("Sets the camera from the 10 values get_parameters returns.",
                    Arguments = "parameters: list[float]", Returns = "None",

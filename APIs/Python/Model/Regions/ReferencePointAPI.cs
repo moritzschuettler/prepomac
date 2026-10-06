@@ -43,12 +43,12 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Returns the reference point coordinates.", Returns = "NumericArray")]
-        public NumericArrayAPI get_coordinates()
+        [PythonAPI("Returns the reference point coordinates as [x, y, z].", Returns = "list[float]")]
+        public object get_coordinates()
         {
             FeReferencePoint referencePoint = Resolve();
-            return new NumericArrayAPI(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
-                                                      referencePoint.Z.Value });
+            return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
+                                                                   referencePoint.Z.Value });
         }
         [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()

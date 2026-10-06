@@ -36,12 +36,12 @@ def parts():
 
 
 def center(name):
-    return [float(value) for value in list(parts()[name].center_of_mass)]
+    return parts()[name].center_of_mass
 
 
 # An STL part carries no center of mass, so its position is read from the middle of its bounding box
 def box_center(name):
-    box = [float(value) for value in list(parts()[name].get_bounding_box())]
+    box = parts()[name].get_bounding_box()
     return [(box[0] + box[1]) / 2, (box[2] + box[3]) / 2, (box[4] + box[5]) / 2]
 
 
@@ -174,9 +174,9 @@ def test_stl():
     check_close(offsets, [20, 40, 60], "copy k of a translated STL pattern must be translated k times")
     parts().remove(added)
     #
-    box = [float(value) for value in list(parts()[stl_name].get_bounding_box())]
+    box = parts()[stl_name].get_bounding_box()
     parts().scale(stl_name, before_center, [2, 1, 1])
-    scaled = [float(value) for value in list(parts()[stl_name].get_bounding_box())]
+    scaled = parts()[stl_name].get_bounding_box()
     check_close([scaled[1] - scaled[0], scaled[3] - scaled[2]], [2 * (box[1] - box[0]), box[3] - box[2]],
                 "the STL part was not scaled by 2 along x only")
     parts().remove([stl_name])

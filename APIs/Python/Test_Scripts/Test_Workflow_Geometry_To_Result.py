@@ -74,7 +74,7 @@ def mesh_the_geometry():
 def build_node_sets(mesh_part):
     # The face node sets are found from the coordinates, so the test does not depend on the numbering
     # a particular mesher happens to produce
-    box = list(mesh_part.get_bounding_box())
+    box = mesh_part.get_bounding_box()
     z_min, z_max = box[4], box[5]
     tolerance = (z_max - z_min) * 1e-6
     data = pmx.model.nodes.get_data()

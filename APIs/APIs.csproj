@@ -187,6 +187,7 @@
     <Compile Include="Python\Common\PythonDoubleListConverter.cs" />
     <Compile Include="Python\Common\PythonIntListConverter.cs" />
     <Compile Include="Python\Common\PythonIntListMapConverter.cs" />
+    <Compile Include="Python\Common\PythonListConverter.cs" />
     <Compile Include="Python\Common\PythonStringListConverter.cs" />
     <Compile Include="Python\Common\StringDoubleMapAPI.cs" />
     <Compile Include="Python\Common\StringListAPI.cs" />

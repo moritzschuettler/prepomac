@@ -154,8 +154,10 @@ def test_distributions():
         check(mapped.equation is None, "a file distribution must report no equation")
         check(mapped.interpolator_type == "Gauss", "the interpolator type did not read back")
         check(mapped.interpolator_radius == 2, "the interpolator radius did not read back")
-        check(list(mapped.scale) == [1, 2, 3], "the scale did not read back: " + str(list(mapped.scale)))
-        check(list(mapped.translate) == [0.5, 0, 0], "the translate did not read back: " + str(list(mapped.translate)))
+        check(type(mapped.scale) is list and type(mapped.translate) is list,
+              "the scale and the translate must be lists: " + type(mapped.scale).__name__)
+        check(mapped.scale == [1, 2, 3], "the scale did not read back: " + str(mapped.scale))
+        check(mapped.translate == [0.5, 0, 0], "the translate did not read back: " + str(mapped.translate))
         check(mapped.coordinate_system_name == "Global", "unexpected coordinate system")
         equations = mapped.get_equations()
         check(sorted(equations) == ["interpolator_radius", "scale", "translate"],
@@ -167,7 +169,7 @@ def test_distributions():
                                                  interpolator_radius=mapped.interpolator_radius, scale=mapped.scale,
                                                  translate=equations["translate"])
         check(mapped.interpolator_type == "Gauss" and mapped.interpolator_radius == 2 and
-              list(mapped.scale) == [1, 2, 3] and list(mapped.translate) == [0.5, 0, 0],
+              mapped.scale == [1, 2, 3] and mapped.translate == [0.5, 0, 0],
               "the file values did not round trip through replace_from_file")
         check(list(mapped.get_equations()["translate"])[0] == "=0.5", "the translate expression did not round trip")
         distributions.remove([PREFIX + "Mapped"])

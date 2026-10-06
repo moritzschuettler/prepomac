@@ -58,7 +58,7 @@ def split(part, z):
 
 
 def z_of(cell_name):
-    return float(list(pmx.model.geometry.parts[cell_name].center_of_mass)[2])
+    return pmx.model.geometry.parts[cell_name].center_of_mass[2]
 
 
 def bottom_and_top(compound, sub_part_name):
@@ -166,7 +166,7 @@ def test_fuse_ordinary_compound():
     compound = [p for p in parts if p.name not in before and p.part_type == "Compound"][0]
     name, part_id = compound.name, compound.id
     sub_parts = sorted([p for p in parts if p.name not in before and p.part_type != "Compound"],
-                       key=lambda p: float(list(p.center_of_mass)[2]))
+                       key=lambda p: p.center_of_mass[2])
     check(len(sub_parts) == 3, "sweep_stack3 must be three sub-parts: " + str([p.name for p in sub_parts]))
     bottom, middle, top = [(p.name, p.id) for p in sub_parts]
     #

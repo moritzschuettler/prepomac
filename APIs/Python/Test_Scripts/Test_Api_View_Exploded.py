@@ -55,7 +55,7 @@ def mesh_types():
 
 
 def boxes(parts):
-    return dict((part.name, list(part.get_bounding_box())) for part in parts)
+    return dict((part.name, part.get_bounding_box()) for part in parts)
 
 
 def shifts(first, second):
