@@ -47,12 +47,12 @@ def test_equation_readback():
         PREFIX + "Load", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]),
         f1=PREFIX + "P", f2='=3', f3=4)
     equations = load.get_equations()
-    # An expression reads back as the expression, and a plain value as the value with its unit
+    # An expression reads back as the expression; a plain value is left out, and get_value returns it
     check(equations['f1'] == '=' + PREFIX + "P",
           "the parameter expression did not read back: " + str(equations['f1']))
     check(equations['f2'] == '=3', "the equation did not read back: " + str(equations['f2']))
-    check(float(equations['f3'].split(" ")[0]) == 4,
-          "the plain value did not read back: " + str(equations['f3']))
+    check('f3' not in equations, "the plain value was read back as an equation: " + str(equations))
+    check(load.get_value('f3') == 4, "the plain value did not read back: " + str(load.get_value('f3')))
 
 
 def test_script_context():

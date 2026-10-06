@@ -16,11 +16,6 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def magnitude(equation):
-    # A stored value carries its unit, exactly the way the property grid shows it
-    return float(equation.split(" ")[0])
-
-
 def check_raises(function, message):
     try:
         function()
@@ -70,23 +65,25 @@ def test_initial_condition_replacement():
     region = pmx.create.region('NodeSetName', PREFIX + "Nodes")
     pmx.model.initial_conditions.add_temperature(PREFIX + "Temp", region, 20)
     pmx.model.initial_conditions.replace_temperature(PREFIX + "Temp", temperature=30)
-    equations = pmx.model.initial_conditions[PREFIX + "Temp"].get_equations()
-    check(magnitude(equations["temperature"]) == 30, "the temperature was not replaced")
+    condition = pmx.model.initial_conditions[PREFIX + "Temp"]
+    check(condition.get_value("temperature") == 30, "the temperature was not replaced")
+    # A plain value is not an expression, so it is left out of the equations
+    check(len(condition.get_equations()) == 0, "a plain value was read back as an equation: " +
+          str(condition.get_equations()))
     #
     pmx.model.initial_conditions.add_translational_velocity(PREFIX + "Vel", region, 1, 2, 3)
     pmx.model.initial_conditions.replace_translational_velocity(PREFIX + "Vel", v2=20)
-    equations = pmx.model.initial_conditions[PREFIX + "Vel"].get_equations()
-    check(magnitude(equations["v1"]) == 1 and magnitude(equations["v2"]) == 20 and
-          magnitude(equations["v3"]) == 3,
-          "the omitted velocity components were not kept: " + str(equations))
+    condition = pmx.model.initial_conditions[PREFIX + "Vel"]
+    check(condition.get_value("v1") == 1 and condition.get_value("v2") == 20 and condition.get_value("v3") == 3,
+          "the omitted velocity components were not kept")
     #
     pmx.model.initial_conditions.add_angular_velocity(PREFIX + "Ang", region, [0, 0, 0], [0, 0, 1], 5)
     pmx.model.initial_conditions.replace_angular_velocity(PREFIX + "Ang", rotational_speed=7)
-    equations = pmx.model.initial_conditions[PREFIX + "Ang"].get_equations()
-    check(magnitude(equations["rotational_speed"]) == 7, "the rotational speed was not replaced")
-    check(magnitude(equations["axis_direction"][2]) == 1,
-          "the omitted axis direction was not kept: " + str(equations))
-    check("n3" not in equations, "the axis direction is not read back under its argument name")
+    condition = pmx.model.initial_conditions[PREFIX + "Ang"]
+    check(condition.get_value("rotational_speed") == 7, "the rotational speed was not replaced")
+    check(list(condition.get_value("axis_direction"))[2] == 1, "the omitted axis direction was not kept")
+    check("n3" not in list(condition.get_value_names()),
+          "the axis direction is not read back under its argument name")
 
 
 def test_model_properties():
@@ -108,7 +105,7 @@ def test_model_properties():
           str(properties.number_of_cycles))
     equations = properties.get_equations()
     check(equations["number_of_cycles"] == "=4*5", "the cycle count equation did not read back: " + str(equations))
-    check(magnitude(equations["cycles_increment"]) == 2, "the cycle increment equation did not read back")
+    check("cycles_increment" not in equations, "a plain cycle increment was read back as an equation")
     check(properties.bdm_remeshing, "BDM remeshing was not set")
     check(properties.slip_wear_results == "All", "the slip wear results were not set")
     # An undefined physical constant reads back as None, and only clear_undefined_constants clears one

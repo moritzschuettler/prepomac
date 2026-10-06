@@ -35,7 +35,7 @@ namespace APIs.Python
                                         string geometrySelectMode = "SelectId")
         {
             view = ValidateView(view);
-            ValidateTarget(target);
+            target = ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByIds(selection, source, ids, null, geometrySelectMode);
             return selection;
@@ -45,7 +45,7 @@ namespace APIs.Python
                                          object completelyInside, object precision = null, object partOffsets = null)
         {
             view = ValidateView(view);
-            ValidateTarget(target);
+            target = ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByPick(selection, point, selectBy, angle, direction, partIds, completelyInside, null, precision, partOffsets);
             return selection;
@@ -74,7 +74,7 @@ namespace APIs.Python
                                          object angle, object partIds, object completelyInside, object partOffsets = null)
         {
             view = ValidateView(view);
-            ValidateTarget(target);
+            target = ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddByArea(selection, planes, selectBy, angle, partIds, completelyInside, null, partOffsets);
             return selection;
@@ -157,7 +157,7 @@ namespace APIs.Python
         public SelectionAPI CreateAll(string view, string target)
         {
             view = ValidateView(view);
-            ValidateTarget(target);
+            target = ValidateTarget(target);
             SelectionAPI selection = new SelectionAPI(this, view, target);
             AddAll(selection, "None");
             return selection;
@@ -347,7 +347,7 @@ namespace APIs.Python
                              string geometrySelectMode = "SelectId")
         {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
-            ValidateSource(source);
+            source = ValidateSource(source);
             ValidateCombination(selection.target, source);
             GeometrySelectModeEnum mode = PythonValueConverter.ToEnum<GeometrySelectModeEnum>(geometrySelectMode,
                                                                                              "geometry_select_mode");
@@ -634,29 +634,31 @@ namespace APIs.Python
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
             return _meshResolver.GetMesh(selection.view, resultName);
         }
-        // The view is matched regardless of case, as pmx.view and pmx.model.tree match it, and passed on in the
-        // spelling the rest of the selection compares against
+        // The view, the target and the source are matched regardless of case, as pmx.view and pmx.model.tree match
+        // the view, and passed on in the spelling the rest of the selection compares against
         private static string ValidateView(string view)
         {
-            foreach (string name in new string[] { "geometry", "femodel", "results" })
+            return ValidateName(view, "view", new string[] { "geometry", "femodel", "results" });
+        }
+        private static string ValidateTarget(string target)
+        {
+            return ValidateName(target, "target", new string[] { "nodes", "elements", "surfaces", "edges", "parts",
+                                                                 "geometry", "geometry_surfaces" });
+        }
+        private static string ValidateSource(string source)
+        {
+            return ValidateName(source, "source", new string[] { "nodes", "elements", "vertices", "edges", "surfaces",
+                                                                 "parts", "geometry" });
+        }
+        private static string ValidateName(string value, string argumentName, string[] names)
+        {
+            foreach (string name in names)
             {
-                if (string.Equals(view, name, System.StringComparison.OrdinalIgnoreCase)) return name;
+                if (string.Equals(value, name, StringComparison.OrdinalIgnoreCase)) return name;
             }
-            throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel', or 'results'.");
-        }
-        private static void ValidateTarget(string target)
-        {
-            if (target != "nodes" && target != "elements" && target != "surfaces" && target != "edges" &&
-                target != "parts" && target != "geometry" && target != "geometry_surfaces")
-                throw new PythonAPIException("The argument 'target' must be 'nodes', 'elements', 'surfaces', " +
-                                             "'edges', 'parts', 'geometry', or 'geometry_surfaces'.");
-        }
-        private static void ValidateSource(string source)
-        {
-            if (source != "nodes" && source != "elements" && source != "vertices" && source != "edges" &&
-                source != "surfaces" && source != "parts" && source != "geometry")
-                throw new PythonAPIException("The argument 'source' must be 'nodes', 'elements', 'vertices', " +
-                                             "'edges', 'surfaces', 'parts', or 'geometry'.");
+            throw new PythonAPIException("The argument '" + argumentName + "' must be '" +
+                                         string.Join("', '", names, 0, names.Length - 1) + "', or '" +
+                                         names[names.Length - 1] + "'.");
         }
         private static void ValidateCombination(string target, string source)
         {

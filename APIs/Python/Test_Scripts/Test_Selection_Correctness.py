@@ -123,6 +123,32 @@ def test_geometry_source():
           "the geometry source and the surface source disagree on the nodes")
 
 
+def test_case_insensitive_names():
+    # The view, the target and the source are matched regardless of case, and the selection keeps the
+    # lowercase spelling the rest of the API compares against, so it can still be used as a region
+    selection = pmx.create.selection_by_ids('FeModel', 'Nodes', 'NODES', [1, 2])
+    check(selection.view == 'femodel' and selection.target == 'nodes',
+          "the view and the target were not stored canonically: " + selection.view + ", " + selection.target)
+    selection.add_by_ids('Nodes', [3], operation='add')
+    check(ids(selection) == [1, 2, 3], "the case insensitive names did not resolve: " + str(ids(selection)))
+    from_surfaces = pmx.create.selection_by_ids('femodel', 'NODES', 'Surfaces', {1: [1]})
+    check(ids(from_surfaces) == ids(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]})),
+          "a capitalised source converted differently")
+    everything = pmx.create.selection_all('FEMODEL', 'Nodes')
+    check(len(ids(everything)) == pmx.model.nodes.count, "a capitalised select all did not select every node")
+    name = "PyTest_Selection_Case"
+    pmx.model.node_sets.add(name, selection)
+    try:
+        check(sorted(list(pmx.model.node_sets[name].get_node_ids())) == [1, 2, 3],
+              "a capitalised selection did not work as a region")
+    finally:
+        pmx.model.node_sets.remove(name)
+    check_raises(lambda: pmx.create.selection_by_ids('femodel', 'nodez', 'nodes', [1]),
+                 "an unknown target was accepted")
+    check_raises(lambda: pmx.create.selection_by_ids('femodel', 'nodes', 'nodez', [1]),
+                 "an unknown source was accepted")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_set_operations()
@@ -132,6 +158,7 @@ def main():
     test_area()
     test_multiple_part_pick()
     test_geometry_source()
+    test_case_insensitive_names()
     print("TEST PASSED")
 
 

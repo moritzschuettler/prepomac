@@ -16,11 +16,6 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def magnitude(equation):
-    # A stored value carries its unit, exactly the way the property grid shows it
-    return float(equation.split(" ")[0])
-
-
 def node_coordinates(node_id):
     # The typed points of a mixed definition are placed around the selected node, so the check does
     # not depend on where the result mesh happens to put that node
@@ -68,9 +63,8 @@ def test_reference_point_items(points):
     check(point.visible, "a new result reference point must be visible")
     check(type(point.get_coordinates()) is list and point.get_coordinates() == [1.0, 2.0, 3.0],
           "the coordinates did not read back as a list: " + repr(point.get_coordinates()))
-    equations = point.get_equations()
-    check(magnitude(equations["x"]) == 1 and magnitude(equations["z"]) == 3,
-          "the stored coordinate expressions did not read back: " + str(dict(equations)))
+    check(len(point.get_equations()) == 0,
+          "plain coordinates were read back as expressions: " + str(dict(point.get_equations())))
     check(point.get_construction()["created_from"] == "Coordinates", "get_construction did not read back")
     check("ReferencePoint(" in str(point), "the item has no readable string form: " + str(point))
     points.hide(PREFIX + "Item")
@@ -87,15 +81,16 @@ def test_reference_points(points):
     added = points.add(PREFIX + "Point", [0, 0, 0])
     check(added.name == PREFIX + "Point", "add did not return the reference point")
     check(PREFIX + "Point" in list(points.get_names()), "the reference point was not added")
-    definition = points[PREFIX + "Point"].get_equations()
-    check(magnitude(definition["x"]) == 0, "the stored coordinate did not read back: " + str(dict(definition)))
+    check(points[PREFIX + "Point"].get_coordinates() == [0.0, 0.0, 0.0], "the stored coordinates did not read back")
     points.hide(PREFIX + "Point")
     points.show(PREFIX + "Point")
     points.duplicate(PREFIX + "Point")
-    points.replace(PREFIX + "Point", name=PREFIX + "Point_R", coordinates=[1, 2, 3])
+    points.replace(PREFIX + "Point", name=PREFIX + "Point_R", coordinates=["0.5 * 2", 2, 3])
     check(PREFIX + "Point_R" in list(points.get_names()), "the reference point was not renamed")
-    check(magnitude(points[PREFIX + "Point_R"].get_equations()["x"]) == 1,
-          "the replaced coordinate did not read back")
+    definition = points[PREFIX + "Point_R"].get_equations()
+    check(sorted(definition) == ["x"] and definition["x"].replace(" ", "") == "=0.5*2",
+          "only the coordinate expression must read back: " + str(dict(definition)))
+    check(points[PREFIX + "Point_R"].get_coordinates() == [1.0, 2.0, 3.0], "the replaced coordinates did not read back")
     check_raises(lambda: points.remove("__missing_result_point__"), "a missing reference point was accepted")
     check_raises(lambda: points.add(PREFIX + "Point_R", [0, 0, 0]), "a duplicate name was accepted")
     # The name visibility and the symbol colour are part of the stored definition
@@ -136,8 +131,8 @@ def test_reference_point_construction(points):
     points.replace(PREFIX + "OnPoint", coordinates=[10, 20, 30])
     check(points[PREFIX + "OnPoint"].created_from == "Coordinates",
           "the coordinate replacement kept the obsolete construction mode")
-    check(magnitude(points[PREFIX + "OnPoint"].get_equations()["x"]) == 10,
-          "the replaced coordinate did not read back")
+    check(points[PREFIX + "OnPoint"].get_coordinates() == [10.0, 20.0, 30.0],
+          "the replaced coordinates did not read back")
     #
     replaced = points.replace_from_selection(PREFIX + "OnPoint", created_from="BetweenTwoPoints", selection=two)
     check(replaced.name == PREFIX + "OnPoint", "replace_from_selection did not return the reference point")
@@ -207,7 +202,7 @@ def test_coordinate_system_construction(systems):
     modes = construction_modes(systems[PREFIX + "MixedXY"])
     check(modes[0] == "Coordinates" and modes[2] == "OnPoint",
           "a typed origin with a selected XY point was not stored")
-    check(abs(magnitude(systems[PREFIX + "MixedXY"].get_equations()["x3"]) - node[0]) < 1E-6,
+    check(abs(systems[PREFIX + "MixedXY"].get_point_in_xy()[0] - node[0]) < 1E-6,
           "the selected XY point was not resolved on the result mesh")
     # A creation keeps the default of a point it is not told about, the way the dialog does
     systems.add_from_selections(PREFIX + "Default", origin=[0, 0, 0])
@@ -242,7 +237,7 @@ def test_coordinate_systems(systems):
     system = systems.add(PREFIX + "CS", [0, 0, 0], [1, 0, 0], [0, 1, 0])
     check(system.name == PREFIX + "CS", "add did not return the coordinate system")
     check(PREFIX + "CS" in list(systems.get_names()), "the coordinate system was not added")
-    check(len(system.get_equations()) == 9, "the definition must carry nine coordinates")
+    check(len(system.get_equations()) == 0, "plain coordinates were read back as expressions")
     # The collection is indexed by name and iteration yields the items rather than their names
     check(systems[PREFIX + "CS"].name == PREFIX + "CS", "the name indexer did not return the item")
     check(systems.get(PREFIX + "CS").name == PREFIX + "CS", "get did not return the item")

@@ -42,6 +42,19 @@ namespace APIs.Python.Model
         public string region_type { get { return _service.ResolveSection(_sectionName).RegionType.ToString(); } }
         [PythonAPI("The section thickness.", Returns = "float")]
         public double thickness { get { return _service.ResolveSection(_sectionName).Thickness.Value; } }
+        [PythonAPI("The offset of a shell or membrane section, in thicknesses, or None for another section.",
+                   Returns = "float or None")]
+        public object offset { get { return GetOffset(_service.ResolveSection(_sectionName)); } }
+        [PythonAPI("The mass of a point mass or distributed mass section, or None for another section.",
+                   Returns = "float or None")]
+        public object mass
+        {
+            get
+            {
+                MassSection massSection = _service.ResolveSection(_sectionName) as MassSection;
+                return massSection == null ? null : (object)massSection.Mass.Value;
+            }
+        }
         [PythonAPI("True when the section resolved during the last regeneration.", Returns = "bool")]
         public bool valid { get { return _service.ResolveSection(_sectionName).Valid; } }
 
@@ -63,10 +76,21 @@ namespace APIs.Python.Model
             throw new PythonAPIException("The section '" + section.Name + "' is a " + section.GetType().Name +
                                          ", which no add_* method of the Python API makes.");
         }
+        private static object GetOffset(Section section)
+        {
+            ShellSection shellSection = section as ShellSection;
+            if (shellSection != null) return shellSection.Offset.Value;
+            MembraneSection membraneSection = section as MembraneSection;
+            if (membraneSection != null) return membraneSection.Offset.Value;
+            return null;
+        }
 
 
         // Methods
-        [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns the expressions the section was entered with, without evaluating them, under " +
+                   "thickness, offset and mass. Only a value entered as an expression is returned, with its " +
+                   "leading equals sign; a value entered as a plain number is left out, and the property of the " +
+                   "same name returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(_service.ResolveSection(_sectionName));

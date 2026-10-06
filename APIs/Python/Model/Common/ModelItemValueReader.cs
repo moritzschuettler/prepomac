@@ -120,49 +120,59 @@ namespace APIs.Python.Model
             //
             return values;
         }
+        // Only what the user typed as an expression is returned: a value stored as a plain number with its unit
+        // could not be passed back as an argument, and get_value already returns it as a number
         public static Dictionary<string, string> GetEquations(object item)
         {
             Dictionary<string, string> equations = new Dictionary<string, string>();
-            PropertyInfo[] properties = item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (PropertyInfo property in properties)
+            foreach (var entry in GetEquationContainers(item))
             {
-                if (property.GetIndexParameters().Length > 0) continue;
-                if (property.PropertyType != typeof(EquationContainer)) continue;
-                //
-                EquationContainer equation = property.GetValue(item, null) as EquationContainer;
                 // The stored text is the expression the user entered, which is what a journal has to emit
-                if (equation != null) equations[ToPythonName(property.Name)] = equation.String;
+                if (entry.Value.IsEquation()) equations[entry.Key] = entry.Value.String;
             }
             //
             return equations;
         }
-        // The equations are named the way GetValues names the values, a vector argument as one list of the
-        // equations of its components; an argument whose values are not equations is left out
+        // The equations are named the way GetValues names the values. A vector argument is one list, so when any
+        // of its components is an expression, a component stored as a plain value stays in the list as the number
+        // get_value returns for it, and the list can be passed back; an argument without an expression is left out
         public static Dictionary<string, object> GetEquations(object item,
                                                               Dictionary<string, string[]> argumentValueNames)
         {
-            Dictionary<string, string> storedEquations = GetEquations(item);
+            Dictionary<string, EquationContainer> storedEquations = GetEquationContainers(item);
             Dictionary<string, object> equations = new Dictionary<string, object>();
             HashSet<string> coveredNames = new HashSet<string>();
             if (argumentValueNames != null)
             {
                 foreach (var entry in argumentValueNames)
                 {
-                    string[] components = new string[entry.Value.Length];
+                    EquationContainer[] components = new EquationContainer[entry.Value.Length];
                     bool allEquations = true;
                     for (int i = 0; i < components.Length && allEquations; i++)
                         allEquations = storedEquations.TryGetValue(entry.Value[i], out components[i]);
                     if (!allEquations) continue;
                     //
                     coveredNames.UnionWith(entry.Value);
-                    equations[entry.Key] = components.Length == 1 ? (object)components[0] :
-                                                                    new StringListAPI(components);
+                    object[] values = new object[components.Length];
+                    bool hasExpression = false;
+                    for (int i = 0; i < components.Length; i++)
+                    {
+                        if (components[i].IsEquation())
+                        {
+                            values[i] = components[i].String;
+                            hasExpression = true;
+                        }
+                        else values[i] = double.IsNaN(components[i].Value) ? null : (object)components[i].Value;
+                    }
+                    if (!hasExpression) continue;
+                    //
+                    equations[entry.Key] = values.Length == 1 ? values[0] : PythonListConverter.ToPythonList(values);
                 }
             }
             foreach (var entry in storedEquations)
             {
-                if (!coveredNames.Contains(entry.Key) && !equations.ContainsKey(entry.Key))
-                    equations[entry.Key] = entry.Value;
+                if (coveredNames.Contains(entry.Key) || equations.ContainsKey(entry.Key)) continue;
+                if (entry.Value.IsEquation()) equations[entry.Key] = entry.Value.String;
             }
             //
             return equations;
@@ -181,6 +191,21 @@ namespace APIs.Python.Model
             return value;
         }
         //
+        private static Dictionary<string, EquationContainer> GetEquationContainers(object item)
+        {
+            Dictionary<string, EquationContainer> containers = new Dictionary<string, EquationContainer>();
+            PropertyInfo[] properties = item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (PropertyInfo property in properties)
+            {
+                if (property.GetIndexParameters().Length > 0) continue;
+                if (property.PropertyType != typeof(EquationContainer)) continue;
+                //
+                EquationContainer equation = property.GetValue(item, null) as EquationContainer;
+                if (equation != null) containers[ToPythonName(property.Name)] = equation;
+            }
+            //
+            return containers;
+        }
         private static bool IsSimpleType(Type type)
         {
             return type == typeof(double) || type == typeof(int) || type == typeof(bool) ||

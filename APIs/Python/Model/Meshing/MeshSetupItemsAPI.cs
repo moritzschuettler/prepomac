@@ -18,11 +18,11 @@ namespace APIs.Python.Model
         // Variables
         // The Gmsh settings the property grid offers, split the way the mesher types share them
         private const string MeshingParameterArguments =
-            "relative_size: bool = None, factor_max: float = None, factor_min: float = None, " +
             "max_size: float = None, min_size: float = None, fineness: float = None, grading: float = None, " +
             "elements_per_edge: float = None, elements_per_curve: float = None, second_order: bool = None, " +
-            "midside_nodes_on_geometry: bool = None, split_compound_mesh: bool = None, " +
-            "merge_compound_parts: bool = None, merge_cells: bool = None";
+            "midside_nodes_on_geometry: bool = None, relative_size: bool = None, factor_max: float = None, " +
+            "factor_min: float = None, split_compound_mesh: bool = None, merge_compound_parts: bool = None, " +
+            "merge_cells: bool = None";
         private const string NetgenMeshArguments =
             "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
             "transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +

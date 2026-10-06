@@ -127,11 +127,13 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Returns the stored equations of a distribution read from a file without evaluating them, " +
-                   "under the add_from_file argument names: interpolator_radius, and scale and translate as " +
-                   "lists of three. An expression reads back with its leading equals sign and a plain value " +
-                   "with its unit. A distribution defined by an equation returns an empty dict; its equation " +
-                   "is the equation property.", Returns = "dict[str, str or StringList]")]
+        [PythonAPI("Returns the expressions a distribution read from a file was entered with, without " +
+                   "evaluating them, under the add_from_file argument names: interpolator_radius, and scale and " +
+                   "translate as lists of three. Only a value entered as an expression is returned, with its " +
+                   "leading equals sign; a value entered as a plain number is left out, and the property of the " +
+                   "same name returns it as a number. A list with an expression in any component is returned " +
+                   "whole, its plain components as numbers. A distribution defined by an equation returns an " +
+                   "empty dict; its equation is the equation property.", Returns = "dict[str, str or list]")]
         public Dictionary<string, object> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve(), MappedArgumentValueNames);

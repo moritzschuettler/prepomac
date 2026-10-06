@@ -84,9 +84,10 @@ namespace APIs.Python.Model
                                                  GetItemType(definedField) + " defined field");
         }
 
-        [PythonAPI("Returns the stored equations of the defined field without evaluating them, under the names " +
-                   "get_value uses, for example temperature: an expression reads back with its leading equals " +
-                   "sign and a plain value with its unit.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns the expressions the defined field was entered with, without evaluating them, under " +
+                   "the names get_value uses, for example temperature. Only a value entered as an expression is " +
+                   "returned, with its leading equals sign; a value entered as a plain number is left out, and " +
+                   "get_value returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve());

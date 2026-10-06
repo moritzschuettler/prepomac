@@ -92,14 +92,15 @@ def test_cyclic_symmetry():
     cs = constraints.add_cyclic_symmetry(PREFIX + "CS", surface_selection(1), surface_selection(2),
                                          region=element_selection([1]), number_of_graph_sectors=2,
                                          axis_point=[0, 0, 0],
-                                         axis_direction=[0, 0, 1], number_of_sectors=6)
+                                         axis_direction=[0, 0, "1"], number_of_sectors=6)
     check(cs.item_type == "cyclic_symmetry", "unexpected type " + cs.item_type)
-    # A vector argument reads its equations back as one list under the argument name, as get_value reads it
+    # A vector argument with an expression reads back as one list under the argument name, as get_value
+    # reads it, its plain components as numbers; a vector of plain values is not an equation
     equations = cs.get_equations()
-    check("axis_point" in equations and "axis_direction" in equations and "n1" not in equations,
-          "the equations are not named after the arguments: " + str(sorted(equations)))
-    check([float(e.split(" ")[0]) for e in equations["axis_direction"]] == [0, 0, 1],
-          "the axis direction equations did not read back: " + str(list(equations["axis_direction"])))
+    check(sorted(equations) == ["axis_direction"],
+          "the equations are not the expressions named after the arguments: " + str(sorted(equations)))
+    check(type(equations["axis_direction"]) is list and equations["axis_direction"] == [0, 0, "=1"],
+          "the axis direction equations did not read back: " + repr(equations["axis_direction"]))
     check(cs.get_value("number_of_sectors") == 6, "the sector count was not set")
     # The sector angle is derived from the sector count
     check(abs(cs.get_value("sector_angle_deg") - 60.0) < 1e-9,

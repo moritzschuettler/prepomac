@@ -210,8 +210,8 @@ def test_defined_fields():
     # A value that is not given survives the replace
     field = fields.replace_temperature(PREFIX + "DF", temperature=250)
     check(field.get_value("temperature") == 250, "the temperature was not replaced")
-    check(float(field.get_equations()["temperature"].split(" ")[0]) == 250,
-          "the temperature did not read back as an equation: " + str(field.get_equations()))
+    check("temperature" not in field.get_equations(),
+          "a plain temperature was read back as an equation: " + str(field.get_equations()))
     field = fields.replace_temperature(PREFIX + "DF", temperature="=125 * 2")
     check(field.get_equations()["temperature"].replace(" ", "") == "=125*2",
           "the temperature expression did not read back: " + str(field.get_equations()))

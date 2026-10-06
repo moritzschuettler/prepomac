@@ -151,8 +151,10 @@ it has run, and it goes on to the end and records its commands as usual.
   yours that is still running: collect it with `get_call` first.
 - **Read only.** The user has protected the model. Reading still works; ask them before asking for
   more.
-- **An API error.** The message names the reason and usually the accepted values. Read it and fix
-  the call rather than trying variations.
+- **An API error.** The traceback ends in `PythonAPIException:` and a message that names the
+  reason and usually the accepted values. Read it and fix the call rather than trying variations.
+  An error that carries a .NET stack trace (`   at ...` lines) is a fault of PrePoMax, not of your
+  call: report it to the user.
 - **Nothing answers on the address.** PrePoMax is closed, or its automation server is off. Ask the
   user to open it and switch on Tools - Automation Server. Retrying will not help.
 

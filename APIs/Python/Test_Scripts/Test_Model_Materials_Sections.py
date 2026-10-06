@@ -319,24 +319,27 @@ def test_sections(material_name):
                  "a node selection must be rejected for an element region")
     # A shell and a membrane section carry an offset of the mid surface, in thicknesses
     shell = sections.add_shell(PREFIX + "Shell", material_name, element_selection, thickness=2, offset=0.5)
-    check(shell.get_equations()["offset"] == "0.5",
-          "the shell offset was not stored, it is " + str(shell.get_equations()["offset"]))
+    check(shell.offset == 0.5, "the shell offset was not stored, it is " + str(shell.offset))
+    check(len(shell.get_equations()) == 0, "plain values were read back as equations: " + str(shell.get_equations()))
     membrane = sections.add_membrane(PREFIX + "Membrane", material_name, element_selection, 1.5, -0.25)
-    check(membrane.get_equations()["offset"] == "-0.25", "the membrane offset was not stored")
+    check(membrane.offset == -0.25, "the membrane offset was not stored")
+    check(membrane.mass is None, "a membrane section must have no mass")
     # A replacement keeps an offset it is not given and changes one it is
     shell = sections.replace_shell(PREFIX + "Shell", thickness=3)
-    check(shell.get_equations()["offset"] == "0.5", "the replacement dropped the shell offset")
+    check(shell.offset == 0.5, "the replacement dropped the shell offset")
     check(shell.thickness == 3, "the replacement did not change the thickness")
     # The selection based region is converted again rather than left at the deleted internal set
     check(shell.region_type == "ElementSetName" and pmx.model.element_sets.contains(shell.region_name),
           "the replacement lost the shell region: " + str(shell.region_name))
     check(list(pmx.model.element_sets[shell.region_name].get_element_ids()) == [1],
           "the shell region no longer resolves to the selected element")
-    shell = sections.replace_shell(PREFIX + "Shell", offset=-0.5)
-    check(shell.get_equations()["offset"] == "-0.5", "the replacement did not change the shell offset")
+    shell = sections.replace_shell(PREFIX + "Shell", offset="-0.25 * 2")
+    check(shell.offset == -0.5, "the replacement did not change the shell offset")
+    check(shell.get_equations()["offset"].replace(" ", "") == "=-0.25*2",
+          "the offset expression did not read back: " + str(shell.get_equations()))
     # A default offset stays zero rather than becoming undefined
     plain = sections.add_shell(PREFIX + "Shell_D", material_name, element_selection)
-    check(plain.get_equations()["offset"] == "0", "an omitted offset must stay zero")
+    check(plain.offset == 0, "an omitted offset must stay zero")
     # Collection verbs
     sections.rename(PREFIX + "Mass", PREFIX + "Mass_R")
     check(sections.contains(PREFIX + "Mass_R"), "the section was not renamed")

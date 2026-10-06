@@ -35,7 +35,7 @@ namespace APIs.Python
                    "'geometry', and 'geometry_surfaces'. Possible source values are 'nodes', 'elements', " +
                    "'vertices', 'edges', 'surfaces', 'parts', and 'geometry'. The 'geometry' source takes the geometry IDs the " +
                    "application records for a geometry pick made in the Selection by ID mode, and converts " +
-                   "them to any target.",
+                   "them to any target. The view, the target and the source are matched regardless of case.",
                    Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]], " +
                                "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",

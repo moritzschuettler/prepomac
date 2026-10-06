@@ -134,8 +134,10 @@ namespace APIs.Python.Model
                                       number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
                                       absolute_zero, stefan_boltzmann, newton_gravity, clear_undefined_constants);
         }
-        [PythonAPI("Returns the equations of number_of_cycles, cycles_increment and number_of_smoothing_steps " +
-                   "without evaluating them.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns the expressions number_of_cycles, cycles_increment and number_of_smoothing_steps " +
+                   "were entered with, without evaluating them. Only a value entered as an expression is " +
+                   "returned, with its leading equals sign; a value entered as a plain number is left out, and " +
+                   "the property of the same name returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return _service.GetPropertyEquations();

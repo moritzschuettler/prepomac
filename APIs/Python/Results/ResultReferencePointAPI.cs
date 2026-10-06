@@ -51,7 +51,10 @@ namespace APIs.Python
             return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
                                                                    referencePoint.Z.Value });
         }
-        [PythonAPI("Returns the stored coordinate expressions, as the values or equations they were entered with.",
+        [PythonAPI("Returns the coordinate expressions the result reference point was entered with, without " +
+                   "evaluating them, under x, y and z. Only a value entered as an expression is returned, with " +
+                   "its leading equals sign; a coordinate entered as a plain number, or computed from a " +
+                   "selection, is left out, and get_coordinates returns it as a number.",
                    Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {

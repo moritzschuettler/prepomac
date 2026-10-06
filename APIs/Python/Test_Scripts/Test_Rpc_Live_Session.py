@@ -4,7 +4,9 @@
 #Checks what the automation server promises about a session it drives: that a change an agent makes
 #is recorded as the command a user would have produced by hand, and that read only mode refuses to
 #change the model whatever Python is sent. It also replays the journal of replaces that set values back
-#to their defaults, which a journal must write out because a replace keeps what it is not given.
+#to their defaults, which a journal must write out because a replace keeps what it is not given, and
+#round trips a varied model: the journal of the session that built it is replayed in a second, fresh
+#session, and the CalculiX decks the two sessions export must be the same.
 #
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
@@ -20,8 +22,10 @@
 #
 #Expected process exit code 0.
 
+import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -34,6 +38,27 @@ KILL_PROBE = "read_only_kill_probe"
 REQUEST_TIMEOUT = 5
 BUSY = -32001
 INVALID_PARAMS = -32602
+# The two lines the CalculiX exporter stamps with a per run hash and the date it was written
+VOLATILE_EXPORT_LINE = re.compile(r"^\s*\**\s*(Hash:|Date:)", re.IGNORECASE)
+# A model that touches most of the areas a journal writes, including replaces and a parameter table
+ROUND_TRIP_MODEL = [
+    "pmx.model.parameters.set_all(['rt_load', 'rt_unit'], ['rt_unit * 1000', 1.0], ['The applied force', ''])",
+    "pmx.model.materials.add('rt_steel', [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])",
+    "pmx.model.materials.replace('rt_steel', description='Steel')",
+    "pmx.model.sections.add_solid('rt_section', 'rt_steel', pmx.create.selection_by_ids('femodel', 'elements', "
+    "'parts', [pmx.model.parts.first().id]))",
+    "pmx.model.node_sets.add('rt_bottom', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))",
+    "pmx.model.element_sets.add('rt_cube', pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1]))",
+    "pmx.model.surfaces.add('rt_face', pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [2]}))",
+    "pmx.model.amplitudes.add('rt_ramp', [[0, 0], [1, 1]])",
+    "step = pmx.model.steps.add_static('rt_static', time_period=1.0)",
+    "step.bcs.add_fixed('rt_fix', pmx.create.region('NodeSetName', 'rt_bottom'))",
+    "step.bcs.add_displacement_rotation('rt_dr', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [7, 8]), "
+    "u1=0, u2=0, u3=1.5)",
+    "step.bcs.replace_displacement_rotation('rt_dr', free_dofs=['U3'])",
+    "step.loads.add_concentrated_force('rt_force', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5, 6]), "
+    "f3=-1000)",
+    "step.loads.add_pressure('rt_pressure', pmx.create.region('SurfaceName', 'rt_face'), 2.5)"]
 
 
 def check(condition, message):
@@ -329,6 +354,61 @@ def check_journal_of_replaces(client):
     print("journal: a replace back to the defaults replays to " + str(replayed))
 
 
+def export_deck(client, file_name):
+    """The model as CalculiX reads it, without the lines that differ between two runs of the same model."""
+    result = client.result("exec", {"source": "pmx.export_to_calculix(r'" + file_name + "')"})
+    check(not result["failed"], "the model must export: " + result["error"])
+    check(os.path.isfile(file_name), "the export is missing: " + file_name)
+    with io.open(file_name, encoding="utf-8", errors="replace") as reader:
+        return [line for line in reader.read().splitlines() if not VOLATILE_EXPORT_LINE.search(line)]
+
+
+def first_difference(recorded, replayed):
+    for index in range(min(len(recorded), len(replayed))):
+        if recorded[index] != replayed[index]:
+            return "line %d: %s against %s" % (index + 1, recorded[index], replayed[index])
+    return "the decks have %d and %d lines" % (len(recorded), len(replayed))
+
+
+def check_journal_round_trip(client):
+    """The journal of a session rebuilds, in a session of its own, the model that session built."""
+    directory = tempfile.mkdtemp(prefix="rpc_round_trip_")
+    source = os.linesep.join(["pmx.new_model('ThreeD', 'MM_TON_S_C')",
+                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    result = client.result("exec", {"source": os.linesep.join(ROUND_TRIP_MODEL)})
+    check(not result["failed"], "the round trip model must be built: " + result["error"])
+    # The journal is taken before the export, which is itself a recorded command
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["emittedCommandCount"] == result["commandCount"], "every command must be emitted: " + str(journal))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    for expected in ["add_pressure", "replace_displacement_rotation", "set_all", "add_solid"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    recorded = export_deck(client, os.path.join(directory, "recorded.inp"))
+    for expected in ["rt_steel", "rt_bottom", "rt_static"]:
+        check(any(expected.upper() in line.upper() for line in recorded),
+              "the recorded deck must carry " + expected + ", or the comparison checks nothing")
+    # The journal replayed by a session that never saw the model
+    session = ChildSession("On")
+    try:
+        replay = session.connect()
+        result = replay.result("exec", {"source": "pmx.new_model('ThreeD', 'MM_TON_S_C')"})
+        check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+        result = replay.result("exec", {"source": journal_source})
+        check(not result["failed"], "the journal must replay in a fresh session: " + result["error"])
+        replayed = export_deck(replay, os.path.join(directory, "replayed.inp"))
+    finally:
+        session.close()
+    check(recorded == replayed, "the replayed model differs from the recorded one: " +
+          first_difference(recorded, replayed))
+    print("journal: " + str(journal["emittedCommandCount"]) + " commands rebuild a deck of " + str(len(recorded)) +
+          " lines in a fresh session")
+
+
 def check_exit_guards(client):
     """Closing a session that has unsaved changes has to be asked for explicitly."""
     client.result("exec", {"source": "pmx.model.parameters.add('exit_guard', 1.0)"})
@@ -466,6 +546,7 @@ def main():
         check_recording(client)
         check_history(client)
         check_journal_of_replaces(client)
+        check_journal_round_trip(client)
         check_exit_guards(client)
         read_only_model = os.path.join(session.directory, "read_only.pmx")
         save_model_with_analysis(client, read_only_model)

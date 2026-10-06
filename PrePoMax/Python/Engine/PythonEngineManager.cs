@@ -71,6 +71,7 @@ namespace PrePoMax.Python
             using (Py.GIL())
             {
                 PyObjectConversions.RegisterEncoder(new PythonDictionaryEncoder());
+                PyObjectConversions.RegisterEncoder(new PythonApiExceptionEncoder());
                 PythonKeywordGuard.Install();
                 CreateScopeAndConsole();
             }

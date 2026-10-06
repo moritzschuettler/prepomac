@@ -95,9 +95,10 @@ namespace APIs.Python.Model
                                                  GetItemType(boundaryCondition) + " boundary condition");
         }
 
-        [PythonAPI("Returns the stored equations of the boundary condition without evaluating them, under the " +
-                   "names get_value uses, for example u1 or phase_deg: an expression reads back with its " +
-                   "leading equals sign and a plain value with its unit.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns the expressions the boundary condition was entered with, without evaluating them, " +
+                   "under the names get_value uses, for example u1 or phase_deg. Only a value entered as an " +
+                   "expression is returned, with its leading equals sign; a value entered as a plain number is " +
+                   "left out, and get_value returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve());

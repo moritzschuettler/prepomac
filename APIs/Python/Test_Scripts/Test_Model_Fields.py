@@ -160,8 +160,8 @@ def test_distributions():
         check(mapped.translate == [0.5, 0, 0], "the translate did not read back: " + str(mapped.translate))
         check(mapped.coordinate_system_name == "Global", "unexpected coordinate system")
         equations = mapped.get_equations()
-        check(sorted(equations) == ["interpolator_radius", "scale", "translate"],
-              "unexpected equation names " + str(sorted(equations)))
+        # The radius and the scale were given as plain numbers, so only the translate is an expression
+        check(sorted(equations) == ["translate"], "unexpected equation names " + str(sorted(equations)))
         check(list(equations["translate"]) == ["=0.5", "=0", "=0"],
               "the translate expressions did not read back: " + str(list(equations["translate"])))
         # The read back values go straight back into a replacement that changes nothing
@@ -212,7 +212,8 @@ def test_initial_conditions():
     # A replacement that is not given a region keeps the selection, which is converted again because
     # the replacement deletes the internal node set of the old initial condition
     condition = conditions.replace_temperature(PREFIX + "Temp", temperature=25)
-    check(float(condition.get_equations()["temperature"].split(" ")[0]) == 25, "the temperature was not replaced")
+    check(condition.get_value("temperature") == 25, "the temperature was not replaced")
+    check("temperature" not in condition.get_equations(), "a plain temperature was read back as an equation")
     check(condition.region_type == "NodeSetName" and pmx.model.node_sets.contains(condition.region_name),
           "the replacement lost the region: " + str(condition.region_name))
     check(pmx.model.node_sets[condition.region_name].count == 4,

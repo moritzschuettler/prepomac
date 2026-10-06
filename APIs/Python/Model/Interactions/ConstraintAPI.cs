@@ -115,10 +115,11 @@ namespace APIs.Python.Model
                                                  name, GetItemType(constraint) + " constraint");
         }
 
-        [PythonAPI("Returns the stored equations of the constraint without evaluating them, under the names " +
-                   "get_value uses: an expression reads back with its leading equals sign and a plain value " +
-                   "with its unit, and a vector argument such as axis_point as a list of the equations of its " +
-                   "components.", Returns = "dict[str, str or StringList]")]
+        [PythonAPI("Returns the expressions the constraint was entered with, without evaluating them, under the " +
+                   "names get_value uses. Only a value entered as an expression is returned, with its leading " +
+                   "equals sign; a value entered as a plain number is left out, and get_value returns it as a " +
+                   "number. A vector argument such as axis_point with an expression in any component is " +
+                   "returned as a list, its plain components as numbers.", Returns = "dict[str, str or list]")]
         public Dictionary<string, object> get_equations()
         {
             Constraint constraint = Resolve();

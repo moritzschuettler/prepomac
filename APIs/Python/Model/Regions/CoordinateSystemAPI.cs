@@ -67,7 +67,11 @@ namespace APIs.Python.Model
                                                                    coordinateSystem.Y3.Value,
                                                                    coordinateSystem.Z3.Value });
         }
-        [PythonAPI("Returns the stored coordinate expressions.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns the coordinate expressions the coordinate system was entered with, without " +
+                   "evaluating them: x1, y1, z1 of the origin, x2, y2, z2 of the point on X and x3, y3, z3 of " +
+                   "the point in XY. Only a value entered as an expression is returned, with its leading equals " +
+                   "sign; a coordinate entered as a plain number is left out, and get_origin, get_point_on_x " +
+                   "and get_point_in_xy return it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(Resolve());

@@ -63,6 +63,11 @@ The root object available in the Python console is `pmx`.
 - A keyword argument a method does not take is refused with a `TypeError`, as Python refuses one for a function of
   its own, and nothing is recorded: `add() got an unexpected keyword argument 'descripton'. Did you mean
   'description'?`. So is a keyword naming an argument already given by position.
+- A call the API refuses raises `PythonAPIException`, a Python exception carrying only the message, so the
+  traceback ends in `PythonAPIException: The argument 'name' must not be empty.` and no .NET stack trace. It
+  derives from `Exception` and is a builtin, so a script catches it by name without importing anything:
+  `except PythonAPIException as e:`. Any other .NET exception reaching a script is a fault of PrePoMax and keeps
+  its .NET type and stack trace.
 
 ## Script execution and regeneration
 
@@ -100,9 +105,9 @@ and the reason, and the export reports how many it wrote. A recorded Python scri
 verbatim rather than expanded into the calls it made, because regeneration re-runs its computations
 and expanding it would replace live computation with the values it produced the first time.
 
-`APIs/Python/Test_Scripts/Journal_Round_Trip.py` checks the whole path: it regenerates a recorded
-`.pmh`, journals it, replays the emitted script into a fresh instance, and compares the CalculiX
-export of both models.
+`APIs/Python/Test_Scripts/Test_Rpc_Live_Session.py` checks the whole path: it builds a varied model
+in a session driven through the automation server, journals that session, replays the emitted script
+in a fresh session, and compares the CalculiX export of both models.
 
 ## Unattended script execution
 
@@ -624,7 +629,7 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable. |
 | `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable with an `int` or a `str`; a `str` is an equation and its value is rounded to a whole number. |
-| `get_equations()` | The equations of those three values without evaluating them, as a `dict[str, str]`. |
+| `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
 | `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants, or `None` while they are undefined. Writable. |
 | `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. |
@@ -843,9 +848,9 @@ not the read-only result mesh of the same name under `pmx.results`.
 | Member | Description |
 | --- | --- |
 | `nodes.count`, `elements.count` | The node and element counts of the model mesh. |
-| `nodes.renumber(start_id=1)` | Renumbers the nodes using command history. |
-| `nodes.merge_coincident(selection=None, distance=None)` | Merges coincident nodes. A selection that is not given means the whole mesh. |
-| `elements.renumber(start_id=1)` | Renumbers the elements using command history. |
+| `nodes.renumber(start_id)` | Renumbers the nodes using command history. |
+| `nodes.merge_coincident(selection, tolerance=None, nodes_to_keep=None)` | Merges the coincident nodes of the selected geometry. `nodes_to_keep` is `SmallerID` or `LargerID`. |
+| `elements.renumber(start_id)` | Renumbers the elements using command history. |
 
 ### Part collections
 
@@ -1208,7 +1213,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `scale` | The scale factors of a file distribution as a `list[float]` of three, otherwise `None`. |
 | `translate` | The translation of a file distribution in model units as a `list[float]` of three; `None` on an equation distribution. |
 | `coordinate_system_name` | The name of the coordinate system the distribution is defined in. Read-only. |
-| `get_equations()` | The stored equations of a file distribution, under the `add_from_file` argument names: `interpolator_radius`, and `scale` and `translate` as a `StringList` of three (`dict[str, str or StringList]`). An expression reads back with its leading `=` and a plain value with its unit. An equation distribution returns an empty `dict`; its equation is the `equation` property. |
+| `get_equations()` | The expressions a file distribution was entered with, under the `add_from_file` argument names: `interpolator_radius`, and `scale` and `translate` as a list of three (`dict[str, str or list]`). Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it; a list with an expression in any component is returned whole, its plain components as numbers. An equation distribution returns an empty `dict`; its equation is the `equation` property. |
 
 ### `InitialConditions`
 
@@ -1224,9 +1229,10 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 `InitialCondition` exposes `name`, `item_type` (`'temperature'`, `'translational_velocity'` or
 `'angular_velocity'`), `region_name`, `region_type`, `visible`, `valid`, `get_value_names()`, `get_value(name)` and
-`get_equations()`, which returns the stored values as the numbers or expressions they were entered with, under the
-names `get_value` uses, as a `dict[str, str or StringList]` (a vector argument such as `axis_point` is a `StringList` of
-the equations of its components; an expression keeps its leading `=` and a plain value reads back with its unit).
+`get_equations()`, which returns the expressions the values were entered with, under the names `get_value` uses, as a
+`dict[str, str or list]`. Only a value entered as an expression is returned, with its leading `=`; a plain number is
+left out, and `get_value` returns it. A vector argument such as `axis_point` with an expression in any component is a
+list, its plain components as numbers, so it can be passed back as the argument.
 `get_value` takes the names of the `add_*` arguments, and `axis_point` and `axis_direction` of an angular velocity
 read back as lists of three.
 
@@ -1293,8 +1299,10 @@ A material may hold only one elastic property; the model rejects a second one.
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
 
-`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`
-and `valid`.
+`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`,
+`offset` (of a shell or membrane section, otherwise `None`), `mass` (of a mass section, otherwise `None`), `valid` and
+`get_equations()`, the expressions `thickness`, `offset` and `mass` were entered with, as a `dict[str, str]`; a value
+entered as a plain number is left out, and the property of the same name returns it.
 
 ```python
 elements = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1, 2, 3])
@@ -1374,7 +1382,7 @@ type is `NodeSetName` or `SurfaceName`.
 their defaults when they are not given.
 
 `ReferencePoint` exposes `name`, `created_from`, `name_visible`, `color`, `visible`, `valid`,
-`get_coordinates()` (`[x, y, z]`), `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which returns how the point is defined: its mode, and
+`get_coordinates()` (`[x, y, z]`), `get_equations()` (a `dict[str, str]` of the coordinates under `x`, `y` and `z` that were entered as expressions; a plain coordinate is left out) and `get_construction()` (a `dict[str, str]`), which returns how the point is defined: its mode, and
 the region or the selected point IDs it is built from.
 
 `replace_from_selection` and `replace_from_region` keep the stored selection or region only while the point is still of
@@ -1394,7 +1402,8 @@ A point given as coordinates and a point given as a selection can be mixed in on
 which is what the dialog offers when one point is picked and another typed.
 
 `CoordinateSystem` exposes `name`, `coordinate_system_type`, `name_visible`, `visible`, `valid`, `get_origin()`,
-`get_point_on_x()`, `get_point_in_xy()` (each `[x, y, z]`), `get_equations()` (a `dict[str, str]`) and `get_construction()` (a
+`get_point_on_x()`, `get_point_in_xy()` (each `[x, y, z]`), `get_equations()` (a `dict[str, str]` of the coordinates
+`x1` to `z3` that were entered as expressions; a plain coordinate is left out) and `get_construction()` (a
 `dict[str, str]`), which tells how each of the three points is defined.
 
 ```python
@@ -1505,9 +1514,10 @@ arguments of its `add_*`, all optional.
 
 `Constraint` exposes `name`, `item_type` (the `add_*` name without `add_`, `'tie'` or `'point_spring'`), `active`, `visible`, `master_region_type`,
 `master_region_name`, `slave_region_type`, `slave_region_name`, and the values of its own type
-through `get_value_names()` and `get_value(name)`. `get_equations()` returns the stored values as entered, under the
-names `get_value` uses, as a `dict[str, str or StringList]`: a vector argument such as `axis_point` is a `StringList` of
-the equations of its components, an expression keeps its leading `=` and a plain value reads back with its unit.
+through `get_value_names()` and `get_value(name)`. `get_equations()` returns the expressions the values were entered
+with, under the names `get_value` uses, as a `dict[str, str or list]`. Only a value entered as an expression is
+returned, with its leading `=`; a plain number is left out, and `get_value` returns it. A vector argument such as
+`axis_point` with an expression in any component is a list, its plain components as numbers.
 
 ```python
 pmx.model.constraints.add_tie('Tie-1', master_selection, slave_selection)
@@ -1774,7 +1784,7 @@ command, naming the step type.
 | `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this boundary condition type. |
-| `get_equations()` | The stored values as entered, under the names `get_value` uses (for example `u1` or `phase_deg`), as a `dict[str, str]`. An expression keeps its leading `=` and a plain value reads back with its unit. |
+| `get_equations()` | The expressions the values were entered with, under the names `get_value` uses (for example `u1` or `phase_deg`), as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and `get_value` returns it. |
 
 ### `Loads`
 
@@ -1835,7 +1845,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | `amplitude_name`, `coordinate_system_name` | The names the load refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this load type, named like the `add_*` arguments. A vector reads back as one list: `first_point`, `second_point`, `direction` and `cutoff` of a hydrostatic pressure, `axis_point` and `axis_direction` of a centrifugal load, and `magnitude`, `direction`, `tension_type` and `auto_direction` of a pre-tension. |
-| `get_equations()` | The stored values as entered, under the names `get_value` uses, as a `dict[str, str or StringList]`: a vector argument such as `axis_point` is a `StringList` of the equations of its components. An expression keeps its leading `=` and a plain value reads back with its unit. |
+| `get_equations()` | The expressions the values were entered with, under the names `get_value` uses, as a `dict[str, str or list]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and `get_value` returns it. A vector argument such as `axis_point` with an expression in any component is a list, its plain components as numbers. |
 
 ### `FieldOutputs` (model)
 
@@ -1931,7 +1941,7 @@ A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature
 | `amplitude_name` | The amplitude the defined field refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this defined field type. |
-| `get_equations()` | The stored values as entered, under the names `get_value` uses (for example `temperature`), as a `dict[str, str]`. An expression keeps its leading `=` and a plain value reads back with its unit. |
+| `get_equations()` | The expressions the values were entered with, under the names `get_value` uses (for example `temperature`), as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and `get_value` returns it. |
 
 ## Parts
 
@@ -2201,7 +2211,10 @@ pmx.view.annotations.show_min_max(shown[0], shown[1])
 
 Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
 
-Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
+Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, `"parts"`, and `"geometry"`.
+
+The view, the target and the source are matched regardless of case, and the selection stores them in the lowercase
+spelling above, so `selection.view` and `selection.target` read back the same whichever way they were written.
 
 Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
 
@@ -3024,7 +3037,7 @@ A result `ReferencePoint`:
 | `created_from` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
 | `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour as `[R, G, B, A]`, and the visibility. |
 | `get_coordinates()` | The coordinates computed on the result mesh, as `[x, y, z]`. |
-| `get_equations()` | The stored coordinates as entered, under `x`, `y` and `z`. |
+| `get_equations()` | The coordinates entered as expressions, under `x`, `y` and `z`. A coordinate entered as a plain number, or computed from a selection, is left out; `get_coordinates()` returns it. |
 | `get_construction()` | How the point is built, under `created_from`, `region_type` and `region_name`. |
 
 A result `CoordinateSystem`:
@@ -3035,7 +3048,7 @@ A result `CoordinateSystem`:
 | `coordinate_system_type` | `Rectangular` or `Cylindrical`. |
 | `name_visible`, `visible` | Whether the name is drawn next to the symbol, and the visibility. |
 | `get_origin()`, `get_point_on_x()`, `get_point_in_xy()` | The three defining points computed on the result mesh, each as `[x, y, z]`. |
-| `get_equations()` | The nine stored coordinates as entered, under `x1`, `y1`, `z1` to `x3`, `y3`, `z3`. |
+| `get_equations()` | The coordinates entered as expressions, under `x1`, `y1`, `z1` to `x3`, `y3`, `z3`. A coordinate entered as a plain number, or computed from a selection, is left out; the `get_origin()`, `get_point_on_x()` and `get_point_in_xy()` points return it. |
 | `get_construction()` | How each point is built (`Coordinates`, `OnPoint`, `BetweenTwoPoints` or `CircleCenter`), under `origin`, `point_on_x` and `point_in_xy`. |
 
 ### `Part`
@@ -3576,8 +3589,9 @@ whole rather than cloned. The result reference points and coordinate systems the
 complete coordinates, and only the name may be left out.
 
 A value the user could type as an expression is stored as the expression. `get_equations()` on a
-model item, and on a result reference point or coordinate system, return what was entered rather than the
-number it evaluated to, so a parameter change still reaches the value.
+model item, and on a result reference point or coordinate system, returns the expressions that were entered rather
+than the numbers they evaluated to, so a parameter change still reaches the value. A value entered as a plain number
+is not an expression and is left out; `get_value` or the property of the same name returns it.
 
 ## Journal and unattended-run boundaries
 
@@ -3598,7 +3612,7 @@ These classes exist in the implementation but are not normally used directly fro
 | Class | Purpose |
 | --- | --- |
 | `PythonAPIAttribute` | Marks API members that should appear in generated help and autocomplete. |
-| `PythonAPIException` | Exception type used for API errors reported to Python. |
+| `PythonAPIException` | Exception type used for API errors. Python receives it as the builtin exception class of the same name, carrying only the message (`PythonApiExceptionEncoder`). |
 | `PythonEngineManager` | Hosts and manages the embedded Python engine and console execution. |
 | `PythonConsoleResult` | Holds execution output, errors, and display text for console commands. |
 | API service classes | Resolve PrePoMax result objects and convert internal data into API objects. |

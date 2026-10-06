@@ -179,10 +179,15 @@ namespace APIs.Python.Model
         {
             ModelProperties properties = _modelResolver.GetModel().Properties;
             Dictionary<string, string> equations = new Dictionary<string, string>();
-            equations["number_of_cycles"] = properties.NumberOfCycles.String;
-            equations["cycles_increment"] = properties.CyclesIncrement.String;
-            equations["number_of_smoothing_steps"] = properties.NumOfSmoothingSteps.String;
+            AddEquation(equations, "number_of_cycles", properties.NumberOfCycles);
+            AddEquation(equations, "cycles_increment", properties.CyclesIncrement);
+            AddEquation(equations, "number_of_smoothing_steps", properties.NumOfSmoothingSteps);
             return equations;
+        }
+        // A plain value is read by its property as a number, so only an expression is an equation
+        private static void AddEquation(Dictionary<string, string> equations, string name, EquationContainer equation)
+        {
+            if (equation != null && equation.IsEquation()) equations[name] = equation.String;
         }
         // An undefined physical constant is stored as an infinity, and reads back as None
         public object GetAbsoluteZero()

@@ -15,6 +15,10 @@ The model files named by the headers live in Models, next to this script. A head
 PyTest_Job.frd depends on Test_Analysis.py, which solves the cube and writes that file into the work
 directory, so those tests are run last and a filter that selects one without the other is refused.
 
+The offline checks run first: every Audit_*.py script, which checks the API sources and the overview
+against each other, and the unit tests of this runner. They need no PrePoMax, take about a second,
+and count as tests of the run; a filter selects them by name like any other test.
+
     python Run_Tests.py [--exe <PrePoMax.com>] [--work <directory>] [--filter <substring>]
 
 The process exit code is 0 when every test met its expectation.
@@ -44,6 +48,8 @@ STATUS_BY_CODE = {0: "Ok", 1: "OptionError", 2: "ModelError", 3: "ScriptError", 
 # The application is given --timeout, so the parent waits a little longer before it kills the tree
 SCRIPT_TIMEOUT = 600
 PROCESS_TIMEOUT = SCRIPT_TIMEOUT + 60
+OFFLINE_TIMEOUT = 120
+OFFLINE_RUNNER_TESTS = "test_runner_offline.py"
 
 
 class Test(object):
@@ -96,12 +102,29 @@ def collect(filter_text):
             continue
         switches, expected_code = read_header(os.path.join(HERE, name))
         tests.append(Test(os.path.join(HERE, name), switches, expected_code))
-    if not tests:
-        raise RuntimeError("no tests matched")
     if any(test.needs_result for test in tests) and not any(test.name == "Test_Analysis.py" for test in tests):
         raise RuntimeError("result tests require Test_Analysis.py in the same run")
     # A test that reads the solved model runs after the one that writes it
     return sorted(tests, key=lambda test: (test.needs_result, test.name))
+
+
+def collect_offline(filter_text):
+    """The checks that run without PrePoMax: the audits, and the unit tests of this runner."""
+    names = [name for name in sorted(os.listdir(HERE)) if name.startswith("Audit_") and name.endswith(".py")]
+    names.append(OFFLINE_RUNNER_TESTS)
+    return [name for name in names if not filter_text or filter_text.lower() in name.lower()]
+
+
+def run_offline(name):
+    started = time.time()
+    try:
+        completed = subprocess.run([sys.executable, os.path.join(HERE, name)], cwd=HERE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, timeout=OFFLINE_TIMEOUT)
+        code, output = completed.returncode, completed.stdout.decode("utf-8", "replace")
+    except subprocess.TimeoutExpired:
+        code, output = None, "RUNNER TIMEOUT after %d s" % OFFLINE_TIMEOUT
+    problems = [] if code == 0 else ["exit code %s, expected 0" % code]
+    return problems, time.time() - started, output
 
 
 def build_command(test, executable, work_directory, report_file):
@@ -168,13 +191,17 @@ def main():
     parser.add_argument("--work", default=None)
     parser.add_argument("--filter", default=None)
     args = parser.parse_args()
-    if not os.path.isfile(args.exe):
-        print("The launcher was not found: %s" % args.exe)
-        return 1
     try:
         tests = collect(args.filter)
     except (RuntimeError, ValueError) as error:
         print("TEST COLLECTION FAILED: %s" % error)
+        return 1
+    offline = collect_offline(args.filter)
+    if not tests and not offline:
+        print("TEST COLLECTION FAILED: no tests matched")
+        return 1
+    if tests and not os.path.isfile(args.exe):
+        print("The launcher was not found: %s" % args.exe)
         return 1
     work = args.work or tempfile.mkdtemp(prefix="prepomax_api_tests_")
     temporary = args.work is None
@@ -182,12 +209,20 @@ def main():
         os.makedirs(work)
     clear_result_fixture(work)
     failed = []
+    for name in offline:
+        problems, elapsed, output = run_offline(name)
+        print("%-4s %-38s %6.1f s  %s" % ("PASS" if not problems else "FAIL", name, elapsed, "; ".join(problems)))
+        if problems:
+            with io.open(os.path.join(work, name + ".output.txt"), "w", encoding="utf-8") as writer:
+                writer.write(output)
+            failed.append((name, output))
     for test in tests:
         problems, elapsed, output = run(test, args.exe, work)
         print("%-4s %-38s %6.1f s  %s" % ("PASS" if not problems else "FAIL", test.name, elapsed, "; ".join(problems)))
         if problems:
             failed.append((test, output))
-    print("%d of %d tests passed." % (len(tests) - len(failed), len(tests)))
+    total = len(offline) + len(tests)
+    print("%d of %d tests passed." % (total - len(failed), total))
     if failed and temporary:
         print("The work directory was kept for inspection: %s" % work)
     if temporary and not failed:

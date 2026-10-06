@@ -80,6 +80,18 @@ class CommandTests(unittest.TestCase):
         self.assertNotIn("--rpc", command)
 
 
+class OfflineCheckTests(unittest.TestCase):
+    def test_the_audits_and_these_tests_run_offline(self):
+        offline = Run_Tests.collect_offline(None)
+        self.assertIn("Audit_API_Coverage.py", offline)
+        self.assertIn("Audit_API_Documentation.py", offline)
+        self.assertIn(Run_Tests.OFFLINE_RUNNER_TESTS, offline)
+
+    def test_a_filter_selects_the_offline_checks_by_name(self):
+        self.assertEqual(["Audit_API_Documentation.py"], Run_Tests.collect_offline("api_documentation"))
+        self.assertEqual([], Run_Tests.collect_offline("Model_BCs"))
+
+
 class FixtureTests(unittest.TestCase):
     def test_a_stale_solved_model_is_removed(self):
         with tempfile.TemporaryDirectory() as directory:

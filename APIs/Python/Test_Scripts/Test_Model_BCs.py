@@ -153,9 +153,9 @@ def test_displacement_rotation():
     # The model stores an expression without its spaces
     check(equations["u1"].replace(" ", "") == "=" + PREFIX + "d*2",
           "the u1 equation did not read back: " + str(equations))
-    check("u2" in equations and "ur1" in equations and "phase_deg" in equations,
-          "the equations are not named after the arguments: " + str(sorted(equations)))
-    check(float(equations["u2"].split(" ")[0]) == 0, "the plain u2 value did not read back: " + str(equations["u2"]))
+    # Only an expression is an equation: a plain value is left out, and get_value returns it as a number
+    check(sorted(equations) == ["u1"], "a plain value must be left out of the equations: " + str(sorted(equations)))
+    check(bc.get_value("u2") == 0, "the plain u2 value did not read back: " + str(bc.get_value("u2")))
 
 
 def read_boundary_lines(name):

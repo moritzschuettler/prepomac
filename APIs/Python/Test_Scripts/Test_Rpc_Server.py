@@ -201,9 +201,38 @@ def check_exec(client):
     result = client.result("exec", {"source": "raise ValueError('deliberate')"})
     check(result["failed"], "a raising source must fail")
     check("deliberate" in result["error"], "the traceback must carry the message: " + result["error"])
+    # A call the API refuses answers its message, not the .NET stack trace of the application
+    for method, key in (("exec", "source"), ("eval", "expression")):
+        result = client.result(method, {key: "pmx.model.materials.add('', [])"})
+        check(result["failed"], "a refused " + method + " must fail")
+        check("must not be empty" in result["error"], "the refusal must carry its message: " + result["error"])
+        check("   at " not in result["error"], "a refusal must carry no .NET frame: " + result["error"])
+        check("APIs.Python." not in result["error"], "a refusal must not name the .NET type: " + result["error"])
+    result = client.result("exec", {"source": "pmx.model.materials.add('', [])"})
+    check("PythonAPIException: The argument 'name' must not be empty." in result["error"],
+          "the traceback must name the refusal as PythonAPIException: " + result["error"])
     error = client.error("exec", {})
     check(error["code"] == INVALID_PARAMS, "a missing source must be InvalidParams: " + str(error))
     print("exec: shared scope, individual commands, one command per script, tracebacks")
+
+
+def check_api_refusal_in_script():
+    # A script sees a refusal as a Python exception carrying only its message, catchable by its own name
+    # and still by Exception
+    try:
+        pmx.model.materials.add('', [])
+    except PythonAPIException as exception:
+        check(str(exception) == "The argument 'name' must not be empty.",
+              "a refusal must carry only its message: " + str(exception))
+        check(isinstance(exception, Exception), "a refusal must be an Exception")
+        check(type(exception).__name__ == "PythonAPIException", "a refusal must be a PythonAPIException")
+    else:
+        raise Exception("TEST FAILED: an empty material name was accepted")
+    try:
+        pmx.model.materials.add('', [])
+    except Exception as exception:
+        check("   at " not in str(exception), "a refusal must carry no .NET frame: " + str(exception))
+    print("refusal: a PythonAPIException with its message only")
 
 
 def check_describe(client):
@@ -389,6 +418,7 @@ def check_shutdown():
 
 
 def main():
+    check_api_refusal_in_script()
     client = Client()
     try:
         check_ping(client)
