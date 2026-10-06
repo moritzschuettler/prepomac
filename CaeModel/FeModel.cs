@@ -3727,6 +3727,8 @@ namespace CaeModel
             // The selections tried on every part, which do not change from one round to the next
             Dictionary<int, List<HashSet<int>>> partIdSeedSurfaceIds = new Dictionary<int, List<HashSet<int>>>();
             foreach (var part in sweptParts) partIdSeedSurfaceIds.Add(part.PartId, GetSeedSurfaceIds(part));
+            // A defect of the geometry a trial ran into, which tells the user more than that no source was found
+            string geometryDefect = null;
             //
             while (bestSelection == null)
             {
@@ -3752,6 +3754,8 @@ namespace CaeModel
                                                    out error, out _, out sweptPartIds, out onlyUnreached);
                         // Every surface of the seed's extended source would give the same trial
                         if (singleSurfaceSeed) MarkTriedSeeds(blocks, part.PartId, triedSeedIds);
+                        if (geometryDefect == null && error != null && error.StartsWith(_splitBoreRimErrorStart))
+                            geometryDefect = error;
                         //
                         if (error == null)
                         {
@@ -3798,7 +3802,8 @@ namespace CaeModel
                             }
                             return new SweepDetectionData(null, "No sweep source surface could be found " +
                                                           "automatically for the part " + part.Name +
-                                                          ". Select the source surfaces by hand.", null,
+                                                          ". Select the source surfaces by hand." +
+                                                          (geometryDefect != null ? " " + geometryDefect : ""), null,
                                                           reachedPartIds, stamp, partialBlocks);
                         }
                     }
@@ -4630,6 +4635,8 @@ namespace CaeModel
                     sideSurfaceIds = null;
                     targetSurfaceIds = null;
                     layerSideSurfaceIds = null;
+                    string splitRimError = GetSplitBoreRimError(part, freeEdgeLoops[i].First(), sourceSurfaceIds, maps);
+                    if (splitRimError != null) return splitRimError;
                     return "The source surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") contain a " +
                            "free edge loop with a single edge, " + GetSweepEdgeName(part, freeEdgeLoops[i].First()) +
                            " (a hole or an extrusion).";
@@ -5223,6 +5230,48 @@ namespace CaeModel
         /// A surface or an edge the way the interface names it, so that a message about the sweep says which one
         /// it means and the geometry it names can be found and shown.
         /// </summary>
+        /// <summary>
+        /// Why a bore or a boss whose rim on the source is a single closed edge cannot be swept, when the reason is a
+        /// defect of the geometry: its wall is a periodic face closed along one seam, but the rim at its other end is
+        /// split into several edges by vertices that no other edge meets. Such vertices carry nothing; a repair of
+        /// the geometry merges the edges, and the wall is then one the sweep meshes. Null for any other wall.
+        /// </summary>
+        private string GetSplitBoreRimError(GeometryPart part, int rimEdgeId, HashSet<int> sourceSurfaceIds,
+                                            SweepPartMaps maps)
+        {
+            VisualizationData vis = part.Visualization;
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
+            HashSet<int> rimVertexIds = vis.GetVertexNodeIdsForEdgeIds(new int[] { rimEdgeId });
+            for (int surfaceId = 0; surfaceId < vis.FaceCount; surfaceId++)
+            {
+                if (sourceSurfaceIds.Contains(surfaceId) || !vis.FaceEdgeIds[surfaceId].Contains(rimEdgeId)) continue;
+                // The seam runs from the vertex of the rim to the other end; every other edge is a piece of that end
+                int[] otherEdgeIds = vis.FaceEdgeIds[surfaceId].Where(id => id != rimEdgeId).Distinct().ToArray();
+                int[] seamEdgeIds = otherEdgeIds.Where(id => vis.GetVertexNodeIdsForEdgeIds(new int[] { id })
+                                                                .Overlaps(rimVertexIds)).ToArray();
+                int[] pieceEdgeIds = otherEdgeIds.Except(seamEdgeIds).ToArray();
+                if (seamEdgeIds.Length != 1 || pieceEdgeIds.Length < 2) continue;
+                // The pieces close a loop, and only the seam meets it besides them
+                HashSet<int> seamVertexIds = vis.GetVertexNodeIdsForEdgeIds(seamEdgeIds);
+                HashSet<int> pieceVertexIds = vis.GetVertexNodeIdsForEdgeIds(pieceEdgeIds);
+                if (pieceVertexIds.Count != pieceEdgeIds.Length) continue;
+                HashSet<int> pieces = new HashSet<int>(pieceEdgeIds);
+                bool superfluous = true;
+                foreach (var vertexId in pieceVertexIds)
+                {
+                    int others = vertexIdEdgeIds[vertexId].Count(id => !pieces.Contains(id) && !seamEdgeIds.Contains(id));
+                    if (others > 0 || (!seamVertexIds.Contains(vertexId) && vertexIdEdgeIds[vertexId].Count != 2))
+                        superfluous = false;
+                }
+                if (!superfluous) continue;
+                //
+                return _splitBoreRimErrorStart + GetSweepSurfaceName(part, surfaceId) + " at its other end is " +
+                       "split into " + pieceEdgeIds.Length + " edges (" + GetSweepEdgeNames(part, pieceEdgeIds) + ") by " +
+                       "vertices no other edge meets, so the wall is not one closed along a single seam, which the " +
+                       "sweep meshes. Repair the geometry of the part " + part.Name + " to merge them.";
+            }
+            return null;
+        }
         private static string GetSweepSurfaceName(BasePart part, int surfaceId)
         {
             return "surface " + (surfaceId + 1) + " of " + part.Name;
@@ -5240,6 +5289,7 @@ namespace CaeModel
             return string.Join(", ", edgeIds.OrderBy(id => id).Select(id => GetSweepEdgeName(part, id)));
         }
         private const double _sweepChainCosine = 0.9;
+        private const string _splitBoreRimErrorStart = "The rim of the bore or boss ";
         // How fast the length of the sweep lines may change across the source: a block bending through a full turn
         // lengthens them by two pi for every unit of distance from the inside of the bend to the outside
         private const double _maxSweepLengthGradient = 2 * Math.PI;
