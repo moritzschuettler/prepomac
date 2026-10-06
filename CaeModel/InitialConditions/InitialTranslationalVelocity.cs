@@ -172,20 +172,8 @@ namespace CaeModel
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
             HashSet<int> nodeIds;
-            if (RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeIds = new HashSet<int>(targetMesh.NodeSets[RegionName].Labels);
-            }
-            else if (RegionType == RegionTypeEnum.SurfaceName)
-            {
-                string nodeSetName = targetMesh.Surfaces[RegionName].NodeSetName;
-                nodeIds = new HashSet<int>(targetMesh.NodeSets[nodeSetName].Labels);
-            }
-            else if (RegionType == RegionTypeEnum.ReferencePointName)
-            {
-                nodeIds = new HashSet<int>();
-            }
-            else throw new NotSupportedException();
+            if (RegionType == RegionTypeEnum.ReferencePointName) nodeIds = new HashSet<int>();
+            else nodeIds = new HashSet<int>(targetMesh.GetRegionNodeSet(RegionName, RegionType).Labels);
             //
             float v1 = (float)_v1.Value;
             float v2 = (float)_v2.Value;

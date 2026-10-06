@@ -163,24 +163,14 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            HashSet<int> nodeIds;
-            if (RegionType == RegionTypeEnum.NodeSetName)
-            {
-                nodeIds = new HashSet<int>(targetMesh.NodeSets[RegionName].Labels);
-            }
-            else if (RegionType == RegionTypeEnum.SurfaceName)
-            {
-                string nodeSetName = targetMesh.Surfaces[RegionName].NodeSetName;
-                nodeIds = new HashSet<int>(targetMesh.NodeSets[nodeSetName].Labels);
-            }
-            else if (RegionType == RegionTypeEnum.ReferencePointName)
-            {
-                nodeIds = new HashSet<int>();
-            }
-            else throw new NotSupportedException();
-            //
             Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
-            foreach (var nodeId in nodeIds) nodeIdCoor[nodeId] = allData.Nodes.Coor[nodeId];
+            if (RegionType != RegionTypeEnum.ReferencePointName)
+            {
+                int[] regionNodeIds;
+                double[][] coor;
+                targetMesh.GetRegionNodeIdsAndCoordinates(RegionName, RegionType, out regionNodeIds, out coor);
+                for (int i = 0; i < regionNodeIds.Length; i++) nodeIdCoor[regionNodeIds[i]] = coor[i];
+            }
             //
             Dictionary<int, double[]> nodeIdVelocity;
             GetTranslationalVelocities(nodeIdCoor, out nodeIdVelocity);

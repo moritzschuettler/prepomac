@@ -293,9 +293,8 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            FeSurface surface = targetMesh.Surfaces[_surfaceName];
-            FeNodeSet nodeSet = targetMesh.NodeSets[surface.NodeSetName];
-            HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
+            HashSet<int> nodeIds =
+                new HashSet<int>(targetMesh.GetRegionNodeSet(_surfaceName, RegionTypeEnum.SurfaceName).Labels);
             //
             float[] values = new float[allData.Nodes.Coor.Length];
             //
