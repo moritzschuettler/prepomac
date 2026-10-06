@@ -210,6 +210,12 @@ def test_defined_fields():
     # A value that is not given survives the replace
     field = fields.replace_temperature(PREFIX + "DF", temperature=250)
     check(field.get_value("temperature") == 250, "the temperature was not replaced")
+    check(float(field.get_equations()["temperature"].split(" ")[0]) == 250,
+          "the temperature did not read back as an equation: " + str(field.get_equations()))
+    field = fields.replace_temperature(PREFIX + "DF", temperature="=125 * 2")
+    check(field.get_equations()["temperature"].replace(" ", "") == "=125*2",
+          "the temperature expression did not read back: " + str(field.get_equations()))
+    check(field.get_value("temperature") == 250, "the temperature expression did not evaluate")
     check(field.region_type == "NodeSetName", "the region must survive a replace")
     # The from file form is a different add method, and its file is checked
     check_raises(lambda: fields.add_temperature_from_file(PREFIX + "Bad", "no_such_file.frd"),

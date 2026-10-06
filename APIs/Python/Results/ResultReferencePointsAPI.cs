@@ -18,7 +18,7 @@ namespace APIs.Python
 {
     // The reference points of a result mesh. They belong to the result rather than to the model, so
     // they are reached through the result mesh and are only available while that result is current.
-    public class ResultReferencePointsAPI : BaseAPI, IReadOnlyList<string>
+    public class ResultReferencePointsAPI : BaseAPI, IReadOnlyList<ResultReferencePointAPI>
     {
         // Variables
         private readonly MeshDataService _meshService;
@@ -51,7 +51,17 @@ namespace APIs.Python
         {
             return Count;
         }
-        string IReadOnlyList<string>.this[int index]
+        public ResultReferencePointAPI __getitem__(string name)
+        {
+            return this[name];
+        }
+        public ResultReferencePointAPI this[string name]
+        {
+            get { return new ResultReferencePointAPI(ResolveReferencePoint(name).Name, this); }
+        }
+        // Explicit, so that the Python side sees a single indexer and resolves collection[name] without
+        // an ambiguous overload
+        ResultReferencePointAPI IReadOnlyList<ResultReferencePointAPI>.this[int index]
         {
             get
             {
@@ -60,12 +70,12 @@ namespace APIs.Python
                 if (index < 0 || index >= names.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
                 //
-                return names[index];
+                return this[names[index]];
             }
         }
-        public IEnumerator<string> GetEnumerator()
+        public IEnumerator<ResultReferencePointAPI> GetEnumerator()
         {
-            return ((IEnumerable<string>)GetNames()).GetEnumerator();
+            foreach (string name in GetNames()) yield return this[name];
         }
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -82,38 +92,32 @@ namespace APIs.Python
         {
             return name != null && PythonNameComparer.Contains(GetNames(), name);
         }
-        [PythonAPI("Returns the stored coordinates of a result reference point, as the values or equations " +
-                   "they were entered with.", Arguments = "name: str", Returns = "list[str]")]
-        public string[] get_definition(string name)
+        [PythonAPI("Returns the result reference point with the specified name.", Arguments = "name: str",
+                   Returns = "ReferencePoint")]
+        public ResultReferencePointAPI get(string name)
         {
-            FeReferencePoint point = Resolve(name);
-            //
-            return new string[] { point.X.String, point.Y.String, point.Z.String };
+            return this[name];
         }
-        [PythonAPI("Returns how a result reference point was created: Coordinates, OnPoint, " +
-                   "BetweenTwoPoints, CircleCenter, CenterOfGravity or BoundingBoxCenter.",
-                   Arguments = "name: str", Returns = "str")]
-        public string get_created_from(string name)
+        [PythonAPI("Returns the first result reference point.", Returns = "ReferencePoint")]
+        public ResultReferencePointAPI first()
         {
-            return Resolve(name).CreatedFrom.ToString();
+            string[] names = GetNames();
+            if (names.Length == 0) throw new PythonAPIException("The reference points collection is empty.");
+            return this[names[0]];
         }
-        [PythonAPI("Returns whether the name of a result reference point is drawn next to its symbol.",
-                   Arguments = "name: str", Returns = "bool")]
-        public bool get_name_visible(string name)
+        [PythonAPI("Returns the last result reference point.", Returns = "ReferencePoint")]
+        public ResultReferencePointAPI last()
         {
-            return Resolve(name).NameVisible;
-        }
-        [PythonAPI("Returns the red, green, blue and alpha channels of a result reference point symbol.",
-                   Arguments = "name: str", Returns = "IntList")]
-        public IntListAPI get_color(string name)
-        {
-            return PythonColorConverter.ToChannels(Resolve(name).Color);
+            string[] names = GetNames();
+            if (names.Length == 0) throw new PythonAPIException("The reference points collection is empty.");
+            return this[names[names.Length - 1]];
         }
         [PythonAPI("Adds a result reference point using command history.",
                    Arguments = "name: str, coordinates: list[float], name_visible: bool = None, " +
-                               "color: list[int] = None", Returns = "None",
+                               "color: list[int] = None", Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add('RP-1', [0, 0, 0])")]
-        public void add(string name, object coordinates, object name_visible = null, object color = null)
+        public ResultReferencePointAPI add(string name, object coordinates, object name_visible = null,
+                                           object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
@@ -122,16 +126,18 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
+            return this[name];
         }
         [PythonAPI("Adds a result reference point from selected result mesh points using command history. " +
                    "The mode is OnPoint, BetweenTwoPoints or CircleCenter, and the coordinates are " +
                    "computed by the result mesh.",
                    Arguments = "name: str, created_from: str, selection: Selection, " +
-                               "name_visible: bool = None, color: list[int] = None", Returns = "None",
+                               "name_visible: bool = None, color: list[int] = None",
+                   Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add_from_selection('RP-1', " +
                              "'CircleCenter', selection)")]
-        public void add_from_selection(string name, string created_from, SelectionAPI selection,
-                                       object name_visible = null, object color = null)
+        public ResultReferencePointAPI add_from_selection(string name, string created_from, SelectionAPI selection,
+                                                          object name_visible = null, object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
@@ -140,15 +146,17 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
+            return this[name];
         }
         [PythonAPI("Adds a result reference point from a named result region using command history. The " +
                    "mode is CenterOfGravity or BoundingBoxCenter, and the region type is NodeSetName or " +
                    "SurfaceName.",
                    Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
                                "name_visible: bool = None, color: list[int] = None",
-                   Returns = "None")]
-        public void add_from_region(string name, string created_from, string region_type, string region_name,
-                                    object name_visible = null, object color = null)
+                   Returns = "ReferencePoint")]
+        public ResultReferencePointAPI add_from_region(string name, string created_from, string region_type,
+                                                       string region_name, object name_visible = null,
+                                                       object color = null)
         {
             ValidateName(name, null);
             FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
@@ -157,15 +165,16 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
+            return this[name];
         }
         [PythonAPI("Replaces a result reference point using command history. The coordinates are the whole " +
                    "definition and are always given; the name and the display values may be left out and " +
                    "are kept.",
                    Arguments = "old_name: str, name: str = None, coordinates: list[float], " +
                                "name_visible: bool = None, color: list[int] = None",
-                   Returns = "None")]
-        public void replace(string old_name, string name = null, object coordinates = null,
-                            object name_visible = null, object color = null)
+                   Returns = "ReferencePoint")]
+        public ResultReferencePointAPI replace(string old_name, string name = null, object coordinates = null,
+                                               object name_visible = null, object color = null)
         {
             if (coordinates == null)
                 throw new PythonAPIException("The argument 'coordinates' must be given.");
@@ -175,16 +184,18 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by result mesh points selected the way " +
                    "add_from_selection does. The mode and the selection are the whole definition and are " +
                    "always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "selection: Selection = None, name_visible: bool = None, " +
-                               "color: list[int] = None", Returns = "None")]
-        public void replace_from_selection(string old_name, string name = null, string created_from = null,
-                                           SelectionAPI selection = null, object name_visible = null,
-                                           object color = null)
+                               "color: list[int] = None", Returns = "ReferencePoint")]
+        public ResultReferencePointAPI replace_from_selection(string old_name, string name = null,
+                                                              string created_from = null,
+                                                              SelectionAPI selection = null,
+                                                              object name_visible = null, object color = null)
         {
             if (created_from == null || selection == null)
                 throw new PythonAPIException("The arguments 'created_from' and 'selection' must both be given.");
@@ -194,15 +205,18 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by a named result region the way add_from_region " +
                    "does. The mode and the region are the whole definition and are always given.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "region_type: str = None, region_name: str = None, " +
-                               "name_visible: bool = None, color: list[int] = None", Returns = "None")]
-        public void replace_from_region(string old_name, string name = null, string created_from = null,
-                                        string region_type = null, string region_name = null,
-                                        object name_visible = null, object color = null)
+                               "name_visible: bool = None, color: list[int] = None",
+                   Returns = "ReferencePoint")]
+        public ResultReferencePointAPI replace_from_region(string old_name, string name = null,
+                                                           string created_from = null, string region_type = null,
+                                                           string region_name = null, object name_visible = null,
+                                                           object color = null)
         {
             if (created_from == null || region_type == null || region_name == null)
                 throw new PythonAPIException("The arguments 'created_from', 'region_type' and 'region_name' " +
@@ -213,6 +227,7 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            return this[point.Name];
         }
         [PythonAPI("Duplicates result reference points using command history.",
                    Arguments = "names: list[str] or str", Returns = "None")]
@@ -226,7 +241,7 @@ namespace APIs.Python
                    Arguments = "old_name: str, new_name: str", Returns = "None")]
         public void rename(string old_name, string new_name)
         {
-            FeReferencePoint point = Resolve(old_name);
+            FeReferencePoint point = ResolveReferencePoint(old_name);
             PythonNameComparer.ValidateFormat(new_name, "new_name", point.Name);
             if (string.Equals(point.Name, new_name)) return;
             if (!PythonNameComparer.AreSame(new_name, point.Name) && PythonNameComparer.Contains(GetNames(), new_name))
@@ -272,8 +287,10 @@ namespace APIs.Python
             //
             return _meshService.ResolveResultWithMesh(_resultName);
         }
-        private FeReferencePoint Resolve(string name)
+        internal FeReferencePoint ResolveReferencePoint(string name)
         {
+            if (name == null) throw new PythonAPIException("The result reference point name must not be None.");
+            //
             FeResults result = ResolveResult();
             FeReferencePoint point;
             if (result.Mesh == null || !result.Mesh.ReferencePoints.TryGetValue(name, out point))
@@ -319,7 +336,7 @@ namespace APIs.Python
         }
         private FeReferencePoint CloneForReplace(string oldName, string name)
         {
-            FeReferencePoint existing = Resolve(oldName);
+            FeReferencePoint existing = ResolveReferencePoint(oldName);
             string newName = name == null ? oldName : name;
             ValidateName(newName, oldName);
             FeReferencePoint point = existing.DeepClone();

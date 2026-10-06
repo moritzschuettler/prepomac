@@ -94,6 +94,12 @@ def test_cyclic_symmetry():
                                          axis_point=[0, 0, 0],
                                          axis_direction=[0, 0, 1], number_of_sectors=6)
     check(cs.item_type == "cyclic_symmetry", "unexpected type " + cs.item_type)
+    # A vector argument reads its equations back as one list under the argument name, as get_value reads it
+    equations = cs.get_equations()
+    check("axis_point" in equations and "axis_direction" in equations and "n1" not in equations,
+          "the equations are not named after the arguments: " + str(sorted(equations)))
+    check([float(e.split(" ")[0]) for e in equations["axis_direction"]] == [0, 0, 1],
+          "the axis direction equations did not read back: " + str(list(equations["axis_direction"])))
     check(cs.get_value("number_of_sectors") == 6, "the sector count was not set")
     # The sector angle is derived from the sector count
     check(abs(cs.get_value("sector_angle_deg") - 60.0) < 1e-9,
@@ -258,6 +264,8 @@ def test_springs_and_compression_only():
     pmx.model.parameters.add(PREFIX + "k", 25.0)
     ps = constraints.replace_point_spring(PREFIX + "PS", k2=PREFIX + "k * 2")
     check(ps.get_value("k2") == 50, "the equation did not evaluate")
+    check(ps.get_equations()["k2"].replace(" ", "") == "=" + PREFIX + "k*2",
+          "the k2 equation did not read back: " + str(ps.get_equations()))
     check(ps.get_value("k1") == 100, "k1 must survive a replace")
 
 

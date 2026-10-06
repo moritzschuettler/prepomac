@@ -44,29 +44,70 @@ def clean(collection):
         collection.remove(names)
 
 
+def construction_modes(system):
+    construction = system.get_construction()
+    return [construction["origin"], construction["point_on_x"], construction["point_in_xy"]]
+
+
+def test_reference_point_items(points):
+    # A result reference point is an item like a model one: add returns it, the collection is indexed
+    # by name and iteration yields the items rather than their names
+    point = points.add(PREFIX + "Item", [1, 2, 3], name_visible=False, color=[10, 20, 30])
+    check(point is not None and point.name == PREFIX + "Item", "add did not return the reference point")
+    check(points[PREFIX + "Item"].name == PREFIX + "Item", "the name indexer did not return the item")
+    check(points.get(PREFIX + "Item").name == PREFIX + "Item", "get did not return the item")
+    check(points.last().name == PREFIX + "Item", "last did not return the newest reference point")
+    check(points.first().name == list(points.get_names())[0], "first did not return the first item")
+    items = list(points)
+    check(len(items) == len(points), "iteration and len disagree")
+    check(all(hasattr(item, "created_from") for item in items), "iteration did not yield reference points")
+    check(PREFIX + "Item" in [item.name for item in items], "iteration missed the added reference point")
+    check(point.created_from == "Coordinates", "the construction mode did not read back")
+    check(not point.name_visible, "the name visibility did not read back")
+    check(list(point.color)[:3] == [10, 20, 30], "the colour did not read back: " + str(list(point.color)))
+    check(point.visible, "a new result reference point must be visible")
+    check([float(v) for v in point.get_coordinates()] == [1.0, 2.0, 3.0],
+          "the coordinates did not read back: " + str(list(point.get_coordinates())))
+    equations = point.get_equations()
+    check(magnitude(equations["x"]) == 1 and magnitude(equations["z"]) == 3,
+          "the stored coordinate expressions did not read back: " + str(dict(equations)))
+    check(point.get_construction()["created_from"] == "Coordinates", "get_construction did not read back")
+    check("ReferencePoint(" in str(point), "the item has no readable string form: " + str(point))
+    points.hide(PREFIX + "Item")
+    check(not point.visible, "hiding the reference point did not read back")
+    points.show(PREFIX + "Item")
+    replaced = points.replace(PREFIX + "Item", name=PREFIX + "Item_R", coordinates=[4, 5, 6])
+    check(replaced.name == PREFIX + "Item_R", "replace did not return the renamed reference point")
+    check([float(v) for v in replaced.get_coordinates()] == [4.0, 5.0, 6.0],
+          "the replaced coordinates did not read back")
+    check_raises(lambda: points["__missing_result_point__"], "a missing reference point was indexed")
+    clean(points)
+
+
 def test_reference_points(points):
-    points.add(PREFIX + "Point", [0, 0, 0])
+    added = points.add(PREFIX + "Point", [0, 0, 0])
+    check(added.name == PREFIX + "Point", "add did not return the reference point")
     check(PREFIX + "Point" in list(points.get_names()), "the reference point was not added")
-    definition = points.get_definition(PREFIX + "Point")
-    check(magnitude(definition[0]) == 0, "the stored coordinate did not read back: " + str(definition))
+    definition = points[PREFIX + "Point"].get_equations()
+    check(magnitude(definition["x"]) == 0, "the stored coordinate did not read back: " + str(dict(definition)))
     points.hide(PREFIX + "Point")
     points.show(PREFIX + "Point")
     points.duplicate(PREFIX + "Point")
     points.replace(PREFIX + "Point", name=PREFIX + "Point_R", coordinates=[1, 2, 3])
     check(PREFIX + "Point_R" in list(points.get_names()), "the reference point was not renamed")
-    check(magnitude(points.get_definition(PREFIX + "Point_R")[0]) == 1,
+    check(magnitude(points[PREFIX + "Point_R"].get_equations()["x"]) == 1,
           "the replaced coordinate did not read back")
     check_raises(lambda: points.remove("__missing_result_point__"), "a missing reference point was accepted")
     check_raises(lambda: points.add(PREFIX + "Point_R", [0, 0, 0]), "a duplicate name was accepted")
     # The name visibility and the symbol colour are part of the stored definition
-    check(points.get_name_visible(PREFIX + "Point_R"), "a new result point must have a visible name")
+    check(points[PREFIX + "Point_R"].name_visible, "a new result point must have a visible name")
     points.add(PREFIX + "Point_D", [0, 0, 0], name_visible=False, color=[40, 50, 60])
-    check(not points.get_name_visible(PREFIX + "Point_D"), "the name visibility was not stored")
-    check(list(points.get_color(PREFIX + "Point_D"))[:3] == [40, 50, 60],
-          "the colour was not stored, it is " + str(list(points.get_color(PREFIX + "Point_D"))))
+    check(not points[PREFIX + "Point_D"].name_visible, "the name visibility was not stored")
+    check(list(points[PREFIX + "Point_D"].color)[:3] == [40, 50, 60],
+          "the colour was not stored, it is " + str(list(points[PREFIX + "Point_D"].color)))
     points.replace(PREFIX + "Point_D", coordinates=[1, 1, 1], name_visible=True, color=[70, 80, 90])
-    check(points.get_name_visible(PREFIX + "Point_D"), "the replacement did not set the name visibility")
-    check(list(points.get_color(PREFIX + "Point_D"))[:3] == [70, 80, 90],
+    check(points[PREFIX + "Point_D"].name_visible, "the replacement did not set the name visibility")
+    check(list(points[PREFIX + "Point_D"].color)[:3] == [70, 80, 90],
           "the replacement did not set the colour")
     # The rename is the one the results view records, and names are compared without regard to case
     check(points.contains(PREFIX + "point_r"), "contains must compare names without regard to case")
@@ -89,17 +130,19 @@ def test_reference_point_construction(points):
     # forget that node: otherwise the next result mesh update resolves the node and undoes the change
     one = pmx.create.selection_by_ids("results", "nodes", "nodes", [1])
     two = pmx.create.selection_by_ids("results", "nodes", "nodes", [1, 2])
-    points.add_from_selection(PREFIX + "OnPoint", "OnPoint", one)
-    check(points.get_created_from(PREFIX + "OnPoint") == "OnPoint",
+    on_point = points.add_from_selection(PREFIX + "OnPoint", "OnPoint", one)
+    check(on_point.name == PREFIX + "OnPoint", "add_from_selection did not return the reference point")
+    check(points[PREFIX + "OnPoint"].created_from == "OnPoint",
           "the construction mode was not stored")
     points.replace(PREFIX + "OnPoint", coordinates=[10, 20, 30])
-    check(points.get_created_from(PREFIX + "OnPoint") == "Coordinates",
+    check(points[PREFIX + "OnPoint"].created_from == "Coordinates",
           "the coordinate replacement kept the obsolete construction mode")
-    check(magnitude(points.get_definition(PREFIX + "OnPoint")[0]) == 10,
+    check(magnitude(points[PREFIX + "OnPoint"].get_equations()["x"]) == 10,
           "the replaced coordinate did not read back")
     #
-    points.replace_from_selection(PREFIX + "OnPoint", created_from="BetweenTwoPoints", selection=two)
-    check(points.get_created_from(PREFIX + "OnPoint") == "BetweenTwoPoints",
+    replaced = points.replace_from_selection(PREFIX + "OnPoint", created_from="BetweenTwoPoints", selection=two)
+    check(replaced.name == PREFIX + "OnPoint", "replace_from_selection did not return the reference point")
+    check(points[PREFIX + "OnPoint"].created_from == "BetweenTwoPoints",
           "the selection replacement did not change the construction mode")
     check_raises(lambda: points.add_from_selection(PREFIX + "Bad", "OnPoint", two),
                  "a mode with the wrong number of selected points was accepted")
@@ -111,9 +154,11 @@ def test_reference_point_construction(points):
     #
     node_sets = list(pmx.results.current.mesh.node_sets.get_names())
     if len(node_sets) > 0:
-        points.add_from_region(PREFIX + "Region", "CenterOfGravity", "NodeSetName", node_sets[0])
-        check(points.get_created_from(PREFIX + "Region") == "CenterOfGravity",
-              "the region construction mode was not stored")
+        region_point = points.add_from_region(PREFIX + "Region", "CenterOfGravity", "NodeSetName", node_sets[0])
+        check(region_point.created_from == "CenterOfGravity", "the region construction mode was not stored")
+        construction = region_point.get_construction()
+        check(construction["region_type"] == "NodeSetName" and construction["region_name"] == node_sets[0],
+              "the region construction did not read back: " + str(dict(construction)))
     check_raises(lambda: points.add_from_region(PREFIX + "Bad", "CenterOfGravity", "NodeSetName",
                                                  "__missing_result_node_set__"),
                  "a missing result region was accepted")
@@ -124,15 +169,16 @@ def test_reference_point_construction(points):
 
 def test_coordinate_system_construction(systems):
     one = pmx.create.selection_by_ids("results", "nodes", "nodes", [1])
-    systems.add(PREFIX + "Cyl", [0, 0, 0], [1, 0, 0], [0, 1, 0], coordinate_system_type="Cylindrical")
-    check(systems.get_coordinate_system_type(PREFIX + "Cyl") == "Cylindrical",
+    cylindrical = systems.add(PREFIX + "Cyl", [0, 0, 0], [1, 0, 0], [0, 1, 0],
+                              coordinate_system_type="Cylindrical")
+    check(cylindrical.coordinate_system_type == "Cylindrical",
           "the coordinate system type was not stored")
     systems.replace(PREFIX + "Cyl", origin=[0, 0, 0], point_on_x=[2, 0, 0], point_in_xy=[0, 2, 0])
-    check(systems.get_coordinate_system_type(PREFIX + "Cyl") == "Cylindrical",
+    check(systems[PREFIX + "Cyl"].coordinate_system_type == "Cylindrical",
           "the replacement reset the coordinate system type")
     systems.replace(PREFIX + "Cyl", origin=[0, 0, 0], point_on_x=[2, 0, 0], point_in_xy=[0, 2, 0],
                     coordinate_system_type="Rectangular")
-    check(systems.get_coordinate_system_type(PREFIX + "Cyl") == "Rectangular",
+    check(systems[PREFIX + "Cyl"].coordinate_system_type == "Rectangular",
           "the coordinate system type was not replaced")
     check_raises(lambda: systems.add(PREFIX + "Bad", [0, 0, 0], [1, 0, 0], [0, 1, 0],
                                       coordinate_system_type="NotAType"),
@@ -142,29 +188,31 @@ def test_coordinate_system_construction(systems):
     node = node_coordinates(1)
     origin = [node[0] - 1.0, node[1], node[2]]
     in_xy = [node[0] - 1.0, node[1] + 1.0, node[2]]
-    systems.add_from_selections(PREFIX + "Mixed", origin=origin,
-                                 point_on_x_created_from="OnPoint", point_on_x_selection=one,
-                                 point_in_xy=in_xy)
-    modes = list(systems.get_created_from(PREFIX + "Mixed"))
+    mixed = systems.add_from_selections(PREFIX + "Mixed", origin=origin,
+                                        point_on_x_created_from="OnPoint", point_on_x_selection=one,
+                                        point_in_xy=in_xy)
+    check(mixed.name == PREFIX + "Mixed", "add_from_selections did not return the coordinate system")
+    modes = construction_modes(mixed)
     check(modes[0] == "Coordinates", "the typed origin did not read back as a coordinate point")
     check(modes[1] == "OnPoint", "the selected X point did not read back as a selected point")
-    systems.replace_from_selections(PREFIX + "Mixed", origin=[0, 0, 0], point_on_x=[1, 0, 0],
-                                     point_in_xy=[0, 1, 0])
-    check(list(systems.get_created_from(PREFIX + "Mixed")) == ["Coordinates"] * 3,
+    replaced = systems.replace_from_selections(PREFIX + "Mixed", origin=[0, 0, 0], point_on_x=[1, 0, 0],
+                                               point_in_xy=[0, 1, 0])
+    check(replaced.name == PREFIX + "Mixed", "replace_from_selections did not return the coordinate system")
+    check(construction_modes(systems[PREFIX + "Mixed"]) == ["Coordinates"] * 3,
           "the replacement kept the obsolete point construction modes")
     # A typed origin with a selected XY point: the XY point is reevaluated from its own selection,
     # not from the one of the origin, which a typed origin does not have
     systems.add_from_selections(PREFIX + "MixedXY", origin=origin,
                                  point_on_x=[node[0], node[1] + 1.0, node[2]],
                                  point_in_xy_created_from="OnPoint", point_in_xy_selection=one)
-    modes = list(systems.get_created_from(PREFIX + "MixedXY"))
+    modes = construction_modes(systems[PREFIX + "MixedXY"])
     check(modes[0] == "Coordinates" and modes[2] == "OnPoint",
           "a typed origin with a selected XY point was not stored")
-    check(abs(magnitude(systems.get_definition(PREFIX + "MixedXY")[6]) - node[0]) < 1E-6,
+    check(abs(magnitude(systems[PREFIX + "MixedXY"].get_equations()["x3"]) - node[0]) < 1E-6,
           "the selected XY point was not resolved on the result mesh")
     # A creation keeps the default of a point it is not told about, the way the dialog does
     systems.add_from_selections(PREFIX + "Default", origin=[0, 0, 0])
-    check(list(systems.get_created_from(PREFIX + "Default")) == ["Coordinates"] * 3,
+    check(construction_modes(systems[PREFIX + "Default"]) == ["Coordinates"] * 3,
           "an omitted point did not keep its default")
     # A replacement re-specifies the whole definition, so every point is required
     check_raises(lambda: systems.replace_from_selections(PREFIX + "Default", origin=[0, 0, 0],
@@ -185,32 +233,52 @@ def test_coordinate_system_construction(systems):
                                                           point_on_x_created_from="OnPoint",
                                                           point_on_x_selection=one, point_in_xy=in_xy),
                  "a replacement that collapses the X axis onto a selected point was accepted")
-    check(list(systems.get_created_from(PREFIX + "Mixed")) == ["Coordinates"] * 3,
+    check(construction_modes(systems[PREFIX + "Mixed"]) == ["Coordinates"] * 3,
           "a refused mixed replacement changed the definition")
     check(PREFIX + "Bad" not in list(systems.get_names()), "a refused system changed the result")
     clean(systems)
 
 
 def test_coordinate_systems(systems):
-    systems.add(PREFIX + "CS", [0, 0, 0], [1, 0, 0], [0, 1, 0])
+    system = systems.add(PREFIX + "CS", [0, 0, 0], [1, 0, 0], [0, 1, 0])
+    check(system.name == PREFIX + "CS", "add did not return the coordinate system")
     check(PREFIX + "CS" in list(systems.get_names()), "the coordinate system was not added")
-    check(len(systems.get_definition(PREFIX + "CS")) == 9, "the definition must carry nine coordinates")
+    check(len(system.get_equations()) == 9, "the definition must carry nine coordinates")
+    # The collection is indexed by name and iteration yields the items rather than their names
+    check(systems[PREFIX + "CS"].name == PREFIX + "CS", "the name indexer did not return the item")
+    check(systems.get(PREFIX + "CS").name == PREFIX + "CS", "get did not return the item")
+    check(systems.last().name == PREFIX + "CS", "last did not return the newest coordinate system")
+    check(systems.first().name == list(systems.get_names())[0], "first did not return the first item")
+    items = list(systems)
+    check(len(items) == len(systems), "iteration and len disagree")
+    check(PREFIX + "CS" in [item.name for item in items], "iteration did not yield coordinate systems")
+    check(system.coordinate_system_type == "Rectangular", "the default type did not read back")
+    check(system.visible, "a new result coordinate system must be visible")
+    check([float(v) for v in system.get_origin()] == [0.0, 0.0, 0.0], "the origin did not read back")
+    check([float(v) for v in system.get_point_on_x()] == [1.0, 0.0, 0.0], "the point on X did not read back")
+    check([float(v) for v in system.get_point_in_xy()] == [0.0, 1.0, 0.0], "the point in XY did not read back")
+    check(construction_modes(system) == ["Coordinates"] * 3, "the construction did not read back")
+    check("CoordinateSystem(" in str(system), "the item has no readable string form: " + str(system))
+    check_raises(lambda: systems["__missing_result_cs__"], "a missing coordinate system was indexed")
     systems.hide(PREFIX + "CS")
     systems.show(PREFIX + "CS")
     systems.duplicate(PREFIX + "CS")
-    systems.replace(PREFIX + "CS", name=PREFIX + "CS_R", origin=[0, 0, 0],
-                    point_on_x=[2, 0, 0], point_in_xy=[0, 1, 0])
+    replaced = systems.replace(PREFIX + "CS", name=PREFIX + "CS_R", origin=[0, 0, 0],
+                               point_on_x=[2, 0, 0], point_in_xy=[0, 1, 0])
+    check(replaced.name == PREFIX + "CS_R", "replace did not return the renamed coordinate system")
+    check([float(v) for v in replaced.get_point_on_x()] == [2.0, 0.0, 0.0],
+          "the replaced point on X did not read back")
     check(PREFIX + "CS_R" in list(systems.get_names()), "the coordinate system was not renamed")
     check_raises(lambda: systems.add(PREFIX + "Bad", [0, 0, 0], [0, 0, 0], [0, 1, 0]),
                  "a degenerate coordinate system was accepted")
     check_raises(lambda: systems.remove("__missing_result_cs__"), "a missing coordinate system was accepted")
     # The name visibility is part of the stored definition
-    check(systems.get_name_visible(PREFIX + "CS_R"), "a new result system must have a visible name")
+    check(systems[PREFIX + "CS_R"].name_visible, "a new result system must have a visible name")
     systems.add(PREFIX + "CS_N", [0, 0, 0], [1, 0, 0], [0, 1, 0], name_visible=False)
-    check(not systems.get_name_visible(PREFIX + "CS_N"), "the name visibility was not stored")
+    check(not systems[PREFIX + "CS_N"].name_visible, "the name visibility was not stored")
     systems.replace(PREFIX + "CS_N", origin=[0, 0, 0], point_on_x=[3, 0, 0], point_in_xy=[0, 1, 0],
                     name_visible=True)
-    check(systems.get_name_visible(PREFIX + "CS_N"), "the replacement did not set the name visibility")
+    check(systems[PREFIX + "CS_N"].name_visible, "the replacement did not set the name visibility")
     # The rename is the one the results view records, and names are compared without regard to case
     check(systems.contains(PREFIX + "cs_r"), "contains must compare names without regard to case")
     check(not systems.contains("__missing_result_cs__"), "a missing coordinate system was found")
@@ -232,6 +300,7 @@ def main():
     mesh = pmx.results.current.mesh
     clean(mesh.reference_points)
     clean(mesh.coordinate_systems)
+    test_reference_point_items(mesh.reference_points)
     test_reference_points(mesh.reference_points)
     test_reference_point_construction(mesh.reference_points)
     test_coordinate_systems(mesh.coordinate_systems)

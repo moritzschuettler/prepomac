@@ -117,16 +117,17 @@ namespace APIs.Python.Model
         }
         private void ApplyProperties(Material material, object properties)
         {
-            List<MaterialProperty> materialProperties =
-                PythonObjectListConverter.ToList<MaterialProperty>(properties, "properties",
-                                                                   "a material property created by pmx.create, " +
-                                                                   "or a list of them");
+            List<MaterialPropertyAPI> materialProperties =
+                PythonObjectListConverter.ToList<MaterialPropertyAPI>(properties, "properties",
+                                                                      "a material property created by pmx.create " +
+                                                                      "or read from a material, or a list of them");
             if (materialProperties.Count == 0)
                 throw new PythonAPIException("The argument 'properties' must contain at least one material property.");
             //
             // AddProperty rejects a second elastic property, so the model does the domain check
             material.Properties.Clear();
-            foreach (MaterialProperty property in materialProperties) material.AddProperty(property);
+            foreach (MaterialPropertyAPI property in materialProperties)
+                material.AddProperty(property.GetPropertyCopy());
         }
         private void ValidateName(string name, string allowedExistingName)
         {

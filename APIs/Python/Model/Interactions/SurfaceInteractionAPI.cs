@@ -7,8 +7,8 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeModel;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -17,12 +17,6 @@ namespace APIs.Python.Model
     public class SurfaceInteractionAPI : BaseAPI
     {
         // Variables
-        private static readonly Dictionary<Type, string> PropertyTypes = new Dictionary<Type, string>
-        {
-            { typeof(Friction), "friction" },
-            { typeof(GapConductance), "gap_conductance" },
-            { typeof(SurfaceBehavior), "surface_behavior" }
-        };
         private readonly string _surfaceInteractionName;
         private readonly SurfaceInteractionService _service;
 
@@ -42,24 +36,25 @@ namespace APIs.Python.Model
         }
 
 
-        // Static methods
-        private static string GetPropertyType(SurfaceInteractionProperty property)
-        {
-            string propertyType;
-            if (PropertyTypes.TryGetValue(property.GetType(), out propertyType)) return propertyType;
-            //
-            throw new PythonAPIException("The surface interaction property " + property.GetType().Name +
-                                         " is not made by any pmx.create method.");
-        }
-
-
         // Methods
         [PythonAPI("Returns the types of the surface interaction properties, named after the pmx.create method " +
                    "that makes each, for example friction.", Returns = "StringList")]
         public StringListAPI get_property_types()
         {
             List<SurfaceInteractionProperty> properties = Resolve().Properties;
-            return new StringListAPI(properties.Select(property => GetPropertyType(property)).ToArray());
+            return new StringListAPI(properties.Select(property => SurfaceInteractionPropertyAPI.GetPropertyType(property))
+                                               .ToArray());
+        }
+        [PythonAPI("Returns detached copies of the surface interaction properties. Their values are read with " +
+                   "get_values, and the list can be passed straight back to surface_interactions.replace.",
+                   Returns = "list[SurfaceInteractionProperty]",
+                   Example = "pmx.model.surface_interactions.replace('SI-1', " +
+                             "properties=pmx.model.surface_interactions['SI-1'].get_properties())")]
+        public SurfaceInteractionPropertyAPI[] get_properties()
+        {
+            SurfaceInteraction surfaceInteraction = Resolve().DeepClone();
+            return surfaceInteraction.Properties.Select(property => new SurfaceInteractionPropertyAPI(property))
+                                                .ToArray();
         }
         public override string ToString()
         {

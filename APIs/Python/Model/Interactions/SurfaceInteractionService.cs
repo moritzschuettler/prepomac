@@ -110,17 +110,19 @@ namespace APIs.Python.Model
         //
         private static void ApplyProperties(SurfaceInteraction surfaceInteraction, object properties)
         {
-            List<SurfaceInteractionProperty> converted =
-                PythonObjectListConverter.ToList<SurfaceInteractionProperty>(properties, "properties",
-                                                                              "a surface interaction property " +
-                                                                              "created by pmx.create, or a list " +
-                                                                              "of them");
+            List<SurfaceInteractionPropertyAPI> converted =
+                PythonObjectListConverter.ToList<SurfaceInteractionPropertyAPI>(properties, "properties",
+                                                                                 "a surface interaction property " +
+                                                                                 "created by pmx.create or read " +
+                                                                                 "from a surface interaction, or " +
+                                                                                 "a list of them");
             if (converted.Count == 0)
                 throw new PythonAPIException("The argument 'properties' must contain at least one surface " +
                                              "interaction property.");
             //
             surfaceInteraction.Properties.Clear();
-            foreach (SurfaceInteractionProperty property in converted) surfaceInteraction.AddProperty(property);
+            foreach (SurfaceInteractionPropertyAPI property in converted)
+                surfaceInteraction.AddProperty(property.GetPropertyCopy());
         }
         private void EnsureCommandsAvailable()
         {

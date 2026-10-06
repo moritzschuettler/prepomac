@@ -59,7 +59,7 @@ namespace APIs.Python.Model
             return CreateFromEquation(name, equation);
         }
         // An equation that is given may change a scalar distribution into a vector one or replace one read from
-        // a file, so it builds the distribution anew; the coordinate system, which the API does not expose, is
+        // a file, so it builds the distribution anew; the coordinate system, which the API cannot set, is
         // carried over either way
         public Distribution BuildReplacementFromEquation(string oldName, string name, object equation)
         {

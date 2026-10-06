@@ -119,6 +119,57 @@ def test_surface_interactions():
     interactions.remove([PREFIX + "SI_Gap", PREFIX + "SI_Gap_T"])
 
 
+def plain_values(prop):
+    """The values of a property with every table turned into a list of row lists, so that they compare."""
+    values = {}
+    for key, value in prop.get_values().items():
+        if value is not None and not isinstance(value, (str, int, float)):
+            value = [list(row) for row in value]
+        values[key] = value
+    return values
+
+
+def test_surface_interaction_properties():
+    interactions = pmx.model.surface_interactions
+    name = PREFIX + "SI_Props"
+    interactions.add(name, [pmx.create.friction(0.2, stick_slope=1000),
+                            pmx.create.surface_behavior('Linear', k=2000),
+                            pmx.create.gap_conductance(conductance_table=[[5, 0, 20], [4, 10, 20]])])
+    properties = list(interactions[name].get_properties())
+    check([p.property_type for p in properties] == ["friction", "surface_behavior", "gap_conductance"],
+          "unexpected property types " + str([p.property_type for p in properties]))
+    # Every value reads back under the pmx.create argument that set it
+    friction = plain_values(properties[0])
+    check(friction["coefficient"] == 0.2 and friction["stick_slope"] == 1000,
+          "the friction values did not read back: " + str(friction))
+    check(properties[0].get_value("coefficient") == 0.2, "get_value did not read the coefficient")
+    check("coefficient=0.2" in repr(properties[0]), "the property does not print its values: " + repr(properties[0]))
+    behavior = plain_values(properties[1])
+    check(behavior["pressure_overclosure_type"] == "Linear" and behavior["k"] == 2000,
+          "the surface behavior values did not read back: " + str(behavior))
+    check(behavior["c0"] is None, "a default c0 must read back as None: " + str(behavior["c0"]))
+    check(plain_values(properties[2]) == {"conductance_table": [[5, 0, 20], [4, 10, 20]]},
+          "the gap conductance table did not read back: " + str(plain_values(properties[2])))
+    check(plain_values(pmx.create.friction(0.1)) == {"coefficient": 0.1, "stick_slope": None},
+          "an omitted stick slope must read back as None")
+    check(plain_values(pmx.create.gap_conductance(conductance=5)) == {"conductance": 5},
+          "a constant gap conductance must read back as conductance")
+    check_raises(lambda: properties[0].get_value("no_such_value"), "an unknown value name was accepted")
+    # The values are the keyword arguments of the maker, and the properties go straight back into a replace
+    for prop in properties:
+        maker = getattr(pmx.create, prop.property_type)
+        check(plain_values(maker(**prop.get_values())) == plain_values(prop),
+              "the " + prop.property_type + " values do not make the same property again")
+    before = [plain_values(p) for p in properties]
+    interactions.replace(name, properties=interactions[name].get_properties())
+    after = [plain_values(p) for p in interactions[name].get_properties()]
+    check(after == before, "the properties did not round trip through replace: " + str(after))
+    # A read back property is a copy, so changing the surface interaction does not change it
+    interactions.replace(name, properties=pmx.create.friction(0.5))
+    check(plain_values(properties[0])["coefficient"] == 0.2, "a read back property followed the model")
+    interactions.remove([name])
+
+
 def test_contact_pairs():
     pairs = pmx.model.contact_pairs
     check(len(pairs) == 0, "the model has no contact pairs yet")
@@ -202,6 +253,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
     test_surface_interactions()
+    test_surface_interaction_properties()
     test_contact_pairs()
     test_contact_history_output()
     clean()

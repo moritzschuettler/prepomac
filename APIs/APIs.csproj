@@ -95,6 +95,7 @@
     <Compile Include="Python\Create\RegionAPI.cs" />
     <Compile Include="Python\Create\SplitToolAPI.cs" />
     <Compile Include="Python\Create\SurfaceInteractionPropertyFactory.cs" />
+    <Compile Include="Python\Create\SurfaceInteractionPropertyAPI.cs" />
     <Compile Include="Python\Common\PythonTableConverter.cs" />
     <Compile Include="Python\Model\Common\MasterSlaveRegionApplier.cs" />
     <Compile Include="Python\Model\Interactions\ConstraintAPI.cs" />
@@ -139,6 +140,7 @@
     <Compile Include="Python\Model\Document\ParametersAPI.cs" />
     <Compile Include="Python\Create\CreateAPI.cs" />
     <Compile Include="Python\Create\MaterialPropertyFactory.cs" />
+    <Compile Include="Python\Create\MaterialPropertyAPI.cs" />
     <Compile Include="Python\Model\Materials\MaterialAPI.cs" />
     <Compile Include="Python\Model\Fields\AmplitudeAPI.cs" />
     <Compile Include="Python\Model\Fields\AmplitudeService.cs" />
@@ -206,7 +208,9 @@
     <Compile Include="Python\Mesh\ResultMeshRegionAPI.cs" />
     <Compile Include="Python\Mesh\Surfaces\ResultSurfaceAPI.cs" />
     <Compile Include="Python\Mesh\Surfaces\ResultSurfacesAPI.cs" />
+    <Compile Include="Python\Results\ResultCoordinateSystemAPI.cs" />
     <Compile Include="Python\Results\ResultCoordinateSystemsAPI.cs" />
+    <Compile Include="Python\Results\ResultReferencePointAPI.cs" />
     <Compile Include="Python\Results\ResultReferencePointsAPI.cs" />
     <Compile Include="Python\Model\Keywords\KeywordsAPI.cs" />
     <Compile Include="Python\Model\Tree\TreeAPI.cs" />

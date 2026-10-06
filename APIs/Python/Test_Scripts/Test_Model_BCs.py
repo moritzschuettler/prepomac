@@ -141,6 +141,14 @@ def test_displacement_rotation():
     pmx.model.parameters.add(PREFIX + "d", 0.75)
     bc = bcs.replace_displacement_rotation(name, u1=PREFIX + "d * 2")
     check(bc.get_value("u1") == 1.5, "the equation did not evaluate, got " + str(bc.get_value("u1")))
+    # The equation reads back unevaluated, under the argument name get_value uses
+    equations = bc.get_equations()
+    # The model stores an expression without its spaces
+    check(equations["u1"].replace(" ", "") == "=" + PREFIX + "d*2",
+          "the u1 equation did not read back: " + str(equations))
+    check("u2" in equations and "ur1" in equations and "phase_deg" in equations,
+          "the equations are not named after the arguments: " + str(sorted(equations)))
+    check(float(equations["u2"].split(" ")[0]) == 0, "the plain u2 value did not read back: " + str(equations["u2"]))
 
 
 def test_submodel():

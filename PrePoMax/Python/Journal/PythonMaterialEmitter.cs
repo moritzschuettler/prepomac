@@ -66,10 +66,15 @@ namespace PrePoMax.Python.Journal
                                                 Scalar(elasticWithDensity.YoungsModulus, "youngs_modulus"),
                                                 Scalar(elasticWithDensity.PoissonsRatio, "poissons_ratio"),
                                                 Scalar(elasticWithDensity.Density, "density"));
+            // A table of rows is given whole as the first argument, so the second one is left out
             if (property is Elastic elastic)
+            {
+                if (!IsConstant(elastic.YoungsPoissonsTemp))
+                    return PythonJournalWriter.Join("pmx.create.elastic", Table(elastic.YoungsPoissonsTemp, "elastic"));
                 return PythonJournalWriter.Join("pmx.create.elastic", Column(elastic.YoungsPoissonsTemp, 0,
                                                                              "youngs_modulus"),
                                                 Column(elastic.YoungsPoissonsTemp, 1, "poissons_ratio"));
+            }
             if (property is ElasticEngineeringConstants engineeringConstants)
                 return PythonJournalWriter.Join("pmx.create.elastic_engineering_constants",
                                                 Table(engineeringConstants.EngineeringConstantsTemp,

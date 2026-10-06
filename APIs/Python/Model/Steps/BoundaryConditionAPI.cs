@@ -94,6 +94,14 @@ namespace APIs.Python.Model
             return ModelItemValueReader.GetValue(boundaryCondition, typeof(BoundaryCondition), null, name,
                                                  GetItemType(boundaryCondition) + " boundary condition");
         }
+
+        [PythonAPI("Returns the stored equations of the boundary condition without evaluating them, under the " +
+                   "names get_value uses, for example u1 or phase_deg: an expression reads back with its " +
+                   "leading equals sign and a plain value with its unit.", Returns = "dict[str, str]")]
+        public Dictionary<string, string> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(Resolve());
+        }
         public override string ToString()
         {
             BoundaryCondition boundaryCondition = Resolve();

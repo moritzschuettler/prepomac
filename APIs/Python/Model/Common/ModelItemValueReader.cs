@@ -128,6 +128,37 @@ namespace APIs.Python.Model
             //
             return equations;
         }
+        // The equations are named the way GetValues names the values, a vector argument as one list of the
+        // equations of its components; an argument whose values are not equations is left out
+        public static Dictionary<string, object> GetEquations(object item,
+                                                              Dictionary<string, string[]> argumentValueNames)
+        {
+            Dictionary<string, string> storedEquations = GetEquations(item);
+            Dictionary<string, object> equations = new Dictionary<string, object>();
+            HashSet<string> coveredNames = new HashSet<string>();
+            if (argumentValueNames != null)
+            {
+                foreach (var entry in argumentValueNames)
+                {
+                    string[] components = new string[entry.Value.Length];
+                    bool allEquations = true;
+                    for (int i = 0; i < components.Length && allEquations; i++)
+                        allEquations = storedEquations.TryGetValue(entry.Value[i], out components[i]);
+                    if (!allEquations) continue;
+                    //
+                    coveredNames.UnionWith(entry.Value);
+                    equations[entry.Key] = components.Length == 1 ? (object)components[0] :
+                                                                    new StringListAPI(components);
+                }
+            }
+            foreach (var entry in storedEquations)
+            {
+                if (!coveredNames.Contains(entry.Key) && !equations.ContainsKey(entry.Key))
+                    equations[entry.Key] = entry.Value;
+            }
+            //
+            return equations;
+        }
         public static object GetValue(object item, Type baseType, Dictionary<string, string[]> argumentValueNames,
                                       string name, string itemDescription)
         {

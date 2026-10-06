@@ -107,41 +107,41 @@ namespace APIs.Python
                    "or a list of [youngs_modulus, poissons_ratio, temperature] rows.",
                    Arguments = "youngs_modulus: float or list[list[float]], poissons_ratio: float = None",
                    Returns = "MaterialProperty", Example = "pmx.create.elastic(210000, 0.3)")]
-        public Elastic elastic(object youngs_modulus, object poissons_ratio = null)
+        public MaterialPropertyAPI elastic(object youngs_modulus, object poissons_ratio = null)
         {
-            return MaterialPropertyFactory.CreateElastic(youngs_modulus, poissons_ratio);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateElastic(youngs_modulus, poissons_ratio));
         }
 
         [PythonAPI("Creates a density material property. Give one value, or a list of " +
                    "[density, temperature] rows.", Arguments = "density: float or list[list[float]]",
                    Returns = "MaterialProperty")]
-        public Density density(object density)
+        public MaterialPropertyAPI density(object density)
         {
-            return MaterialPropertyFactory.CreateDensity(density);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateDensity(density));
         }
 
         [PythonAPI("Creates a combined elastic and density material property.",
                    Arguments = "youngs_modulus: float, poissons_ratio: float, density: float",
                    Returns = "MaterialProperty")]
-        public ElasticWithDensity elastic_with_density(object youngs_modulus, object poissons_ratio,
-                                                       object density)
+        public MaterialPropertyAPI elastic_with_density(object youngs_modulus, object poissons_ratio, object density)
         {
-            return MaterialPropertyFactory.CreateElasticWithDensity(youngs_modulus, poissons_ratio, density);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateElasticWithDensity(youngs_modulus,
+                                                                                            poissons_ratio, density));
         }
 
         [PythonAPI("Creates an orthotropic elastic property. Every row is [E1, E2, E3, v12, v13, v23, " +
                    "G12, G13, G23, temperature].", Arguments = "constants: list[list[float]]",
                    Returns = "MaterialProperty")]
-        public ElasticEngineeringConstants elastic_engineering_constants(object constants)
+        public MaterialPropertyAPI elastic_engineering_constants(object constants)
         {
-            return MaterialPropertyFactory.CreateElasticEngineeringConstants(constants);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateElasticEngineeringConstants(constants));
         }
 
         [PythonAPI("Creates a lamina elastic property. Every row is [E1, E2, v12, G12, G13, G23, temperature].",
                    Arguments = "constants: list[list[float]]", Returns = "MaterialProperty")]
-        public ElasticLamina elastic_lamina(object constants)
+        public MaterialPropertyAPI elastic_lamina(object constants)
         {
-            return MaterialPropertyFactory.CreateElasticLamina(constants);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateElasticLamina(constants));
         }
 
         [PythonAPI("Creates a plastic material property. Every row is [stress, strain, temperature]. " +
@@ -150,32 +150,32 @@ namespace APIs.Python
                    Arguments = "stress_strain: list[list[float]], hardening: str = None",
                    Returns = "MaterialProperty",
                    Example = "pmx.create.plastic([[250, 0, 20]], hardening='Kinematic')")]
-        public Plastic plastic(object stress_strain, string hardening = null)
+        public MaterialPropertyAPI plastic(object stress_strain, string hardening = null)
         {
-            return MaterialPropertyFactory.CreatePlastic(stress_strain, hardening);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreatePlastic(stress_strain, hardening));
         }
 
         [PythonAPI("Creates a slip wear material property.",
                    Arguments = "hardness: float, wear_coefficient: float", Returns = "MaterialProperty")]
-        public SlipWear slip_wear(object hardness, object wear_coefficient)
+        public MaterialPropertyAPI slip_wear(object hardness, object wear_coefficient)
         {
-            return MaterialPropertyFactory.CreateSlipWear(hardness, wear_coefficient);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateSlipWear(hardness, wear_coefficient));
         }
 
         [PythonAPI("Creates a specific heat material property. Give one value, or a list of " +
                    "[specific_heat, temperature] rows.", Arguments = "specific_heat: float or list[list[float]]",
                    Returns = "MaterialProperty")]
-        public SpecificHeat specific_heat(object specific_heat)
+        public MaterialPropertyAPI specific_heat(object specific_heat)
         {
-            return MaterialPropertyFactory.CreateSpecificHeat(specific_heat);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateSpecificHeat(specific_heat));
         }
 
         [PythonAPI("Creates a thermal conductivity material property. Give one value, or a list of " +
                    "[conductivity, temperature] rows.",
                    Arguments = "thermal_conductivity: float or list[list[float]]", Returns = "MaterialProperty")]
-        public ThermalConductivity thermal_conductivity(object thermal_conductivity)
+        public MaterialPropertyAPI thermal_conductivity(object thermal_conductivity)
         {
-            return MaterialPropertyFactory.CreateThermalConductivity(thermal_conductivity);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateThermalConductivity(thermal_conductivity));
         }
 
         [PythonAPI("Creates a thermal expansion material property. Give one value, or a list of " +
@@ -185,16 +185,18 @@ namespace APIs.Python
                                "zero_temperature: float = None",
                    Returns = "MaterialProperty",
                    Example = "pmx.create.thermal_expansion(1.2e-5, zero_temperature=0)")]
-        public ThermalExpansion thermal_expansion(object thermal_expansion, object zero_temperature = null)
+        public MaterialPropertyAPI thermal_expansion(object thermal_expansion, object zero_temperature = null)
         {
-            return MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion, zero_temperature);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion,
+                                                                                          zero_temperature));
         }
         [PythonAPI("Creates a friction surface interaction property.",
                    Arguments = "coefficient: float, stick_slope: float = None",
                    Returns = "SurfaceInteractionProperty", Example = "pmx.create.friction(0.1)")]
-        public Friction friction(object coefficient, object stick_slope = null)
+        public SurfaceInteractionPropertyAPI friction(object coefficient, object stick_slope = null)
         {
-            return SurfaceInteractionPropertyFactory.CreateFriction(coefficient, stick_slope);
+            return new SurfaceInteractionPropertyAPI(SurfaceInteractionPropertyFactory.CreateFriction(coefficient,
+                                                                                                      stick_slope));
         }
 
         [PythonAPI("Creates a gap conductance surface interaction property. Give conductance for a " +
@@ -202,9 +204,10 @@ namespace APIs.Python
                    "for a tabular one.",
                    Arguments = "conductance: float = None, conductance_table: list[list[float]] = None",
                    Returns = "SurfaceInteractionProperty")]
-        public GapConductance gap_conductance(object conductance = null, object conductance_table = null)
+        public SurfaceInteractionPropertyAPI gap_conductance(object conductance = null, object conductance_table = null)
         {
-            return SurfaceInteractionPropertyFactory.CreateGapConductance(conductance, conductance_table);
+            return new SurfaceInteractionPropertyAPI(
+                SurfaceInteractionPropertyFactory.CreateGapConductance(conductance, conductance_table));
         }
 
         [PythonAPI("Creates a surface behavior surface interaction property. Possible " +
@@ -215,12 +218,13 @@ namespace APIs.Python
                                "pressure_overclosure: list[list[float]] = None",
                    Returns = "SurfaceInteractionProperty",
                    Example = "pmx.create.surface_behavior('Linear', k=2000)")]
-        public SurfaceBehavior surface_behavior(string pressure_overclosure_type = null, object c0 = null,
-                                                object p0 = null, object k = null, object s_inf = null,
-                                                object pressure_overclosure = null)
+        public SurfaceInteractionPropertyAPI surface_behavior(string pressure_overclosure_type = null, object c0 = null,
+                                                              object p0 = null, object k = null, object s_inf = null,
+                                                              object pressure_overclosure = null)
         {
-            return SurfaceInteractionPropertyFactory.CreateSurfaceBehavior(pressure_overclosure_type, c0, p0,
-                                                                           k, s_inf, pressure_overclosure);
+            return new SurfaceInteractionPropertyAPI(
+                SurfaceInteractionPropertyFactory.CreateSurfaceBehavior(pressure_overclosure_type, c0, p0, k, s_inf,
+                                                                        pressure_overclosure));
         }
 
         [PythonAPI("Names an existing region of the model, so that a model item can point at it instead of " +

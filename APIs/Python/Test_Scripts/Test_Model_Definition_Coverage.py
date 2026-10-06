@@ -84,7 +84,9 @@ def test_initial_condition_replacement():
     pmx.model.initial_conditions.replace_angular_velocity(PREFIX + "Ang", rotational_speed=7)
     equations = pmx.model.initial_conditions[PREFIX + "Ang"].get_equations()
     check(magnitude(equations["rotational_speed"]) == 7, "the rotational speed was not replaced")
-    check(magnitude(equations["n3"]) == 1, "the omitted axis direction was not kept: " + str(equations))
+    check(magnitude(equations["axis_direction"][2]) == 1,
+          "the omitted axis direction was not kept: " + str(equations))
+    check("n3" not in equations, "the axis direction is not read back under its argument name")
 
 
 def test_model_properties():
@@ -147,7 +149,7 @@ def test_creation_equations():
                                                       [PREFIX + "length", 0, 0], [0, 0, 1],
                                                       PREFIX + "length")
     equations = pmx.model.initial_conditions[PREFIX + "AngEq"].get_equations()
-    check(equations["x"] == "=" + PREFIX + "length", "the axis point expression was not stored")
+    check(equations["axis_point"][0] == "=" + PREFIX + "length", "the axis point expression was not stored")
     check(equations["rotational_speed"] == "=" + PREFIX + "length",
           "the rotational speed expression was not stored")
 

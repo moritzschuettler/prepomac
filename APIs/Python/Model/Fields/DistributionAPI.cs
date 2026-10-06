@@ -8,12 +8,20 @@
 // Contributors:
 
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class DistributionAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<string, string[]> MappedArgumentValueNames =
+            new Dictionary<string, string[]>
+            {
+                { "interpolator_radius", new string[] { "interpolator_radius" } },
+                { "scale", new string[] { "scale_x", "scale_y", "scale_z" } },
+                { "translate", new string[] { "translate_x", "translate_y", "translate_z" } }
+            };
         private readonly string _distributionName;
         private readonly DistributionService _service;
 
@@ -24,6 +32,68 @@ namespace APIs.Python.Model
         [PythonAPI("The distribution type, named after the add_* method that makes it without the add_ " +
                    "prefix: from_equation or from_file.", Returns = "str")]
         public string item_type { get { return GetItemType(_service.ResolveDistribution(_distributionName)); } }
+        [PythonAPI("The equation of a distribution defined by an equation, in the shape add_from_equation " +
+                   "takes it: one string for a scalar distribution and a list of three, one per direction, for " +
+                   "a vector one. None for a distribution read from a file.", Returns = "str, StringList or None")]
+        public object equation { get { return GetEquation(Resolve()); } }
+        [PythonAPI("The point cloud file of a distribution read from a file, or None.", Returns = "str or None")]
+        public string file_name
+        {
+            get
+            {
+                DistributionFromFile distribution = Resolve() as DistributionFromFile;
+                return distribution == null ? null : distribution.FileName;
+            }
+        }
+        [PythonAPI("The interpolator type of a distribution read from a file: ClosestPoint, Gauss or Shepard. " +
+                   "None for a distribution defined by an equation.", Returns = "str or None")]
+        public string interpolator_type
+        {
+            get
+            {
+                MappedDistribution distribution = Resolve() as MappedDistribution;
+                return distribution == null ? null : distribution.InterpolatorType.ToString();
+            }
+        }
+        [PythonAPI("The interpolator radius of a distribution read from a file, in model units, or None.",
+                   Returns = "float or None")]
+        public object interpolator_radius
+        {
+            get
+            {
+                MappedDistribution distribution = Resolve() as MappedDistribution;
+                return distribution == null ? null : (object)distribution.InterpolatorRadius.Value;
+            }
+        }
+        [PythonAPI("The scale factors of the point cloud of a distribution read from a file, one per " +
+                   "direction, or None.", Returns = "NumericArray or None")]
+        public NumericArrayAPI scale
+        {
+            get
+            {
+                MappedDistribution distribution = Resolve() as MappedDistribution;
+                if (distribution == null) return null;
+                //
+                return new NumericArrayAPI(new double[] { distribution.ScaleX.Value, distribution.ScaleY.Value,
+                                                          distribution.ScaleZ.Value });
+            }
+        }
+        [PythonAPI("The translation of the point cloud of a distribution read from a file, in model units, or " +
+                   "None.", Returns = "NumericArray or None")]
+        public NumericArrayAPI translate
+        {
+            get
+            {
+                MappedDistribution distribution = Resolve() as MappedDistribution;
+                if (distribution == null) return null;
+                //
+                return new NumericArrayAPI(new double[] { distribution.TranslateX.Value,
+                                                          distribution.TranslateY.Value,
+                                                          distribution.TranslateZ.Value });
+            }
+        }
+        [PythonAPI("The name of the coordinate system the distribution is defined in.", Returns = "str")]
+        public string coordinate_system_name { get { return Resolve().CoordinateSystemName; } }
 
 
         // Constructors
@@ -44,14 +114,37 @@ namespace APIs.Python.Model
                                          distribution.GetType().Name + ", which no add_* method of the Python API " +
                                          "makes.");
         }
+        private static object GetEquation(Distribution distribution)
+        {
+            DistributionFromEquation fromEquation = distribution as DistributionFromEquation;
+            if (fromEquation == null) return null;
+            if (fromEquation.DistributionType == DistributionTypeEnum.Scalar) return fromEquation.EquationMagnitude;
+            //
+            return new StringListAPI(new string[] { fromEquation.EquationD1, fromEquation.EquationD2,
+                                                    fromEquation.EquationD3 });
+        }
 
 
         // Methods
+        [PythonAPI("Returns the stored equations of a distribution read from a file without evaluating them, " +
+                   "under the add_from_file argument names: interpolator_radius, and scale and translate as " +
+                   "lists of three. An expression reads back with its leading equals sign and a plain value " +
+                   "with its unit. A distribution defined by an equation returns an empty dict; its equation " +
+                   "is the equation property.", Returns = "dict[str, str or StringList]")]
+        public Dictionary<string, object> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(Resolve(), MappedArgumentValueNames);
+        }
         public override string ToString()
         {
             Distribution distribution = _service.ResolveDistribution(_distributionName);
             return "Distribution(name=" + StringListAPI.ToDisplayString(distribution.Name) +
                    ", type=" + GetItemType(distribution) + ")";
+        }
+        //
+        private Distribution Resolve()
+        {
+            return _service.ResolveDistribution(_distributionName);
         }
     }
 }

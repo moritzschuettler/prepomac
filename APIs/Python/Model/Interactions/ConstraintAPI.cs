@@ -114,6 +114,16 @@ namespace APIs.Python.Model
             return ModelItemValueReader.GetValue(constraint, typeof(Constraint), GetArgumentValueNames(constraint),
                                                  name, GetItemType(constraint) + " constraint");
         }
+
+        [PythonAPI("Returns the stored equations of the constraint without evaluating them, under the names " +
+                   "get_value uses: an expression reads back with its leading equals sign and a plain value " +
+                   "with its unit, and a vector argument such as axis_point as a list of the equations of its " +
+                   "components.", Returns = "dict[str, str or StringList]")]
+        public Dictionary<string, object> get_equations()
+        {
+            Constraint constraint = Resolve();
+            return ModelItemValueReader.GetEquations(constraint, GetArgumentValueNames(constraint));
+        }
         public override string ToString()
         {
             Constraint constraint = Resolve();

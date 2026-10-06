@@ -251,7 +251,7 @@ namespace PrePoMax.Python.Journal
                                                 "p0=" + PythonValueFormatter.Number(surfaceBehavior.P0),
                                                 "k=" + PythonValueFormatter.Number(surfaceBehavior.K),
                                                 "s_inf=" + PythonValueFormatter.Number(surfaceBehavior.Sinf),
-                                                "pressure_overclosure_table=" +
+                                                "pressure_overclosure=" +
                                                 Table(surfaceBehavior.PressureOverclosure));
             //
             throw new NotSupportedException("the surface interaction property " + property.GetType().Name +

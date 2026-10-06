@@ -185,6 +185,78 @@ def test_materials():
     return PREFIX + "Steel"
 
 
+def plain_values(prop):
+    """The values of a property with every table turned into a list of row lists, so that they compare."""
+    values = {}
+    for key, value in prop.get_values().items():
+        if value is not None and not isinstance(value, (str, int, float)):
+            value = [list(row) for row in value]
+        values[key] = value
+    return values
+
+
+def close(first, second):
+    """True when two read back values agree, numbers to a relative tolerance."""
+    if isinstance(first, dict) and isinstance(second, dict):
+        return sorted(first) == sorted(second) and all(close(first[k], second[k]) for k in first)
+    if isinstance(first, list) and isinstance(second, list):
+        return len(first) == len(second) and all(close(a, b) for a, b in zip(first, second))
+    if isinstance(first, (int, float)) and isinstance(second, (int, float)):
+        return abs(first - second) <= 1e-9 * max(1.0, abs(first), abs(second))
+    return first == second
+
+
+def test_material_properties():
+    materials = pmx.model.materials
+    materials.add(PREFIX + "Thermal", [pmx.create.specific_heat(500),
+                                       pmx.create.thermal_conductivity([[50, 0], [45, 400]]),
+                                       pmx.create.slip_wear(200, 1e-4)])
+    # Every value reads back under the pmx.create argument that set it, a table as its rows
+    steel = [plain_values(p) for p in materials[PREFIX + "Steel"].get_properties()]
+    check(close(steel, [{"youngs_modulus": 210000, "poissons_ratio": 0.3}, {"density": 7.85e-9}]),
+          "the constant properties did not read back: " + str(steel))
+    temp = [plain_values(p) for p in materials[PREFIX + "Temp"].get_properties()]
+    check(close(temp[0], {"youngs_modulus": [[210000, 0.3, 0], [180000, 0.32, 400]]}),
+          "the elastic table did not read back: " + str(temp[0]))
+    check(close(temp[1]["thermal_expansion"], [[1.2e-5, 0], [1.4e-5, 400]]),
+          "the thermal expansion table did not read back: " + str(temp[1]))
+    kinematic = plain_values(list(materials[PREFIX + "Kinematic"].get_properties())[1])
+    check(close(kinematic, {"stress_strain": [[250, 0, 20]], "hardening": "Kinematic"}),
+          "the plastic values did not read back: " + str(kinematic))
+    expansion = list(materials[PREFIX + "Expansion"].get_properties())[1]
+    check(expansion.property_type == "thermal_expansion", "unexpected type " + expansion.property_type)
+    check(close(expansion.get_value("zero_temperature"), 123), "the zero temperature did not read back")
+    check(close(expansion.get_value("thermal_expansion"), 1.2e-5), "the expansion did not read back")
+    check(close(plain_values(list(materials[PREFIX + "Renamed"].get_properties())[0]),
+                {"youngs_modulus": 70000, "poissons_ratio": 0.33, "density": 2.7e-9}),
+          "the elastic with density values did not read back")
+    lamina = plain_values(list(materials[PREFIX + "Lamina"].get_properties())[0])
+    check(close(lamina, {"constants": [[135000, 9500, 0.28, 5000, 4500, 3500, 20],
+                                       [125001, 9000, 0.27, 4500, 4000, 3000, 322]]}),
+          "the lamina constants did not read back: " + str(lamina))
+    thermal = [plain_values(p) for p in materials[PREFIX + "Thermal"].get_properties()]
+    check(close(thermal, [{"specific_heat": 500}, {"thermal_conductivity": [[50, 0], [45, 400]]},
+                          {"hardness": 200, "wear_coefficient": 1e-4}]),
+          "the thermal and wear values did not read back: " + str(thermal))
+    check("youngs_modulus=210000" in repr(list(materials[PREFIX + "Steel"].get_properties())[0]),
+          "the property does not print its values")
+    check_raises(lambda: expansion.get_value("no_such_value"), "an unknown value name was accepted")
+    # The values are the keyword arguments of the maker, and the properties go straight back into a replace
+    for name in [PREFIX + "Steel", PREFIX + "Temp", PREFIX + "Engineering", PREFIX + "Kinematic",
+                 PREFIX + "Expansion", PREFIX + "Lamina", PREFIX + "Renamed", PREFIX + "Thermal"]:
+        properties = list(materials[name].get_properties())
+        for prop in properties:
+            maker = getattr(pmx.create, prop.property_type)
+            check(close(plain_values(maker(**prop.get_values())), plain_values(prop)),
+                  "the " + prop.property_type + " values of " + name + " do not make the same property again")
+        before = [plain_values(p) for p in properties]
+        materials.replace(name, properties=materials[name].get_properties())
+        after = [plain_values(p) for p in materials[name].get_properties()]
+        check(close(after, before), "the properties of " + name + " did not round trip through replace: " +
+              str(after))
+    materials.remove([PREFIX + "Thermal"])
+
+
 def test_sections(material_name):
     sections = pmx.model.sections
     count_before = len(sections)
@@ -273,6 +345,7 @@ def test_sections(material_name):
 def main():
     check(pmx.model.is_open(), "a model must be open")
     material_name = test_materials()
+    test_material_properties()
     test_sections(material_name)
     # A section references a material, so the sections go first
     clean(pmx.model.sections)

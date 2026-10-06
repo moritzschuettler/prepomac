@@ -1172,7 +1172,19 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
 
-`Distribution` exposes `name` and `item_type`, `'from_equation'` or `'from_file'`.
+`Distribution` exposes `name`, `item_type` (`'from_equation'` or `'from_file'`), `equation`, `file_name`,
+`interpolator_type`, `interpolator_radius`, `scale`, `translate`, `coordinate_system_name` and `get_equations()`.
+
+| Property | Description |
+| --- | --- |
+| `equation` | The equation of an equation distribution, in the shape `add_from_equation` takes it: a `str` for a scalar distribution, a `StringList` of three for a vector one, stored with the leading `=`. `None` for a file distribution. |
+| `file_name` | The point cloud file of a file distribution, otherwise `None`. |
+| `interpolator_type` | `ClosestPoint`, `Gauss` or `Shepard` for a file distribution, otherwise `None`. |
+| `interpolator_radius` | The interpolator radius of a file distribution, in model units, otherwise `None`. |
+| `scale` | The scale factors of a file distribution as a `NumericArray` of three, otherwise `None`. |
+| `translate` | The translation of a file distribution in model units as a `NumericArray` of three; `None` on an equation distribution. |
+| `coordinate_system_name` | The name of the coordinate system the distribution is defined in. Read-only. |
+| `get_equations()` | The stored equations of a file distribution, under the `add_from_file` argument names: `interpolator_radius`, and `scale` and `translate` as a `StringList` of three (`dict[str, str or StringList]`). An expression reads back with its leading `=` and a plain value with its unit. An equation distribution returns an empty `dict`; its equation is the `equation` property. |
 
 ### `InitialConditions`
 
@@ -1188,7 +1200,9 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 `InitialCondition` exposes `name`, `item_type` (`'temperature'`, `'translational_velocity'` or
 `'angular_velocity'`), `region_name`, `region_type`, `visible`, `valid`, `get_value_names()`, `get_value(name)` and
-`get_equations()`, which returns the stored values as the numbers or expressions they were entered with.
+`get_equations()`, which returns the stored values as the numbers or expressions they were entered with, under the
+names `get_value` uses, as a `dict[str, str or StringList]` (a vector argument such as `axis_point` is a `StringList` of
+the equations of its components; an expression keeps its leading `=` and a plain value reads back with its unit).
 `get_value` takes the names of the `add_*` arguments, and `axis_point` and `axis_direction` of an angular velocity
 read back as lists of three.
 
@@ -1206,10 +1220,23 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 | `add(name, properties, description=None, temperature_dependent=False)` | Adds a material. The properties are created by `pmx.create`. Set `temperature_dependent=True` to write every row with its temperature. |
 | `replace(old_name, name=None, properties=None, description=None, temperature_dependent=None)` | Replaces an existing material. Omitted values are kept. |
 
-`Material` exposes `name`, `description`, `temperature_dependent`, `property_count` and
+`Material` exposes `name`, `description`, `temperature_dependent`, `property_count`, `get_properties()` and
 `get_property_types()`, which names every property after the `pmx.create` maker that makes it: `elastic`, `density`,
 `elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`,
-`thermal_conductivity` or `thermal_expansion`.
+`thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies, and the
+list can be passed straight to `materials.replace`:
+`pmx.model.materials.replace('Steel', properties=pmx.model.materials['Steel'].get_properties())`.
+
+Every `pmx.create` property maker (`elastic`, `density`, `elastic_with_density`, `elastic_engineering_constants`,
+`elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`, `thermal_conductivity`, `thermal_expansion`) returns a
+`MaterialProperty`:
+
+| Member | Description |
+| --- | --- |
+| `property_type` | The name of the `pmx.create` maker that makes the property, for example `'elastic'`. |
+| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A single row at temperature 0 reads as scalars; otherwise the whole table is one `NumericArray` under the first argument, its last column being the temperature. |
+| `get_value(name)` | One value, by the `pmx.create` argument name. |
+| `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
 
 ```python
 pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
@@ -1454,7 +1481,9 @@ arguments of its `add_*`, all optional.
 
 `Constraint` exposes `name`, `item_type` (the `add_*` name without `add_`, `'tie'` or `'point_spring'`), `active`, `visible`, `master_region_type`,
 `master_region_name`, `slave_region_type`, `slave_region_name`, and the values of its own type
-through `get_value_names()` and `get_value(name)`.
+through `get_value_names()` and `get_value(name)`. `get_equations()` returns the stored values as entered, under the
+names `get_value` uses, as a `dict[str, str or StringList]`: a vector argument such as `axis_point` is a `StringList` of
+the equations of its components, an expression keeps its leading `=` and a plain value reads back with its unit.
 
 ```python
 pmx.model.constraints.add_tie('Tie-1', master_selection, slave_selection)
@@ -1511,8 +1540,11 @@ Reached as `pmx.model.surface_interactions`. A surface interaction is composed o
 | `add(name, properties)` | Adds a surface interaction. One property, or a list of them. |
 | `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list. |
 
-`SurfaceInteraction` exposes `name`, `property_count` and `get_property_types()`, which names every property after the
-`pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
+`SurfaceInteraction` exposes `name`, `property_count`, `get_properties()` and `get_property_types()`, which names every
+property after the `pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
+`get_properties()` returns detached `SurfaceInteractionProperty` copies, and the list can be passed straight to
+`surface_interactions.replace`:
+`pmx.model.surface_interactions.replace('SI-1', properties=pmx.model.surface_interactions['SI-1'].get_properties())`.
 
 The three properties are made by `pmx.create`:
 
@@ -1521,6 +1553,15 @@ The three properties are made by `pmx.create`:
 | `friction(coefficient, stick_slope=None)` | Friction. |
 | `gap_conductance(conductance=None, conductance_table=None)` | Gap conductance. Give one or the other: a value for a constant one, or rows of `[conductance, pressure, temperature]` for a tabular one. |
 | `surface_behavior(pressure_overclosure_type=None, c0=None, p0=None, k=None, s_inf=None, pressure_overclosure=None)` | Surface behavior. The type is `Hard`, `Linear`, `Exponential`, `Tabular` or `Tied`. |
+
+Each maker returns a `SurfaceInteractionProperty`:
+
+| Member | Description |
+| --- | --- |
+| `property_type` | The name of the `pmx.create` maker that makes the property: `'friction'`, `'gap_conductance'` or `'surface_behavior'`. |
+| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A value left at its default (NaN) reads as `None`. A constant gap conductance reads as `conductance`, a tabular one as `conductance_table`. |
+| `get_value(name)` | One value, by the `pmx.create` argument name. |
+| `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
 
 Setting `pressure_overclosure_type` resets the values to the defaults that type implies, so the API
 applies it first and a value given alongside it overrides that default.
@@ -1698,6 +1739,7 @@ command, naming the step type.
 | `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this boundary condition type. |
+| `get_equations()` | The stored values as entered, under the names `get_value` uses (for example `u1` or `phase_deg`), as a `dict[str, str]`. An expression keeps its leading `=` and a plain value reads back with its unit. |
 
 ### `Loads`
 
@@ -1758,6 +1800,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | `amplitude_name`, `coordinate_system_name` | The names the load refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this load type, named like the `add_*` arguments. A vector reads back as one list: `first_point`, `second_point`, `direction` and `cutoff` of a hydrostatic pressure, `axis_point` and `axis_direction` of a centrifugal load, and `magnitude`, `direction`, `tension_type` and `auto_direction` of a pre-tension. |
+| `get_equations()` | The stored values as entered, under the names `get_value` uses, as a `dict[str, str or StringList]`: a vector argument such as `axis_point` is a `StringList` of the equations of its components. An expression keeps its leading `=` and a plain value reads back with its unit. |
 
 ### `FieldOutputs` (model)
 
@@ -1853,6 +1896,7 @@ A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature
 | `amplitude_name` | The amplitude the defined field refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
 | `get_value_names()`, `get_value(name)` | The values specific to this defined field type. |
+| `get_equations()` | The stored values as entered, under the names `get_value` uses (for example `temperature`), as a `dict[str, str]`. An expression keeps its leading `=` and a plain value reads back with its unit. |
 
 ## Parts
 
@@ -2917,19 +2961,15 @@ result field transformation is expressed in a result coordinate system.
 
 | Member | Description |
 | --- | --- |
-| `len(collection)`, iteration, `get_names()` | The names in the collection. |
-| `get_definition(name)` | The stored coordinates, as the values or expressions they were entered with. Three for a reference point, nine for a coordinate system. |
-| `reference_points.get_created_from(name)` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
-| `reference_points.get_name_visible(name)`, `reference_points.get_color(name)` | Whether the point name is drawn next to its symbol, and the symbol colour channels. |
-| `reference_points.add(name, coordinates, name_visible=None, color=None)` | Adds a result reference point. |
+| `len(collection)`, iteration, `get_names()` | The collection has a length. Iterating yields `ReferencePoint` or `CoordinateSystem` items, and `get_names()` gives the names as a `StringList`. |
+| `collection[name]`, `get(name)` | The item with that name. |
+| `first()`, `last()` | The first or the last item. |
+| `reference_points.add(name, coordinates, name_visible=None, color=None)` | Adds a result reference point. Every `add*` and `replace*` returns the item. |
 | `reference_points.add_from_selection(name, created_from, selection, name_visible=None, color=None)` | Adds one from selected result mesh points. The mode is `OnPoint`, `BetweenTwoPoints` or `CircleCenter`. |
 | `reference_points.add_from_region(name, created_from, region_type, region_name, name_visible=None, color=None)` | Adds one from a named result region. The mode is `CenterOfGravity` or `BoundingBoxCenter`, the region type `NodeSetName` or `SurfaceName`. |
 | `reference_points.replace(old_name, name=None, coordinates, name_visible=None, color=None)` | Replaces one. The name and the display values may be left out and are kept. The coordinates are the whole definition and are always given, and applying them turns the point back into a coordinate point. |
 | `reference_points.replace_from_selection(old_name, name=None, created_from=None, selection=None, name_visible=None, color=None)` | Replaces one by selected points. The mode and the selection are the whole definition. |
 | `reference_points.replace_from_region(old_name, name=None, created_from=None, region_type=None, region_name=None, name_visible=None, color=None)` | Replaces one by a named region. The mode and the region are the whole definition. |
-| `coordinate_systems.get_coordinate_system_type(name)` | `Rectangular` or `Cylindrical`. |
-| `coordinate_systems.get_name_visible(name)` | Whether the coordinate system name is drawn next to its symbol. |
-| `coordinate_systems.get_created_from(name)` | How the origin, the point on X and the point in XY were created. |
 | `coordinate_systems.add(name, origin, point_on_x, point_in_xy, coordinate_system_type=None, name_visible=None)` | Adds a result coordinate system. |
 | `coordinate_systems.add_from_selections(name, coordinate_system_type=None, origin=None, origin_created_from=None, origin_selection=None, point_on_x=None, point_on_x_created_from=None, point_on_x_selection=None, point_in_xy=None, point_in_xy_created_from=None, point_in_xy_selection=None, name_visible=None)` | Adds one whose points may be selected on the result mesh. Each point takes either coordinates or a mode and a selection, and a point that is not given keeps the default coordinates. |
 | `coordinate_systems.replace(old_name, name=None, origin=None, point_on_x=None, point_in_xy=None, coordinate_system_type=None, name_visible=None)` | Replaces one. The three points are the whole definition. |
@@ -2940,6 +2980,28 @@ result field transformation is expressed in a result coordinate system.
 
 `add` and `add_from_selections` on `coordinate_systems` create the system in the plane of a two dimensional model, as the
 dialog does.
+
+A result `ReferencePoint`:
+
+| Member | Description |
+| --- | --- |
+| `name` | The reference point name. |
+| `created_from` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
+| `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour channels, and the visibility. |
+| `get_coordinates()` | The coordinates computed on the result mesh, as a `NumericArray`. |
+| `get_equations()` | The stored coordinates as entered, under `x`, `y` and `z`. |
+| `get_construction()` | How the point is built, under `created_from`, `region_type` and `region_name`. |
+
+A result `CoordinateSystem`:
+
+| Member | Description |
+| --- | --- |
+| `name` | The coordinate system name. |
+| `coordinate_system_type` | `Rectangular` or `Cylindrical`. |
+| `name_visible`, `visible` | Whether the name is drawn next to the symbol, and the visibility. |
+| `get_origin()`, `get_point_on_x()`, `get_point_in_xy()` | The three defining points computed on the result mesh, as `NumericArray`s. |
+| `get_equations()` | The nine stored coordinates as entered, under `x1`, `y1`, `z1` to `x3`, `y3`, `z3`. |
+| `get_construction()` | How each point is built (`Coordinates`, `OnPoint`, `BetweenTwoPoints` or `CircleCenter`), under `origin`, `point_on_x` and `point_in_xy`. |
 
 ### `Part`
 
@@ -3480,7 +3542,7 @@ whole rather than cloned. The result reference points and coordinate systems the
 complete coordinates, and only the name may be left out.
 
 A value the user could type as an expression is stored as the expression. `get_equations()` on a
-model item, and `get_definition(name)` on a result region, return what was entered rather than the
+model item, and on a result reference point or coordinate system, return what was entered rather than the
 number it evaluated to, so a parameter change still reaches the value.
 
 ## Journal and unattended-run boundaries

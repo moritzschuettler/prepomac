@@ -130,10 +130,14 @@ namespace APIs.Python.Model
             return ModelItemValueReader.GetValue(load, typeof(Load), GetArgumentValueNames(load), name,
                                                  GetItemType(load) + " load");
         }
-        [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
-        public System.Collections.Generic.Dictionary<string, string> get_equations()
+        [PythonAPI("Returns the stored equations of the load without evaluating them, under the names " +
+                   "get_value uses: an expression reads back with its leading equals sign and a plain value " +
+                   "with its unit, and a vector argument such as axis_point as a list of the equations of its " +
+                   "components.", Returns = "dict[str, str or StringList]")]
+        public Dictionary<string, object> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve());
+            Load load = Resolve();
+            return ModelItemValueReader.GetEquations(load, GetArgumentValueNames(load));
         }
         public override string ToString()
         {

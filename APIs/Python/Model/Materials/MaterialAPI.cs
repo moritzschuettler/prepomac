@@ -9,7 +9,6 @@
 
 using CaeGlobals;
 using CaeModel;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -18,19 +17,6 @@ namespace APIs.Python.Model
     public class MaterialAPI : BaseAPI
     {
         // Variables
-        private static readonly Dictionary<Type, string> PropertyTypes = new Dictionary<Type, string>
-        {
-            { typeof(Elastic), "elastic" },
-            { typeof(Density), "density" },
-            { typeof(ElasticWithDensity), "elastic_with_density" },
-            { typeof(ElasticEngineeringConstants), "elastic_engineering_constants" },
-            { typeof(ElasticLamina), "elastic_lamina" },
-            { typeof(Plastic), "plastic" },
-            { typeof(SlipWear), "slip_wear" },
-            { typeof(SpecificHeat), "specific_heat" },
-            { typeof(ThermalConductivity), "thermal_conductivity" },
-            { typeof(ThermalExpansion), "thermal_expansion" }
-        };
         private readonly string _materialName;
         private readonly MaterialService _service;
 
@@ -57,31 +43,24 @@ namespace APIs.Python.Model
         }
 
 
-        // Static methods
-        private static string GetPropertyType(MaterialProperty property)
-        {
-            string propertyType;
-            if (PropertyTypes.TryGetValue(property.GetType(), out propertyType)) return propertyType;
-            //
-            throw new PythonAPIException("The material property " + property.GetType().Name + " is not made by " +
-                                         "any pmx.create method.");
-        }
-
-
         // Methods
         [PythonAPI("Returns the types of the material properties, named after the pmx.create method that " +
                    "makes each, for example elastic or density.", Returns = "StringList")]
         public StringListAPI get_property_types()
         {
             List<MaterialProperty> properties = _service.ResolveMaterial(_materialName).Properties;
-            return new StringListAPI(properties.Select(property => GetPropertyType(property)).ToArray());
+            return new StringListAPI(properties.Select(property => MaterialPropertyAPI.GetPropertyType(property))
+                                               .ToArray());
         }
-        [PythonAPI("Returns detached copies of all material properties, including their value tables.",
-                   Returns = "list[MaterialProperty]")]
-        public MaterialProperty[] get_properties()
+        [PythonAPI("Returns detached copies of the material properties. Their values, value tables included, " +
+                   "are read with get_values, and the list can be passed straight back to materials.replace.",
+                   Returns = "list[MaterialProperty]",
+                   Example = "pmx.model.materials.replace('Steel', " +
+                             "properties=pmx.model.materials['Steel'].get_properties())")]
+        public MaterialPropertyAPI[] get_properties()
         {
             Material material = _service.ResolveMaterial(_materialName).DeepClone();
-            return material.Properties.ToArray();
+            return material.Properties.Select(property => new MaterialPropertyAPI(property)).ToArray();
         }
         public override string ToString()
         {

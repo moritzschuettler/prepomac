@@ -98,7 +98,22 @@ def test_distributions():
     # evaluates with has to be supplied by the API rather than by the caller
     scalar = distributions.add_from_equation(PREFIX + "Scalar", "1 + 0.01 * x")
     check(scalar.item_type == "from_equation", "unexpected scalar distribution type")
-    distributions.add_from_equation(PREFIX + "Vector", ["x", "y", "z"])
+    vector = distributions.add_from_equation(PREFIX + "Vector", ["x", "y", "z"])
+    # The equation reads back in the shape the argument takes it, with the sign the API supplied
+    check(scalar.equation == "=1 + 0.01 * x", "the scalar equation did not read back: " + str(scalar.equation))
+    check(list(vector.equation) == ["=x", "=y", "=z"],
+          "the vector equations did not read back: " + str(list(vector.equation)))
+    check(scalar.file_name is None and scalar.interpolator_type is None and scalar.interpolator_radius is None and
+          scalar.scale is None and scalar.translate is None,
+          "an equation distribution must report no file values")
+    check(len(scalar.get_equations()) == 0, "an equation distribution reported mapped equations")
+    check(scalar.coordinate_system_name == "Global",
+          "unexpected coordinate system " + str(scalar.coordinate_system_name))
+    # The read back equation goes straight back into a replacement
+    vector = distributions.replace_from_equation(PREFIX + "Vector", equation=vector.equation)
+    check(list(vector.equation) == ["=x", "=y", "=z"], "the vector equations did not round trip")
+    scalar = distributions.replace_from_equation(PREFIX + "Scalar", equation=scalar.equation)
+    check(scalar.equation == "=1 + 0.01 * x", "the scalar equation did not round trip: " + str(scalar.equation))
     # An equation that already carries the sign is stored unchanged
     distributions.add_from_equation(PREFIX + "Signed", "=1")
     # A replacement may keep the name, given or not
@@ -123,6 +138,34 @@ def test_distributions():
     with open(file_name, "w") as writer:
         writer.write("0 0 0 1\n1 0 0 1\n0 1 0 1\n0 0 1 1\n")
     try:
+        distributions.add_from_file(PREFIX + "Mapped", file_name, interpolator_type="Gauss",
+                                    interpolator_radius=2, scale=[1, 2, 3], translate=["0.5", "0", "0"])
+        mapped = distributions[PREFIX + "Mapped"]
+        # Every value add_from_file sets reads back under its argument name
+        # The temporary folder may be named in its short form, so both paths are resolved first
+        check(os.path.normcase(os.path.realpath(mapped.file_name)) ==
+              os.path.normcase(os.path.realpath(file_name)),
+              "the file name did not read back: " + str(mapped.file_name))
+        check(mapped.equation is None, "a file distribution must report no equation")
+        check(mapped.interpolator_type == "Gauss", "the interpolator type did not read back")
+        check(mapped.interpolator_radius == 2, "the interpolator radius did not read back")
+        check(list(mapped.scale) == [1, 2, 3], "the scale did not read back: " + str(list(mapped.scale)))
+        check(list(mapped.translate) == [0.5, 0, 0], "the translate did not read back: " + str(list(mapped.translate)))
+        check(mapped.coordinate_system_name == "Global", "unexpected coordinate system")
+        equations = mapped.get_equations()
+        check(sorted(equations) == ["interpolator_radius", "scale", "translate"],
+              "unexpected equation names " + str(sorted(equations)))
+        check(list(equations["translate"]) == ["=0.5", "=0", "=0"],
+              "the translate expressions did not read back: " + str(list(equations["translate"])))
+        # The read back values go straight back into a replacement that changes nothing
+        mapped = distributions.replace_from_file(PREFIX + "Mapped", interpolator_type=mapped.interpolator_type,
+                                                 interpolator_radius=mapped.interpolator_radius, scale=mapped.scale,
+                                                 translate=equations["translate"])
+        check(mapped.interpolator_type == "Gauss" and mapped.interpolator_radius == 2 and
+              list(mapped.scale) == [1, 2, 3] and list(mapped.translate) == [0.5, 0, 0],
+              "the file values did not round trip through replace_from_file")
+        check(list(mapped.get_equations()["translate"])[0] == "=0.5", "the translate expression did not round trip")
+        distributions.remove([PREFIX + "Mapped"])
         distributions.add_from_file(PREFIX + "File", file_name)
         check_raises(lambda: distributions.replace_from_equation(PREFIX + "File"),
                      "a file distribution was replaced without an equation")

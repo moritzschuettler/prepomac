@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -81,6 +82,14 @@ namespace APIs.Python.Model
             DefinedField definedField = Resolve();
             return ModelItemValueReader.GetValue(definedField, typeof(DefinedField), null, name,
                                                  GetItemType(definedField) + " defined field");
+        }
+
+        [PythonAPI("Returns the stored equations of the defined field without evaluating them, under the names " +
+                   "get_value uses, for example temperature: an expression reads back with its leading equals " +
+                   "sign and a plain value with its unit.", Returns = "dict[str, str]")]
+        public Dictionary<string, string> get_equations()
+        {
+            return ModelItemValueReader.GetEquations(Resolve());
         }
         public override string ToString()
         {
