@@ -258,6 +258,29 @@ def check_describe(client):
     check(error["code"] == INVALID_PARAMS, "an unresolvable path must be InvalidParams: " + str(error))
     check("no_such_thing" in error["message"], "the refusal must name the path: " + error["message"])
     print("describe: an unresolvable path is refused")
+    # A path that ends at a method or at a plain value property describes that member, read off its owner
+    result = client.result("describe", {"path": "pmx.create.selection_by_ids"})
+    check(result["resolvedAs"] == "member" and result["type"] == "CreateAPI",
+          "a method path must describe the method: " + str(result))
+    member = result["members"][0]
+    check(member["name"] == "selection_by_ids" and member["kind"] == "method" and member["parameters"],
+          "the method must come with its parameters: " + str(member))
+    result = client.result("describe", {"path": "pmx.model.properties.unit_system"})
+    check(result["resolvedAs"] == "member" and result["members"][0]["kind"] == "property",
+          "a property path must describe the property: " + str(result))
+    result = client.result("describe", {"path": "Loads.add_pressure"})
+    check(result["resolvedAs"] == "member" and result["members"][0]["name"] == "add_pressure",
+          "a method below a type name must be described too: " + str(result))
+    # A property holding an API object still describes the object's type
+    result = client.result("describe", {"path": "Result.mesh.nodes"})
+    check(result["resolvedAs"] == "type", "an API object property must keep resolving as a type: " + str(result))
+    # A mistyped path is answered with the paths it most likely meant
+    error = client.error("describe", {"path": "pmx.model.geometry_parts"})
+    check("Did you mean pmx.model.geometry.parts?" in error["message"],
+          "a dot written as an underscore must be suggested back: " + error["message"])
+    error = client.error("describe", {"path": "pmx.model.stepz"})
+    check("pmx.model.steps" in error["message"], "a near miss must be suggested: " + error["message"])
+    print("describe: members are described on their own, and near misses are suggested")
 
 
 def check_history(client):

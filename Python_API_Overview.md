@@ -22,6 +22,7 @@ The root object available in the Python console is `pmx`.
   that spelling. Result and mesh members take snake_case arguments (`node_id`, `step_id`, `field_name`, ...). `contains` takes `name`, or
   `id` where the collection is keyed by an ID (result steps, increments and elements).
 - NumPy is optional. Where available, numeric arrays are returned as NumPy arrays. Otherwise, `NumericArray` or typed API list wrappers are returned.
+- A map a member returns (`get_settings`, `get_equations`, `get_element_types`, `mesh.generate`, the geometry operations' counts, ...) is a Python `dict`, so it prints its content and supports `in`, `.items()` and indexing.
 - Methods that construct Python-side objects do not modify PrePoMax. They make either a detached part
   that an `add` takes as an argument - a maker on `pmx.create`, such as `pmx.create.elastic(...)`,
   `pmx.create.region(...)` or `pmx.create.selection_by_ids(...)` - or a result output draft or filter

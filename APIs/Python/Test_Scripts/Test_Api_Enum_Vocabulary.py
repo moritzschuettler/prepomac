@@ -83,7 +83,7 @@ def describing_types(argument):
     if unqualified is not None:
         described.add(unqualified.Name)
     types = PythonEnumVocabulary.GetTypes()
-    for key in types.Keys:
+    for key in types.keys():
         if key == argument or key.endswith("." + argument):
             described.add(types[key].Name)
     return described
@@ -114,17 +114,17 @@ def test_every_entry_names_a_real_argument(members):
     names of the API rather than against the sites.
     """
     unknown = []
-    for key in PythonEnumVocabulary.GetTypes().Keys:
+    for key in PythonEnumVocabulary.GetTypes().keys():
         argument = key.split(".")[-1]
         if argument not in members:
             unknown.append(key)
     check(not unknown, "these entries name an argument the API does not have: " + ", ".join(unknown))
     print("every one of the %d entries names an argument the API still takes" %
-          PythonEnumVocabulary.GetTypes().Count)
+          len(PythonEnumVocabulary.GetTypes()))
 
 
 def test_values_are_readable():
-    for key in PythonEnumVocabulary.GetTypes().Keys:
+    for key in PythonEnumVocabulary.GetTypes().keys():
         parts = key.split(".")
         argument = parts[-1]
         member = parts[-2] if len(parts) > 1 else None

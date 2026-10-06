@@ -95,7 +95,10 @@ def test_model_parts():
     # The name, the colour and the element types are replaced in one call, which is what one part
     # property dialog records. The cube holds hexahedra only, and a part keeps the element type of
     # the element kinds it has, so the hexahedron slot is the one that is set
-    slots = dict(parts.get_element_types(name))
+    # A map the API returns is a Python dict, which prints its content and needs no conversion
+    slots = parts.get_element_types(name)
+    check(type(slots) is dict, "a returned map must be a Python dict, not " + type(slots).__name__)
+    check(str(slots).startswith("{"), "a returned map must print its content: " + str(slots))
     check(slots == {'linear_hexa': slots.get('linear_hexa')} and slots['linear_hexa'] != 'None',
           "only the element kinds the part contains must be listed: " + str(slots))
     parts.replace_properties(name, name="PyTest_Renamed", color=[1, 2, 3],

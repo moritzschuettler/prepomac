@@ -61,8 +61,10 @@ namespace PrePoMax.Mcp
             _tools.Add(new McpTool("describe_api", "Learn the Python API",
                 "Describes a part of the PrePoMax Python API, read off the API itself, so it is always current. " +
                 "'pmx' is the root object; every path below it is described the same way, and a collection also " +
-                "reports the item names it holds right now. This is how to find the right call before writing it: " +
-                "start at 'pmx', then 'pmx.model', then the collection the work belongs to.",
+                "reports the item names it holds right now. A path that ends at a method or a property describes " +
+                "that member with its parameters, and a mistyped path is answered with the likely paths. This is " +
+                "how to find the right call before writing it: start at 'pmx', then 'pmx.model', then the " +
+                "collection the work belongs to.",
                 SessionSchema("\"path\": {\"type\": \"string\", \"description\": " +
                               "\"The Python path to describe, for example pmx, pmx.model.steps or " +
                               "pmx.model.steps['Step-1'].loads. Defaults to pmx.\"}"), true));

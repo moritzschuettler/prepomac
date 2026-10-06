@@ -54,7 +54,10 @@ step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
   collection offers before the step that would hold it exists, and a type name followed by a member
   path - `Result.mesh`, `Result.steps.last().increments` - so you can read the results side before
   an analysis has run. A name the model and the results sides share is refused with the candidates
-  to choose from.
+  to choose from. A path that ends at a method or a property - `pmx.create.selection_by_ids`,
+  `Loads.add_pressure` - describes that one member with its parameters, and a mistyped path is answered
+  with the paths it most likely meant.
+- A map the API returns is a Python dict: print it, index it, or loop over `.items()`.
 
 ## Numbers have units
 

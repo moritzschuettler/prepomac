@@ -60,47 +60,97 @@ namespace PrePoMax.Rpc
             writer.EndObject();
             return writer.ToString();
         }
-        private static void WriteMembers(JsonWriter writer, Type type)
+        // A path that ends at a method or at a property holding a plain value is described by that member alone,
+        // read off the type that owns it, because the object the path evaluates to is a bound method or a value
+        // that carries none of the metadata. A property holding an API object is left to the type it returns,
+        // whose members say more. Null when the type has no such member of that name
+        public static string BuildForMember(string path, Type ownerType, string memberName)
         {
+            List<MemberInfo> members = GetApiMembers(ownerType, memberName);
+            members.RemoveAll(member => member is PropertyInfo &&
+                                        typeof(BaseAPI).IsAssignableFrom(((PropertyInfo)member).PropertyType));
+            if (members.Count == 0) return null;
+            //
+            JsonWriter writer = new JsonWriter();
+            writer.BeginObject();
+            writer.WriteValue("path", path);
+            writer.WriteValue("resolvedAs", "member");
+            writer.WriteValue("type", ownerType.Name);
+            writer.WriteValue("isApiObject", false);
             writer.BeginArray("members");
-            if (type == null)
+            foreach (MemberInfo member in members) WriteMember(writer, ownerType, member);
+            writer.EndArray();
+            writer.EndObject();
+            return writer.ToString();
+        }
+        // The names a path below an object of the type may continue with: its API members, and one level into
+        // the API objects its properties hold, which is where a dot written as an underscore usually belongs
+        public static List<string> GetReachableNames(Type type)
+        {
+            List<string> names = new List<string>();
+            foreach (MemberInfo member in GetApiMembers(type, null))
             {
-                writer.EndArray();
-                return;
+                if (!names.Contains(member.Name)) names.Add(member.Name);
+                PropertyInfo property = member as PropertyInfo;
+                if (property == null || !typeof(BaseAPI).IsAssignableFrom(property.PropertyType)) continue;
+                //
+                foreach (MemberInfo child in GetApiMembers(property.PropertyType, null))
+                {
+                    string name = property.Name + "." + child.Name;
+                    if (!names.Contains(name)) names.Add(name);
+                }
             }
+            return names;
+        }
+        private static List<MemberInfo> GetApiMembers(Type type, string name)
+        {
+            List<MemberInfo> members = new List<MemberInfo>();
+            if (type == null) return members;
+            //
             BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
             foreach (PropertyInfo property in type.GetProperties(flags))
             {
-                PythonAPIAttribute attribute = GetAttribute(property);
-                if (attribute == null) continue;
-                //
-                writer.BeginObject();
-                writer.WriteValue("name", property.Name);
+                if (name != null && property.Name != name) continue;
+                if (GetAttribute(property) != null) members.Add(property);
+            }
+            foreach (MethodInfo method in type.GetMethods(flags))
+            {
+                if (method.IsSpecialName || (name != null && method.Name != name)) continue;
+                if (GetAttribute(method) != null) members.Add(method);
+            }
+            return members;
+        }
+        private static void WriteMembers(JsonWriter writer, Type type)
+        {
+            writer.BeginArray("members");
+            foreach (MemberInfo member in GetApiMembers(type, null)) WriteMember(writer, type, member);
+            writer.EndArray();
+        }
+        private static void WriteMember(JsonWriter writer, Type type, MemberInfo member)
+        {
+            PythonAPIAttribute attribute = GetAttribute(member);
+            PropertyInfo property = member as PropertyInfo;
+            writer.BeginObject();
+            writer.WriteValue("name", member.Name);
+            if (property != null)
+            {
                 writer.WriteValue("kind", property.CanWrite ? "property" : "readOnlyProperty");
                 writer.WriteValue("returns", GetReturns(attribute, property.PropertyType.Name));
                 writer.WriteValue("description", attribute.Description);
                 WriteValues(writer, "values",
                             PythonEnumVocabulary.GetValues(type.Name, property.Name, property.Name));
-                WriteExample(writer, attribute);
-                writer.EndObject();
             }
-            foreach (MethodInfo method in type.GetMethods(flags))
+            else
             {
-                if (method.IsSpecialName) continue;
-                PythonAPIAttribute attribute = GetAttribute(method);
-                if (attribute == null) continue;
-                //
-                writer.BeginObject();
-                writer.WriteValue("name", method.Name);
+                MethodInfo method = (MethodInfo)member;
                 writer.WriteValue("kind", "method");
                 writer.WriteValue("arguments", GetArguments(attribute, method));
                 writer.WriteValue("returns", GetReturns(attribute, ""));
                 writer.WriteValue("description", attribute.Description);
                 WriteParameters(writer, type, method);
-                WriteExample(writer, attribute);
-                writer.EndObject();
             }
-            writer.EndArray();
+            WriteExample(writer, attribute);
+            writer.EndObject();
         }
         private static void WriteParameters(JsonWriter writer, Type type, MethodInfo method)
         {
