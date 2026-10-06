@@ -16,6 +16,7 @@ using CaeMesh;
 using CaeGlobals;
 using System.Runtime.Serialization;
 using System.Drawing;
+using CaeResults;
 
 namespace CaeModel
 {
@@ -29,7 +30,7 @@ namespace CaeModel
     }
 
     [Serializable]
-    public class DisplacementRotation : BoundaryCondition, ISerializable
+    public class DisplacementRotation : BoundaryCondition, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
         private EquationContainer _u1;         //ISerializable
@@ -38,6 +39,7 @@ namespace CaeModel
         private EquationContainer _ur1;        //ISerializable
         private EquationContainer _ur2;        //ISerializable
         private EquationContainer _ur3;        //ISerializable
+        private string _distributionName;      //ISerializable
 
 
         // Properties                                                                                                               
@@ -47,6 +49,7 @@ namespace CaeModel
         public EquationContainer UR1 { get { return GetUR(_ur1); } set { SetUR1(value); } }
         public EquationContainer UR2 { get { return GetUR(_ur2); } set { SetUR2(value); } }
         public EquationContainer UR3 { get { return GetUR(_ur3); } set { SetUR3(value); } }
+        public string DistributionName { get { return _distributionName; } set { _distributionName = value; } }
 
 
         // Constructors                                                                                                             
@@ -60,6 +63,7 @@ namespace CaeModel
             UR1 = new EquationContainer(typeof(StringAngleDOFConverter), double.NaN);
             UR2 = new EquationContainer(typeof(StringAngleDOFConverter), double.NaN);
             UR3 = new EquationContainer(typeof(StringAngleDOFConverter), double.NaN);
+            _distributionName = Distribution.DefaultDistributionName;
         }
         public DisplacementRotation(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -116,10 +120,14 @@ namespace CaeModel
                         else
                             SetUR3((EquationContainer)entry.Value, false);
                         break;
+                    case "_distributionName":
+                        _distributionName = (string)entry.Value; break;
                     default:
                         break;
                 }
             }
+            // Compatibility for version v2.6.4
+            if (_distributionName == null) _distributionName = Distribution.DefaultDistributionName;
         }
 
 
@@ -222,6 +230,20 @@ namespace CaeModel
                 error = "Only fixed and unconstrained degrees of freedom can be used at the same time.";
                 return false;
             }
+            if (_distributionName != Distribution.DefaultDistributionName)
+            {
+                if (RegionType == RegionTypeEnum.ReferencePointName)
+                {
+                    error = "A distribution cannot be applied to a reference point.";
+                    return false;
+                }
+                if (IsFreeFixedOrZero())
+                {
+                    error = "A distribution only scales prescribed nonzero degrees of freedom. " +
+                            "Prescribe a nonzero value or set the distribution to " + Distribution.DefaultDistributionName + ".";
+                    return false;
+                }
+            }
             return true;
         }
         public DOFType GetDofType(int dof)
@@ -261,6 +283,205 @@ namespace CaeModel
                 return direction.Coor;
             }
         }
+        public bool IsDistributionTypeSupported(DistributionTypeEnum distributionType, out string error)
+        {
+            error = "";
+            if (distributionType == DistributionTypeEnum.Vector)
+            {
+                for (int dof = 4; dof <= 6; dof++)
+                {
+                    if (GetDofType(dof) == DOFType.Prescribed)
+                    {
+                        error = "A vector distribution scales only U1, U2 and U3. Use a scalar distribution for the " +
+                                "boundary condition " + Name + " or do not prescribe its rotations.";
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        public double[][] GetConstrainValuesForPoints(FeModel model, double[][] points)
+        {
+            return GetConstrainValuesAndDistancesForPoints(model, points, out _);
+        }
+        public double[][] GetConstrainValuesAndDistancesForPoints(FeModel model, double[][] points,
+                                                                  out double[][] distances)
+        {
+            double[] constrainValues = GetConstrainValues();
+            double[][] values = new double[points.Length][];
+            distances = new double[points.Length][];
+            //
+            if (_distributionName == Distribution.DefaultDistributionName)
+            {
+                for (int i = 0; i < points.Length; i++) values[i] = constrainValues.ToArray();
+            }
+            else
+            {
+                double[][] factors;
+                Distribution distribution = model.Distributions[_distributionName];
+                distribution.GetMagnitudesAndDistancesForPoints(model, points, out factors, out distances);
+                //
+                string error;
+                if (!IsDistributionTypeSupported(distribution.DistributionType, out error)) throw new CaeException(error);
+                //
+                int[] directions = GetConstrainedDirections();
+                //
+                for (int i = 0; i < points.Length; i++)
+                {
+                    values[i] = new double[directions.Length];
+                    for (int j = 0; j < directions.Length; j++)
+                    {
+                        if (factors[i].Length == 1) values[i][j] = factors[i][0] * constrainValues[j];
+                        else if (factors[i].Length == 3)
+                        {
+                            if (directions[j] <= 3) values[i][j] = factors[i][directions[j] - 1] * constrainValues[j];
+                            else values[i][j] = constrainValues[j];
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+            return values;
+        }
+        // IPreviewable
+        public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
+        {
+            FeMesh targetMesh = model.Mesh;
+            PartExchangeData allData = new PartExchangeData();
+            targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
+                                           out allData.Cells.CellNodeIds, out allData.Cells.Types);
+            //
+            bool addDistances = _distributionName != Distribution.DefaultDistributionName &&
+                model.Distributions[_distributionName] is MappedDistribution md &&
+                md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
+            //
+            FeNodeSet nodeSet;
+            if (RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeSet = targetMesh.NodeSets[RegionName];
+            }
+            else if (RegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface = targetMesh.Surfaces[RegionName];
+                nodeSet = targetMesh.NodeSets[surface.NodeSetName];
+            }
+            else if (RegionType == RegionTypeEnum.ReferencePointName)
+                throw new CaeException("A boundary condition applied to a reference point cannot be previewed.");
+            else throw new NotSupportedException();
+            //
+            Dictionary<int, int> nodeIdArrayId = new Dictionary<int, int>();
+            double[][] coor = new double[nodeSet.Labels.Length][];
+            for (int i = 0; i < nodeSet.Labels.Length; i++)
+            {
+                nodeIdArrayId[nodeSet.Labels[i]] = i;
+                coor[i] = targetMesh.Nodes[nodeSet.Labels[i]].Coor;
+            }
+            double[][] distances;
+            double[][] values = GetConstrainValuesAndDistancesForPoints(model, coor, out distances);
+            int[] directions = GetConstrainedDirections();
+            bool hasRotations = directions.Any(direction => direction > 3);
+            //
+            int numOfNodes = allData.Nodes.Coor.Length;
+            float[][] dofValues = new float[6][];
+            for (int i = 0; i < dofValues.Length; i++) dofValues[i] = new float[numOfNodes];
+            float[] displacementsAll = new float[numOfNodes];
+            float[] rotationsAll = new float[numOfNodes];
+            float[][] distanceValues = new float[3][];
+            for (int i = 0; i < distanceValues.Length; i++) distanceValues[i] = new float[numOfNodes];
+            float[] distancesAll = new float[numOfNodes];
+            //
+            Parallel.For(0, numOfNodes, i =>
+            {
+                int arrayId;
+                for (int dof = 0; dof < 6; dof++) dofValues[dof][i] = float.NaN;
+                if (nodeIdArrayId.TryGetValue(allData.Nodes.Ids[i], out arrayId))
+                {
+                    // A fixed degree of freedom does not move
+                    for (int j = 0; j < directions.Length; j++)
+                    {
+                        double value = values[arrayId][j];
+                        dofValues[directions[j] - 1][i] = double.IsInfinity(value) ? 0 : (float)value;
+                    }
+                    displacementsAll[i] = GetMagnitude(dofValues[0][i], dofValues[1][i], dofValues[2][i]);
+                    rotationsAll[i] = GetMagnitude(dofValues[3][i], dofValues[4][i], dofValues[5][i]);
+                    //
+                    if (addDistances)
+                    {
+                        double[] distance = distances[arrayId];
+                        for (int j = 0; j < 3; j++) distanceValues[j][i] = (float)distance[j];
+                        distancesAll[i] = (float)Math.Sqrt(distance[0] * distance[0] + distance[1] * distance[1] +
+                                                           distance[2] * distance[2]);
+                    }
+                }
+                else
+                {
+                    displacementsAll[i] = float.NaN;
+                    rotationsAll[i] = float.NaN;
+                    for (int j = 0; j < 3; j++) distanceValues[j][i] = float.NaN;
+                    distancesAll[i] = float.NaN;
+                }
+            });
+            //
+            Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
+            for (int i = 0; i < numOfNodes; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
+            FeResults results = new FeResults(resultName, unitSystem);
+            results.SetMesh(targetMesh, nodeIdsLookUp);
+            // Prepare field data
+            Field field;
+            FieldData fieldData = new FieldData(FOFieldNames.Distance);
+            fieldData.GlobalIncrementId = 1;
+            fieldData.StepType = StepTypeEnum.Static;
+            fieldData.Time = 1;
+            fieldData.MethodId = 1;
+            fieldData.StepId = 1;
+            fieldData.StepIncrementId = 1;
+            //
+            if (addDistances)
+            {
+                field = new Field(fieldData.Name);
+                field.AddComponent(FOComponentNames.All, distancesAll);
+                field.AddComponent(FOComponentNames.D1, distanceValues[0]);
+                field.AddComponent(FOComponentNames.D2, distanceValues[1]);
+                field.AddComponent(FOComponentNames.D3, distanceValues[2]);
+                results.AddField(fieldData, field);
+            }
+            // Displacements
+            fieldData = new FieldData(fieldData);
+            fieldData.Name = FOFieldNames.PrescribedDisp;
+            field = new Field(fieldData.Name);
+            field.AddComponent(FOComponentNames.All, displacementsAll);
+            field.AddComponent(FOComponentNames.U1, dofValues[0]);
+            field.AddComponent(FOComponentNames.U2, dofValues[1]);
+            field.AddComponent(FOComponentNames.U3, dofValues[2]);
+            results.AddField(fieldData, field);
+            // Rotations
+            if (hasRotations)
+            {
+                fieldData = new FieldData(fieldData);
+                fieldData.Name = FOFieldNames.PrescribedRot;
+                field = new Field(fieldData.Name);
+                field.AddComponent(FOComponentNames.All, rotationsAll);
+                field.AddComponent(FOComponentNames.UR1, dofValues[3]);
+                field.AddComponent(FOComponentNames.UR2, dofValues[4]);
+                field.AddComponent(FOComponentNames.UR3, dofValues[5]);
+                results.AddField(fieldData, field);
+            }
+            //
+            return results;
+        }
+        private static float GetMagnitude(float value1, float value2, float value3)
+        {
+            double sum = 0;
+            int count = 0;
+            foreach (float value in new float[] { value1, value2, value3 })
+            {
+                if (float.IsNaN(value)) continue;
+                sum += value * value;
+                count++;
+            }
+            if (count == 0) return float.NaN;
+            else return (float)Math.Sqrt(sum);
+        }
         // IContainsEquations
         public override void CheckEquations()
         {
@@ -285,6 +506,7 @@ namespace CaeModel
             info.AddValue("_ur1", _ur1, typeof(EquationContainer));
             info.AddValue("_ur2", _ur2, typeof(EquationContainer));
             info.AddValue("_ur3", _ur3, typeof(EquationContainer));
+            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

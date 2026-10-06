@@ -27,10 +27,13 @@ namespace FileInOut.Output.Calculix
         protected string _nodeSetNameOfSurface;
         protected ComplexLoadTypeEnum _complexLoadType;
         protected int _maxNumberNodeDOFs;
+        protected int[] _nodeIds;
+        protected double[][] _nodeValues;
 
 
         // Properties                                                                                                               
         public int MaxNumberNodeDOFs { get { return _maxNumberNodeDOFs; } set { _maxNumberNodeDOFs = value; } }
+        public bool CanHideData { get { return _nodeValues != null; } }
 
 
         // Constructor                                                                                                              
@@ -38,16 +41,21 @@ namespace FileInOut.Output.Calculix
             : this(displacementRotation._displacementRotation, displacementRotation._referencePoints,
                    displacementRotation._nodeSetNameOfSurface, displacementRotation._complexLoadType)
         {
+            _nodeIds = displacementRotation._nodeIds;
+            _nodeValues = displacementRotation._nodeValues;
         }
         public CalDisplacementRotation(DisplacementRotation displacementRotation,
                                        Dictionary<string, CalReferencePoint> referencePoints,
-                                       string nodeSetNameOfSurface, ComplexLoadTypeEnum complexLoadType)
+                                       string nodeSetNameOfSurface, ComplexLoadTypeEnum complexLoadType,
+                                       FeModel model = null)
         {
             _displacementRotation = displacementRotation;
             _referencePoints = referencePoints;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
             _complexLoadType = complexLoadType;
             _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
+            if (model != null)
+                _nodeValues = model.GetNodalValuesFromVariableDisplacementRotation(displacementRotation, out _nodeIds);
         }
 
 
@@ -91,8 +99,21 @@ namespace FileInOut.Output.Calculix
             double[] values = _displacementRotation.GetConstrainValues();
             string[] stringValues = new string[values.Length];
             for (int i = 0; i < values.Length; i++) stringValues[i] = (ratio * values[i]).ToCalculiX16String();
+            // Distribution
+            if (_nodeValues != null)
+            {
+                for (int i = 0; i < _nodeIds.Length; i++)
+                {
+                    for (int j = 0; j < directions.Length; j++)
+                    {
+                        sb.AppendFormat("{0}, {1}, {2}", _nodeIds[i], directions[j], directions[j]);
+                        if (!fixedBc) sb.AppendFormat(", {0}", (ratio * _nodeValues[i][j]).ToCalculiX16String());
+                        sb.AppendLine();
+                    }
+                }
+            }
             // Node set
-            if (_displacementRotation.RegionType == RegionTypeEnum.NodeSetName)
+            else if (_displacementRotation.RegionType == RegionTypeEnum.NodeSetName)
             {
                 for (int i = 0; i < directions.Length; i++)
                 {

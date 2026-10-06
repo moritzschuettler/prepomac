@@ -2,11 +2,15 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the step scoped boundary condition collection: the 4 types, the selection and named region
-#forms, and the step scoped collection verbs. A meshed model must be open before the script runs.
+#forms, a distribution on a displacement and rotation, and the step scoped collection verbs. A meshed
+#model must be open before the script runs.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_BCs.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
+
+import os
+import tempfile
 
 PREFIX = "PyTest_"
 STEP = PREFIX + "Static"
@@ -151,6 +155,82 @@ def test_displacement_rotation():
     check(float(equations["u2"].split(" ")[0]) == 0, "the plain u2 value did not read back: " + str(equations["u2"]))
 
 
+def read_boundary_lines(name):
+    """The node coordinates and the *Boundary data lines of the named boundary condition in the written deck."""
+    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "bcs.inp")
+    pmx.export_to_calculix(file_name)
+    with open(file_name) as f:
+        lines = [line.strip() for line in f]
+    os.remove(file_name)
+    coordinates = {}
+    in_nodes = False
+    for line in lines:
+        if line.startswith("*"):
+            in_nodes = line.lower().startswith("*node") and not line.lower().startswith("*node ")
+            continue
+        if in_nodes and line:
+            values = [v.strip() for v in line.split(",")]
+            coordinates[int(values[0])] = [float(v) for v in values[1:4]]
+    start = lines.index("** Name: " + name)
+    check(lines[start + 1].lower().startswith("*boundary"), "no *Boundary follows " + name)
+    rows = []
+    for line in lines[start + 2:]:
+        if not line or line.startswith("*"):
+            break
+        rows.append([v.strip() for v in line.split(",")])
+    return coordinates, rows
+
+
+def test_displacement_rotation_distribution():
+    bcs = pmx.model.steps[STEP].bcs
+    region = pmx.create.region('NodeSetName', NODE_SET)
+    name = PREFIX + "DR_Dist"
+    bc = bcs.add_displacement_rotation(name, region, u1=0, u3=1.5)
+    check(bc.get_value("distribution_name") == "Constant",
+          "unexpected distribution name " + str(bc.get_value("distribution_name")))
+    # A scalar distribution scales every prescribed value node by node, and a zero stays zero
+    bc = bcs.replace_displacement_rotation(name, distribution_name=SCALAR_DISTRIBUTION)
+    check(bc.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
+    coordinates, rows = read_boundary_lines(name)
+    check(len(rows) == 8, "expected two lines per node of the node set, got " + str(rows))
+    for row in rows:
+        node_id, dof, value = int(row[0]), int(row[1]), float(row[3])
+        expected = 0 if dof == 1 else 1.5 * (1 + 0.01 * coordinates[node_id][0])
+        check(abs(value - expected) < 1e-9, "node " + str(node_id) + " dof " + str(dof) + " has " + str(value) +
+              " instead of " + str(expected))
+    # A vector distribution scales u1, u2 and u3 by its components
+    bc = bcs.replace_displacement_rotation(name, u1=0.1, distribution_name=VECTOR_DISTRIBUTION)
+    coordinates, rows = read_boundary_lines(name)
+    for row in rows:
+        node_id, dof, value = int(row[0]), int(row[1]), float(row[3])
+        expected = (0.1 if dof == 1 else 1.5) * coordinates[node_id][dof - 1]
+        check(abs(value - expected) < 1e-9, "node " + str(node_id) + " dof " + str(dof) + " has " + str(value) +
+              " instead of " + str(expected))
+    # The refusals name the arguments and record nothing
+    check_refused(lambda: bcs.replace_displacement_rotation(name, ur3=0.2), "scales only u1, u2 and u3",
+                  "a vector distribution with a prescribed rotation must be refused")
+    check(bc.get_value("ur3") is None, "the refused replacement changed ur3")
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", region, u1=0,
+                                                        distribution_name=SCALAR_DISTRIBUTION),
+                  "none of u1, u2, u3, ur1, ur2 and ur3 has a nonzero value",
+                  "a distribution without a nonzero value must be refused")
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad",
+                                                        pmx.create.region('ReferencePointName', REFERENCE_POINT),
+                                                        u1=1, distribution_name=SCALAR_DISTRIBUTION),
+                  "'distribution_name' cannot be used with a reference point region",
+                  "a distribution on a reference point must be refused")
+    check(not bcs.contains(PREFIX + "Bad"), "a refused boundary condition was recorded")
+    check_raises(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", region, u1=1,
+                                                       distribution_name="NoSuchDistribution"),
+                 "an unknown distribution must be rejected")
+    # The constant distribution brings the node set line back
+    bcs.replace_displacement_rotation(name, distribution_name="Constant")
+    coordinates, rows = read_boundary_lines(name)
+    check([row[0] for row in rows] == [NODE_SET, NODE_SET], "the node set lines did not come back: " +
+          str(rows))
+    bcs.remove([name])
+
+
 def test_submodel():
     bcs = pmx.model.steps[STEP].bcs
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
@@ -277,6 +357,7 @@ def main():
     setup()
     test_regions()
     test_displacement_rotation()
+    test_displacement_rotation_distribution()
     test_submodel()
     test_temperature()
     test_collection_verbs()

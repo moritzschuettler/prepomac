@@ -185,6 +185,18 @@ namespace PrePoMax.Forms
                 (BoundaryCondition.CreationIds == null || BoundaryCondition.CreationIds.Length == 0))
                 throw new CaeException("The boundary condition selection must contain at least one item.");
             //
+            if (BoundaryCondition is IDistribution icd && icd.DistributionName != Distribution.DefaultDistributionName)
+            {
+                Distribution distribution = _controller.GetDistribution(icd.DistributionName);
+                if (BoundaryCondition is TemperatureBC && distribution.DistributionType != DistributionTypeEnum.Scalar)
+                    throw new CaeException("The distribution " + distribution.Name + " is a " +
+                                           distribution.DistributionType + " distribution. A temperature needs a " +
+                                           "Scalar distribution.");
+                if (BoundaryCondition is DisplacementRotation drd &&
+                    !drd.IsDistributionTypeSupported(distribution.DistributionType, out string distributionError))
+                    throw new CaeException(distributionError);
+            }
+            //
             if (BoundaryCondition is DisplacementRotation dr)
             {
                 if (!dr.IsProperlyDefined(out string error)) throw new CaeException(error);
@@ -344,8 +356,8 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref referencePointNames, vdr.ReferencePointName, s => { vdr.ReferencePointName = s; });
                     else throw new NotSupportedException();
                     //
-                    vdr.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames, amplitudeNames,
-                                              coordinateSystemNames);
+                    vdr.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames, distributionNames,
+                                              amplitudeNames, coordinateSystemNames);
                 }
                 else if (_viewBc is ViewSubmodelBC vsm)
                 {
@@ -414,7 +426,8 @@ namespace PrePoMax.Forms
             if (step.IsBoundaryConditionSupported(displacementRotation))
             {
                 ViewDisplacementRotation vdr = new ViewDisplacementRotation(displacementRotation);
-                vdr.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames, amplitudeNames, coordinateSystemNames);
+                vdr.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames, distributionNames, amplitudeNames,
+                                          coordinateSystemNames);
                 vdr.Color = color;
                 item.Tag = vdr;
                 lvTypes.Items.Add(item);

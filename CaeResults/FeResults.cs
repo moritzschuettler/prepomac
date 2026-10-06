@@ -1966,6 +1966,15 @@ namespace CaeResults
                         unitConverter = new StringPressureConverter();
                         unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                         break;
+                    // Preview
+                    case FOFieldNames.PrescribedDisp:
+                        unitConverter = new StringLengthConverter();
+                        unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
+                        break;
+                    case FOFieldNames.PrescribedRot:
+                        unitConverter = new StringAngleConverter();
+                        unitAbbreviation = _unitSystem.AngleUnitAbbreviation;
+                        break;
                     default:
                         unitConverter = new DoubleConverter();
                         unitAbbreviation = "?";

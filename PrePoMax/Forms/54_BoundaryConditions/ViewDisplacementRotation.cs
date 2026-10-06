@@ -134,6 +134,17 @@ namespace PrePoMax
             set { _displacementRotation.PhaseDeg.Equation = value; }
         }
         //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution that scales the prescribed degrees of freedom. A scalar distribution " +
+                              "scales all of them, a vector distribution scales U1, U2 and U3 by its three components.")]
+        [Id(1, 17)]
+        public string DistributionName
+        {
+            get { return _displacementRotation.DistributionName; }
+            set { _displacementRotation.DistributionName = value; }
+        }
+        //
         public override string AmplitudeName
         {
             get { return _displacementRotation.AmplitudeName; }
@@ -177,7 +188,7 @@ namespace PrePoMax
             return _displacementRotation;
         }
         public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames,
-                                          string[] amplitudeNames, string[] coordinateSystemNames)
+                                          string[] distributionNames, string[] amplitudeNames, string[] coordinateSystemNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
@@ -186,11 +197,19 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.ReferencePointName, referencePointNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateDistributionNames(distributionNames);
+            //
             PopulateAmplitudeNames(amplitudeNames);
             //
             PopulateCoordinateSystemNames(coordinateSystemNames);
             //
             UpdateVisibility();
+        }
+        public void PopulateDistributionNames(string[] distributionNames)
+        {
+            List<string> names = new List<string>() { Distribution.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateOptionalProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
         public override void UpdateVisibility()
         {

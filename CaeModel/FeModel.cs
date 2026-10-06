@@ -6630,6 +6630,30 @@ namespace CaeModel
             //
             return temperatureBCs.ToArray();
         }
+        public double[][] GetNodalValuesFromVariableDisplacementRotation(DisplacementRotation displacementRotation,
+                                                                         out int[] nodeIds)
+        {
+            nodeIds = null;
+            if (displacementRotation.DistributionName == Distribution.DefaultDistributionName) return null;
+            // Node set
+            FeNodeSet nodeSet;
+            if (displacementRotation.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeSet = _mesh.NodeSets[displacementRotation.RegionName];
+            }
+            else if (displacementRotation.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface = _mesh.Surfaces[displacementRotation.RegionName];
+                nodeSet = _mesh.NodeSets[surface.NodeSetName];
+            }
+            else throw new CaeException("A distribution cannot be applied to a reference point.");
+            //
+            nodeIds = nodeSet.Labels.ToArray();
+            double[][] coor = new double[nodeIds.Length][];
+            for (int i = 0; i < nodeIds.Length; i++) coor[i] = _mesh.Nodes[nodeIds[i]].Coor;
+            //
+            return displacementRotation.GetConstrainValuesForPoints(this, coor);
+        }
         // Loads                                                                                    
         public double GetAreaForSTLoad(STLoad load)
         {

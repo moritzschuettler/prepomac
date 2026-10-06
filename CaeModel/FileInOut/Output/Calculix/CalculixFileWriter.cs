@@ -1210,6 +1210,7 @@ namespace FileInOut.Output
                 !(keyword is CalElementSet) &&
                 !(keyword is CalInitialTemperature it && it.CanHideData) &&
                 !(keyword is CalTemperatureBC tbc && tbc.CanHideData) &&
+                !(keyword is CalDisplacementRotation cdr && cdr.CanHideData) &&
                 !(keyword is CalVariablePressureLoad) &&
                 !(keyword is CalImportedPressureLoad) &&
                 !(keyword is CalSTLoad) &&
@@ -2490,7 +2491,7 @@ namespace FileInOut.Output
                     if (dispRot.RegionType == RegionTypeEnum.SurfaceName)
                         nodeSetNameOfSurface = model.Mesh.Surfaces[dispRot.RegionName].NodeSetName;
                     CalDisplacementRotation calDisplacementRotation =
-                        new CalDisplacementRotation(dispRot, referencePoints, nodeSetNameOfSurface, complexLoadType);
+                        new CalDisplacementRotation(dispRot, referencePoints, nodeSetNameOfSurface, complexLoadType, model);
                     parent.AddKeyword(calDisplacementRotation);
                 }
                 else if (boundaryCondition is SubmodelBC sm)

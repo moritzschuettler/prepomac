@@ -45,6 +45,28 @@ namespace APIs.Python.Model
             //
             boundaryCondition.CoordinateSystemName = ResolveCoordinateSystemName(coordinateSystemName);
         }
+        // The dialog refuses these combinations on OK, and the model refuses a vector distribution with
+        // prescribed rotations only when the deck is written, so they are rejected here instead
+        public void EnsureDistributionApplicable(DisplacementRotation boundaryCondition)
+        {
+            string name = boundaryCondition.DistributionName;
+            if (name == Distribution.DefaultDistributionName) return;
+            //
+            if (boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName)
+                throw new PythonAPIException("The argument 'distribution_name' cannot be used with a reference " +
+                                             "point region. Give a node set or surface region, or " +
+                                             "distribution_name='" + Distribution.DefaultDistributionName + "'.");
+            if (boundaryCondition.IsFreeFixedOrZero())
+                throw new PythonAPIException("The distribution '" + name + "' given as 'distribution_name' scales " +
+                                             "prescribed values only, and none of u1, u2, u3, ur1, ur2 and ur3 has " +
+                                             "a nonzero value.");
+            Distribution distribution = ModelResolver.GetModel().Distributions[name];
+            string error;
+            if (!boundaryCondition.IsDistributionTypeSupported(distribution.DistributionType, out error))
+                throw new PythonAPIException("The distribution '" + name + "' given as 'distribution_name' is a " +
+                                             "Vector distribution, which scales only u1, u2 and u3. Give a Scalar " +
+                                             "distribution or leave ur1, ur2 and ur3 without a nonzero value.");
+        }
         public void Add(string stepName, BoundaryCondition boundaryCondition)
         {
             // The step silently refuses an unsupported type, so the check is done before the command

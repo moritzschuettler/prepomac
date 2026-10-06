@@ -1729,7 +1729,7 @@ Reached as `step.bcs`. It shares the collection verbs. Every `region` argument i
 | Member | Description |
 | --- | --- |
 | `add_fixed(name, region, color=None)` | A fixed boundary condition. |
-| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. |
+| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, distribution_name=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. A distribution scales its prescribed values over the region. |
 | `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
 | `propagate(name)` | Copies the boundary condition to every following step. Refused from the last step. |
@@ -1743,6 +1743,17 @@ step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=1.5)
 A degree of freedom of a displacement and rotation boundary condition that is **not given is left
 unconstrained**, and reads back as `None`. Because a missing argument means "keep" on a replace,
 `replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again.
+
+A `distribution_name` on a displacement and rotation boundary condition multiplies its prescribed values
+node by node: a `Scalar` distribution scales all of them, a `Vector` distribution scales `u1`, `u2` and
+`u3` by its three components. A value of 0 stays 0. The API refuses it before a command is recorded on a
+reference point region, when no degree of freedom has a nonzero value, and for a `Vector` distribution
+when `ur1`, `ur2` or `ur3` has a nonzero value.
+
+```python
+pmx.model.distributions.add_from_equation('Ramp', 'x / 100')
+step.bcs.add_displacement_rotation('BC-2', selection, u1=0, u2=0, u3=1.5, distribution_name='Ramp')
+```
 
 A reference point region is accepted only by a fixed and by a displacement and rotation boundary
 condition, the two types the dialogs offer it for. `add_submodel` and `add_temperature` refuse
@@ -1906,8 +1917,8 @@ given are kept.
 
 A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature` and `bcs.replace_temperature`,
 `defined_fields.add_temperature` and `defined_fields.replace_temperature`, and `loads.add_pressure` and
-`loads.replace_pressure`. `loads.add_surface_traction` and `loads.replace_surface_traction` accept a `Scalar` or a
-`Vector` distribution.
+`loads.replace_pressure`. `loads.add_surface_traction` and `loads.replace_surface_traction`, and
+`bcs.add_displacement_rotation` and `bcs.replace_displacement_rotation`, accept a `Scalar` or a `Vector` distribution.
 
 ### `DefinedField`
 

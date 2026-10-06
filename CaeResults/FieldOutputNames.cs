@@ -116,6 +116,9 @@ namespace CaeResults
         public const string Imported = "IMPORTED";                      // scalar
         public const string ForcePerArea = "FORCE_PER_AREA";            // vector
         public const string Pressure = "PRESSURE";                      // scalar
+        // Preview
+        public const string PrescribedDisp = "PRESCRIBED_DISP";         // vector
+        public const string PrescribedRot = "PRESCRIBED_ROT";           // vector
         //
         public const string Error = "ERROR";                            // scalar
         public const string ErrorR = "ERRORR";                          // scalar
@@ -347,6 +350,9 @@ namespace CaeResults
         public const string U1 = "U1";
         public const string U2 = "U2";
         public const string U3 = "U3";
+        public const string UR1 = "UR1";
+        public const string UR2 = "UR2";
+        public const string UR3 = "UR3";
         //
         public const string MAG1 = "MAG1";
         public const string MAG2 = "MAG2";

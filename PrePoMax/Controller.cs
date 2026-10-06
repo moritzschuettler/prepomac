@@ -17852,9 +17852,10 @@ namespace PrePoMax
             if (boundaryCondition != null)
             {
                 FeResults results;
-                if (boundaryCondition is TemperatureBC tbc)
+                if (boundaryCondition is IPreviewable previewable)
                 {
-                    results = tbc.GetPreview(_model, stepName + "_" + boundaryConditionName, _model.UnitSystem);
+                    results = previewable.GetPreview(_model, stepName + "_" + boundaryConditionName,
+                                                     _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this boundary condition type.");
                 //

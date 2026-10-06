@@ -60,10 +60,13 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a displacement and rotation boundary condition using command history. A degree of " +
-                   "freedom that is not given is left unconstrained, and a value of 0 fixes it. The " +
-                   "selection target is nodes.",
+                   "freedom that is not given is left unconstrained, and a value of 0 fixes it. A scalar " +
+                   "distribution scales every prescribed degree of freedom, a vector one scales u1, u2 and u3 by " +
+                   "its three components; either needs a nonzero prescribed value and a region that is not a " +
+                   "reference point. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
+                               "distribution_name: str = None, " +
                                "amplitude_name: str = None, coordinate_system_name: str = None, " +
                                "phase_deg: float = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition",
@@ -71,7 +74,8 @@ namespace APIs.Python.Model
         public BoundaryConditionAPI add_displacement_rotation(string name, object region, object u1 = null,
                                                               object u2 = null, object u3 = null,
                                                               object ur1 = null, object ur2 = null,
-                                                              object ur3 = null, object amplitude_name = null,
+                                                              object ur3 = null, object distribution_name = null,
+                                                              object amplitude_name = null,
                                                               object coordinate_system_name = null,
                                                               object phase_deg = null, object color = null)
         {
@@ -82,9 +86,12 @@ namespace APIs.Python.Model
                                          _service.GetIsComplex(StepName), 0);
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
+            if (distribution_name != null)
+                boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
+            _service.EnsureDistributionApplicable(boundaryCondition);
             _service.Add(StepName, boundaryCondition);
             //
             return this[name];
@@ -100,6 +107,7 @@ namespace APIs.Python.Model
                                                                   object u2 = null, object u3 = null,
                                                                   object ur1 = null, object ur2 = null,
                                                                   object ur3 = null,
+                                                                  object distribution_name = null,
                                                                   object amplitude_name = null,
                                                                   object coordinate_system_name = null,
                                                                   object phase_deg = null, object color = null,
@@ -110,9 +118,12 @@ namespace APIs.Python.Model
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs);
+            if (distribution_name != null)
+                boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
+            _service.EnsureDistributionApplicable(boundaryCondition);
             //
             return Replace(old_name, name, boundaryCondition);
         }
