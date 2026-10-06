@@ -50,6 +50,7 @@ EMITTED_NAME_EXCEPTIONS = {
     "emissivity_amplitude_name": "an argument name",
     "hardness": "an argument name",
     "origin": "an argument name",
+    "part_names_before_import": "a variable the import journal binds",
     "point_in_xy": "an argument name",
     "point_on_x": "an argument name",
     "poissons_ratio": "an argument name",

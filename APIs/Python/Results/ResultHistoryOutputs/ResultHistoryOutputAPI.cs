@@ -43,7 +43,8 @@ namespace APIs.Python
                    Returns = "bool")]
         public bool is_user_defined { get { return ResolveOrNull() != null; } }
         [PythonAPI("The history output type, named after the add_* method that makes it without the add_ prefix, " +
-                   "for example from_field or from_table, or None for a solver-generated history output.",
+                   "for example from_field or from_table, from_affine_fit for an output made in the user " +
+                   "interface, which no add_* method makes, or None for a solver-generated history output.",
                    Returns = "str or None")]
         public string item_type
         {

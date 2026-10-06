@@ -47,58 +47,6 @@ namespace APIs.Python
             ValidateRegionArgument(region, "nodes", RegionTypeEnum.NodeSetName, RegionTypeEnum.SurfaceName);
             return new ResultHistoryOutputFromFieldDraftAPI(name, fieldName, components, region);
         }
-        // The affine fit measures the strain of a circular patch of the result mesh, so it takes the
-        // circle rather than a region, and every value the dialog offers is an argument of its own
-        public ResultHistoryOutputFromAffineFitDraftAPI CreateFromAffineFit(string name, object center,
-                                                                            object radius,
-                                                                            object taperStartFraction,
-                                                                            string pointSource,
-                                                                            string weighting,
-                                                                            object cellAreaToleranceFraction,
-                                                                            object areaFilterRelativeMedian,
-                                                                            string strainMeasure,
-                                                                            object loadingDirection,
-                                                                            object stepId,
-                                                                            object incrementId,
-                                                                            object radiusSweepStepCount)
-        {
-            ValidateNameSyntax(name);
-            double radiusValue = PythonValueConverter.ToFiniteDouble(radius, "radius");
-            if (radiusValue <= 0) throw new PythonAPIException("The argument 'radius' must be greater than zero.");
-            double[] centerValue = ToPlanarVector(center, "center");
-            double[] loadingDirectionValue = loadingDirection == null
-                                             ? new double[] { 0, 0 }
-                                             : ToPlanarVector(loadingDirection, "loading_direction");
-            //
-            return new ResultHistoryOutputFromAffineFitDraftAPI(
-                name,
-                centerValue[0],
-                centerValue[1],
-                radiusValue,
-                taperStartFraction == null
-                    ? 1 : PythonValueConverter.ToFiniteDouble(taperStartFraction, "taper_start_fraction"),
-                pointSource == null
-                    ? AffineFitPointSourceEnum.CellCentroids
-                    : PythonValueConverter.ToEnum<AffineFitPointSourceEnum>(pointSource, "point_source"),
-                weighting == null
-                    ? AffineFitWeightingEnum.Area
-                    : PythonValueConverter.ToEnum<AffineFitWeightingEnum>(weighting, "weighting"),
-                cellAreaToleranceFraction == null
-                    ? 0.2 : PythonValueConverter.ToFiniteDouble(cellAreaToleranceFraction,
-                                                                "cell_area_tolerance_fraction"),
-                areaFilterRelativeMedian == null
-                    ? 1 : PythonValueConverter.ToFiniteDouble(areaFilterRelativeMedian,
-                                                              "area_filter_relative_median"),
-                strainMeasure == null
-                    ? AffineFitStrainMeasureEnum.Linear
-                    : PythonValueConverter.ToEnum<AffineFitStrainMeasureEnum>(strainMeasure, "strain_measure"),
-                loadingDirectionValue[0],
-                loadingDirectionValue[1],
-                stepId == null ? -1 : PythonValueConverter.ToInt(stepId, "step_id"),
-                incrementId == null ? -1 : PythonValueConverter.ToInt(incrementId, "increment_id"),
-                radiusSweepStepCount == null
-                    ? 1 : PythonValueConverter.ToInt(radiusSweepStepCount, "radius_sweep_step_count"));
-        }
         public ResultHistoryOutputFromEquationDraftAPI CreateFromEquation(string name, string equation, string unit)
         {
             ValidateNameSyntax(name);
@@ -365,25 +313,8 @@ namespace APIs.Python
                 ValidateFromExtractedEntry(result, fromExtractedEntry, replacedName);
             else if (output is ResultHistoryOutputXY xy) ValidateXY(result, xy, replacedName);
             else if (output is ResultHistoryOutputFromTable fromTable) ValidateFromTable(fromTable);
-            else if (output is ResultHistoryOutputFromAffineFit affineFit) ValidateFromAffineFit(affineFit);
             else throw new PythonAPIException("The result history output type '" + output.GetType().Name +
                                               "' is not supported.");
-        }
-        // The fit works on the whole result mesh rather than on a region of it, so only its own values
-        // are checked here
-        private static void ValidateFromAffineFit(ResultHistoryOutputFromAffineFit output)
-        {
-            if (output.Radius <= 0)
-                throw new PythonAPIException("The argument 'radius' must be greater than zero.");
-            if (output.TaperStartFraction <= 0 || output.TaperStartFraction > 1)
-                throw new PythonAPIException("The argument 'taper_start_fraction' must be in (0, 1].");
-            if (output.CellAreaToleranceFraction < 0)
-                throw new PythonAPIException("The argument 'cell_area_tolerance_fraction' must not be negative.");
-            if (output.AreaFilterRelativeMedian <= 0)
-                throw new PythonAPIException("The argument 'area_filter_relative_median' must be greater " +
-                                              "than zero.");
-            if (output.RadiusSweepStepCount < 1)
-                throw new PythonAPIException("The argument 'radius_sweep_step_count' must be at least 1.");
         }
         private static void ValidateFromField(FeResults result, ResultHistoryOutputFromField output)
         {
@@ -697,19 +628,6 @@ namespace APIs.Python
             if (!FeResults.GetPossibleDeformationFieldOutputNamesMap().ContainsKey(deformationVariableName))
                 throw new PythonAPIException("Unsupported deformation_variable_name '" +
                                              deformationVariableName + "'.");
-        }
-        internal static double[] ToPlanarVector(object value, string argumentName)
-        {
-            double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
-            if (vector.Length != 2)
-                throw new PythonAPIException("The argument '" + argumentName + "' must contain 2 values.");
-            foreach (double component in vector)
-            {
-                if (double.IsNaN(component) || double.IsInfinity(component))
-                    throw new PythonAPIException("The argument '" + argumentName + "' must be finite.");
-            }
-            //
-            return vector;
         }
         private static void ValidateNameSyntax(string name)
         {

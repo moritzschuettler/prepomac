@@ -3279,12 +3279,10 @@ The supported region combinations are:
 Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface Normals"`, `"Wear Depths"`, `"Mesh Deformation"`, `"Disp&Def"`, and `"Disp&Def&Depth"`.
 
 The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
-`add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`,
-`add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. `add_from_field` and `replace_from_field` take the same `region` as the draft and
+`add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`
+and `add_from_table`, each with a matching `replace_*`. `add_from_field` and `replace_from_field` take the same `region` as the draft and
 also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
-`harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The affine fit measures
-the strain of a circular patch of the result mesh, so it names the circle - `center=[x, y]`
-and `radius` - rather than a region; `loading_direction=[x, y]`, `step_id` and `increment_id` pick the loading and the increment, and the rest of its values carry the defaults the dialog offers. The draft form is kept here as well, because a
+`harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
 
 ### `HistoryOutputFilter`
@@ -3351,14 +3349,15 @@ From Table draft. Adds to `HistoryOutputDraft`:
 Base representation of a history output. The `history_outputs` collection holds both the history outputs produced
 by the solver and those defined by the user, so `is_user_defined` tells the two apart. Looking a user-defined
 output up by name returns the matching type-specific object below; solver-generated outputs and From Affine Fit
-outputs return this base object.
+outputs return this base object. A From Affine Fit output is made in the user interface only: the API reads it but
+offers no way to add or replace one, and a session journal reports such a command as not emitted.
 
 | Member | Description |
 | --- | --- |
 | `name` | History output name. |
 | `fields` | History fields in the output. |
 | `is_user_defined` | `True` when the output was defined by the user instead of produced by the solver. |
-| `item_type` | `from_field`, `from_equation`, `from_affine_fit`, `from_integration`, `from_merged_histories`, `from_extracted_entry`, `xy` or `from_table`, named after the `add_*` method that makes it, or `None` for a solver-generated output. |
+| `item_type` | `from_field`, `from_equation`, `from_integration`, `from_merged_histories`, `from_extracted_entry`, `xy` or `from_table`, named after the `add_*` method that makes it, `from_affine_fit` for a From Affine Fit output made in the user interface, which no `add_*` method makes, or `None` for a solver-generated output. |
 | `filter1` | First `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
 | `filter2` | Second `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
 

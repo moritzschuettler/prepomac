@@ -588,28 +588,11 @@ try:
     for name in CLEANUP_ORDER:
         check(not history_outputs.contains(name), "remove() did not remove '%s'." % name)
     print("PASS: remove multiple history outputs")
-    # AFFINE FIT: the fit names a circular patch rather than a region, and it assumes a planar model,
-    # so on the solved cube the application is expected to report that the model is not planar. The
-    # argument validation runs before the application is reached and is checked on its own.
-    def add_affine_fit(radius=0.4, **values):
-        return history_outputs.add_from_affine_fit("PyTest_Affine", [0.5, 0.5], radius, **values)
-
-    for message, arguments in [("a radius of zero", {"radius": 0}),
-                               ("a taper start fraction above one", {"taper_start_fraction": 2}),
-                               ("a radius sweep step count below one", {"radius_sweep_step_count": 0})]:
-        try:
-            add_affine_fit(**arguments)
-            check(False, "%s must be rejected" % message)
-        except Exception:
-            pass
-    check(not history_outputs.contains("PyTest_Affine"), "a rejected affine fit must not be recorded")
-    # The definition itself is accepted and reaches the application, which refuses a solid model
-    try:
-        add_affine_fit()
-        check(False, "the affine fit must refuse a model that is not planar")
-    except Exception as ex:
-        check("planar" in str(ex).lower(), "unexpected affine fit failure: " + str(ex)[0:200])
-    print("PASS: the affine fit validates its circle and refuses a model that is not planar")
+    # AFFINE FIT: the From Affine Fit output is made in the user interface only, so the API must not
+    # offer a way to add or replace one
+    for member in ["add_from_affine_fit", "replace_from_affine_fit"]:
+        check(not hasattr(history_outputs, member), "the API must not offer %s" % member)
+    print("PASS: the API offers no From Affine Fit history output")
 
     print("RESULT: all applicable result history-output command tests passed")
     print("TEST PASSED")

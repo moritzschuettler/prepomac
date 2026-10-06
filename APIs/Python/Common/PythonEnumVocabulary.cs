@@ -139,9 +139,6 @@ namespace APIs.Python
             types.Add("nodes_to_keep", typeof(NodesToKeepEnum));
             // Analyses and results
             types.Add("fem_solver", typeof(FEMSolverEnum));
-            types.Add("point_source", typeof(AffineFitPointSourceEnum));
-            types.Add("strain_measure", typeof(AffineFitStrainMeasureEnum));
-            types.Add("weighting", typeof(AffineFitWeightingEnum));
             types.Add("interpolator_type", typeof(InterpolatorEnum));
             types.Add("add_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
             types.Add("replace_from_file.interpolator_type", typeof(CloudInterpolatorEnum));

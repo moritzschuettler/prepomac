@@ -152,29 +152,6 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("x_axis_unit=" + PythonValueFormatter.Text(fromTable.XAxisUnit));
                 arguments.Add("y_axis_unit=" + PythonValueFormatter.Text(fromTable.YAxisUnit));
             }
-            else if (output is ResultHistoryOutputFromAffineFit affineFit)
-            {
-                method = verb + "_from_affine_fit";
-                arguments.Add(PythonValueFormatter.List(new double[] { affineFit.CenterX, affineFit.CenterY }));
-                arguments.Add(PythonValueFormatter.Number(affineFit.Radius));
-                arguments.Add("taper_start_fraction=" +
-                              PythonValueFormatter.Number(affineFit.TaperStartFraction));
-                arguments.Add("point_source=" + PythonValueFormatter.Text(affineFit.PointSource.ToString()));
-                arguments.Add("weighting=" + PythonValueFormatter.Text(affineFit.Weighting.ToString()));
-                arguments.Add("cell_area_tolerance_fraction=" +
-                              PythonValueFormatter.Number(affineFit.CellAreaToleranceFraction));
-                arguments.Add("area_filter_relative_median=" +
-                              PythonValueFormatter.Number(affineFit.AreaFilterRelativeMedian));
-                arguments.Add("strain_measure=" +
-                              PythonValueFormatter.Text(affineFit.StrainMeasure.ToString()));
-                arguments.Add("loading_direction=" +
-                              PythonValueFormatter.List(new double[] { affineFit.LoadingDirectionX,
-                                                                       affineFit.LoadingDirectionY }));
-                arguments.Add("step_id=" + PythonValueFormatter.Format(affineFit.StepId));
-                arguments.Add("increment_id=" + PythonValueFormatter.Format(affineFit.StepIncrementId));
-                arguments.Add("radius_sweep_step_count=" +
-                              PythonValueFormatter.Format(affineFit.RadiusSweepStepCount));
-            }
             else if (output is ResultHistoryOutputFromElementSize elementSize)
             {
                 // The From Element Size output was replaced in v2.6.0 by an integration over the geometry,
