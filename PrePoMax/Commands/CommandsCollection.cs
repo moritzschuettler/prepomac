@@ -358,7 +358,7 @@ namespace PrePoMax.Commands
             command.TimeSpan = stopwatch.Elapsed;
             //
             if (result) ReconcileKeywordOverrides(command, keywordOverridesSnapshot, keywordStateMessages);
-            else ShowKeywordStateMessages(keywordStateMessages);
+            else _controller.ShowOrDeferKeywordStateMessages(keywordStateMessages);
             //
             return result;
         }
@@ -458,12 +458,7 @@ namespace PrePoMax.Commands
                 }
             }
             //
-            ShowKeywordStateMessages(parts);
-        }
-        private static void ShowKeywordStateMessages(List<string> messages)
-        {
-            if (messages != null && messages.Count > 0)
-                MessageBoxes.ShowWarning(string.Join(Environment.NewLine, messages));
+            _controller.ShowOrDeferKeywordStateMessages(parts);
         }
         private static KeywordOverrideStatus GetKeywordOverrideStatus(
             List<CalculixKeyword> keywords, CalculixKeywordOverride keywordOverride)

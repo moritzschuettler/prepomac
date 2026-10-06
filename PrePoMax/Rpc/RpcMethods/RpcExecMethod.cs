@@ -43,7 +43,7 @@ namespace PrePoMax.Rpc
             DateTime started = DateTime.Now;
             PythonEngineResult result;
             if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
-            else result = PythonEngineManager.ExecuteScript(source);
+            else result = controller.ExecutePythonWithKeywordStateReport(() => PythonEngineManager.ExecuteScript(source));
             double elapsed = (DateTime.Now - started).TotalSeconds;
             List<Command> recorded = GetRecordedCommands(controller, commandsBefore);
             //

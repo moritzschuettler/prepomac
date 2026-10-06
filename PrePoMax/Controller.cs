@@ -91,6 +91,7 @@ namespace PrePoMax
         [NonSerialized] protected List<string> _errors;
         [NonSerialized] protected List<string> _warnings;
         [NonSerialized] protected List<string> _deferredKeywordStateMessages;
+        [NonSerialized] protected int _keywordStateNotificationBatchDepth;
         //
         protected FeModel _model;
         [NonSerialized] private ExecutableJobRunner _jobRunner;
@@ -637,17 +638,49 @@ namespace PrePoMax
         //}
 
         #region Validity   #########################################################################################################
+        // Batches nest: a command run by a Python script opens its own batch inside the one the script opened,
+        // and only the outermost batch hands the collected messages back
         internal void BeginKeywordStateNotificationBatch()
         {
-            _deferredKeywordStateMessages = new List<string>();
+            if (_keywordStateNotificationBatchDepth == 0) _deferredKeywordStateMessages = new List<string>();
+            _keywordStateNotificationBatchDepth++;
         }
         internal List<string> EndKeywordStateNotificationBatch()
         {
+            if (_keywordStateNotificationBatchDepth > 0) _keywordStateNotificationBatchDepth--;
+            if (_keywordStateNotificationBatchDepth > 0) return null;
+            //
             List<string> messages = _deferredKeywordStateMessages;
             _deferredKeywordStateMessages = null;
             return messages;
         }
-        private void ShowOrDeferKeywordStateMessages(List<string> messages)
+        // A script reports keyword state changes once, as text after its own output, because a dialog would
+        // stop the script after every call that changed them
+        public PythonEngineResult ExecutePythonWithKeywordStateReport(Func<PythonEngineResult> execute)
+        {
+            PythonEngineResult result = null;
+            List<string> messages;
+            BeginKeywordStateNotificationBatch();
+            try
+            {
+                result = execute();
+            }
+            finally
+            {
+                messages = EndKeywordStateNotificationBatch();
+                if (result == null) ShowOrDeferKeywordStateMessages(messages);
+            }
+            //
+            if (messages != null && messages.Count > 0)
+            {
+                string output = result.Output ?? "";
+                if (output.Length > 0 && !output.EndsWith("\n")) output += Environment.NewLine;
+                result.Output = output + "Warning: " + string.Join(Environment.NewLine + "Warning: ", messages) +
+                                Environment.NewLine;
+            }
+            return result;
+        }
+        internal void ShowOrDeferKeywordStateMessages(List<string> messages)
         {
             if (messages == null || messages.Count == 0) return;
             //
@@ -19703,7 +19736,8 @@ namespace PrePoMax
             _commands.BeginCommandRecordingSuppression();
             try
             {
-                return PythonEngineManager.ExecuteScriptInNewScope(script, _allResults, this, fileName, arguments);
+                return ExecutePythonWithKeywordStateReport(
+                    () => PythonEngineManager.ExecuteScriptInNewScope(script, _allResults, this, fileName, arguments));
             }
             finally
             {

@@ -3031,7 +3031,8 @@ namespace PrePoMax
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
-            PythonEngineResult result = PythonEngineManager.PushLine(e.Command);
+            PythonEngineResult result = _controller.ExecutePythonWithKeywordStateReport(
+                () => PythonEngineManager.PushLine(e.Command));
             //
             e.Output = result.Output;
             e.Error = result.Error;
@@ -3042,7 +3043,8 @@ namespace PrePoMax
             if (!TakeStateForPythonScript(e)) return;
             try
             {
-                PythonEngineResult result = PythonEngineManager.ExecuteScript(e.Command);
+                PythonEngineResult result = _controller.ExecutePythonWithKeywordStateReport(
+                    () => PythonEngineManager.ExecuteScript(e.Command));
                 //
                 e.Output = result.Output;
                 e.Error = result.Error;
