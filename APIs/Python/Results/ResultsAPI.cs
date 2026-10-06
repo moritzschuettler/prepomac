@@ -23,21 +23,18 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The currently selected result.", Returns = "Result")]
-        public ResultAPI current
+        [PythonAPI("The currently selected result. Setting it to the loaded path name of a result, or to a " +
+                   "Result, selects that result the way the results list of the toolbar does.",
+                   Returns = "Result")]
+        public object current
         {
-            get
-            {
-                string resultName = _resolver.GetCurrentResultName();
-                if (resultName == null) throw new PythonAPIException("No current result is selected.");
-                return new ResultAPI(_resolver, resultName, _resultFieldOutputService,
-                                     _resultHistoryOutputService, _selectionService, _commandGateway);
-            }
+            get { return GetCurrent(); }
+            set { SetCurrent(value); }
         }
         [PythonAPI("Result history outputs for the currently selected result.", Returns = "HistoryOutputs")]
-        public ResultHistoryOutputsAPI history_outputs { get { return current.history_outputs; } }
+        public ResultHistoryOutputsAPI history_outputs { get { return GetCurrent().history_outputs; } }
         [PythonAPI("User-defined field outputs for the currently selected result.", Returns = "FieldOutputs")]
-        public ResultFieldOutputsAPI field_outputs { get { return current.field_outputs; } }
+        public ResultFieldOutputsAPI field_outputs { get { return GetCurrent().field_outputs; } }
 
 
         // Constructors
@@ -88,20 +85,6 @@ namespace APIs.Python
             return new StringListAPI(_resolver.GetResultNames());
         }
 
-        [PythonAPI("Sets the current result using its loaded path name and returns it.",
-                   Arguments = "result_name: str", Returns = "Result")]
-        public ResultAPI set_current(string result_name)
-        {
-            if (!_resolver.ContainsResult(result_name))
-                throw new PythonAPIException("The result '" + result_name + "' is not loaded.");
-            if (_commandGateway == null)
-                throw new PythonAPIException("Result selection is not available in this Python API context.");
-            _commandGateway.SetCurrentResults(result_name);
-            if (!_resolver.IsCurrentResult(result_name))
-                throw new PythonAPIException("The result '" + result_name + "' could not be selected.");
-            return current;
-        }
-
         [PythonAPI("Removes the current result using command history.", Returns = "None")]
         public void remove_current()
         {
@@ -117,13 +100,34 @@ namespace APIs.Python
             _commandGateway.ClearResults();
         }
 
-        [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "result_name: str", Returns = "bool")]
-        public bool contains(string result_name)
+        [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _resolver.ContainsResult(result_name);
+            return _resolver.ContainsResult(name);
         }
 
         //
+        private ResultAPI GetCurrent()
+        {
+            string resultName = _resolver.GetCurrentResultName();
+            if (resultName == null) throw new PythonAPIException("No current result is selected.");
+            return new ResultAPI(_resolver, resultName, _resultFieldOutputService,
+                                 _resultHistoryOutputService, _selectionService, _commandGateway);
+        }
+        private void SetCurrent(object value)
+        {
+            ResultAPI result = value as ResultAPI;
+            string resultName = result != null ? result.name : value as string;
+            if (resultName == null)
+                throw new PythonAPIException("The current result is set to the name of a loaded result or to a Result.");
+            if (!_resolver.ContainsResult(resultName))
+                throw new PythonAPIException("The result '" + resultName + "' is not loaded.");
+            if (_commandGateway == null)
+                throw new PythonAPIException("Result selection is not available in this Python API context.");
+            _commandGateway.SetCurrentResults(resultName);
+            if (!_resolver.IsCurrentResult(resultName))
+                throw new PythonAPIException("The result '" + resultName + "' could not be selected.");
+        }
         private void EnsureCommandsAvailable()
         {
             if (_commandGateway == null)

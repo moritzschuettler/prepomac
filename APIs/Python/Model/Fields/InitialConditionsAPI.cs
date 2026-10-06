@@ -104,7 +104,7 @@ namespace APIs.Python.Model
                                                        object temperature = null,
                                                        object distribution_name = null)
         {
-            InitialTemperature item = _service.Clone<InitialTemperature>(old_name, "initial temperature");
+            InitialTemperature item = _service.Clone<InitialTemperature>(old_name, "temperature");
             ApplyReplacedName(item, old_name, name, region);
             if (temperature != null)
                 item.Temperature.Equation = PythonValueConverter.ToEquationString(temperature, "temperature");
@@ -123,7 +123,7 @@ namespace APIs.Python.Model
                                                                   object v2 = null, object v3 = null)
         {
             InitialTranslationalVelocity item =
-                _service.Clone<InitialTranslationalVelocity>(old_name, "initial translational velocity");
+                _service.Clone<InitialTranslationalVelocity>(old_name, "translational_velocity");
             ApplyReplacedName(item, old_name, name, region);
             if (v1 != null) item.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
             if (v2 != null) item.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
@@ -142,7 +142,7 @@ namespace APIs.Python.Model
                                                             object rotational_speed = null)
         {
             InitialAngularVelocity item =
-                _service.Clone<InitialAngularVelocity>(old_name, "initial angular velocity");
+                _service.Clone<InitialAngularVelocity>(old_name, "angular_velocity");
             ApplyReplacedName(item, old_name, name, region);
             if (axis_point != null)
             {

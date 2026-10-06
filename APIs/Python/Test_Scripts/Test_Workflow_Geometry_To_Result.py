@@ -61,7 +61,7 @@ def mesh_the_geometry():
     geometry_metadata = metadata_signature(part)
     selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
     pmx.model.mesh.setup_items.add_meshing_parameters(PREFIX + "Parameters", selection, max_size=0.5)
-    pmx.model.mesh.create(part.name)
+    pmx.model.mesh.generate(part.name)
     check(len(pmx.model.parts) > 0, "the geometry was not meshed into a model part")
     mesh_part = pmx.model.parts.first()
     check(mesh_part.element_count > 0, "the meshed part has no elements")

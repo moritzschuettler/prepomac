@@ -97,10 +97,10 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the history component exists in this field.", Arguments = "component_name: str", Returns = "bool")]
-        public bool contains(string component_name)
+        [PythonAPI("Returns true if the history component exists in this field.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _resultHistoryService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Contains(component_name);
+            return _resultHistoryService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Contains(name);
         }
         public override string ToString()
         {

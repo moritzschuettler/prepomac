@@ -72,7 +72,7 @@ def test_field_outputs():
     check(count_before == 2, "a new static step has two field outputs, found " + str(count_before))
     # Nodal
     output = outputs.add_nodal(PREFIX + "NF", ["U", "RF"], last_iterations=True)
-    check(output.field_output_type == "NodalFieldOutput", "unexpected type " + output.field_output_type)
+    check(output.item_type == "nodal", "unexpected type " + output.item_type)
     check(sorted(list(output.get_variables())) == ["RF", "U"],
           "unexpected variables " + str(list(output.get_variables())))
     check(output.last_iterations, "last_iterations was not set")
@@ -134,8 +134,7 @@ def test_history_outputs():
     check(len(outputs) == 0, "a new step has no history outputs")
     # Nodal
     output = outputs.add_nodal(PREFIX + "HN", node_selection([1, 2]), ["U", "RF"], totals_type="Only")
-    check(output.history_output_type == "NodalHistoryOutput",
-          "unexpected type " + output.history_output_type)
+    check(output.item_type == "nodal", "unexpected type " + output.item_type)
     check(output.region_type == "NodeSetName", "unexpected region type " + output.region_type)
     check(sorted(list(output.get_variables())) == ["RF", "U"], "unexpected variables")
     check(output.totals_type == "Only", "the totals type was not set")
@@ -180,8 +179,7 @@ def test_defined_fields():
     fields = pmx.model.steps[STEP].defined_fields
     check(len(fields) == 0, "a new step has no defined fields")
     field = fields.add_temperature(PREFIX + "DF", node_selection([1, 2]), 100)
-    check(field.defined_field_type == "DefinedTemperature",
-          "unexpected type " + field.defined_field_type)
+    check(field.item_type == "temperature", "unexpected type " + field.item_type)
     check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
     check(field.get_value("temperature") == 100, "the temperature was not set")
     check(field.get_value("type") == "ByValue", "unexpected defined temperature type")
@@ -224,8 +222,9 @@ def test_defined_fields():
     file_name = os.path.join(tempfile.gettempdir(), "pytest_temperature.frd")
     open(file_name, "w").close()
     try:
-        field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name, step_number=1)
+        field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name, step_id=1)
         check(field.get_value("type") == "FromFile", "the defined field was not switched to a file")
+        check(field.item_type == "temperature_from_file", "unexpected type " + field.item_type)
         # Back to a value needs the region that a field read from a file does not carry
         check_raises(lambda: fields.replace_temperature(PREFIX + "DF", temperature=300),
                      "a from file defined field was given a value without a region")

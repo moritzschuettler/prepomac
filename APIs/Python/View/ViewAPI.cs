@@ -137,17 +137,18 @@ namespace APIs.Python
             //
             Resolve().SetViewParameters(values);
         }
-        [PythonAPI("Turns the camera about the model by the given angles in degrees: azimuth about the " +
-                   "vertical axis of the view, elevation about its horizontal axis, and roll about the " +
+        [PythonAPI("Turns the camera about the model by the given angles in degrees: azimuth_deg about the " +
+                   "vertical axis of the view, elevation_deg about its horizontal axis, and roll_deg about the " +
                    "viewing direction. A mouse rotation is the same operation, so a picture from a slightly " +
                    "turned standard view is set_orientation followed by rotate.",
-                   Arguments = "azimuth: float, elevation: float = 0, roll: float = 0", Returns = "None",
+                   Arguments = "azimuth_deg: float, elevation_deg: float = 0, roll_deg: float = 0", Returns = "None",
                    Example = "pmx.view.set_orientation('Front')\npmx.view.rotate(30, 20)")]
-        public void rotate(object azimuth, object elevation = null, object roll = null)
+        public void rotate(object azimuth_deg, object elevation_deg = null, object roll_deg = null)
         {
-            double azimuthAngle = PythonValueConverter.ToFiniteDouble(azimuth, "azimuth");
-            double elevationAngle = elevation == null ? 0 : PythonValueConverter.ToFiniteDouble(elevation, "elevation");
-            double rollAngle = roll == null ? 0 : PythonValueConverter.ToFiniteDouble(roll, "roll");
+            double azimuthAngle = PythonValueConverter.ToFiniteDouble(azimuth_deg, "azimuth_deg");
+            double elevationAngle = elevation_deg == null ? 0 : PythonValueConverter.ToFiniteDouble(elevation_deg,
+                                                                                                      "elevation_deg");
+            double rollAngle = roll_deg == null ? 0 : PythonValueConverter.ToFiniteDouble(roll_deg, "roll_deg");
             Resolve().Rotate(azimuthAngle, elevationAngle, rollAngle);
         }
         [PythonAPI("Moves the camera so that it looks at the given point in model coordinates, keeping the " +

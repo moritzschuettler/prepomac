@@ -98,10 +98,10 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if this increment contains the specified field.", Arguments = "field_name: str", Returns = "bool")]
-        public bool contains(string field_name)
+        [PythonAPI("Returns true if this increment contains the specified field.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Contains(field_name);
+            return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Contains(name);
         }
         public override string ToString()
         {

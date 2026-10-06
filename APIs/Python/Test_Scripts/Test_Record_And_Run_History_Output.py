@@ -35,7 +35,7 @@ for output_name in [TABLE_OUTPUT_NAME, SOURCE_OUTPUT_NAME]:
         history_outputs.remove([output_name])
 
 # Select all result nodes belonging to surface query ID 1 of part ID 1.
-surface_nodes = pmx.selection.create_by_ids(
+surface_nodes = pmx.create.selection_by_ids(
     view="results",
     target="nodes",
     source="surfaces",

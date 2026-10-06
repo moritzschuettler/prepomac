@@ -54,15 +54,15 @@ namespace APIs.Python.Model
             return constraint;
         }
         // The type cannot change on a replace, the same way the dialog only edits the type it opened
-        public TConstraint CloneForReplace<TConstraint>(string name, string typeName)
+        public TConstraint CloneForReplace<TConstraint>(string name, string itemType)
             where TConstraint : Constraint
         {
             Constraint constraint = ResolveConstraint(name);
             // A cyclic symmetry derives from a tie, so only the exact type is the one being replaced
             if (constraint.GetType() != typeof(TConstraint))
-                throw new PythonAPIException("The constraint '" + name + "' is a " + constraint.GetType().Name +
-                                             ", so it cannot be replaced by a " + typeName +
-                                             ". Remove it and add the new type instead.");
+                throw new PythonAPIException("The constraint '" + name + "' is made by add_" +
+                                             ConstraintAPI.GetItemType(constraint) + ", so replace_" + itemType +
+                                             " cannot replace it. Remove it and add the new type instead.");
             //
             TConstraint clone = ((TConstraint)constraint).DeepClone();
             // Controller.ReplaceConstraint always deletes the internal sets of the old constraint and

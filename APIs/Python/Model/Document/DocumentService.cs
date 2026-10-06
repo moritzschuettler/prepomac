@@ -167,7 +167,7 @@ namespace APIs.Python.Model
             ModelProperties properties = _modelResolver.GetModel().Properties;
             if (name == "number_of_cycles") return properties.NumberOfCycles.String;
             if (name == "cycles_increment") return properties.CyclesIncrement.String;
-            if (name == "num_of_smoothing_steps") return properties.NumOfSmoothingSteps.String;
+            if (name == "number_of_smoothing_steps") return properties.NumOfSmoothingSteps.String;
             //
             throw new PythonAPIException("The model property '" + name + "' is not an equation.");
         }
@@ -212,7 +212,7 @@ namespace APIs.Python.Model
                                                                                             "cycles_increment");
             if (numOfSmoothingSteps != null)
                 properties.NumOfSmoothingSteps.Equation =
-                    PythonValueConverter.ToEquationString(numOfSmoothingSteps, "num_of_smoothing_steps");
+                    PythonValueConverter.ToEquationString(numOfSmoothingSteps, "number_of_smoothing_steps");
             if (bdmRemeshing != null)
                 properties.BdmRemeshing = PythonValueConverter.ToBool(bdmRemeshing, "bdm_remeshing");
             properties.AbsoluteZero = ToConstant(absoluteZero, properties.AbsoluteZero, clearUndefinedConstants,

@@ -57,12 +57,12 @@ def test_setup_items(part_name, selection):
     item = pmx.model.mesh.setup_items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection,
                                                              max_size=0.5, min_size=0.1, second_order=False)
     check(items.contains(MESHING_PARAMETERS_NAME), "the meshing parameters were not added")
-    check(item.item_type == "MeshingParameters", "unexpected item type " + item.item_type)
+    check(item.item_type == "meshing_parameters", "unexpected item type " + item.item_type)
     check(len(item.get_geometry_ids()) > 0, "the item has no geometry IDs")
     # Local mesh size
     pmx.model.mesh.setup_items.add_local_mesh_size(LOCAL_SIZE_NAME, selection, element_size=0.25)
     check(len(items) == count_before + 2, "the local mesh size was not added")
-    check(items[LOCAL_SIZE_NAME].item_type == "LocalMeshSize", "unexpected local mesh size type")
+    check(items[LOCAL_SIZE_NAME].item_type == "local_mesh_size", "unexpected local mesh size type")
     # Either size or number of elements, never both and never neither
     check_raises(lambda: items.add_local_mesh_size("PyTest_Bad", selection),
                  "a local mesh size without a value must be rejected")
@@ -78,7 +78,7 @@ def test_setup_items(part_name, selection):
     box = import_cad_box()
     box_face = pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces', {box.id: [5]})
     pmx.model.mesh.setup_items.add_sweep_mesh("PyTest_Sweep", box_face)
-    check(items["PyTest_Sweep"].item_type == "SweepMesh", "the sweep mesh item was not added")
+    check(items["PyTest_Sweep"].item_type == "sweep_mesh", "the sweep mesh item was not added")
     check(items["PyTest_Sweep"].valid, "the sweep mesh item on the CAD box is not valid")
     items.remove(["PyTest_Sweep"])
     # An unknown enum value is rejected
@@ -129,11 +129,11 @@ def test_dialog_targets(part_name):
 
 def test_meshing(part_name, selection):
     pmx.model.mesh.setup_items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection, max_size=0.5)
-    check_raises(lambda: pmx.model.mesh.create("NoSuchPart"), "an unknown part must be rejected")
+    check_raises(lambda: pmx.model.mesh.generate("NoSuchPart"), "an unknown part must be rejected")
     #
     # Meshing several parts can succeed for some of them, so the call reports every part it was
     # given with the reason it was not meshed, and an empty reason for one that was
-    report = pmx.model.mesh.create(part_name)
+    report = pmx.model.mesh.generate(part_name)
     check(part_name in report, "the meshing report must name the part it was given: " + str(dict(report)))
     check(report[part_name] == "", "a part that meshed must report no reason: " + report[part_name])
     check(len(pmx.model.parts) > 0, "the meshing did not create a model part")

@@ -8,12 +8,22 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class SectionAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(SolidSection), "solid" },
+            { typeof(ShellSection), "shell" },
+            { typeof(MembraneSection), "membrane" },
+            { typeof(PointMassSection), "point_mass" },
+            { typeof(DistributedMassSection), "distributed_mass" }
+        };
         private readonly string _sectionName;
         private readonly SectionService _service;
 
@@ -21,8 +31,9 @@ namespace APIs.Python.Model
         // Properties
         [PythonAPI("The section name.", Returns = "str")]
         public string name { get { return _service.ResolveSection(_sectionName).Name; } }
-        [PythonAPI("The section type, for example SolidSection or ShellSection.", Returns = "str")]
-        public string section_type { get { return _service.ResolveSection(_sectionName).GetType().Name; } }
+        [PythonAPI("The section type, named after the add_* method that makes it without the add_ prefix, for " +
+                   "example solid or shell.", Returns = "str")]
+        public string item_type { get { return GetItemType(_service.ResolveSection(_sectionName)); } }
         [PythonAPI("The name of the material used by the section.", Returns = "str")]
         public string material_name { get { return _service.ResolveSection(_sectionName).MaterialName; } }
         [PythonAPI("The name of the region the section is applied to.", Returns = "str")]
@@ -43,9 +54,20 @@ namespace APIs.Python.Model
         }
 
 
+        // Static methods
+        internal static string GetItemType(Section section)
+        {
+            string itemType;
+            if (ItemTypes.TryGetValue(section.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The section '" + section.Name + "' is a " + section.GetType().Name +
+                                         ", which no add_* method of the Python API makes.");
+        }
+
+
         // Methods
         [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
-        public System.Collections.Generic.Dictionary<string, string> get_equations()
+        public Dictionary<string, string> get_equations()
         {
             return ModelItemValueReader.GetEquations(_service.ResolveSection(_sectionName));
         }
@@ -53,7 +75,7 @@ namespace APIs.Python.Model
         {
             Section section = _service.ResolveSection(_sectionName);
             return "Section(name=" + StringListAPI.ToDisplayString(section.Name) +
-                   ", type=" + section.GetType().Name +
+                   ", type=" + GetItemType(section) +
                    ", material=" + StringListAPI.ToDisplayString(section.MaterialName) + ")";
         }
     }

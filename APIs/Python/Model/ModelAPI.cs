@@ -121,7 +121,7 @@ namespace APIs.Python.Model
             _materials = new MaterialsAPI(materialService);
             _sections = new SectionsAPI(sectionService);
             _nodeSets = new NodeSetsAPI(regionServices.NodeSets);
-            _elementSets = new ElementSetsAPI(regionServices.ElementSets);
+            _elementSets = new ElementSetsAPI(regionServices.ElementSets, meshEditService);
             _surfaces = new SurfacesAPI(regionServices.Surfaces);
             _referencePoints = new ReferencePointsAPI(regionServices.ReferencePoints);
             _coordinateSystems = new CoordinateSystemsAPI(regionServices.CoordinateSystems);

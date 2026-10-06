@@ -58,7 +58,7 @@ namespace APIs.Python.Model
                                               object global_output = null)
         {
             NodalHistoryOutput historyOutput =
-                _service.CloneForReplace<NodalHistoryOutput>(StepName, old_name, "NodalHistoryOutput");
+                _service.CloneForReplace<NodalHistoryOutput>(StepName, old_name, "nodal");
             if (region != null) _service.ApplyRegion(historyOutput, region, "nodes");
             if (variables != null)
                 historyOutput.Variables =
@@ -93,7 +93,7 @@ namespace APIs.Python.Model
                                                 object global_output = null)
         {
             ElementHistoryOutput historyOutput =
-                _service.CloneForReplace<ElementHistoryOutput>(StepName, old_name, "ElementHistoryOutput");
+                _service.CloneForReplace<ElementHistoryOutput>(StepName, old_name, "element");
             if (region != null) _service.ApplyRegion(historyOutput, region, "elements");
             if (variables != null)
                 historyOutput.Variables =
@@ -128,7 +128,7 @@ namespace APIs.Python.Model
                                                 object global_output = null)
         {
             SectionHistoryOutput historyOutput =
-                _service.CloneForReplace<SectionHistoryOutput>(StepName, old_name, "SectionHistoryOutput");
+                _service.CloneForReplace<SectionHistoryOutput>(StepName, old_name, "section");
             if (region != null) _service.ApplyRegion(historyOutput, region, "surfaces");
             if (variables != null)
                 historyOutput.Variables =
@@ -162,7 +162,7 @@ namespace APIs.Python.Model
                                                 object totals_type = null, object global_output = null)
         {
             ContactHistoryOutput historyOutput =
-                _service.CloneForReplace<ContactHistoryOutput>(StepName, old_name, "ContactHistoryOutput");
+                _service.CloneForReplace<ContactHistoryOutput>(StepName, old_name, "contact");
             if (contact_pair_name != null)
                 historyOutput.RegionName = _service.ResolveContactPairName(contact_pair_name);
             if (variables != null)

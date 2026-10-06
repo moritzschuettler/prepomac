@@ -46,7 +46,7 @@ def test_part_commands():
     check(part.get_face_data().count >= 0, "the result face data is unreadable")
     check(part.get_edge_data().count >= 0, "the result edge data is unreadable")
     check(part.get_vertex_data().count >= 0, "the result vertex data is unreadable")
-    node_ids = list(part.node_ids)
+    node_ids = list(part.get_node_ids())
     coordinates = part.get_node_coordinates()
     check(len(coordinates) == len(node_ids), "the result node coordinate count does not match")
     check(len(coordinates[0]) == 3, "a result node coordinate must have 3 values")

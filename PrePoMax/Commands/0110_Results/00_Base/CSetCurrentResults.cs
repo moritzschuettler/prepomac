@@ -51,7 +51,7 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.results", "set_current", PythonValueFormatter.Text(_resultsName)));
+            writer.Assign("pmx.results.current", PythonValueFormatter.Text(_resultsName));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

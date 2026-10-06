@@ -118,7 +118,7 @@ def test_fuse_box(compound, box_1, box_2):
           "the meshing parameters must follow the box onto its fused cell")
     items.remove([MESHING_PARAMETERS_NAME])
     #
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing reported: " + report[compound.name])
     names = sorted(part.name for part in pmx.model.parts)
     check(names == sorted([box_1, box_2]), "each box must be a mesh part: " + str(names))

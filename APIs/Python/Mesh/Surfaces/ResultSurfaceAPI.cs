@@ -14,16 +14,6 @@ namespace APIs.Python
     public class ResultSurfaceAPI : ResultMeshRegionAPI
     {
         // Properties
-        [PythonAPI("The result surface face IDs.", Returns = "numpy.ndarray or IntList")]
-        public object face_ids
-        {
-            get { return NumPyConverter.ToPythonArray(MeshService.GetSurfaceFaceIds(ResultName, name)); }
-        }
-        [PythonAPI("The node IDs belonging to the result surface.", Returns = "numpy.ndarray or IntList")]
-        public object node_ids
-        {
-            get { return NumPyConverter.ToPythonArray(MeshService.GetSurfaceNodeIds(ResultName, name)); }
-        }
         [PythonAPI("The result surface area.", Returns = "float")]
         public double area { get { return MeshService.GetSurfaceArea(ResultName, name); } }
 
@@ -36,6 +26,16 @@ namespace APIs.Python
 
 
         // Methods
+        [PythonAPI("Returns the result surface face IDs.", Returns = "numpy.ndarray or IntList")]
+        public object get_face_ids()
+        {
+            return NumPyConverter.ToPythonArray(MeshService.GetSurfaceFaceIds(ResultName, name));
+        }
+        [PythonAPI("Returns the node IDs belonging to the result surface.", Returns = "numpy.ndarray or IntList")]
+        public object get_node_ids()
+        {
+            return NumPyConverter.ToPythonArray(MeshService.GetSurfaceNodeIds(ResultName, name));
+        }
         public override string ToString()
         {
             return "Surface(name=" + StringListAPI.ToDisplayString(name) +

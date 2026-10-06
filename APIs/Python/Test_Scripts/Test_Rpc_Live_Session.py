@@ -266,7 +266,7 @@ def read_replaced_values(client):
     expressions = [step + ".bcs['journal_dr'].get_value('" + dof + "')" for dof in ("u1", "u2", "u3")]
     expressions += [step + ".bcs['journal_sm'].get_value('" + dof + "')" for dof in ("u1", "u2")]
     expressions += ["pmx.model.materials['journal_steel'].description",
-                    step + ".loads['journal_pt'].get_value('auto_compute_direction')"]
+                    step + ".loads['journal_pt'].get_value('auto_direction')"]
     value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
     check(not value["failed"], "the replaced items must be readable: " + value["error"])
     return value["value"]
@@ -286,7 +286,7 @@ def check_journal_of_replaces(client):
         "[7, 8]), u1=0, u2=0, u3=1.5)",
         "bcs.replace_displacement_rotation('journal_dr', free_dofs=['U3'])",
         "bcs.add_submodel('journal_sm', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]), "
-        "step_number=1, u1=True, u2=True)",
+        "step_id=1, u1=True, u2=True)",
         "bcs.replace_submodel('journal_sm', u2=False)",
         "pmx.model.materials.add('journal_steel', pmx.create.elastic(210000, 0.3), description='Steel')",
         "pmx.model.materials.replace('journal_steel', description='')",

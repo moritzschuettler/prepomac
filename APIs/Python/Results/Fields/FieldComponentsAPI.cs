@@ -101,10 +101,10 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if this field contains the specified component.", Arguments = "component_name: str", Returns = "bool")]
-        public bool contains(string component_name)
+        [PythonAPI("Returns true if this field contains the specified component.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName).Contains(component_name);
+            return _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName).Contains(name);
         }
         public override string ToString()
         {

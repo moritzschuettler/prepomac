@@ -105,6 +105,8 @@ def main():
           "mixed coordinate system definition was not created")
     check(list(cs_mix.get_point_on_x()) == [1.0, 0.0, 0.0],
           "the selected X point was not resolved on the mesh")
+    check(cs_mix.get_construction()["point_on_x"] == "OnPoint",
+          "the construction of the selected X point was not read back")
     # A selected point is resolved before the axes are checked, so node 1 sitting on the typed origin
     # is refused the way the dialog refuses it
     raises(lambda: pmx.model.coordinate_systems.add_from_selections(

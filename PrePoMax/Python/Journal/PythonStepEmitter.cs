@@ -96,7 +96,7 @@ namespace PrePoMax.Python.Journal
             }
             if (step is FrequencyStep frequency)
             {
-                arguments.Add("num_of_frequencies=" + frequency.NumOfFrequencies);
+                arguments.Add("number_of_frequencies=" + frequency.NumOfFrequencies);
                 arguments.Add("lower_frequency=" + PythonValueFormatter.Number(frequency.LowerFrequency));
                 arguments.Add("upper_frequency=" + PythonValueFormatter.Number(frequency.UpperFrequency));
                 arguments.Add("storage=" + PythonValueFormatter.Format(frequency.Storage));
@@ -106,12 +106,12 @@ namespace PrePoMax.Python.Journal
             }
             if (step is ComplexFrequencyStep complexFrequency)
             {
-                arguments.Add("num_of_frequencies=" + complexFrequency.NumOfFrequencies);
+                arguments.Add("number_of_frequencies=" + complexFrequency.NumOfFrequencies);
                 return "complex_frequency";
             }
             if (step is BuckleStep buckle)
             {
-                arguments.Add("num_of_buckling_factors=" + buckle.NumOfBucklingFactors);
+                arguments.Add("number_of_buckling_factors=" + buckle.NumOfBucklingFactors);
                 arguments.Add("accuracy=" + PythonValueFormatter.Number(buckle.Accuracy));
                 return "buckle";
             }
@@ -120,9 +120,9 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("harmonic=" + PythonValueFormatter.Format(steadyState.Harmonic));
                 arguments.Add("lower_frequency=" + PythonValueFormatter.Number(steadyState.LowerFrequency));
                 arguments.Add("upper_frequency=" + PythonValueFormatter.Number(steadyState.UpperFrequency));
-                arguments.Add("num_data_points=" + steadyState.NumDataPoints);
+                arguments.Add("number_of_data_points=" + steadyState.NumDataPoints);
                 arguments.Add("bias=" + PythonValueFormatter.Number(steadyState.Bias));
-                arguments.Add("num_fourier_terms=" + steadyState.NumFourierTerms);
+                arguments.Add("number_of_fourier_terms=" + steadyState.NumFourierTerms);
                 arguments.Add("time_lower=" + PythonValueFormatter.Number(steadyState.TimeLower));
                 arguments.Add("time_upper=" + PythonValueFormatter.Number(steadyState.TimeUpper));
                 arguments.Add("modal_damping=" + GetModalDamping(steadyState.ModalDamping));

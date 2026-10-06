@@ -46,7 +46,7 @@ def main():
           "the Hausdorff distance does not follow the size of the part: " + str(hausdorff) +
           " against " + str(expected))
     #
-    pmx.model.mesh.create(part.name)
+    pmx.model.mesh.generate(part.name)
     check(len(pmx.model.parts) == 1, "MMG did not create one shell mesh part")
     mesh_part = pmx.model.parts.first()
     check(mesh_part.part_type == "Shell", "MMG did not create a shell mesh")

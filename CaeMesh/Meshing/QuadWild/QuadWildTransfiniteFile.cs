@@ -19,13 +19,14 @@ namespace CaeMesh
     /// The structured faces QuadWild meshes, by the one definition all meshers follow, written as &lt;input&gt;.tfaces for
     /// quad_from_patches: every face as a point inside it, the positions of its corners in loop order and its name. QuadWild
     /// never sees face ids and renumbers the triangulation, so the faces are matched by position, as the prescribed nodes
-    /// are. With the file QuadWild finds no structured faces of its own.
+    /// are. A polar three-sided face names the corner it collapses at. With the file QuadWild finds no structured faces
+    /// of its own.
     /// </summary>
     public static class QuadWildTransfiniteFile
     {
         // Methods
-        public static int Write(string fileName, FeMesh geometry, IEnumerable<BasePart> parts, bool threeSided,
-                                bool fourSided, double transfiniteAngleDeg)
+        public static int Write(string fileName, FeMesh geometry, IEnumerable<BasePart> parts,
+                                TransfiniteThreeSidedEnum threeSided, bool fourSided, double transfiniteAngleDeg)
         {
             List<string> lines = new List<string>();
             foreach (var part in parts)
@@ -33,8 +34,9 @@ namespace CaeMesh
                 if (part.PartType != PartType.Shell || part.Visualization == null) continue;
                 //
                 VisualizationData vis = part.Visualization;
-                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part, threeSided, fourSided,
-                                                                    transfiniteAngleDeg))
+                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part,
+                                                                    threeSided != TransfiniteThreeSidedEnum.No,
+                                                                    fourSided, transfiniteAngleDeg))
                 {
                     int[] cellIds = vis.CellIdsByFace[face.FaceId];
                     if (cellIds == null || cellIds.Length == 0) continue;
@@ -46,7 +48,9 @@ namespace CaeMesh
                         for (int i = 0; i < 3; i++) inside[i] += geometry.Nodes[nodeId].Coor[i] / cell.Length;
                     }
                     //
-                    lines.Add(GetFaceLine(face.NumberOfSides, inside,
+                    int polarCornerIndex = threeSided == TransfiniteThreeSidedEnum.Polar ?
+                                           TransfiniteFaceDetector.GetPolarCornerIndex(geometry, part, face) : -1;
+                    lines.Add(GetFaceLine(face.NumberOfSides, polarCornerIndex, inside,
                                           face.CornerNodeIds.Select(nodeId => geometry.Nodes[nodeId].Coor),
                                           "surface " + (face.FaceId + 1) + " of " + part.Name));
                 }
@@ -55,13 +59,16 @@ namespace CaeMesh
             return lines.Count;
         }
         /// <summary>
-        /// The line of one face: its number of sides, a point inside it, its corners in loop order and the name the
-        /// messages of quad_from_patches use.
+        /// The line of one face: its number of sides, the corner a polar face collapses at (-1 for none), a point inside
+        /// it, its corners in loop order and the name the messages of quad_from_patches use.
         /// </summary>
-        public static string GetFaceLine(int numberOfSides, double[] inside, IEnumerable<double[]> corners, string name)
+        public static string GetFaceLine(int numberOfSides, int polarCornerIndex, double[] inside,
+                                         IEnumerable<double[]> corners, string name)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("face ").Append(numberOfSides).Append(' ').Append(Format(inside));
+            sb.Append("face ").Append(numberOfSides);
+            if (polarCornerIndex >= 0) sb.Append(" polar ").Append(polarCornerIndex);
+            sb.Append(' ').Append(Format(inside));
             foreach (var corner in corners) sb.Append(' ').Append(Format(corner));
             sb.Append(' ').Append(name);
             return sb.ToString();

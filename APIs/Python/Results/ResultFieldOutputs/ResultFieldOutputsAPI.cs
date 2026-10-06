@@ -94,10 +94,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result field output exists.",
-                   Arguments = "field_output_name: str", Returns = "bool")]
-        public bool contains(string field_output_name)
+                   Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _service.GetNames(_resultName).Contains(field_output_name);
+            return _service.GetNames(_resultName).Contains(name);
         }
 
         [PythonAPI("Creates a limit field-output draft. Possible based_on values are Parts, ElementSets " +
@@ -296,17 +296,17 @@ namespace APIs.Python
         }
 
         [PythonAPI("Duplicates result field outputs using command history.",
-                   Arguments = "field_output_names: list[str] or str", Returns = "None")]
-        public void duplicate(object field_output_names)
+                   Arguments = "names: list[str] or str", Returns = "None")]
+        public void duplicate(object names)
         {
-            _service.DuplicateFieldOutputs(_resultName, field_output_names);
+            _service.DuplicateFieldOutputs(_resultName, names);
         }
 
         [PythonAPI("Validates and removes result field outputs using command history.",
-                   Arguments = "field_output_names: list[str]", Returns = "None")]
-        public void remove(object field_output_names)
+                   Arguments = "names: list[str]", Returns = "None")]
+        public void remove(object names)
         {
-            _service.RemoveFieldOutputs(_resultName, field_output_names);
+            _service.RemoveFieldOutputs(_resultName, names);
         }
 
         [PythonAPI("Validates and removes components from a result field output using command history.",

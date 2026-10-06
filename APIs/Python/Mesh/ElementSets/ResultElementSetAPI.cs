@@ -16,11 +16,6 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The number of elements in the result element set.", Returns = "int")]
         public int count { get { return MeshService.GetElementSetIds(ResultName, name).Length; } }
-        [PythonAPI("The element IDs in this result element set.", Returns = "numpy.ndarray or IntList")]
-        public object element_ids
-        {
-            get { return NumPyConverter.ToPythonArray(MeshService.GetElementSetIds(ResultName, name)); }
-        }
 
 
         // Constructors
@@ -31,6 +26,11 @@ namespace APIs.Python
 
 
         // Methods
+        [PythonAPI("Returns the element IDs in this result element set.", Returns = "numpy.ndarray or IntList")]
+        public object get_element_ids()
+        {
+            return NumPyConverter.ToPythonArray(MeshService.GetElementSetIds(ResultName, name));
+        }
         public override string ToString()
         {
             return "ElementSet(name=" + StringListAPI.ToDisplayString(name) + ", elements=" + count + ")";

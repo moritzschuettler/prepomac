@@ -8,12 +8,21 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class HistoryOutputAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(NodalHistoryOutput), "nodal" },
+            { typeof(ElementHistoryOutput), "element" },
+            { typeof(SectionHistoryOutput), "section" },
+            { typeof(ContactHistoryOutput), "contact" }
+        };
         private readonly string _stepName;
         private readonly string _historyOutputName;
         private readonly HistoryOutputService _service;
@@ -24,9 +33,9 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The name of the step the history output belongs to.", Returns = "str")]
         public string step_name { get { return _stepName; } }
-        [PythonAPI("The history output type: NodalHistoryOutput, ElementHistoryOutput, " +
-                   "ContactHistoryOutput or SectionHistoryOutput.", Returns = "str")]
-        public string history_output_type { get { return Resolve().GetType().Name; } }
+        [PythonAPI("The history output type, named after the add_* method that makes it without the add_ " +
+                   "prefix: nodal, element, section or contact.", Returns = "str")]
+        public string item_type { get { return GetItemType(Resolve()); } }
         [PythonAPI("True when the history output is written to the solver input file.", Returns = "bool")]
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("The region type, for example NodeSetName or ContactPair.", Returns = "str")]
@@ -45,6 +54,18 @@ namespace APIs.Python.Model
             _stepName = stepName;
             _historyOutputName = historyOutputName;
             _service = service;
+        }
+
+
+        // Static methods
+        internal static string GetItemType(HistoryOutput historyOutput)
+        {
+            string itemType;
+            if (ItemTypes.TryGetValue(historyOutput.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The history output '" + historyOutput.Name + "' is a " +
+                                         historyOutput.GetType().Name + ", which no add_* method of the " +
+                                         "Python API makes.");
         }
 
 
@@ -74,24 +95,27 @@ namespace APIs.Python.Model
                                          " is not supported.");
         }
 
-        [PythonAPI("Returns the names of the values that are specific to this history output type.",
-                   Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this history output type: the add_* " +
+                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(HistoryOutput)).Keys);
+            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(HistoryOutput), null).Keys);
         }
 
-        [PythonAPI("Returns a value that is specific to this history output type. Use get_value_names to " +
-                   "list them.", Arguments = "name: str", Returns = "float, int, bool or str")]
+        [PythonAPI("Returns a value that is specific to this history output type by the name of the add_* " +
+                   "argument that sets it. Use get_value_names to list them.", Arguments = "name: str",
+                   Returns = "float, int, bool or str")]
         public object get_value(string name)
         {
-            return ModelItemValueReader.GetValue(Resolve(), typeof(HistoryOutput), name, "history output");
+            HistoryOutput historyOutput = Resolve();
+            return ModelItemValueReader.GetValue(historyOutput, typeof(HistoryOutput), null, name,
+                                                 GetItemType(historyOutput) + " history output");
         }
         public override string ToString()
         {
             HistoryOutput historyOutput = Resolve();
             return "HistoryOutput(name=" + StringListAPI.ToDisplayString(historyOutput.Name) + ", type=" +
-                   historyOutput.GetType().Name + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
+                   GetItemType(historyOutput) + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
         }
         //
         private HistoryOutput Resolve()

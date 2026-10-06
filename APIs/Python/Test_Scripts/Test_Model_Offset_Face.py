@@ -165,7 +165,7 @@ def test_apart(box, sides):
         check(part.is_cad_part, "every part offset apart must carry its own CAD geometry: " + name)
         check(len(faces(part)) == 1, "every part offset apart must carry one face: " + name)
         close(part.surface_area, first["area"], "every part offset apart must keep the area of its face")
-    pmx.model.mesh.create(names)
+    pmx.model.mesh.generate(names)
     mesh_parts = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name in names]
     check(len(mesh_parts) == 2, "both parts offset apart must be meshed: " + str([p.name for p in mesh_parts]))
     for mesh_part in mesh_parts:

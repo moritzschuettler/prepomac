@@ -137,7 +137,7 @@ namespace PrePoMax.Python.Journal
                 if (!preTension.AutoComputeDirection)
                     arguments.Add("direction=" + Point(preTension.X, preTension.Y, preTension.Z));
                 else if (replace) arguments.Add("auto_direction=True");
-                arguments.Add("load_type=" + PythonValueFormatter.Text(preTension.Type.ToString()));
+                arguments.Add("tension_type=" + PythonValueFormatter.Text(preTension.Type.ToString()));
                 return "pre_tension";
             }
             if (load is CFlux concentratedFlux)

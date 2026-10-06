@@ -15,8 +15,8 @@ namespace PrePoMax.Python.Journal
 {
     // The model tree grouping. A layout command stores the whole resulting arrangement rather than the
     // gesture that produced it, and the API offers only the gestures, so the layout is rebuilt as a
-    // depth first run of create_group calls: a group carries its own id, its parent's id, its position
-    // and the items directly under it, which is exactly what create_group takes.
+    // depth first run of add_group calls: a group carries its own id, its parent's id, its position
+    // and the items directly under it, which is exactly what add_group takes.
     public static class PythonTreeLayoutEmitter
     {
         // Methods                                                                                                                  
@@ -54,7 +54,7 @@ namespace PrePoMax.Python.Journal
                 {
                     if (child.IsItem) itemNames.Add(child.Key);
                 }
-                writer.Statement(writer.Call("pmx.model.tree", "create_group",
+                writer.Statement(writer.Call("pmx.model.tree", "add_group",
                                              PythonValueFormatter.Text(viewName),
                                              PythonValueFormatter.Text(itemTypeName),
                                              PythonValueFormatter.Text(node.Name),

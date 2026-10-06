@@ -83,7 +83,7 @@ def test_regions():
     # back as a node set region that points at a set the user did not create
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5, 6])
     bc = bcs.add_fixed(PREFIX + "Fix_Sel", selection)
-    check(bc.boundary_condition_type == "FixedBC", "unexpected type " + bc.boundary_condition_type)
+    check(bc.item_type == "fixed", "unexpected type " + bc.item_type)
     check(bc.region_type == "NodeSetName", "unexpected region type " + bc.region_type)
     check(bc.region_name is not None and bc.region_name != NODE_SET,
           "the selection was not converted into its own node set, got " + str(bc.region_name))
@@ -146,8 +146,8 @@ def test_displacement_rotation():
 def test_submodel():
     bcs = pmx.model.steps[STEP].bcs
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
-    bc = bcs.add_submodel(PREFIX + "SM", selection, step_number=2, u1=True, u3=True)
-    check(bc.get_value("step_number") == 2, "the step number was not set")
+    bc = bcs.add_submodel(PREFIX + "SM", selection, step_id=2, u1=True, u3=True)
+    check(bc.get_value("step_id") == 2, "the step number was not set")
     check(bc.get_value("u1"), "u1 was not set")
     check(not bc.get_value("u2"), "u2 must stay false")
     bc = bcs.replace_submodel(PREFIX + "SM", u2=True)
@@ -157,7 +157,7 @@ def test_submodel():
     # not offer one for it
     check_raises(lambda: bcs.add_submodel(PREFIX + "Bad",
                                           pmx.create.region('ReferencePointName', REFERENCE_POINT),
-                                          step_number=1),
+                                          step_id=1),
                  "a submodel boundary condition on a reference point must be rejected")
     check(not bcs.contains(PREFIX + "Bad"), "the refused submodel boundary condition was recorded")
     # A replacement is refused the same way

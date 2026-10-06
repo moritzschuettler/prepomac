@@ -81,8 +81,8 @@ def test_distributions():
     count_before = len(distributions)
     # One equation for the magnitude
     distribution = distributions.add_from_equation(PREFIX + "D", "x + y")
-    check(distribution.distribution_type == "DistributionFromEquation",
-          "unexpected distribution type " + distribution.distribution_type)
+    check(distribution.item_type == "from_equation",
+          "unexpected distribution type " + distribution.item_type)
     # Three equations, one per direction
     distributions.add_from_equation(PREFIX + "D3", ["x", "y", "z"])
     check(len(distributions) == count_before + 2, "the distributions were not added")
@@ -97,7 +97,7 @@ def test_distributions():
     # A distribution keeps its equation as plain text, so the leading equals sign the application
     # evaluates with has to be supplied by the API rather than by the caller
     scalar = distributions.add_from_equation(PREFIX + "Scalar", "1 + 0.01 * x")
-    check(scalar.distribution_type == "DistributionFromEquation", "unexpected scalar distribution type")
+    check(scalar.item_type == "from_equation", "unexpected scalar distribution type")
     distributions.add_from_equation(PREFIX + "Vector", ["x", "y", "z"])
     # An equation that already carries the sign is stored unchanged
     distributions.add_from_equation(PREFIX + "Signed", "=1")
@@ -113,7 +113,7 @@ def test_distributions():
     distribution = distributions.replace_from_equation(PREFIX + "Kept", name=PREFIX + "Kept_R")
     check(distributions.contains(PREFIX + "Kept_R") and not distributions.contains(PREFIX + "Kept"),
           "the distribution was not renamed")
-    check(distribution.distribution_type == "DistributionFromEquation", "the replacement changed the type")
+    check(distribution.item_type == "from_equation", "the replacement changed the type")
     check_raises(lambda: pmx.model.initial_conditions.add_temperature(
                      PREFIX + "Bad", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]), 20,
                      distribution_name=PREFIX + "Kept_R"),
@@ -126,10 +126,10 @@ def test_distributions():
         distributions.add_from_file(PREFIX + "File", file_name)
         check_raises(lambda: distributions.replace_from_equation(PREFIX + "File"),
                      "a file distribution was replaced without an equation")
-        check(distributions[PREFIX + "File"].distribution_type == "DistributionFromFile",
+        check(distributions[PREFIX + "File"].item_type == "from_file",
               "the refused replacement changed the file distribution")
         distribution = distributions.replace_from_equation(PREFIX + "File", equation="1")
-        check(distribution.distribution_type == "DistributionFromEquation",
+        check(distribution.item_type == "from_equation",
               "the file distribution was not replaced by an equation one")
     finally:
         os.remove(file_name)
@@ -142,8 +142,8 @@ def test_initial_conditions():
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4])
     #
     condition = conditions.add_temperature(PREFIX + "Temp", selection, 20)
-    check(condition.condition_type == "InitialTemperature",
-          "unexpected condition type " + condition.condition_type)
+    check(condition.item_type == "temperature",
+          "unexpected condition type " + condition.item_type)
     # The controller converts the selection into an internal node set
     check(condition.region_type == "NodeSetName",
           "the selection was not converted, region type is " + condition.region_type)
@@ -153,6 +153,9 @@ def test_initial_conditions():
     check(len(conditions) == count_before + 3, "the initial conditions were not added")
     check("distribution_name" in list(conditions[PREFIX + "Temp"].get_value_names()),
           "the initial temperature does not expose its distribution name")
+    angular = conditions[PREFIX + "Ang"]
+    check(angular.item_type == "angular_velocity", "unexpected condition type " + angular.item_type)
+    check(list(angular.get_value("axis_direction")) == [0, 0, 1], "the axis direction does not read back by its name")
     #
     check_raises(lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0], [0, 0, 1], 1),
                  "a 2 value axis point must be rejected")
@@ -172,8 +175,8 @@ def test_initial_conditions():
     except Exception as ex:
         refused = str(ex)
     check(refused is not None, "an initial temperature was replaced as a translational velocity")
-    check("is not an initial translational velocity" in refused, "the refusal must name the type: " + refused)
-    check(conditions[PREFIX + "Temp"].condition_type == "InitialTemperature",
+    check("is made by add_temperature, so replace_translational_velocity cannot replace it" in refused, "the refusal must name the type: " + refused)
+    check(conditions[PREFIX + "Temp"].item_type == "temperature",
           "the refused replacement changed the initial condition")
     #
     # An initial condition with no distribution carries the default one

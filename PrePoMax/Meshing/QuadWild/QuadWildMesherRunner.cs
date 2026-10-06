@@ -213,7 +213,7 @@ namespace PrePoMax
             flowOptions.Add("boundary_layer " + (shellQuadWild.OldAlgorithm ? 0 : (int)shellQuadWild.BoundaryLayer));
             // Transfinite faces, like gmsh: structured grids on the faces with 3 and 4 sides; the old algorithm has none
             if (!shellQuadWild.OldAlgorithm)
-                flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(shellQuadWild.TransfiniteThreeSided,
+                flowOptions.AddRange(QuadWildRuntime.GetTransfiniteFlowOptions(shellQuadWild.IsTransfiniteThreeSided,
                                                                                shellQuadWild.TransfiniteFourSided,
                                                                                shellQuadWild.TransfiniteAngleDeg));
             QuadWildRuntime.WriteFlowConfig(runtimeDirectory, flowConfigFileName, shellQuadWild.FlowProfile,
@@ -223,7 +223,7 @@ namespace PrePoMax
             string transfiniteFileName = inputPrefix + ".tfaces";
             QuadWildRuntime.DeleteIfExists(transfiniteFileName);
             if (!shellQuadWild.OldAlgorithm && part.IsCADPart &&
-                (shellQuadWild.TransfiniteThreeSided || shellQuadWild.TransfiniteFourSided))
+                (shellQuadWild.IsTransfiniteThreeSided || shellQuadWild.TransfiniteFourSided))
             {
                 string[] partNames = _controller.GetMeshablePartNames(new string[] { part.Name });
                 int numOfFaces;
@@ -251,10 +251,10 @@ namespace PrePoMax
                                                shellQuadWild.Alpha.ToString("R", CultureInfo.InvariantCulture) +
                                                (shellQuadWild.Smooth ? ", smoothed" : ", not smoothed") +
                                                (shellQuadWild.EdgeRotations && !shellQuadWild.OldAlgorithm ? ", edge rotations" : "") +
-                                               (!shellQuadWild.OldAlgorithm && (shellQuadWild.TransfiniteThreeSided ||
+                                               (!shellQuadWild.OldAlgorithm && (shellQuadWild.IsTransfiniteThreeSided ||
                                                 shellQuadWild.TransfiniteFourSided) ? ", transfinite " +
-                                                (shellQuadWild.TransfiniteThreeSided && shellQuadWild.TransfiniteFourSided ?
-                                                 "3- and 4-sided" : shellQuadWild.TransfiniteThreeSided ? "3-sided" : "4-sided") +
+                                                (shellQuadWild.IsTransfiniteThreeSided && shellQuadWild.TransfiniteFourSided ?
+                                                 "3- and 4-sided" : shellQuadWild.IsTransfiniteThreeSided ? "3-sided" : "4-sided") +
                                                 " faces" : "") +
                                                (shellQuadWild.SingularityPosition > 0 ? ", singularity position " +
                                                 shellQuadWild.SingularityPosition.ToString("R", CultureInfo.InvariantCulture) : "") +

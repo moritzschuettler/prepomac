@@ -128,14 +128,15 @@ namespace APIs.Python.Model
         // The force and the displacement are stored apart, so a type change without a magnitude would silently
         // take whatever the other one holds; it is refused instead
         public static void ApplyPreTension(PreTensionLoad load, object magnitude, object direction,
-                                           object loadType, object autoDirection)
+                                           object tensionType, object autoDirection)
         {
-            if (loadType != null)
+            if (tensionType != null)
             {
                 PreTensionLoadType type =
-                    PythonValueConverter.ToEnum<PreTensionLoadType>(AsString(loadType, "load_type"), "load_type");
+                    PythonValueConverter.ToEnum<PreTensionLoadType>(AsString(tensionType, "tension_type"),
+                                                                 "tension_type");
                 if (type != load.Type && magnitude == null)
-                    throw new PythonAPIException("The argument 'magnitude' must be given when 'load_type' changes " +
+                    throw new PythonAPIException("The argument 'magnitude' must be given when 'tension_type' changes " +
                                                  "the pre-tension from " + load.Type + " to " + type + ".");
                 load.Type = type;
             }

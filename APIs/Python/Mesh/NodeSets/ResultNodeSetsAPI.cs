@@ -93,10 +93,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result contains the specified user-visible node set.",
-                   Arguments = "node_set_name: str", Returns = "bool")]
-        public bool contains(string node_set_name)
+                   Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _meshService.GetNodeSetNames(_resultName).Contains(node_set_name);
+            return _meshService.GetNodeSetNames(_resultName).Contains(name);
         }
         public override string ToString()
         {

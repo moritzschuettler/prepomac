@@ -184,7 +184,7 @@ def test_stl():
 
 def test_compound(names):
     before = list(parts().get_names())
-    parts().create_compound(names)
+    parts().add_compound(names)
     added = added_part_names(before)
     compounds = [name for name in added if parts()[name].part_type == "Compound"]
     check(len(compounds) == 1, "creating a compound added the parts " + str(added))

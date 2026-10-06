@@ -75,7 +75,7 @@ namespace PrePoMax.Commands
         // The parts that meshed are what the session ended up with, and PartNames already prefers them
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.mesh", "create", PythonValueFormatter.List(PartNames)));
+            writer.Statement(writer.Call("pmx.model.mesh", "generate", PythonValueFormatter.List(PartNames)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

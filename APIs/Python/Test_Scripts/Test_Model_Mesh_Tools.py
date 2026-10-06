@@ -129,7 +129,7 @@ def test_element_set_from_quality():
     for name in list(pmx.model.element_sets.get_names()):
         if name.startswith(PREFIX):
             pmx.model.element_sets.remove([name])
-    check_raises(lambda: pmx.model.elements.create_element_set_from_quality(
+    check_raises(lambda: pmx.model.element_sets.add_from_quality(
         PREFIX + "Q", "Volume", "NoSuchPart", True, 0.0), "an unknown part must be rejected")
 
 

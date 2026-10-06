@@ -155,8 +155,7 @@ namespace PrePoMax.Python.Journal
             else if (output is ResultHistoryOutputFromAffineFit affineFit)
             {
                 method = verb + "_from_affine_fit";
-                arguments.Add(PythonValueFormatter.Number(affineFit.CenterX));
-                arguments.Add(PythonValueFormatter.Number(affineFit.CenterY));
+                arguments.Add(PythonValueFormatter.List(new double[] { affineFit.CenterX, affineFit.CenterY }));
                 arguments.Add(PythonValueFormatter.Number(affineFit.Radius));
                 arguments.Add("taper_start_fraction=" +
                               PythonValueFormatter.Number(affineFit.TaperStartFraction));
@@ -168,12 +167,11 @@ namespace PrePoMax.Python.Journal
                               PythonValueFormatter.Number(affineFit.AreaFilterRelativeMedian));
                 arguments.Add("strain_measure=" +
                               PythonValueFormatter.Text(affineFit.StrainMeasure.ToString()));
-                arguments.Add("loading_direction_x=" +
-                              PythonValueFormatter.Number(affineFit.LoadingDirectionX));
-                arguments.Add("loading_direction_y=" +
-                              PythonValueFormatter.Number(affineFit.LoadingDirectionY));
+                arguments.Add("loading_direction=" +
+                              PythonValueFormatter.List(new double[] { affineFit.LoadingDirectionX,
+                                                                       affineFit.LoadingDirectionY }));
                 arguments.Add("step_id=" + PythonValueFormatter.Format(affineFit.StepId));
-                arguments.Add("step_increment_id=" + PythonValueFormatter.Format(affineFit.StepIncrementId));
+                arguments.Add("increment_id=" + PythonValueFormatter.Format(affineFit.StepIncrementId));
                 arguments.Add("radius_sweep_step_count=" +
                               PythonValueFormatter.Format(affineFit.RadiusSweepStepCount));
             }

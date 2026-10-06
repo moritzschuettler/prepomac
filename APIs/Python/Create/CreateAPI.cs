@@ -52,17 +52,17 @@ namespace APIs.Python
                    "nearest entity is picked, so a point that does not lie on the model still resolves, " +
                    "and part_ids limits which parts are searched.",
                    Arguments = "view: str, target: str, point: list[float], select_by: str, " +
-                               "angle: float = None, direction: list[float] = None, " +
+                               "angle_deg: float = None, direction: list[float] = None, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, precision: float = None, " +
                                "part_offsets: list[list[float]] = None",
                    Returns = "Selection",
                    Example = "pmx.create.selection_by_pick('femodel', 'surfaces', [0.5, 0.5, 1.0], 'Surface')")]
         public SelectionAPI selection_by_pick(string view, string target, object point, string select_by,
-                                              object angle = null, object direction = null,
+                                              object angle_deg = null, object direction = null,
                                               object part_ids = null, object completely_inside = null,
                                               object precision = null, object part_offsets = null)
         {
-            return _selectionService.CreateByPick(view, target, point, select_by, angle, direction, part_ids,
+            return _selectionService.CreateByPick(view, target, point, select_by, angle_deg, direction, part_ids,
                                                    completely_inside, precision, part_offsets);
         }
 
@@ -71,13 +71,13 @@ namespace APIs.Python
                    "out of the volume. It is what a rubber band records, whose planes are the frustum it " +
                    "swept; an axis aligned box is six planes.",
                    Arguments = "view: str, target: str, planes: list[list[float]], select_by: str, " +
-                               "angle: float = None, part_ids: list[int] = None, " +
+                               "angle_deg: float = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection")]
         public SelectionAPI selection_by_area(string view, string target, object planes, string select_by,
-                                              object angle = null, object part_ids = null,
+                                              object angle_deg = null, object part_ids = null,
                                               object completely_inside = null, object part_offsets = null)
         {
-            return _selectionService.CreateByArea(view, target, planes, select_by, angle, part_ids,
+            return _selectionService.CreateByArea(view, target, planes, select_by, angle_deg, part_ids,
                                                    completely_inside, part_offsets);
         }
 

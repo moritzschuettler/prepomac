@@ -62,7 +62,7 @@ namespace APIs.Python.Model
                                                 object cyclicSymmetryModeMin, object cyclicSymmetryModeMax)
         {
             if (numOfFrequencies != null)
-                step.NumOfFrequencies = PythonValueConverter.ToInt(numOfFrequencies, "num_of_frequencies");
+                step.NumOfFrequencies = PythonValueConverter.ToInt(numOfFrequencies, "number_of_frequencies");
             SetFrequencyRange(lowerFrequency, upperFrequency, step.UpperFrequency,
                               value => step.LowerFrequency = value, value => step.UpperFrequency = value);
             if (storage != null) step.Storage = PythonValueConverter.ToBool(storage, "storage");
@@ -76,13 +76,13 @@ namespace APIs.Python.Model
         public static void ApplyComplexFrequencyValues(ComplexFrequencyStep step, object numOfFrequencies)
         {
             if (numOfFrequencies != null)
-                step.NumOfFrequencies = PythonValueConverter.ToInt(numOfFrequencies, "num_of_frequencies");
+                step.NumOfFrequencies = PythonValueConverter.ToInt(numOfFrequencies, "number_of_frequencies");
         }
         public static void ApplyBuckleValues(BuckleStep step, object numOfBucklingFactors, object accuracy)
         {
             if (numOfBucklingFactors != null)
                 step.NumOfBucklingFactors =
-                    PythonValueConverter.ToInt(numOfBucklingFactors, "num_of_buckling_factors");
+                    PythonValueConverter.ToInt(numOfBucklingFactors, "number_of_buckling_factors");
             if (accuracy != null) step.Accuracy = PythonValueConverter.ToDouble(accuracy, "accuracy");
         }
         public static void ApplyModalDynamicsValues(ModalDynamicsStep step, object steadyState,
@@ -103,10 +103,10 @@ namespace APIs.Python.Model
             SetFrequencyRange(lowerFrequency, upperFrequency, step.UpperFrequency,
                               value => step.LowerFrequency = value, value => step.UpperFrequency = value);
             if (numDataPoints != null)
-                step.NumDataPoints = PythonValueConverter.ToInt(numDataPoints, "num_data_points");
+                step.NumDataPoints = PythonValueConverter.ToInt(numDataPoints, "number_of_data_points");
             if (bias != null) step.Bias = PythonValueConverter.ToDouble(bias, "bias");
             if (numFourierTerms != null)
-                step.NumFourierTerms = PythonValueConverter.ToInt(numFourierTerms, "num_fourier_terms");
+                step.NumFourierTerms = PythonValueConverter.ToInt(numFourierTerms, "number_of_fourier_terms");
             if (timeLower != null) step.TimeLower = PythonValueConverter.ToDouble(timeLower, "time_lower");
             if (timeUpper != null) step.TimeUpper = PythonValueConverter.ToDouble(timeUpper, "time_upper");
             if (modalDamping != null) step.ModalDamping = ToModalDamping(modalDamping);

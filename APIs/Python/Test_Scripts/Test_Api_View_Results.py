@@ -229,7 +229,8 @@ def test_the_camera():
 def test_the_annotations():
     annotations = pmx.view.annotations
     names_before = sorted(annotations.get_names())
-    annotations.add_text("PyTest_Label", "Top of the cube", [0.5, 0.5, 1.0])
+    text_name = annotations.add_text("PyTest_Label", "Top of the cube", [0.5, 0.5, 1.0])
+    check(text_name == "PyTest_Label", "add_text did not return the name it was given: " + str(text_name))
     node_name = annotations.add_node(7)
     element_name = annotations.add_element(1)
     names = list(annotations.get_names())

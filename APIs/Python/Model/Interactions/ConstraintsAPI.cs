@@ -61,7 +61,7 @@ namespace APIs.Python.Model
                                          object slave_region = null, object position_tolerance = null,
                                          object adjust = null)
         {
-            Tie constraint = _service.CloneForReplace<Tie>(old_name, "Tie");
+            Tie constraint = _service.CloneForReplace<Tie>(old_name, "tie");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
             ApplyTieValues(constraint, position_tolerance, adjust);
@@ -119,7 +119,7 @@ namespace APIs.Python.Model
                                                      object position_tolerance = null, object adjust = null,
                                                      object clear_expansion_region = null)
         {
-            CyclicSymmetry constraint = _service.CloneForReplace<CyclicSymmetry>(old_name, "CyclicSymmetry");
+            CyclicSymmetry constraint = _service.CloneForReplace<CyclicSymmetry>(old_name, "cyclic_symmetry");
             bool clearExpansionRegion = clear_expansion_region != null &&
                 PythonValueConverter.ToBool(clear_expansion_region, "clear_expansion_region");
             if (clearExpansionRegion && region != null)
@@ -180,7 +180,7 @@ namespace APIs.Python.Model
                                            object formulation = null, object stiffness_defined_by = null,
                                            object stiffness = null)
         {
-            Joint constraint = _service.CloneForReplace<Joint>(old_name, "Joint");
+            Joint constraint = _service.CloneForReplace<Joint>(old_name, "joint");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
             ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction,
@@ -210,7 +210,7 @@ namespace APIs.Python.Model
         public ConstraintAPI replace_rigid_body(string old_name, string name = null,
                                                 object reference_point_name = null, object region = null)
         {
-            RigidBody constraint = _service.CloneForReplace<RigidBody>(old_name, "RigidBody");
+            RigidBody constraint = _service.CloneForReplace<RigidBody>(old_name, "rigid_body");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, NodeTarget);
@@ -247,7 +247,7 @@ namespace APIs.Python.Model
                                                         object u2 = null, object u3 = null)
         {
             KinematicCoupling constraint =
-                _service.CloneForReplace<KinematicCoupling>(old_name, "KinematicCoupling");
+                _service.CloneForReplace<KinematicCoupling>(old_name, "kinematic_coupling");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
@@ -290,7 +290,7 @@ namespace APIs.Python.Model
                                                            object ur3 = null)
         {
             DistributingCoupling constraint =
-                _service.CloneForReplace<DistributingCoupling>(old_name, "DistributingCoupling");
+                _service.CloneForReplace<DistributingCoupling>(old_name, "distributing_coupling");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
@@ -329,7 +329,7 @@ namespace APIs.Python.Model
                                                       object tensile_force_at_negative_infinity = null,
                                                       object offset = null, object non_linear = null)
         {
-            CompressionOnly constraint = _service.CloneForReplace<CompressionOnly>(old_name, "CompressionOnly");
+            CompressionOnly constraint = _service.CloneForReplace<CompressionOnly>(old_name, "compression_only");
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyCompressionOnlyValues(constraint, clearance, spring_stiffness,
                                        tensile_force_at_negative_infinity, offset, non_linear);
@@ -359,7 +359,7 @@ namespace APIs.Python.Model
         public ConstraintAPI replace_point_spring(string old_name, string name = null, object region = null,
                                                   object k1 = null, object k2 = null, object k3 = null)
         {
-            PointSpring constraint = _service.CloneForReplace<PointSpring>(old_name, "PointSpring");
+            PointSpring constraint = _service.CloneForReplace<PointSpring>(old_name, "point_spring");
             if (region != null) _service.ApplyRegion(constraint, region, NodeTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             //
@@ -394,7 +394,7 @@ namespace APIs.Python.Model
                                                     object k1 = null, object k2 = null, object k3 = null,
                                                     object stiffness_per_area = null)
         {
-            SurfaceSpring constraint = _service.CloneForReplace<SurfaceSpring>(old_name, "SurfaceSpring");
+            SurfaceSpring constraint = _service.CloneForReplace<SurfaceSpring>(old_name, "surface_spring");
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             if (stiffness_per_area != null)

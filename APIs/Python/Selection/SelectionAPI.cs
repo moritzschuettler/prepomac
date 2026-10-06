@@ -59,19 +59,19 @@ namespace APIs.Python
                    "application selects what lies under it, the same way a mouse pick does. Possible " +
                    "select_by values are Node, Element, Edge, Surface, EdgeAngle, SurfaceAngle, Part, " +
                    "Geometry, GeometryVertex, GeometryEdge, GeometrySurface, GeometryEdgeAngle, " +
-                   "GeometrySurfaceAngle and GeometryPart. The angle applies to the angle based modes. " +
+                   "GeometrySurfaceAngle and GeometryPart. The angle_deg applies to the angle based modes. " +
                    "The nearest entity is picked, so a point that does not lie on the model still resolves.",
-                   Arguments = "point: list[float], select_by: str, angle: float = None, " +
+                   Arguments = "point: list[float], select_by: str, angle_deg: float = None, " +
                                "direction: list[float] = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, operation: str = None, precision: float = None, " +
                                "part_offsets: list[list[float]] = None", Returns = "Selection",
                    Example = "selection.add_by_pick([0.5, 0.5, 1.0], 'Surface')")]
-        public SelectionAPI add_by_pick(object point, string select_by, object angle = null,
+        public SelectionAPI add_by_pick(object point, string select_by, object angle_deg = null,
                                         object direction = null, object part_ids = null,
                                         object completely_inside = null, string operation = null,
                                         object precision = null, object part_offsets = null)
         {
-            _service.AddByPick(this, point, select_by, angle, direction, part_ids, completely_inside,
+            _service.AddByPick(this, point, select_by, angle_deg, direction, part_ids, completely_inside,
                                operation, precision, part_offsets);
             return this;
         }
@@ -79,15 +79,29 @@ namespace APIs.Python
         [PythonAPI("Adds an area pick to the selection. The planes bound the volume that is selected, " +
                    "every row being [ox, oy, oz, nx, ny, nz] of one plane, and a normal points out of " +
                    "the volume. It is what a rubber band records, whose planes are the frustum it swept.",
-                   Arguments = "planes: list[list[float]], select_by: str, angle: float = None, " +
+                   Arguments = "planes: list[list[float]], select_by: str, angle_deg: float = None, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, operation: str = None, " +
                                "part_offsets: list[list[float]] = None",
                    Returns = "Selection")]
-        public SelectionAPI add_by_area(object planes, string select_by, object angle = null,
+        public SelectionAPI add_by_area(object planes, string select_by, object angle_deg = null,
                                         object part_ids = null, object completely_inside = null,
                                         string operation = null, object part_offsets = null)
         {
-            _service.AddByArea(this, planes, select_by, angle, part_ids, completely_inside, operation, part_offsets);
+            _service.AddByArea(this, planes, select_by, angle_deg, part_ids, completely_inside, operation, part_offsets);
+            return this;
+        }
+        [PythonAPI("Adds an axis aligned box to the selection, which is the six plane form of add_by_area. " +
+                   "The box is given by its two opposite corners.",
+                   Arguments = "corner1: list[float], corner2: list[float], select_by: str, " +
+                               "part_ids: list[int] = None, completely_inside: bool = False, operation: str = None, " +
+                               "part_offsets: list[list[float]] = None",
+                   Returns = "Selection",
+                   Example = "selection.add_by_box([0, 0, 0.9], [1, 1, 1.1], 'Node', operation='Subtract')")]
+        public SelectionAPI add_by_box(object corner1, object corner2, string select_by, object part_ids = null,
+                                       object completely_inside = null, string operation = null,
+                                       object part_offsets = null)
+        {
+            _service.AddByBox(this, corner1, corner2, select_by, part_ids, completely_inside, operation, part_offsets);
             return this;
         }
 

@@ -23,6 +23,10 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public override string GetItemType(Load load)
+        {
+            return LoadAPI.GetItemType(load);
+        }
         public void ApplyCommonValues(Load load, object amplitudeName, object coordinateSystemName,
                                       object phaseDeg, object color)
         {
@@ -38,8 +42,8 @@ namespace APIs.Python.Model
             // The step silently refuses an unsupported type, so the check is done before the command
             Step step = StepService.ResolveStep(stepName);
             if (!step.IsLoadSupported(load))
-                throw new PythonAPIException("A " + load.GetType().Name + " is not supported by the step '" +
-                                             stepName + "', which is a " + step.GetType().Name + ".");
+                throw new PythonAPIException("A " + LoadAPI.GetItemType(load) + " load is not supported by the step '" +
+                                             stepName + "', which is a " + StepAPI.GetItemType(step) + " step.");
             // The dialog offers a pre-tension load only for a three dimensional model
             if (load is PreTensionLoad && GetIsTwoDimensional())
                 throw new PythonAPIException("A pre-tension load needs a three dimensional model.");

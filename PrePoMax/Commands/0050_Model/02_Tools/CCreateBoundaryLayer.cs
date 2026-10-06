@@ -61,7 +61,7 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             string selection = PythonSelectionEmitter.Emit(writer, _geometrySelection.CreationData);
-            writer.Statement(writer.Call("pmx.model.mesh", "create_boundary_layer", selection,
+            writer.Statement(writer.Call("pmx.model.mesh", "generate_boundary_layer", selection,
                                          PythonValueFormatter.Number(_thickness)));
             writer.CountEmittedCommand();
         }

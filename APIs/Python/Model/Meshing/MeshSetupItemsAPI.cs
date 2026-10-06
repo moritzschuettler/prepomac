@@ -9,6 +9,7 @@
 
 using CaeMesh;
 using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -24,8 +25,8 @@ namespace APIs.Python.Model
             "merge_compound_parts: bool = None, merge_cells: bool = None";
         private const string NetgenMeshArguments =
             "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
-            "transfinite_three_sided: bool = None, transfinite_four_sided: bool = None, " +
-            "transfinite_angle: float = None";
+            "transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +
+            "transfinite_angle_deg: float = None";
         private const string ShellMmgArguments =
             "relative_size: bool = None, relative_hausdorff: float = None, hausdorff: float = None, " +
             "keep_model_edges: bool = None";
@@ -40,6 +41,43 @@ namespace APIs.Python.Model
             : base("mesh setup item")
         {
             _service = service;
+        }
+
+
+        // Static methods
+        // The stored values the add_* and replace_* arguments set under another name, which is how the
+        // apply methods below write them; a value no argument sets keeps the name of its property
+        internal static Dictionary<string, string[]> GetArgumentValueNames(MeshSetupItem item)
+        {
+            Dictionary<string, string[]> names = new Dictionary<string, string[]>();
+            if (item is MeshingParameters)
+            {
+                names.Add("max_size", new string[] { "max_h" });
+                names.Add("min_size", new string[] { "min_h" });
+            }
+            else if (item is LocalMeshSize)
+            {
+                names.Add("element_size", new string[] { "mesh_size" });
+            }
+            else if (item is NetgenMesh)
+            {
+                names.Add("optimize_steps_2d", new string[] { "optimize_steps2_d" });
+                names.Add("optimize_steps_3d", new string[] { "optimize_steps3_d" });
+            }
+            else if (item is SweepMesh)
+            {
+                // The 2D algorithm of a sweep may also be QuadWild, so it is stored apart from the gmsh one
+                names.Add("algorithm_2d", new string[] { "sweep_algorithm_mesh2_d" });
+                names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
+                names.Add("elements_per_layer", new string[] { "number_of_elements_per_layer" });
+            }
+            else if (item is GmshSetupItem)
+            {
+                names.Add("algorithm_2d", new string[] { "algorithm_mesh2_d" });
+                names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
+            }
+            //
+            return names;
         }
 
 
@@ -205,14 +243,14 @@ namespace APIs.Python.Model
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection, object optimize_steps_2d = null,
                                                 object optimize_steps_3d = null, object quad_dominated = null,
-                                                object transfinite_three_sided = null,
+                                                string transfinite_three_sided = null,
                                                 object transfinite_four_sided = null,
-                                                object transfinite_angle = null)
+                                                object transfinite_angle_deg = null)
         {
             _service.ValidateNewName(name);
             NetgenMesh item = new NetgenMesh(name);
             ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
-                            transfinite_four_sided, transfinite_angle);
+                            transfinite_four_sided, transfinite_angle_deg);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -224,20 +262,20 @@ namespace APIs.Python.Model
         public MeshSetupItemAPI replace_netgen_mesh(string old_name, string name = null, SelectionAPI selection = null,
                                                     object optimize_steps_2d = null, object optimize_steps_3d = null,
                                                     object quad_dominated = null,
-                                                    object transfinite_three_sided = null,
+                                                    string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
-                                                    object transfinite_angle = null)
+                                                    object transfinite_angle_deg = null)
         {
             NetgenMesh item = _service.CloneItem<NetgenMesh>(old_name);
             ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
-                            transfinite_four_sided, transfinite_angle);
+                            transfinite_four_sided, transfinite_angle_deg);
             return Replace(old_name, name, item, selection);
         }
 
         [PythonAPI("Adds a Gmsh tetrahedral mesh item for the selected geometry.",
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "algorithm_3d: str = None, recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", transfinite_angle: float = None, " +
+                               GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
                                "optimize_first_order_solid: str = None, optimize_high_order: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_tetrahedral_gmsh(string name, SelectionAPI selection, string algorithm_2d = null,
@@ -246,14 +284,14 @@ namespace APIs.Python.Model
                                                      string algorithm_recombine = null,
                                                      string transfinite_three_sided = null,
                                                      object transfinite_four_sided = null,
-                                                     object transfinite_angle = null,
+                                                     object transfinite_angle_deg = null,
                                                      string optimize_first_order_solid = null,
                                                      string optimize_high_order = null)
         {
             _service.ValidateNewName(name);
             TetrahedralGmsh item = new TetrahedralGmsh(name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                                  optimize_first_order_solid, optimize_high_order);
             _service.Add(item, name, selection);
             return this[name];
@@ -269,13 +307,13 @@ namespace APIs.Python.Model
                                                          string algorithm_recombine = null,
                                                          string transfinite_three_sided = null,
                                                          object transfinite_four_sided = null,
-                                                         object transfinite_angle = null,
+                                                         object transfinite_angle_deg = null,
                                                          string optimize_first_order_solid = null,
                                                          string optimize_high_order = null)
         {
             TetrahedralGmsh item = _service.CloneItem<TetrahedralGmsh>(old_name);
             ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                                  optimize_first_order_solid, optimize_high_order);
             return Replace(old_name, name, item, selection);
         }
@@ -283,7 +321,7 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a Gmsh shell mesh item for the selected geometry.",
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "algorithm_3d: str = None, recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", transfinite_angle: float = None, " +
+                               GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
                                "optimize_first_order_shell: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_gmsh(string name, SelectionAPI selection, string algorithm_2d = null,
@@ -291,13 +329,13 @@ namespace APIs.Python.Model
                                                string algorithm_recombine = null,
                                                string transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
-                                               object transfinite_angle = null,
+                                               object transfinite_angle_deg = null,
                                                string optimize_first_order_shell = null)
         {
             _service.ValidateNewName(name);
             ShellGmsh item = new ShellGmsh(name);
             ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                            optimize_first_order_shell);
             _service.Add(item, name, selection);
             return this[name];
@@ -312,12 +350,12 @@ namespace APIs.Python.Model
                                                    string algorithm_recombine = null,
                                                    string transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
-                                                   object transfinite_angle = null,
+                                                   object transfinite_angle_deg = null,
                                                    string optimize_first_order_shell = null)
         {
             ShellGmsh item = _service.CloneItem<ShellGmsh>(old_name);
             ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                            optimize_first_order_shell);
             return Replace(old_name, name, item, selection);
         }
@@ -325,18 +363,18 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a Gmsh transfinite mesh item for the selected geometry.",
                    Arguments = "name: str, selection: Selection, allow_pyramid_elements: bool = False, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, recombine: bool = None, " +
-                               "transfinite_angle: float = None, transfinite_three_sided: str = None",
+                               "transfinite_angle_deg: float = None, transfinite_three_sided: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_transfinite_mesh(string name, SelectionAPI selection,
                                                      bool allow_pyramid_elements = false, string algorithm_2d = null,
                                                      string algorithm_3d = null, object recombine = null,
-                                                     object transfinite_angle = null,
+                                                     object transfinite_angle_deg = null,
                                                      string transfinite_three_sided = null)
         {
             _service.ValidateNewName(name);
             TransfiniteMesh item = new TransfiniteMesh(name);
             item.AllowPyramidElements = allow_pyramid_elements;
-            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle,
+            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle_deg,
                                  transfinite_three_sided);
             _service.Add(item, name, selection);
             return this[name];
@@ -349,14 +387,14 @@ namespace APIs.Python.Model
                                                          SelectionAPI selection = null,
                                                          object allow_pyramid_elements = null,
                                                          string algorithm_2d = null, string algorithm_3d = null,
-                                                         object recombine = null, object transfinite_angle = null,
+                                                         object recombine = null, object transfinite_angle_deg = null,
                                                          string transfinite_three_sided = null)
         {
             TransfiniteMesh item = _service.CloneItem<TransfiniteMesh>(old_name);
             if (allow_pyramid_elements != null)
                 item.AllowPyramidElements = PythonValueConverter.ToBool(allow_pyramid_elements,
                                                                         "allow_pyramid_elements");
-            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle,
+            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle_deg,
                                  transfinite_three_sided);
             return Replace(old_name, name, item, selection);
         }
@@ -376,7 +414,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
-                               ", transfinite_angle: float = None, optimize_first_order_shell: str = None, " +
+                               ", transfinite_angle_deg: float = None, optimize_first_order_shell: str = None, " +
                                "elements_per_layer: list[int] = None, keep_imprint_edges: bool = False, " +
                                "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
                                "quad_wild_smooth: bool = None, symmetry: str = None",
@@ -387,7 +425,7 @@ namespace APIs.Python.Model
                                                string algorithm_recombine = null,
                                                string transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
-                                               object transfinite_angle = null,
+                                               object transfinite_angle_deg = null,
                                                string optimize_first_order_shell = null,
                                                object elements_per_layer = null, bool keep_imprint_edges = false,
                                                string quad_wild_flow_profile = null, object quad_wild_alpha = null,
@@ -399,7 +437,7 @@ namespace APIs.Python.Model
             item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
             item.KeepImprintEdges = keep_imprint_edges;
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                            optimize_first_order_shell, elements_per_layer);
             ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             _service.Add(item, name, selection);
@@ -417,7 +455,7 @@ namespace APIs.Python.Model
                                                    string algorithm_recombine = null,
                                                    string transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
-                                                   object transfinite_angle = null,
+                                                   object transfinite_angle_deg = null,
                                                    string optimize_first_order_shell = null,
                                                    object elements_per_layer = null, object keep_imprint_edges = null,
                                                    string quad_wild_flow_profile = null, object quad_wild_alpha = null,
@@ -431,7 +469,7 @@ namespace APIs.Python.Model
             if (keep_imprint_edges != null)
                 item.KeepImprintEdges = PythonValueConverter.ToBool(keep_imprint_edges, "keep_imprint_edges");
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle,
+                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                            optimize_first_order_shell, elements_per_layer);
             ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
             return Replace(old_name, name, item, selection);
@@ -445,8 +483,8 @@ namespace APIs.Python.Model
                                "keep_files_on_failure: bool = None, debug_visualization: bool = None, " +
                                "old_algorithm: bool = None, pin_edge_nodes: bool = None, edge_rotations: bool = None, " +
                                "singularity_position: float = None, count_search: int = None, " +
-                               "boundary_layer: str = None, transfinite_three_sided: bool = None, " +
-                               "transfinite_four_sided: bool = None, transfinite_angle: float = None",
+                               "boundary_layer: str = None, transfinite_three_sided: str = None, " +
+                               "transfinite_four_sided: bool = None, transfinite_angle_deg: float = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
                                                     object smooth = null, object alpha = null,
@@ -455,16 +493,16 @@ namespace APIs.Python.Model
                                                     object debug_visualization = null, object old_algorithm = null,
                                                     object pin_edge_nodes = null, object edge_rotations = null,
                                                     object singularity_position = null, object count_search = null,
-                                                    string boundary_layer = null, object transfinite_three_sided = null,
+                                                    string boundary_layer = null, string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
-                                                    object transfinite_angle = null)
+                                                    object transfinite_angle_deg = null)
         {
             _service.ValidateNewName(name);
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
                                pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer,
-                               transfinite_three_sided, transfinite_four_sided, transfinite_angle);
+                               transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -481,15 +519,15 @@ namespace APIs.Python.Model
                                                         object old_algorithm = null,
                                                         object pin_edge_nodes = null, object edge_rotations = null,
                                                     object singularity_position = null, object count_search = null,
-                                                    string boundary_layer = null, object transfinite_three_sided = null,
+                                                    string boundary_layer = null, string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
-                                                    object transfinite_angle = null)
+                                                    object transfinite_angle_deg = null)
         {
             ShellQuadWild item = _service.CloneItem<ShellQuadWild>(old_name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
                                pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer,
-                               transfinite_three_sided, transfinite_four_sided, transfinite_angle);
+                               transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             return Replace(old_name, name, item, selection);
         }
         //
@@ -609,7 +647,7 @@ namespace APIs.Python.Model
             if (mergeCells != null) item.MergeCells = PythonValueConverter.ToBool(mergeCells, "merge_cells");
         }
         private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
-                                            object quadDominated, object transfiniteThreeSided,
+                                            object quadDominated, string transfiniteThreeSided,
                                             object transfiniteFourSided, object transfiniteAngle)
         {
             if (optimizeSteps2D != null)
@@ -619,11 +657,13 @@ namespace APIs.Python.Model
             if (quadDominated != null)
                 item.QuadDominated = PythonValueConverter.ToBool(quadDominated, "quad_dominated");
             if (transfiniteThreeSided != null)
-                item.TransfiniteThreeSided = PythonValueConverter.ToBool(transfiniteThreeSided, "transfinite_three_sided");
+                item.TransfiniteThreeSided =
+                    PythonValueConverter.ToEnum<TransfiniteThreeSidedEnum>(transfiniteThreeSided,
+                                                                           "transfinite_three_sided");
             if (transfiniteFourSided != null)
                 item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
             if (transfiniteAngle != null)
-                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle");
+                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle_deg");
         }
         private static void ApplyShellMmg(ShellMmg item, object relativeSize, object relativeHausdorff,
                                           object hausdorff, object keepModelEdges)
@@ -712,7 +752,7 @@ namespace APIs.Python.Model
                                                object debugVisualization, object oldAlgorithm,
                                                object pinEdgeNodes, object edgeRotations, object singularityPosition,
                                                object countSearch, string boundaryLayer,
-                                               object transfiniteThreeSided, object transfiniteFourSided,
+                                               string transfiniteThreeSided, object transfiniteFourSided,
                                                object transfiniteAngle)
         {
             if (preview != null) item.Preview = PythonValueConverter.ToBool(preview, "preview");
@@ -742,11 +782,13 @@ namespace APIs.Python.Model
             if (boundaryLayer != null)
                 item.BoundaryLayer = PythonValueConverter.ToEnum<QuadWildBoundaryLayerEnum>(boundaryLayer, "boundary_layer");
             if (transfiniteThreeSided != null)
-                item.TransfiniteThreeSided = PythonValueConverter.ToBool(transfiniteThreeSided, "transfinite_three_sided");
+                item.TransfiniteThreeSided =
+                    PythonValueConverter.ToEnum<TransfiniteThreeSidedEnum>(transfiniteThreeSided,
+                                                                           "transfinite_three_sided");
             if (transfiniteFourSided != null)
                 item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
             if (transfiniteAngle != null)
-                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle");
+                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle_deg");
         }
         private static void ApplyAlgorithms(GmshSetupItem item, string algorithm2D, string algorithm3D)
         {
@@ -780,7 +822,7 @@ namespace APIs.Python.Model
         {
             if (transfiniteAngle == null) return;
             //
-            item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle");
+            item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle_deg");
         }
         private static void ApplyOptimizeFirstOrderShell(GmshSetupItem item, string optimizeFirstOrderShell)
         {

@@ -93,10 +93,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result contains the specified user-visible element set.",
-                   Arguments = "element_set_name: str", Returns = "bool")]
-        public bool contains(string element_set_name)
+                   Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _meshService.GetElementSetNames(_resultName).Contains(element_set_name);
+            return _meshService.GetElementSetNames(_resultName).Contains(name);
         }
         public override string ToString()
         {

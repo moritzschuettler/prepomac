@@ -14,20 +14,36 @@ The root object available in the Python console is `pmx`.
 - Name collections return `StringList` objects. ID collections return `IntList` objects.
 - Long API arrays and named collections are shortened when evaluated directly. Use `print(array)` to display every item.
 - Result names are strings. In many projects they are full file paths and are used to select the current result.
-- Result data is exposed through `pmx.results.current`. Use `set_current(result_name)` to change it.
+- Result data is exposed through `pmx.results.current`. Assign a loaded result name or a `Result` to it to change it: `pmx.results.current = result_names[-1]`.
 - Result steps and increments are indexed by result IDs, not by model step names.
 - Field result data is node-based. Only history output can contain integration point values.
 - Integration point history entry names use the form `elementId_intPointId`.
 - Option strings of the result side are the PascalCase names of the application's enumerations (`AllNodes`, `FieldByGeometry`, `RealAtAngle`, ...). They are matched regardless of case and read back in
-  that spelling. Result and mesh members take snake_case arguments (`node_id`, `step_id`, `field_name`, ...).
+  that spelling. Result and mesh members take snake_case arguments (`node_id`, `step_id`, `field_name`, ...). `contains` takes `name`, or
+  `id` where the collection is keyed by an ID (result steps, increments and elements).
 - NumPy is optional. Where available, numeric arrays are returned as NumPy arrays. Otherwise, `NumericArray` or typed API list wrappers are returned.
-- Methods that construct Python-side objects start with `create_` and do not modify PrePoMax. They
-  make either a detached part that an `add` takes as an argument (`pmx.create.elastic(...)`,
-  `pmx.create.region(...)`), or a result output draft (`create_field_output_equation(...)`).
+- Methods that construct Python-side objects do not modify PrePoMax. They make either a detached part
+  that an `add` takes as an argument - a maker on `pmx.create`, such as `pmx.create.elastic(...)`,
+  `pmx.create.region(...)` or `pmx.create.selection_by_ids(...)` - or a result output draft or filter
+  (`create_field_output_equation(...)`, `create_median_filter(...)`), which are the only `create_*` methods.
+  A method that changes the model is named for what it does: a collection makes an item with `add_*`, and
+  the mesher runs with `mesh.generate`.
 - Collection `add_*` and `replace_*` methods validate and make the command-recorded change. On the
   **model** side a value that is not given is kept, so a replace changes only what it is told; on the
   **results** side a replace re-specifies the whole definition, because a result draft is built whole
   rather than cloned.
+- Every collection `add_*` has a matching `replace_*` except three: `geometry.parts.add_compound` (a compound
+  is built once from the named parts), `element_sets.add_from_quality` (the element set it adds is replaced
+  by `element_sets.replace`) and `tree.add_group` (a group is moved and renamed by the tree, not re-specified).
+- Names follow one pattern across the API. A count is `number_of_*` (`number_of_frequencies`,
+  `number_of_cpus`), an angle in degrees ends in `_deg` (`angle_deg`, `edge_angle_deg`, `rotate_angle_deg`,
+  `transfinite_angle_deg`, `azimuth_deg`), the step of a results file is `step_id`, and a point, a direction
+  or a centre is one list rather than one argument per coordinate (`center=[x, y]`,
+  `axis_point=[x, y, z]`).
+- The collection verbs `hide`, `show`, `remove` and `duplicate` take `names`, a name or a list of names.
+- The type an item reads back as is always `item_type`: the name of the `add_*` method that makes it,
+  without `add_` - `'concentrated_force'`, `'static'`, `'from_field'`, `'from_equation'`. A `replace_*` of
+  another type is refused in those words: `... is made by add_X, so replace_Y cannot replace it`.
 - Names are compared the way the model keys its collections: regardless of case and of surrounding spaces, so
   `steel` clashes with `Steel`. Renaming an item to its own name in another case is allowed. Coordinate systems have a
   name space of their own; the parts, sets, surfaces and reference points share one.
@@ -384,7 +400,7 @@ The results tree is reached the same way, one level at a time.
 pmx
 pmx.results
 result_names = pmx.results.get_names()
-pmx.results.set_current(result_names[-1])
+pmx.results.current = result_names[-1]
 result = pmx.results.current
 step = result.steps[1]
 increment = step.increments[1]
@@ -468,7 +484,7 @@ Root object exposed as `pmx`.
 | --- | --- |
 | `model` | The model tree of the currently open model. |
 | `results` | Loaded result names and the currently selected result. |
-| `selection` | Creates and highlights reusable view-aware selections. |
+| `selection` | Highlights a selection in the view and clears the highlight. Selections are made by `create`. |
 | `create` | Creates the detached parts that model items take as arguments. |
 | `jobs` | The analyses of the model. |
 | `view` | What the application shows, and a picture of it. |
@@ -583,7 +599,7 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
 | `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable. |
-| `number_of_cycles`, `cycles_increment`, `num_of_smoothing_steps` | The slip wear model values, as the value or equation they were entered with. Writable. |
+| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values, as the value or equation they were entered with. Writable. |
 | `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants, or `None` while they are undefined. Writable. |
 | `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. |
@@ -674,8 +690,8 @@ Reached as `pmx.model.mesh`.
 | Member | Description |
 | --- | --- |
 | `setup_items` | The mesh setup items of the model. |
-| `create(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
-| `create_boundary_layer(selection, thickness)` | Creates a prismatic boundary layer on the selected faces. |
+| `generate(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
+| `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. |
 | `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. |
 | `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. |
 | `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. |
@@ -696,15 +712,15 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
+| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
-| `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. A cell of a compound the sweep cannot reach is meshed by tetrahedra, by Netgen, with a pyramid on every quadrilateral a swept cell leaves on the face they share, rather than refusing the compound; a compound all of whose cells sweep is swept as before. A part selection also revolves a solid, or a cell of a compound, that the sweep between two ends cannot reach and that is turned about an axis its source touches: its source is turned through equal layers, and the elements beside the axis collapse into wedges, pyramids and tetrahedra. A wall of a revolved cell may be split along the revolution, by the faces of a neighbour standing on it, and the layers then end at the angles of the split. Revolved cells about one axis are turned the same way round, so that the target of one is the source of the next; a revolved cell shares its walls with other revolved cells and with swept cells, whose counts are settled with its own, hands its surfaces on as the sources of swept cells, and is revolved from the target of a swept cell, which is meshed before it. A swept cell ending on the target of a revolved cell is swept the other way round, from it, when its other end is free or the source of a revolved cell. Swept and revolved cells may form a ring, as the sides and the corners of a frame do; a swept cell closes it, ending on the meshed source of the cell after it. A cell that could be swept as well as revolved is swept, unless its sweep meets a revolved cell in any other way: it then follows that cell and is revolved about the same axis, and the cells it touches follow it in turn. A cell a revolved cell would share a surface with in any other way leaves it to tetrahedra. `symmetry` is `Automatic` (the default for a new item) or `Off`: with `Automatic`, a compound whose cells are mirror images across the planes it is split on sweeps one symmetric piece of its cells and mirrors the mesh onto the others; a cell of the piece the sweep cannot reach is meshed by tetrahedra and mirrored the same way. The symmetry is used only when every cell has a mirror image, every edge of an image is an edge of the cell it is meshed from, and every other mesh setup item selects the images of what it selects; otherwise the compound is swept whole. An item read from a file written before the argument existed has `Off`. The structured sources are the 3-sided and 4-sided faces every mesher structures, by the item's `transfinite_three_sided`, `transfinite_four_sided` and `transfinite_angle`, whether gmsh or QuadWild meshes them: a side may be a chain of edges, a 3-sided source is three blocks of quads around one inner node, or with `transfinite_three_sided="Polar"` the grid collapsed at one corner, which sweeps into hexahedra and a fan of wedges along that corner as a revolution would, opposite sides are balanced to the coarser count together with the walls, and the meshing is refused when numbers of elements set on edges, or the layer counts of a neighbouring block, cannot agree with them. A structured source whose grid folds - a quadrilateral with a corner of 180 degrees or more, from which every swept element would be inverted - is refused with the surface named; a quadrilateral like that in a source the sweep meshes free is split into two triangles, which sweep into wedges. |
-| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, count_search=None, boundary_layer=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `count_search` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `None` (default), `Holes` (one ring of regular quads around every closed edge loop without corners) or `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds). `transfinite_three_sided` and `transfinite_four_sided` (both `True` by default) take the model faces with 3 and 4 sides whose corner angles lie between 180° minus `transfinite_angle` (degrees, default 135) and `transfinite_angle` out of the QuadWild patch layout and mesh them as structured grids (4 sides) or three structured blocks around one inner node (3 sides), like the transfinite faces of gmsh; QuadWild still chooses their element counts together with the rest of the mesh and gives the opposite sides of a 4-sided face equal counts. A sweep source meshed by QuadWild follows the transfinite settings of its sweep mesh item. Every value that is not given keeps the application default. |
+| `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. A cell of a compound the sweep cannot reach is meshed by tetrahedra, by Netgen, with a pyramid on every quadrilateral a swept cell leaves on the face they share, rather than refusing the compound; a compound all of whose cells sweep is swept as before. A part selection also revolves a solid, or a cell of a compound, that the sweep between two ends cannot reach and that is turned about an axis its source touches: its source is turned through equal layers, and the elements beside the axis collapse into wedges, pyramids and tetrahedra. A wall of a revolved cell may be split along the revolution, by the faces of a neighbour standing on it, and the layers then end at the angles of the split. Revolved cells about one axis are turned the same way round, so that the target of one is the source of the next; a revolved cell shares its walls with other revolved cells and with swept cells, whose counts are settled with its own, hands its surfaces on as the sources of swept cells, and is revolved from the target of a swept cell, which is meshed before it. A swept cell ending on the target of a revolved cell is swept the other way round, from it, when its other end is free or the source of a revolved cell. Swept and revolved cells may form a ring, as the sides and the corners of a frame do; a swept cell closes it, ending on the meshed source of the cell after it. A cell that could be swept as well as revolved is swept, unless its sweep meets a revolved cell in any other way: it then follows that cell and is revolved about the same axis, and the cells it touches follow it in turn. A cell a revolved cell would share a surface with in any other way leaves it to tetrahedra. `symmetry` is `Automatic` (the default for a new item) or `Off`: with `Automatic`, a compound whose cells are mirror images across the planes it is split on sweeps one symmetric piece of its cells and mirrors the mesh onto the others; a cell of the piece the sweep cannot reach is meshed by tetrahedra and mirrored the same way. The symmetry is used only when every cell has a mirror image, every edge of an image is an edge of the cell it is meshed from, and every other mesh setup item selects the images of what it selects; otherwise the compound is swept whole. An item read from a file written before the argument existed has `Off`. The structured sources are the 3-sided and 4-sided faces every mesher structures, by the item's `transfinite_three_sided`, `transfinite_four_sided` and `transfinite_angle_deg`, whether gmsh or QuadWild meshes them: a side may be a chain of edges, a 3-sided source is three blocks of quads around one inner node, or with `transfinite_three_sided="Polar"` the grid collapsed at one corner, which sweeps into hexahedra and a fan of wedges along that corner as a revolution would, opposite sides are balanced to the coarser count together with the walls, and the meshing is refused when numbers of elements set on edges, or the layer counts of a neighbouring block, cannot agree with them. A structured source whose grid folds - a quadrilateral with a corner of 180 degrees or more, from which every swept element would be inverted - is refused with the surface named; a quadrilateral like that in a source the sweep meshes free is split into two triangles, which sweep into wedges. |
+| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, count_search=None, boundary_layer=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `count_search` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `None` (default), `Holes` (one ring of regular quads around every closed edge loop without corners) or `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds). `transfinite_three_sided` (`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (`True` by default) take the model faces with 3 and 4 sides whose corner angles lie between 180° minus `transfinite_angle_deg` (degrees, default 135) and `transfinite_angle_deg` out of the QuadWild patch layout and mesh them as structured grids (4 sides) or three structured blocks around one inner node (3 sides), or with `Polar` the grid collapsed at one corner, whose cells there are a fan of triangles and whose side across from it QuadWild gives an even count, like the transfinite faces of gmsh; QuadWild still chooses their element counts together with the rest of the mesh and gives the opposite sides of a 4-sided face equal counts. A sweep source meshed by QuadWild follows the transfinite settings of its sweep mesh item. Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_netgen_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
-A `replace_*` edits one item type: naming an item of another type is refused, with the item and its type in the message.
+A `replace_*` edits one item type: naming an item of another type is refused, saying which `add_*` made it - `The mesh setup item 'X' is made by add_netgen_mesh, so replace_sweep_mesh cannot replace it.`
 
 An item the model cannot honour is **refused rather than recorded**, on an add and on a replace that
 names a new selection, and the refusal says why - a shell mesher on a solid part, a swept mesh on
@@ -720,9 +736,10 @@ carries, not by the verdict of the item it replaces.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
-`transfinite_four_sided` and `transfinite_angle` belong to `add_netgen_mesh`. The two switches, off by default,
-mesh the 3-sided and the 4-sided faces every mesher structures as structured grids - a 3-sided face as three
-blocks of quads around one inner node - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
+`transfinite_four_sided` and `transfinite_angle_deg` belong to `add_netgen_mesh`. `transfinite_three_sided`
+(`No` by default, `Mapped` or `Polar`) and `transfinite_four_sided` (off by default) mesh the 3-sided and the
+4-sided faces every mesher structures as structured grids - a 3-sided face as three blocks of quads around one
+inner node, or with `Polar` the grid collapsed at one corner with triangles there - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
 edge as a number is kept (one an element size gives is not), and the meshing is refused when the set numbers cannot
 agree.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
@@ -752,15 +769,18 @@ it as a revolution about that corner would make, and its two sides meeting there
 corner collapsed is the one whose other two corners lie closest to a right angle, of corners within a degree of that
 the one between the two sides closest in length, so the axis of a pie cut from a cylinder. `Mapped` is three blocks
 of quads around one inner node, `No` a free mesh. An item read from a file written while the setting was a switch
-has `Polar` where it was on. QuadWild has no polar grid, so the sources a sweep meshes by QuadWild are mapped with
-`Polar` too. The Netgen and QuadWild items keep `transfinite_three_sided` as a switch, which maps.
+has `Polar` where it was on. The Netgen and QuadWild items and the meshing parameters take the same three values
+(`No` the default of a Netgen item and of the meshing parameters, `Mapped` of a QuadWild item), and collapse the same
+corner; one read from a file written while the setting was a switch has `Mapped` where it was on, the grid they made
+then. QuadWild gives the side across from the collapsed corner an even number of elements, as its quads need; a
+polar face the counts fixed on its sides do not allow is meshed as an ordinary patch.
 
 | Item | Settings |
 | --- | --- |
-| `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_solid`, `optimize_high_order` |
-| `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell` |
-| `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default), `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`) |
+| `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_solid`, `optimize_high_order` |
+| `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell` |
+| `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle_deg`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default), `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`) |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,
@@ -776,7 +796,7 @@ stored.
 part = pmx.model.geometry.parts.first()
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
 pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)
-failed = {name: why for name, why in pmx.model.mesh.create(part.name).items() if why}
+failed = {name: why for name, why in pmx.model.mesh.generate(part.name).items() if why}
 ```
 
 ### `MeshSetupItem`
@@ -784,11 +804,11 @@ failed = {name: why for name, why in pmx.model.mesh.create(part.name).items() if
 | Member | Description |
 | --- | --- |
 | `name` | The item name. |
-| `item_type` | The item type, for example `MeshingParameters` or `LocalMeshSize`. |
+| `item_type` | The item type, named after the `add_*` method that makes it without `add_`: `meshing_parameters`, `local_mesh_size`, `shell_mmg`, `thicken_shell_mesh`, `netgen_mesh`, `tetrahedral_gmsh`, `shell_gmsh`, `transfinite_mesh`, `sweep_mesh` or `shell_quad_wild`. |
 | `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from. |
-| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`. List valued settings such as `layer_sizes` and `num_of_elements_per_layer` are included, so the dictionary is the complete definition. |
+| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `add_*` argument that sets each - `max_size`, `min_size`, `element_size`, `optimize_steps_2d`, `optimize_steps_3d`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg`. A stored value no argument sets keeps the name of its property. List valued settings such as `layer_sizes` and `elements_per_layer` are included, so the dictionary is the complete definition. |
 
 ### `Nodes` and `Elements` of the model mesh
 
@@ -801,7 +821,6 @@ not the read-only result mesh of the same name under `pmx.results`.
 | `nodes.renumber(start_id=1)` | Renumbers the nodes using command history. |
 | `nodes.merge_coincident(selection=None, distance=None)` | Merges coincident nodes. A selection that is not given means the whole mesh. |
 | `elements.renumber(start_id=1)` | Renumbers the elements using command history. |
-| `elements.create_element_set_from_quality(name, quality_type, limit, ...)` | Creates an element set from an element quality measure. |
 
 ### Part collections
 
@@ -810,12 +829,12 @@ Every `part_names` argument accepts a single name or a list of names.
 
 | Member | Description |
 | --- | --- |
-| `hide(part_names)`, `show(part_names)` | Part visibility. |
+| `hide(names)`, `show(names)` | Part visibility. |
 | `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. |
 | `reset_color(part_names)` | Restores the default color. |
 | `set_transparency(part_names, transparency)` | 0 is fully transparent, 255 is opaque. |
 | `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
-| `rotate(part_names, rotate_center, rotate_axis, rotate_angle, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
+| `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
 | `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. |
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
@@ -823,7 +842,7 @@ Every `part_names` argument accepts a single name or a list of names.
 | `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused, and so is `None`. An element kind the part does not contain is refused with an error naming the kinds it has. |
 | `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. An element kind the part does not contain is refused, naming the kinds it has, and so is the value `None`. |
 
-`GeometryParts` adds `create_compound`, `regenerate_compound`, `swap_geometries`,
+`GeometryParts` adds `add_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
 `split_solid`, `split_shell`, `rename_split_sub_part`, `group_split_cells`, `fuse_bodies`, `defeature`, `offset_face`,
 `delete_cad_faces`, `fuse_faces`, `repair`, `repair_preview`, `split_periodic_faces`, `flip_stl_normals` and
@@ -908,7 +927,7 @@ steel = compound.get_split_cell_names('Web')[:2]
 pmx.model.geometry.parts.group_split_cells(compound.name, steel, 'Steel')
 ```
 
-`create_compound(part_names)` imprints the parts on one another, so a solid is cut wherever another part
+`add_compound(part_names)` imprints the parts on one another, so a solid is cut wherever another part
 crosses it, and where two parts overlap the overlap is one solid of the compound. A compound of plain
 parts makes every solid a sub-part of its own. When one of the parts is a compound made by `split_solid`,
 the compound is split as well: its solids are gathered under the parts they came from - the cells of a
@@ -920,7 +939,7 @@ has, including any grouping or renaming done on it.
 
 `fuse_bodies(part_name, body_names)` is Fuse Bodies in the tree, and it changes the geometry: the
 named bodies of a compound become one solid. A body is a sub-part of the compound, whether the
-compound was imported, created with `create_compound` or made by `split_solid`; of a split compound
+compound was imported, created with `add_compound` or made by `split_solid`; of a split compound
 it may also be a cell, and a sub-part stands for all of its cells. The faces the solids share are
 taken out and the edges left on their outside are healed where the faces on both sides lie on one
 surface, so cells cut from one solid come back as that solid, with the faces and edges it had. Only
@@ -1007,7 +1026,7 @@ removed = pmx.model.geometry.parts.repair('Solid-1', fuse_faces=True, tolerance=
 added = pmx.model.geometry.parts.split_periodic_faces('Solid-1')   # the faces each part gained
 ```
 
-`ModelParts` adds `merge` and `find_edges_by_angle`.
+`ModelParts` adds `merge` and `find_edges_by_angle`. Both collections take `find_edges_by_angle(part_names, edge_angle_deg)`, with the angle in degrees.
 
 ```python
 pmx.model.parts.translate('Solid-1', [0, 0, 10])
@@ -1066,7 +1085,7 @@ lists the cells of one of them, which `group_split_cells` takes.
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such
 elements rather than refusing the mesh: it writes `<part> has <n> inverted or degenerate elements`
 to the output window, where the line is a link that highlights them, and highlights them once
-meshing ends. `mesh.create` reports such a part as meshed, so a script finds the elements here.
+meshing ends. `mesh.generate` reports such a part as meshed, so a script finds the elements here.
 
 #### `FaceData`, `EdgeData` and `VertexData`
 
@@ -1152,7 +1171,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
 
-`Distribution` exposes `name` and `distribution_type`.
+`Distribution` exposes `name` and `item_type`, `'from_equation'` or `'from_file'`.
 
 ### `InitialConditions`
 
@@ -1166,9 +1185,11 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. |
 | `hide(names)`, `show(names)` | Initial condition visibility. |
 
-`InitialCondition` exposes `name`, `condition_type`, `region_name`, `region_type`, `visible`, `valid`
-and `get_equations()`, which returns the stored values as the numbers or expressions they were
-entered with.
+`InitialCondition` exposes `name`, `item_type` (`'temperature'`, `'translational_velocity'` or
+`'angular_velocity'`), `region_name`, `region_type`, `visible`, `valid`, `get_value_names()`, `get_value(name)` and
+`get_equations()`, which returns the stored values as the numbers or expressions they were entered with.
+`get_value` takes the names of the `add_*` arguments, and `axis_point` and `axis_direction` of an angular velocity
+read back as lists of three.
 
 ```python
 pmx.model.amplitudes.add('Amp-1', [[0, 0], [1, 1]])
@@ -1185,7 +1206,9 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 | `replace(old_name, name=None, properties=None, description=None, temperature_dependent=None)` | Replaces an existing material. Omitted values are kept. |
 
 `Material` exposes `name`, `description`, `temperature_dependent`, `property_count` and
-`get_property_types()`.
+`get_property_types()`, which names every property after the `pmx.create` maker that makes it: `elastic`, `density`,
+`elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`,
+`thermal_conductivity` or `thermal_expansion`.
 
 ```python
 pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
@@ -1216,9 +1239,9 @@ A material may hold only one elastic property; the model rejects a second one.
 | `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. The region is a surface region, as on `add_distributed_mass`. |
 
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
-turning it into one.
+turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
 
-`Section` exposes `name`, `section_type`, `material_name`, `region_name`, `region_type`, `thickness`
+`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`
 and `valid`.
 
 ```python
@@ -1260,6 +1283,7 @@ print(node_set.count, node_set.get_node_ids())
 | --- | --- |
 | `add(name, selection)` | Creates an element set from a selection. The selection target is `elements`. |
 | `replace(old_name, name=None, selection=None)` | Replaces an existing element set. A value that is not given is kept. |
+| `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. It has no `replace_*`; replace the set with `replace`. |
 | `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
 
 `ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()`.
@@ -1318,7 +1342,7 @@ A point given as coordinates and a point given as a selection can be mixed in on
 which is what the dialog offers when one point is picked and another typed.
 
 `CoordinateSystem` exposes `name`, `coordinate_system_type`, `name_visible`, `visible`, `valid`, `get_origin()`,
-`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` (a `dict[str, str]`) and `get_construction_modes()` (a `dict[str, str]`), which
+`get_point_on_x()`, `get_point_in_xy()`, `get_equations()` (a `dict[str, str]`) and `get_construction()` (a `dict[str, str]`), which
 tells how each of the three points is defined.
 
 ```python
@@ -1385,22 +1409,22 @@ name that already exists.
 | Member | Description |
 | --- | --- |
 | `get_item_types(view)` | The collections that can be organized in a view. |
-| `create_group(view, item_type, group_name, group_id=None, parent_group_id=None, target_index=0, item_names=None, step_name=None)` | Creates a group and optionally moves items into it. Returns the group id. |
+| `add_group(view, item_type, group_name, group_id=None, parent_group_id=None, target_index=0, item_names=None, step_name=None)` | Adds a group and optionally moves items into it. Returns the group id. It has no `replace_group`: `rename_group` and `move_group` change a group. |
 | `rename_group(view, item_type, group_id, group_name, step_name=None)` | Renames a group. |
 | `remove_groups(view, item_type, group_ids, step_name=None)` | Removes groups. The items they hold stay in the tree. |
 | `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. |
 | `move_group(view, item_type, group_id, target_group_id=None, target_index=0, step_name=None)` | Moves a group. |
 
-A group of the geometry or mesh `parts` shares the namespace of the parts, so `create_group` and `rename_group`
+A group of the geometry or mesh `parts` shares the namespace of the parts, so `add_group` and `rename_group`
 validate its name like a part name and refuse a bad one with an error naming `group_name`. The groups of
 every other collection take free text.
 
-A group is identified by a GUID that the application stores with the layout. `create_group` generates
+A group is identified by a GUID that the application stores with the layout. `add_group` generates
 one when it is not given and returns it, so a script does not have to invent an id while a journal
 can pass the recorded one.
 
 ```python
-group = pmx.model.tree.create_group('femodel', 'parts', 'Housing', item_names=['Solid-1'])
+group = pmx.model.tree.add_group('femodel', 'parts', 'Housing', item_names=['Solid-1'])
 pmx.model.tree.move_items('femodel', 'parts', 'Solid-2', target_group_id=group)
 ```
 
@@ -1427,7 +1451,7 @@ arguments of its `add_*`, all optional.
 | `merge_by_master_slave(names)` | | Merges the constraints that share a master and a slave region. |
 | `hide(names)`, `show(names)` | | Symbol visibility. |
 
-`Constraint` exposes `name`, `constraint_type`, `active`, `visible`, `master_region_type`,
+`Constraint` exposes `name`, `item_type` (the `add_*` name without `add_`, `'tie'` or `'point_spring'`), `active`, `visible`, `master_region_type`,
 `master_region_name`, `slave_region_type`, `slave_region_name`, and the values of its own type
 through `get_value_names()` and `get_value(name)`.
 
@@ -1450,7 +1474,8 @@ region**, required when `number_of_graph_sectors` is larger than 1 and refused o
 application would discard it. The rule is checked on the final state, so a replace sees the values it keeps.
 `replace_cyclic_symmetry` takes `clear_expansion_region=None`; `True` drops the region, which a replace that lowers
 `number_of_graph_sectors` to 1 needs, and it cannot be combined with `region`. `sector_angle_deg` is derived as
-`360 / number_of_sectors` and is read through `get_value`.
+`360 / number_of_sectors` and is read through `get_value`, as are `axis_point` and `axis_direction`, which read back as
+lists of three.
 
 A **joint** connects two surfaces of a 3D model and locks their relative motion about the joint centre
 according to `joint_type`: `Hinge`, `Cylindrical`, `Slider`, `Ball` or `Weld`. `center_defined_by` is
@@ -1471,9 +1496,9 @@ frame of nodes on the joint axis and ties the master and slave frames by linear 
 no rigid body, solves on shell elements, and is as stiff as its springs. `stiffness_defined_by` is
 `FromModel`, where each spring gets 100 times the Young's modulus of the surfaces times the square
 root of the surface area divided by the number of surface nodes, or `UserDefined`; a given `stiffness`
-switches it to `UserDefined` and must be positive. The values read back through `get_value` are
-`joint_type`, `center_definition`, `x`, `y`, `z`, `axis_definition`, `n1`, `n2`, `n3`, `formulation`,
-`stiffness_definition` and `stiffness`.
+switches it to `UserDefined` and must be positive. The values read back through `get_value` carry the names of the arguments: `joint_type`,
+`center_defined_by`, `center` (a list of three), `axis_defined_by`, `axis_direction` (a list of three),
+`formulation`, `stiffness_defined_by` and `stiffness`.
 
 ### `SurfaceInteractions`
 
@@ -1485,7 +1510,8 @@ Reached as `pmx.model.surface_interactions`. A surface interaction is composed o
 | `add(name, properties)` | Adds a surface interaction. One property, or a list of them. |
 | `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list. |
 
-`SurfaceInteraction` exposes `name`, `property_count` and `get_property_types()`.
+`SurfaceInteraction` exposes `name`, `property_count` and `get_property_types()`, which names every property after the
+`pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
 
 The three properties are made by `pmx.create`:
 
@@ -1541,7 +1567,7 @@ Two rules hold everywhere in this section:
   item therefore keeps the application default, and `replace_*` keeps whatever the item already
   carries. `replace_static('Step-1', nlgeom=False)` changes one value and leaves the rest alone.
 - **The type cannot change on a replace**, because `replace_*` clones the existing item, the same
-  restriction the dialog has. Changing the type is a `remove` followed by an `add`. A `replace_<type>` edits
+  restriction the dialog has, and the refusal names both methods: `... is made by add_static, so replace_frequency cannot replace it`. Changing the type is a `remove` followed by an `add`. A `replace_<type>` edits
   only that exact type, even where one type derives from another: `replace_static` refuses a heat transfer,
   dynamic, modal dynamic, slip wear or temperature displacement step, `replace_heat_transfer` refuses a coupled or
   uncoupled temperature displacement step, and `replace_tie` refuses a cyclic symmetry. This holds for steps,
@@ -1561,11 +1587,11 @@ Reached as `pmx.model.steps`. It shares the collection verbs, including `activat
 | `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, direct=None, ...)` | A static step. |
 | `add_slip_wear(name, ...)` | A slip wear step. It takes the arguments of `add_static`. |
 | `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. |
-| `add_frequency(name, num_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. |
-| `add_complex_frequency(name, num_of_frequencies=None, ...)` | A complex frequency step. |
-| `add_buckle(name, num_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. |
+| `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. |
+| `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. |
+| `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. |
 | `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. It also takes the arguments of `add_static`. |
-| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, num_data_points=None, bias=None, num_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. |
+| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. |
 | `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. It also takes the arguments of `add_static`. |
 | `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. It also takes the arguments of `add_static`. |
 | `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
@@ -1601,7 +1627,7 @@ A new step of every type already carries the default field outputs the applicati
 
 | Member | Description |
 | --- | --- |
-| `name`, `step_type` | The step name and the type, for example `StaticStep`. |
+| `name`, `item_type` | The step name and the type, named after the `add_*` method that makes it without `add_`: `static`, `slip_wear`, `boundary_displacement`, `frequency`, `complex_frequency`, `buckle`, `modal_dynamics`, `steady_state_dynamics`, `dynamic`, `heat_transfer`, `uncoupled_temp_disp` or `coupled_temp_disp`. |
 | `active` | True when the step is written to the solver input file. |
 | `nlgeom`, `perturbation`, `run_analysis` | The shared solution flags. |
 | `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. |
@@ -1611,8 +1637,8 @@ A new step of every type already carries the default field outputs the applicati
 | `history_outputs` | The history outputs of the step. |
 | `defined_fields` | The defined fields of the step. |
 | `get_value_names()` | The names of the values specific to this step type. |
-| `get_value(name)` | One value specific to this step type, for example `time_period`. |
-| `get_control_types()` | The type names of the step control parameters. |
+| `get_value(name)` | One value specific to this step type, for example `time_period` or `number_of_frequencies`. |
+| `get_control_types()` | The types of the step control parameters, named after the `pmx.create` maker that makes each: `time_incrementation_control`, `field_control`, `contact_control` or `reset_control`. |
 | `set_controls(parameters)` | Replaces the step control parameters. They are made by `pmx.create`. |
 | `clear_controls()` | Removes the step control parameters. |
 
@@ -1638,7 +1664,7 @@ Reached as `step.bcs`. It shares the collection verbs. Every `region` argument i
 | --- | --- |
 | `add_fixed(name, region, color=None)` | A fixed boundary condition. |
 | `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. |
-| `add_submodel(name, region, step_number=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
+| `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
 | `propagate(name)` | Copies the boundary condition to every following step. Refused from the last step. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
@@ -1665,7 +1691,7 @@ command, naming the step type.
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The boundary condition name and the step it belongs to. |
-| `boundary_condition_type` | `FixedBC`, `DisplacementRotation`, `SubmodelBC` or `TemperatureBC`. |
+| `item_type` | `fixed`, `displacement_rotation`, `submodel` or `temperature`, named after the `add_*` method. |
 | `active`, `visible` | Item state. |
 | `region_type`, `region_name` | The region the boundary condition is applied to. |
 | `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
@@ -1688,7 +1714,7 @@ a `Region`; the selection target follows the load type.
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | elements | A gravity load. |
 | `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. |
-| `add_pre_tension(name, region, magnitude, direction=None, load_type=None, ...)` | surfaces | A pre-tension load. `load_type` is `Force` or `Displacement`. |
+| `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ...)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
 | `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
@@ -1714,7 +1740,7 @@ Three details the model imposes:
 - A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
   normal unless a `direction` is given. `replace_pre_tension` keeps every value that is not given, takes
   `auto_direction=True` to return to the surface normal (it cannot be combined with `direction`), and refuses a
-  `load_type` that changes the type unless the `magnitude` is given as well.
+  `tension_type` that changes the type unless the `magnitude` is given as well.
 - A **cavity name** is truncated to three characters, a solver limit.
 
 An **imported pressure** is read from its results file on every model check, so `pressure_time` and
@@ -1725,12 +1751,12 @@ An **imported pressure** is read from its results file on every model check, so 
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The load name and the step it belongs to. |
-| `load_type` | The load type, for example `CLoad` or `DLoad`. |
+| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
 | `active`, `visible` | Item state. |
 | `region_type`, `region_name` | The region the load is applied to. |
 | `amplitude_name`, `coordinate_system_name` | The names the load refers to. |
 | `color` | The symbol color as `[R, G, B, A]`. |
-| `get_value_names()`, `get_value(name)` | The values specific to this load type. |
+| `get_value_names()`, `get_value(name)` | The values specific to this load type, named like the `add_*` arguments. A vector reads back as one list: `first_point`, `second_point`, `direction` and `cutoff` of a hydrostatic pressure, `axis_point` and `axis_direction` of a centrifugal load, and `magnitude`, `direction`, `tension_type` and `auto_direction` of a pre-tension. |
 
 ### `FieldOutputs` (model)
 
@@ -1754,7 +1780,7 @@ step.field_outputs.add_element('EF-Output-1', ['S', 'E'])
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The field output name and the step it belongs to. |
-| `field_output_type` | `NodalFieldOutput`, `ElementFieldOutput` or `ContactFieldOutput`. |
+| `item_type` | `nodal`, `element` or `contact`, named after the `add_*` method. |
 | `active` | True when the field output is written to the solver input file. |
 | `last_iterations` | Writes the results of the last iteration of a diverged increment. |
 | `contact_elements` | Writes the results for the contact elements. |
@@ -1786,7 +1812,7 @@ step.history_outputs.add_nodal('H-Output-1', selection, ['U', 'RF'], totals_type
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The history output name and the step it belongs to. |
-| `history_output_type` | `NodalHistoryOutput`, `ElementHistoryOutput`, `ContactHistoryOutput` or `SectionHistoryOutput`. |
+| `item_type` | `nodal`, `element`, `section` or `contact`, named after the `add_*` method. |
 | `active` | True when the history output is written to the solver input file. |
 | `region_type`, `region_name` | The region, or the contact pair, the history output is written for. |
 | `totals_type`, `global_output` | The shared history output values. |
@@ -1801,7 +1827,7 @@ method, so the type follows from the method that is used.
 | Member | Description |
 | --- | --- |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `nodes`. |
-| `add_temperature_from_file(name, file_name, step_number=None, amplitude_name=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region. |
+| `add_temperature_from_file(name, file_name, step_id=None, amplitude_name=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region. |
 | `propagate(name)` | Copies the defined field to every following step. Refused from the last step. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
@@ -1820,7 +1846,7 @@ A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The defined field name and the step it belongs to. |
-| `defined_field_type` | The type, for example `DefinedTemperature`. |
+| `item_type` | `temperature` or `temperature_from_file`, named after the `add_*` method that makes it. |
 | `active`, `visible` | Item state. |
 | `region_type`, `region_name` | The region the defined field is applied to. |
 | `amplitude_name` | The amplitude the defined field refers to. |
@@ -1943,8 +1969,8 @@ analysis added without arguments is the one the dialog would offer.
 
 | Member | Description |
 | --- | --- |
-| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, num_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
-| `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_num_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. |
+| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, number_of_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
+| `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. |
 | `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
 
 `len(pmx.jobs)` and `contains(name)` also work where there is no job gateway, and report no analyses; every command
@@ -1956,9 +1982,9 @@ directory, CPU count or environment alone. An `inherit_*` switch is how an overr
 that the value follows the settings again; it cannot be combined with the value it replaces.
 
 ```python
-job = pmx.jobs.add('Job-1', num_cpus=4,
+job = pmx.jobs.add('Job-1', number_of_cpus=4,
                    environment_variables=[pmx.create.environment_variable('OMP_STACKSIZE', '256M')])
-pmx.jobs.replace('Job-1', inherit_num_cpus=True)
+pmx.jobs.replace('Job-1', inherit_number_of_cpus=True)
 ```
 
 ### `Job`
@@ -1969,7 +1995,7 @@ pmx.jobs.replace('Job-1', inherit_num_cpus=True)
 | `fem_solver` | The FEM solver. |
 | `executable`, `argument`, `work_directory` | What the solver is run as. The argument names the input file and defaults to the analysis name. The work directory is where the input file is written, where the previous run's files are deleted and where the solver runs, so an analysis with its own work directory is self contained. |
 | `compatibility_mode` | Runs the solver in the simplified mode. |
-| `num_cpus` | The number of solver CPUs. |
+| `number_of_cpus` | The number of solver CPUs. |
 | `environment_variables` | Detached copies of the solver environment variables. |
 | `status` | The status of the last run: `None`, `InQueue`, `Running`, `OK`, `Killed`, `TimedOut`, `Failed` or `FailedWithResults`. |
 | `results_file_name` | The name of the results file the analysis writes. |
@@ -2020,7 +2046,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `zoom_to_fit()` | Fits everything visible in the viewport. |
 | `get_parameters()` | The camera as 10 values: position, focal point and view up, three each, then the parallel scale. |
 | `set_parameters(parameters)` | Sets the camera from those 10 values. |
-| `rotate(azimuth, elevation=0, roll=0)` | Turns the camera about the model by angles in degrees: azimuth about the vertical axis of the view, elevation about its horizontal axis, roll about the viewing direction. |
+| `rotate(azimuth_deg, elevation_deg=0, roll_deg=0)` | Turns the camera about the model by angles in degrees: `azimuth_deg` about the vertical axis of the view, `elevation_deg` about its horizontal axis, `roll_deg` about the viewing direction. |
 | `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
 | `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
 | `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports. |
@@ -2065,7 +2091,7 @@ command history, the same as a label placed by a query in the application. The n
 | Member | Description |
 | --- | --- |
 | `get_names()` | The names of the annotations of the displayed view. |
-| `add_text(name, text, anchor_point)` | Adds a text label with an arrow pointing at a point in model coordinates. The name must be free. |
+| `add_text(name, text, anchor_point)` | Adds a text label with an arrow pointing at a point in model coordinates. The name must be free. Returns the name it was given. |
 | `add_node(node_id)` | Adds the annotation a node query places: ID, coordinates and, in the results view, the plotted value. Returns the generated name. |
 | `add_element(element_id)` | Adds the annotation an element query places. Returns the generated name. |
 | `remove(names)` | Removes the named annotations. A single name or a list of names; a reserved or unknown name is refused. |
@@ -2075,10 +2101,10 @@ command history, the same as a label placed by a query in the application. The n
 ```python
 shown = list(pmx.view.annotations.get_min_max())
 pmx.view.annotations.show_min_max(False, True)
-pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])
+label = pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])
 name = pmx.view.annotations.add_node(15)
 path = pmx.view.save_image()
-pmx.view.annotations.remove(['Load', name])
+pmx.view.annotations.remove([label, name])
 pmx.view.annotations.show_min_max(shown[0], shown[1])
 ```
 
@@ -2086,11 +2112,10 @@ pmx.view.annotations.show_min_max(shown[0], shown[1])
 
 ### `SelectionFactory`
 
-`pmx.selection` creates selection drafts that are independent of the live UI selection. The `view` is required and remains stored in the selection so command replay uses the correct mesh.
+`pmx.selection` highlights a selection in the view and clears the highlight. Selections themselves are made by `pmx.create` (`selection_by_ids`, `selection_by_pick`, `selection_by_area`, `selection_by_box` and `selection_all`, below) and are independent of the live UI selection. The `view` is required and remains stored in the selection so command replay uses the correct mesh.
 
 | Member | Description |
 | --- | --- |
-| `create_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
 | `highlight(selection)` | Switches to the stored view and highlights the selection. |
 | `clear_highlight()` | Clears the interactive selection and its highlight. |
 
@@ -2101,7 +2126,7 @@ Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `
 Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
 
 ```python
-selection = pmx.selection.create_by_ids(
+selection = pmx.create.selection_by_ids(
     view="results",
     target="nodes",
     source="edges",
@@ -2141,11 +2166,12 @@ resolves the way it resolves a mouse click.
 | Member | Description |
 | --- | --- |
 | `pmx.create.selection_by_ids(view, target, source, ids, geometry_select_mode='SelectId')` | Creates a selection from IDs. |
-| `pmx.create.selection_by_pick(view, target, point, select_by, angle=None, direction=None, part_ids=None, completely_inside=False, precision=None, part_offsets=None)` | Creates a selection from a point pick. |
-| `pmx.create.selection_by_area(view, target, planes, select_by, angle=None, part_ids=None, completely_inside=False, part_offsets=None)` | Creates a selection from an area pick. Every row of `planes` is `[ox, oy, oz, nx, ny, nz]`, and a normal points **out** of the volume. |
+| `pmx.create.selection_by_pick(view, target, point, select_by, angle_deg=None, direction=None, part_ids=None, completely_inside=False, precision=None, part_offsets=None)` | Creates a selection from a point pick. |
+| `pmx.create.selection_by_area(view, target, planes, select_by, angle_deg=None, part_ids=None, completely_inside=False, part_offsets=None)` | Creates a selection from an area pick. Every row of `planes` is `[ox, oy, oz, nx, ny, nz]`, and a normal points **out** of the volume. |
 | `pmx.create.selection_by_box(view, target, corner1, corner2, select_by, part_ids=None, completely_inside=False, part_offsets=None)` | The six plane form of `selection_by_area`, given by two opposite corners. |
 | `pmx.create.selection_all(view, target)` | Creates a selection of everything the view holds. |
-| `selection.add_by_ids(source, ids, operation=None)`, `add_by_pick(..., operation=None)`, `add_by_area(..., operation=None)` | Adds another item to a selection. |
+| `selection.add_by_ids(source, ids, operation=None)`, `add_by_pick(point, select_by, angle_deg=None, ..., operation=None)`, `add_by_area(planes, select_by, angle_deg=None, ..., operation=None)` | Adds another item to a selection. |
+| `selection.add_by_box(corner1, corner2, select_by, part_ids=None, completely_inside=False, operation=None, part_offsets=None)` | Adds an axis aligned box, the six plane form of `add_by_area`. |
 | `selection.add_all(operation=None)` | Adds everything the view holds. |
 | `selection.invert()` | Inverts what the selection has selected so far. |
 | `selection.configure(...)`, `selection.get_options()` | The recorded selection options. |
@@ -2170,7 +2196,7 @@ The `view` is `'geometry'`, `'femodel'` or `'results'`, in any case, and reads b
 
 `select_by` is `Node`, `Element`, `Edge`, `Surface`, `EdgeAngle`, `SurfaceAngle`, `Part`, `Geometry`,
 `GeometryVertex`, `GeometryEdge`, `GeometrySurface`, `GeometryEdgeAngle`, `GeometrySurfaceAngle` or
-`GeometryPart`. The four angle based modes need an `angle`.
+`GeometryPart`. The four angle based modes need an `angle_deg`, in degrees.
 
 ```python
 top = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
@@ -2249,21 +2275,19 @@ Collection of loaded result files.
 | Member | Description |
 | --- | --- |
 | `len(pmx.results)` | Number of loaded results. |
-| `current` | Returns the currently selected `Result`. |
+| `current` | The currently selected `Result`. Assigning a loaded result name or a `Result` selects that result through command history, the way the results list of the toolbar does. |
 | `history_outputs` | Returns history outputs for the currently selected result. |
 | `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
-| `set_current(result_name)` | Sets the current result through command history and returns it. |
 | `remove_current()` | Removes the current result through command history. |
 | `clear()` | Removes every loaded result through command history. |
-| `contains(result_name)` | Checks whether a result exists. |
+| `contains(name)` | Checks whether a result exists. |
 
 Example:
 
 ```python
 names = pmx.results.get_names()
-result = pmx.results.set_current(names[-1])
-# Equivalent after selection:
+pmx.results.current = names[-1]
 result = pmx.results.current
 ```
 
@@ -2284,8 +2308,8 @@ Single loaded result file.
 | `get_nodal_value(step_id, increment_id, field_name, component_name, node_id)` | Returns one nodal field component value. |
 | `get_nodal_coordinates(node_id)` | Returns the undeformed node coordinates as `[x, y, z]`. |
 | `get_deformed_nodal_coordinates(step_id, increment_id, node_id)` | Returns true-scale deformed coordinates using `DISP`. |
-| `get_history_output_entries(history_name, field_name, component_name)` | Returns the entries in a history output component. |
-| `get_history_output_entry(history_name, field_name, component_name, entry_name)` | Returns one named history output entry. |
+| `get_history_output_entries(history_output_name, field_name, component_name)` | Returns the entries in a history output component. |
+| `get_history_output_entry(history_output_name, field_name, component_name, entry_name)` | Returns one named history output entry. |
 
 Example:
 
@@ -2326,7 +2350,7 @@ Collection of user-defined result field outputs. These are postprocessing defini
 | `get_names()` | Returns definition names as `StringList`. |
 | `first()` | Returns the first field output definition. |
 | `last()` | Returns the last field output definition. |
-| `contains(field_output_name)` | Checks whether a definition exists. |
+| `contains(name)` | Checks whether a definition exists. |
 | `create_field_output_limit(name, field_name, component_name, based_on, item_limits)` | Creates a part-, element-set-, or all-elements-based limit draft without modifying the result. |
 | `create_field_output_envelope(name, field_name, component_name)` | Creates an envelope draft with `MAX`, `MIN`, and `AVERAGE` components. |
 | `create_field_output_equation(name, equation, unit="/")` | Creates an equation draft. References use case-sensitive `FIELD.COMPONENT` names. |
@@ -2337,7 +2361,8 @@ Collection of user-defined result field outputs. These are postprocessing defini
 | `add(output)` | Validates and adds a `FieldOutputDraft` using command history. |
 | `replace(old_name, output)` | Validates and replaces a field-output definition using command history. |
 | `rename(old_name, new_name)` | Renames a result field output using command history. |
-| `remove(field_output_names)` | Removes field outputs using command history. The argument is a non-empty list of names. |
+| `duplicate(names)` | Duplicates field outputs using command history. A name or a list of names. |
+| `remove(names)` | Removes field outputs using command history. The argument is a non-empty list of names. |
 | `remove_components(field_output_name, component_names)` | Removes components from a field output using command history. |
 | `export_to_csv(file_name, field_output_name, step_id, increment_id)` | Exports all field components at one result increment using command history. |
 
@@ -2547,7 +2572,7 @@ Base representation of a user-defined result field output.
 | Member | Description |
 | --- | --- |
 | `name` | Field output name. |
-| `type_name` | C# field output definition type. |
+| `item_type` | `limit`, `envelope`, `equation` or `coordinate_system_transform`, named after the `add_*` method that makes it. |
 | `filter1` | First `FieldOutputFilter`, or `None` when disabled. |
 | `filter2` | Second `FieldOutputFilter`, or `None` when disabled. |
 
@@ -2599,7 +2624,7 @@ Collection of result steps.
 | `get_ids()` | Returns step IDs as `IntList`. |
 | `first()` | Returns the first result step. |
 | `last()` | Returns the last result step. |
-| `contains(step_id)` | Checks whether the step exists. |
+| `contains(id)` | Checks whether the step exists. |
 
 ### `Step`
 
@@ -2622,7 +2647,7 @@ Collection of increments inside a result step.
 | `get_ids()` | Returns increment IDs as `IntList`. |
 | `first()` | Returns the first increment in the step. |
 | `last()` | Returns the last increment in the step. |
-| `contains(increment_id)` | Checks whether the increment exists. |
+| `contains(id)` | Checks whether the increment exists. |
 
 ### `Increment`
 
@@ -2651,7 +2676,7 @@ Collection of field outputs for one increment.
 | `get_names()` | Returns field names as `StringList`. |
 | `first()` | Returns the first field in the increment. |
 | `last()` | Returns the last field in the increment. |
-| `contains(field_name)` | Checks whether the field exists. |
+| `contains(name)` | Checks whether the field exists. |
 
 ### `Field`
 
@@ -2676,7 +2701,7 @@ Collection of field components.
 | `get_names()` | Returns component names as `StringList`. |
 | `first()` | Returns the first field component. |
 | `last()` | Returns the last field component. |
-| `contains(component_name)` | Checks whether the component exists. |
+| `contains(name)` | Checks whether the component exists. |
 
 ### `FieldComponent`
 
@@ -2807,7 +2832,7 @@ Collection of mesh elements.
 | `get_ids()` | Returns element IDs as `IntList`. |
 | `first()` | Returns the first mesh element. |
 | `last()` | Returns the last mesh element. |
-| `contains(element_id)` | Checks whether the element exists. |
+| `contains(id)` | Checks whether the element exists. |
 | `get_node_ids(element_id)` | Returns node IDs for one element as `IntList`. |
 
 ### `Element`
@@ -2819,14 +2844,14 @@ Single mesh element.
 | `id` | Element ID. |
 | `type_name` | Element type name. |
 | `dimension` | Element dimension. |
-| `node_ids` | All node IDs of the element in PrePoMax element order. |
+| `get_node_ids()` | All node IDs of the element in PrePoMax element order, as `IntList`. |
 | `node_count` | Number of element nodes. |
 
 Example:
 
 ```python
 element = result.mesh.elements[10]
-element.node_ids
+element.get_node_ids()
 ```
 
 ### `ElementData`
@@ -2854,7 +2879,7 @@ For normal use, prefer:
 ```python
 node_ids = result.mesh.elements.get_node_ids(element_id)
 # or
-node_ids = result.mesh.elements[element_id].node_ids
+node_ids = result.mesh.elements[element_id].get_node_ids()
 ```
 
 ### `Parts`
@@ -2869,19 +2894,19 @@ Collection of mesh parts.
 | `get_names()` | Returns part names as `StringList`. |
 | `first()` | Returns the first mesh part. |
 | `last()` | Returns the last mesh part. |
-| `contains(part_name)` | Checks whether the part exists. |
-| `hide(part_names)`, `show(part_names)` | Result part visibility. |
+| `contains(name)` | Checks whether the part exists. |
+| `hide(names)`, `show(names)` | Result part visibility. |
 | `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. |
 | `set_transparency(part_names, transparency)` | The alpha channel, from 0 for invisible to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
 | `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
 | `rename(old_name, new_name)` | Renames a result part using command history. Only a part the result was read with can be renamed; use `replace_properties` for any other. |
 
+| `merge(part_names)` | Merges result parts into one. |
+| `remove(names)` | Removes result parts. |
+
 The commands that change result parts (`replace_properties`, `set_representation`, `merge`, `remove`) act on the current
 result, so they are refused for a result that is not the current one.
-
-| `merge(part_names)` | Merges result parts into one. |
-| `remove(part_names)` | Removes result parts. |
 
 ### `ReferencePoints` and `CoordinateSystems` of the result mesh
 
@@ -2922,9 +2947,9 @@ Single mesh part.
 | Member | Description |
 | --- | --- |
 | `name` | Part name. |
-| `node_ids` | Node IDs belonging to the part. |
-| `element_ids` | Element IDs belonging to the part. |
-| `get_node_coordinates()` | The undeformed coordinates of the part nodes with shape `(node_count, 3)`, in the order `node_ids` reports them. |
+| `get_node_ids()` | Node IDs belonging to the part. |
+| `get_element_ids()` | Element IDs belonging to the part. |
+| `get_node_coordinates()` | The undeformed coordinates of the part nodes with shape `(node_count, 3)`, in the order `get_node_ids()` reports them. |
 | `volume`, `center_of_mass` | Mesh-computed part measurements, with CAD used only when a mesh value was missing. |
 | `surface_area` | The total surface area. A mesh computes an area only for a shell part, so a solid reports the area of the CAD part it was meshed from, and `0.0` when there is none. The area of the mesh itself is the sum of `get_face_data().areas`. |
 | `get_bounding_box()` | The mesh-computed `[xMin, xMax, yMin, yMax, zMin, zMax]` bounds. |
@@ -2938,13 +2963,13 @@ Node sets, element sets, and surfaces are copied from the model into the result 
 used by result history outputs, but they cannot be created, changed, or removed through the results API.
 
 The `node_sets`, `element_sets`, and `surfaces` collections support indexing by name, `len()`, `get_names()`,
-`first()`, `last()`, and `contains(...)`, whose argument is `node_set_name`, `element_set_name` or `surface_name`.
+`first()`, `last()`, and `contains(name)`.
 
 | Object | Members |
 | --- | --- |
-| `NodeSet` | `name`, `count`, `node_ids` |
-| `ElementSet` | `name`, `count`, `element_ids` |
-| `Surface` | `name`, `face_ids`, `node_ids`, `area` |
+| `NodeSet` | `name`, `count`, `get_node_ids()` |
+| `ElementSet` | `name`, `count`, `get_element_ids()` |
+| `Surface` | `name`, `get_face_ids()`, `get_node_ids()`, `area` |
 
 Example:
 
@@ -2966,12 +2991,12 @@ Collection of result history outputs.
 | Member | Description |
 | --- | --- |
 | `len(result.history_outputs)` | Number of history outputs. |
-| `result.history_outputs[history_name]` | Gets a history output by name. |
-| `history_name in result.history_outputs` | Checks whether the history output exists. |
+| `result.history_outputs[history_output_name]` | Gets a history output by name. |
+| `history_output_name in result.history_outputs` | Checks whether the history output exists. |
 | `get_names()` | Returns history output names as `StringList`. |
 | `first()` | Returns the first history output. |
 | `last()` | Returns the last history output. |
-| `contains(history_output_name)` | Checks whether the history output exists. |
+| `contains(name)` | Checks whether the history output exists. |
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft using a node selection, node set, or surface. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
 | `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=1.0)` | Creates a line, surface, or volume integration draft. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name`/`component_names` are ignored for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals. |
@@ -2986,8 +3011,8 @@ Collection of result history outputs.
 | `add(output)` | Validates and adds a draft using command history. |
 | `replace(old_name, output)` | Validates and replaces a result history-output definition. |
 | `rename(old_name, new_name)` | Renames a user-defined result history output using command history. Solver-generated history outputs cannot be renamed. |
-| `duplicate(history_output_names)` | Duplicates user-defined history outputs using command history. Solver-generated history outputs cannot be duplicated. |
-| `remove(history_output_names)` | Removes history outputs using command history. |
+| `duplicate(names)` | Duplicates user-defined history outputs using command history. Solver-generated history outputs cannot be duplicated. |
+| `remove(names)` | Removes history outputs using command history. |
 | `remove_fields(history_output_name, field_names)` | Removes fields from a history output using command history. |
 | `remove_components(history_output_name, field_name, component_names)` | Removes components from a history-output field using command history. |
 | `export_to_csv(file_name, history_output_names, delimiter=",")` | Exports all fields and components of the selected history outputs to CSV using command history. |
@@ -2998,7 +3023,7 @@ Creation examples:
 ```python
 result = pmx.results.current
 
-nodes = pmx.selection.create_by_ids(
+nodes = pmx.create.selection_by_ids(
     view="results",
     target="nodes",
     source="edges",
@@ -3045,7 +3070,7 @@ scaling; `"Thickness"` additionally uses the `thickness` argument, while `"Axisy
 `2*pi*r` (the radial coordinate is the X coordinate):
 
 ```python
-edges = pmx.selection.create_by_ids(
+edges = pmx.create.selection_by_ids(
     view="results",
     target="edges",
     source="edges",
@@ -3175,8 +3200,8 @@ The history outputs have the same single call counterparts: `add_from_field`, `a
 `add_from_table` and `add_from_affine_fit`, each with a matching `replace_*`. `add_from_field` and `replace_from_field`
 also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
 `harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The affine fit measures
-the strain of a circular patch of the result mesh, so it names the circle - `center_x`, `center_y`
-and `radius` - rather than a region, and the rest of its values carry the defaults the dialog offers. The draft form is kept here as well, because a
+the strain of a circular patch of the result mesh, so it names the circle - `center=[x, y]`
+and `radius` - rather than a region; `loading_direction=[x, y]`, `step_id` and `increment_id` pick the loading and the increment, and the rest of its values carry the defaults the dialog offers. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
 
 ### `HistoryOutputFilter`
@@ -3250,7 +3275,7 @@ outputs return this base object.
 | `name` | History output name. |
 | `fields` | History fields in the output. |
 | `is_user_defined` | `True` when the output was defined by the user instead of produced by the solver. |
-| `type_name` | C# history output definition type, or `None` for a solver-generated output. |
+| `item_type` | `from_field`, `from_equation`, `from_affine_fit`, `from_integration`, `from_merged_histories`, `from_extracted_entry`, `xy` or `from_table`, named after the `add_*` method that makes it, or `None` for a solver-generated output. |
 | `filter1` | First `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
 | `filter2` | Second `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
 
@@ -3258,7 +3283,7 @@ Reading a definition back:
 
 ```python
 history_output = result.history_outputs["Edge_DISP"]
-if history_output.is_user_defined and history_output.type_name == "ResultHistoryOutputFromField":
+if history_output.is_user_defined and history_output.item_type == "from_field":
     print(history_output.field_name, list(history_output.component_names), history_output.region_type)
 ```
 
@@ -3342,7 +3367,7 @@ Collection of history fields.
 | `get_names()` | Returns field names as `StringList`. |
 | `first()` | Returns the first history field. |
 | `last()` | Returns the last history field. |
-| `contains(field_name)` | Checks whether the field exists. |
+| `contains(name)` | Checks whether the field exists. |
 
 ### `HistoryField`
 
@@ -3365,7 +3390,7 @@ Collection of history components.
 | `get_names()` | Returns component names as `StringList`. |
 | `first()` | Returns the first history component. |
 | `last()` | Returns the last history component. |
-| `contains(component_name)` | Checks whether the component exists. |
+| `contains(name)` | Checks whether the component exists. |
 
 ### `HistoryComponent`
 
@@ -3390,7 +3415,7 @@ Collection of named history entries.
 | `get_names()` | Returns entry names as `StringList`. |
 | `first()` | Returns the first history entry. |
 | `last()` | Returns the last history entry. |
-| `contains(entry_name)` | Checks whether the entry exists. |
+| `contains(name)` | Checks whether the entry exists. |
 
 ### `HistoryEntry`
 

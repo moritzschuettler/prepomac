@@ -1008,11 +1008,6 @@ namespace CaeMesh
                 }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
-                // QuadWild has no polar grid
-                if (sweepMesh.TransfiniteThreeSided == TransfiniteThreeSidedEnum.Polar && _gmshData.TransfiniteFaces != null &&
-                    _gmshData.TransfiniteFaces.Any(face => face.NumberOfSides == 3 && _quadWildSourceIds.Contains(face.FaceId)))
-                    _writeOutput?.Invoke("Sweep: QuadWild lays no polar grid - its 3-sided source surfaces are mapped as " +
-                                         "three blocks of quads.");
             }
         }
         /// <summary>
@@ -2625,7 +2620,10 @@ namespace CaeMesh
                     try
                     {
                         group.Mesh = SweepQuadWildMesher.Mesh(group, sweepMesh, _gmshData.QuadWildDirectory,
-                                                              workDirectory, writeOutput, _gmshData.TransfiniteFaces);
+                                                              workDirectory, writeOutput, _gmshData.TransfiniteFaces,
+                                                              sweepMesh.TransfiniteThreeSided ==
+                                                              TransfiniteThreeSidedEnum.Polar ?
+                                                              GetPolarCornerIndex : (Func<TransfiniteFace, int>)null);
                     }
                     catch (CaeException ex)
                     {

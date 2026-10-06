@@ -8,12 +8,32 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class LoadAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(CLoad), "concentrated_force" },
+            { typeof(MomentLoad), "moment" },
+            { typeof(DLoad), "pressure" },
+            { typeof(HydrostaticPressure), "hydrostatic_pressure" },
+            { typeof(ImportedPressure), "imported_pressure" },
+            { typeof(STLoad), "surface_traction" },
+            { typeof(ShellEdgeLoad), "shell_edge_load" },
+            { typeof(GravityLoad), "gravity" },
+            { typeof(CentrifLoad), "centrifugal" },
+            { typeof(PreTensionLoad), "pre_tension" },
+            { typeof(CFlux), "concentrated_flux" },
+            { typeof(DFlux), "surface_flux" },
+            { typeof(BodyFlux), "body_flux" },
+            { typeof(FilmHeatTransfer), "film_heat_transfer" },
+            { typeof(RadiationHeatTransfer), "radiation_heat_transfer" }
+        };
         private readonly string _stepName;
         private readonly string _loadName;
         private readonly LoadService _service;
@@ -24,8 +44,9 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The name of the step the load belongs to.", Returns = "str")]
         public string step_name { get { return _stepName; } }
-        [PythonAPI("The load type, for example CLoad or DLoad.", Returns = "str")]
-        public string load_type { get { return Resolve().GetType().Name; } }
+        [PythonAPI("The load type, named after the add_* method that makes it without the add_ prefix, for " +
+                   "example concentrated_force or pressure.", Returns = "str")]
+        public string item_type { get { return GetItemType(Resolve()); } }
         [PythonAPI("True when the load is written to the solver input file.", Returns = "bool")]
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the load symbols are drawn.", Returns = "bool")]
@@ -51,20 +72,63 @@ namespace APIs.Python.Model
         }
 
 
-        // Methods
-        [PythonAPI("Returns the names of the values that are specific to this load type.",
-                   Returns = "StringList")]
-        public StringListAPI get_value_names()
+        // Static methods
+        internal static string GetItemType(Load load)
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(Load)).Keys);
+            string itemType;
+            if (ItemTypes.TryGetValue(load.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The load '" + load.Name + "' is a " + load.GetType().Name +
+                                         ", which no add_* method of the Python API makes.");
+        }
+        private static Dictionary<string, string[]> GetArgumentValueNames(Load load)
+        {
+            Dictionary<string, string[]> names = new Dictionary<string, string[]>();
+            if (load is HydrostaticPressure)
+            {
+                names.Add("first_point", new string[] { "x1", "y1", "z1" });
+                names.Add("second_point", new string[] { "x2", "y2", "z2" });
+                names.Add("direction", new string[] { "n1", "n2", "n3" });
+                names.Add("cutoff", new string[] { "hydrostatic_pressure_cutoff" });
+            }
+            else if (load is CentrifLoad)
+            {
+                names.Add("axis_point", new string[] { "x", "y", "z" });
+                names.Add("axis_direction", new string[] { "n1", "n2", "n3" });
+            }
+            else if (load is PreTensionLoad)
+            {
+                // The magnitude is the force or the displacement, whichever the pre-tension type uses
+                bool isDisplacement = ((PreTensionLoad)load).Type == PreTensionLoadType.Displacement;
+                names.Add("magnitude", new string[] { isDisplacement ? "displacement_magnitude" : "force_magnitude" });
+                names.Add("direction", new string[] { "x", "y", "z" });
+                names.Add("tension_type", new string[] { "type" });
+                names.Add("auto_direction", new string[] { "auto_compute_direction" });
+            }
+            //
+            return names;
         }
 
-        [PythonAPI("Returns a value that is specific to this load type, for example f1 or magnitude. Use " +
-                   "get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+
+        // Methods
+        [PythonAPI("Returns the names of the values that are specific to this load type: the add_* argument " +
+                   "names, followed by the stored values no argument sets.", Returns = "StringList")]
+        public StringListAPI get_value_names()
+        {
+            Load load = Resolve();
+            return new StringListAPI(ModelItemValueReader.GetValues(load, typeof(Load),
+                                                                    GetArgumentValueNames(load)).Keys);
+        }
+
+        [PythonAPI("Returns a value that is specific to this load type by the name of the add_* argument that " +
+                   "sets it, for example f1 or magnitude; a vector argument such as axis_point returns its " +
+                   "components as a list. Use get_value_names to list them.", Arguments = "name: str",
+                   Returns = "float, int, bool, str or NumericArray")]
         public object get_value(string name)
         {
-            return ModelItemValueReader.GetValue(Resolve(), typeof(Load), name, "load");
+            Load load = Resolve();
+            return ModelItemValueReader.GetValue(load, typeof(Load), GetArgumentValueNames(load), name,
+                                                 GetItemType(load) + " load");
         }
         [PythonAPI("Returns stored component equations without evaluating them.", Returns = "dict[str, str]")]
         public System.Collections.Generic.Dictionary<string, string> get_equations()
@@ -74,7 +138,7 @@ namespace APIs.Python.Model
         public override string ToString()
         {
             Load load = Resolve();
-            return "Load(name=" + StringListAPI.ToDisplayString(load.Name) + ", type=" + load.GetType().Name +
+            return "Load(name=" + StringListAPI.ToDisplayString(load.Name) + ", type=" + GetItemType(load) +
                    ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
         }
         //

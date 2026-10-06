@@ -51,7 +51,7 @@ def test_meshing_parameters(items, selection):
     # A replacement keeps the region it was created from and every value it is not told about
     items.replace_meshing_parameters(PREFIX + "Parameters", max_size=0.25)
     values = settings(items, PREFIX + "Parameters")
-    check(values["max_h"] == 0.25, "the maximum size was not replaced: " + str(values["max_h"]))
+    check(values["max_size"] == 0.25, "the maximum size was not replaced: " + str(values["max_size"]))
     check(values["grading"] == 0.4, "the omitted grading was not kept: " + str(values))
     check(len(items[PREFIX + "Parameters"].get_geometry_ids()) > 0, "the region was lost")
 
@@ -60,9 +60,9 @@ def test_netgen_mesh(items, selection, shell_selection):
     items.add_netgen_mesh(PREFIX + "Netgen", selection, optimize_steps_2d=4, transfinite_four_sided=True)
     items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_3d=5)
     values = settings(items, PREFIX + "Netgen")
-    check(values["optimize_steps3_d"] == 5, "the Netgen 3-D optimization steps were not replaced")
-    check(values["optimize_steps2_d"] == 4, "the omitted Netgen optimization steps were not kept: " + str(values))
-    check(values["transfinite_four_sided"] is True and values["transfinite_three_sided"] is False,
+    check(values["optimize_steps_3d"] == 5, "the Netgen 3-D optimization steps were not replaced")
+    check(values["optimize_steps_2d"] == 4, "the omitted Netgen optimization steps were not kept: " + str(values))
+    check(values["transfinite_four_sided"] is True and values["transfinite_three_sided"] == "No",
           "the omitted Netgen transfinite settings were not kept: " + str(values))
     check(items[PREFIX + "Netgen"].mesher_type == "Netgen", "the Netgen mesh item does not select Netgen")
     check(len(items[PREFIX + "Netgen"].get_geometry_ids()) > 0, "the Netgen region was lost")
@@ -77,7 +77,7 @@ def test_netgen_mesh(items, selection, shell_selection):
 def test_local_mesh_size(items, selection):
     items.add_local_mesh_size(PREFIX + "Local", selection, element_size=0.4)
     items.replace_local_mesh_size(PREFIX + "Local", element_size=0.2)
-    check(settings(items, PREFIX + "Local")["mesh_size"] == 0.2, "the element size was not replaced")
+    check(settings(items, PREFIX + "Local")["element_size"] == 0.2, "the element size was not replaced")
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=2.5),
                  "a fractional element count was accepted")
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", element_size=1, number_of_elements=2),
@@ -111,14 +111,14 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
     check(values["algorithm_recombine"] == "Simple", "the omitted recombine algorithm was not kept")
     check(values["transfinite_three_sided"] == "Polar", "the omitted transfinite setting was not kept")
     #
-    items.add_shell_gmsh(PREFIX + "Shell", shell_selection, transfinite_angle=120.0)
+    items.add_shell_gmsh(PREFIX + "Shell", shell_selection, transfinite_angle_deg=120.0)
     items.replace_shell_gmsh(PREFIX + "Shell", algorithm_recombine="Blossom")
     check(settings(items, PREFIX + "Shell")["transfinite_angle_deg"] == 120.0,
           "the omitted transfinite angle was not kept")
     #
     items.add_transfinite_mesh(PREFIX + "Transfinite", box_selection, recombine=True,
                                allow_pyramid_elements=True)
-    items.replace_transfinite_mesh(PREFIX + "Transfinite", transfinite_angle=110.0)
+    items.replace_transfinite_mesh(PREFIX + "Transfinite", transfinite_angle_deg=110.0)
     values = settings(items, PREFIX + "Transfinite")
     check(values["algorithm_recombine"] != "None", "the omitted recombine switch was not kept")
     check(values["transfinite_angle_deg"] == 110.0, "the transfinite angle was not replaced")
@@ -127,7 +127,7 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
 
 def test_derived_arguments(items, selection):
     items.add_sweep_mesh(PREFIX + "Sweep", selection, number_of_global_smooth_steps=1)
-    items.replace_sweep_mesh(PREFIX + "Sweep", transfinite_angle=100.0)
+    items.replace_sweep_mesh(PREFIX + "Sweep", transfinite_angle_deg=100.0)
     check(settings(items, PREFIX + "Sweep")["number_of_global_smooth_steps"] == 1,
           "the omitted smooth step count was not kept")
 
@@ -162,7 +162,7 @@ def test_rejection_leaves_no_trace(items):
                  "a fractional element count was accepted")
     # A replace meant for another item type is refused naming the item and its type, not by a failed cast
     message = raised_message(lambda: items.replace_shell_mmg(PREFIX + "Local", relative_hausdorff=0.003))
-    check(message is not None and PREFIX + "Local" in message and "LocalMeshSize" in message,
+    check(message is not None and PREFIX + "Local" in message and "add_local_mesh_size" in message,
           "a replace of another item type must name the item and its type: " + str(message))
     # A name the model could not take is refused before the item is built or its defaults are fetched
     for add in [lambda: items.add_local_mesh_size(PREFIX + "Bad Name", None, element_size=0.4),
@@ -187,29 +187,29 @@ def diagonal(part):
 def test_size_defaults(items, small, small_selection, large, large_selection):
     name = PREFIX + "Sizes"
     items.add_meshing_parameters(name, small_selection)
-    small_max = settings(items, name)["max_h"]
+    small_max = settings(items, name)["max_size"]
     check(small_max > 0, "the added item has no maximum size: " + str(small_max))
     # Moving it to the larger part and saying nothing else lets the sizes follow the geometry
     items.replace_meshing_parameters(name, selection=large_selection)
-    large_max = settings(items, name)["max_h"]
+    large_max = settings(items, name)["max_size"]
     ratio = (large_max / small_max) / (diagonal(large) / diagonal(small))
     check(abs(ratio - 1.0) < 0.1, "the maximum size did not follow the selected part: " +
           str(small_max) + " to " + str(large_max) + " for a diagonal ratio of " +
           str(diagonal(large) / diagonal(small)))
     # A replace that also sets a value is the caller's, so the rest is kept rather than rebuilt
-    kept_min = settings(items, name)["min_h"]
+    kept_min = settings(items, name)["min_size"]
     items.replace_meshing_parameters(name, selection=small_selection, max_size=7.0)
     values = settings(items, name)
-    check(values["max_h"] == 7.0, "the given maximum size was not applied: " + str(values["max_h"]))
-    check(values["min_h"] == kept_min, "a replace that sets a value must keep the rest: " +
-          str(values["min_h"]) + " against " + str(kept_min))
+    check(values["max_size"] == 7.0, "the given maximum size was not applied: " + str(values["max_size"]))
+    check(values["min_size"] == kept_min, "a replace that sets a value must keep the rest: " +
+          str(values["min_size"]) + " against " + str(kept_min))
     # Sizes an earlier call set are no longer the part defaults, so moving the item does not rebuild them
     items.replace_meshing_parameters(name, selection=large_selection)
     values = settings(items, name)
-    check(values["max_h"] == 7.0, "moving the item discarded the maximum size set earlier: " +
-          str(values["max_h"]))
-    check(values["min_h"] == kept_min, "moving the item discarded the minimum size set earlier: " +
-          str(values["min_h"]) + " against " + str(kept_min))
+    check(values["max_size"] == 7.0, "moving the item discarded the maximum size set earlier: " +
+          str(values["max_size"]))
+    check(values["min_size"] == kept_min, "moving the item discarded the minimum size set earlier: " +
+          str(values["min_size"]) + " against " + str(kept_min))
     items.remove([name])
 
 

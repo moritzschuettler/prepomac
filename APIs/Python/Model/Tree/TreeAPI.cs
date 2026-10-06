@@ -50,17 +50,17 @@ namespace APIs.Python.Model
         {
             return new StringListAPI(GetItemTypes(ToView(view)));
         }
-        [PythonAPI("Creates a model tree group and optionally moves items into it. The view is 'geometry', " +
+        [PythonAPI("Adds a model tree group and optionally moves items into it. The view is 'geometry', " +
                    "'femodel' or 'results'. It returns the group id, which is generated when it is not given. " +
                    "A step owned collection also needs the name of the step that owns it. A group of the " +
                    "geometry or the mesh parts shares the names of the parts, so its name follows the same rules.",
                    Arguments = "view: str, item_type: str, group_name: str, group_id: str = None, " +
                                "parent_group_id: str = None, target_index: int = 0, " +
                                "item_names: list[str] = None, step_name: str = None", Returns = "str",
-                   Example = "group = pmx.model.tree.create_group('femodel', 'parts', 'Housing')")]
-        public string create_group(string view, string item_type, string group_name, string group_id = null,
-                                   string parent_group_id = null, int target_index = 0, object item_names = null,
-                                   string step_name = null)
+                   Example = "group = pmx.model.tree.add_group('femodel', 'parts', 'Housing')")]
+        public string add_group(string view, string item_type, string group_name, string group_id = null,
+                                string parent_group_id = null, int target_index = 0, object item_names = null,
+                                string step_name = null)
         {
             string viewName = Validate(view, item_type, step_name, group_name, target_index);
             ValidateGroupName(viewName, item_type, group_name);

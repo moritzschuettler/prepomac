@@ -52,7 +52,7 @@ namespace APIs.Python.Model
         public BoundaryConditionAPI replace_fixed(string old_name, string name = null, object region = null,
                                                   object color = null)
         {
-            FixedBC boundaryCondition = _service.CloneForReplace<FixedBC>(StepName, old_name, "FixedBC");
+            FixedBC boundaryCondition = _service.CloneForReplace<FixedBC>(StepName, old_name, "fixed");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
@@ -106,7 +106,7 @@ namespace APIs.Python.Model
                                                                   object free_dofs = null)
         {
             DisplacementRotation boundaryCondition =
-                _service.CloneForReplace<DisplacementRotation>(StepName, old_name, "DisplacementRotation");
+                _service.CloneForReplace<DisplacementRotation>(StepName, old_name, "displacement_rotation");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs);
@@ -120,11 +120,11 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
                    "read from the global model results of the given step number. The selection target is " +
                    "nodes.",
-                   Arguments = "name: str, region: Selection or Region, step_number: int = None, " +
+                   Arguments = "name: str, region: Selection or Region, step_id: int = None, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] = None",
                    Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI add_submodel(string name, object region, object step_number = null,
+        public BoundaryConditionAPI add_submodel(string name, object region, object step_id = null,
                                                  object u1 = null, object u2 = null, object u3 = null,
                                                  object ur1 = null, object ur2 = null, object ur3 = null,
                                                  object color = null)
@@ -133,7 +133,7 @@ namespace APIs.Python.Model
             SubmodelBC boundaryCondition =
                 new SubmodelBC(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(boundaryCondition, region, "nodes");
-            ApplySubmodelValues(boundaryCondition, step_number, u1, u2, u3, ur1, ur2, ur3);
+            ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
             //
@@ -144,13 +144,13 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, and the arguments of add_submodel",
                    Returns = "BoundaryCondition")]
         public BoundaryConditionAPI replace_submodel(string old_name, string name = null, object region = null,
-                                                     object step_number = null, object u1 = null,
+                                                     object step_id = null, object u1 = null,
                                                      object u2 = null, object u3 = null, object ur1 = null,
                                                      object ur2 = null, object ur3 = null, object color = null)
         {
-            SubmodelBC boundaryCondition = _service.CloneForReplace<SubmodelBC>(StepName, old_name, "SubmodelBC");
+            SubmodelBC boundaryCondition = _service.CloneForReplace<SubmodelBC>(StepName, old_name, "submodel");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
-            ApplySubmodelValues(boundaryCondition, step_number, u1, u2, u3, ur1, ur2, ur3);
+            ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
             return Replace(old_name, name, boundaryCondition);
@@ -194,7 +194,7 @@ namespace APIs.Python.Model
                                                         object amplitude_name = null, object color = null)
         {
             TemperatureBC boundaryCondition =
-                _service.CloneForReplace<TemperatureBC>(StepName, old_name, "TemperatureBC");
+                _service.CloneForReplace<TemperatureBC>(StepName, old_name, "temperature");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (temperature != null)
                 boundaryCondition.Temperature.Equation =
@@ -300,7 +300,7 @@ namespace APIs.Python.Model
         {
             if (stepNumber != null)
                 boundaryCondition.StepNumber.Equation =
-                    PythonValueConverter.ToEquationString(stepNumber, "step_number");
+                    PythonValueConverter.ToEquationString(stepNumber, "step_id");
             if (u1 != null) boundaryCondition.U1 = PythonValueConverter.ToBool(u1, "u1");
             if (u2 != null) boundaryCondition.U2 = PythonValueConverter.ToBool(u2, "u2");
             if (u3 != null) boundaryCondition.U3 = PythonValueConverter.ToBool(u3, "u3");

@@ -16,13 +16,15 @@ namespace APIs.Python.Model
     {
         // Variables
         private readonly ElementSetService _service;
+        private readonly MeshEditService _meshEditService;
 
 
         // Constructors
-        internal ElementSetsAPI(ElementSetService service)
+        internal ElementSetsAPI(ElementSetService service, MeshEditService meshEditService)
             : base("element set")
         {
             _service = service;
+            _meshEditService = meshEditService;
         }
 
 
@@ -42,6 +44,17 @@ namespace APIs.Python.Model
         {
             _service.Replace(old_name, name, selection);
             return this[name == null ? old_name : name];
+        }
+
+        [PythonAPI("Adds an element set of the elements of the named model parts whose quality metric is " +
+                   "larger, or not larger, than the limit using command history.",
+                   Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
+                               "limit: float", Returns = "ElementSet")]
+        public ElementSetAPI add_from_quality(string name, string metric, object part_names, bool larger_than,
+                                              object limit)
+        {
+            _meshEditService.CreateElementSetFromQuality(name, metric, part_names, larger_than, limit);
+            return this[name];
         }
 
         [PythonAPI("Converts the named element sets into mesh parts using command history.",

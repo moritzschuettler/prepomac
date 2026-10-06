@@ -23,6 +23,10 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public override string GetItemType(HistoryOutput historyOutput)
+        {
+            return HistoryOutputAPI.GetItemType(historyOutput);
+        }
         public void ApplyCommonValues(HistoryOutput historyOutput, object totalsType, object global)
         {
             if (totalsType != null)

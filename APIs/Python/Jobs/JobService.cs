@@ -107,7 +107,7 @@ namespace APIs.Python
             ApplyExecutionSettings(job, numCPUs, environmentVariables);
             ApplyInheritance(job, inheritExecutable, executable, "executable");
             ApplyInheritance(job, inheritWorkDirectory, workDirectory, "work_directory");
-            ApplyInheritance(job, inheritNumCPUs, numCPUs, "num_cpus");
+            ApplyInheritance(job, inheritNumCPUs, numCPUs, "number_of_cpus");
             ApplyInheritance(job, inheritEnvironment, environmentVariables, "environment_variables");
             return job;
         }
@@ -120,15 +120,15 @@ namespace APIs.Python
                                              "'inherit_" + name + "'.");
             if (name == "executable") job.ExecutableOverridden = !useDefault;
             else if (name == "work_directory") job.WorkDirectoryOverridden = !useDefault;
-            else if (name == "num_cpus") job.NumCPUsOverridden = !useDefault;
+            else if (name == "number_of_cpus") job.NumCPUsOverridden = !useDefault;
             else job.EnvironmentVariablesOverridden = !useDefault;
         }
         private static void ApplyExecutionSettings(AnalysisJob job, object numCPUs, object environmentVariables)
         {
             if (numCPUs != null)
             {
-                int count = PythonValueConverter.ToInt(numCPUs, "num_cpus");
-                if (count < 1) throw new PythonAPIException("The argument 'num_cpus' must be positive.");
+                int count = PythonValueConverter.ToInt(numCPUs, "number_of_cpus");
+                if (count < 1) throw new PythonAPIException("The argument 'number_of_cpus' must be positive.");
                 job.NumCPUs = count;
                 job.NumCPUsOverridden = true;
             }

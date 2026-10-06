@@ -53,7 +53,7 @@ namespace APIs.Python.Model
                                             object global_output = null)
         {
             NodalFieldOutput fieldOutput =
-                _service.CloneForReplace<NodalFieldOutput>(StepName, old_name, "NodalFieldOutput");
+                _service.CloneForReplace<NodalFieldOutput>(StepName, old_name, "nodal");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<NodalFieldVariable>(variables, "variables");
@@ -89,7 +89,7 @@ namespace APIs.Python.Model
                                               object contact_elements = null, object global_output = null)
         {
             ElementFieldOutput fieldOutput =
-                _service.CloneForReplace<ElementFieldOutput>(StepName, old_name, "ElementFieldOutput");
+                _service.CloneForReplace<ElementFieldOutput>(StepName, old_name, "element");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ElementFieldVariable>(variables, "variables");
@@ -122,7 +122,7 @@ namespace APIs.Python.Model
                                               object global_output = null)
         {
             ContactFieldOutput fieldOutput =
-                _service.CloneForReplace<ContactFieldOutput>(StepName, old_name, "ContactFieldOutput");
+                _service.CloneForReplace<ContactFieldOutput>(StepName, old_name, "contact");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ContactFieldVariable>(variables, "variables");

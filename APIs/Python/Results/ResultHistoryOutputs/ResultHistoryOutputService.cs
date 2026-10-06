@@ -49,28 +49,31 @@ namespace APIs.Python
         }
         // The affine fit measures the strain of a circular patch of the result mesh, so it takes the
         // circle rather than a region, and every value the dialog offers is an argument of its own
-        public ResultHistoryOutputFromAffineFitDraftAPI CreateFromAffineFit(string name, object centerX,
-                                                                            object centerY, object radius,
+        public ResultHistoryOutputFromAffineFitDraftAPI CreateFromAffineFit(string name, object center,
+                                                                            object radius,
                                                                             object taperStartFraction,
                                                                             string pointSource,
                                                                             string weighting,
                                                                             object cellAreaToleranceFraction,
                                                                             object areaFilterRelativeMedian,
                                                                             string strainMeasure,
-                                                                            object loadingDirectionX,
-                                                                            object loadingDirectionY,
+                                                                            object loadingDirection,
                                                                             object stepId,
-                                                                            object stepIncrementId,
+                                                                            object incrementId,
                                                                             object radiusSweepStepCount)
         {
             ValidateNameSyntax(name);
             double radiusValue = PythonValueConverter.ToFiniteDouble(radius, "radius");
             if (radiusValue <= 0) throw new PythonAPIException("The argument 'radius' must be greater than zero.");
+            double[] centerValue = ToPlanarVector(center, "center");
+            double[] loadingDirectionValue = loadingDirection == null
+                                             ? new double[] { 0, 0 }
+                                             : ToPlanarVector(loadingDirection, "loading_direction");
             //
             return new ResultHistoryOutputFromAffineFitDraftAPI(
                 name,
-                PythonValueConverter.ToFiniteDouble(centerX, "center_x"),
-                PythonValueConverter.ToFiniteDouble(centerY, "center_y"),
+                centerValue[0],
+                centerValue[1],
                 radiusValue,
                 taperStartFraction == null
                     ? 1 : PythonValueConverter.ToFiniteDouble(taperStartFraction, "taper_start_fraction"),
@@ -89,12 +92,10 @@ namespace APIs.Python
                 strainMeasure == null
                     ? AffineFitStrainMeasureEnum.Linear
                     : PythonValueConverter.ToEnum<AffineFitStrainMeasureEnum>(strainMeasure, "strain_measure"),
-                loadingDirectionX == null
-                    ? 0 : PythonValueConverter.ToFiniteDouble(loadingDirectionX, "loading_direction_x"),
-                loadingDirectionY == null
-                    ? 0 : PythonValueConverter.ToFiniteDouble(loadingDirectionY, "loading_direction_y"),
+                loadingDirectionValue[0],
+                loadingDirectionValue[1],
                 stepId == null ? -1 : PythonValueConverter.ToInt(stepId, "step_id"),
-                stepIncrementId == null ? -1 : PythonValueConverter.ToInt(stepIncrementId, "step_increment_id"),
+                incrementId == null ? -1 : PythonValueConverter.ToInt(incrementId, "increment_id"),
                 radiusSweepStepCount == null
                     ? 1 : PythonValueConverter.ToInt(radiusSweepStepCount, "radius_sweep_step_count"));
         }
@@ -246,8 +247,8 @@ namespace APIs.Python
         }
         public void DuplicateHistoryOutputs(string resultName, object historyOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");
-            ValidateStringList(names, "history_output_names");
+            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "names");
+            ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             foreach (string name in names)
             {
@@ -331,8 +332,8 @@ namespace APIs.Python
         }
         public void RemoveHistoryOutputs(string resultName, object historyOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");
-            ValidateStringList(names, "history_output_names");
+            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "names");
+            ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             string[] existingNames = result.GetHistory().Sets.Keys.ToArray();
             foreach (string name in names)
@@ -679,6 +680,19 @@ namespace APIs.Python
             if (!FeResults.GetPossibleDeformationFieldOutputNamesMap().ContainsKey(deformationVariableName))
                 throw new PythonAPIException("Unsupported deformation_variable_name '" +
                                              deformationVariableName + "'.");
+        }
+        internal static double[] ToPlanarVector(object value, string argumentName)
+        {
+            double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
+            if (vector.Length != 2)
+                throw new PythonAPIException("The argument '" + argumentName + "' must contain 2 values.");
+            foreach (double component in vector)
+            {
+                if (double.IsNaN(component) || double.IsInfinity(component))
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be finite.");
+            }
+            //
+            return vector;
         }
         private static void ValidateNameSyntax(string name)
         {

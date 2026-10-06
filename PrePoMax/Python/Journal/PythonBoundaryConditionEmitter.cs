@@ -64,7 +64,7 @@ namespace PrePoMax.Python.Journal
             else if (condition is SubmodelBC submodel)
             {
                 method = verb + "_submodel";
-                arguments.Add("step_number=" + PythonValueFormatter.Equation(submodel.StepNumber));
+                arguments.Add("step_id=" + PythonValueFormatter.Equation(submodel.StepNumber));
                 AddFlag(arguments, "u1", submodel.U1, replace);
                 AddFlag(arguments, "u2", submodel.U2, replace);
                 AddFlag(arguments, "u3", submodel.U3, replace);

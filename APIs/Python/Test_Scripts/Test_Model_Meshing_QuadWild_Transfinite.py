@@ -13,6 +13,8 @@
 #    structured.
 #  - The open quarter cylinder keeps two quarter circles, each three blocks of quads around one inner node: only the
 #    two inner nodes and the vertices are irregular.
+#  - The open quarter cylinder with transfinite_three_sided="Polar": each quarter circle is the grid collapsed at its
+#    centre, quadrilaterals and a fan of triangles around the centre.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_QuadWild_Transfinite.py -g No -x Yes -w <dir>
 #
@@ -83,15 +85,16 @@ def irregular_node_count(part_name):
     return sum(1 for node, count in valence.items() if count != (2 if node in boundary else 4))
 
 
-def quad_wild(part):
+def quad_wild(part, three_sided="Mapped"):
     items = pmx.model.mesh.setup_items
     if QUADWILD in list(items.get_names()):
         items.remove([QUADWILD])
-    items.add_shell_quad_wild(QUADWILD, part_selection(part), transfinite_three_sided=True, transfinite_four_sided=True)
+    items.add_shell_quad_wild(QUADWILD, part_selection(part), transfinite_three_sided=three_sided,
+                              transfinite_four_sided=True)
 
 
 def mesh(part):
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "meshing " + part.name + " reported: " + report[part.name])
     kinds = element_kinds(part.name)
     print("meshed:", part.name, kinds)
@@ -105,6 +108,29 @@ def check_structured_quads(part, what, extra=0):
     allowed = part.get_vertex_data().count + extra
     print("irregular nodes:", irregular, "of at most", allowed)
     check(irregular <= allowed, what + " is not meshed as structured grids: " + str(irregular) + " irregular nodes")
+
+
+def check_polar_fan(part, what):
+    """The 3-sided faces of the part collapsed at their centres: quadrilaterals, and triangles that fan around the
+    centre of each of the two quarter circles."""
+    kinds = mesh(part)
+    check(kinds.get("triangle", 0) > 0 and kinds.get("quadrilateral", 0) > kinds.get("triangle", 0),
+          what + " must be quadrilaterals and a fan of triangles: " + str(kinds))
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    node_counts = [int(n) for n in data.node_counts]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    triangles = [connectivity[offsets[i]:offsets[i] + 3] for i in (index[int(e)] for e in meshed.get_element_ids())
+                 if node_counts[i] in (3, 6)]
+    uses = {}
+    for triangle in triangles:
+        for node in triangle:
+            uses[node] = uses.get(node, 0) + 1
+    centres = set(sorted(uses, key=lambda node: -uses[node])[:2])
+    check(all(any(node in centres for node in triangle) for triangle in triangles),
+          "the triangles of " + what + " do not fan around the centres of the quarter circles")
 
 
 def split_side_face(part):
@@ -135,6 +161,8 @@ def main():
     open_cylinder = delete_face(cylinder, 4)
     quad_wild(open_cylinder)
     check_structured_quads(open_cylinder, "the open quarter cylinder", 2)
+    quad_wild(open_cylinder, "Polar")
+    check_polar_fan(open_cylinder, "the polar open quarter cylinder")
     print("TEST PASSED")
 
 

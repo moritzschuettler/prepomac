@@ -51,7 +51,7 @@ namespace PrePoMax.Python.Journal
             }
             if (job.WorkDirectoryOverridden)
                 arguments.Add("work_directory=" + PythonValueFormatter.Path(job.WorkDirectory));
-            if (job.NumCPUsOverridden) arguments.Add("num_cpus=" + job.NumCPUs);
+            if (job.NumCPUsOverridden) arguments.Add("number_of_cpus=" + job.NumCPUs);
             if (job.CompatibilityMode) arguments.Add("compatibility_mode=True");
             if (job.EnvironmentVariablesOverridden && job.EnvironmentVariables != null &&
                 job.EnvironmentVariables.Count > 0)

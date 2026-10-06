@@ -23,6 +23,10 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public override string GetItemType(DefinedField definedField)
+        {
+            return DefinedFieldAPI.GetItemType(definedField);
+        }
         public void ApplyCommonValues(DefinedField definedField, object amplitudeName, object color)
         {
             if (amplitudeName != null)
@@ -34,8 +38,9 @@ namespace APIs.Python.Model
             // The step silently refuses an unsupported type, so the check is done before the command
             Step step = StepService.ResolveStep(stepName);
             if (!step.IsDefinedFieldSupported(definedField))
-                throw new PythonAPIException("A " + definedField.GetType().Name + " is not supported by the " +
-                                             "step '" + stepName + "', which is a " + step.GetType().Name + ".");
+                throw new PythonAPIException("A " + DefinedFieldAPI.GetItemType(definedField) + " defined field is not " +
+                                             "supported by the step '" + stepName + "', which is a " +
+                                             StepAPI.GetItemType(step) + " step.");
             //
             EnsureCommandsAvailable();
             ModelGateway.AddDefinedField(stepName, definedField);

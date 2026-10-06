@@ -166,7 +166,7 @@ namespace PrePoMax.Python.Journal
                               node.SelectBy == vtkSelectBy.GeometrySurfaceAngle;
             if (!needsAngle) return null;
             //
-            return "angle=" + PythonValueFormatter.Number(node.Angle);
+            return "angle_deg=" + PythonValueFormatter.Number(node.Angle);
         }
         private static string GetDirection(SelectionNodeMouse node)
         {

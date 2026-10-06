@@ -110,7 +110,7 @@ def sweep(part, face_id, algorithm_2d=None, transfinite_three_sided=None):
     items.add_sweep_mesh(SWEEP, face_selection(part, face_id), algorithm_2d=algorithm_2d,
                          transfinite_three_sided=transfinite_three_sided)
     check(items[SWEEP].valid, "the sweep mesh item on " + part.name + " is not valid")
-    return pmx.model.mesh.create(part.name)[part.name]
+    return pmx.model.mesh.generate(part.name)[part.name]
 
 
 def test_split_box(box, algorithm_2d=None):

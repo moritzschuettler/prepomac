@@ -320,7 +320,7 @@ namespace PrePoMax.Python
         {
             if (_controller.CurrentResult == null)
                 throw new PythonAPIException("There is no open result, so there is nothing to plot. Open one " +
-                                             "with pmx.jobs.open_results(name) or pmx.results.set_current(name).");
+                                             "with pmx.jobs.open_results(name) or pmx.results.current = name.");
         }
         // A legend range is stored under the plotted field component of the results view, so it is
         // refused where the settings container would not store it

@@ -144,8 +144,8 @@ namespace APIs.Python
         }
         public void DuplicateFieldOutputs(string resultName, object fieldOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "field_output_names");
-            ValidateStringList(names, "field_output_names");
+            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "names");
+            ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             foreach (string name in names)
                 if (!result.ContainsResultFieldOutput(name))
@@ -156,8 +156,8 @@ namespace APIs.Python
         }
         public void RemoveFieldOutputs(string resultName, object fieldOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "field_output_names");
-            ValidateStringList(names, "field_output_names");
+            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "names");
+            ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             string[] existingFieldNames = result.GetAllFieldNames();
             foreach (string name in names)

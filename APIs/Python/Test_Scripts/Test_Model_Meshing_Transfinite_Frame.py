@@ -32,7 +32,7 @@ def main():
     corners = [part.name for part in cells if part.get_face_data().count == 5]
     check(len(corners) == 4, "the frame must have four five-faced corners: " + str(corners))
     #
-    report = pmx.model.mesh.create(COMPOUND)[COMPOUND]
+    report = pmx.model.mesh.generate(COMPOUND)[COMPOUND]
     check(report == "", "meshing the frame reported: " + report)
     data = pmx.model.elements.get_data()
     offsets = [int(i) for i in data.offsets]

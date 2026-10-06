@@ -95,7 +95,7 @@ def test_model_properties():
     check(properties.global_results_file_name == "global.frd", "the submodel file name was not replaced")
     #
     properties.replace(model_type="SlipWearModel", number_of_cycles=10, cycles_increment=2,
-                       num_of_smoothing_steps=3, bdm_remeshing=True, slip_wear_results="All")
+                       number_of_smoothing_steps=3, bdm_remeshing=True, slip_wear_results="All")
     check(magnitude(properties.number_of_cycles) == 10, "the cycle count did not read back: " +
           str(properties.number_of_cycles))
     check(magnitude(properties.cycles_increment) == 2, "the cycle increment did not read back")

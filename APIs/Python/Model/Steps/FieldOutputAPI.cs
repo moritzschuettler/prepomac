@@ -8,12 +8,20 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class FieldOutputAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(NodalFieldOutput), "nodal" },
+            { typeof(ElementFieldOutput), "element" },
+            { typeof(ContactFieldOutput), "contact" }
+        };
         private readonly string _stepName;
         private readonly string _fieldOutputName;
         private readonly FieldOutputService _service;
@@ -24,9 +32,9 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The name of the step the field output belongs to.", Returns = "str")]
         public string step_name { get { return _stepName; } }
-        [PythonAPI("The field output type: NodalFieldOutput, ElementFieldOutput or ContactFieldOutput.",
-                   Returns = "str")]
-        public string field_output_type { get { return Resolve().GetType().Name; } }
+        [PythonAPI("The field output type, named after the add_* method that makes it without the add_ prefix: " +
+                   "nodal, element or contact.", Returns = "str")]
+        public string item_type { get { return GetItemType(Resolve()); } }
         [PythonAPI("True when the field output is written to the solver input file.", Returns = "bool")]
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the results are written for the last iteration of a diverged increment.",
@@ -44,6 +52,18 @@ namespace APIs.Python.Model
             _stepName = stepName;
             _fieldOutputName = fieldOutputName;
             _service = service;
+        }
+
+
+        // Static methods
+        internal static string GetItemType(FieldOutput fieldOutput)
+        {
+            string itemType;
+            if (ItemTypes.TryGetValue(fieldOutput.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The field output '" + fieldOutput.Name + "' is a " +
+                                         fieldOutput.GetType().Name + ", which no add_* method of the " +
+                                         "Python API makes.");
         }
 
 
@@ -69,24 +89,27 @@ namespace APIs.Python.Model
                                          " is not supported.");
         }
 
-        [PythonAPI("Returns the names of the values that are specific to this field output type.",
-                   Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this field output type: the add_* " +
+                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(FieldOutput)).Keys);
+            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(FieldOutput), null).Keys);
         }
 
-        [PythonAPI("Returns a value that is specific to this field output type, for example output. Use " +
-                   "get_value_names to list them.", Arguments = "name: str", Returns = "float, int, bool or str")]
+        [PythonAPI("Returns a value that is specific to this field output type by the name of the add_* argument " +
+                   "that sets it, for example output. Use get_value_names to list them.", Arguments = "name: str",
+                   Returns = "float, int, bool or str")]
         public object get_value(string name)
         {
-            return ModelItemValueReader.GetValue(Resolve(), typeof(FieldOutput), name, "field output");
+            FieldOutput fieldOutput = Resolve();
+            return ModelItemValueReader.GetValue(fieldOutput, typeof(FieldOutput), null, name,
+                                                 GetItemType(fieldOutput) + " field output");
         }
         public override string ToString()
         {
             FieldOutput fieldOutput = Resolve();
             return "FieldOutput(name=" + StringListAPI.ToDisplayString(fieldOutput.Name) + ", type=" +
-                   fieldOutput.GetType().Name + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
+                   GetItemType(fieldOutput) + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
         }
         //
         private FieldOutput Resolve()

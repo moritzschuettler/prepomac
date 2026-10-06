@@ -94,10 +94,10 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the history field exists in this history output.", Arguments = "field_name: str", Returns = "bool")]
-        public bool contains(string field_name)
+        [PythonAPI("Returns true if the history field exists in this history output.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(field_name);
+            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(name);
         }
         public override string ToString()
         {

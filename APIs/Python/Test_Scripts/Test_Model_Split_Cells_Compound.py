@@ -1,7 +1,7 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks create_compound with a compound part made by split_solid among the parts. box_and_cylinder.brep holds a box
+#Checks add_compound with a compound part made by split_solid among the parts. box_and_cylinder.brep holds a box
 #and a cylinder. The box is copied three quarters of its width along x, so the copy overlaps its last quarter, and
 #the box is then split in two halves across x.
 #
@@ -66,7 +66,7 @@ def test_plain_compound(cylinder):
     parts().translate(cylinder, [(box[1] - box[0]) / 2, 0, 0], number_of_copies=1)
     copy = added_part_names(before)[0]
     before = parts().get_names()
-    parts().create_compound([cylinder, copy])
+    parts().add_compound([cylinder, copy])
     compound = [name for name in added_part_names(before) if parts()[name].part_type == "Compound"][0]
     check(list(parts()[compound].split_sub_part_names) == [],
           "a compound of plain parts must not gather its solids: " + str(list(parts()[compound].split_sub_part_names)))
@@ -96,7 +96,7 @@ def main():
           "the split box must be one sub-part named after the box: " + str(state(split)))
     #
     before = parts().get_names()
-    parts().create_compound([split, copy])
+    parts().add_compound([split, copy])
     compound = [name for name in added_part_names(before) if parts()[name].part_type == "Compound"][0]
     sub_parts = list(parts()[compound].split_sub_part_names)
     check(len(sub_parts) == 3, "the compound must have three sub-parts: " + str(state(compound)))
@@ -124,7 +124,7 @@ def main():
     check(state(compound) == grouped, "regenerating must keep the grouping: " + str(state(compound)) + " instead of " +
           str(grouped))
     #
-    report = pmx.model.mesh.create(compound)
+    report = pmx.model.mesh.generate(compound)
     check(report[compound] == "", "meshing " + compound + " reported: " + report[compound])
     mesh_names = sorted(part.name for part in pmx.model.parts)
     check(mesh_names == sorted([box_part, copy_part]), "every sub-part must be one mesh part: " + str(mesh_names))

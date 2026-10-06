@@ -98,10 +98,10 @@ namespace APIs.Python
             return this[ids[ids.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the step ID exists.", Arguments = "step_id: int", Returns = "bool")]
-        public bool contains(int step_id)
+        [PythonAPI("Returns true if the step ID exists.", Arguments = "id: int", Returns = "bool")]
+        public bool contains(int id)
         {
-            return _dataService.GetStepIds(_resultName).Contains(step_id);
+            return _dataService.GetStepIds(_resultName).Contains(id);
         }
         public override string ToString()
         {

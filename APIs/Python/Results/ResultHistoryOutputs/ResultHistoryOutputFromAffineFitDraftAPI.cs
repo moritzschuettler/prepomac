@@ -26,15 +26,13 @@ namespace APIs.Python
         private double _loadingDirectionX;
         private double _loadingDirectionY;
         private int _stepId;
-        private int _stepIncrementId;
+        private int _incrementId;
         private int _radiusSweepStepCount;
 
 
         // Properties
-        [PythonAPI("The x coordinate of the fitted circle centre.", Returns = "float")]
-        public double center_x { get { return _centerX; } }
-        [PythonAPI("The y coordinate of the fitted circle centre.", Returns = "float")]
-        public double center_y { get { return _centerY; } }
+        [PythonAPI("The centre of the fitted circle as [x, y].", Returns = "list[float]")]
+        public double[] center { get { return new double[] { _centerX, _centerY }; } }
         [PythonAPI("The radius of the fitted circle.", Returns = "float")]
         public double radius { get { return _radius; } }
         [PythonAPI("The fraction of the radius at which the taper starts.", Returns = "float")]
@@ -57,14 +55,21 @@ namespace APIs.Python
         }
         [PythonAPI("The strain measure: Linear or Logarithmic.", Returns = "str")]
         public string strain_measure { get { return _strainMeasure.ToString(); } }
-        [PythonAPI("The x component of the loading direction.", Returns = "float")]
-        public double loading_direction_x { get { return _loadingDirectionX; } set { _loadingDirectionX = value; } }
-        [PythonAPI("The y component of the loading direction.", Returns = "float")]
-        public double loading_direction_y { get { return _loadingDirectionY; } set { _loadingDirectionY = value; } }
+        [PythonAPI("The loading direction as [x, y].", Returns = "list[float]")]
+        public object loading_direction
+        {
+            get { return new double[] { _loadingDirectionX, _loadingDirectionY }; }
+            set
+            {
+                double[] direction = ResultHistoryOutputService.ToPlanarVector(value, "loading_direction");
+                _loadingDirectionX = direction[0];
+                _loadingDirectionY = direction[1];
+            }
+        }
         [PythonAPI("The step the fit is evaluated in, or -1 for every step.", Returns = "int")]
         public int step_id { get { return _stepId; } set { _stepId = value; } }
         [PythonAPI("The increment the fit is evaluated in, or -1 for every increment.", Returns = "int")]
-        public int step_increment_id { get { return _stepIncrementId; } set { _stepIncrementId = value; } }
+        public int increment_id { get { return _incrementId; } set { _incrementId = value; } }
         [PythonAPI("The number of radii the fit sweeps through.", Returns = "int")]
         public int radius_sweep_step_count
         {
@@ -82,7 +87,7 @@ namespace APIs.Python
                                                           double areaFilterRelativeMedian,
                                                           AffineFitStrainMeasureEnum strainMeasure,
                                                           double loadingDirectionX, double loadingDirectionY,
-                                                          int stepId, int stepIncrementId,
+                                                          int stepId, int incrementId,
                                                           int radiusSweepStepCount)
             : base(name, null)
         {
@@ -98,7 +103,7 @@ namespace APIs.Python
             _loadingDirectionX = loadingDirectionX;
             _loadingDirectionY = loadingDirectionY;
             _stepId = stepId;
-            _stepIncrementId = stepIncrementId;
+            _incrementId = incrementId;
             _radiusSweepStepCount = radiusSweepStepCount;
         }
 
@@ -119,7 +124,7 @@ namespace APIs.Python
             output.LoadingDirectionX = _loadingDirectionX;
             output.LoadingDirectionY = _loadingDirectionY;
             output.StepId = _stepId;
-            output.StepIncrementId = _stepIncrementId;
+            output.StepIncrementId = _incrementId;
             output.RadiusSweepStepCount = _radiusSweepStepCount;
             //
             return output;

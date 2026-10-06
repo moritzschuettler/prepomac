@@ -68,10 +68,10 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The number of slip wear smoothing steps, as the value or equation it was entered with.",
                    Returns = "str")]
-        public string num_of_smoothing_steps
+        public string number_of_smoothing_steps
         {
-            get { return _service.GetPropertyEquation("num_of_smoothing_steps"); }
-            set { Update(num_of_smoothing_steps: value); }
+            get { return _service.GetPropertyEquation("number_of_smoothing_steps"); }
+            set { Update(number_of_smoothing_steps: value); }
         }
         [PythonAPI("Whether a slip wear model uses BDM remeshing.", Returns = "bool")]
         public bool bdm_remeshing
@@ -112,7 +112,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str = None, model_type: str = None, " +
                                "global_results_file_name: str = None, slip_wear_results: str = None, " +
                                "number_of_cycles: float = None, cycles_increment: float = None, " +
-                               "num_of_smoothing_steps: float = None, bdm_remeshing: bool = None, " +
+                               "number_of_smoothing_steps: float = None, bdm_remeshing: bool = None, " +
                                "absolute_zero: float = None, stefan_boltzmann: float = None, " +
                                "newton_gravity: float = None, clear_undefined_constants: bool = False",
                    Returns = "None",
@@ -120,13 +120,13 @@ namespace APIs.Python.Model
                              "global_results_file_name='global.frd')")]
         public void replace(string name = null, string model_type = null, string global_results_file_name = null,
                             string slip_wear_results = null, object number_of_cycles = null,
-                            object cycles_increment = null, object num_of_smoothing_steps = null,
+                            object cycles_increment = null, object number_of_smoothing_steps = null,
                             object bdm_remeshing = null, object absolute_zero = null,
                             object stefan_boltzmann = null, object newton_gravity = null,
                             bool clear_undefined_constants = false)
         {
             _service.UpdateProperties(name, model_type, global_results_file_name, slip_wear_results,
-                                      number_of_cycles, cycles_increment, num_of_smoothing_steps, bdm_remeshing,
+                                      number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
                                       absolute_zero, stefan_boltzmann, newton_gravity, clear_undefined_constants);
         }
         public override string ToString()
@@ -138,12 +138,12 @@ namespace APIs.Python.Model
         //
         private void Update(string model_type = null, string global_results_file_name = null,
                             string slip_wear_results = null, object number_of_cycles = null,
-                            object cycles_increment = null, object num_of_smoothing_steps = null,
+                            object cycles_increment = null, object number_of_smoothing_steps = null,
                             object bdm_remeshing = null, object absolute_zero = null,
                             object stefan_boltzmann = null, object newton_gravity = null)
         {
             _service.UpdateProperties(null, model_type, global_results_file_name, slip_wear_results,
-                                      number_of_cycles, cycles_increment, num_of_smoothing_steps, bdm_remeshing,
+                                      number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
                                       absolute_zero, stefan_boltzmann, newton_gravity, false);
         }
     }

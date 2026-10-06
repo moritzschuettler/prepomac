@@ -34,7 +34,7 @@ namespace APIs.Python
         [PythonAPI("True when the solver runs in the simplified compatibility mode.", Returns = "bool")]
         public bool compatibility_mode { get { return Resolve().CompatibilityMode; } }
         [PythonAPI("The number of solver CPUs.", Returns = "int")]
-        public int num_cpus { get { return Resolve().NumCPUs; } }
+        public int number_of_cpus { get { return Resolve().NumCPUs; } }
         [PythonAPI("Detached copies of solver environment variable definitions.", Returns = "list[EnvironmentVariable]")]
         public System.Collections.Generic.List<EnvironmentVariable> environment_variables
         {

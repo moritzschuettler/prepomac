@@ -70,7 +70,7 @@ namespace APIs.Python.Model
             return ModelItemValueReader.GetEquations(Resolve());
         }
         [PythonAPI("Returns how each defining point was constructed.", Returns = "dict[str, str]")]
-        public Dictionary<string, string> get_construction_modes()
+        public Dictionary<string, string> get_construction()
         {
             CoordinateSystem item = Resolve();
             return new Dictionary<string, string>

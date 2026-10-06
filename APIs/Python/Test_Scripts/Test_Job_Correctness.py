@@ -50,11 +50,11 @@ def build_solvable_model():
 def test_explicit_settings(work):
     variable = pmx.create.environment_variable("PMX_TEST_VALUE", "one")
     job = pmx.jobs.add(PREFIX + "Explicit", fem_solver="Calculix", executable=SLEEPING_SOLVER,
-                       argument=SLEEPING_ARGUMENT, work_directory=work, num_cpus=2,
+                       argument=SLEEPING_ARGUMENT, work_directory=work, number_of_cpus=2,
                        environment_variables=[variable])
     check(job.executable == SLEEPING_SOLVER, "the explicit executable was overwritten: " + job.executable)
     check(job.work_directory == work, "the explicit work directory was overwritten")
-    check(job.num_cpus == 2, "the explicit CPU count was overwritten")
+    check(job.number_of_cpus == 2, "the explicit CPU count was overwritten")
     check(job.environment_variables[0].Name == "PMX_TEST_VALUE", "the environment variable was not stored")
     # The readback is detached, so changing it cannot reach the stored analysis
     copy = job.environment_variables
@@ -63,26 +63,26 @@ def test_explicit_settings(work):
     # Adding another analysis reapplies the settings, which must leave the explicit values alone
     pmx.jobs.add(PREFIX + "Other")
     check(pmx.jobs[PREFIX + "Explicit"].executable == SLEEPING_SOLVER, "the executable was reset")
-    check(pmx.jobs[PREFIX + "Explicit"].num_cpus == 2, "the CPU count was reset")
+    check(pmx.jobs[PREFIX + "Explicit"].number_of_cpus == 2, "the CPU count was reset")
 
 
 def test_replacement_and_inheritance():
     pmx.jobs.replace(PREFIX + "Explicit", compatibility_mode=False)
     check(pmx.jobs[PREFIX + "Explicit"].executable == SLEEPING_SOLVER, "the replacement lost the executable")
-    check(pmx.jobs[PREFIX + "Explicit"].num_cpus == 2, "the replacement lost the CPU count")
+    check(pmx.jobs[PREFIX + "Explicit"].number_of_cpus == 2, "the replacement lost the CPU count")
     #
-    pmx.jobs.replace(PREFIX + "Explicit", inherit_num_cpus=True)
+    pmx.jobs.replace(PREFIX + "Explicit", inherit_number_of_cpus=True)
     check(pmx.jobs[PREFIX + "Explicit"].executable == SLEEPING_SOLVER,
           "restoring one default reset an unrelated value")
-    check_raises(lambda: pmx.jobs.replace(PREFIX + "Explicit", num_cpus=4, inherit_num_cpus=True),
+    check_raises(lambda: pmx.jobs.replace(PREFIX + "Explicit", number_of_cpus=4, inherit_number_of_cpus=True),
                  "a value and its inherit switch were accepted together")
-    pmx.jobs.replace(PREFIX + "Explicit", num_cpus=2)
-    check(pmx.jobs[PREFIX + "Explicit"].num_cpus == 2, "the CPU count was not restored")
+    pmx.jobs.replace(PREFIX + "Explicit", number_of_cpus=2)
+    check(pmx.jobs[PREFIX + "Explicit"].number_of_cpus == 2, "the CPU count was not restored")
 
 
 def test_rejected_arguments():
-    check_raises(lambda: pmx.jobs.add(PREFIX + "Fractional", num_cpus=2.5), "a fractional CPU count was accepted")
-    check_raises(lambda: pmx.jobs.add(PREFIX + "Zero", num_cpus=0), "a zero CPU count was accepted")
+    check_raises(lambda: pmx.jobs.add(PREFIX + "Fractional", number_of_cpus=2.5), "a fractional CPU count was accepted")
+    check_raises(lambda: pmx.jobs.add(PREFIX + "Zero", number_of_cpus=0), "a zero CPU count was accepted")
     check(not pmx.jobs.contains(PREFIX + "Fractional"), "a refused analysis was recorded")
     check_raises(lambda: pmx.jobs[PREFIX + "Explicit"].run(timeout=float("nan")), "a NaN timeout was accepted")
     check_raises(lambda: pmx.jobs[PREFIX + "Explicit"].run(timeout=float("inf")),

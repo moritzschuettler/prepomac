@@ -96,21 +96,23 @@ namespace APIs.Python
             return _dataService.GetDeformedNodalCoordinates(_resultName, step_id, increment_id, node_id);
         }
         [PythonAPI("Returns the entries in a history output field component.",
-                   Arguments = "history_name: str, field_name: str, component_name: str",
+                   Arguments = "history_output_name: str, field_name: str, component_name: str",
                    Returns = "HistoryEntries")]
-        public ResultHistoryOutputEntriesAPI get_history_output_entries(string history_name, string field_name, string component_name)
+        public ResultHistoryOutputEntriesAPI get_history_output_entries(string history_output_name, string field_name,
+                                                                        string component_name)
         {
-            _resultHistoryService.ResolveComponent(_resultName, history_name, field_name, component_name);
-            return new ResultHistoryOutputEntriesAPI(_resultName, history_name, field_name, component_name, _resultHistoryService);
+            _resultHistoryService.ResolveComponent(_resultName, history_output_name, field_name, component_name);
+            return new ResultHistoryOutputEntriesAPI(_resultName, history_output_name, field_name, component_name,
+                                                     _resultHistoryService);
         }
         [PythonAPI("Returns one named entry in a history output field component.",
-                   Arguments = "history_name: str, field_name: str, component_name: str, entry_name: str",
+                   Arguments = "history_output_name: str, field_name: str, component_name: str, entry_name: str",
                    Returns = "HistoryEntry")]
-        public ResultHistoryOutputEntryAPI get_history_output_entry(string history_name, string field_name, string component_name,
-                                                        string entry_name)
+        public ResultHistoryOutputEntryAPI get_history_output_entry(string history_output_name, string field_name,
+                                                                    string component_name, string entry_name)
         {
-            _resultHistoryService.ResolveEntry(_resultName, history_name, field_name, component_name, entry_name);
-            return new ResultHistoryOutputEntryAPI(_resultName, history_name, field_name, component_name, entry_name,
+            _resultHistoryService.ResolveEntry(_resultName, history_output_name, field_name, component_name, entry_name);
+            return new ResultHistoryOutputEntryAPI(_resultName, history_output_name, field_name, component_name, entry_name,
                                                    _resultHistoryService);
         }
         private FeResults Resolve()

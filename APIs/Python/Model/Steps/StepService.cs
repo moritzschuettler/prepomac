@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -17,6 +18,13 @@ namespace APIs.Python.Model
     internal class StepService
     {
         // Variables
+        private static readonly Dictionary<Type, string> ControlTypes = new Dictionary<Type, string>
+        {
+            { typeof(TimeIncrementationStepControlParameter), "time_incrementation_control" },
+            { typeof(FieldStepControlParameter), "field_control" },
+            { typeof(ContactStepControlParameter), "contact_control" },
+            { typeof(ResetStepControlParameter), "reset_control" }
+        };
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
 
@@ -48,14 +56,14 @@ namespace APIs.Python.Model
             return step;
         }
         // The step type cannot change on a replace, the same way the dialog only edits the type it opened
-        public TStep CloneForReplace<TStep>(string name, string stepTypeName) where TStep : Step
+        public TStep CloneForReplace<TStep>(string name, string itemType) where TStep : Step
         {
             Step step = ResolveStep(name);
             // Several step types derive from another, so only the exact type is the one being replaced
             if (step.GetType() != typeof(TStep))
-                throw new PythonAPIException("The step '" + name + "' is a " + step.GetType().Name +
-                                             ", so it cannot be replaced by a " + stepTypeName +
-                                             ". Remove it and add the new step type instead.");
+                throw new PythonAPIException("The step '" + name + "' is made by add_" + StepAPI.GetItemType(step) +
+                                             ", so replace_" + itemType + " cannot replace it. Remove it and " +
+                                             "add the new step type instead.");
             //
             return ((TStep)step).DeepClone();
         }
@@ -134,7 +142,15 @@ namespace APIs.Python.Model
             StepControls stepControls = ResolveStep(stepName).StepControls;
             if (stepControls == null) return new string[0];
             //
-            return stepControls.Parameters.Select(parameter => parameter.GetType().Name).ToArray();
+            return stepControls.Parameters.Select(parameter => GetControlType(parameter)).ToArray();
+        }
+        private static string GetControlType(StepControlParameter parameter)
+        {
+            string controlType;
+            if (ControlTypes.TryGetValue(parameter.GetType(), out controlType)) return controlType;
+            //
+            throw new PythonAPIException("The step control parameter " + parameter.GetType().Name + " is not made " +
+                                         "by any pmx.create method.");
         }
         public void ValidateName(string name, string allowedExistingName)
         {

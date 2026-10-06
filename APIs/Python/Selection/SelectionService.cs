@@ -60,7 +60,7 @@ namespace APIs.Python
             double[] pickedPoint = ToVector(point, "point");
             double[] pickDirection = direction == null ? null : ToVector(direction, "direction");
             int[] pickPartIds = partIds == null ? null : PythonIntListConverter.ToIntArray(partIds, "part_ids");
-            double pickAngle = angle == null ? 0 : PythonValueConverter.ToFiniteDouble(angle, "angle");
+            double pickAngle = angle == null ? 0 : PythonValueConverter.ToFiniteDouble(angle, "angle_deg");
             bool inside = completelyInside != null &&
                           PythonValueConverter.ToBool(completelyInside, "completely_inside");
             //
@@ -98,7 +98,7 @@ namespace APIs.Python
             }
             //
             int[] pickPartIds = partIds == null ? null : PythonIntListConverter.ToIntArray(partIds, "part_ids");
-            double pickAngle = angle == null ? 0 : PythonValueConverter.ToFiniteDouble(angle, "angle");
+            double pickAngle = angle == null ? 0 : PythonValueConverter.ToFiniteDouble(angle, "angle_deg");
             bool inside = completelyInside != null &&
                           PythonValueConverter.ToBool(completelyInside, "completely_inside");
             //
@@ -110,6 +110,17 @@ namespace APIs.Python
         public SelectionAPI CreateByBox(string view, string target, object corner1, object corner2,
                                         string selectBy, object partIds, object completelyInside,
                                         object partOffsets)
+        {
+            return CreateByArea(view, target, ToBoxPlanes(corner1, corner2), selectBy, null, partIds, completelyInside,
+                                partOffsets);
+        }
+        public void AddByBox(SelectionAPI selection, object corner1, object corner2, string selectBy, object partIds,
+                             object completelyInside, string operation, object partOffsets)
+        {
+            AddByArea(selection, ToBoxPlanes(corner1, corner2), selectBy, null, partIds, completelyInside, operation,
+                      partOffsets);
+        }
+        private static double[][] ToBoxPlanes(object corner1, object corner2)
         {
             double[] first = ToVector(corner1, "corner1");
             double[] second = ToVector(corner2, "corner2");
@@ -131,7 +142,7 @@ namespace APIs.Python
                 planes[2 * axis + 1] = highPlane;
             }
             //
-            return CreateByArea(view, target, planes, selectBy, null, partIds, completelyInside, partOffsets);
+            return planes;
         }
         public void AddInvert(SelectionAPI selection)
         {
@@ -305,12 +316,12 @@ namespace APIs.Python
                               mode == vtkSelectBy.GeometryEdgeAngle ||
                               mode == vtkSelectBy.GeometrySurfaceAngle;
             if (needsAngle && angle == null)
-                throw new PythonAPIException("The select_by value " + mode + " needs an angle.");
+                throw new PythonAPIException("The select_by value " + mode + " needs an angle_deg.");
             if (angle != null)
             {
-                double value = PythonValueConverter.ToFiniteDouble(angle, "angle");
+                double value = PythonValueConverter.ToFiniteDouble(angle, "angle_deg");
                 if (!needsAngle || value < 0 || value > 180)
-                    throw new PythonAPIException("An angle in [0, 180] is allowed only for an angle based mode.");
+                    throw new PythonAPIException("An angle_deg in [0, 180] is allowed only for an angle based mode.");
             }
             //
             return mode;

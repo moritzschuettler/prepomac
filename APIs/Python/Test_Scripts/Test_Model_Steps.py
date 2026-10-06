@@ -47,7 +47,7 @@ def test_static_and_shared_values():
                             nlgeom=True, max_increments=50, incrementation_type="Automatic",
                             solver_type="Pardiso", output_frequency=2, run_analysis=False)
     check(len(steps) == count_before + 1, "the static step was not added")
-    check(step.step_type == "StaticStep", "unexpected step type " + step.step_type)
+    check(step.item_type == "static", "unexpected step type " + step.item_type)
     # The values shared by every step type are properties
     check(step.nlgeom, "nlgeom was not set")
     check(step.max_increments == 50, "max_increments was not set")
@@ -138,9 +138,9 @@ def test_collection_verbs():
 
 def test_frequency_types():
     steps = pmx.model.steps
-    step = steps.add_frequency(PREFIX + "F1", num_of_frequencies=20, lower_frequency=1.0,
+    step = steps.add_frequency(PREFIX + "F1", number_of_frequencies=20, lower_frequency=1.0,
                                upper_frequency=500.0, storage=True, perturbation=True)
-    check(step.get_value("num_of_frequencies") == 20, "num_of_frequencies was not set")
+    check(step.get_value("number_of_frequencies") == 20, "number_of_frequencies was not set")
     check(step.get_value("lower_frequency") == 1.0, "lower_frequency was not set")
     check(step.get_value("storage"), "storage was not set")
     check(step.perturbation, "a frequency step supports a perturbation step")
@@ -156,11 +156,11 @@ def test_frequency_types():
     check_raises(lambda: steps.replace_frequency(PREFIX + "F2", lower_frequency=80.0),
                  "a lower frequency above the stored upper one must be rejected")
     #
-    step = steps.add_complex_frequency(PREFIX + "CF1", num_of_frequencies=5)
-    check(step.get_value("num_of_frequencies") == 5, "the complex frequency count was not set")
+    step = steps.add_complex_frequency(PREFIX + "CF1", number_of_frequencies=5)
+    check(step.get_value("number_of_frequencies") == 5, "the complex frequency count was not set")
     #
-    step = steps.add_buckle(PREFIX + "B1", num_of_buckling_factors=3, accuracy=1e-6)
-    check(step.get_value("num_of_buckling_factors") == 3, "num_of_buckling_factors was not set")
+    step = steps.add_buckle(PREFIX + "B1", number_of_buckling_factors=3, accuracy=1e-6)
+    check(step.get_value("number_of_buckling_factors") == 3, "number_of_buckling_factors was not set")
     check(step.get_value("accuracy") == 1e-6, "accuracy was not set")
 
 
@@ -193,12 +193,12 @@ def test_dynamic_types():
                  "a plain damping given as a modal damping must be rejected")
     #
     step = steps.add_steady_state_dynamics(PREFIX + "SSD1", harmonic=False, lower_frequency=5.0,
-                                           upper_frequency=50.0, num_data_points=10, bias=2.0,
-                                           num_fourier_terms=15, time_lower=0.0, time_upper=2.0,
+                                           upper_frequency=50.0, number_of_data_points=10, bias=2.0,
+                                           number_of_fourier_terms=15, time_lower=0.0, time_upper=2.0,
                                            modal_damping=pmx.create.modal_damping(
                                                "Constant", viscous_damping_ratio=0.02))
     check(not step.get_value("harmonic"), "harmonic was not set")
-    check(step.get_value("num_data_points") == 10, "num_data_points was not set")
+    check(step.get_value("number_of_data_points") == 10, "number_of_data_points was not set")
     check(step.get_value("damping_viscous_damping_ratio") == 0.02, "the viscous damping ratio was not set")
     # The default upper frequency is 10, so a range above it is set upper limit first
     step = steps.add_steady_state_dynamics(PREFIX + "SSD2", lower_frequency=20.0, upper_frequency=100.0)
@@ -217,34 +217,34 @@ def test_thermal_and_wear_types():
     check(step.get_value("time_period") == 10.0, "a heat transfer step also takes the static values")
     #
     step = steps.add_uncoupled_temp_disp(PREFIX + "UTD1", steady_state=False, deltmx=2.0)
-    check(step.step_type == "UncoupledTempDispStep", "unexpected step type " + step.step_type)
+    check(step.item_type == "uncoupled_temp_disp", "unexpected step type " + step.item_type)
     check(step.get_value("deltmx") == 2.0, "deltmx was not set on the uncoupled step")
     #
     step = steps.add_coupled_temp_disp(PREFIX + "CTD1", time_period=4.0)
-    check(step.step_type == "CoupledTempDispStep", "unexpected step type " + step.step_type)
+    check(step.item_type == "coupled_temp_disp", "unexpected step type " + step.item_type)
     check(step.get_value("time_period") == 4.0, "the time period was not set on the coupled step")
     # A boundary displacement step follows a slip wear step
     step = steps.add_slip_wear(PREFIX + "SW1", time_period=1.0)
-    check(step.step_type == "SlipWearStep", "unexpected step type " + step.step_type)
+    check(step.item_type == "slip_wear", "unexpected step type " + step.item_type)
     step = steps.add_boundary_displacement(PREFIX + "BD1", max_increments=20)
-    check(step.step_type == "BoundaryDisplacementStep", "unexpected step type " + step.step_type)
+    check(step.item_type == "boundary_displacement", "unexpected step type " + step.item_type)
     check(step.max_increments == 20, "max_increments was not set on the boundary displacement step")
     check_raises(lambda: steps.add_boundary_displacement(PREFIX + "Bad", perturbation=True),
                  "a perturbation boundary displacement step must be rejected")
     # These step types derive from another one in the model, yet a replace still only edits the exact type
-    refused_replaces = [(steps.replace_static, PREFIX + "HT1", "HeatTransferStep"),
-                        (steps.replace_static, PREFIX + "D1", "DynamicStep"),
-                        (steps.replace_static, PREFIX + "MD1", "ModalDynamicsStep"),
-                        (steps.replace_static, PREFIX + "SW1", "SlipWearStep"),
-                        (steps.replace_static, PREFIX + "UTD1", "UncoupledTempDispStep"),
-                        (steps.replace_heat_transfer, PREFIX + "UTD1", "UncoupledTempDispStep"),
-                        (steps.replace_heat_transfer, PREFIX + "CTD1", "CoupledTempDispStep"),
-                        (steps.replace_uncoupled_temp_disp, PREFIX + "CTD1", "CoupledTempDispStep")]
-    for replace, step_name, step_type in refused_replaces:
+    refused_replaces = [(steps.replace_static, PREFIX + "HT1", "heat_transfer"),
+                        (steps.replace_static, PREFIX + "D1", "dynamic"),
+                        (steps.replace_static, PREFIX + "MD1", "modal_dynamics"),
+                        (steps.replace_static, PREFIX + "SW1", "slip_wear"),
+                        (steps.replace_static, PREFIX + "UTD1", "uncoupled_temp_disp"),
+                        (steps.replace_heat_transfer, PREFIX + "UTD1", "uncoupled_temp_disp"),
+                        (steps.replace_heat_transfer, PREFIX + "CTD1", "coupled_temp_disp"),
+                        (steps.replace_uncoupled_temp_disp, PREFIX + "CTD1", "coupled_temp_disp")]
+    for replace, step_name, item_type in refused_replaces:
         message = raised_message(lambda: replace(step_name, time_period=7.0))
-        check(message is not None and step_type in message,
-              "replacing the " + step_type + " " + step_name + " by a base type must be refused: " + str(message))
-        check(steps[step_name].step_type == step_type, "a refused replace changed the type of " + step_name)
+        check(message is not None and "add_" + item_type + "," in message,
+              "replacing the " + item_type + " " + step_name + " by a base type must be refused: " + str(message))
+        check(steps[step_name].item_type == item_type, "a refused replace changed the type of " + step_name)
 
 
 def test_controls():
@@ -253,13 +253,13 @@ def test_controls():
     step.set_controls([pmx.create.time_incrementation_control(i0=8, ic=32, dd=2.0),
                        pmx.create.contact_control(delcon=0.5, itf2f=4)])
     types = list(step.get_control_types())
-    check(types == ["TimeIncrementationStepControlParameter", "ContactStepControlParameter"],
+    check(types == ["time_incrementation_control", "contact_control"],
           "unexpected step control types " + str(types))
     # A single parameter does not need a list
     step.set_controls(pmx.create.reset_control())
-    check(list(step.get_control_types()) == ["ResetStepControlParameter"], "the reset control was not set")
+    check(list(step.get_control_types()) == ["reset_control"], "the reset control was not set")
     step.set_controls([pmx.create.field_control(rna=0.005)])
-    check(list(step.get_control_types()) == ["FieldStepControlParameter"], "the field control was not set")
+    check(list(step.get_control_types()) == ["field_control"], "the field control was not set")
     step.clear_controls()
     check(len(step.get_control_types()) == 0, "the step controls were not cleared")
     check_raises(lambda: step.set_controls(["not a control parameter"]),

@@ -322,7 +322,7 @@ namespace PrePoMax
         {
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
-            if ((!meshingParameters.TransfiniteThreeSided && !meshingParameters.TransfiniteFourSided) ||
+            if ((!meshingParameters.IsTransfiniteThreeSided && !meshingParameters.TransfiniteFourSided) ||
                 !part.IsCADPart || part is CompoundGeometryPart) return null;
             //
             GmshData sizes = new GmshData();

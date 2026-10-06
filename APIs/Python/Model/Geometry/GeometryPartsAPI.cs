@@ -27,11 +27,11 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Creates a compound part from the named parts using command history. When one of them is a " +
+        [PythonAPI("Adds a compound part made from the named parts using command history. When one of them is a " +
                    "compound part made by split_solid, the solids are gathered into sub-parts after the parts they " +
                    "came from, and a solid where the parts overlap is a sub-part of its own named Overlap.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
-        public void create_compound(object part_names)
+        public void add_compound(object part_names)
         {
             _service.CreateCompound(_service.ResolveNames(part_names));
         }
@@ -65,10 +65,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Recomputes the part edges from the angle between the neighbouring faces.",
-                   Arguments = "part_names: list[str] or str, edge_angle: float", Returns = "None")]
-        public void find_edges_by_angle(object part_names, object edge_angle)
+                   Arguments = "part_names: list[str] or str, edge_angle_deg: float", Returns = "None")]
+        public void find_edges_by_angle(object part_names, object edge_angle_deg)
         {
-            _service.FindEdgesByAngle(_service.ResolveNames(part_names), edge_angle);
+            _service.FindEdgesByAngle(_service.ResolveNames(part_names), edge_angle_deg);
         }
 
         [PythonAPI("Flips the orientation of the selected faces using command history. The selection uses " +

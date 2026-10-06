@@ -59,7 +59,7 @@ def element_kinds(part_name):
 
 def mesh(part):
     check(part.mesh_type == "Free", "the CAD shell " + part.name + " is recognized as " + part.mesh_type)
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "meshing " + part.name + " reported: " + report[part.name])
     kinds = element_kinds(part.name)
     print("meshed:", part.name, kinds)
@@ -87,12 +87,12 @@ def check_pinned_edges(part):
     items = pmx.model.mesh.setup_items
     first, second = parallel_edge_ids(part)
     items.add_local_mesh_size("PyTest_Edge_A", edge_selection(part, first), number_of_elements=7)
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "one pinned edge must mesh: " + report[part.name])
     items.add_local_mesh_size("PyTest_Edge_B", edge_selection(part, second), number_of_elements=9)
     message = None
     try:
-        pmx.model.mesh.create(part.name)
+        pmx.model.mesh.generate(part.name)
     except Exception as ex:
         message = str(ex)
     check(message is not None, "edges pinned to different numbers of elements must be refused")

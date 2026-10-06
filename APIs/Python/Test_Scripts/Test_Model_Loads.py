@@ -98,7 +98,7 @@ def test_concentrated():
     check(len(loads) == 0, "a new step has no loads")
     #
     load = loads.add_concentrated_force(PREFIX + "F", node_selection([1, 2]), f3=-1000)
-    check(load.load_type == "CLoad", "unexpected load type " + load.load_type)
+    check(load.item_type == "concentrated_force", "unexpected load type " + load.item_type)
     check(load.region_type == "NodeSetName", "unexpected region type " + load.region_type)
     check(load.get_value("f3") == -1000, "f3 was not set, got " + str(load.get_value("f3")))
     check(load.get_value("f1") == 0, "f1 must stay zero")
@@ -160,8 +160,12 @@ def test_surface_loads():
                                           direction=[0, 0, -1], first_point_pressure=0,
                                           second_point_pressure=10, cutoff="Positive")
     check(load.get_value("second_point_pressure") == 10, "the second point pressure was not set")
-    check(load.get_value("z2") == 1, "the second point was not set")
-    check(load.get_value("hydrostatic_pressure_cutoff") == "Positive", "the cutoff was not set")
+    check(list(load.get_value("second_point")) == [0, 0, 1], "the second point was not set")
+    check(load.get_value("cutoff") == "Positive", "the cutoff was not set")
+    # The values read back under the names of the arguments that set them, not of the stored properties
+    names = list(load.get_value_names())
+    check("first_point" in names and "x1" not in names and "hydrostatic_pressure_cutoff" not in names,
+          "the hydrostatic values are not named after the arguments: " + str(names))
     check_raises(lambda: loads.add_hydrostatic_pressure(PREFIX + "Bad", surface_selection(1),
                                                         cutoff="NotACutoff"),
                  "an unknown cutoff must be rejected")
@@ -188,35 +192,36 @@ def test_surface_loads():
     check(load.region_name == SURFACE, "unexpected region name " + str(load.region_name))
     # Pre-tension
     load = loads.add_pre_tension(PREFIX + "PT", surface_selection(1), 500)
-    check(load.get_value("force_magnitude") == 500, "the pre-tension force was not set")
-    check(load.get_value("auto_compute_direction"), "the direction must be computed by default")
+    check(load.get_value("magnitude") == 500, "the pre-tension force was not set")
+    check(load.get_value("auto_direction"), "the direction must be computed by default")
     load = loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1])
-    check(not load.get_value("auto_compute_direction"), "a given direction turns off the computed one")
+    check(not load.get_value("auto_direction"), "a given direction turns off the computed one")
+    check(list(load.get_value("direction")) == [0, 0, 1], "the pre-tension direction was not set")
     # auto_direction returns to the surface normal, and cannot be combined with a direction
     check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", direction=[0, 0, 1], auto_direction=True),
                  "a direction together with auto_direction must be rejected")
     load = loads.replace_pre_tension(PREFIX + "PT", auto_direction=True)
-    check(load.get_value("auto_compute_direction"), "auto_direction did not return to the surface normal")
-    check(load.get_value("force_magnitude") == 500, "the force must survive the direction change")
+    check(load.get_value("auto_direction"), "auto_direction did not return to the surface normal")
+    check(load.get_value("magnitude") == 500, "the force must survive the direction change")
     # Stopping the surface normal needs the direction that replaces it
     check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", auto_direction=False),
                  "auto_direction=False without a direction must be rejected")
-    check(loads[PREFIX + "PT"].get_value("auto_compute_direction"), "the refused replacement changed the load")
+    check(loads[PREFIX + "PT"].get_value("auto_direction"), "the refused replacement changed the load")
     # A type change without a magnitude would take the value stored for the other type, so it is refused
-    check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement"),
+    check_raises(lambda: loads.replace_pre_tension(PREFIX + "PT", tension_type="Displacement"),
                  "a pre-tension type change without a magnitude must be rejected")
-    check(loads[PREFIX + "PT"].get_value("type") == "Force", "the refused replacement changed the type")
-    load = loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement", magnitude=0.2)
-    check(load.get_value("type") == "Displacement", "the pre-tension type was not replaced")
-    check(load.get_value("displacement_magnitude") == 0.2, "the pre-tension displacement was not replaced")
+    check(loads[PREFIX + "PT"].get_value("tension_type") == "Force", "the refused replacement changed the type")
+    load = loads.replace_pre_tension(PREFIX + "PT", tension_type="Displacement", magnitude=0.2)
+    check(load.get_value("tension_type") == "Displacement", "the pre-tension type was not replaced")
+    check(load.get_value("magnitude") == 0.2, "the pre-tension displacement was not replaced")
     # The type that is already set needs no magnitude
-    load = loads.replace_pre_tension(PREFIX + "PT", load_type="Displacement")
-    check(load.get_value("displacement_magnitude") == 0.2, "the displacement must survive a replace")
-    load = loads.add_pre_tension(PREFIX + "PT_D", surface_selection(1), 0.5, load_type="Displacement")
-    check(load.get_value("type") == "Displacement", "the pre-tension type was not set")
-    check(load.get_value("displacement_magnitude") == 0.5, "the pre-tension displacement was not set")
+    load = loads.replace_pre_tension(PREFIX + "PT", tension_type="Displacement")
+    check(load.get_value("magnitude") == 0.2, "the displacement must survive a replace")
+    load = loads.add_pre_tension(PREFIX + "PT_D", surface_selection(1), 0.5, tension_type="Displacement")
+    check(load.get_value("tension_type") == "Displacement", "the pre-tension type was not set")
+    check(load.get_value("magnitude") == 0.5, "the pre-tension displacement was not set")
     check_raises(lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), 1,
-                                               load_type="NotAType"),
+                                               tension_type="NotAType"),
                  "an unknown pre-tension type must be rejected")
 
 
@@ -229,7 +234,7 @@ def test_body_loads():
     load = loads.add_centrifugal(PREFIX + "C", element_selection([1]), axis_point=[0, 0, 0],
                                  axis_direction=[0, 0, 1], rotational_speed=100)
     check(load.get_value("rotational_speed") == 100, "the rotational speed was not set")
-    check(load.get_value("n3") == 1, "the axis direction was not set")
+    check(list(load.get_value("axis_direction")) == [0, 0, 1], "the axis direction was not set")
     check_raises(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]),
                                                axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")

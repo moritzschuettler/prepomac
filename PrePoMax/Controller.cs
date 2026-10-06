@@ -12575,7 +12575,7 @@ namespace PrePoMax
                     if (_defaultMeshTypesDisabled)
                     {
                         MeshingParameters meshingParameters = GetPartMeshingParameters(meshedPartName);
-                        return _model.Geometry.GetTransfiniteShellFaces(part, meshingParameters.TransfiniteThreeSided,
+                        return _model.Geometry.GetTransfiniteShellFaces(part, meshingParameters.IsTransfiniteThreeSided,
                                                                         meshingParameters.TransfiniteFourSided,
                                                                         meshingParameters.TransfiniteAngleDeg);
                     }
@@ -12587,11 +12587,11 @@ namespace PrePoMax
                                                                     shellGmsh.TransfiniteFourSided,
                                                                     shellGmsh.TransfiniteAngleDeg);
                 else if (mesherSetupItem is ShellQuadWild shellQuadWild)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.TransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.IsTransfiniteThreeSided,
                                                                     shellQuadWild.TransfiniteFourSided,
                                                                     shellQuadWild.TransfiniteAngleDeg);
                 else if (mesherSetupItem is NetgenMesh netgenMesh)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, netgenMesh.TransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, netgenMesh.IsTransfiniteThreeSided,
                                                                     netgenMesh.TransfiniteFourSided,
                                                                     netgenMesh.TransfiniteAngleDeg);
                 else return null;

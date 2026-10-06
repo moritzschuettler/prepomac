@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,6 +17,12 @@ namespace APIs.Python.Model
     public class SurfaceInteractionAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> PropertyTypes = new Dictionary<Type, string>
+        {
+            { typeof(Friction), "friction" },
+            { typeof(GapConductance), "gap_conductance" },
+            { typeof(SurfaceBehavior), "surface_behavior" }
+        };
         private readonly string _surfaceInteractionName;
         private readonly SurfaceInteractionService _service;
 
@@ -35,13 +42,24 @@ namespace APIs.Python.Model
         }
 
 
+        // Static methods
+        private static string GetPropertyType(SurfaceInteractionProperty property)
+        {
+            string propertyType;
+            if (PropertyTypes.TryGetValue(property.GetType(), out propertyType)) return propertyType;
+            //
+            throw new PythonAPIException("The surface interaction property " + property.GetType().Name +
+                                         " is not made by any pmx.create method.");
+        }
+
+
         // Methods
-        [PythonAPI("Returns the type names of the surface interaction properties, for example Friction.",
-                   Returns = "StringList")]
+        [PythonAPI("Returns the types of the surface interaction properties, named after the pmx.create method " +
+                   "that makes each, for example friction.", Returns = "StringList")]
         public StringListAPI get_property_types()
         {
             List<SurfaceInteractionProperty> properties = Resolve().Properties;
-            return new StringListAPI(properties.Select(property => property.GetType().Name).ToArray());
+            return new StringListAPI(properties.Select(property => GetPropertyType(property)).ToArray());
         }
         public override string ToString()
         {

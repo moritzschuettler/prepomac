@@ -90,26 +90,26 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the result mesh contains the specified part.", Arguments = "part_name: str", Returns = "bool")]
-        public bool contains(string part_name)
+        [PythonAPI("Returns true if the result mesh contains the specified part.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _meshService.GetPartNames(_resultName).Contains(part_name);
+            return _meshService.GetPartNames(_resultName).Contains(name);
         }
-        [PythonAPI("Hides result parts using command history.", Arguments = "part_names: list[str] or str",
+        [PythonAPI("Hides result parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]
-        public void hide(object part_names)
+        public void hide(object names)
         {
-            string[] names = ResolvePartNames(part_names);
+            string[] partNames = ResolvePartNames(names, "names");
             EnsureCommandsAvailable();
-            _commandGateway.HideResultParts(names);
+            _commandGateway.HideResultParts(partNames);
         }
-        [PythonAPI("Shows result parts using command history.", Arguments = "part_names: list[str] or str",
+        [PythonAPI("Shows result parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]
-        public void show(object part_names)
+        public void show(object names)
         {
-            string[] names = ResolvePartNames(part_names);
+            string[] partNames = ResolvePartNames(names, "names");
             EnsureCommandsAvailable();
-            _commandGateway.ShowResultParts(names);
+            _commandGateway.ShowResultParts(partNames);
         }
         [PythonAPI("Sets the color of result parts using command history.",
                    Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None")]
@@ -193,13 +193,13 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             _commandGateway.RenameResultItem(part, new_name);
         }
-        [PythonAPI("Removes result parts using command history.", Arguments = "part_names: list[str] or str",
+        [PythonAPI("Removes result parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]
-        public void remove(object part_names)
+        public void remove(object names)
         {
-            string[] names = ResolvePartNames(part_names);
+            string[] partNames = ResolvePartNames(names, "names");
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultParts(names);
+            _commandGateway.RemoveResultParts(partNames);
         }
         //
         private void EnsureCommandsAvailable()
@@ -221,9 +221,13 @@ namespace APIs.Python
         }
         private string[] ResolvePartNames(object value)
         {
-            string[] names = PythonStringListConverter.ToStringArrayOrSingle(value, "part_names");
+            return ResolvePartNames(value, "part_names");
+        }
+        private string[] ResolvePartNames(object value, string argumentName)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(value, argumentName);
             if (names == null || names.Length == 0)
-                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
             string[] existing = _meshService.GetPartNames(_resultName);
             foreach (string name in names)

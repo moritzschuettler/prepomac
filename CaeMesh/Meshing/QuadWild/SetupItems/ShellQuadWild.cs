@@ -29,7 +29,7 @@ namespace CaeMesh
         private bool _edgeRotations;                                     // ISerializable
         private double _singularityPosition;                             // ISerializable
         private int _countSearch;                                        // ISerializable
-        private bool _transfiniteThreeSided;                             // ISerializable
+        private TransfiniteThreeSidedEnum _transfiniteThreeSided;        // ISerializable
         private bool _transfiniteFourSided;                              // ISerializable
         private double _transfiniteAngleDeg;                             // ISerializable
 
@@ -66,7 +66,12 @@ namespace CaeMesh
             set { _singularityPosition = value < 0 ? 0 : value; }
         }
         public int CountSearch { get { return _countSearch; } set { _countSearch = value < 0 ? 0 : value; } }
-        public bool TransfiniteThreeSided { get { return _transfiniteThreeSided; } set { _transfiniteThreeSided = value; } }
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
+        {
+            get { return _transfiniteThreeSided; }
+            set { _transfiniteThreeSided = value; }
+        }
+        public bool IsTransfiniteThreeSided { get { return _transfiniteThreeSided != TransfiniteThreeSidedEnum.No; } }
         public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
         public double TransfiniteAngleDeg
         {
@@ -124,7 +129,12 @@ namespace CaeMesh
                     case "_countSearch":
                         _countSearch = (int)entry.Value; break;
                     case "_transfiniteThreeSided":
-                        _transfiniteThreeSided = (bool)entry.Value; break;
+                        // Compatibility for version v2.6.4: a switch, on for the three blocks of quads made then
+                        if (entry.Value is bool threeSided)
+                            _transfiniteThreeSided = threeSided ? TransfiniteThreeSidedEnum.Mapped :
+                                                                  TransfiniteThreeSidedEnum.No;
+                        else _transfiniteThreeSided = (TransfiniteThreeSidedEnum)entry.Value;
+                        break;
                     case "_transfiniteFourSided":
                         _transfiniteFourSided = (bool)entry.Value; break;
                     case "_transfiniteAngleDeg":
@@ -154,7 +164,7 @@ namespace CaeMesh
             _edgeRotations = false;
             _singularityPosition = 0;
             _countSearch = 0;
-            _transfiniteThreeSided = true;
+            _transfiniteThreeSided = TransfiniteThreeSidedEnum.Mapped;
             _transfiniteFourSided = true;
             _transfiniteAngleDeg = 135;
         }
@@ -197,7 +207,7 @@ namespace CaeMesh
             info.AddValue("_edgeRotations", _edgeRotations, typeof(bool));
             info.AddValue("_singularityPosition", _singularityPosition, typeof(double));
             info.AddValue("_countSearch", _countSearch, typeof(int));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(bool));
+            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
             info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
             info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }

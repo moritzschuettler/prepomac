@@ -218,7 +218,7 @@ namespace APIs.Python.Model
         {
             double[] center = ToVector(rotateCenter, "rotate_center");
             double[] axis = ToDirection(rotateAxis, "rotate_axis");
-            double angleDeg = PythonValueConverter.ToDouble(rotateAngle, "rotate_angle");
+            double angleDeg = PythonValueConverter.ToDouble(rotateAngle, "rotate_angle_deg");
             ValidateNumberOfCopies(numberOfCopies);
             EnsureCommandsAvailable();
             RotateParts(partNames, center, axis, angleDeg * Math.PI / 180, ToCommandNumberOfCopies(numberOfCopies));
@@ -261,9 +261,13 @@ namespace APIs.Python.Model
         }
         public string[] ResolveNames(object partNames)
         {
-            string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
+            return ResolveNames(partNames, "part_names");
+        }
+        public string[] ResolveNames(object partNames, string argumentName)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, argumentName);
             if (names == null || names.Length == 0)
-                throw new PythonAPIException("The argument 'part_names' must not be empty.");
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
             foreach (string name in names) ResolvePart(name);
             //

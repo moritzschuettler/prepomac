@@ -18,7 +18,8 @@ namespace CaeMesh
     /// The structured faces Netgen meshes, by the one definition all meshers follow, written for NetGenMesher: every
     /// face and edge by the number the modelling kernel gave it, which is the numbering Netgen meshes with, the sides of
     /// every face as chains of edges in loop order, the numbers of elements the user set on edges and the names its
-    /// messages use. Netgen then detects no structured faces of its own.
+    /// messages use. A polar three-sided face names the side that starts at its collapsed corner. Netgen then detects
+    /// no structured faces of its own.
     /// </summary>
     public static class NetgenTransfiniteFile
     {
@@ -26,11 +27,12 @@ namespace CaeMesh
         /// <summary>
         /// pinnedEdgeCounts holds the number of elements the user set on an edge of the part, by edge id.
         /// </summary>
-        public static void Write(string fileName, FeMesh geometry, BasePart part, bool threeSided, bool fourSided,
-                                 double transfiniteAngleDeg, Dictionary<int, int> pinnedEdgeCounts)
+        public static void Write(string fileName, FeMesh geometry, BasePart part, TransfiniteThreeSidedEnum threeSided,
+                                 bool fourSided, double transfiniteAngleDeg, Dictionary<int, int> pinnedEdgeCounts)
         {
-            TransfiniteFace[] faces = TransfiniteFaceDetector.Detect(geometry, part, threeSided, fourSided,
-                                                                     transfiniteAngleDeg);
+            TransfiniteFace[] faces = TransfiniteFaceDetector.Detect(geometry, part,
+                                                                     threeSided != TransfiniteThreeSidedEnum.No,
+                                                                     fourSided, transfiniteAngleDeg);
             VisualizationData vis = part.Visualization;
             //
             StringBuilder sb = new StringBuilder();
@@ -38,7 +40,10 @@ namespace CaeMesh
             HashSet<int> edgeIds = new HashSet<int>();
             foreach (var face in faces)
             {
+                int polarCornerIndex = threeSided == TransfiniteThreeSidedEnum.Polar ?
+                                       TransfiniteFaceDetector.GetPolarCornerIndex(geometry, part, face) : -1;
                 sb.AppendLine("face " + GetKernelId(vis.FaceKernelIds, face.FaceId) + " " + face.NumberOfSides +
+                              (polarCornerIndex >= 0 ? " polar " + polarCornerIndex : "") +
                               " surface " + (face.FaceId + 1) + " of " + part.Name);
                 foreach (var side in face.SideEdgeIds)
                 {

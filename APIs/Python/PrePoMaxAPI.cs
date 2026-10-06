@@ -31,7 +31,8 @@ namespace APIs.Python
         public ModelAPI model { get { return _model; } }
         [PythonAPI("Loaded result names and the currently selected result.", Returns = "Results")]
         public ResultsAPI results { get { return _results; } }
-        [PythonAPI("Creates and highlights reusable view-aware selections.", Returns = "SelectionFactory")]
+        [PythonAPI("Highlights selections in the viewport and clears the highlight; pmx.create makes the " +
+                   "selections.", Returns = "SelectionFactory")]
         public SelectionFactoryAPI selection { get { return _selection; } }
         [PythonAPI("Creates the detached parts that model items take as arguments.", Returns = "Create")]
         public CreateAPI create { get { return _create; } }

@@ -54,7 +54,7 @@ def split_boxes():
 def mesh(compound, expected_names, **values):
     items = pmx.model.mesh.setup_items
     items.replace_meshing_parameters(MESHING_PARAMETERS_NAME, **values)
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing " + compound.name + " reported: " + report[compound.name])
     names = sorted(part.name for part in pmx.model.parts)
     check(names == sorted(expected_names),

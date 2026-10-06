@@ -86,14 +86,14 @@ namespace PrePoMax.Python.Journal
                                   PythonValueFormatter.Number(quadWild.SingularityPosition));
                 if (replace || quadWild.CountSearch > 0)
                     arguments.Add("count_search=" + PythonValueFormatter.Format(quadWild.CountSearch));
-                if (replace || !quadWild.TransfiniteThreeSided)
+                if (replace || quadWild.TransfiniteThreeSided != TransfiniteThreeSidedEnum.Mapped)
                     arguments.Add("transfinite_three_sided=" +
-                                  PythonValueFormatter.Format(quadWild.TransfiniteThreeSided));
+                                  PythonValueFormatter.Text(quadWild.TransfiniteThreeSided.ToString()));
                 if (replace || !quadWild.TransfiniteFourSided)
                     arguments.Add("transfinite_four_sided=" +
                                   PythonValueFormatter.Format(quadWild.TransfiniteFourSided));
                 if (replace || quadWild.TransfiniteAngleDeg != 135)
-                    arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(quadWild.TransfiniteAngleDeg));
+                    arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(quadWild.TransfiniteAngleDeg));
                 return "shell_quad_wild";
             }
             if (item is SweepMesh sweep)
@@ -130,7 +130,7 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("recombine=" +
                               PythonValueFormatter.Format(transfinite.AlgorithmRecombine !=
                                                           GmshAlgorithmRecombineEnum.None));
-                arguments.Add("transfinite_angle=" +
+                arguments.Add("transfinite_angle_deg=" +
                               PythonValueFormatter.Number(transfinite.TransfiniteAngleDeg));
                 arguments.Add("transfinite_three_sided=" +
                               PythonValueFormatter.Text(transfinite.TransfiniteThreeSided.ToString()));
@@ -148,9 +148,9 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps2D));
                 arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps3D));
                 arguments.Add("quad_dominated=" + PythonValueFormatter.Format(netgenMesh.QuadDominated));
-                arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteThreeSided));
+                arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Text(netgenMesh.TransfiniteThreeSided.ToString()));
                 arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteFourSided));
-                arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
+                arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
                 return "netgen_mesh";
             }
             if (item is TetrahedralGmsh tetrahedralGmsh)
@@ -188,7 +188,7 @@ namespace PrePoMax.Python.Journal
                           PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
-            arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
+            arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
         }
         // A surface item has no three dimensional algorithm of its own
         private static void AddSurfaceGmshValues(List<string> arguments, GmshSetupItem item)
@@ -201,7 +201,7 @@ namespace PrePoMax.Python.Journal
                           PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
-            arguments.Add("transfinite_angle=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
+            arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
         }
         private static void AddMeshingParameterValues(List<string> arguments, MeshingParameters parameters)
         {

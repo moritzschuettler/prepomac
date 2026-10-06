@@ -121,7 +121,7 @@ namespace PrePoMax.Python.Journal
             {
                 method = verb + "_temperature_from_file";
                 arguments.Add(writer.Path(temperature.FileName));
-                arguments.Add("step_number=" + PythonValueFormatter.Format(temperature.StepNumber));
+                arguments.Add("step_id=" + PythonValueFormatter.Format(temperature.StepNumber));
             }
             else
             {

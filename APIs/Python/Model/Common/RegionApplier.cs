@@ -164,8 +164,8 @@ namespace APIs.Python.Model
             //
             if (!(section is MassSection))
                 throw new PythonAPIException("The section '" + region.name + "' is a " +
-                                             section.GetType().Name + " and cannot be used as a MassSection " +
-                                             "region. Use a point mass or a distributed mass section.");
+                                             SectionAPI.GetItemType(section) + " section and cannot be used as a " +
+                                             "MassSection region. Use a point mass or a distributed mass section.");
         }
     }
 }

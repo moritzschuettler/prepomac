@@ -81,12 +81,15 @@ namespace APIs.Python.Model
         // Controller.ReplaceInitialCondition deletes the internal set of the old item and converts the new one,
         // so a region that was selection based is reset to its selection for the conversion to recreate it,
         // the way FrmInitialCondition does before it replaces
-        public TInitialCondition Clone<TInitialCondition>(string name, string kind)
+        public TInitialCondition Clone<TInitialCondition>(string name, string itemType)
             where TInitialCondition : InitialCondition
         {
-            TInitialCondition clone = ResolveInitialCondition(name).DeepClone() as TInitialCondition;
-            if (clone == null)
-                throw new PythonAPIException("The initial condition '" + name + "' is not an " + kind + ".");
+            InitialCondition initialCondition = ResolveInitialCondition(name);
+            if (initialCondition.GetType() != typeof(TInitialCondition))
+                throw new PythonAPIException("The initial condition '" + name + "' is made by add_" +
+                                             InitialConditionAPI.GetItemType(initialCondition) + ", so replace_" +
+                                             itemType + " cannot replace it. Remove it and add the new type instead.");
+            TInitialCondition clone = (TInitialCondition)initialCondition.DeepClone();
             if (clone.CreationData != null) clone.RegionType = RegionTypeEnum.Selection;
             //
             return clone;

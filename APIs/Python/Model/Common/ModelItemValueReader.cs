@@ -82,6 +82,36 @@ namespace APIs.Python.Model
             //
             return values;
         }
+        // A value an add_* argument sets is reported under the argument's name, a vector argument as one
+        // list of its components; a value no argument covers keeps the name of the property it is stored in
+        public static Dictionary<string, object> GetValues(object item, Type baseType,
+                                                           Dictionary<string, string[]> argumentValueNames)
+        {
+            Dictionary<string, object> storedValues = GetValues(item, baseType);
+            if (argumentValueNames == null) return storedValues;
+            //
+            Dictionary<string, object> values = new Dictionary<string, object>();
+            HashSet<string> coveredNames = new HashSet<string>();
+            foreach (var entry in argumentValueNames)
+            {
+                object[] components = new object[entry.Value.Length];
+                for (int i = 0; i < components.Length; i++)
+                {
+                    if (!storedValues.TryGetValue(entry.Value[i], out components[i]))
+                        throw new InvalidOperationException("The argument '" + entry.Key + "' of a " +
+                                                            item.GetType().Name + " names the missing value '" +
+                                                            entry.Value[i] + "'.");
+                    coveredNames.Add(entry.Value[i]);
+                }
+                values[entry.Key] = components.Length == 1 ? components[0] : new NumericArrayAPI(components);
+            }
+            foreach (var entry in storedValues)
+            {
+                if (!coveredNames.Contains(entry.Key) && !values.ContainsKey(entry.Key)) values[entry.Key] = entry.Value;
+            }
+            //
+            return values;
+        }
         public static Dictionary<string, string> GetEquations(object item)
         {
             Dictionary<string, string> equations = new Dictionary<string, string>();
@@ -98,16 +128,16 @@ namespace APIs.Python.Model
             //
             return equations;
         }
-        public static object GetValue(object item, Type baseType, string name, string itemTypeName)
+        public static object GetValue(object item, Type baseType, Dictionary<string, string[]> argumentValueNames,
+                                      string name, string itemDescription)
         {
             if (name == null) throw new PythonAPIException("The argument 'name' must not be empty.");
             //
-            Dictionary<string, object> values = GetValues(item, baseType);
+            Dictionary<string, object> values = GetValues(item, baseType, argumentValueNames);
             object value;
             if (!values.TryGetValue(name.Trim(), out value))
-                throw new PythonAPIException("The value '" + name + "' is not defined for a " +
-                                             item.GetType().Name + " " + itemTypeName + ". Possible values are " +
-                                             string.Join(", ", values.Keys) + ".");
+                throw new PythonAPIException("The value '" + name + "' is not defined for a " + itemDescription +
+                                             ". Possible values are " + string.Join(", ", values.Keys) + ".");
             //
             return value;
         }
@@ -132,8 +162,13 @@ namespace APIs.Python.Model
                 }
                 builder.Append(char.ToLowerInvariant(character));
             }
+            // The API names a count number_of_ and the step of a results file step_id, whatever the model calls them
+            string pythonName = builder.ToString();
+            if (pythonName == "step_number") return "step_id";
+            if (pythonName.StartsWith("num_of_")) return "number_of_" + pythonName.Substring("num_of_".Length);
+            if (pythonName.StartsWith("num_")) return "number_of_" + pythonName.Substring("num_".Length);
             //
-            return builder.ToString();
+            return pythonName;
         }
     }
 }

@@ -62,7 +62,7 @@ namespace APIs.Python.Model
                                                   object coordinate_system_name = null, object phase_deg = null,
                                                   object color = null)
         {
-            CLoad load = _service.CloneForReplace<CLoad>(StepName, old_name, "CLoad");
+            CLoad load = _service.CloneForReplace<CLoad>(StepName, old_name, "concentrated_force");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedForce(load, f1, f2, f3);
             //
@@ -94,7 +94,7 @@ namespace APIs.Python.Model
                                       object coordinate_system_name = null, object phase_deg = null,
                                       object color = null)
         {
-            MomentLoad load = _service.CloneForReplace<MomentLoad>(StepName, old_name, "MomentLoad");
+            MomentLoad load = _service.CloneForReplace<MomentLoad>(StepName, old_name, "moment");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyMoment(load, m1, m2, m3);
             //
@@ -128,7 +128,7 @@ namespace APIs.Python.Model
                                         object amplitude_name = null, object coordinate_system_name = null,
                                         object phase_deg = null, object color = null)
         {
-            DLoad load = _service.CloneForReplace<DLoad>(StepName, old_name, "DLoad");
+            DLoad load = _service.CloneForReplace<DLoad>(StepName, old_name, "pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
@@ -174,7 +174,7 @@ namespace APIs.Python.Model
                                                     object phase_deg = null, object color = null)
         {
             HydrostaticPressure load =
-                _service.CloneForReplace<HydrostaticPressure>(StepName, old_name, "HydrostaticPressure");
+                _service.CloneForReplace<HydrostaticPressure>(StepName, old_name, "hydrostatic_pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyHydrostaticPressure(load, first_point, second_point, direction,
                                                  first_point_pressure, second_point_pressure, cutoff);
@@ -222,7 +222,7 @@ namespace APIs.Python.Model
                                                  object color = null)
         {
             ImportedPressure load =
-                _service.CloneForReplace<ImportedPressure>(StepName, old_name, "ImportedPressure");
+                _service.CloneForReplace<ImportedPressure>(StepName, old_name, "imported_pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             if (file_name != null) load.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             LoadFactory.ApplyImportedPressure(load, pressure_time, pressure_variable_name, interpolator_type,
@@ -266,7 +266,7 @@ namespace APIs.Python.Model
                                                 object coordinate_system_name = null, object phase_deg = null,
                                                 object color = null)
         {
-            STLoad load = _service.CloneForReplace<STLoad>(StepName, old_name, "STLoad");
+            STLoad load = _service.CloneForReplace<STLoad>(StepName, old_name, "surface_traction");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             if (distribution_name != null)
@@ -299,7 +299,7 @@ namespace APIs.Python.Model
                                                object coordinate_system_name = null, object phase_deg = null,
                                                object color = null)
         {
-            ShellEdgeLoad load = _service.CloneForReplace<ShellEdgeLoad>(StepName, old_name, "ShellEdgeLoad");
+            ShellEdgeLoad load = _service.CloneForReplace<ShellEdgeLoad>(StepName, old_name, "shell_edge_load");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
             //
@@ -331,7 +331,7 @@ namespace APIs.Python.Model
                                        object amplitude_name = null, object coordinate_system_name = null,
                                        object phase_deg = null, object color = null)
         {
-            GravityLoad load = _service.CloneForReplace<GravityLoad>(StepName, old_name, "GravityLoad");
+            GravityLoad load = _service.CloneForReplace<GravityLoad>(StepName, old_name, "gravity");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyGravity(load, f1, f2, f3);
             //
@@ -367,7 +367,7 @@ namespace APIs.Python.Model
                                            object coordinate_system_name = null, object phase_deg = null,
                                            object color = null)
         {
-            CentrifLoad load = _service.CloneForReplace<CentrifLoad>(StepName, old_name, "CentrifLoad");
+            CentrifLoad load = _service.CloneForReplace<CentrifLoad>(StepName, old_name, "centrifugal");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyCentrifugal(load, axis_point, axis_direction, rotational_speed);
             //
@@ -375,38 +375,38 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
-                   "unless one is given. Possible load_type values are Force and Displacement. It needs a " +
+                   "unless one is given. Possible tension_type values are Force and Displacement. It needs a " +
                    "three dimensional model. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
-                               "direction: list[float] = None, load_type: str = None, and the shared load " +
+                               "direction: list[float] = None, tension_type: str = None, and the shared load " +
                                "arguments", Returns = "Load")]
         public LoadAPI add_pre_tension(string name, object region, object magnitude, object direction = null,
-                                       object load_type = null, object amplitude_name = null,
+                                       object tension_type = null, object amplitude_name = null,
                                        object coordinate_system_name = null, object phase_deg = null,
                                        object color = null)
         {
             _service.ValidateName(StepName, name, null);
             PreTensionLoad load = new PreTensionLoad(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
-            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type, null);
+            LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, null);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Replaces an existing pre-tension load using command history, keeping every value that is " +
-                   "not given. A load_type that changes the type needs the magnitude as well, and " +
+                   "not given. A tension_type that changes the type needs the magnitude as well, and " +
                    "auto_direction=True returns to the surface normal.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_pre_tension with " +
                                "magnitude optional, and auto_direction: bool = None", Returns = "Load")]
         public LoadAPI replace_pre_tension(string old_name, string name = null, object region = null,
                                            object magnitude = null, object direction = null,
-                                           object load_type = null, object amplitude_name = null,
+                                           object tension_type = null, object amplitude_name = null,
                                            object coordinate_system_name = null, object phase_deg = null,
                                            object color = null, object auto_direction = null)
         {
-            PreTensionLoad load = _service.CloneForReplace<PreTensionLoad>(StepName, old_name, "PreTensionLoad");
+            PreTensionLoad load = _service.CloneForReplace<PreTensionLoad>(StepName, old_name, "pre_tension");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
-            LoadFactory.ApplyPreTension(load, magnitude, direction, load_type, auto_direction);
+            LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
@@ -436,7 +436,7 @@ namespace APIs.Python.Model
                                                  object coordinate_system_name = null, object phase_deg = null,
                                                  object color = null)
         {
-            CFlux load = _service.CloneForReplace<CFlux>(StepName, old_name, "CFlux");
+            CFlux load = _service.CloneForReplace<CFlux>(StepName, old_name, "concentrated_flux");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedFlux(load, magnitude, add_flux);
             //
@@ -466,7 +466,7 @@ namespace APIs.Python.Model
                                             object coordinate_system_name = null, object phase_deg = null,
                                             object color = null)
         {
-            DFlux load = _service.CloneForReplace<DFlux>(StepName, old_name, "DFlux");
+            DFlux load = _service.CloneForReplace<DFlux>(StepName, old_name, "surface_flux");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
             //
@@ -496,7 +496,7 @@ namespace APIs.Python.Model
                                          object coordinate_system_name = null, object phase_deg = null,
                                          object color = null)
         {
-            BodyFlux load = _service.CloneForReplace<BodyFlux>(StepName, old_name, "BodyFlux");
+            BodyFlux load = _service.CloneForReplace<BodyFlux>(StepName, old_name, "body_flux");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyBodyFlux(load, magnitude);
             //
@@ -537,7 +537,7 @@ namespace APIs.Python.Model
                                                   object color = null)
         {
             FilmHeatTransfer load =
-                _service.CloneForReplace<FilmHeatTransfer>(StepName, old_name, "FilmHeatTransfer");
+                _service.CloneForReplace<FilmHeatTransfer>(StepName, old_name, "film_heat_transfer");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
             if (coefficient_amplitude_name != null)
@@ -584,7 +584,7 @@ namespace APIs.Python.Model
                                                        object phase_deg = null, object color = null)
         {
             RadiationHeatTransfer load =
-                _service.CloneForReplace<RadiationHeatTransfer>(StepName, old_name, "RadiationHeatTransfer");
+                _service.CloneForReplace<RadiationHeatTransfer>(StepName, old_name, "radiation_heat_transfer");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyRadiationHeatTransfer(load, sink_temperature, emissivity, cavity_radiation);
             ApplyRadiationNames(load, cavity_name, emissivity_amplitude_name);

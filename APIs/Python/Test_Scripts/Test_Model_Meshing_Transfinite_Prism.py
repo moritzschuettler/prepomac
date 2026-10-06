@@ -46,7 +46,7 @@ def mesh(part, recombine=True, transfinite_three_sided=None):
     items.add_transfinite_mesh(TRANSFINITE, part_selection(part), recombine=recombine,
                                transfinite_three_sided=transfinite_three_sided)
     check(items[TRANSFINITE].valid, "the transfinite mesh item on " + part.name + " is not valid")
-    return pmx.model.mesh.create(part.name)[part.name]
+    return pmx.model.mesh.generate(part.name)[part.name]
 
 
 def hexahedron_valences(part_name):

@@ -157,7 +157,7 @@ def mesh_with_sweep(part_to_mesh, solids, source_part, face_id):
     items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id))
     check(items[SWEEP_NAME].valid, "the sweep mesh item on " + source_part.name + " is not valid")
     #
-    report = pmx.model.mesh.create(part_to_mesh.name)
+    report = pmx.model.mesh.generate(part_to_mesh.name)
     check(report[part_to_mesh.name] == "", "meshing " + part_to_mesh.name + " reported: " + report[part_to_mesh.name])
     names = set(solid.name for solid in solids)
     meshed = [part for part in pmx.model.parts if part.name in names]
@@ -221,7 +221,7 @@ def test_split_target():
     check(meshed[0].get_face_data().count == 7, "the carried imprint edges must not split the faces of the mesh")
     # Kept as edges of the mesh, they split the bottom face along the imprint
     items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id), keep_imprint_edges=True)
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "meshing with kept imprint edges reported: " + report[part.name])
     meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name]
     check(meshed[0].get_face_data().count == 8, "the kept imprint edges must split the bottom face of the mesh")
@@ -240,7 +240,7 @@ def test_wall_rings():
     items = pmx.model.mesh.setup_items
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the ring-walled box is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the automatic sweep of the ring-walled box reported: " + report[part.name])
     items.remove([SWEEP_NAME])
 
@@ -308,7 +308,7 @@ def mesh_with_tetrahedral_cells(solids, compound, tetrahedral_count, what):
     the others tetrahedra with a pyramid on the quadrilaterals of the faces they share with a swept cell,
     all of them joined through their interface nodes."""
     nodes_before = pmx.model.nodes.count
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", what + " reported: " + report[compound.name])
     names = set(solid.name for solid in solids)
     meshed = [part for part in pmx.model.parts if part.name in names]
@@ -357,7 +357,7 @@ def test_bent_plate():
     # The front face of the plate is a plane, the cylinder of the bend and a plane again
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the bent plate is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the automatic sweep of the bent plate reported: " + report[part.name])
     meshed = [meshPart for meshPart in pmx.model.parts if meshPart.name == part.name]
     check(len(meshed) == 1 and meshed[0].element_count > 0, "the bent plate was not meshed")
@@ -390,7 +390,7 @@ def test_spline_edges_and_round_post():
                  "sweep_spline_edges.brep must not be swept from the top of the plate")
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of sweep_spline_edges.brep is not valid")
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "",
           "the automatic sweep of sweep_spline_edges.brep reported: " + report[compound.name])
     items.remove([SWEEP_NAME])
@@ -420,7 +420,7 @@ def test_perpendicular_directions():
     items.add_sweep_mesh(SWEEP_NAME, selection)
     check(items[SWEEP_NAME].valid, "a sweep with perpendicular directions across a shared wall must be valid")
     nodes_before = pmx.model.nodes.count
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing the perpendicular sweep reported: " + report[compound.name])
     meshed = [part for part in pmx.model.parts if part.name in (lower.name, upper.name)]
     check(len(meshed) == 2 and all(part.element_count > 0 for part in meshed), "both boxes must be meshed")
@@ -440,7 +440,7 @@ def test_automatic_sources():
         selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part_to_mesh.id])
         items.add_sweep_mesh(SWEEP_NAME, selection)
         check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
-        report = pmx.model.mesh.create(part_to_mesh.name)
+        report = pmx.model.mesh.generate(part_to_mesh.name)
         check(report[part_to_mesh.name] == "", "the automatic sweep of " + file_name + " reported: " + report[part_to_mesh.name])
         names = set(solid.name for solid in solids)
         meshed = [part for part in pmx.model.parts if part.name in names]
@@ -467,7 +467,7 @@ def test_post_through_collar():
     items.add_sweep_mesh(SWEEP_NAME, selection)
     check(items[SWEEP_NAME].valid, "the sweep of the post and the collar from two sources is not valid")
     nodes_before = pmx.model.nodes.count
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "the sweep of the post and the collar reported: " + report[compound.name])
     names = set(solid.name for solid in solids)
     meshed = [part for part in pmx.model.parts if part.name in names]
@@ -476,7 +476,7 @@ def test_post_through_collar():
     items.remove([SWEEP_NAME])
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the post and the collar is not valid")
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "the automatic sweep of the post and the collar reported: " + report[compound.name])
     items.remove([SWEEP_NAME])
 
@@ -498,7 +498,7 @@ def test_constant_thickness_source():
     items = pmx.model.mesh.setup_items
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the pipe wall is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the automatic sweep of the pipe wall reported: " + report[part.name])
     meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name]
     check(meshed[0].element_count in counts, "the automatic sweep of the pipe wall did not start from a cylinder")
@@ -512,7 +512,7 @@ def test_perpendicular_bores():
     selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
     items.add_sweep_mesh(SWEEP_NAME, selection)
     check(items[SWEEP_NAME].valid, "the automatic sweep of the boxes with perpendicular bores is not valid")
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "the boxes with perpendicular bores reported: " + report[compound.name])
     names = set(solid.name for solid in solids)
     meshed = [part for part in pmx.model.parts if part.name in names]
@@ -589,7 +589,7 @@ def test_geometric_constraints():
     part = solids[0]
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the cone frustum is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the automatic sweep of the cone frustum reported: " + report[part.name])
     items.remove([SWEEP_NAME])
     # A bored block with a top inclined by 30 degrees: the bore leaves one sweepable direction, and the
@@ -598,7 +598,7 @@ def test_geometric_constraints():
     part = solids[0]
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the shallow inclined target is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the shallow inclined target reported: " + report[part.name])
     items.remove([SWEEP_NAME])
     # The same block inclined by 50 degrees, which is swept as well: the angle is what the score prefers
@@ -608,20 +608,20 @@ def test_geometric_constraints():
     part = solids[0]
     items.add_sweep_mesh(SWEEP_NAME, pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]))
     check(items[SWEEP_NAME].valid, "the automatic sweep of the steep inclined target is not valid")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the steep inclined target reported: " + report[part.name])
     items.remove([SWEEP_NAME])
     source_part, face_id = find_end_face(solids, False)
     items.add_sweep_mesh(SWEEP_NAME, face_selection(source_part, face_id))
     check(items[SWEEP_NAME].valid, "a hand selected source on the steeply inclined target must be swept")
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "the hand selected steep inclined target reported: " + report[part.name])
     items.remove([SWEEP_NAME])
 
 
 def mesh_both(first, second, what):
     """Meshes two parts in one call and checks that both of them carry elements."""
-    report = pmx.model.mesh.create([first.name, second.name])
+    report = pmx.model.mesh.generate([first.name, second.name])
     for name in (first.name, second.name):
         check(report[name] == "", what + " reported for " + name + ": " + report[name])
     meshed = [part for part in pmx.model.parts if part.name in (first.name, second.name)]

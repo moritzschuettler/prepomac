@@ -64,7 +64,7 @@ namespace APIs.Python.Model
         }
         public void FindEdgesByAngle(string[] partNames, object edgeAngle)
         {
-            double angle = PythonValueConverter.ToDouble(edgeAngle, "edge_angle");
+            double angle = PythonValueConverter.ToDouble(edgeAngle, "edge_angle_deg");
             EnsureCommandsAvailable();
             MeshGateway.FindEdgesByAngleForGeometryParts(partNames, angle);
         }

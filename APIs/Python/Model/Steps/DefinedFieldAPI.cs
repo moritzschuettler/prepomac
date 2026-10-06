@@ -24,8 +24,9 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The name of the step the defined field belongs to.", Returns = "str")]
         public string step_name { get { return _stepName; } }
-        [PythonAPI("The defined field type, for example DefinedTemperature.", Returns = "str")]
-        public string defined_field_type { get { return Resolve().GetType().Name; } }
+        [PythonAPI("The defined field type, named after the add_* method that makes it without the add_ " +
+                   "prefix: temperature or temperature_from_file.", Returns = "str")]
+        public string item_type { get { return GetItemType(Resolve()); } }
         [PythonAPI("True when the defined field is written to the solver input file.", Returns = "bool")]
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the defined field symbols are drawn.", Returns = "bool")]
@@ -49,26 +50,43 @@ namespace APIs.Python.Model
         }
 
 
-        // Methods
-        [PythonAPI("Returns the names of the values that are specific to this defined field type.",
-                   Returns = "StringList")]
-        public StringListAPI get_value_names()
+        // Static methods
+        internal static string GetItemType(DefinedField definedField)
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(DefinedField)).Keys);
+            // One model type serves both methods, told apart by where the temperature comes from
+            DefinedTemperature definedTemperature = definedField as DefinedTemperature;
+            if (definedTemperature != null && definedTemperature.GetType() == typeof(DefinedTemperature))
+                return definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile ? "temperature_from_file" :
+                                                                                         "temperature";
+            //
+            throw new PythonAPIException("The defined field '" + definedField.Name + "' is a " +
+                                         definedField.GetType().Name + ", which no add_* method of the " +
+                                         "Python API makes.");
         }
 
-        [PythonAPI("Returns a value that is specific to this defined field type, for example temperature. " +
-                   "Use get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+
+        // Methods
+        [PythonAPI("Returns the names of the values that are specific to this defined field type: the add_* " +
+                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+        public StringListAPI get_value_names()
+        {
+            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(DefinedField), null).Keys);
+        }
+
+        [PythonAPI("Returns a value that is specific to this defined field type by the name of the add_* " +
+                   "argument that sets it, for example temperature. Use get_value_names to list them.",
+                   Arguments = "name: str", Returns = "float, int, bool or str")]
         public object get_value(string name)
         {
-            return ModelItemValueReader.GetValue(Resolve(), typeof(DefinedField), name, "defined field");
+            DefinedField definedField = Resolve();
+            return ModelItemValueReader.GetValue(definedField, typeof(DefinedField), null, name,
+                                                 GetItemType(definedField) + " defined field");
         }
         public override string ToString()
         {
             DefinedField definedField = Resolve();
             return "DefinedField(name=" + StringListAPI.ToDisplayString(definedField.Name) + ", type=" +
-                   definedField.GetType().Name + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
+                   GetItemType(definedField) + ", step=" + StringListAPI.ToDisplayString(_stepName) + ")";
         }
         //
         private DefinedField Resolve()

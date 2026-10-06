@@ -93,10 +93,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result contains the specified user-visible surface.",
-                   Arguments = "surface_name: str", Returns = "bool")]
-        public bool contains(string surface_name)
+                   Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _meshService.GetSurfaceNames(_resultName).Contains(surface_name);
+            return _meshService.GetSurfaceNames(_resultName).Contains(name);
         }
         public override string ToString()
         {

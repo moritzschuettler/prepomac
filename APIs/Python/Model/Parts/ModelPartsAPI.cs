@@ -34,10 +34,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Recomputes the part edges from the angle between the neighbouring faces.",
-                   Arguments = "part_names: list[str] or str, edge_angle: float", Returns = "None")]
-        public void find_edges_by_angle(object part_names, object edge_angle)
+                   Arguments = "part_names: list[str] or str, edge_angle_deg: float", Returns = "None")]
+        public void find_edges_by_angle(object part_names, object edge_angle_deg)
         {
-            _service.FindEdgesByAngle(_service.ResolveNames(part_names), edge_angle);
+            _service.FindEdgesByAngle(_service.ResolveNames(part_names), edge_angle_deg);
         }
         //
         protected override void SetItemsActive(BasePart[] items, bool active)

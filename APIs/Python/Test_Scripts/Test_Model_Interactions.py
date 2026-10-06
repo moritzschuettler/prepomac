@@ -54,14 +54,14 @@ def test_surface_interactions():
     interaction = interactions.add(INTERACTION, pmx.create.friction(0.1))
     check(len(interactions) == count_before + 1, "the surface interaction was not added")
     check(interaction.property_count == 1, "unexpected property count")
-    check(list(interaction.get_property_types()) == ["Friction"],
+    check(list(interaction.get_property_types()) == ["friction"],
           "unexpected property types " + str(list(interaction.get_property_types())))
     # A surface interaction is composed of properties, the same way a material is
     interaction = interactions.replace(INTERACTION, INTERACTION,
                                        [pmx.create.friction(0.2, stick_slope=1000),
                                         pmx.create.surface_behavior('Linear', k=2000)])
     check(interaction.property_count == 2, "the properties were not replaced")
-    check(sorted(list(interaction.get_property_types())) == ["Friction", "SurfaceBehavior"],
+    check(sorted(list(interaction.get_property_types())) == ["friction", "surface_behavior"],
           "unexpected property types " + str(list(interaction.get_property_types())))
     # A value that is not given is kept: a rename alone keeps the properties, and properties alone keep the name
     interaction = interactions.replace(INTERACTION, INTERACTION + "_K")
@@ -69,7 +69,7 @@ def test_surface_interactions():
     check(interaction.property_count == 2, "a rename alone must keep the properties")
     interaction = interactions.replace(INTERACTION + "_K", properties=pmx.create.friction(0.3))
     check(interaction.name == INTERACTION + "_K", "a replace of the properties alone must keep the name")
-    check(list(interaction.get_property_types()) == ["Friction"], "the properties were not replaced")
+    check(list(interaction.get_property_types()) == ["friction"], "the properties were not replaced")
     interaction = interactions.replace(INTERACTION + "_K", INTERACTION,
                                        [pmx.create.friction(0.2, stick_slope=1000),
                                         pmx.create.surface_behavior('Linear', k=2000)])

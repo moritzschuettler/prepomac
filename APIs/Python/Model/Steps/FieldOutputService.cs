@@ -23,6 +23,10 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public override string GetItemType(FieldOutput fieldOutput)
+        {
+            return FieldOutputAPI.GetItemType(fieldOutput);
+        }
         public void ApplyCommonValues(FieldOutput fieldOutput, object lastIterations, object contactElements,
                                       object global)
         {

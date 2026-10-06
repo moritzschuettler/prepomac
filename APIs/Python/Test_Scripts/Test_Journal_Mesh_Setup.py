@@ -39,13 +39,13 @@ box_selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [bo
 cylinder_selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [cylinder.id])
 items = pmx.model.mesh.setup_items
 items.add_tetrahedral_gmsh('%(tetrahedral)s', cylinder_selection, algorithm_recombine='Blossom',
-                           recombine_min_quality=0.2, transfinite_four_sided=True, transfinite_angle=150.0,
+                           recombine_min_quality=0.2, transfinite_four_sided=True, transfinite_angle_deg=150.0,
                            optimize_high_order='HighOrder')
-items.add_transfinite_mesh('%(transfinite)s', box_selection, recombine=True, transfinite_angle=110.0)
+items.add_transfinite_mesh('%(transfinite)s', box_selection, recombine=True, transfinite_angle_deg=110.0)
 items.add_transfinite_mesh('%(transfinite_off)s', box_selection, recombine=False)
 items.add_sweep_mesh('%(sweep)s', pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                                              {box.id: [5]}),
-                     transfinite_four_sided=True, transfinite_angle=100.0)
+                     transfinite_four_sided=True, transfinite_angle_deg=100.0)
 """ % {"tetrahedral": TETRAHEDRAL, "transfinite": TRANSFINITE, "transfinite_off": TRANSFINITE_OFF,
        "sweep": SWEEP}
 CHECKED = [(TETRAHEDRAL, ["algorithm_recombine", "recombine_min_quality", "transfinite_four_sided",

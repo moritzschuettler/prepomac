@@ -69,16 +69,17 @@ namespace APIs.Python.Model
             return item;
         }
         // The type cannot change on a replace, the same way the dialog only edits the type it opened
-        public TTyped CloneForReplace<TTyped>(string stepName, string name, string typeName) where TTyped : TItem
+        public TTyped CloneForReplace<TTyped>(string stepName, string name, string itemType) where TTyped : TItem
         {
             TItem item = ResolveItem(stepName, name);
             if (item.GetType() != typeof(TTyped))
-                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' is a " +
-                                             item.GetType().Name + ", so it cannot be replaced by a " +
-                                             typeName + ". Remove it and add the new type instead.");
+                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' is made by add_" +
+                                             GetItemType(item) + ", so replace_" + itemType + " cannot " +
+                                             "replace it. Remove it and add the new type instead.");
             //
             return ((TTyped)item).DeepClone();
         }
+        public abstract string GetItemType(TItem item);
         public bool GetIsTwoDimensional()
         {
             ModelSpaceEnum modelSpace = _modelResolver.GetModel().Properties.ModelSpace;

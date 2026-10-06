@@ -116,7 +116,7 @@ its own, and `magnification` renders it up to four times larger than the viewpor
 going to be printed - it draws the model larger, not the legend, so it is not the way to read a
 label that is too small.
 
-A report picture is set up the same way. `rotate(azimuth, elevation)` turns a standard view a little,
+A report picture is set up the same way. `rotate(azimuth_deg, elevation_deg)` turns a standard view a little,
 `look_at(point, parallel_scale)` frames a detail, `deformation_type` and `undeformed_model` control
 the deformed plot, and `set_legend_range(min, max)` gives pictures of different increments or models
 one color scale - reset it afterwards. `pmx.view.annotations` adds the labels: `add_text(name, text,

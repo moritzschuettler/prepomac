@@ -44,7 +44,7 @@ namespace CaeMesh
         private double _elementsPerCurve;           //ISerializable
         private bool _secondOrder;                  //ISerializable
         private bool _quadDominated;                //ISerializable
-        private bool _transfiniteThreeSided;        //ISerializable
+        private TransfiniteThreeSidedEnum _transfiniteThreeSided;   //ISerializable
         private bool _transfiniteFourSided;         //ISerializable
         private double _transfiniteAngleDeg;        //ISerializable
         private bool _midsideNodesOnGeometry;       //ISerializable
@@ -142,11 +142,12 @@ namespace CaeMesh
         //
         public bool SecondOrder { get { return _secondOrder; } set { _secondOrder = value; } }
         public bool QuadDominated { get { return _quadDominated; } set { _quadDominated = value; } }
-        public bool TransfiniteThreeSided
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
         {
             get { return _transfiniteThreeSided; }
             set { _transfiniteThreeSided = value; }
         }
+        public bool IsTransfiniteThreeSided { get { return _transfiniteThreeSided != TransfiniteThreeSidedEnum.No; } }
         public bool TransfiniteFourSided
         {
             get { return _transfiniteFourSided; }
@@ -258,7 +259,12 @@ namespace CaeMesh
                         _transfiniteFourSided = (NetgenTransfiniteFacesEnum)entry.Value != NetgenTransfiniteFacesEnum.None;
                         break;
                     case "_transfiniteThreeSided":
-                        _transfiniteThreeSided = (bool)entry.Value; break;
+                        // Compatibility for version v2.6.4: a switch, on for the three blocks of quads made then
+                        if (entry.Value is bool threeSided)
+                            _transfiniteThreeSided = threeSided ? TransfiniteThreeSidedEnum.Mapped :
+                                                                  TransfiniteThreeSidedEnum.No;
+                        else _transfiniteThreeSided = (TransfiniteThreeSidedEnum)entry.Value;
+                        break;
                     case "_transfiniteFourSided":
                         _transfiniteFourSided = (bool)entry.Value; break;
                     case "_transfiniteAngleDeg":
@@ -305,7 +311,7 @@ namespace CaeMesh
             _optimizeSteps3D = 3;
             _secondOrder = true;
             _quadDominated = false;
-            _transfiniteThreeSided = false;
+            _transfiniteThreeSided = TransfiniteThreeSidedEnum.No;
             _transfiniteFourSided = false;
             _transfiniteAngleDeg = 135;
             _midsideNodesOnGeometry = false;
@@ -480,7 +486,7 @@ namespace CaeMesh
             info.AddValue("_elementsPerCurve", _elementsPerCurve, typeof(double));
             info.AddValue("_secondOrder", _secondOrder, typeof(bool));
             info.AddValue("_quadDominated", _quadDominated, typeof(bool));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(bool));
+            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
             info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
             info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
             info.AddValue("_midsideNodesOnGeometry", _midsideNodesOnGeometry, typeof(bool));

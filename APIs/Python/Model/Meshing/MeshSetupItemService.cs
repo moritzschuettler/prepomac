@@ -67,9 +67,10 @@ namespace APIs.Python.Model
         {
             MeshSetupItem item = ResolveItem(name);
             if (!(item is TItem))
-                throw new PythonAPIException("The mesh setup item '" + name + "' is a " + item.GetType().Name +
-                                             ", so it cannot be replaced by a " + typeof(TItem).Name +
-                                             ". Remove it and add the new type instead.");
+                throw new PythonAPIException("The mesh setup item '" + name + "' is made by add_" +
+                                             MeshSetupItemAPI.GetItemType(item) + ", so replace_" +
+                                             MeshSetupItemAPI.GetItemType(typeof(TItem)) + " cannot replace it. " +
+                                             "Remove it and add the new type instead.");
             //
             return (TItem)CloneItem(item);
         }

@@ -8,12 +8,29 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
     public class StepAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(StaticStep), "static" },
+            { typeof(SlipWearStep), "slip_wear" },
+            { typeof(BoundaryDisplacementStep), "boundary_displacement" },
+            { typeof(FrequencyStep), "frequency" },
+            { typeof(ComplexFrequencyStep), "complex_frequency" },
+            { typeof(BuckleStep), "buckle" },
+            { typeof(ModalDynamicsStep), "modal_dynamics" },
+            { typeof(SteadyStateDynamicsStep), "steady_state_dynamics" },
+            { typeof(DynamicStep), "dynamic" },
+            { typeof(HeatTransferStep), "heat_transfer" },
+            { typeof(UncoupledTempDispStep), "uncoupled_temp_disp" },
+            { typeof(CoupledTempDispStep), "coupled_temp_disp" }
+        };
         private readonly string _stepName;
         private readonly StepService _service;
         private readonly StepContentServices _contentServices;
@@ -22,8 +39,9 @@ namespace APIs.Python.Model
         // Properties
         [PythonAPI("The step name.", Returns = "str")]
         public string name { get { return _service.ResolveStep(_stepName).Name; } }
-        [PythonAPI("The step type, for example StaticStep or FrequencyStep.", Returns = "str")]
-        public string step_type { get { return _service.ResolveStep(_stepName).GetType().Name; } }
+        [PythonAPI("The step type, named after the add_* method that makes it without the add_ prefix, for " +
+                   "example static or frequency.", Returns = "str")]
+        public string item_type { get { return GetItemType(_service.ResolveStep(_stepName)); } }
         [PythonAPI("True when the step is written to the solver input file.", Returns = "bool")]
         public bool active { get { return _service.ResolveStep(_stepName).Active; } }
         [PythonAPI("True when the geometric nonlinearity is accounted for.", Returns = "bool")]
@@ -76,23 +94,38 @@ namespace APIs.Python.Model
         }
 
 
+        // Static methods
+        internal static string GetItemType(Step step)
+        {
+            string itemType;
+            if (ItemTypes.TryGetValue(step.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The step '" + step.Name + "' is a " + step.GetType().Name +
+                                         ", which no add_* method of the Python API makes.");
+        }
+
+
         // Methods
-        [PythonAPI("Returns the names of the values that are specific to this step type. The values shared " +
-                   "by every step type are properties of the step.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this step type: the add_* argument " +
+                   "names, followed by the stored values no argument sets. The values shared by every step " +
+                   "type are properties of the step.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
             return new StringListAPI(ModelItemValueReader.GetValues(_service.ResolveStep(_stepName),
-                                                                    typeof(Step)).Keys);
+                                                                    typeof(Step), null).Keys);
         }
 
-        [PythonAPI("Returns a value that is specific to this step type, for example time_period. Use " +
-                   "get_value_names to list them.", Arguments = "name: str", Returns = "float, int, bool or str")]
+        [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
+                   "sets it, for example time_period. Use get_value_names to list them.", Arguments = "name: str",
+                   Returns = "float, int, bool or str")]
         public object get_value(string name)
         {
-            return ModelItemValueReader.GetValue(_service.ResolveStep(_stepName), typeof(Step), name, "step");
+            Step step = _service.ResolveStep(_stepName);
+            return ModelItemValueReader.GetValue(step, typeof(Step), null, name, GetItemType(step) + " step");
         }
 
-        [PythonAPI("Returns the type names of the step control parameters of the step.", Returns = "StringList")]
+        [PythonAPI("Returns the types of the step control parameters of the step, named after the pmx.create " +
+                   "method that makes each, for example contact_control.", Returns = "StringList")]
         public StringListAPI get_control_types()
         {
             return new StringListAPI(_service.GetControlTypeNames(_stepName));
@@ -115,7 +148,7 @@ namespace APIs.Python.Model
         public override string ToString()
         {
             Step step = _service.ResolveStep(_stepName);
-            return "Step(name=" + StringListAPI.ToDisplayString(step.Name) + ", type=" + step.GetType().Name +
+            return "Step(name=" + StringListAPI.ToDisplayString(step.Name) + ", type=" + GetItemType(step) +
                    ", active=" + step.Active + ")";
         }
     }

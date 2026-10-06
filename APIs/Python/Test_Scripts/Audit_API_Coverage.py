@@ -24,6 +24,12 @@ EXCEPTIONS = {
     "AddDefaultJobCommand": "application default lifecycle",
     "RunPythonScriptCommand": "embedded script lifecycle",
 }
+# An add_* that makes something no replace_* could edit, because it is built from other items once
+ADD_WITHOUT_REPLACE = {
+    "add_compound": "a compound part is built once from the named parts",
+    "add_group": "a model tree group is moved and renamed by the tree, not re-specified",
+    "add_from_quality": "the element set it adds is replaced by element_sets.replace",
+}
 # Bases and helpers rather than replayable commands, so they carry no Python form of their own
 JOURNAL_EXCEPTIONS = {
     "Command": "the base class, whose ToPython writes the refusal",
@@ -66,7 +72,7 @@ def audit(root):
         source = path.read_text(encoding="utf-8-sig")
         methods = set(re.findall(r"public\s+[\w<>\[\],?]+\s+(\w+)\s*\(", source))
         for method in sorted(methods):
-            if method.startswith("add_"):
+            if method.startswith("add_") and method not in ADD_WITHOUT_REPLACE:
                 replacement = "replace_" + method[4:]
                 if replacement not in methods:
                     missing.append({"file": str(path.relative_to(root)), "add": method,
@@ -83,7 +89,8 @@ def audit(root):
     return {"missing_replacements": missing, "unmapped_controller_commands": commands,
             "commands_without_to_python": commands_without_to_python(root),
             "emitted_names_not_on_api": emitted_names_not_on_api(root),
-            "exceptions": EXCEPTIONS, "journal_exceptions": JOURNAL_EXCEPTIONS,
+            "exceptions": EXCEPTIONS, "add_without_replace": ADD_WITHOUT_REPLACE,
+            "journal_exceptions": JOURNAL_EXCEPTIONS,
             "emitted_name_exceptions": EMITTED_NAME_EXCEPTIONS}
 
 
@@ -157,8 +164,8 @@ def main():
               % (entry["file"], entry["classes"], entry["to_python"]))
     for entry in result["emitted_names_not_on_api"]:
         print("   %s is emitted by %s but is not a member of the API" % (entry["member"], entry["file"]))
-    print("Exceptions: %s" % ", ".join(sorted(list(EXCEPTIONS) + list(JOURNAL_EXCEPTIONS) +
-                                              list(EMITTED_NAME_EXCEPTIONS))))
+    print("Exceptions: %s" % ", ".join(sorted(list(EXCEPTIONS) + list(ADD_WITHOUT_REPLACE) +
+                                              list(JOURNAL_EXCEPTIONS) + list(EMITTED_NAME_EXCEPTIONS))))
     if (result["missing_replacements"] or result["unmapped_controller_commands"]
             or result["commands_without_to_python"] or result["emitted_names_not_on_api"]):
         return 1

@@ -23,6 +23,10 @@ namespace APIs.Python.Model
 
 
         // Methods
+        public override string GetItemType(BoundaryCondition boundaryCondition)
+        {
+            return BoundaryConditionAPI.GetItemType(boundaryCondition);
+        }
         public void ApplyCommonValues(BoundaryCondition boundaryCondition, object phaseDeg, object color)
         {
             if (phaseDeg != null)
@@ -46,9 +50,9 @@ namespace APIs.Python.Model
             // The step silently refuses an unsupported type, so the check is done before the command
             Step step = StepService.ResolveStep(stepName);
             if (!step.IsBoundaryConditionSupported(boundaryCondition))
-                throw new PythonAPIException("A " + boundaryCondition.GetType().Name + " is not supported by " +
-                                             "the step '" + stepName + "', which is a " + step.GetType().Name +
-                                             ".");
+                throw new PythonAPIException("A " + BoundaryConditionAPI.GetItemType(boundaryCondition) + " boundary " +
+                                             "condition is not supported by the step '" + stepName + "', " +
+                                             "which is a " + StepAPI.GetItemType(step) + " step.");
             EnsureReferencePointRegionSupported(boundaryCondition);
             //
             EnsureCommandsAvailable();
@@ -69,8 +73,8 @@ namespace APIs.Python.Model
         {
             if (boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName &&
                 !IsReferencePointRegionSupported(boundaryCondition))
-                throw new PythonAPIException("A " + boundaryCondition.GetType().Name + " does not support a " +
-                                             "reference point region. Give a region of another type.");
+                throw new PythonAPIException("A " + BoundaryConditionAPI.GetItemType(boundaryCondition) + " boundary " +
+                                             "condition does not support a reference point region. Give a region of another type.");
         }
         private static bool IsReferencePointRegionSupported(BoundaryCondition boundaryCondition)
         {

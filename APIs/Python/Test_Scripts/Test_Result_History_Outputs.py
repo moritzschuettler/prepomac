@@ -85,7 +85,7 @@ def get_nonempty_named_field_regions(result):
             break
     for name in result.mesh.surfaces.get_names():
         region = result.mesh.surfaces[str(name)]
-        if len(region.node_ids) > 0:
+        if len(region.get_node_ids()) > 0:
             regions.append(region)
             break
     return regions
@@ -94,7 +94,7 @@ def get_nonempty_named_field_regions(result):
 def find_solid_element_set(result):
     for name in result.mesh.element_sets.get_names():
         region = result.mesh.element_sets[str(name)]
-        ids = region.element_ids
+        ids = region.get_element_ids()
         if len(ids) == 0:
             continue
         all_solid = True
@@ -134,7 +134,7 @@ print("Components: DISP.%s, STRESS.%s, TOSTRAIN.%s, FORC.%s" %
 history_outputs = result.history_outputs
 remove_existing(history_outputs)
 
-node_selection = pmx.selection.create_by_ids(
+node_selection = pmx.create.selection_by_ids(
     view="results",
     target="nodes",
     source="nodes",
@@ -230,7 +230,7 @@ try:
 
     # Volume outputs need a 3D element. Shell-only results skip these two draft types.
     if solid_element_id is not None:
-        element_selection = pmx.selection.create_by_ids(
+        element_selection = pmx.create.selection_by_ids(
             view="results",
             target="elements",
             source="elements",
@@ -378,8 +378,8 @@ try:
     # READ-BACK: a user-defined history output is returned as its type-specific object.
     table_output = history_outputs[TABLE_NAME]
     check(table_output.is_user_defined, "The table output is not reported as user defined.")
-    check(table_output.type_name == "ResultHistoryOutputFromTable",
-          "The table output reported the wrong type name: %s" % table_output.type_name)
+    check(table_output.item_type == "from_table",
+          "The table output reported the wrong item type: %s" % table_output.item_type)
     check(table_output.number_of_y_columns == 1, "The table output reported the wrong Y-column count.")
     check(table_output.x_axis_unit == "s", "The table output reported the wrong X-axis unit.")
     check(table_output.y_axis_unit == "mm", "The table output reported the wrong Y-axis unit.")
@@ -390,8 +390,8 @@ try:
     print("PASS: read back a From Table history-output definition")
 
     merged_output = history_outputs[MERGED_NAME]
-    check(merged_output.type_name == "ResultHistoryOutputFromMergedHistories",
-          "The merged output reported the wrong type name: %s" % merged_output.type_name)
+    check(merged_output.item_type == "from_merged_histories",
+          "The merged output reported the wrong item type: %s" % merged_output.item_type)
     merge_source_1 = [MERGE_SOURCE_1_NAME, merge_field.name, merge_component.name]
     merge_source_2 = [MERGE_SOURCE_2_NAME, merge_field.name, merge_component.name]
     check([list(source) for source in merged_output.sources] == [merge_source_1, merge_source_2],
@@ -423,8 +423,8 @@ try:
           "A source with a dotted component name did not read back as its three names: %s" % dotted_draft.y_source)
     print("PASS: read back history sources in the form the source arguments take")
     from_field_output = history_outputs[FROM_FIELD_NAME]
-    check(from_field_output.type_name == "ResultHistoryOutputFromField",
-          "The From Field output reported the wrong type name: %s" % from_field_output.type_name)
+    check(from_field_output.item_type == "from_field",
+          "The From Field output reported the wrong item type: %s" % from_field_output.item_type)
     check(len(from_field_output.field_name) > 0, "The From Field output did not report its field name.")
     check(from_field_output.region_type in ["Selection", "NodeSetName", "SurfaceName"],
           "The From Field output reported an unexpected region type: %s" % from_field_output.region_type)
@@ -474,8 +474,8 @@ try:
     created_names.remove(FROM_FIELD_OPTIONS_NAME)
     print("PASS: add and replace a From Field history output with its options in one call")
     equation_output = history_outputs[EQUATION_NAME]
-    check(equation_output.type_name == "ResultHistoryOutputFromEquation",
-          "The equation output reported the wrong type name: %s" % equation_output.type_name)
+    check(equation_output.item_type == "from_equation",
+          "The equation output reported the wrong item type: %s" % equation_output.item_type)
     check(equation_output.equation.startswith("="), "The equation output did not report its equation.")
     print("PASS: read back the merged, extracted-entry, XY, From Field, and equation definitions")
 
@@ -485,7 +485,7 @@ try:
     new_names = [name for name in get_history_output_names(history_outputs) if name not in names_before]
     check(len(new_names) == 1, "duplicate() did not create exactly one history output.")
     duplicated_name = new_names[0]
-    check(history_outputs[duplicated_name].type_name == "ResultHistoryOutputFromTable",
+    check(history_outputs[duplicated_name].item_type == "from_table",
           "The duplicated history output has the wrong type.")
     print("PASS: duplicate a history output")
 
@@ -553,7 +553,7 @@ try:
     # so on the solved cube the application is expected to report that the model is not planar. The
     # argument validation runs before the application is reached and is checked on its own.
     def add_affine_fit(radius=0.4, **values):
-        return history_outputs.add_from_affine_fit("PyTest_Affine", 0.5, 0.5, radius, **values)
+        return history_outputs.add_from_affine_fit("PyTest_Affine", [0.5, 0.5], radius, **values)
 
     for message, arguments in [("a radius of zero", {"radius": 0}),
                                ("a taper start fraction above one", {"taper_start_fraction": 2}),

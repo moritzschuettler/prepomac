@@ -56,7 +56,7 @@ def test_materials():
     check(material.property_count == 2, "2 properties expected, found " + str(material.property_count))
     check(material.description == "Test steel", "the description was not stored")
     types = list(material.get_property_types())
-    check("Elastic" in types and "Density" in types, "unexpected property types " + str(types))
+    check("elastic" in types and "density" in types, "unexpected property types " + str(types))
     # A single property does not have to be wrapped in a list
     materials.add(PREFIX + "Simple", pmx.create.elastic_with_density(70000, 0.33, 2.7e-9))
     check(pmx.model.materials[PREFIX + "Simple"].property_count == 1, "the single property was not stored")
@@ -74,7 +74,7 @@ def test_materials():
             [140000, 10000, 9000, 0.28, 0.27, 0.35, 5000, 4500, 3500, 20],
             [123457, 9000, 8000, 0.27, 0.26, 0.34, 4500, 4000, 3000, 321]]),
         temperature_dependent=True)
-    check(list(engineering.get_property_types()) == ["ElasticEngineeringConstants"],
+    check(list(engineering.get_property_types()) == ["elastic_engineering_constants"],
           "the engineering constants property was not stored")
     check(engineering.temperature_dependent, "engineering constants lost temperature dependence")
     # A plastic hardening rule and a thermal expansion zero temperature are user inputs, so a script
@@ -96,12 +96,12 @@ def test_materials():
             [135000, 9500, 0.28, 5000, 4500, 3500, 20],
             [125001, 9000, 0.27, 4500, 4000, 3000, 322]]),
         description="Test lamina", temperature_dependent=True)
-    check(list(lamina.get_property_types()) == ["ElasticLamina"], "the lamina property was not stored")
+    check(list(lamina.get_property_types()) == ["elastic_lamina"], "the lamina property was not stored")
     # An omitted replace argument keeps its old value, including the property and the temperature flag
     lamina = materials.replace(PREFIX + "Lamina", description="Updated lamina")
     check(lamina.description == "Updated lamina", "the lamina description was not replaced")
     check(lamina.temperature_dependent, "replace lost the lamina temperature-dependent flag")
-    check(list(lamina.get_property_types()) == ["ElasticLamina"], "replace lost the lamina property")
+    check(list(lamina.get_property_types()) == ["elastic_lamina"], "replace lost the lamina property")
     # The Python-created state must reach the shared CalculiX/Abaqus material exporter
     export_file = os.path.join(tempfile.gettempdir(), "pytest_orthotropic_materials.inp")
     if os.path.isfile(export_file):
@@ -193,7 +193,7 @@ def test_sections(material_name):
     #
     section = sections.add_solid(PREFIX + "Solid", material_name, element_selection)
     check(sections.contains(PREFIX + "Solid"), "the solid section was not added")
-    check(section.section_type == "SolidSection", "unexpected section type " + section.section_type)
+    check(section.item_type == "solid", "unexpected section type " + section.item_type)
     check(section.material_name == material_name, "unexpected material name")
     # The controller converts the selection into an internal element set
     check(section.region_type == "ElementSetName",
@@ -201,7 +201,7 @@ def test_sections(material_name):
     check(section.region_name is not None and len(section.region_name) > 0, "the region name is empty")
     #
     sections.add_point_mass(PREFIX + "Mass", node_selection, 0.5)
-    check(sections[PREFIX + "Mass"].section_type == "PointMassSection", "the point mass section was not added")
+    check(sections[PREFIX + "Mass"].item_type == "point_mass", "the point mass section was not added")
     check(len(sections) == count_before + 2, "unexpected section count")
     # An unknown material is rejected before anything is recorded
     check_raises(lambda: sections.add_solid(PREFIX + "Bad", "NoSuchMaterial", element_selection),

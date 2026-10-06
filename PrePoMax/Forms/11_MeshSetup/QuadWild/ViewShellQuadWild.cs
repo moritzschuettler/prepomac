@@ -58,11 +58,13 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Quad generation")]
         [OrderedDisplayName(0, 10, "Transfinite 3-sided faces")]
-        [DescriptionAttribute("Take 3-sided model faces out of the QuadWild patch layout and mesh them with three " +
-                              "structured blocks of quads that meet at one inner node. QuadWild chooses the element " +
-                              "counts of their sides together with the rest of the mesh.")]
+        [DescriptionAttribute("Select how the 3-sided model faces are taken out of the QuadWild patch layout and " +
+                              "meshed with a structured grid: Polar collapses one corner, with triangles there and " +
+                              "arcs around it, and an even number of elements on the side across from it; Mapped " +
+                              "meshes three blocks of quads that meet at one inner node; No leaves them to QuadWild. " +
+                              "QuadWild chooses the element counts of their sides together with the rest of the mesh.")]
         [Id(1, 5)]
-        public bool TransfiniteThreeSided
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
         {
             get { return _shellQuadWild.TransfiniteThreeSided; }
             set { _shellQuadWild.TransfiniteThreeSided = value; UpdateVisibility(); }
@@ -249,7 +251,6 @@ namespace PrePoMax.Forms
             _dctd.RenameBooleanProperty(nameof(OldAlgorithm), "Old", "New");
             _dctd.RenameBooleanProperty(nameof(PinEdgeNodes), "Pinned", "Free");
             _dctd.RenameBooleanPropertyToOnOff(nameof(EdgeRotations));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteThreeSided));
             _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
             //
             UpdateVisibility();
@@ -271,7 +272,7 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(TransfiniteThreeSided)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(TransfiniteFourSided)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(visible &&
-                (_shellQuadWild.TransfiniteThreeSided || _shellQuadWild.TransfiniteFourSided));
+                (_shellQuadWild.IsTransfiniteThreeSided || _shellQuadWild.TransfiniteFourSided));
             // Turn off debugging
             _dctd.GetProperty(nameof(KeepFilesOnFailure)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(DebugVisualization)).SetIsBrowsable(false);

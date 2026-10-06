@@ -45,7 +45,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.geometry.parts", "create_compound", PythonValueFormatter.List(_partNames)));
+            writer.Statement(writer.Call("pmx.model.geometry.parts", "add_compound", PythonValueFormatter.List(_partNames)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

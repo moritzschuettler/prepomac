@@ -53,7 +53,7 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.elements", "create_element_set_from_quality",
+            writer.Statement(writer.Call("pmx.model.element_sets", "add_from_quality",
                                          PythonValueFormatter.Text(_setName),
                                          PythonValueFormatter.Text(_elementQualityMetric),
                                          PythonValueFormatter.List(_partNames),

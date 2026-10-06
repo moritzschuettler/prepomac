@@ -35,14 +35,6 @@ namespace APIs.Python.Model
             _service.RenumberElements(start_id);
         }
 
-        [PythonAPI("Creates an element set from an element quality metric using command history.",
-                   Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
-                               "limit: float", Returns = "None")]
-        public void create_element_set_from_quality(string name, string metric, object part_names,
-                                                    bool larger_than, object limit)
-        {
-            _service.CreateElementSetFromQuality(name, metric, part_names, larger_than, limit);
-        }
         [PythonAPI("Returns a copied bulk mesh snapshot ordered by ID.", Returns = "ElementData")]
         public ElementDataAPI get_data()
         {

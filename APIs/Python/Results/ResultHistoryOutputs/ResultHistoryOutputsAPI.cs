@@ -100,10 +100,10 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the history output exists.", Arguments = "history_output_name: str", Returns = "bool")]
-        public bool contains(string history_output_name)
+        [PythonAPI("Returns true if the history output exists.", Arguments = "name: str", Returns = "bool")]
+        public bool contains(string name)
         {
-            return _dataService.GetHistoryOutputNames(_resultName).Contains(history_output_name);
+            return _dataService.GetHistoryOutputNames(_resultName).Contains(name);
         }
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +
@@ -291,66 +291,62 @@ namespace APIs.Python
 
         [PythonAPI("Adds a From Affine Fit result history output, in one call. The fit measures the strain " +
                    "of a circular patch of the result mesh, so it names the circle rather than a region.",
-                   Arguments = "name: str, center_x: float, center_y: float, radius: float, " +
+                   Arguments = "name: str, center: list[float], radius: float, " +
                                "taper_start_fraction: float = None, point_source: str = None, " +
                                "weighting: str = None, cell_area_tolerance_fraction: float = None, " +
                                "area_filter_relative_median: float = None, strain_measure: str = None, " +
-                               "loading_direction_x: float = None, loading_direction_y: float = None, " +
-                               "step_id: int = None, step_increment_id: int = None, " +
+                               "loading_direction: list[float] = None, " +
+                               "step_id: int = None, increment_id: int = None, " +
                                "radius_sweep_step_count: int = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput",
-                   Example = "result.history_outputs.add_from_affine_fit('Fit-1', 0, 0, 10)")]
-        public ResultHistoryOutputAPI add_from_affine_fit(string name, object center_x, object center_y,
-                                                          object radius, object taper_start_fraction = null,
+                   Example = "result.history_outputs.add_from_affine_fit('Fit-1', [0, 0], 10)")]
+        public ResultHistoryOutputAPI add_from_affine_fit(string name, object center, object radius,
+                                                          object taper_start_fraction = null,
                                                           string point_source = null, string weighting = null,
                                                           object cell_area_tolerance_fraction = null,
                                                           object area_filter_relative_median = null,
                                                           string strain_measure = null,
-                                                          object loading_direction_x = null,
-                                                          object loading_direction_y = null,
+                                                          object loading_direction = null,
                                                           object step_id = null,
-                                                          object step_increment_id = null,
+                                                          object increment_id = null,
                                                           object radius_sweep_step_count = null,
                                                           ResultHistoryOutputFilterAPI filter1 = null,
                                                           ResultHistoryOutputFilterAPI filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromAffineFit(name, center_x, center_y, radius,
+            return add(WithFilters(_service.CreateFromAffineFit(name, center, radius,
                                                                 taper_start_fraction, point_source, weighting,
                                                                 cell_area_tolerance_fraction,
                                                                 area_filter_relative_median, strain_measure,
-                                                                loading_direction_x, loading_direction_y,
-                                                                step_id, step_increment_id,
+                                                                loading_direction, step_id, increment_id,
                                                                 radius_sweep_step_count), filter1, filter2));
         }
 
         [PythonAPI("Replaces a result history output by a From Affine Fit one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_affine_fit",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace_from_affine_fit(string old_name, string name, object center_x,
-                                                              object center_y, object radius,
+        public ResultHistoryOutputAPI replace_from_affine_fit(string old_name, string name, object center,
+                                                              object radius,
                                                               object taper_start_fraction = null,
                                                               string point_source = null,
                                                               string weighting = null,
                                                               object cell_area_tolerance_fraction = null,
                                                               object area_filter_relative_median = null,
                                                               string strain_measure = null,
-                                                              object loading_direction_x = null,
-                                                              object loading_direction_y = null,
+                                                              object loading_direction = null,
                                                               object step_id = null,
-                                                              object step_increment_id = null,
+                                                              object increment_id = null,
                                                               object radius_sweep_step_count = null,
                                                               ResultHistoryOutputFilterAPI filter1 = null,
                                                               ResultHistoryOutputFilterAPI filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromAffineFit(name, center_x, center_y, radius,
+            return replace(old_name, WithFilters(_service.CreateFromAffineFit(name, center, radius,
                                                                               taper_start_fraction, point_source,
                                                                               weighting,
                                                                               cell_area_tolerance_fraction,
                                                                               area_filter_relative_median,
-                                                                              strain_measure, loading_direction_x,
-                                                                              loading_direction_y, step_id,
-                                                                              step_increment_id,
+                                                                              strain_measure, loading_direction,
+                                                                              step_id, increment_id,
                                                                               radius_sweep_step_count),
                                                   filter1, filter2));
         }
@@ -529,17 +525,17 @@ namespace APIs.Python
 
         [PythonAPI("Validates and duplicates user-defined result history outputs using command history. " +
                    "Solver-generated history outputs cannot be duplicated.",
-                   Arguments = "history_output_names: list[str]", Returns = "None")]
-        public void duplicate(object history_output_names)
+                   Arguments = "names: list[str]", Returns = "None")]
+        public void duplicate(object names)
         {
-            _service.DuplicateHistoryOutputs(_resultName, history_output_names);
+            _service.DuplicateHistoryOutputs(_resultName, names);
         }
 
         [PythonAPI("Validates and removes result history outputs using command history.",
-                   Arguments = "history_output_names: list[str]", Returns = "None")]
-        public void remove(object history_output_names)
+                   Arguments = "names: list[str]", Returns = "None")]
+        public void remove(object names)
         {
-            _service.RemoveHistoryOutputs(_resultName, history_output_names);
+            _service.RemoveHistoryOutputs(_resultName, names);
         }
 
         [PythonAPI("Validates and removes fields from a result history output using command history.",

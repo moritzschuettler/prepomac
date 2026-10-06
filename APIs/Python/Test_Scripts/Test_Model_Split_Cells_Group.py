@@ -82,7 +82,7 @@ def test_refusals(compound, box_1, box_2):
 
 
 def mesh(compound, expected_names):
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing " + compound.name + " reported: " + report[compound.name])
     names = sorted(part.name for part in pmx.model.parts)
     check(names == sorted(expected_names), "expected the mesh parts " + str(sorted(expected_names)) +

@@ -104,10 +104,10 @@ namespace APIs.Python
             return this[ids[ids.Length - 1]];
         }
 
-        [PythonAPI("Returns true if the element ID exists.", Arguments = "element_id: int", Returns = "bool")]
-        public bool contains(int element_id)
+        [PythonAPI("Returns true if the element ID exists.", Arguments = "id: int", Returns = "bool")]
+        public bool contains(int id)
         {
-            return _meshService.GetElementIds(_resultName).Contains(element_id);
+            return _meshService.GetElementIds(_resultName).Contains(id);
         }
 
         [PythonAPI("Returns node IDs for the specified element ID.", Arguments = "element_id: int", Returns = "IntList")]

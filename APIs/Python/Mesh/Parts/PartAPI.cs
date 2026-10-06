@@ -24,10 +24,6 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The result mesh part name.", Returns = "str")]
         public string name { get { return _partName; } }
-        [PythonAPI("The node IDs in this part.", Returns = "numpy.ndarray or IntList")]
-        public object node_ids { get { return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).NodeIds); } }
-        [PythonAPI("The element IDs in this part.", Returns = "numpy.ndarray or IntList")]
-        public object element_ids { get { return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).ElementIds); } }
         [PythonAPI("The mesh-computed part volume, or a CAD value only when the mesh had no value.", Returns = "float")]
         public double volume { get { return ResolvePart().MassProperties.Volume; } }
         [PythonAPI("The total surface area. A mesh computes an area only for a shell part: a solid " +
@@ -56,6 +52,16 @@ namespace APIs.Python
 
 
         // Methods
+        [PythonAPI("Returns the node IDs in this part.", Returns = "numpy.ndarray or IntList")]
+        public object get_node_ids()
+        {
+            return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).NodeIds);
+        }
+        [PythonAPI("Returns the element IDs in this part.", Returns = "numpy.ndarray or IntList")]
+        public object get_element_ids()
+        {
+            return NumPyConverter.ToPythonArray(_meshService.GetPartData(_resultName, _partName).ElementIds);
+        }
         [PythonAPI("Returns the result mesh part bounding box as [xMin, xMax, yMin, yMax, zMin, zMax].",
                    Returns = "NumericArray")]
         public NumericArrayAPI get_bounding_box()
@@ -84,7 +90,7 @@ namespace APIs.Python
             return Model.PartTopologyReader.GetVertexData(_meshService.GetMeshObject(_resultName), ResolvePart());
         }
         [PythonAPI("Returns the undeformed coordinates of the part nodes with shape (node_count, 3), in " +
-                   "the order node_ids reports them.", Returns = "numpy.ndarray or NumericArray")]
+                   "the order get_node_ids() reports them.", Returns = "numpy.ndarray or NumericArray")]
         public object get_node_coordinates()
         {
             return Model.PartTopologyReader.GetNodeCoordinates(

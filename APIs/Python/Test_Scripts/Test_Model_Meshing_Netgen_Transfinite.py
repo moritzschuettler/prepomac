@@ -17,6 +17,8 @@
 #  - The quarter cylinder that loses a flat radial face keeps two quarter circles, which have three sides and are
 #    meshed as three blocks of quads around one inner node by the mapping all meshers share: the shell is
 #    quadrilaterals only, and only the two inner nodes and the vertices have other than four quads around them.
+#    With transfinite_three_sided="Polar" a quarter circle is the grid collapsed at its centre instead: quadrilaterals
+#    and a fan of triangles around the centre.
 #  - blind_holes.brep with one cap deleted: the face with the holes is meshed free, the others structured. It is
 #    meshed with triangles: Netgen's parallel quad-dominated meshing of a free face fails now and then.
 #
@@ -89,16 +91,16 @@ def irregular_node_count(part_name):
     return sum(1 for node, count in valence.items() if count != (2 if node in boundary else 4))
 
 
-def netgen(part, quad_dominated):
+def netgen(part, quad_dominated, three_sided="Mapped"):
     items = pmx.model.mesh.setup_items
     if NETGEN in list(items.get_names()):
         items.remove([NETGEN])
     items.add_netgen_mesh(NETGEN, part_selection(part), quad_dominated=quad_dominated,
-                          transfinite_three_sided=True, transfinite_four_sided=True)
+                          transfinite_three_sided=three_sided, transfinite_four_sided=True)
 
 
 def mesh(part):
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "meshing " + part.name + " reported: " + report[part.name])
     kinds = element_kinds(part.name)
     print("meshed:", part.name, kinds)
@@ -112,6 +114,29 @@ def check_structured_quads(part, what):
     corners = part.get_vertex_data().count
     print("irregular nodes:", irregular, "of at most", corners, "vertices")
     check(irregular <= corners, what + " is not meshed as structured grids: " + str(irregular) + " irregular nodes")
+
+
+def check_polar_fan(part, what):
+    """The 3-sided faces of the part collapsed at their centres: quadrilaterals, and triangles that fan around the
+    centre of each of the two quarter circles."""
+    kinds = mesh(part)
+    check(kinds.get("triangle", 0) > 0 and kinds.get("quadrilateral", 0) > kinds.get("triangle", 0),
+          what + " must be quadrilaterals and a fan of triangles: " + str(kinds))
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    node_counts = [int(n) for n in data.node_counts]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    triangles = [connectivity[offsets[i]:offsets[i] + 3] for i in (index[int(e)] for e in meshed.get_element_ids())
+                 if node_counts[i] in (3, 6)]
+    uses = {}
+    for triangle in triangles:
+        for node in triangle:
+            uses[node] = uses.get(node, 0) + 1
+    centres = set(sorted(uses, key=lambda node: -uses[node])[:2])
+    check(all(any(node in centres for node in triangle) for triangle in triangles),
+          "the triangles of " + what + " do not fan around the centres of the quarter circles")
 
 
 def parallel_edge_ids(part):
@@ -132,7 +157,7 @@ def check_pinned_edges(part):
     items.add_local_mesh_size("PyTest_Edge_B", edge_selection(part, second), number_of_elements=9)
     refused = False
     try:
-        pmx.model.mesh.create(part.name)
+        pmx.model.mesh.generate(part.name)
     except Exception as ex:
         refused = True
         print("refused:", str(ex).splitlines()[0])
@@ -181,6 +206,8 @@ def main():
     allowed = open_cylinder.get_vertex_data().count + 2
     print("irregular nodes:", irregular, "of at most", allowed, "vertices and inner nodes")
     check(irregular <= allowed, "the quarter circles are not meshed as three blocks: " + str(irregular))
+    netgen(open_cylinder, True, "Polar")
+    check_polar_fan(open_cylinder, "the polar open quarter cylinder")
     #
     before = set(pmx.model.geometry.parts.get_names())
     pmx.import_file(os.path.join(MODELS, "blind_holes.brep"))

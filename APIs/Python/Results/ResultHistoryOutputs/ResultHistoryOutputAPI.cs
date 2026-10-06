@@ -9,12 +9,25 @@
 
 using CaeGlobals;
 using CaeResults;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
     public class ResultHistoryOutputAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ItemTypes = new Dictionary<Type, string>
+        {
+            { typeof(ResultHistoryOutputFromField), "from_field" },
+            { typeof(ResultHistoryOutputFromEquation), "from_equation" },
+            { typeof(ResultHistoryOutputFromAffineFit), "from_affine_fit" },
+            { typeof(ResultHistoryOutputFromIntegration), "from_integration" },
+            { typeof(ResultHistoryOutputFromMergedHistories), "from_merged_histories" },
+            { typeof(ResultHistoryOutputFromExtractedEntry), "from_extracted_entry" },
+            { typeof(ResultHistoryOutputXY), "xy" },
+            { typeof(ResultHistoryOutputFromTable), "from_table" }
+        };
         protected readonly string _resultName;
         protected readonly string _historyOutputName;
         private readonly ResultHistoryOutputDataService _resultHistoryService;
@@ -29,14 +42,15 @@ namespace APIs.Python
         [PythonAPI("Whether the history output was defined by the user instead of produced by the solver.",
                    Returns = "bool")]
         public bool is_user_defined { get { return ResolveOrNull() != null; } }
-        [PythonAPI("The history output definition type, or None for a solver-generated history output.",
+        [PythonAPI("The history output type, named after the add_* method that makes it without the add_ prefix, " +
+                   "for example from_field or from_table, or None for a solver-generated history output.",
                    Returns = "str or None")]
-        public string type_name
+        public string item_type
         {
             get
             {
                 ResultHistoryOutput historyOutput = ResolveOrNull();
-                return historyOutput != null ? historyOutput.GetType().Name : null;
+                return historyOutput != null ? GetItemType(historyOutput) : null;
             }
         }
         [PythonAPI("The first history-output filter, or None when it is disabled or the output is solver-generated.",
@@ -69,6 +83,18 @@ namespace APIs.Python
             _historyOutputName = historyOutputName;
             _resultHistoryService = resultHistoryService;
             _fields = new ResultHistoryOutputFieldsAPI(_resultName, _historyOutputName, _resultHistoryService);
+        }
+
+
+        // Static methods
+        internal static string GetItemType(ResultHistoryOutput historyOutput)
+        {
+            string itemType;
+            if (ItemTypes.TryGetValue(historyOutput.GetType(), out itemType)) return itemType;
+            //
+            throw new PythonAPIException("The history output '" + historyOutput.Name + "' is a " +
+                                         historyOutput.GetType().Name + ", which no add_* method of the " +
+                                         "Python API makes.");
         }
 
 

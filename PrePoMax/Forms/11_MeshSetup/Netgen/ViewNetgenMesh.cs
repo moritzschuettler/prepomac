@@ -53,10 +53,12 @@ namespace PrePoMax.Forms
         //
         [Category("Mesh type")]
         [OrderedDisplayName(1, 10, "Transfinite 3-sided faces")]
-        [Description("Mesh the 3-sided model faces as three structured blocks of quads around one inner node - " +
-                     "quads on a quad dominated shell, else every quad split into two triangles.")]
+        [Description("Select how the 3-sided model faces are meshed with a structured grid: Polar collapses one " +
+                     "corner, with triangles there and arcs around it as a revolution about it would make; Mapped " +
+                     "meshes three blocks of quads around one inner node; No meshes them free. The grid is quads on " +
+                     "a quad dominated shell, else every quad is split into two triangles.")]
         [Id(2, 4)]
-        public bool TransfiniteThreeSided
+        public TransfiniteThreeSidedEnum TransfiniteThreeSided
         {
             get { return _netgenMesh.TransfiniteThreeSided; }
             set
@@ -104,7 +106,6 @@ namespace PrePoMax.Forms
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(QuadDominated));
-            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteThreeSided));
             _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
             //
             UpdateVisibility();
@@ -119,7 +120,7 @@ namespace PrePoMax.Forms
         private void UpdateVisibility()
         {
             _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(
-                _netgenMesh.TransfiniteThreeSided || _netgenMesh.TransfiniteFourSided);
+                _netgenMesh.IsTransfiniteThreeSided || _netgenMesh.TransfiniteFourSided);
         }
     }
 }

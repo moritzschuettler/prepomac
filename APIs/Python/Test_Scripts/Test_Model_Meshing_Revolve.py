@@ -92,7 +92,7 @@ def element_kinds(part):
 def sweep(part):
     items = pmx.model.mesh.setup_items
     items.add_sweep_mesh(NAME, part_selection(part))
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "sweeping " + part.name + " reported: " + report[part.name])
     meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name]
     check(len(meshed) == 1, "the part " + part.name + " was not meshed")
@@ -104,7 +104,7 @@ def sweep(part):
 
 
 def mesh_by_default(part):
-    report = pmx.model.mesh.create(part.name)
+    report = pmx.model.mesh.generate(part.name)
     check(report[part.name] == "", "meshing " + part.name + " without a setup item reported: " + report[part.name])
     kinds = element_kinds([p for p in pmx.model.parts if p.name == part.name][0])
     print("default:", part.name, kinds)
@@ -119,7 +119,7 @@ def test_split_capsule():
     cells = [p for p in added if p.part_type != "Compound"]
     check(all(cell.mesh_type == "Revolve" for cell in cells),
           "the cells of the split capsule are recognized as " + str([cell.mesh_type for cell in cells]))
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing the split capsule reported: " + report[compound.name])
     meshed = [p for p in pmx.model.parts if p.name in [cell.name for cell in cells]]
     check(len(meshed) == 2, "the split capsule was not meshed into two parts")
@@ -140,7 +140,7 @@ def test_split_cells(file_name, expected_types, collapsed_types=()):
     cells = [p for p in added if p.part_type != "Compound"]
     types = sorted(cell.mesh_type for cell in cells)
     check(types == expected_types, "the cells of " + file_name + " are recognized as " + str(types))
-    report = pmx.model.mesh.create(compound.name)
+    report = pmx.model.mesh.generate(compound.name)
     check(report[compound.name] == "", "meshing the split part reported: " + report[compound.name])
     meshed = [p for p in pmx.model.parts if p.name in [cell.name for cell in cells]]
     check(len(meshed) == len(cells) and all(p.element_count > 0 for p in meshed),

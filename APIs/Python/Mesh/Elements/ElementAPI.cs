@@ -27,8 +27,6 @@ namespace APIs.Python
         public string type_name { get { return Info.TypeName; } }
         [PythonAPI("The element dimension.", Returns = "int")]
         public int dimension { get { return Info.Dimension; } }
-        [PythonAPI("The element node IDs.", Returns = "IntList")]
-        public IntListAPI node_ids { get { return new IntListAPI(Info.NodeIds); } }
         [PythonAPI("The number of element nodes.", Returns = "int")]
         public int node_count { get { return Info.NodeIds.Length; } }
 
@@ -45,6 +43,11 @@ namespace APIs.Python
 
 
         // Methods
+        [PythonAPI("Returns the element node IDs.", Returns = "IntList")]
+        public IntListAPI get_node_ids()
+        {
+            return new IntListAPI(Info.NodeIds);
+        }
         public override string ToString()
         {
             ElementInfo info = Info;

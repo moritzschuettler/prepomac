@@ -40,15 +40,15 @@ namespace APIs.Python.Model
                    "reason for one that was, because meshing several parts can succeed for some of them. A " +
                    "call that meshes nothing at all raises instead, and records no command.",
                    Arguments = "part_names: list[str] or str", Returns = "dict[str, str]",
-                   Example = "failed = {k: v for k, v in pmx.model.mesh.create('Solid-1').items() if v}")]
-        public Dictionary<string, string> create(object part_names)
+                   Example = "failed = {k: v for k, v in pmx.model.mesh.generate('Solid-1').items() if v}")]
+        public Dictionary<string, string> generate(object part_names)
         {
             return _service.CreateMeshes(_service.ResolveMeshablePartNames(part_names));
         }
 
         [PythonAPI("Creates a boundary layer on the selected geometry using command history.",
                    Arguments = "selection: Selection, thickness: float", Returns = "None")]
-        public void create_boundary_layer(SelectionAPI selection, object thickness)
+        public void generate_boundary_layer(SelectionAPI selection, object thickness)
         {
             _toolService.CreateBoundaryLayer(selection, thickness);
         }

@@ -76,7 +76,7 @@ namespace PrePoMax.Mcp
             "    steps = []\n" +
             "    for step_name in names(pmx.model, 'steps', 'model.steps') or []:\n" +
             "        step = pmx.model.steps[step_name]\n" +
-            "        entry = {'name': step_name, 'type': value(step, 'step_type', step_name + '.step_type')}\n" +
+            "        entry = {'name': step_name, 'type': value(step, 'item_type', step_name + '.item_type')}\n" +
             "        for collection in STEP_COLLECTIONS:\n" +
             "            entry[collection] = names(step, collection, step_name + '.' + collection)\n" +
             "        steps.append(entry)\n" +

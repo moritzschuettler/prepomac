@@ -28,18 +28,18 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Hides the named parts using command history.", Arguments = "part_names: list[str] or str",
+        [PythonAPI("Hides the named parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]
-        public void hide(object part_names)
+        public void hide(object names)
         {
-            _service.Hide(_service.ResolveNames(part_names));
+            _service.Hide(_service.ResolveNames(names, "names"));
         }
 
-        [PythonAPI("Shows the named parts using command history.", Arguments = "part_names: list[str] or str",
+        [PythonAPI("Shows the named parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]
-        public void show(object part_names)
+        public void show(object names)
         {
-            _service.Show(_service.ResolveNames(part_names));
+            _service.Show(_service.ResolveNames(names, "names"));
         }
 
         [PythonAPI("Sets the color of the named parts. The color is [R, G, B], [R, G, B, A] or a color name.",
@@ -116,13 +116,13 @@ namespace APIs.Python.Model
                    "right handed about the axis. A number of copies of 0 moves the parts, and a larger number " +
                    "keeps them and creates that many copies, copy k rotated k times.",
                    Arguments = "part_names: list[str] or str, rotate_center: list[float], " +
-                               "rotate_axis: list[float], rotate_angle: float, number_of_copies: int = 0",
+                               "rotate_axis: list[float], rotate_angle_deg: float, number_of_copies: int = 0",
                    Returns = "None",
                    Example = "pmx.model.geometry.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 90)")]
-        public void rotate(object part_names, object rotate_center, object rotate_axis, object rotate_angle,
+        public void rotate(object part_names, object rotate_center, object rotate_axis, object rotate_angle_deg,
                            int number_of_copies = 0)
         {
-            _service.Rotate(_service.ResolveNames(part_names), rotate_center, rotate_axis, rotate_angle,
+            _service.Rotate(_service.ResolveNames(part_names), rotate_center, rotate_axis, rotate_angle_deg,
                             number_of_copies);
         }
 

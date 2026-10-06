@@ -68,7 +68,7 @@ namespace APIs.Python.Model
                                       object output_frequency = null, object perturbation = null,
                                       object run_analysis = null)
         {
-            StaticStep step = _service.CloneForReplace<StaticStep>(old_name, "StaticStep");
+            StaticStep step = _service.CloneForReplace<StaticStep>(old_name, "static");
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                        output_frequency, perturbation, run_analysis));
@@ -107,7 +107,7 @@ namespace APIs.Python.Model
                                          object output_frequency = null, object perturbation = null,
                                          object run_analysis = null)
         {
-            SlipWearStep step = _service.CloneForReplace<SlipWearStep>(old_name, "SlipWearStep");
+            SlipWearStep step = _service.CloneForReplace<SlipWearStep>(old_name, "slip_wear");
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                        output_frequency, perturbation, run_analysis));
@@ -145,7 +145,7 @@ namespace APIs.Python.Model
                                                      object run_analysis = null)
         {
             BoundaryDisplacementStep step =
-                _service.CloneForReplace<BoundaryDisplacementStep>(old_name, "BoundaryDisplacementStep");
+                _service.CloneForReplace<BoundaryDisplacementStep>(old_name, "boundary_displacement");
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
             //
@@ -153,12 +153,12 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a frequency step using command history.",
-                   Arguments = "name: str, num_of_frequencies: int = None, lower_frequency: float = None, " +
+                   Arguments = "name: str, number_of_frequencies: int = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, storage: bool = None, " +
                                "cyclic_symmetry_mode_min: int = None, cyclic_symmetry_mode_max: int = None, " +
                                "and the shared step arguments", Returns = "Step",
-                   Example = "pmx.model.steps.add_frequency('Step-2', num_of_frequencies=20)")]
-        public StepAPI add_frequency(string name, object num_of_frequencies = null, object lower_frequency = null,
+                   Example = "pmx.model.steps.add_frequency('Step-2', number_of_frequencies=20)")]
+        public StepAPI add_frequency(string name, object number_of_frequencies = null, object lower_frequency = null,
                                      object upper_frequency = null, object storage = null,
                                      object cyclic_symmetry_mode_min = null,
                                      object cyclic_symmetry_mode_max = null, object nlgeom = null,
@@ -170,7 +170,7 @@ namespace APIs.Python.Model
             _service.ValidateName(name, null);
             FrequencyStep step = new FrequencyStep(name);
             _service.ApplyNewStepDefaults(step);
-            StepFactory.ApplyFrequencyValues(step, num_of_frequencies, lower_frequency, upper_frequency, storage,
+            StepFactory.ApplyFrequencyValues(step, number_of_frequencies, lower_frequency, upper_frequency, storage,
                                              cyclic_symmetry_mode_min, cyclic_symmetry_mode_max);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
@@ -182,7 +182,7 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing frequency step using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_frequency without " +
                                "copy_bcs_and_loads", Returns = "Step")]
-        public StepAPI replace_frequency(string old_name, string name = null, object num_of_frequencies = null,
+        public StepAPI replace_frequency(string old_name, string name = null, object number_of_frequencies = null,
                                          object lower_frequency = null, object upper_frequency = null,
                                          object storage = null, object cyclic_symmetry_mode_min = null,
                                          object cyclic_symmetry_mode_max = null, object nlgeom = null,
@@ -190,8 +190,8 @@ namespace APIs.Python.Model
                                          object solver_type = null, object output_frequency = null,
                                          object perturbation = null, object run_analysis = null)
         {
-            FrequencyStep step = _service.CloneForReplace<FrequencyStep>(old_name, "FrequencyStep");
-            StepFactory.ApplyFrequencyValues(step, num_of_frequencies, lower_frequency, upper_frequency, storage,
+            FrequencyStep step = _service.CloneForReplace<FrequencyStep>(old_name, "frequency");
+            StepFactory.ApplyFrequencyValues(step, number_of_frequencies, lower_frequency, upper_frequency, storage,
                                              cyclic_symmetry_mode_min, cyclic_symmetry_mode_max);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
@@ -200,9 +200,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a complex frequency step using command history. It follows a frequency step.",
-                   Arguments = "name: str, num_of_frequencies: int = None, and the shared step arguments",
+                   Arguments = "name: str, number_of_frequencies: int = None, and the shared step arguments",
                    Returns = "Step")]
-        public StepAPI add_complex_frequency(string name, object num_of_frequencies = null, object nlgeom = null,
+        public StepAPI add_complex_frequency(string name, object number_of_frequencies = null, object nlgeom = null,
                                              object max_increments = null, object incrementation_type = null,
                                              object solver_type = null, object output_frequency = null,
                                              object perturbation = null, object run_analysis = null,
@@ -211,7 +211,7 @@ namespace APIs.Python.Model
             _service.ValidateName(name, null);
             ComplexFrequencyStep step = new ComplexFrequencyStep(name);
             _service.ApplyNewStepDefaults(step);
-            StepFactory.ApplyComplexFrequencyValues(step, num_of_frequencies);
+            StepFactory.ApplyComplexFrequencyValues(step, number_of_frequencies);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
             _service.Add(step, copy_bcs_and_loads);
@@ -223,14 +223,14 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, and the arguments of add_complex_frequency " +
                                "without copy_bcs_and_loads", Returns = "Step")]
         public StepAPI replace_complex_frequency(string old_name, string name = null,
-                                                 object num_of_frequencies = null, object nlgeom = null,
+                                                 object number_of_frequencies = null, object nlgeom = null,
                                                  object max_increments = null, object incrementation_type = null,
                                                  object solver_type = null, object output_frequency = null,
                                                  object perturbation = null, object run_analysis = null)
         {
             ComplexFrequencyStep step =
-                _service.CloneForReplace<ComplexFrequencyStep>(old_name, "ComplexFrequencyStep");
-            StepFactory.ApplyComplexFrequencyValues(step, num_of_frequencies);
+                _service.CloneForReplace<ComplexFrequencyStep>(old_name, "complex_frequency");
+            StepFactory.ApplyComplexFrequencyValues(step, number_of_frequencies);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
             //
@@ -238,9 +238,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a buckle step using command history.",
-                   Arguments = "name: str, num_of_buckling_factors: int = None, accuracy: float = None, " +
+                   Arguments = "name: str, number_of_buckling_factors: int = None, accuracy: float = None, " +
                                "and the shared step arguments", Returns = "Step")]
-        public StepAPI add_buckle(string name, object num_of_buckling_factors = null, object accuracy = null,
+        public StepAPI add_buckle(string name, object number_of_buckling_factors = null, object accuracy = null,
                                   object nlgeom = null, object max_increments = null,
                                   object incrementation_type = null, object solver_type = null,
                                   object output_frequency = null, object perturbation = null,
@@ -249,7 +249,7 @@ namespace APIs.Python.Model
             _service.ValidateName(name, null);
             BuckleStep step = new BuckleStep(name);
             _service.ApplyNewStepDefaults(step);
-            StepFactory.ApplyBuckleValues(step, num_of_buckling_factors, accuracy);
+            StepFactory.ApplyBuckleValues(step, number_of_buckling_factors, accuracy);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
             _service.Add(step, copy_bcs_and_loads);
@@ -260,14 +260,14 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing buckle step using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_buckle without " +
                                "copy_bcs_and_loads", Returns = "Step")]
-        public StepAPI replace_buckle(string old_name, string name = null, object num_of_buckling_factors = null,
+        public StepAPI replace_buckle(string old_name, string name = null, object number_of_buckling_factors = null,
                                       object accuracy = null, object nlgeom = null, object max_increments = null,
                                       object incrementation_type = null, object solver_type = null,
                                       object output_frequency = null, object perturbation = null,
                                       object run_analysis = null)
         {
-            BuckleStep step = _service.CloneForReplace<BuckleStep>(old_name, "BuckleStep");
-            StepFactory.ApplyBuckleValues(step, num_of_buckling_factors, accuracy);
+            BuckleStep step = _service.CloneForReplace<BuckleStep>(old_name, "buckle");
+            StepFactory.ApplyBuckleValues(step, number_of_buckling_factors, accuracy);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
             //
@@ -312,7 +312,7 @@ namespace APIs.Python.Model
                                               object solver_type = null, object output_frequency = null,
                                               object perturbation = null, object run_analysis = null)
         {
-            ModalDynamicsStep step = _service.CloneForReplace<ModalDynamicsStep>(old_name, "ModalDynamicsStep");
+            ModalDynamicsStep step = _service.CloneForReplace<ModalDynamicsStep>(old_name, "modal_dynamics");
             StepFactory.ApplyModalDynamicsValues(step, steady_state, relative_error, modal_damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
@@ -324,13 +324,13 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a steady state dynamics step using command history. The modal damping is created " +
                    "by pmx.create.modal_damping.",
                    Arguments = "name: str, harmonic: bool = None, lower_frequency: float = None, " +
-                               "upper_frequency: float = None, num_data_points: int = None, " +
-                               "bias: float = None, num_fourier_terms: int = None, time_lower: float = None, " +
+                               "upper_frequency: float = None, number_of_data_points: int = None, " +
+                               "bias: float = None, number_of_fourier_terms: int = None, time_lower: float = None, " +
                                "time_upper: float = None, modal_damping: ModalDamping = None, and the shared " +
                                "step arguments", Returns = "Step")]
         public StepAPI add_steady_state_dynamics(string name, object harmonic = null, object lower_frequency = null,
-                                                 object upper_frequency = null, object num_data_points = null,
-                                                 object bias = null, object num_fourier_terms = null,
+                                                 object upper_frequency = null, object number_of_data_points = null,
+                                                 object bias = null, object number_of_fourier_terms = null,
                                                  object time_lower = null, object time_upper = null,
                                                  object modal_damping = null, object nlgeom = null,
                                                  object max_increments = null, object incrementation_type = null,
@@ -342,7 +342,7 @@ namespace APIs.Python.Model
             SteadyStateDynamicsStep step = new SteadyStateDynamicsStep(name);
             _service.ApplyNewStepDefaults(step);
             StepFactory.ApplySteadyStateDynamicsValues(step, harmonic, lower_frequency, upper_frequency,
-                                                       num_data_points, bias, num_fourier_terms, time_lower,
+                                                       number_of_data_points, bias, number_of_fourier_terms, time_lower,
                                                        time_upper, modal_damping);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
@@ -356,8 +356,8 @@ namespace APIs.Python.Model
                                "add_steady_state_dynamics without copy_bcs_and_loads", Returns = "Step")]
         public StepAPI replace_steady_state_dynamics(string old_name, string name = null, object harmonic = null,
                                                      object lower_frequency = null, object upper_frequency = null,
-                                                     object num_data_points = null, object bias = null,
-                                                     object num_fourier_terms = null, object time_lower = null,
+                                                     object number_of_data_points = null, object bias = null,
+                                                     object number_of_fourier_terms = null, object time_lower = null,
                                                      object time_upper = null, object modal_damping = null,
                                                      object nlgeom = null, object max_increments = null,
                                                      object incrementation_type = null, object solver_type = null,
@@ -365,9 +365,9 @@ namespace APIs.Python.Model
                                                      object run_analysis = null)
         {
             SteadyStateDynamicsStep step =
-                _service.CloneForReplace<SteadyStateDynamicsStep>(old_name, "SteadyStateDynamicsStep");
+                _service.CloneForReplace<SteadyStateDynamicsStep>(old_name, "steady_state_dynamics");
             StepFactory.ApplySteadyStateDynamicsValues(step, harmonic, lower_frequency, upper_frequency,
-                                                       num_data_points, bias, num_fourier_terms, time_lower,
+                                                       number_of_data_points, bias, number_of_fourier_terms, time_lower,
                                                        time_upper, modal_damping);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
@@ -413,7 +413,7 @@ namespace APIs.Python.Model
                                        object output_frequency = null, object perturbation = null,
                                        object run_analysis = null)
         {
-            DynamicStep step = _service.CloneForReplace<DynamicStep>(old_name, "DynamicStep");
+            DynamicStep step = _service.CloneForReplace<DynamicStep>(old_name, "dynamic");
             StepFactory.ApplyDynamicValues(step, alpha, solution_procedure, relative_to_absolute, damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
@@ -457,7 +457,7 @@ namespace APIs.Python.Model
                                              object solver_type = null, object output_frequency = null,
                                              object perturbation = null, object run_analysis = null)
         {
-            HeatTransferStep step = _service.CloneForReplace<HeatTransferStep>(old_name, "HeatTransferStep");
+            HeatTransferStep step = _service.CloneForReplace<HeatTransferStep>(old_name, "heat_transfer");
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
@@ -504,7 +504,7 @@ namespace APIs.Python.Model
                                                    object run_analysis = null)
         {
             UncoupledTempDispStep step =
-                _service.CloneForReplace<UncoupledTempDispStep>(old_name, "UncoupledTempDispStep");
+                _service.CloneForReplace<UncoupledTempDispStep>(old_name, "uncoupled_temp_disp");
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
@@ -551,7 +551,7 @@ namespace APIs.Python.Model
                                                  object run_analysis = null)
         {
             CoupledTempDispStep step =
-                _service.CloneForReplace<CoupledTempDispStep>(old_name, "CoupledTempDispStep");
+                _service.CloneForReplace<CoupledTempDispStep>(old_name, "coupled_temp_disp");
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,

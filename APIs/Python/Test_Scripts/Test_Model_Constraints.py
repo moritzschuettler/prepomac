@@ -62,7 +62,7 @@ def test_tie():
     check(len(constraints) == 0, "the model has no constraints yet")
     tie = constraints.add_tie(PREFIX + "Tie", surface_selection(1), surface_selection(2),
                               position_tolerance=0.01, adjust=False)
-    check(tie.constraint_type == "Tie", "unexpected type " + tie.constraint_type)
+    check(tie.item_type == "tie", "unexpected type " + tie.item_type)
     # A selection based region is converted into an internal surface
     check(tie.master_region_type == "SurfaceName", "unexpected master region " + tie.master_region_type)
     check(tie.slave_region_type == "SurfaceName", "unexpected slave region " + tie.slave_region_type)
@@ -93,12 +93,12 @@ def test_cyclic_symmetry():
                                          region=element_selection([1]), number_of_graph_sectors=2,
                                          axis_point=[0, 0, 0],
                                          axis_direction=[0, 0, 1], number_of_sectors=6)
-    check(cs.constraint_type == "CyclicSymmetry", "unexpected type " + cs.constraint_type)
+    check(cs.item_type == "cyclic_symmetry", "unexpected type " + cs.item_type)
     check(cs.get_value("number_of_sectors") == 6, "the sector count was not set")
     # The sector angle is derived from the sector count
     check(abs(cs.get_value("sector_angle_deg") - 60.0) < 1e-9,
           "unexpected sector angle " + str(cs.get_value("sector_angle_deg")))
-    check(cs.get_value("n3") == 1, "the axis direction was not set")
+    check(list(cs.get_value("axis_direction")) == [0, 0, 1], "the axis direction was not set")
     # The result expansion region is a third region, separate from the two sector faces
     check(cs.get_value("number_of_graph_sectors") == 2, "the graph sector count was not set")
     check(cs.get_value("region_type") == "ElementSetName",
@@ -122,7 +122,7 @@ def test_cyclic_symmetry():
           "more graph sectors than sectors must be refused by the API: " + str(message))
     # A cyclic symmetry derives from a tie, yet a tie replace does not edit it
     message = raised_message(lambda: constraints.replace_tie(PREFIX + "CS", adjust=False))
-    check(message is not None and "CyclicSymmetry" in message,
+    check(message is not None and "cyclic_symmetry" in message,
           "replacing a cyclic symmetry by a tie must be refused: " + str(message))
     # The final state is checked, so lowering the graph sectors must also drop the region
     message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=1))
@@ -151,35 +151,35 @@ def test_joint():
     constraints = pmx.model.constraints
     # A joint defaults to a hinge whose centre and axis are taken from the master surface
     joint = constraints.add_joint(PREFIX + "J", surface_selection(1), surface_selection(2))
-    check(joint.constraint_type == "Joint", "unexpected type " + joint.constraint_type)
+    check(joint.item_type == "joint", "unexpected type " + joint.item_type)
     check(joint.master_region_type == "SurfaceName", "unexpected master region " + joint.master_region_type)
     check(joint.slave_region_type == "SurfaceName", "unexpected slave region " + joint.slave_region_type)
     check(joint.get_value("joint_type") == "Hinge", "a joint defaults to a hinge")
-    check(joint.get_value("center_definition") == "MasterSurface", "the centre defaults to the master surface")
-    check(joint.get_value("axis_definition") == "MasterSurface", "the axis defaults to the master surface")
+    check(joint.get_value("center_defined_by") == "MasterSurface", "the centre defaults to the master surface")
+    check(joint.get_value("axis_defined_by") == "MasterSurface", "the axis defaults to the master surface")
     # A given centre or axis direction switches its definition to user defined
     joint = constraints.replace_joint(PREFIX + "J", joint_type="Slider", center=[0.5, 0.5, 0.5],
                                       axis_direction=[0, 0, 2])
     check(joint.get_value("joint_type") == "Slider", "the joint type was not replaced")
-    check(joint.get_value("center_definition") == "Coordinates", "a given centre is given as coordinates")
-    check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre was not set")
-    check(joint.get_value("axis_definition") == "UserDefined", "a given axis is user defined")
-    check(joint.get_value("n3") == 2, "the axis direction was not set")
+    check(joint.get_value("center_defined_by") == "Coordinates", "a given centre is given as coordinates")
+    check(list(joint.get_value("center")) == [0.5, 0.5, 0.5], "the centre was not set")
+    check(joint.get_value("axis_defined_by") == "UserDefined", "a given axis is user defined")
+    check(list(joint.get_value("axis_direction"))[2] == 2, "the axis direction was not set")
     # A value that is not given survives the replace, and a definition can be switched back explicitly
     joint = constraints.replace_joint(PREFIX + "J", joint_type="Ball", axis_defined_by="MasterSurface")
     check(joint.get_value("joint_type") == "Ball", "the joint type was not replaced")
-    check(joint.get_value("axis_definition") == "MasterSurface", "the axis definition was not replaced")
-    check(joint.get_value("center_definition") == "Coordinates", "the centre must survive a replace")
-    check(abs(joint.get_value("x") - 0.5) < 1e-12, "the centre must survive a replace")
+    check(joint.get_value("axis_defined_by") == "MasterSurface", "the axis definition was not replaced")
+    check(joint.get_value("center_defined_by") == "Coordinates", "the centre must survive a replace")
+    check(list(joint.get_value("center")) == [0.5, 0.5, 0.5], "the centre must survive a replace")
     # The formulation defaults to rigid bodies; a given stiffness switches the spring stiffness to user defined
     check(joint.get_value("formulation") == "RigidBody", "a joint defaults to the rigid body formulation")
-    check(joint.get_value("stiffness_definition") == "FromModel", "the spring stiffness defaults to the model")
+    check(joint.get_value("stiffness_defined_by") == "FromModel", "the spring stiffness defaults to the model")
     joint = constraints.replace_joint(PREFIX + "J", formulation="Springs", stiffness=5e6)
     check(joint.get_value("formulation") == "Springs", "the formulation was not replaced")
-    check(joint.get_value("stiffness_definition") == "UserDefined", "a given stiffness is user defined")
+    check(joint.get_value("stiffness_defined_by") == "UserDefined", "a given stiffness is user defined")
     check(abs(joint.get_value("stiffness") - 5e6) < 1e-6, "the stiffness was not set")
     joint = constraints.replace_joint(PREFIX + "J", stiffness_defined_by="FromModel")
-    check(joint.get_value("stiffness_definition") == "FromModel", "the stiffness definition was not replaced")
+    check(joint.get_value("stiffness_defined_by") == "FromModel", "the stiffness definition was not replaced")
     check(joint.get_value("formulation") == "Springs", "the formulation must survive a replace")
     check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
                                                formulation="Beams"),
@@ -213,7 +213,7 @@ def test_reference_point_constraints():
     constraints = pmx.model.constraints
     # A rigid body ties the nodes to a reference point
     rb = constraints.add_rigid_body(PREFIX + "RB", RP, node_selection([1, 2, 3, 4]))
-    check(rb.constraint_type == "RigidBody", "unexpected type " + rb.constraint_type)
+    check(rb.item_type == "rigid_body", "unexpected type " + rb.item_type)
     check(rb.master_region_type == "ReferencePointName",
           "the reference point is the master side, got " + rb.master_region_type)
     check(rb.master_region_name == RP, "unexpected reference point " + str(rb.master_region_name))
@@ -238,7 +238,7 @@ def test_reference_point_constraints():
 def test_springs_and_compression_only():
     constraints = pmx.model.constraints
     ps = constraints.add_point_spring(PREFIX + "PS", node_selection([5, 6]), k1=100, k3=300)
-    check(ps.constraint_type == "PointSpring", "unexpected type " + ps.constraint_type)
+    check(ps.item_type == "point_spring", "unexpected type " + ps.item_type)
     check(ps.get_value("k1") == 100, "k1 was not set")
     check(ps.get_value("k3") == 300, "k3 was not set")
     check(ps.master_region_type == "NodeSetName", "a point spring region is a node set")
@@ -251,7 +251,7 @@ def test_springs_and_compression_only():
     #
     co = constraints.add_compression_only(PREFIX + "CO", surface_selection(2), clearance=0.001,
                                           non_linear=True)
-    check(co.constraint_type == "CompressionOnly", "unexpected type " + co.constraint_type)
+    check(co.item_type == "compression_only", "unexpected type " + co.item_type)
     check(abs(co.get_value("clearance") - 0.001) < 1e-12, "the clearance was not set")
     check(co.get_value("non_linear"), "non_linear was not set")
     # An equation is accepted where a value is

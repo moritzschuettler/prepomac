@@ -52,6 +52,31 @@ namespace CaeMesh
                 transfinite[transfiniteFace.FaceId] = true;
             return transfinite;
         }
+        /// <summary>
+        /// The corner the polar grid of a three-sided face of the part collapses, by the lengths of its sides on the
+        /// geometry, or -1 for a face with four sides.
+        /// </summary>
+        public static int GetPolarCornerIndex(FeMesh mesh, BasePart part, TransfiniteFace face)
+        {
+            if (face.NumberOfSides != 3) return -1;
+            //
+            VisualizationData vis = part.Visualization;
+            Func<int, double> getEdgeLength = edgeId =>
+            {
+                if (vis.EdgeLengths != null && edgeId < vis.EdgeLengths.Length) return vis.EdgeLengths[edgeId];
+                double length = 0;
+                foreach (var cellId in vis.EdgeCellIdsByEdge[edgeId])
+                {
+                    int[] cell = vis.EdgeCells[cellId];
+                    double[] a = mesh.Nodes[cell[0]].Coor;
+                    double[] b = mesh.Nodes[cell[cell.Length - 1]].Coor;
+                    length += Math.Sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) +
+                                        (b[2] - a[2]) * (b[2] - a[2]));
+                }
+                return length;
+            };
+            return face.GetPolarCornerIndex(face.SideEdgeIds.Select(side => side.Sum(getEdgeLength)).ToArray());
+        }
         private static TransfiniteFace DetectFace(FeMesh mesh, VisualizationData vis, int faceId, bool threeSided,
                                                   bool fourSided, double transfiniteAngleDeg,
                                                   Dictionary<int, int[]> edgeIdVertexIds)
