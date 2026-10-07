@@ -51,9 +51,10 @@ namespace CaeJob
         [NonSerialized] private string _outputFileName;
         [NonSerialized] private string _errorFileName;
         [NonSerialized] private object _myLock;
+        [NonSerialized] private bool _allowConcurrentRuns;
 
 
-        // Properties                                                                                                               
+        // Properties
         public override string Name
         {
             get { return base.Name; }
@@ -79,6 +80,10 @@ namespace CaeJob
             set { _argument = value; }
         }
         public JobStatus JobStatus { get { return _jobStatus; } }
+        /// <summary>
+        /// Runs the executable while another process runs it, instead of waiting for that one to end.
+        /// </summary>
+        public bool AllowConcurrentRuns { get { return _allowConcurrentRuns; } set { _allowConcurrentRuns = value; } }
         public string OutputData
         {
             get
@@ -136,6 +141,7 @@ namespace CaeJob
             _watch = null;
             _updateWatch = null;
             _sbOutput = null;
+            _allowConcurrentRuns = false;
         }
 
 
@@ -166,7 +172,8 @@ namespace CaeJob
         private void Run()
         {
             if (!File.Exists(_executable)) throw new Exception("The file '" + _executable + "' does not exist.");
-            if (!Tools.WaitForFileToUnlock(_executable, 5000)) throw new Exception("The mesher is busy.");
+            if (!_allowConcurrentRuns && !Tools.WaitForFileToUnlock(_executable, 5000))
+                throw new Exception("The mesher is busy.");
             //
             string tmpName = Path.GetFileName(Name);
             _outputFileName = Path.Combine(_workDirectory, "_output_" + tmpName + ".txt");

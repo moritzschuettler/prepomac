@@ -1799,8 +1799,10 @@ namespace CaeModel
         }        
         public string[] ImportGeometryFromBrepFile(string visFileName, string brepFileName)
         {
-            FeMesh mesh = VisFileReader.Read(visFileName);
-            //
+            return ImportGeometryFromBrepFile(VisFileReader.Read(visFileName), brepFileName);
+        }
+        public string[] ImportGeometryFromBrepFile(FeMesh mesh, string brepFileName)
+        {
             if (mesh.Parts.GetValueByIndex(0) is GeometryPart gp)
             {
                 gp.CADFileDataFromFile(brepFileName);

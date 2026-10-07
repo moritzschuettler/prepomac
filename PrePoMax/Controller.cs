@@ -27,6 +27,7 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -2174,18 +2175,36 @@ namespace PrePoMax
             //
             if (filesToImport != null)
             {
-                foreach (var partFileName in filesToImport)
+                // The parts are tessellated and read concurrently and added to the model one by one in the order of the
+                // files, so they get the names and ids the order of the files gives them
+                bool[] isCompoundFile = new bool[filesToImport.Length];
+                List<string> partFileNames = new List<string>();
+                for (int i = 0; i < filesToImport.Length; i++)
                 {
+                    isCompoundFile[i] = Path.GetFileName(filesToImport[i]).ToLower().Contains("compound");
+                    if (!isCompoundFile[i]) partFileNames.Add(filesToImport[i]);
+                }
+                Exception[] visualizationExceptions;
+                FeMesh[] visualizationMeshes = CreateVisualizationMeshes(partFileNames.ToArray(),
+                                                                         out visualizationExceptions);
+                int partFileIndex = 0;
+                //
+                for (int fileIndex = 0; fileIndex < filesToImport.Length; fileIndex++)
+                {
+                    string partFileName = filesToImport[fileIndex];
                     try
                     {
-                        if (Path.GetFileName(partFileName).ToLower().Contains("compound"))
+                        if (isCompoundFile[fileIndex])
                         {
                             ImportBrepCompoundPart(partFileName, null, null,
                                                    out string compoundPartName, out addedPartNames);
                         }
                         else
                         {
-                            addedPartNames = ImportBrepPartFile(partFileName);
+                            int index = partFileIndex++;
+                            if (visualizationExceptions[index] != null)
+                                ExceptionDispatchInfo.Capture(visualizationExceptions[index]).Throw();
+                            addedPartNames = ImportBrepPartVisualization(partFileName, visualizationMeshes[index]);
                         }
                         if (addedPartNames != null) allAddedPartNames.AddRange(addedPartNames);
                     }
@@ -2543,6 +2562,67 @@ namespace PrePoMax
             }
             else return null;
         }
+        private string[] ImportBrepPartVisualization(string brepFileName, FeMesh visualizationMesh)
+        {
+            if (visualizationMesh == null)
+            {
+                MessageBoxes.ShowError("Importing brep file failed.");
+                return null;
+            }
+            //
+            string[] addedPartNames = _model.ImportGeometryFromBrepFile(visualizationMesh, brepFileName);
+            if (addedPartNames.Length == 0)
+            {
+                MessageBoxes.ShowError("No geometry to import.");
+                return null;
+            }
+            return addedPartNames;
+        }
+        private FeMesh[] CreateVisualizationMeshes(string[] brepFileNames, out Exception[] exceptions)
+        {
+            FeMesh[] visualizationMeshes = new FeMesh[brepFileNames.Length];
+            Exception[] readExceptions = new Exception[brepFileNames.Length];
+            string workDirectory = _settings.GetWorkDirectory();
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string[] visFileNames = new string[brepFileNames.Length];
+            string[] arguments = new string[brepFileNames.Length];
+            for (int i = 0; i < brepFileNames.Length; i++)
+            {
+                visFileNames[i] = Path.ChangeExtension(brepFileNames[i], ".vis");
+                arguments[i] = GetVisualizationArgument(brepFileNames[i], visFileNames[i]);
+            }
+            //
+            Action<int, JobStatus> readVisFile = (index, jobStatus) =>
+            {
+                try
+                {
+                    if (jobStatus == JobStatus.OK)
+                        visualizationMeshes[index] = FileInOut.Input.VisFileReader.Read(visFileNames[index]);
+                }
+                catch (Exception ex)
+                {
+                    readExceptions[index] = ex;
+                }
+                finally
+                {
+                    if (File.Exists(visFileNames[index])) File.Delete(visFileNames[index]);
+                }
+            };
+            _jobRunner.RunConcurrently("Brep", executable, arguments, workDirectory, _form.WriteDataToOutput,
+                                       readVisFile);
+            //
+            exceptions = readExceptions;
+            return visualizationMeshes;
+        }
+        private string GetVisualizationArgument(string brepFileName, string visFileName)
+        {
+            return "BREP_VISUALIZATION " +
+                   "\"" + brepFileName.ToUTF8() + "\" " +
+                   "\"" + visFileName + "\" " +
+                   _settings.Graphics.LinearDeflection.ToString() + " " +
+                   Convert.ToInt32(_settings.Graphics.LinearDeflectionRelative) + " " +
+                   _settings.Graphics.AngularDeflectionRad.ToString();
+        }
         public string CreateVisFile(string brepFileName, bool showError = true)
         {
             string workDirectory = _settings.GetWorkDirectory();
@@ -2558,12 +2638,7 @@ namespace PrePoMax
             //
             if (File.Exists(visFileName)) File.Delete(visFileName);
             //
-            string argument = "BREP_VISUALIZATION " +
-                              "\"" + brepFileName.ToUTF8() + "\" " +
-                              "\"" + visFileName + "\" " +
-                              _settings.Graphics.LinearDeflection.ToString() + " " +
-                              Convert.ToInt32(_settings.Graphics.LinearDeflectionRelative) + " " +
-                              _settings.Graphics.AngularDeflectionRad.ToString();
+            string argument = GetVisualizationArgument(brepFileName, visFileName);
             //
             JobStatus jobStatus = _jobRunner.Run("Brep", executable, argument, workDirectory,
                                                  _form.WriteDataToOutput);
