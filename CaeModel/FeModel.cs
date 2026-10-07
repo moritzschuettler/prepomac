@@ -3676,7 +3676,8 @@ namespace CaeModel
                                  CreateRevolvedBlocks(sweptParts[0], out _, true);
             if (blocks == null) return detection;
             //
-            return new SweepDetectionData(blocks, null, null, new HashSet<int>() { sweptParts[0].PartId }, stamp);
+            return new SweepDetectionData(blocks, null, null, new HashSet<int>() { sweptParts[0].PartId }, stamp, null,
+                                          new SweepBlocks[] { blocks }, new double[] { 0 });
         }
         /// <summary>
         /// The block of a solid part that is revolved about an axis its source touches: one block turning the source
@@ -3767,6 +3768,10 @@ namespace CaeModel
             foreach (var part in sweptParts) partIdSeedSurfaceIds.Add(part.PartId, GetSeedSurfaceIds(part));
             // A defect of the geometry a trial ran into, which tells the user more than that no source was found
             string geometryDefect = null;
+            // Every complete trial, by its source and target
+            List<SweepBlocks> directions = new List<SweepBlocks>();
+            List<double> directionScores = new List<double>();
+            List<string> directionKeys = new List<string>();
             //
             while (bestSelection == null)
             {
@@ -3798,6 +3803,7 @@ namespace CaeModel
                         if (error == null)
                         {
                             score = ScoreSweepBlocks(blocks, faceTypes, maps);
+                            SweepDetectionData.AddDirection(directions, directionScores, directionKeys, blocks, score);
                             if (score > bestScore)
                             {
                                 bestScore = score;
@@ -3853,7 +3859,13 @@ namespace CaeModel
             blocks = CreateSweepBlocks(sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, maps,
                                        out error, out errorPartName, out sweptPartIds, out _);
             //
-            return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp);
+            if (error != null)
+            {
+                directions.Clear();
+                directionScores.Clear();
+            }
+            return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp, null,
+                                          directions, directionScores);
         }
         /// <summary>
         /// The source selections tried on a part: every surface on its own, every group of surfaces that

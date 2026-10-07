@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace CaeMesh
@@ -29,6 +30,8 @@ namespace CaeMesh
         private string _errorPartName;
         private HashSet<int> _sweepablePartIds;
         private string _stamp;
+        private SweepBlocks[] _directions;
+        private double[] _directionScores;
 
 
         // Properties
@@ -58,6 +61,14 @@ namespace CaeMesh
         public HashSet<int> SweepablePartIds { get { return _sweepablePartIds; } }
         public string Stamp { get { return _stamp; } }
         /// <summary>
+        /// Every distinct way the detection found to sweep the group as a whole, best first: the blocks of each
+        /// complete trial, one per pair of source and target surfaces, with the best score a trial gave that pair
+        /// in DirectionScores. Blocks is the first of them. For a single part these are the directions it can be
+        /// swept in on its own, a revolved part having its one revolution; empty when the group cannot be swept.
+        /// </summary>
+        public SweepBlocks[] Directions { get { return _directions; } }
+        public double[] DirectionScores { get { return _directionScores; } }
+        /// <summary>
         /// Whether the group is not swept but revolved: a single part turned about an axis it touches.
         /// </summary>
         public bool IsRevolved { get { return _blocks != null && _blocks.HasRevolvedBlocks; } }
@@ -65,7 +76,8 @@ namespace CaeMesh
 
         // Constructors
         public SweepDetectionData(SweepBlocks blocks, string error, string errorPartName,
-                                  HashSet<int> sweepablePartIds, string stamp, SweepBlocks partialBlocks = null)
+                                  HashSet<int> sweepablePartIds, string stamp, SweepBlocks partialBlocks = null,
+                                  IList<SweepBlocks> directions = null, IList<double> directionScores = null)
         {
             _blocks = blocks;
             _partialBlocks = partialBlocks;
@@ -73,10 +85,49 @@ namespace CaeMesh
             _errorPartName = errorPartName;
             _sweepablePartIds = sweepablePartIds != null ? sweepablePartIds : new HashSet<int>();
             _stamp = stamp;
+            //
+            if (directions == null || directionScores == null)
+            {
+                _directions = blocks != null ? new SweepBlocks[] { blocks } : new SweepBlocks[0];
+                _directionScores = blocks != null ? new double[] { 0 } : new double[0];
+            }
+            else
+            {
+                int[] order = Enumerable.Range(0, directions.Count).OrderByDescending(i => directionScores[i]).ToArray();
+                _directions = order.Select(i => directions[i]).ToArray();
+                _directionScores = order.Select(i => directionScores[i]).ToArray();
+            }
         }
 
 
         // Methods
+        /// <summary>
+        /// Adds the blocks of a complete trial to the directions found so far, unless a trial with the same source
+        /// and target surfaces is there already, in which case the better scored of the two is kept. The keys are
+        /// those of the directions in the same order.
+        /// </summary>
+        public static void AddDirection(List<SweepBlocks> directions, List<double> directionScores, List<string> keys,
+                                        SweepBlocks blocks, double score)
+        {
+            string key = GetDirectionKey(blocks);
+            int index = keys.IndexOf(key);
+            if (index < 0)
+            {
+                directions.Add(blocks);
+                directionScores.Add(score);
+                keys.Add(key);
+            }
+            else if (score > directionScores[index])
+            {
+                directions[index] = blocks;
+                directionScores[index] = score;
+            }
+        }
+        private static string GetDirectionKey(SweepBlocks blocks)
+        {
+            return string.Join(",", blocks.SourceSurfaceIds.SelectMany(ids => ids).Distinct().OrderBy(id => id)) + "|" +
+                   string.Join(",", blocks.TargetSurfaceIds.SelectMany(ids => ids).Distinct().OrderBy(id => id));
+        }
         /// <summary>
         /// The geometry the detection is a function of: the topology counts of every part of the group and the
         /// box it occupies, the box taken without the offset an exploded view puts on the part.
