@@ -3825,6 +3825,7 @@ namespace vtkControl
             {
                 _animating = false;
                 _style.AdjustCameraDistanceAndClipping();
+                _renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
                 RenderScene();
             }
         }

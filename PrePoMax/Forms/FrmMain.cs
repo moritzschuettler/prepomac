@@ -2320,7 +2320,7 @@ namespace PrePoMax
                     {
                         await _controller.ImportFileAsync(file, onlyMaterials);
                     }
-                    SetFrontBackView(true, true);   // animate must be true in order for the scale bar to work correctly
+                    SetFrontBackView(false, true);
                     //
                     int numErrors = _controller.GetNumberOfErrors();
                     int numWarnings = _controller.GetNumberOfWarnings();
