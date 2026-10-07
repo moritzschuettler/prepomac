@@ -4278,12 +4278,22 @@ namespace CaeModel
                 part = partIdPart[partId];
                 sourceSurfaceIds = partIdSourceSurfaceIds[partId];
                 surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
-                // The surfaces lying in the plane of the source are swept from as well
-                ExtendSourceOverCoplanarSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
-                // A source the sweep derived for this part is the surface it is fed through and nothing more,
-                // and a chamfer or a round at that end of the block is left out of it
-                if (!partIdSelectedSurfaceIds.ContainsKey(partId))
-                    ExtendDerivedSourceOverLeaningSurfaces(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
+                // The surfaces lying in the plane of the source are swept from as well. A source the sweep derived
+                // for this part is the surface it is fed through and nothing more, and a chamfer or a round at that
+                // end of the block is left out of it. Every trial that reaches the source grows it the same way
+                bool derived = !partIdSelectedSurfaceIds.ContainsKey(partId);
+                sourceSurfaceIds.UnionWith(maps.GetExtendedSourceSurfaceIds(part, sourceSurfaceIds, derived, () =>
+                {
+                    HashSet<int> extendedSourceSurfaceIds = new HashSet<int>(sourceSurfaceIds);
+                    ExtendSourceOverCoplanarSurfaces(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds,
+                                                     maps);
+                    if (derived)
+                    {
+                        ExtendDerivedSourceOverLeaningSurfaces(part, extendedSourceSurfaceIds,
+                                                               surfaceIdSurfaceNeighbourIds, maps);
+                    }
+                    return extendedSourceSurfaceIds;
+                }));
                 // A neighbour sharing a source surface is swept away from the same meshed surface - unless it
                 // is one of the blocks feeding this one, whose target the shared surface is, or the sweep is
                 // sent one way around a ring, which the neighbour then closes on the selected source
@@ -4347,8 +4357,10 @@ namespace CaeModel
                 // block. A shared surface that ends inside the target has its boundary nodes meshed by gmsh,
                 // and the cap follows them only when the block is a prism: the mesher then carries the split
                 // to the source and pins the sweep lines between the two. Any other block is refused.
-                wallEdgeIds = part.Visualization.GetEdgeIdsForSurfaceIds(sideSurfaceIds);
-                bool prismatic = IsPrismaticSweepBlock(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds);
+                wallEdgeIds = validation.GetWallEdgeIds(() =>
+                    part.Visualization.GetEdgeIdsForSurfaceIds(sideSurfaceIds));
+                bool prismatic = validation.IsPrismatic(() =>
+                    IsPrismaticSweepBlock(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds));
                 foreach (var targetSurfaceId in targetSurfaceIds)
                 {
                     if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(targetSurfaceId, partId), out twinId)) continue;
@@ -4399,13 +4411,20 @@ namespace CaeModel
                 }
                 // Gmsh numbering. Walls found by following the edges from the source have no rings, and the
                 // edges following the sweep direction are the chains themselves, in one group
-                if (directionEdgeIds != null) blockLayerGroupEdgeIds = new int[][][] { new int[][] { directionEdgeIds } };
-                else blockLayerGroupEdgeIds = GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
-                                                                sideSurfaceIds, layerSideSurfaceIds);
+                blockLayerGroupEdgeIds = validation.GetLayerGroupEdgeIds(() =>
+                    directionEdgeIds != null ? new int[][][] { new int[][] { directionEdgeIds } }
+                                             : GetDirectionEdges(part.Visualization, surfaceIdSurfaceNeighbourIds,
+                                                                 sideSurfaceIds, layerSideSurfaceIds));
                 // Every block gets an arrow of its own, from a source vertex along one of its layer edges
                 double[] arrowStart;
                 double[] arrowDirection;
-                GetBlockArrow(part, sourceSurfaceIds, blockLayerGroupEdgeIds, out arrowStart, out arrowDirection);
+                validation.GetArrow(() =>
+                {
+                    double[] start;
+                    double[] direction;
+                    GetBlockArrow(part, sourceSurfaceIds, blockLayerGroupEdgeIds, out start, out direction);
+                    return new double[][] { start, direction };
+                }, out arrowStart, out arrowDirection);
                 blockArrowStarts.Add(arrowStart);
                 blockArrowDirections.Add(arrowDirection);
                 //

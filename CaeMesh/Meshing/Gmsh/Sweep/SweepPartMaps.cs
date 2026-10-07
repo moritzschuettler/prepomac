@@ -29,6 +29,7 @@ namespace CaeMesh
         private Dictionary<int, Dictionary<int, GeomFaceData>> _partIdSurfaceIdFaceData;
         private Dictionary<int, Dictionary<int[], double[]>> _partIdSurfaceIdPairAngles;
         private Dictionary<int, Dictionary<string, SweepBlockValidation>> _partIdSourceValidations;
+        private Dictionary<int, Dictionary<string, HashSet<int>>> _partIdSourceExtensions;
 
 
         // Constructors
@@ -41,6 +42,7 @@ namespace CaeMesh
             _partIdSurfaceIdFaceData = new Dictionary<int, Dictionary<int, GeomFaceData>>();
             _partIdSurfaceIdPairAngles = new Dictionary<int, Dictionary<int[], double[]>>();
             _partIdSourceValidations = new Dictionary<int, Dictionary<string, SweepBlockValidation>>();
+            _partIdSourceExtensions = new Dictionary<int, Dictionary<string, HashSet<int>>>();
         }
 
 
@@ -136,6 +138,29 @@ namespace CaeMesh
             validations.Add(key, validation);
             //
             return validation;
+        }
+        /// <summary>
+        /// The source surfaces a source of the part grows to before its block is validated - over the surfaces in
+        /// its plane, and for a source the sweep derived over the surfaces leaning on it - grown once per source
+        /// and read again by every trial that reaches the same source. The set is kept, so a caller only reads it.
+        /// </summary>
+        public HashSet<int> GetExtendedSourceSurfaceIds(BasePart part, HashSet<int> sourceSurfaceIds, bool derived,
+                                                        Func<HashSet<int>> extend)
+        {
+            Dictionary<string, HashSet<int>> extensions;
+            if (!_partIdSourceExtensions.TryGetValue(part.PartId, out extensions))
+            {
+                extensions = new Dictionary<string, HashSet<int>>();
+                _partIdSourceExtensions.Add(part.PartId, extensions);
+            }
+            string key = (derived ? "derived:" : "selected:") + string.Join(",", sourceSurfaceIds.OrderBy(id => id));
+            HashSet<int> extendedSourceSurfaceIds;
+            if (extensions.TryGetValue(key, out extendedSourceSurfaceIds)) return extendedSourceSurfaceIds;
+            //
+            extendedSourceSurfaceIds = extend();
+            extensions.Add(key, extendedSourceSurfaceIds);
+            //
+            return extendedSourceSurfaceIds;
         }
     }
 }
