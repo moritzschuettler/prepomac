@@ -160,6 +160,8 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlocks.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlockValidation.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepDetectionData.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepDirectionProblem.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepCellCandidate.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
@@ -205,6 +207,7 @@
     <Compile Include="Meshing\Gmsh\Enums\RevolveSourceTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSourceTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSymmetryEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\SweepCellConflictEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\SweepSourceMesherEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\TransfiniteThreeSidedEnum.cs" />

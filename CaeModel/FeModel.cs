@@ -3816,6 +3816,11 @@ namespace CaeModel
                 twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
                 twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
             }
+            // The sources are chosen by the solver, which weighs every way of every part against the others; the
+            // trials below run only when it gives no answer, which tells why no source could be found
+            SweepDetectionData solved = DetectCompoundSweepSources(sweptParts, stamp, twinSurfaceIds, twinEdgeIds,
+                                                                   maps);
+            if (solved != null) return solved;
             // The selections tried on every part, which do not change from one round to the next
             Dictionary<int, List<HashSet<int>>> partIdSeedSurfaceIds = new Dictionary<int, List<HashSet<int>>>();
             foreach (var part in sweptParts) partIdSeedSurfaceIds.Add(part.PartId, GetSeedSurfaceIds(part));
@@ -3969,6 +3974,457 @@ namespace CaeModel
                 }
             }
             return reasons;
+        }
+        /// <summary>
+        /// The sources of a compound, found by weighing every way every cell can be swept against the ways of its
+        /// neighbours rather than by trials that sweep from a seed and keep what they reach. A cell has the ways its
+        /// own seeds give it and the ways its neighbours can give it - from a target or a source they share with it,
+        /// or across a shared wall, from the surfaces continuing their source - and the ways those give in turn;
+        /// each is a block of the cell validated as the trials validate it. Two cells agree on a surface they share
+        /// as SweepCellCandidate tells, and SweepDirectionProblem finds the ways that sweep the most cells, then
+        /// continue one another across the most shared surfaces, and then score best, a cell it leaves out being
+        /// meshed by tetrahedra. The blocks are those of the chosen ways, in
+        /// the order the cells feed one another. Unlike the trials it cannot be led astray by the order it meets the
+        /// cells in, which is what leaves a cell unswept that a sweep of the whole compound would reach. A single part
+        /// takes its best scored way, every way it has being kept as its directions. Cells may
+        /// feed one another round a ring, as the cells of a stack about an axis do, when the block feeding back into
+        /// the first cell of the ring has no other target, so that the mesher can close the ring on it; a choice that
+        /// cannot be ordered so is excluded and the problem solved again. Null, for the trials to find the sources,
+        /// when a cell has more ways than are worth weighing or when the solver cannot finish.
+        /// </summary>
+        private SweepDetectionData DetectCompoundSweepSources(GeometryPart[] sweptParts, string stamp,
+                                                              Dictionary<int, int> twinSurfaceIds,
+                                                              Dictionary<int, int> twinEdgeIds, SweepPartMaps maps)
+        {
+            int numOfCells = sweptParts.Length;
+            Dictionary<int, int> partIdCell = new Dictionary<int, int>();
+            for (int i = 0; i < numOfCells; i++) partIdCell.Add(sweptParts[i].PartId, i);
+            // The ways of every cell, grown from the seeds and from every way found until no new one appears
+            int twinId;
+            int neighbour;
+            string error;
+            Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
+            List<SweepCellCandidate>[] candidates = new List<SweepCellCandidate>[numOfCells];
+            HashSet<string> triedSources = new HashSet<string>();
+            Queue<Tuple<int, HashSet<int>, bool>> pendingSources = new Queue<Tuple<int, HashSet<int>, bool>>();
+            for (int i = 0; i < numOfCells; i++)
+            {
+                candidates[i] = new List<SweepCellCandidate>();
+                foreach (var seedSurfaceIds in GetSeedSurfaceIds(sweptParts[i]))
+                    pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(i, seedSurfaceIds, false));
+            }
+            while (pendingSources.Count > 0)
+            {
+                Tuple<int, HashSet<int>, bool> pending = pendingSources.Dequeue();
+                int cell = pending.Item1;
+                GeometryPart part = sweptParts[cell];
+                string key = cell + (pending.Item3 ? "d:" : "s:") + string.Join(",", pending.Item2.OrderBy(id => id));
+                if (!triedSources.Add(key)) continue;
+                if (triedSources.Count > _maxCompoundSweepSources) return null;
+                //
+                SweepCellCandidate candidate = CreateSweepCellCandidate(part, pending.Item2, pending.Item3,
+                                                                        twinSurfaceIds, maps, faceTypes, out error);
+                if (candidate == null) continue;
+                int same = candidates[cell].FindIndex(other =>
+                    other.SourceSurfaceIds.SetEquals(candidate.SourceSurfaceIds) &&
+                    other.TargetSurfaceIds.SetEquals(candidate.TargetSurfaceIds));
+                if (same >= 0) continue;
+                candidates[cell].Add(candidate);
+                // The ways this one gives its neighbours: from a cap they share, and across a wall from the surfaces
+                // continuing its source
+                foreach (var surfaceId in candidate.SourceSurfaceIds.Concat(candidate.TargetSurfaceIds))
+                {
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, part.PartId), out twinId) ||
+                        !partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(twinId), out neighbour)) continue;
+                    pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(neighbour,
+                        new HashSet<int>() { FeMesh.GetItemIdFromGmshTopologyId(twinId) }, true));
+                }
+                foreach (var sideSurfaceId in candidate.SideSurfaceIds)
+                {
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(sideSurfaceId, part.PartId), out twinId) ||
+                        !partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(twinId), out neighbour)) continue;
+                    int neighbourSideSurfaceId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                    HashSet<int> continuingIds = GetSourceContinuingAcrossWall(part, candidate.SourceSurfaceIds,
+                                                                               sideSurfaceId, sweptParts[neighbour],
+                                                                               neighbourSideSurfaceId, twinEdgeIds);
+                    if (continuingIds.Count > 0)
+                        pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(neighbour, continuingIds, true));
+                }
+            }
+            if (candidates.All(cellCandidates => cellCandidates.Count == 0)) return null;
+            if (numOfCells == 1)
+            {
+                // The best scored way, the first found among equals
+                List<SweepCellCandidate> ways = candidates[0].Select((candidate, index) => new { candidate, index })
+                                                             .OrderByDescending(entry => entry.candidate.Score)
+                                                             .ThenBy(entry => entry.index)
+                                                             .Select(entry => entry.candidate).ToList();
+                return new SweepDetectionData(ways[0].Blocks, null, null, new HashSet<int>() { sweptParts[0].PartId },
+                                              stamp, null, ways.Select(way => way.Blocks).ToArray(),
+                                              ways.Select(way => way.Score).ToArray());
+            }
+            // The ways two cells sharing a surface agree on
+            BoundingBox box = new BoundingBox();
+            foreach (var part in sweptParts) box.IncludeBox(part.BoundingBox);
+            double tolerance = 1E-3 * box.GetDiagonal();
+            double[][] scores = candidates.Select(cellCandidates => cellCandidates.Select(c => c.Score).ToArray())
+                                          .ToArray();
+            SweepDirectionProblem problem = new SweepDirectionProblem(scores);
+            foreach (var entry in twinSurfaceIds)
+            {
+                int cellA;
+                int cellB;
+                if (!partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(entry.Key), out cellA) ||
+                    !partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(entry.Value), out cellB) ||
+                    cellA >= cellB) continue;
+                //
+                int surfaceA = FeMesh.GetItemIdFromGmshTopologyId(entry.Key);
+                int surfaceB = FeMesh.GetItemIdFromGmshTopologyId(entry.Value);
+                bool[,] compatible = new bool[candidates[cellA].Count + 1, candidates[cellB].Count + 1];
+                bool[,] continuing = new bool[candidates[cellA].Count + 1, candidates[cellB].Count + 1];
+                for (int a = 0; a <= candidates[cellA].Count; a++)
+                {
+                    SweepCellCandidate candidateA = a < candidates[cellA].Count ? candidates[cellA][a] : null;
+                    for (int b = 0; b <= candidates[cellB].Count; b++)
+                    {
+                        SweepCellCandidate candidateB = b < candidates[cellB].Count ? candidates[cellB][b] : null;
+                        SweepCellConflictEnum conflict = SweepCellCandidate.GetConflict(candidateA, surfaceA,
+                                                                                        candidateB, surfaceB,
+                                                                                        tolerance, out _);
+                        compatible[a, b] = conflict == SweepCellConflictEnum.None;
+                        continuing[a, b] = SweepCellCandidate.Continue(candidateA, surfaceA, candidateB, surfaceB,
+                                                                      tolerance);
+                    }
+                }
+                problem.AddSurface(cellA, cellB, compatible, continuing);
+            }
+            // The blocks in the order the cells feed one another: a cell swept from the target of another after it
+            int[] choices;
+            List<int> order;
+            int[] unorderedCells;
+            int numOfSolves = 0;
+            while (true)
+            {
+                choices = problem.Solve();
+                if (choices == null || choices.All(choice => choice < 0)) return null;
+                order = GetCompoundSweepOrder(sweptParts, candidates, choices, twinSurfaceIds, partIdCell,
+                                              out unorderedCells);
+                if (order != null) break;
+                if (++numOfSolves > _maxCompoundSweepSolves) return null;
+                problem.AddExclusion(unorderedCells, unorderedCells.Select(cell => choices[cell]).ToArray());
+            }
+            //
+            SweepBlocks blocks = SweepBlocks.Merge(order.Select(cell => candidates[cell][choices[cell]].Blocks));
+            double score = order.Sum(cell => candidates[cell][choices[cell]].Score);
+            HashSet<int> sweptPartIds = new HashSet<int>(order.Select(cell => sweptParts[cell].PartId));
+            if (order.Count == numOfCells)
+                return new SweepDetectionData(blocks, null, null, sweptPartIds, stamp, null,
+                                              new SweepBlocks[] { blocks }, new double[] { score });
+            // The cells left to tetrahedra, with what keeps the ways they have on their own out of the sweep
+            Dictionary<int, string> reasons = new Dictionary<int, string>();
+            GeometryPart firstUnswept = null;
+            for (int i = 0; i < numOfCells; i++)
+            {
+                if (choices[i] >= 0) continue;
+                if (firstUnswept == null) firstUnswept = sweptParts[i];
+                string reason = GetCompoundSweepConflict(sweptParts, i, candidates, choices, twinSurfaceIds, partIdCell,
+                                                         tolerance);
+                if (reason != null) reasons.Add(sweptParts[i].PartId, reason);
+            }
+            return new SweepDetectionData(null, "No sweep source surface could be found automatically for the part " +
+                                          firstUnswept.Name + ". Select the source surfaces by hand.", null,
+                                          sweptPartIds, stamp, blocks, null, null, reasons);
+        }
+        /// <summary>
+        /// The block of a cell swept from the given source, built as a trial builds it - the source grown over the
+        /// surfaces in its plane, and a source the cell is given by a neighbour over the surfaces leaning on it -
+        /// with the role every edge of its walls plays, or null with the reason when the block is refused.
+        /// </summary>
+        private SweepCellCandidate CreateSweepCellCandidate(GeometryPart part, HashSet<int> seedSurfaceIds,
+                                                            bool derived, Dictionary<int, int> twinSurfaceIds,
+                                                            SweepPartMaps maps, Dictionary<int, GeomFaceType> faceTypes,
+                                                            out string error)
+        {
+            VisualizationData vis = part.Visualization;
+            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
+            HashSet<int> sourceSurfaceIds = new HashSet<int>(seedSurfaceIds);
+            sourceSurfaceIds.UnionWith(maps.GetExtendedSourceSurfaceIds(part, sourceSurfaceIds, derived, () =>
+            {
+                HashSet<int> extendedSourceSurfaceIds = new HashSet<int>(sourceSurfaceIds);
+                ExtendSourceOverCoplanarSurfaces(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps);
+                if (derived)
+                {
+                    ExtendDerivedSourceOverLeaningSurfaces(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds,
+                                                           maps);
+                }
+                return extendedSourceSurfaceIds;
+            }));
+            SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, true,
+                () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
+            error = validation.Error;
+            if (error != null) return null;
+            //
+            int[] sideSurfaceIds;
+            int[] targetSurfaceIds;
+            List<int[]> layerSideSurfaceIds;
+            int[] directionEdgeIds;
+            validation.CopyTo(out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds, out directionEdgeIds);
+            HashSet<int> wallEdgeIds = validation.GetWallEdgeIds(() => vis.GetEdgeIdsForSurfaceIds(sideSurfaceIds));
+            bool prismatic = validation.IsPrismatic(() =>
+                IsPrismaticSweepBlock(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds));
+            int[][][] layerGroupEdgeIds = validation.GetLayerGroupEdgeIds(() =>
+                directionEdgeIds != null ? new int[][][] { new int[][] { directionEdgeIds } }
+                                         : GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds, sideSurfaceIds,
+                                                             layerSideSurfaceIds));
+            double[] arrowStart;
+            double[] arrowDirection;
+            validation.GetArrow(() =>
+            {
+                double[] start;
+                double[] direction;
+                GetBlockArrow(part, sourceSurfaceIds, layerGroupEdgeIds, out start, out direction);
+                return new double[][] { start, direction };
+            }, out arrowStart, out arrowDirection);
+            // The sides of every wall as the mesher sorts them: the edges on the source side, those on the target side
+            // and the chains of edges along the sweep, a wall that meets neither the source nor the target being
+            // sided from the walls between it and the source
+            HashSet<int> alongEdgeIds = new HashSet<int>(layerGroupEdgeIds.SelectMany(groups => groups)
+                                                                          .SelectMany(edgeIds => edgeIds));
+            Dictionary<int, int[]> surfaceIdEdgeIds = new Dictionary<int, int[]>();
+            for (int i = 0; i < vis.FaceEdgeIds.Length; i++) surfaceIdEdgeIds.Add(i, vis.FaceEdgeIds[i]);
+            Dictionary<int, double[][][]> wallIdSideCentroids = new Dictionary<int, double[][][]>();
+            foreach (var wall in CaeMesh.Sweep.SweepWallTopology.Classify(sourceSurfaceIds, sideSurfaceIds,
+                                                                         targetSurfaceIds, surfaceIdEdgeIds,
+                                                                         alongEdgeIds))
+            {
+                List<double[][]> sides = new List<double[][]>();
+                sides.Add(wall.SourceEdgeIds.Select(id => _geometry.ComputeEdgeCentroid(vis, id)).ToArray());
+                sides.Add(wall.TargetEdgeIds.Select(id => _geometry.ComputeEdgeCentroid(vis, id)).ToArray());
+                foreach (var chain in GetConnectedEdgeChains(vis, wall.DirectionEdgeIds.ToList()))
+                    sides.Add(chain.Select(id => _geometry.ComputeEdgeCentroid(vis, id)).ToArray());
+                wallIdSideCentroids[wall.SurfaceId] = sides.ToArray();
+            }
+            // The block in gmsh numbering
+            int partId = part.PartId;
+            int[][][] gmshLayerGroupEdgeIds = layerGroupEdgeIds.Select(groups =>
+                groups.Select(edgeIds => ToGmshTopologyIds(edgeIds, partId)).ToArray()).ToArray();
+            SweepBlocks blocks = new SweepBlocks(new int[][] { ToGmshTopologyIds(sourceSurfaceIds, partId) },
+                                                 new int[][] { ToGmshTopologyIds(sideSurfaceIds, partId) },
+                                                 new int[][] { ToGmshTopologyIds(targetSurfaceIds, partId) },
+                                                 gmshLayerGroupEdgeIds, new double[][] { arrowStart },
+                                                 new double[][] { arrowDirection });
+            double score = ScoreSweepBlocks(blocks, faceTypes, maps);
+            //
+            return new SweepCellCandidate(partId, sourceSurfaceIds.ToArray(), sideSurfaceIds, targetSurfaceIds,
+                                          prismatic, wallEdgeIds, vis.FaceEdgeIds, wallIdSideCentroids, blocks, score);
+        }
+        /// <summary>
+        /// The edges split into chains of edges that meet at a vertex.
+        /// </summary>
+        private static List<List<int>> GetConnectedEdgeChains(VisualizationData vis, List<int> edgeIds)
+        {
+            List<List<int>> chains = new List<List<int>>();
+            List<int> left = new List<int>(edgeIds);
+            while (left.Count > 0)
+            {
+                List<int> chain = new List<int>() { left[0] };
+                HashSet<int> vertexIds = new HashSet<int>(vis.GetVertexNodeIdsForEdgeId(left[0]));
+                left.RemoveAt(0);
+                bool grown = true;
+                while (grown)
+                {
+                    grown = false;
+                    for (int i = 0; i < left.Count; i++)
+                    {
+                        int[] edgeVertexIds = vis.GetVertexNodeIdsForEdgeId(left[i]);
+                        if (!edgeVertexIds.Any(vertexIds.Contains)) continue;
+                        //
+                        chain.Add(left[i]);
+                        vertexIds.UnionWith(edgeVertexIds);
+                        left.RemoveAt(i);
+                        grown = true;
+                        break;
+                    }
+                }
+                chains.Add(chain);
+            }
+            return chains;
+        }
+        /// <summary>
+        /// The surfaces of a neighbour across a shared wall that continue the source over the wall: those on the
+        /// twins of the wall edges the source touches, as a trial gives them to a neighbour swept alongside.
+        /// </summary>
+        private HashSet<int> GetSourceContinuingAcrossWall(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                           int sideSurfaceId, GeometryPart neighbour,
+                                                           int neighbourSideSurfaceId, Dictionary<int, int> twinEdgeIds)
+        {
+            int twinId;
+            VisualizationData vis = part.Visualization;
+            VisualizationData neighbourVis = neighbour.Visualization;
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            sourceEdgeIds.IntersectWith(vis.FaceEdgeIds[sideSurfaceId]);
+            //
+            HashSet<int> continuingIds = new HashSet<int>();
+            foreach (var edgeId in sourceEdgeIds)
+            {
+                if (!twinEdgeIds.TryGetValue(FeMesh.GmshTopologyId(edgeId, part.PartId), out twinId) ||
+                    FeMesh.GetPartIdFromGmshTopologyId(twinId) != neighbour.PartId) continue;
+                //
+                int neighbourEdgeId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                for (int i = 0; i < neighbourVis.FaceEdgeIds.Length; i++)
+                {
+                    if (i != neighbourSideSurfaceId && neighbourVis.FaceEdgeIds[i].Contains(neighbourEdgeId))
+                        continuingIds.Add(i);
+                }
+            }
+            return continuingIds;
+        }
+        /// <summary>
+        /// The swept cells in the order they are meshed: a cell after every cell whose target it is swept from, and
+        /// otherwise in the order of the cells. Cells feeding one another round a ring are taken from the first cell
+        /// of the ring, and the cell feeding back into it closes the ring: the mesher keeps the target of a block
+        /// whose targets are all sources of blocks meshed before it. A block feeding back that has other targets
+        /// as well cannot close the ring, and null comes back, with unorderedCells the block and the cells it feeds
+        /// back into, a combination of choices that cannot be meshed.
+        /// </summary>
+        private static List<int> GetCompoundSweepOrder(GeometryPart[] sweptParts, List<SweepCellCandidate>[] candidates,
+                                                       int[] choices, Dictionary<int, int> twinSurfaceIds,
+                                                       Dictionary<int, int> partIdCell, out int[] unorderedCells)
+        {
+            unorderedCells = null;
+            int numOfCells = sweptParts.Length;
+            List<int>[] fedCells = new List<int>[numOfCells];
+            int[] numOfFeeders = new int[numOfCells];
+            for (int i = 0; i < numOfCells; i++) fedCells[i] = new List<int>();
+            for (int i = 0; i < numOfCells; i++)
+            {
+                if (choices[i] < 0) continue;
+                SweepCellCandidate candidate = candidates[i][choices[i]];
+                foreach (var surfaceId in candidate.TargetSurfaceIds)
+                {
+                    int twinId;
+                    int neighbour;
+                    int gmshSurfaceId = FeMesh.GmshTopologyId(surfaceId, sweptParts[i].PartId);
+                    if (!twinSurfaceIds.TryGetValue(gmshSurfaceId, out twinId) ||
+                        !partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(twinId), out neighbour) ||
+                        choices[neighbour] < 0 || fedCells[i].Contains(neighbour)) continue;
+                    int twinSurfaceId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                    if (!candidates[neighbour][choices[neighbour]].SourceSurfaceIds.Contains(twinSurfaceId)) continue;
+                    fedCells[i].Add(neighbour);
+                    numOfFeeders[neighbour]++;
+                }
+            }
+            List<int> order = new List<int>();
+            bool[] ordered = new bool[numOfCells];
+            int numOfSwept = choices.Count(choice => choice >= 0);
+            while (order.Count < numOfSwept)
+            {
+                int next = -1;
+                for (int i = 0; i < numOfCells && next < 0; i++)
+                {
+                    if (choices[i] >= 0 && !ordered[i] && numOfFeeders[i] == 0) next = i;
+                }
+                // A ring is entered at its first cell
+                for (int i = 0; i < numOfCells && next < 0; i++)
+                {
+                    if (choices[i] >= 0 && !ordered[i]) next = i;
+                }
+                //
+                ordered[next] = true;
+                order.Add(next);
+                foreach (var fed in fedCells[next]) numOfFeeders[fed]--;
+            }
+            // A block feeding a cell meshed before it closes a ring, which takes every target of it to be a source
+            // of a block meshed before it
+            HashSet<int> earlierSourceIds = new HashSet<int>();
+            for (int k = 0; k < order.Count; k++)
+            {
+                int cell = order[k];
+                SweepCellCandidate candidate = candidates[cell][choices[cell]];
+                int partId = sweptParts[cell].PartId;
+                List<int> fedBackCells = fedCells[cell].Where(fed => order.IndexOf(fed) < k).ToList();
+                if (fedBackCells.Count > 0 &&
+                    !candidate.TargetSurfaceIds.All(id =>
+                        earlierSourceIds.Contains(FeMesh.GmshTopologyId(id, partId)) ||
+                        IsSharedSourceOfEarlier(id, partId, twinSurfaceIds, earlierSourceIds)))
+                {
+                    fedBackCells.Insert(0, cell);
+                    unorderedCells = fedBackCells.ToArray();
+                    return null;
+                }
+                foreach (var id in candidate.SourceSurfaceIds) earlierSourceIds.Add(FeMesh.GmshTopologyId(id, partId));
+            }
+            return order;
+        }
+        private static bool IsSharedSourceOfEarlier(int surfaceId, int partId, Dictionary<int, int> twinSurfaceIds,
+                                                    HashSet<int> earlierSourceIds)
+        {
+            int twinId;
+            return twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, partId), out twinId) &&
+                   earlierSourceIds.Contains(twinId);
+        }
+        /// <summary>
+        /// Why a cell left to tetrahedra is not swept although it has ways of its own: the first surface on which its
+        /// best way does not agree with the way a neighbour is swept.
+        /// </summary>
+        private string GetCompoundSweepConflict(GeometryPart[] sweptParts, int cell,
+                                                List<SweepCellCandidate>[] candidates, int[] choices,
+                                                Dictionary<int, int> twinSurfaceIds, Dictionary<int, int> partIdCell,
+                                                double tolerance)
+        {
+            if (candidates[cell].Count == 0) return null;
+            //
+            GeometryPart part = sweptParts[cell];
+            foreach (var candidate in candidates[cell].OrderByDescending(c => c.Score))
+            {
+                for (int surfaceId = 0; surfaceId < part.Visualization.FaceCount; surfaceId++)
+                {
+                    int twinId;
+                    int neighbour;
+                    if (!twinSurfaceIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, part.PartId), out twinId) ||
+                        !partIdCell.TryGetValue(FeMesh.GetPartIdFromGmshTopologyId(twinId), out neighbour)) continue;
+                    //
+                    GeometryPart neighbourPart = sweptParts[neighbour];
+                    int neighbourSurfaceId = FeMesh.GetItemIdFromGmshTopologyId(twinId);
+                    SweepCellCandidate neighbourCandidate = choices[neighbour] >= 0
+                                                            ? candidates[neighbour][choices[neighbour]] : null;
+                    bool firstSplit;
+                    SweepCellConflictEnum conflict = SweepCellCandidate.GetConflict(candidate, surfaceId,
+                                                                                    neighbourCandidate,
+                                                                                    neighbourSurfaceId, tolerance,
+                                                                                    out firstSplit);
+                    string surfaceName = GetSweepSurfaceName(part, surfaceId) + ", shared with the part " +
+                                         neighbourPart.Name;
+                    switch (conflict)
+                    {
+                        case SweepCellConflictEnum.None:
+                            continue;
+                        case SweepCellConflictEnum.TargetSplitInside:
+                            GeometryPart splitPart = firstSplit ? part : neighbourPart;
+                            SweepCellCandidate splitCandidate = firstSplit ? candidate : neighbourCandidate;
+                            int splitSurfaceId = firstSplit ? surfaceId : neighbourSurfaceId;
+                            int edgeId = splitCandidate.GetEdgeSplittingTarget(splitSurfaceId);
+                            return "The " + GetSweepSurfaceName(splitPart, splitSurfaceId) + ", shared by the parts " +
+                                   part.Name + " and " + neighbourPart.Name + ", ends inside the target of the part " +
+                                   splitPart.Name + " at " + GetSweepEdgeName(splitPart, edgeId) + ". The part " +
+                                   splitPart.Name + " is not a prism, so the mesh swept onto its target cannot " +
+                                   "follow the split.";
+                        case SweepCellConflictEnum.TargetsMeet:
+                            return "The sweeps of the parts " + part.Name + " and " + neighbourPart.Name +
+                                   " both end on the " + surfaceName + ".";
+                        case SweepCellConflictEnum.CapAgainstWall:
+                            return "The " + surfaceName + ", is a source or a target of one part and a wall of the " +
+                                   "other.";
+                        case SweepCellConflictEnum.WallSidesDiffer:
+                            return "The parts " + part.Name + " and " + neighbourPart.Name + " would be swept along " +
+                                   "their shared wall, the " + GetSweepSurfaceName(part, surfaceId) + ", in " +
+                                   "different directions.";
+                        default:
+                            return "The " + surfaceName + ", is not a source, a target or a wall of the sweep.";
+                    }
+                }
+            }
+            return null;
         }
         /// <summary>
         /// The source selections tried on a part: every surface on its own, every group of surfaces that
@@ -5461,6 +5917,8 @@ namespace CaeModel
             return string.Join(", ", edgeIds.OrderBy(id => id).Select(id => GetSweepEdgeName(part, id)));
         }
         private const double _sweepChainCosine = 0.9;
+        private const int _maxCompoundSweepSources = 20000;
+        private const int _maxCompoundSweepSolves = 100;
         private const string _splitBoreRimErrorStart = "The rim of the bore or boss ";
         // How fast the length of the sweep lines may change across the source: a block bending through a full turn
         // lengthens them by two pi for every unit of distance from the inside of the bend to the outside

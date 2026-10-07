@@ -8,13 +8,15 @@
 // Contributors:
 
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace CaeMesh
 {
     /// <summary>
-    /// The calls of lp_solve 5.5 the interval assignment needs, from lpsolve55.dll, which sits next to GmshCaller.exe.
-    /// The dll is built with __stdcall, which x64 ignores. Columns and rows are numbered from 1, and MYBOOL is a byte.
+    /// The calls of lp_solve 5.5 the interval assignment and the sweep of a compound need, from lpsolve55.dll, which
+    /// sits next to GmshCaller.exe and CaeMesh.dll. The dll is built with __stdcall, which x64 ignores. Columns and
+    /// rows are numbered from 1, and MYBOOL is a byte.
     /// </summary>
     internal static class LpSolve
     {
@@ -32,7 +34,29 @@ namespace CaeMesh
         public const double Infinity = 1E30;
 
 
+        // Constructors
+        /// <summary>
+        /// The dll is loaded from the folder of this assembly before the first call. GmshCaller.exe finds it there by
+        /// itself, but PrePoMax.exe, which runs from the folder above, would not.
+        /// </summary>
+        static LpSolve()
+        {
+            try
+            {
+                string folder = Path.GetDirectoryName(typeof(LpSolve).Assembly.Location);
+                string fileName = folder != null ? Path.Combine(folder, _dllName) : null;
+                if (fileName != null && File.Exists(fileName)) LoadLibrary(fileName);
+            }
+            catch (Exception)
+            {
+                // A dll that cannot be loaded here is looked for the usual way by the first call
+            }
+        }
+
+
         // Methods
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr LoadLibrary(string fileName);
         [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
         public static extern IntPtr make_lp(int rows, int columns);
         [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
@@ -54,6 +78,8 @@ namespace CaeMesh
         public static extern void set_verbose(IntPtr lp, int verbose);
         [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
         public static extern void set_timeout(IntPtr lp, int seconds);
+        [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
+        public static extern void set_mip_gap(IntPtr lp, byte absolute, double gap);
         [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
         public static extern int solve(IntPtr lp);
         [DllImport(_dllName, CallingConvention = CallingConvention.StdCall)]
