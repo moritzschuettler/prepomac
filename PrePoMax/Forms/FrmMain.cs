@@ -2295,7 +2295,7 @@ namespace PrePoMax
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
                 //
-                SetZoomToFit(true);
+                SetZoomToFit(false);
             }
         }
         private async void ImportFile(bool onlyMaterials)
@@ -2627,7 +2627,7 @@ namespace PrePoMax
                 //
                 SetMenuAndToolStripVisibility();
                 //
-                SetZoomToFit(true);
+                SetZoomToFit(false);
             }
         }
         private void tsmiRedo_Click(object sender, EventArgs e)
@@ -2638,7 +2638,7 @@ namespace PrePoMax
                 //
                 SetMenuAndToolStripVisibility();
                 //
-                SetZoomToFit(true);
+                SetZoomToFit(false);
             }
             catch (Exception ex)
             {
@@ -2726,7 +2726,7 @@ namespace PrePoMax
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput(); 
                 //
-                SetZoomToFit(true);
+                SetZoomToFit(false);
             }
         }
         public void EnableDisableUndoRedo(string undo, string redo)
@@ -9336,7 +9336,7 @@ namespace PrePoMax
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
                 //
-                SetZoomToFit(true);
+                SetZoomToFit(false);
             }
         }
         public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
