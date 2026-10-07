@@ -1074,6 +1074,14 @@ namespace CaeMesh
         /// along its walls, among the edges the model recorded as following the sweep direction. A block whose
         /// source no chain leaves - an item without recorded edges, say - gets null, and its walls are sorted
         /// by their source and target edges alone.
+        ///
+        /// A chain leaves the source from its vertices only, so a ring of walls that starts at vertices splitting
+        /// the walls of the ring before it - a band of four walls after a band of two - is reached by the chains on
+        /// one side only. A wall with a single edge on the chains takes the edges the model recorded on it as
+        /// following the sweep direction, those on the source and the target of the block excepted; without them
+        /// its other edge along the sweep would be taken for a side of it, and a wall it shares with another block
+        /// would be sided wrongly whenever this block is meshed first. A wall no chain reaches is sorted by its
+        /// source and target edges as before.
         /// </summary>
         private HashSet<int> GetBlockDirectionEdgeIds(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
                                                       out List<SweepChain> chains)
@@ -1100,6 +1108,22 @@ namespace CaeMesh
             //
             HashSet<int> directionEdgeIds = new HashSet<int>();
             foreach (var chain in chains) directionEdgeIds.UnionWith(chain.EdgeIds);
+            if (allowedEdgeIds == null) return directionEdgeIds;
+            //
+            HashSet<int> capEdgeIds = new HashSet<int>(sourceEdgeIds);
+            foreach (var id in block.TargetSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) capEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.WallSurfaceIds)
+            {
+                if (!surfaceIdEdgeIds.TryGetValue(id, out edgeIds) ||
+                    edgeIds.Distinct().Count(directionEdgeIds.Contains) != 1) continue;
+                //
+                int[] recordedEdgeIds = edgeIds.Where(edgeId => allowedEdgeIds.Contains(edgeId) &&
+                                                                !capEdgeIds.Contains(edgeId)).Distinct().ToArray();
+                if (recordedEdgeIds.Length >= 2) directionEdgeIds.UnionWith(recordedEdgeIds);
+            }
             return directionEdgeIds;
         }
         /// <summary>
