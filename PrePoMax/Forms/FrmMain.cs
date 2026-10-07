@@ -2287,6 +2287,8 @@ namespace PrePoMax
             }
             finally
             {
+                // The camera is fitted while rendering is still off, so the first frame shown is the fitted one
+                SetZoomToFit(false);
                 SetStateReady(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = true;
                 RegenerateTree();
@@ -2294,8 +2296,6 @@ namespace PrePoMax
                 SetMenuAndToolStripVisibility();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
-                //
-                SetZoomToFit(false);
             }
         }
         private async void ImportFile(bool onlyMaterials)
@@ -2626,8 +2626,6 @@ namespace PrePoMax
                 _modelTree.RegenerateTree(_controller.Model, _controller.Jobs, _controller.CurrentResult);
                 //
                 SetMenuAndToolStripVisibility();
-                //
-                SetZoomToFit(false);
             }
         }
         private void tsmiRedo_Click(object sender, EventArgs e)
@@ -2637,8 +2635,6 @@ namespace PrePoMax
                 _controller.RedoHistory();
                 //
                 SetMenuAndToolStripVisibility();
-                //
-                SetZoomToFit(false);
             }
             catch (Exception ex)
             {
@@ -2718,6 +2714,8 @@ namespace PrePoMax
             }
             finally
             {
+                // The camera is fitted while rendering is still off, so the first frame shown is the fitted one
+                SetZoomToFit(false);
                 SetStateReady(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = true;
                 RegenerateTree();
@@ -2725,8 +2723,6 @@ namespace PrePoMax
                 SetMenuAndToolStripVisibility();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput(); 
-                //
-                SetZoomToFit(false);
             }
         }
         public void EnableDisableUndoRedo(string undo, string redo)
@@ -9328,6 +9324,8 @@ namespace PrePoMax
             }
             finally
             {
+                // The camera is fitted while rendering is still off, so the first frame shown is the fitted one
+                SetZoomToFit(false);
                 SetStateReady(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = true;
                 RegenerateTree();
@@ -9335,8 +9333,6 @@ namespace PrePoMax
                 SetMenuAndToolStripVisibility();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
-                //
-                SetZoomToFit(false);
             }
         }
         public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
