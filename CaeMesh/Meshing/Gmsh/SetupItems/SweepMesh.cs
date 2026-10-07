@@ -43,6 +43,8 @@ namespace CaeMesh
         private int[][] _symmetryPartIds;                               // ISerializable
         private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
         private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
+        private string[] _symmetryNotUsedReasons;                       // ISerializable
+        private int[] _symmetryNotUsedPartIds;                          // ISerializable
 
 
         // Properties                                                                                                               
@@ -140,6 +142,20 @@ namespace CaeMesh
             get { return _symmetryLocalMeshSizeIds; }
             set { _symmetryLocalMeshSizeIds = value; }
         }
+        /// <summary>
+        /// Why the symmetry is not used on a compound the item sweeps with Symmetry on Automatic, one reason per
+        /// compound, for the output window, with the part id of one of its cells in SymmetryNotUsedPartIds.
+        /// </summary>
+        public string[] SymmetryNotUsedReasons
+        {
+            get { return _symmetryNotUsedReasons; }
+            set { _symmetryNotUsedReasons = value; }
+        }
+        public int[] SymmetryNotUsedPartIds
+        {
+            get { return _symmetryNotUsedPartIds; }
+            set { _symmetryNotUsedPartIds = value; }
+        }
         public bool HasSymmetry
         {
             get { return _symmetryPlanes != null && _symmetryPlanes.Length > 0 && _symmetryPartIds != null &&
@@ -228,6 +244,10 @@ namespace CaeMesh
                         _symmetryLocalMeshSizeNames = (string[])entry.Value; break;
                     case "_symmetryLocalMeshSizeIds":
                         _symmetryLocalMeshSizeIds = (int[][])entry.Value; break;
+                    case "_symmetryNotUsedReasons":
+                        _symmetryNotUsedReasons = (string[])entry.Value; break;
+                    case "_symmetryNotUsedPartIds":
+                        _symmetryNotUsedPartIds = (int[])entry.Value; break;
                     default:
                         break;
                 }
@@ -273,6 +293,8 @@ namespace CaeMesh
             _symmetryPartIds = null;
             _symmetryLocalMeshSizeNames = null;
             _symmetryLocalMeshSizeIds = null;
+            _symmetryNotUsedReasons = null;
+            _symmetryNotUsedPartIds = null;
         }
         private void SetQuadWildDefaults()
         {
@@ -305,6 +327,8 @@ namespace CaeMesh
             _symmetryPartIds = CopyBlockIds(sweepMesh._symmetryPartIds);
             _symmetryLocalMeshSizeNames = sweepMesh._symmetryLocalMeshSizeNames?.ToArray();
             _symmetryLocalMeshSizeIds = CopyBlockIds(sweepMesh._symmetryLocalMeshSizeIds);
+            _symmetryNotUsedReasons = sweepMesh._symmetryNotUsedReasons?.ToArray();
+            _symmetryNotUsedPartIds = sweepMesh._symmetryNotUsedPartIds?.ToArray();
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -371,6 +395,20 @@ namespace CaeMesh
             if (sweepMesh._blockArrowStarts != null) sweepMesh._blockArrowStarts = blockArrowStarts.ToArray();
             if (sweepMesh._blockArrowDirections != null) sweepMesh._blockArrowDirections = blockArrowDirections.ToArray();
             if (sweepMesh._blockRevolveAxes != null) sweepMesh._blockRevolveAxes = blockRevolveAxes.ToArray();
+            if (sweepMesh._symmetryNotUsedReasons != null && sweepMesh._symmetryNotUsedPartIds != null)
+            {
+                List<string> reasons = new List<string>();
+                List<int> reasonPartIds = new List<int>();
+                for (int i = 0; i < sweepMesh._symmetryNotUsedReasons.Length; i++)
+                {
+                    if (!keptPartIds.Contains(sweepMesh._symmetryNotUsedPartIds[i])) continue;
+                    //
+                    reasons.Add(sweepMesh._symmetryNotUsedReasons[i]);
+                    reasonPartIds.Add(sweepMesh._symmetryNotUsedPartIds[i]);
+                }
+                sweepMesh._symmetryNotUsedReasons = reasons.ToArray();
+                sweepMesh._symmetryNotUsedPartIds = reasonPartIds.ToArray();
+            }
             //
             return sweepMesh;
         }
@@ -423,6 +461,8 @@ namespace CaeMesh
             info.AddValue("_symmetryPartIds", _symmetryPartIds, typeof(int[][]));
             info.AddValue("_symmetryLocalMeshSizeNames", _symmetryLocalMeshSizeNames, typeof(string[]));
             info.AddValue("_symmetryLocalMeshSizeIds", _symmetryLocalMeshSizeIds, typeof(int[][]));
+            info.AddValue("_symmetryNotUsedReasons", _symmetryNotUsedReasons, typeof(string[]));
+            info.AddValue("_symmetryNotUsedPartIds", _symmetryNotUsedPartIds, typeof(int[]));
         }
     }
 }

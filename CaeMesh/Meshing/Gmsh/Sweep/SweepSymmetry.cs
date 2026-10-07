@@ -41,7 +41,10 @@ namespace CaeMesh
         public int[][] PartIds { get; private set; }
         /// <summary>The cells that are swept.</summary>
         public GeometryPart[] MasterParts { get; private set; }
-        /// <summary>Why no symmetry is used, for the output window; null when one is.</summary>
+        /// <summary>
+        /// Why a mirror plane of the compound is not used, for the output window; null when one is, and when the
+        /// compound has no mirror plane at all, which is told by nothing but the cells being swept as they are.
+        /// </summary>
         public string Reason { get; private set; }
         /// <summary>
         /// The local mesh sizes that select only some of the mirror images of an entity, by name, with their selection
@@ -109,11 +112,7 @@ namespace CaeMesh
                 planeSides.Add(sides);
                 if (planes.Count == 3) break;
             }
-            if (planes.Count == 0)
-            {
-                Reason = "no plane the compound is split on is a mirror plane of all of its cells";
-                return false;
-            }
+            if (planes.Count == 0) return false;
             // The most planes that can be used together, and for each the side the swept cells lie on: the cells on
             // it have to carry every edge of their images
             string lastReason = null;
@@ -168,12 +167,8 @@ namespace CaeMesh
                 }
                 if (!masterIds.Contains(masterId)) return false;
                 // The master has to carry every edge of the cell its mesh is mirrored onto
-                if (!Covers(masterId, part.PartId, usedPlanes, bits))
-                {
-                    reason = "the part " + part.Name + " has an edge its mirror image " + _partIdPart[masterId].Name +
-                             " does not have, and the mesh mirrored onto it would not follow the edge";
-                    return false;
-                }
+                reason = GetUncoveredEntity(masterId, part.PartId, usedPlanes, bits);
+                if (reason != null) return false;
                 rows.Add(new int[] { part.PartId, masterId, bits });
                 partIdMasterBits.Add(part.PartId, new Tuple<int, int>(masterId, bits));
             }
@@ -290,45 +285,90 @@ namespace CaeMesh
         }
         // Edges
         /// <summary>
-        /// Whether the master mirrored across the planes of the bits has the shape of the cell and carries every edge
-        /// of it: every vertex of the cell is a mirrored vertex of the master, every edge of the cell runs along
-        /// mirrored edges of the master, and every mirrored vertex of the master lies on the cell. The seam of a
-        /// periodic face closed along a single seam lies where the modelling kernel put it and not where the mirror
-        /// does, and a seam wall is meshed around its seam, so a seam and its vertices only have to lie on the master.
+        /// The entity of the cell the master mirrored across the planes of the bits does not cover, named with how far
+        /// it is off, or null when the master has the shape of the cell and carries every edge of it: every vertex of
+        /// the cell is a mirrored vertex of the master, every edge of the cell runs along mirrored edges of the master,
+        /// and every mirrored vertex of the master lies on the cell. The seam of a periodic face closed along a single
+        /// seam lies where the modelling kernel put it and not where the mirror does, and a seam wall is meshed around
+        /// its seam, so a seam and its vertices only have to lie on the master.
         /// </summary>
-        private bool Covers(int masterId, int partId, double[][] planes, int bits)
+        private string GetUncoveredEntity(int masterId, int partId, double[][] planes, int bits)
         {
             CellShape master = _partIdShape[masterId];
             CellShape cell = _partIdShape[partId];
+            string masterName = _partIdPart[masterId].Name;
             List<double[]> masterVertices = master.VertexCoors.Select(coor => Transform(coor, planes, bits)).ToList();
             List<double[][][]> masterEdges = master.EdgeSegments.Select(segments => TransformSegments(segments, planes, bits))
                                                    .ToList();
+            double distance;
             for (int i = 0; i < cell.VertexCoors.Count; i++)
             {
                 double[] coor = cell.VertexCoors[i];
                 if (cell.SeamVertexIndices.Contains(i))
                 {
-                    if (master.DistanceToSurface(Transform(coor, planes, bits)) > _curveTolerance) return false;
+                    distance = master.DistanceToSurface(Transform(coor, planes, bits));
+                    if (distance > _curveTolerance)
+                        return GetVertexName(partId, coor) + " is " + FormatDistance(distance) + " off the mirror " +
+                               "image of " + masterName + GetToleranceText(_curveTolerance);
                 }
-                else if (!masterVertices.Any(vertex => Distance(vertex, coor) <= _vertexTolerance)) return false;
+                else
+                {
+                    distance = masterVertices.Min(vertex => Distance(vertex, coor));
+                    if (distance > _vertexTolerance)
+                        return GetVertexName(partId, coor) + " is " + FormatDistance(distance) + " from the mirror " +
+                               "image of the nearest vertex of " + masterName + GetToleranceText(_vertexTolerance);
+                }
             }
             for (int edgeId = 0; edgeId < cell.EdgeSegments.Count; edgeId++)
             {
                 bool seam = cell.SeamEdgeIds.Contains(edgeId);
                 foreach (var coor in cell.EdgeSegments[edgeId].SelectMany(segment => segment))
                 {
-                    if (seam)
-                    {
-                        if (master.DistanceToSurface(Transform(coor, planes, bits)) > _curveTolerance) return false;
-                    }
-                    else if (!masterEdges.Any(edge => DistanceToSegments(coor, edge) <= _curveTolerance)) return false;
+                    if (seam) distance = master.DistanceToSurface(Transform(coor, planes, bits));
+                    else distance = masterEdges.Min(edge => DistanceToSegments(coor, edge));
+                    if (distance > _curveTolerance)
+                        return "edge " + (edgeId + 1) + " of " + _partIdPart[partId].Name + " runs " +
+                               FormatDistance(distance) + " off the mirror image of " +
+                               (seam ? "" : "every edge of ") + masterName + GetToleranceText(_curveTolerance);
                 }
             }
-            foreach (var vertex in masterVertices)
+            for (int i = 0; i < masterVertices.Count; i++)
             {
-                if (cell.DistanceToSurface(vertex) > _curveTolerance) return false;
+                distance = cell.DistanceToSurface(masterVertices[i]);
+                if (distance > _curveTolerance)
+                    return "the mirror image of " + GetVertexName(masterId, master.VertexCoors[i]) + " is " +
+                           FormatDistance(distance) + " off " + _partIdPart[partId].Name +
+                           GetToleranceText(_curveTolerance);
             }
-            return true;
+            return null;
+        }
+        /// <summary>
+        /// A vertex of a cell named by the edges that meet at it, as the output window names edges.
+        /// </summary>
+        private string GetVertexName(int partId, double[] coor)
+        {
+            CellShape shape = _partIdShape[partId];
+            List<int> edgeIds = new List<int>();
+            for (int edgeId = 0; edgeId < shape.EdgeEnds.Count; edgeId++)
+            {
+                if (shape.EdgeEnds[edgeId].Any(end => Distance(end, coor) <= _vertexTolerance)) edgeIds.Add(edgeId);
+            }
+            string partName = _partIdPart[partId].Name;
+            if (edgeIds.Count == 0) return "a vertex of " + partName;
+            //
+            string[] names = edgeIds.Select(id => (id + 1).ToString()).ToArray();
+            string list = names.Length == 1 ? names[0] : string.Join(", ", names.Take(names.Length - 1)) + " and " +
+                                                          names[names.Length - 1];
+            return "the vertex " + (names.Length == 1 ? "of edge " : "where edges ") + list + " of " + partName +
+                   (names.Length == 1 ? "" : " meet");
+        }
+        private static string FormatDistance(double distance)
+        {
+            return distance.ToString("G3");
+        }
+        private static string GetToleranceText(double tolerance)
+        {
+            return ", more than the tolerance of " + tolerance.ToString("G3");
         }
         // Selections
         /// <summary>

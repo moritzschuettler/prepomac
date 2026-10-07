@@ -212,6 +212,11 @@ namespace CaeMesh
                     // Renumber Gmsh items
                     RenumberGmshDataByCoor();
                     if (gsi is SweepMesh symmetricSweep && symmetricSweep.HasSymmetry) RemoveMirroredCells(symmetricSweep);
+                    if (gsi is SweepMesh unusedSymmetrySweep && unusedSymmetrySweep.SymmetryNotUsedReasons != null)
+                    {
+                        foreach (var reason in unusedSymmetrySweep.SymmetryNotUsedReasons)
+                            _writeOutput?.Invoke("Sweep: " + reason);
+                    }
                     // PrepareData
                     PrepareData(gsi);
                     if (gsi is SweepMesh sweepSetupItem) PrepareSweepBlocks(sweepSetupItem);

@@ -2987,6 +2987,8 @@ namespace CaeModel
             sweepMesh.SymmetryPartIds = null;
             sweepMesh.SymmetryLocalMeshSizeNames = null;
             sweepMesh.SymmetryLocalMeshSizeIds = null;
+            sweepMesh.SymmetryNotUsedReasons = null;
+            sweepMesh.SymmetryNotUsedPartIds = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
@@ -3127,6 +3129,9 @@ namespace CaeModel
             List<double[]> symmetryPlanes = new List<double[]>();
             List<int[]> symmetryPartIds = new List<int[]>();
             Dictionary<string, HashSet<int>> symmetryLocalMeshSizeIds = new Dictionary<string, HashSet<int>>();
+            string symmetryNotUsedReason;
+            List<string> symmetryNotUsedReasons = new List<string>();
+            List<int> symmetryNotUsedPartIds = new List<int>();
             List<SweepBlocks> sweptGroupBlocks = new List<SweepBlocks>();
             foreach (var sweptParts in sweptPartGroups)
             {
@@ -3140,17 +3145,25 @@ namespace CaeModel
                 // alike whichever way it is meshed. A piece that cannot be swept on its own leaves the compound to be
                 // swept whole, as without the symmetry
                 symmetry = null;
+                symmetryNotUsedReason = null;
                 blocks = null;
                 error = null;
                 errorPartName = null;
                 if (sweepMesh.Symmetry == SweepSymmetryEnum.Automatic && isCompound)
                 {
-                    symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds);
+                    symmetry = FindSweepSymmetry(sweepMesh, sweptParts, partIdSelectedSurfaceIds,
+                                                 out symmetryNotUsedReason);
                     if (symmetry != null)
                     {
                         blocks = CreateSweepBlocksForCells(symmetry.MasterParts, partIdSelectedSurfaceIds, out error,
                                                            out errorPartName);
-                        if (error != null) symmetry = null;
+                        if (error != null)
+                        {
+                            symmetry = null;
+                            symmetryNotUsedReason = "its symmetric piece cannot be swept on its own: " +
+                                                    (errorPartName != null ? "Part " + errorPartName + ": " : "") +
+                                                    error;
+                        }
                     }
                 }
                 if (symmetry == null)
@@ -3168,6 +3181,12 @@ namespace CaeModel
                     continue;
                 }
                 sweptGroupBlocks.Add(blocks);
+                if (symmetryNotUsedReason != null)
+                {
+                    symmetryNotUsedReasons.Add("the mirror symmetry of " + GetCompoundName(sweptParts) +
+                                               " is not used: " + symmetryNotUsedReason.TrimEnd('.') + ".");
+                    symmetryNotUsedPartIds.Add(sweptParts[0].PartId);
+                }
                 // The planes of every group in one table, the bits of a group shifted past the planes before it
                 if (symmetry != null)
                 {
@@ -3187,6 +3206,11 @@ namespace CaeModel
             if (sweptGroupBlocks.Count == 0) return lastError;
             //
             SweepBlocks.Merge(sweptGroupBlocks).CopyToSweepMesh(sweepMesh);
+            if (symmetryNotUsedReasons.Count > 0)
+            {
+                sweepMesh.SymmetryNotUsedReasons = symmetryNotUsedReasons.ToArray();
+                sweepMesh.SymmetryNotUsedPartIds = symmetryNotUsedPartIds.ToArray();
+            }
             if (symmetryPlanes.Count > 0)
             {
                 sweepMesh.SymmetryPlanes = symmetryPlanes.ToArray();
@@ -3572,7 +3596,8 @@ namespace CaeModel
         /// has to select symmetrically, and so has the item itself when it names its source surfaces.
         /// </summary>
         private SweepSymmetry FindSweepSymmetry(SweepMesh sweepMesh, GeometryPart[] sweptParts,
-                                                Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds)
+                                                Dictionary<int, HashSet<int>> partIdSelectedSurfaceIds,
+                                                out string reason)
         {
             List<MeshSetupItem> items = new List<MeshSetupItem>();
             foreach (var entry in _geometry.MeshSetupItems)
@@ -3580,7 +3605,16 @@ namespace CaeModel
                 if (entry.Value.Active && entry.Value.Name != sweepMesh.Name) items.Add(entry.Value);
             }
             int[] ownSelection = partIdSelectedSurfaceIds != null ? sweepMesh.CreationIds : null;
-            return SweepSymmetry.Find(_geometry, sweptParts, items, ownSelection, out _);
+            return SweepSymmetry.Find(_geometry, sweptParts, items, ownSelection, out reason);
+        }
+        private string GetCompoundName(GeometryPart[] cells)
+        {
+            foreach (var entry in _geometry.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart compound && compound.SubPartNames.Contains(cells[0].Name))
+                    return compound.Name;
+            }
+            return string.Join(", ", cells.Select(cell => cell.Name));
         }
         /// <summary>
         /// What the automatic detection finds for one group of parts, detected the first time it is asked for
