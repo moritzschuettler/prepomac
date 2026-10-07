@@ -1062,7 +1062,24 @@ namespace CaeMesh
                         node = _nodes[entry.Value.NodeLabels[i]];
                         entry.Value.BoundingBox.IncludeNode(node);
                     }
-                    _boundingBox.IncludeBox(entry.Value.BoundingBox);
+                }
+                ComputeBoundingBoxFromParts();
+            }
+        }
+        /// <summary>
+        /// The box of the mesh and of every compound part gathered from the boxes the parts have. A part keeps its
+        /// own box, which for a CAD part is the one the CAD geometry gave it, not the one around its nodes.
+        /// </summary>
+        private void ComputeBoundingBoxFromParts()
+        {
+            if (_boundingBox == null) _boundingBox = new BoundingBox();
+            _boundingBox.Reset();
+            //
+            if (_nodes != null && _nodes.Count > 0)
+            {
+                foreach (var entry in _parts)
+                {
+                    if (!(entry.Value is CompoundGeometryPart)) _boundingBox.IncludeBox(entry.Value.BoundingBox);
                 }
                 // Compound parts
                 foreach (var entry in _parts)
@@ -9207,8 +9224,8 @@ namespace CaeMesh
             RemoveElementsFromElementSets(removedElementIds, false, removeForRemeshing, removedPartIds);
             // Find changed surfaces
             RemoveElementsFromSurfaceFaces(removedElementIds, false, removeForRemeshing, removedPartIds);
-            // Bounding box
-            ComputeBoundingBox();
+            // Bounding box - the parts that are left are where they were
+            ComputeBoundingBoxFromParts();
             //
             return removedPartIds.ToArray();
         }

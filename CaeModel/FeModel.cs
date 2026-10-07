@@ -1801,7 +1801,7 @@ namespace CaeModel
         {
             return ImportGeometryFromBrepFile(VisFileReader.Read(visFileName), brepFileName);
         }
-        public string[] ImportGeometryFromBrepFile(FeMesh mesh, string brepFileName)
+        public string[] ImportGeometryFromBrepFile(FeMesh mesh, string brepFileName, bool updateNodeIdElementIds = true)
         {
             if (mesh.Parts.GetValueByIndex(0) is GeometryPart gp)
             {
@@ -1809,7 +1809,7 @@ namespace CaeModel
                 gp.SmoothShaded = true;
             }
             //
-            string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
+            string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames(), updateNodeIdElementIds);
             //
             return addedPartNames;
         }
@@ -2422,7 +2422,8 @@ namespace CaeModel
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }
         //
-        private string[] ImportGeometry(FeMesh mesh, ICollection<string> reservedPartNames)
+        private string[] ImportGeometry(FeMesh mesh, ICollection<string> reservedPartNames,
+                                        bool updateNodeIdElementIds = true)
         {
             Check2D(mesh);
             //
@@ -2432,7 +2433,8 @@ namespace CaeModel
                 mesh.ResetPartsColor();
             }
             //
-            string[] addedPartNames = _geometry.AddMesh(mesh, reservedPartNames, GetReservedPartIds());
+            string[] addedPartNames = _geometry.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), true, true,
+                                                        updateNodeIdElementIds);
             return addedPartNames;
         }
         public void ImportMesh(FeMesh mesh, ICollection<string> reservedPartNames, bool forceRenameParts = true,

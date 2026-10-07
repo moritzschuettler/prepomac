@@ -2188,6 +2188,9 @@ namespace PrePoMax
                 FeMesh[] visualizationMeshes = CreateVisualizationMeshes(partFileNames.ToArray(),
                                                                          out visualizationExceptions);
                 int partFileIndex = 0;
+                // Which elements share a node is found again over the whole geometry, so it is found once, after the
+                // parts are added, instead of once for every part
+                bool nodeIdElementIdsOutdated = false;
                 //
                 for (int fileIndex = 0; fileIndex < filesToImport.Length; fileIndex++)
                 {
@@ -2196,6 +2199,8 @@ namespace PrePoMax
                     {
                         if (isCompoundFile[fileIndex])
                         {
+                            if (nodeIdElementIdsOutdated) _model.Geometry.UpdateNodeIdElementIds();
+                            nodeIdElementIdsOutdated = false;
                             ImportBrepCompoundPart(partFileName, null, null,
                                                    out string compoundPartName, out addedPartNames);
                         }
@@ -2204,6 +2209,7 @@ namespace PrePoMax
                             int index = partFileIndex++;
                             if (visualizationExceptions[index] != null)
                                 ExceptionDispatchInfo.Capture(visualizationExceptions[index]).Throw();
+                            nodeIdElementIdsOutdated = true;
                             addedPartNames = ImportBrepPartVisualization(partFileName, visualizationMeshes[index]);
                         }
                         if (addedPartNames != null) allAddedPartNames.AddRange(addedPartNames);
@@ -2229,6 +2235,7 @@ namespace PrePoMax
                     //
                     if (File.Exists(partFileName)) File.Delete(partFileName);
                 }
+                if (nodeIdElementIdsOutdated) _model.Geometry?.UpdateNodeIdElementIds();
             }
             //
             return allAddedPartNames.ToArray();
@@ -2570,7 +2577,7 @@ namespace PrePoMax
                 return null;
             }
             //
-            string[] addedPartNames = _model.ImportGeometryFromBrepFile(visualizationMesh, brepFileName);
+            string[] addedPartNames = _model.ImportGeometryFromBrepFile(visualizationMesh, brepFileName, false);
             if (addedPartNames.Length == 0)
             {
                 MessageBoxes.ShowError("No geometry to import.");
@@ -5623,7 +5630,8 @@ namespace PrePoMax
             //
             UpdateCompoundTransparency();
         }
-        public void RemoveGeometryParts(string[] partNames, bool keepGeometrySelections, bool checkValidity = true)
+        public void RemoveGeometryParts(string[] partNames, bool keepGeometrySelections, bool checkValidity = true,
+                                        bool drawGeometry = true)
         {
             BasePart part;
             HashSet<string> partNamesToRemove = new HashSet<string>();
@@ -5668,7 +5676,7 @@ namespace PrePoMax
             //
             if (checkValidity) CheckAndUpdateModelValidity(true);
             //
-            DrawGeometry(false);
+            if (drawGeometry) DrawGeometry(false);
             // The cells that are left are numbered again once the deleted ones have given up their names,
             // in the model and in the scene
             bool cellsRenamed = false;
@@ -6820,8 +6828,8 @@ namespace PrePoMax
                 _model.Geometry.Parts.Replace(part.Name, newPart.Name, newPart);
                 part.Name = importedFileNames[0];
                 _model.Geometry.Parts.Replace(importedFileNames[0], part.Name, part);
-                // Remove old part
-                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections, false);
+                // Remove old part - the geometry is drawn below, once the new part has taken the id of the old one
+                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections, false, false);
                 _model.Geometry.ChangePartId(newPart.Name, part.PartId);
                 //
                 UpdateMeshSetupItems(false);
@@ -7490,9 +7498,15 @@ namespace PrePoMax
                                                .Concat(heldPartIds ?? Enumerable.Empty<int>()));
             try
             {
-                RemoveGeometryParts(new string[] { partName }, false, false);
+                // The geometry is drawn once the pieces are imported, so it is not drawn without the part first
+                RemoveGeometryParts(new string[] { partName }, false, false, false);
                 ImportBrepCompoundPart(brepFileName, null, null, out compoundPartName, out importedPartNames,
                                        keptCompoundPartName, keptCompoundPartId);
+            }
+            catch
+            {
+                DrawGeometry(false);
+                throw;
             }
             finally
             {
