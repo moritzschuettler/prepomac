@@ -217,6 +217,11 @@ namespace CaeMesh
                         foreach (var reason in unusedSymmetrySweep.SymmetryNotUsedReasons)
                             _writeOutput?.Invoke("Sweep: " + reason);
                     }
+                    if (gsi is SweepMesh unsweptCellsSweep && unsweptCellsSweep.UnsweptCellReasons != null)
+                    {
+                        foreach (var reason in unsweptCellsSweep.UnsweptCellReasons)
+                            _writeOutput?.Invoke("Sweep: " + reason);
+                    }
                     // PrepareData
                     PrepareData(gsi);
                     if (gsi is SweepMesh sweepSetupItem) PrepareSweepBlocks(sweepSetupItem);

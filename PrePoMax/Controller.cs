@@ -112,6 +112,7 @@ namespace PrePoMax
         [NonSerialized] protected string _lastFusedSplitCellName;
         [NonSerialized] private int _numOfAutomaticSplitFaces;
         [NonSerialized] private Dictionary<string, MeshTypeEnum[]> _effectiveMeshTypes;
+        [NonSerialized] private Dictionary<string, KeyValuePair<string, SweepMesh>> _defaultSweepMeshes;
         [NonSerialized] private int _openedPmxVersion;
         [NonSerialized] private bool _defaultMeshTypesDisabled;
         protected FeResults _results;   // Compatibility v1.3.3
@@ -12166,6 +12167,65 @@ namespace PrePoMax
             return meshSetupItemsToCheck.ToArray();
         }
         /// <summary>
+        /// The default sweep item of a compound the user gave no mesher item, with its blocks found the way the
+        /// meshing builds it: what it sweeps is what the mesh type colors show. It is kept until the geometry of the
+        /// compound or the mesh setup items change, which is all its blocks depend on. Null when the compound is not
+        /// swept, and when its cells sweep on their own but not together, which the meshing reports.
+        /// </summary>
+        private SweepMesh GetDefaultSweepMesh(string compoundPartName)
+        {
+            if (_model == null || _model.Geometry == null || _defaultMeshTypesDisabled) return null;
+            //
+            string[] cellNames = GetMeshablePartNames(new string[] { compoundPartName });
+            if (cellNames == null || cellNames.Length < 2) return null;
+            BasePart[] cells = cellNames.Select(cellName => _model.Geometry.Parts[cellName]).ToArray();
+            string stamp = SweepDetectionData.GetStamp(cells) + GetMeshSetupItemsStamp();
+            //
+            if (_defaultSweepMeshes == null)
+                _defaultSweepMeshes = new Dictionary<string, KeyValuePair<string, SweepMesh>>();
+            KeyValuePair<string, SweepMesh> kept;
+            if (_defaultSweepMeshes.TryGetValue(compoundPartName, out kept) && kept.Key == stamp) return kept.Value;
+            //
+            SweepMesh sweepMesh = null;
+            MeshTypeEnum meshType = GetMeshTypeOfMeshedPart(compoundPartName);
+            if (meshType == MeshTypeEnum.Sweep || meshType == MeshTypeEnum.Revolve)
+            {
+                try
+                {
+                    sweepMesh = GetDefaultMesherSetupItem(compoundPartName) as SweepMesh;
+                }
+                catch (CaeException)
+                {
+                    sweepMesh = null;
+                }
+            }
+            _defaultSweepMeshes[compoundPartName] = new KeyValuePair<string, SweepMesh>(stamp, sweepMesh);
+            return sweepMesh;
+        }
+        /// <summary>
+        /// The mesh setup items as the sweep of a compound sees them: which items there are and what they select,
+        /// since the mirror symmetry of the compound is used only when every item selects the images of what it
+        /// selects.
+        /// </summary>
+        private string GetMeshSetupItemsStamp()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            foreach (var entry in _model.Geometry.MeshSetupItems)
+            {
+                sb.Append(entry.Key);
+                sb.Append('|');
+                sb.Append(entry.Value.GetType().Name);
+                sb.Append('|');
+                sb.Append(entry.Value.Active);
+                sb.Append('|');
+                sb.Append(entry.Value.Valid);
+                sb.Append('|');
+                if (entry.Value.CreationIds != null) sb.Append(string.Join(",", entry.Value.CreationIds));
+                sb.Append(';');
+            }
+            return sb.ToString();
+        }
+        /// <summary>
         /// The setup item that meshes a part the user defined none for. The geometry is given the most
         /// structured mesh it supports, which is the mesh type the recognition keeps on the parts; a part the
         /// recognition leaves at tetrahedra is meshed by Netgen as it always was and needs no item at all. A CAD
@@ -12525,6 +12585,7 @@ namespace PrePoMax
         {
             _effectiveMeshTypes = null;
             if (_model == null || _model.AreMeshTypesDetected()) return;
+            _defaultSweepMeshes = null;
             //
             try
             {
@@ -12593,8 +12654,10 @@ namespace PrePoMax
         }
         /// <summary>
         /// The mesh type every face of a geometry part is meshed by: the type its mesh setup item asks for, or the
-        /// type the recognition chose for it when the user defined no item. This is what the mesh type colors
-        /// show, so a face colored as structured is a face that is going to be structured.
+        /// type the recognition chose for it when the user defined no item - for a cell of a compound, what the
+        /// default sweep item of the compound makes of it, since the sweep leaves the cells it does not reach to
+        /// tetrahedra. This is what the mesh type colors show, so a face colored as structured is a face that is
+        /// going to be structured.
         /// </summary>
         private MeshTypeEnum[] GetEffectiveFaceMeshTypes(string partName)
         {
@@ -12658,7 +12721,22 @@ namespace PrePoMax
                     break;
                 }
                 if (meshType == MeshTypeEnum.Unknown)
-                    meshType = sweepMeshesCompound ? MeshTypeEnum.Tetrahedral : part.MeshType;
+                {
+                    // Without an item a compound is swept by the default item, which leaves the cells the sweep
+                    // does not reach to tetrahedra, so its cells are colored by that item and not each on its own
+                    SweepMesh defaultSweepMesh = sweepMeshesCompound || meshedPartIds.Length < 2
+                                                 ? null : GetDefaultSweepMesh(meshedPartName);
+                    if (defaultSweepMesh != null)
+                    {
+                        selectedPartIds =
+                            new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(defaultSweepMesh.CreationIds));
+                        if (_model.DoesMeshSetupItemCoverPart(defaultSweepMesh, selectedPartIds, partIds))
+                            meshType = GetMeshTypeOfMeshSetupItem(defaultSweepMesh, part);
+                        else meshType = MeshTypeEnum.Tetrahedral;
+                        partMesherSetupItem = defaultSweepMesh;
+                    }
+                    else meshType = sweepMeshesCompound ? MeshTypeEnum.Tetrahedral : part.MeshType;
+                }
                 //
                 effectiveMeshTypes.Add(part.Name, GetFaceMeshTypes(part, meshedPartName, meshType, partMesherSetupItem));
             }
@@ -12783,6 +12861,22 @@ namespace PrePoMax
                 if (reason == null) continue;
                 //
                 reasons.Add("The part " + part.Name + " is meshed by tetrahedra: " + reason);
+            }
+            // A cell of a compound that can be swept on its own but is kept from the sweep by the other cells
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (!(entry.Value is CompoundGeometryPart) || GetUserMesherSetupItems(entry.Key).Length > 0) continue;
+                //
+                SweepMesh defaultSweepMesh = GetDefaultSweepMesh(entry.Key);
+                if (defaultSweepMesh == null || defaultSweepMesh.UnsweptCellReasons == null) continue;
+                for (int i = 0; i < defaultSweepMesh.UnsweptCellReasons.Length; i++)
+                {
+                    part = _model.Geometry.GetPartFromId(defaultSweepMesh.UnsweptCellPartIds[i]) as GeometryPart;
+                    if (part == null || part.MeshType == MeshTypeEnum.Tetrahedral) continue;
+                    //
+                    string line = defaultSweepMesh.UnsweptCellReasons[i];
+                    reasons.Add(char.ToUpperInvariant(line[0]) + line.Substring(1));
+                }
             }
             if (reasons.Count == 0) return;
             //

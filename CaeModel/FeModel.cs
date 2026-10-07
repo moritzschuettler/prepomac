@@ -2991,6 +2991,8 @@ namespace CaeModel
             sweepMesh.SymmetryLocalMeshSizeIds = null;
             sweepMesh.SymmetryNotUsedReasons = null;
             sweepMesh.SymmetryNotUsedPartIds = null;
+            sweepMesh.UnsweptCellReasons = null;
+            sweepMesh.UnsweptCellPartIds = null;
             //
             if (sweepMesh.ElementSizeType == CaeMesh.ElementSizeTypeEnum.MultiLayerd &&
                 (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
@@ -3134,6 +3136,8 @@ namespace CaeModel
             string symmetryNotUsedReason;
             List<string> symmetryNotUsedReasons = new List<string>();
             List<int> symmetryNotUsedPartIds = new List<int>();
+            List<string> unsweptCellReasons = new List<string>();
+            List<int> unsweptCellPartIds = new List<int>();
             List<SweepBlocks> sweptGroupBlocks = new List<SweepBlocks>();
             foreach (var sweptParts in sweptPartGroups)
             {
@@ -3204,6 +3208,8 @@ namespace CaeModel
                         symmetryLocalMeshSizeIds[entry.Key].UnionWith(entry.Value);
                     }
                 }
+                // A cell of the group the sweep leaves to tetrahedra, with why, for the output window
+                AddUnsweptCellReasons(sweptParts, blocks, symmetry, unsweptCellReasons, unsweptCellPartIds);
             }
             if (sweptGroupBlocks.Count == 0) return lastError;
             //
@@ -3221,8 +3227,51 @@ namespace CaeModel
                 sweepMesh.SymmetryLocalMeshSizeIds = symmetryLocalMeshSizeIds.Values.Select(ids => ids.OrderBy(id => id)
                                                                                                  .ToArray()).ToArray();
             }
+            if (unsweptCellReasons.Count > 0)
+            {
+                sweepMesh.UnsweptCellReasons = unsweptCellReasons.ToArray();
+                sweepMesh.UnsweptCellPartIds = unsweptCellPartIds.ToArray();
+            }
             //
             return null;
+        }
+        /// <summary>
+        /// The cells of a group the sweep leaves to tetrahedra, each with why: a cell that can be swept on its own
+        /// is kept from it by the others, which the detection of the group tells, and a cell that cannot be swept
+        /// at all says so itself. A cell meshed as the mirror image of a swept cell is swept.
+        /// </summary>
+        private void AddUnsweptCellReasons(GeometryPart[] cells, SweepBlocks blocks, SweepSymmetry symmetry,
+                                           List<string> reasons, List<int> partIds)
+        {
+            if (cells.Length < 2) return;
+            //
+            HashSet<int> sweptPartIds = new HashSet<int>();
+            foreach (var blockSourceSurfaceIds in blocks.SourceSurfaceIds)
+            {
+                foreach (var gmshTopologyId in blockSourceSurfaceIds)
+                    sweptPartIds.Add(FeMesh.GetPartIdFromGmshTopologyId(gmshTopologyId));
+            }
+            if (symmetry != null)
+            {
+                foreach (var row in symmetry.PartIds)
+                {
+                    if (sweptPartIds.Contains(row[1])) sweptPartIds.Add(row[0]);
+                }
+            }
+            if (cells.All(cell => sweptPartIds.Contains(cell.PartId))) return;
+            //
+            Dictionary<int, string> groupReasons = GetSweepDetection(cells).UnreachedPartReasons;
+            foreach (var cell in cells)
+            {
+                if (sweptPartIds.Contains(cell.PartId)) continue;
+                //
+                string reason;
+                if (!groupReasons.TryGetValue(cell.PartId, out reason)) reason = GetCellSweepDetection(cell).Error;
+                if (reason == null) continue;
+                //
+                reasons.Add("the part " + cell.Name + " is meshed by tetrahedra: " + reason);
+                partIds.Add(cell.PartId);
+            }
         }
         /// <summary>
         /// The blocks of cells of one compound - all its cells, or the symmetric piece of them - leaving the cells the
@@ -3753,6 +3802,10 @@ namespace CaeModel
             Dictionary<int, HashSet<int>> bestPartialSelection;
             Dictionary<int, HashSet<int>> selection = new Dictionary<int, HashSet<int>>();
             Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
+            // What the first trial seeded on a part with each seed ran into: why a part swept on its own cannot be
+            // swept with the others, told before the sources kept from the earlier rounds come into it
+            Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors =
+                new Dictionary<int, List<KeyValuePair<HashSet<int>, string>>>();
             // The maps of every part, which every trial on it asks for again
             SweepPartMaps maps = new SweepPartMaps();
             // The surfaces and the edges the sub-parts share are the same for every trial
@@ -3799,6 +3852,8 @@ namespace CaeModel
                         if (singleSurfaceSeed) MarkTriedSeeds(blocks, part.PartId, triedSeedIds);
                         if (geometryDefect == null && error != null && error.StartsWith(_splitBoreRimErrorStart))
                             geometryDefect = error;
+                        if (error != null && !onlyUnreached)
+                            AddSeedError(partIdSeedErrors, part.PartId, seedSurfaceIds, error);
                         //
                         if (error == null)
                         {
@@ -3848,7 +3903,9 @@ namespace CaeModel
                                                           "automatically for the part " + part.Name +
                                                           ". Select the source surfaces by hand." +
                                                           (geometryDefect != null ? " " + geometryDefect : ""), null,
-                                                          reachedPartIds, stamp, partialBlocks);
+                                                          reachedPartIds, stamp, partialBlocks, null, null,
+                                                          GetUnreachedPartReasons(sweptParts, reachedPartIds,
+                                                                                  partIdSeedErrors));
                         }
                     }
                 }
@@ -3866,6 +3923,52 @@ namespace CaeModel
             }
             return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp, null,
                                           directions, directionScores);
+        }
+        private static void AddSeedError(Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors,
+                                         int partId, HashSet<int> seedSurfaceIds, string error)
+        {
+            List<KeyValuePair<HashSet<int>, string>> seedErrors;
+            if (!partIdSeedErrors.TryGetValue(partId, out seedErrors))
+            {
+                seedErrors = new List<KeyValuePair<HashSet<int>, string>>();
+                partIdSeedErrors.Add(partId, seedErrors);
+            }
+            if (seedErrors.Any(seedError => seedError.Key.SetEquals(seedSurfaceIds))) return;
+            seedErrors.Add(new KeyValuePair<HashSet<int>, string>(seedSurfaceIds, error));
+        }
+        /// <summary>
+        /// Why the parts the trials did not reach cannot be swept with the others although they can be on their
+        /// own: what the trial seeded with the source a part is swept from alone ran into, the seed being that
+        /// source or a surface it grew from. A part that cannot be swept on its own has its own reason and is left
+        /// out.
+        /// </summary>
+        private Dictionary<int, string> GetUnreachedPartReasons(GeometryPart[] sweptParts, HashSet<int> reachedPartIds,
+            Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors)
+        {
+            Dictionary<int, string> reasons = new Dictionary<int, string>();
+            if (sweptParts.Length < 2) return reasons;
+            //
+            foreach (var part in sweptParts)
+            {
+                List<KeyValuePair<HashSet<int>, string>> seedErrors;
+                if (reachedPartIds.Contains(part.PartId) || !partIdSeedErrors.TryGetValue(part.PartId, out seedErrors))
+                    continue;
+                //
+                SweepDetectionData cellDetection = GetCellSweepDetection(part);
+                if (cellDetection.Error != null) continue;
+                foreach (var direction in cellDetection.Directions)
+                {
+                    HashSet<int> sourceSurfaceIds = new HashSet<int>(direction.SourceSurfaceIds.SelectMany(ids => ids)
+                                                                     .Select(FeMesh.GetItemIdFromGmshTopologyId));
+                    string reason = seedErrors.Where(seedError => seedError.Key.IsSubsetOf(sourceSurfaceIds))
+                                              .Select(seedError => seedError.Value).FirstOrDefault();
+                    if (reason == null) continue;
+                    //
+                    reasons.Add(part.PartId, reason);
+                    break;
+                }
+            }
+            return reasons;
         }
         /// <summary>
         /// The source selections tried on a part: every surface on its own, every group of surfaces that

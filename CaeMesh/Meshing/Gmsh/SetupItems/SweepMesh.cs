@@ -45,6 +45,8 @@ namespace CaeMesh
         private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
         private string[] _symmetryNotUsedReasons;                       // ISerializable
         private int[] _symmetryNotUsedPartIds;                          // ISerializable
+        private string[] _unsweptCellReasons;                           // ISerializable
+        private int[] _unsweptCellPartIds;                              // ISerializable
 
 
         // Properties                                                                                                               
@@ -156,6 +158,12 @@ namespace CaeMesh
             get { return _symmetryNotUsedPartIds; }
             set { _symmetryNotUsedPartIds = value; }
         }
+        /// <summary>
+        /// Why a cell of a compound the item sweeps is left to tetrahedra, one line per cell, for the output window,
+        /// with the part id of the cell in UnsweptCellPartIds.
+        /// </summary>
+        public string[] UnsweptCellReasons { get { return _unsweptCellReasons; } set { _unsweptCellReasons = value; } }
+        public int[] UnsweptCellPartIds { get { return _unsweptCellPartIds; } set { _unsweptCellPartIds = value; } }
         public bool HasSymmetry
         {
             get { return _symmetryPlanes != null && _symmetryPlanes.Length > 0 && _symmetryPartIds != null &&
@@ -248,6 +256,10 @@ namespace CaeMesh
                         _symmetryNotUsedReasons = (string[])entry.Value; break;
                     case "_symmetryNotUsedPartIds":
                         _symmetryNotUsedPartIds = (int[])entry.Value; break;
+                    case "_unsweptCellReasons":
+                        _unsweptCellReasons = (string[])entry.Value; break;
+                    case "_unsweptCellPartIds":
+                        _unsweptCellPartIds = (int[])entry.Value; break;
                     default:
                         break;
                 }
@@ -295,6 +307,8 @@ namespace CaeMesh
             _symmetryLocalMeshSizeIds = null;
             _symmetryNotUsedReasons = null;
             _symmetryNotUsedPartIds = null;
+            _unsweptCellReasons = null;
+            _unsweptCellPartIds = null;
         }
         private void SetQuadWildDefaults()
         {
@@ -329,6 +343,8 @@ namespace CaeMesh
             _symmetryLocalMeshSizeIds = CopyBlockIds(sweepMesh._symmetryLocalMeshSizeIds);
             _symmetryNotUsedReasons = sweepMesh._symmetryNotUsedReasons?.ToArray();
             _symmetryNotUsedPartIds = sweepMesh._symmetryNotUsedPartIds?.ToArray();
+            _unsweptCellReasons = sweepMesh._unsweptCellReasons?.ToArray();
+            _unsweptCellPartIds = sweepMesh._unsweptCellPartIds?.ToArray();
             _layerGroupEdgeIds = null;
             if (sweepMesh._layerGroupEdgeIds != null)
             {
@@ -409,6 +425,20 @@ namespace CaeMesh
                 sweepMesh._symmetryNotUsedReasons = reasons.ToArray();
                 sweepMesh._symmetryNotUsedPartIds = reasonPartIds.ToArray();
             }
+            if (sweepMesh._unsweptCellReasons != null && sweepMesh._unsweptCellPartIds != null)
+            {
+                List<string> unsweptReasons = new List<string>();
+                List<int> unsweptPartIds = new List<int>();
+                for (int i = 0; i < sweepMesh._unsweptCellReasons.Length; i++)
+                {
+                    if (!keptPartIds.Contains(sweepMesh._unsweptCellPartIds[i])) continue;
+                    //
+                    unsweptReasons.Add(sweepMesh._unsweptCellReasons[i]);
+                    unsweptPartIds.Add(sweepMesh._unsweptCellPartIds[i]);
+                }
+                sweepMesh._unsweptCellReasons = unsweptReasons.ToArray();
+                sweepMesh._unsweptCellPartIds = unsweptPartIds.ToArray();
+            }
             //
             return sweepMesh;
         }
@@ -463,6 +493,8 @@ namespace CaeMesh
             info.AddValue("_symmetryLocalMeshSizeIds", _symmetryLocalMeshSizeIds, typeof(int[][]));
             info.AddValue("_symmetryNotUsedReasons", _symmetryNotUsedReasons, typeof(string[]));
             info.AddValue("_symmetryNotUsedPartIds", _symmetryNotUsedPartIds, typeof(int[]));
+            info.AddValue("_unsweptCellReasons", _unsweptCellReasons, typeof(string[]));
+            info.AddValue("_unsweptCellPartIds", _unsweptCellPartIds, typeof(int[]));
         }
     }
 }

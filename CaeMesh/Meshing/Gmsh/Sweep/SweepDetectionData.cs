@@ -32,6 +32,7 @@ namespace CaeMesh
         private string _stamp;
         private SweepBlocks[] _directions;
         private double[] _directionScores;
+        private Dictionary<int, string> _unreachedPartReasons;
 
 
         // Properties
@@ -69,6 +70,12 @@ namespace CaeMesh
         public SweepBlocks[] Directions { get { return _directions; } }
         public double[] DirectionScores { get { return _directionScores; } }
         /// <summary>
+        /// Why a part the detection did not sweep cannot be swept with the others although it can be on its own, by
+        /// part id: what the trial seeded with the source the part is swept from alone ran into. A part that cannot
+        /// be swept on its own is not here; its own detection says why.
+        /// </summary>
+        public Dictionary<int, string> UnreachedPartReasons { get { return _unreachedPartReasons; } }
+        /// <summary>
         /// Whether the group is not swept but revolved: a single part turned about an axis it touches.
         /// </summary>
         public bool IsRevolved { get { return _blocks != null && _blocks.HasRevolvedBlocks; } }
@@ -77,7 +84,8 @@ namespace CaeMesh
         // Constructors
         public SweepDetectionData(SweepBlocks blocks, string error, string errorPartName,
                                   HashSet<int> sweepablePartIds, string stamp, SweepBlocks partialBlocks = null,
-                                  IList<SweepBlocks> directions = null, IList<double> directionScores = null)
+                                  IList<SweepBlocks> directions = null, IList<double> directionScores = null,
+                                  Dictionary<int, string> unreachedPartReasons = null)
         {
             _blocks = blocks;
             _partialBlocks = partialBlocks;
@@ -85,6 +93,7 @@ namespace CaeMesh
             _errorPartName = errorPartName;
             _sweepablePartIds = sweepablePartIds != null ? sweepablePartIds : new HashSet<int>();
             _stamp = stamp;
+            _unreachedPartReasons = unreachedPartReasons != null ? unreachedPartReasons : new Dictionary<int, string>();
             //
             if (directions == null || directionScores == null)
             {
@@ -129,8 +138,10 @@ namespace CaeMesh
                    string.Join(",", blocks.TargetSurfaceIds.SelectMany(ids => ids).Distinct().OrderBy(id => id));
         }
         /// <summary>
-        /// The geometry the detection is a function of: the topology counts of every part of the group and the
-        /// box it occupies, the box taken without the offset an exploded view puts on the part.
+        /// The geometry the detection is a function of: the topology counts of every part of the group, the box it
+        /// occupies, the box taken without the offset an exploded view puts on the part, and the lengths of its
+        /// edges and the areas of its faces, so that a shape changed within its box and its counts - a split moved,
+        /// a face repaired - is a changed geometry as well.
         /// </summary>
         public static string GetStamp(IEnumerable<BasePart> parts)
         {
@@ -157,6 +168,7 @@ namespace CaeMesh
                     AppendCoordinate(sb, bb.MaxX - offset[0], step);
                     AppendCoordinate(sb, bb.MaxY - offset[1], step);
                     AppendCoordinate(sb, bb.MaxZ - offset[2], step);
+                    AppendMeasures(sb, vis, step, step * GetBoxSize(bb));
                 }
                 sb.Append(';');
             }
@@ -172,9 +184,37 @@ namespace CaeMesh
         /// </summary>
         private static double GetCoordinateStep(BoundingBox bb)
         {
+            return 1E-7 * GetBoxSize(bb);
+        }
+        private static double GetBoxSize(BoundingBox bb)
+        {
             double size = Math.Max(bb.MaxX - bb.MinX, Math.Max(bb.MaxY - bb.MinY, bb.MaxZ - bb.MinZ));
             if (!(size > 0) || double.IsInfinity(size)) size = 1;
-            return size * 1E-7;
+            return size;
+        }
+        /// <summary>
+        /// The lengths of the edges and the areas of the faces folded into one number each, every one written with
+        /// the digits the coordinates are, lengths by the length step and areas by the area step. The measures do
+        /// not move with the part, so the offset of an exploded view leaves them alone.
+        /// </summary>
+        private static void AppendMeasures(StringBuilder sb, VisualizationData vis, double lengthStep, double areaStep)
+        {
+            if (vis == null) return;
+            sb.Append('|');
+            sb.Append(FoldMeasures(vis.EdgeLengths, lengthStep));
+            sb.Append('|');
+            sb.Append(FoldMeasures(vis.FaceAreas, areaStep));
+        }
+        private static long FoldMeasures(double[] measures, double step)
+        {
+            long fold = 0;
+            if (measures == null) return fold;
+            foreach (var measure in measures)
+            {
+                if (double.IsNaN(measure) || double.IsInfinity(measure)) continue;
+                fold = unchecked(fold * 31 + (long)Math.Round(measure / step));
+            }
+            return fold;
         }
         private static void AppendCoordinate(StringBuilder sb, double value, double step)
         {
