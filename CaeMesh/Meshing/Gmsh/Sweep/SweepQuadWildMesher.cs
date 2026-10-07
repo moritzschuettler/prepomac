@@ -33,6 +33,7 @@ namespace CaeMesh.Sweep
         // Variables                                                                                                                
         private const double _vertexTolerance = 1E-6;
         private const double _edgeTolerance = 1E-5;
+        private const double _singlePrecision = 1E-6;
         private const double _curveTolerance = 0.02;
         private const double _moveTolerance = 1E-10;
         private const int _numOfSurfaceSamples = 15;
@@ -345,8 +346,12 @@ namespace CaeMesh.Sweep
                                                    List<double[]> nodeCoors, List<int[]> faces)
         {
             int numOfNodes = nodeCoors.Count;
-            double vertexTolerance = _vertexTolerance * input.Diagonal;
-            double edgeTolerance = _edgeTolerance * input.Diagonal;
+            // QuadWild computes and writes the nodes in single precision, about seven digits, so a group far from the
+            // origin gets its nodes back off by more than a fraction of its own size
+            double coordinateMagnitude = input.Coors.Count == 0 ? 0 : input.Coors.Max(coor => coor.Max(Math.Abs));
+            double roundingTolerance = _singlePrecision * coordinateMagnitude;
+            double vertexTolerance = Math.Max(_vertexTolerance * input.Diagonal, roundingTolerance);
+            double edgeTolerance = Math.Max(_edgeTolerance * input.Diagonal, roundingTolerance);
             // The edges of the output and how many elements use each
             Dictionary<(int, int), List<int>> edgeFaces = new Dictionary<(int, int), List<int>>();
             for (int f = 0; f < faces.Count; f++)
