@@ -262,3 +262,11 @@ __pycache__/
 
 # Local test models and decks, kept out of the repository for now
 Tests/
+
+# Agent instructions, plans and personal notes, kept on the developer's disk only
+AGENTS.md
+CLAUDE.md
+.claude/
+/_Codex/
+/Notes/
+/CaeMesh/Meshing/Gmsh/Sweep/Roadmap.md
