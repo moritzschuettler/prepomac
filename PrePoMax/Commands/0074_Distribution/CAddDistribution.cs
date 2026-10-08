@@ -20,10 +20,18 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddDistribution : PreprocessCommand
+    class CAddDistribution : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
         private Distribution _distribution;
+
+
+        // Properties                                                                                                               
+        public string FileName
+        {
+            get { return _distribution is DistributionFromFile dff ? dff.FileName : null; }
+            set { if (_distribution is DistributionFromFile dff) dff.FileName = value; }
+        }
 
 
         // Constructor                                                                                                              
@@ -43,6 +51,16 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             PythonFieldEmitter.Distribution(writer, null, _distribution);
+        }
+        // ICommandWithDialog
+        public bool ExecuteWithDialog(Controller receiver)
+        {
+            if (FileName != null)
+            {
+                string fileName = receiver.GetFileNameToImport("Replace file: " + FileName, "Text files|*.txt|All files|*.*");
+                if (fileName != null) FileName = fileName;
+            }
+            return Execute(receiver);
         }
         public override string GetCommandString()
         {

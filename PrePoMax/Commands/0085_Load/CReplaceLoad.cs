@@ -20,12 +20,29 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceLoad : PreprocessCommand
+    class CReplaceLoad : PreprocessCommand, IFileDependentCommand
     {
         // Variables                                                                                                                
         private string _stepName;
         private string _oldLoadName;
         private Load _newLoad;
+
+
+        // Properties                                                                                                               
+        public string FileName
+        {
+            get
+            {
+                if (_newLoad is ImportedPressure ip) return ip.FileName;
+                else if (_newLoad is ImportedSTLoad ist) return ist.FileName;
+                else return null;
+            }
+            set
+            {
+                if (_newLoad is ImportedPressure ip) ip.FileName = value;
+                else if (_newLoad is ImportedSTLoad ist) ist.FileName = value;
+            }
+        }
 
 
         // Constructor                                                                                                              

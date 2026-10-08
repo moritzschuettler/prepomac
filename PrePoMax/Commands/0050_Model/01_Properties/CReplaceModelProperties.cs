@@ -22,11 +22,19 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceModelProperties : PreprocessCommand
+    class CReplaceModelProperties : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
         private string _newModelName;
         private ModelProperties _newModelProperties;
+
+
+        // Properties                                                                                                               
+        public string FileName
+        {
+            get { return _newModelProperties.GlobalResultsFileName; }   // null if not a submodel
+            set { if (_newModelProperties.ModelType == ModelType.Submodel) _newModelProperties.GlobalResultsFileName = value; }
+        }
 
 
         // Constructor                                                                                                              
@@ -43,6 +51,16 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceModelProperties(_newModelName, _newModelProperties);
             return true;
+        }
+        // ICommandWithDialog
+        public bool ExecuteWithDialog(Controller receiver)
+        {
+            if (FileName != null)
+            {
+                string fileName = receiver.GetFileNameToImport("Replace file: " + FileName, "Result files|*.frd");
+                if (fileName != null) FileName = fileName;
+            }
+            return Execute(receiver);
         }
 
         // Every value the dialog sets is written, because a replace keeps what it is not given and a journal that

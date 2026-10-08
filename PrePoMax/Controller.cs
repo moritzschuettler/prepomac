@@ -2078,6 +2078,10 @@ namespace PrePoMax
         {
             return _form.GetFileNameToImport(title, onlyMaterials);
         }
+        public string GetFileNameToImport(string title, string filter)
+        {
+            return _form.GetFileNameToImport(title, filter);
+        }
         public async Task ImportFileAsync(string fileName, bool onlyMaterials)
         {
             await Task.Run(() => ImportFileCommand(fileName, onlyMaterials));

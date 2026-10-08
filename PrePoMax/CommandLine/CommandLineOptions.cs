@@ -115,8 +115,10 @@ namespace PrePoMax
                                                                 "the analysis commands or the post-processing commands." +
                                                                 "A work directory -w can be defined for regeneration. " +
                                                                 "If no work directory is defined the current directory is used. " +
-                                                                "All files needed during regeneration (geometry, mesh) " +
-                                                                "must be located in the work directory.")]
+                                                                "All files needed during regeneration (geometry, mesh, " +
+                                                                "parameters, distributions, defined temperatures, " +
+                                                                "submodel global results) must be located in the work " +
+                                                                "directory.")]
         public string RegenerationFileName
         {
             get

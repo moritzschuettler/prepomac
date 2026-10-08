@@ -498,6 +498,8 @@ namespace PrePoMax.Commands
         {
             int count = 0;
             bool executeWithDialog;
+            string oldFileName;
+            Dictionary<string, string> replacedFileNames = new Dictionary<string, string>();
             _errors = new List<string>();
             //
             foreach (Command command in _commands)    // clear command modifies the collection
@@ -505,33 +507,7 @@ namespace PrePoMax.Commands
                 if (count++ <= _currPositionIndex)
                 {
                     // Set working directory while in regeneration mode
-                    if (_controller.BatchRegenerationMode)
-                    {
-                        if (command is COpenFile cOpenFile)
-                        {
-                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(cOpenFile.FileName));
-                            if (File.Exists(newFileName)) cOpenFile.FileName = newFileName;
-                        }
-                        else if (command is CSaveToPmx cSaveToPmx)
-                        {
-                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(cSaveToPmx.FileName));
-                            cSaveToPmx.FileName = newFileName;
-                        }
-                        else if (command is IImportFileCommand importFileCommand)
-                        {
-                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(importFileCommand.FileName));
-                            if (File.Exists(newFileName)) importFileCommand.FileName = newFileName;
-                        }
-                        else if (command is IExportFileCommand exportFileCommand)
-                        {
-                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(exportFileCommand.FileName));
-                            exportFileCommand.FileName = newFileName;
-                        }
-                    }
+                    if (_controller.BatchRegenerationMode) SetFileNamesToWorkDirectory(command);
                     // Skip save before writing to form - set lastSave to null
                     if (command is SaveCommand)
                     {
@@ -559,9 +535,20 @@ namespace PrePoMax.Commands
                                                  showFileDialog && cwd is CImportFile ||
                                                  showMeshDialog && cwd is CAddMeshSetupItem ||
                                                  showMeshDialog && cwd is CReplaceMeshSetupItem ||
-                                                 showFileDialog && cwd is CImportParameters);
+                                                 showFileDialog && cwd is CImportParameters ||
+                                                 showFileDialog && cwd is IFileDependentCommand);
+                            // Ask only once for each file - reuse the replacement for all commands using the same file
+                            oldFileName = executeWithDialog ? GetInputFileName(command) : null;
+                            if (oldFileName != null && replacedFileNames.TryGetValue(oldFileName, out string newFileName))
+                            {
+                                if (newFileName != oldFileName) SetInputFileName(command, newFileName);
+                                executeWithDialog = false;
+                            }
                             //
                             ExecuteCommandWithTimer(command, executeWithDialog, true);
+                            //
+                            if (executeWithDialog && oldFileName != null)
+                                replacedFileNames[oldFileName] = GetInputFileName(command);
                         }
                     }
                     catch (Exception ex)
@@ -588,6 +575,46 @@ namespace PrePoMax.Commands
             WriteToFile();
             //
             OnEnableDisableUndoRedo();
+        }
+        private void SetFileNamesToWorkDirectory(Command command)
+        {
+            string newFileName;
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            string inputFileName = GetInputFileName(command);
+            // Input files are used from the work directory only if they exist there
+            if (inputFileName != null)
+            {
+                newFileName = Path.Combine(workDirectory, Path.GetFileName(inputFileName));
+                if (File.Exists(newFileName))
+                {
+                    // Some model items read the file when the file name is set - the error is reported at execution
+                    try { SetInputFileName(command, newFileName); }
+                    catch { }
+                }
+            }
+            else if (command is CSaveToPmx cSaveToPmx)
+            {
+                newFileName = Path.Combine(workDirectory, Path.GetFileName(cSaveToPmx.FileName));
+                cSaveToPmx.FileName = newFileName;
+            }
+            else if (command is IExportFileCommand exportFileCommand)
+            {
+                newFileName = Path.Combine(workDirectory, Path.GetFileName(exportFileCommand.FileName));
+                exportFileCommand.FileName = newFileName;
+            }
+        }
+        private string GetInputFileName(Command command)
+        {
+            if (command is COpenFile cOpenFile) return cOpenFile.FileName;
+            else if (command is IImportFileCommand importFileCommand) return importFileCommand.FileName;
+            else if (command is IFileDependentCommand fileDependentCommand) return fileDependentCommand.FileName;
+            else return null;
+        }
+        private void SetInputFileName(Command command, string fileName)
+        {
+            if (command is COpenFile cOpenFile) cOpenFile.FileName = fileName;
+            else if (command is IImportFileCommand importFileCommand) importFileCommand.FileName = fileName;
+            else if (command is IFileDependentCommand fileDependentCommand) fileDependentCommand.FileName = fileName;
         }
         // The last save the history up to the current position can be replayed from: its file is unchanged and holds
         // what the replay would build, which for all commands includes the results

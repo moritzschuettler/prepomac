@@ -20,12 +20,27 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceDefinedField : PreprocessCommand
+    class CReplaceDefinedField : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
         private string _stepName;
         private string _oldDefinedFieldName;
         private DefinedField _newDefinedField;
+
+
+        // Properties                                                                                                               
+        public string FileName
+        {
+            get
+            {
+                if (_newDefinedField is DefinedTemperature dt && dt.Type == DefinedTemperatureTypeEnum.FromFile) return dt.FileName;
+                else return null;
+            }
+            set
+            {
+                if (_newDefinedField is DefinedTemperature dt && dt.Type == DefinedTemperatureTypeEnum.FromFile) dt.FileName = value;
+            }
+        }
 
 
         // Constructor                                                                                                              
@@ -43,6 +58,16 @@ namespace PrePoMax.Commands
         {
             receiver.ReplaceDefinedField(_stepName, _oldDefinedFieldName, _newDefinedField.DeepClone());
             return true;
+        }
+        // ICommandWithDialog
+        public bool ExecuteWithDialog(Controller receiver)
+        {
+            if (FileName != null)
+            {
+                string fileName = receiver.GetFileNameToImport("Replace file: " + FileName, "Calculix result files|*.frd");
+                if (fileName != null) FileName = fileName;
+            }
+            return Execute(receiver);
         }
 
         public override void ToPython(PythonJournalWriter writer)
