@@ -90,8 +90,8 @@ namespace PrePoMax.Rpc
                     throw new RpcException(RpcErrorCode.Busy, "PrePoMax did not answer within " +
                                            timeoutSeconds.ToString(CultureInfo.InvariantCulture) + " s. It is busy " +
                                            "with something that does not release the user interface - a mesher, or " +
-                                           "a dialog that is waiting for the user. Nothing was done; call status " +
-                                           "and try again.");
+                                           "a dialog that is waiting for the user. Nothing was done; call get_status " +
+                                           "(status on the pipe) and try again.");
                 }
                 // It started while the wait was being given up on, so it has to be waited out
                 pending.AsyncWaitHandle.WaitOne();

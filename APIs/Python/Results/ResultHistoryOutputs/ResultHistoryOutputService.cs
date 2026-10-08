@@ -579,8 +579,8 @@ namespace APIs.Python
                 return;
             }
             if (region == null) throw new PythonAPIException("The argument 'region' must not be None.");
-            throw new PythonAPIException("The argument 'region' must be a selection created by " +
-                                         "pmx.create.selection_by_ids, a named region created by " +
+            throw new PythonAPIException("The argument 'region' must be a selection created by a " +
+                                         "pmx.create.selection_* function, a named region created by " +
                                          "pmx.create.region, or a result node set, element set or surface.");
         }
         private static void ValidateNamedRegionType(RegionTypeEnum regionType, RegionTypeEnum[] namedRegionTypes)

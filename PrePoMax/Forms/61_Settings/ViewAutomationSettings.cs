@@ -20,14 +20,15 @@ namespace PrePoMax.Settings
         // Variables                                                                                                                
         private AutomationSettings _automationSettings;
         private DynamicCustomTypeDescriptor _dctd = null;
+        [NonSerialized] private Func<string> _getRunningEndpointUrl;
 
 
         // Properties                                                                                                               
         [CategoryAttribute("Server")]
         [OrderedDisplayName(0, 10, "Start with the application")]
-        [DescriptionAttribute("Select yes to start the automation server when PrePoMax starts. The server lets an AI " +
-                              "agent drive this session; it accepts only the user that runs PrePoMax and uses no " +
-                              "network connection.")]
+        [DescriptionAttribute("Select yes to start the automation server when PrePoMax starts, so it is on after " +
+                              "every restart. The server lets an AI agent drive this session; it listens only on " +
+                              "this computer (127.0.0.1), and accepts only a client that sends the access token.")]
         [Id(1, 1)]
         public bool StartWithApplication
         {
@@ -76,7 +77,7 @@ namespace PrePoMax.Settings
         [DescriptionAttribute("The AI assistant reaches PrePoMax through this port on your own computer, and nothing " +
                               "outside your computer can connect to it. Leave it as it is unless another program " +
                               "already uses this port: PrePoMax then takes the next free one and writes which in " +
-                              "the message window and the status bar.")]
+                              "the output window, the status bar and the Address below.")]
         [Id(1, 2)]
         public int Port
         {
@@ -86,16 +87,23 @@ namespace PrePoMax.Settings
         //
         [CategoryAttribute("Connection")]
         [OrderedDisplayName(1, 10, "Address")]
-        [DescriptionAttribute("Give this address to your AI assistant, together with the access token below. It " +
-                              "answers only while PrePoMax is open and the automation server is switched on. So if " +
-                              "the assistant says it cannot connect, PrePoMax is closed or the server is off: " +
-                              "switch it on in Tools - Automation Server, or set Start with the application above " +
-                              "and it will be on whenever PrePoMax is.")]
+        [DescriptionAttribute("Give this address to your AI assistant, together with the access token below. While " +
+                              "the automation server runs it is the address the server answers on, which is on " +
+                              "another port when the one above was taken; otherwise it is the address the server " +
+                              "will try first. It answers only while PrePoMax is open and the automation server is " +
+                              "switched on. So if the assistant says it cannot connect, PrePoMax is closed or the " +
+                              "server is off: switch it on in Tools - Automation Server, or set Start with the " +
+                              "application above and it will be on whenever PrePoMax is.")]
         [ReadOnly(true)]
         [Id(2, 2)]
         public string Endpoint
         {
-            get { return Mcp.McpHttpServer.GetEndpointUrl(_automationSettings.Port); }
+            get
+            {
+                string runningUrl = _getRunningEndpointUrl == null ? "" : _getRunningEndpointUrl();
+                if (!string.IsNullOrEmpty(runningUrl)) return runningUrl;
+                return Mcp.McpHttpServer.GetEndpointUrl(_automationSettings.Port);
+            }
             set { }
         }
         //
@@ -106,8 +114,8 @@ namespace PrePoMax.Settings
                               "and this token into your assistant once; the server will not run without one. " +
                               "Treat it like any password - anyone who can use your Windows account can read it. " +
                               "Right click here to generate one, to replace it, or to clear it before you prepare " +
-                              "a redistributable. It is kept in this folder, so a newly unpacked PrePoMax starts " +
-                              "without one.")]
+                              "a redistributable. It is kept in settings.bin next to PrePoMax.exe, so a newly " +
+                              "unpacked PrePoMax starts without one, and Reset all keeps it.")]
         [ReadOnly(true)]
         [Id(3, 2)]
         public string AccessToken
@@ -118,9 +126,10 @@ namespace PrePoMax.Settings
 
 
         // Constructors                                                                                                             
-        public ViewAutomationSettings(AutomationSettings automationSettings)
+        public ViewAutomationSettings(AutomationSettings automationSettings, Func<string> getRunningEndpointUrl)
         {
             _automationSettings = automationSettings;
+            _getRunningEndpointUrl = getRunningEndpointUrl;
             _dctd = ProviderInstaller.Install(this);
             _dctd.RenameBooleanPropertyToYesNo(nameof(StartWithApplication));
             _dctd.RenameBooleanPropertyToYesNo(nameof(IsReadOnly));

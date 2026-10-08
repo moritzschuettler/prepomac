@@ -130,11 +130,12 @@ namespace PrePoMax.Rpc
                             "turn. Nothing was done; ";
             if (running == null)
                 throw new RpcException(RpcErrorCode.Busy, "Another automation call is still running" + waited +
-                                                          "call status and try again.");
+                                                          "call get_status (status on the pipe) and try again.");
             throw new RpcException(RpcErrorCode.Busy, "Automation call " +
                                    running.Id.ToString(CultureInfo.InvariantCulture) + " (" + running.Method +
                                    ") is still running after " + RpcRunningCall.FormatSeconds(running.Elapsed) +
-                                   waited + "collect its answer with get_call, then try again.");
+                                   waited + "collect its answer with get_call (wait on the pipe), " +
+                                   "then try again.");
         }
         // The call is started once it has the turn, and the turn is given back by the thread that ran it.
         // The caller waits for it as long as it said it would; a call that outlasts that is answered with
@@ -198,8 +199,9 @@ namespace PrePoMax.Rpc
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "There is no automation call " +
                                        callId.ToString(CultureInfo.InvariantCulture) + " to collect: its " +
-                                       "answer was already returned, or it was never started. Call status for " +
-                                       "the calls that are running or waiting to be collected.");
+                                       "answer was already returned, or it was never started. Call get_status " +
+                                       "(status on the pipe) for the calls that are running or waiting to be " +
+                                       "collected.");
             }
             return Collect(call, waitSeconds);
         }
@@ -217,6 +219,13 @@ namespace PrePoMax.Rpc
         public RpcRunningCall GetRunningCall()
         {
             lock (_callLock) return _runningCall;
+        }
+        // A call that is running or waiting to be collected, or null
+        public RpcRunningCall FindCall(int callId)
+        {
+            RpcRunningCall call;
+            lock (_callLock) _calls.TryGetValue(callId, out call);
+            return call;
         }
         // The calls still running or still waiting to be collected, oldest first
         public List<RpcRunningCall> GetCalls()
@@ -250,7 +259,8 @@ namespace PrePoMax.Rpc
         }
         private static bool IsSerialized(string method)
         {
-            return method != "ping" && method != "status" && method != "shutdown" && method != "wait";
+            return method != "ping" && method != "status" && method != "shutdown" && method != "wait" &&
+                   method != "cancel";
         }
         // Runs a handler on this thread - the connection thread, or the thread of its own an exec or an
         // eval is given - which is where the application already runs scripted API calls. The guard is asked first, on the thread that owns the window, because
@@ -317,6 +327,9 @@ namespace PrePoMax.Rpc
             else if (request.Method == "exit") return RpcExitMethod.Execute(request, _server);
             // Answered while the call it waits for holds the turn, which is the whole point of it
             else if (request.Method == "wait") return RpcWaitMethod.Execute(request, _server);
+            // Stopping a call cannot wait for the call it stops. It changes nothing in the model, so read
+            // only mode does not refuse it either
+            else if (request.Method == "cancel") return RpcCancelMethod.Execute(request, _server);
             // Not refused while the application is busy - being busy, and saying why, is the answer
             else if (request.Method == "status") return Serve(request, false, RpcStatusMethod.Execute);
             // Refused while the user is doing something, then run on this thread

@@ -88,8 +88,8 @@ document describes: what it writes is what a user would have written.
 
 | Where | What it does |
 | --- | --- |
-| **File - Export - Python script** | Writes the journal of the open model's history. |
-| **Edit - Commands - Save As Python** | Writes the journal of the history shown in the dialog, including a reordered or shortened one. |
+| **File - Export - Python session journal \*.py** | Writes the journal of the open model's history. |
+| **Edit - Edit History**, then **File - Save As Python** in its *Edit Commands* dialog | Writes the journal of the history shown in the dialog, including a reordered or shortened one. |
 | `--journal <file.py>` | Writes the journal when a batch run ends, on a failing run too. |
 
 A journal names the file the session started from in its header rather than opening it, because
@@ -181,11 +181,31 @@ the setting is a convenience for the person who last closed the application, and
 would otherwise inherit that person's model and their whole command history without being told to.
 Name the model with `-f` when an agent should find one open.
 
-Point the agent client at the address. For Claude Code:
+Point the agent client at the address. Take it from **Tools - Settings - Automation**, under
+*Connection*, or from the output window when the server starts, rather than assuming it: the port is
+8756 unless that was taken, and then the server answers on the next free one, which the *Address*
+shows while it runs. For Claude Code:
 
 ```bash
-claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
+claude mcp add --scope user --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
+
+`--scope user` registers the server for every project; without it Claude Code registers it for the
+current directory only. `/mcp` in Claude Code shows the connection and reconnects it - a client that
+was connected before PrePoMax was closed and opened again has to reconnect.
+
+Another MCP client takes the same address and header in its configuration, usually in this form:
+
+```json
+{"mcpServers": {"prepomax": {"type": "http", "url": "http://127.0.0.1:8756/mcp",
+                             "headers": {"Authorization": "Bearer <token>"}}}}
+```
+
+A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`.
+
+To have the server on whenever PrePoMax runs, set *Start with the application* in
+**Tools - Settings - Automation**; otherwise switch it on after every start with
+**Tools - Automation Server**.
 
 The address and the token are both in **Tools - Settings - Automation**, under *Connection*. **The
 server will not start without a token**, and there is no command line switch for one: run PrePoMax
@@ -211,19 +231,6 @@ The prepomax MCP server drives a live PrePoMax session. If it cannot connect, as
 PrePoMax and switch on Tools - Automation Server; do not work around it.
 ```
 
-### Migrating from PrePoMaxMcp.exe
-
-An earlier version shipped `PrePoMaxMcp.exe`, a bridge the client started on stdio. It is gone,
-because a process the client starts outlives the application it serves: with PrePoMax closed, every
-open agent session still held an idle bridge. Remove the old entry and add the address:
-
-```bash
-claude mcp remove prepomax
-```
-
-Nothing else changes - the same ten tools, the same behaviour. The new entry names no path, so moving
-the PrePoMax folder or unpacking a new version leaves it correct, which the old one never did.
-
 ### The tools
 
 | Tool | What it does |
@@ -237,14 +244,15 @@ the PrePoMax folder or unpacking a new version leaves it correct, which the old 
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
 | `get_call` | The answer of a `run_python` or `eval_expression` call that outlasted its wait, collected by its `callId`. |
+| `cancel_call` | Stops a `run_python` or `eval_expression` call that is still running, by its `callId`, at its next Python statement. |
 | `get_history` | The command history, and the journal of it as a Python script. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface. |
 | `get_job` | The status of an analysis, and its solver output on request. |
 | `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. |
 
 The surface is deliberately small. The model surface is the Python API, which the agent writes
-through `run_python` and learns through `describe_api`, so there is no tool per API member - 965 of
-them could not be listed, and a second front door would be free to drift from the first. A tool that
+through `run_python` and learns through `describe_api`, so there is no tool per API member - far too
+many to list, and a second front door would be free to drift from the first. A tool that
 is not a protocol primitive is a piece of Python the catalog holds: `read_model` and `read_topology`
 are both one, so adding another costs nothing on the application side.
 
@@ -286,7 +294,8 @@ steel modulus in `MM_TON_S_C` and wrong by a factor of a million in `M_KG_S_C`.
 `.claude/skills/prepomax/SKILL.md` is a Claude Code skill that tells an agent to read `get_guide`
 first and names the handful of habits that are specific to this application. It is short on purpose:
 the guide and the schema are served by the application and cannot drift, and a skill that repeated
-them would. Copy that folder into a client project to have it available there.
+them would. Copy the `prepomax` folder to `<project>/.claude/skills/prepomax/` to have it in one
+project, or to `~/.claude/skills/prepomax/` to have it in all of them.
 
 Every tool also takes an optional `process_id`. **It is checked, not routed.** One address serves one
 session, so a call that names another instance is refused with the address that would have served it,
@@ -296,7 +305,7 @@ to tell the user which address to configure, not to switch.
 ### What an agent may and may not do
 
 - **Every change is recorded.** `run_python` records each API call as its own command by default, so
-  the history stays editable in **Edit - Commands**, regenerable, and journalable. `record='script'`
+  the history stays editable in **Edit - Edit History**, regenerable, and journalable. `record='script'`
   records the source as one command instead, which is what keeps a computed model parametric.
 - **Busy is an answer.** A call that arrives while a dialog is open or a mesher is running is refused
   with the reason, and nothing is done. The question is asked on the thread that owns the window,
@@ -315,6 +324,20 @@ to tell the user which address to configure, not to switch.
   `timeout` - collects it, once. `get_call` answers `running` again when the call is still working. It keeps the turn meanwhile, so another call that would change the model waits
   for it and is refused as busy with the call named; `status` reports it as the busy reason without
   asking the window, and lists it under `calls`.
+- **A call that should not finish is cancelled.** `cancel` - `cancel_call` over MCP - with the
+  `callId` raises `KeyboardInterrupt` in the Python of that call. It is never serialized behind the
+  call it stops, and read only mode does not refuse it, because it changes nothing in the model. The
+  interrupt lands at the next Python statement: an operation of the application the call is inside -
+  meshing, an import, a regeneration - cannot be interrupted and finishes first, and a `time.sleep`
+  ends before it lands. The answer says whether the call was interrupted and whether it has stopped;
+  the call's own answer, collected with `wait`, carries the error, `cancelled: true`, and the
+  commands it recorded before it stopped, which stay in the history. A call cancelled before its
+  Python started does not start it. The Python panel offers the same for the user: a console line or
+  a script that runs longer than a second shows a small *Python is running* window with a **Stop**
+  button, served by a thread of its own because the window that runs the script is not answering.
+- **Printed output is capped.** What one call, console line or script prints to `stdout` or
+  `stderr` keeps its first 1,000,000 and its last 100,000 characters, with
+  `[output truncated: N characters omitted]` between them, in the answer and in the Python panel.
 - **A call that lasts marks the application busy.** Once an agent call has been running for a third
   of a second it takes the state the application uses for its own long operations - the status bar
   says *Automation server...*, the menus and toolbars go quiet, and the view stops redrawing - so the
@@ -335,8 +358,8 @@ to tell the user which address to configure, not to switch.
 
 ### Undoing what an agent did
 
-The same way as anything else: **Edit - Commands** lists the commands the agent recorded, they can be
-removed or reordered there, and **Edit - Regenerate** rebuilds the model without them.
+The same way as anything else: **Edit - Edit History** lists the commands the agent recorded, they
+can be removed or reordered there, and **Edit - Regenerate History** rebuilds the model without them.
 
 ### The protocol, for another client
 
@@ -374,6 +397,8 @@ access token*, which replaces it after asking, and *Clear the access token*, whi
 that before preparing a redistributable. Either way a running server is stopped first, and restarted
 onto the new token, so it never keeps serving one that is no longer written down. Every client
 configured with the old token needs the new one. Both actions sit beside the value they change.
+*Reset all* on the page leaves the token as it is: the token is the result of an action that asks
+first, not a setting, and a running server goes on serving the one it started with.
 
 **The pipe.** The same dispatcher is also served on `\\.\pipe\PrePoMax.<process id>`, JSON-RPC
 2.0, one object per line, UTF-8, with no token: the operating system authenticates the caller, and
@@ -391,13 +416,15 @@ it. The folder is restricted to the current user, because the token is in it.
 | `describe` | The API schema of a path. |
 | `eval` | Evaluates an expression. |
 | `exec` | Runs source; `record` is `commands` or `script`. |
+| `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`; `get_call` over MCP. |
+| `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
 | `history` | The commands, and the journal with `include_journal`. |
 | `screenshot` | Writes a PNG and returns the path. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. |
 
 The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32002`
-read only, `-32003` a refused prompt, `-32004` an API error, `-32005` an unknown task.
+read only, `-32003` a refused prompt, `-32004` an API error.
 
 `Test_Rpc_Server.py`, `Test_Rpc_Live_Session.py`, `Test_Mcp_Http.py` and `Test_Mcp_Workflow.py` in
 `APIs/Python/Test_Scripts` check the layers of this: the protocol on the pipe, what a driven session
@@ -1064,7 +1091,9 @@ pmx.model.geometry.parts.rotate('Solid-1', [0, 0, 0], [0, 0, 1], 45, number_of_c
 pmx.model.parts.set_color('Solid-1', [255, 0, 0])
 
 selection = pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces', {1: [3]})
+# Either remove the faces ...
 removed = pmx.model.geometry.parts.defeature(selection)   # {'Solid-1': 4}
+# ... or, on the part as it was, offset them
 names = pmx.model.geometry.parts.offset_face(selection, -1.5)   # StringList: Solid-1_Offset-1
 ```
 
@@ -1685,11 +1714,11 @@ Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` 
 | `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
 | `output_frequency` | The results output frequency. |
 | `perturbation` | Makes the step a perturbation step. The model rejects it for a step type that does not support one. |
+| `run_analysis` | False solves nothing and only checks the model. |
+| `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. |
 
 `replace_frequency` and `replace_steady_state_dynamics` accept `lower_frequency` and `upper_frequency` together, so both limits
 can move past each other in one call.
-| `run_analysis` | False solves nothing and only checks the model. |
-| `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. |
 
 ```python
 step = pmx.model.steps.add_static('Step-1', time_period=1.0, nlgeom=True)
@@ -1752,7 +1781,9 @@ step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=1.5)
 
 A degree of freedom of a displacement and rotation boundary condition that is **not given is left
 unconstrained**, and reads back as `None`. Because a missing argument means "keep" on a replace,
-`replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again.
+`replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again. A degree of freedom
+named in `free_dofs` cannot also be given a value in the same call - the value would be lost - so
+that is refused.
 
 A `distribution_name` on a displacement and rotation boundary condition multiplies its prescribed values
 node by node: a `Scalar` distribution scales all of them, a `Vector` distribution scales `u1`, `u2` and
@@ -2302,10 +2333,10 @@ having over `selection_by_ids` for a script meant to outlive one mesh.
 
 ```python
 top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node')
-bottom = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node').invert()
+all_but_top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node').invert()
 ```
 
-Three things to know about how the application resolves a selection:
+Four things to know about how the application resolves a selection:
 
 - **A point pick takes the nearest entity.** A point that does not lie on the model still resolves, to
   whatever is closest, so a mistyped coordinate selects the wrong face rather than failing. An **area
@@ -3636,7 +3667,9 @@ APIs
   Python
     Commands
     Common
+      GeometryMetadata
     Create
+    Jobs
     Mesh
       ElementSets
       Elements
@@ -3649,6 +3682,8 @@ APIs
       Document
       Fields
       Geometry
+      Interactions
+      Keywords
       Materials
       Mesh
       Meshing
@@ -3656,6 +3691,7 @@ APIs
       Regions
       Sections
       Steps
+      Tree
     Results
       Fields
       ResultFieldOutputs
@@ -3663,10 +3699,12 @@ APIs
     Scripts
     Selection
     Test_Scripts
+    View
 
 PrePoMax/Python
   Commands
   Engine
+  Journal
 ```
 
 `Test_Scripts` holds the scripts that exercise the API through the batch mode; every one of them is

@@ -142,6 +142,13 @@ def test_displacement_rotation():
     check(bc.get_value("u1") == 2.0, "u1 must survive the unconstraining of u3")
     check_raises(lambda: bcs.replace_displacement_rotation(name, free_dofs=["U9"]),
                  "an unknown degree of freedom must be rejected")
+    # A degree of freedom given a value and freed in the same call would lose the value, so it is refused
+    check_refused(lambda: bcs.replace_displacement_rotation(name, u1=0.5, free_dofs=["U1"]), "'u1'",
+                  "a value for a degree of freedom named in free_dofs must be refused")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, ur2=0.1, free_dofs=["U3", "ur2"]), "'ur2'",
+                  "a rotation named in free_dofs and given a value must be refused")
+    bc = bcs[name]
+    check(bc.get_value("u1") == 2.0, "the refused replace changed u1, got " + str(bc.get_value("u1")))
     # The type cannot change on a replace
     check_raises(lambda: bcs.replace_fixed(name), "replacing a displacement by a fixed must be rejected")
     # An equation is accepted where a value is

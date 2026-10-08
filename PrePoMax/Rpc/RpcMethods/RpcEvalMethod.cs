@@ -31,7 +31,13 @@ namespace PrePoMax.Rpc
             server.Form.PrepareAutomationPythonEngine();
             int commandsBefore = RpcExecMethod.GetCommandCount(controller);
             DateTime started = DateTime.Now;
-            PythonEvalResult result = PythonEngineManager.Evaluate(expression);
+            PythonEvalResult result;
+            if (RpcExecMethod.IsCancelledBeforeStart())
+            {
+                result = new PythonEvalResult();
+                result.Error = RpcExecMethod.CancelledBeforeStartError;
+            }
+            else result = PythonEngineManager.Evaluate(expression);
             double elapsed = (DateTime.Now - started).TotalSeconds;
             List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore);
             //
@@ -52,9 +58,11 @@ namespace PrePoMax.Rpc
             RpcExecMethod.WriteRecordedCommands(writer, recorded);
             if (recorded.Count > 0)
             {
-                writer.WriteValue("warning", "The expression recorded a command. eval is meant for reading; " +
-                                             "use exec for anything that changes the model.");
+                writer.WriteValue("warning", "The expression recorded a command. eval_expression (eval on the " +
+                                             "pipe) is meant for reading; use run_python (exec on the pipe) for " +
+                                             "anything that changes the model.");
             }
+            RpcExecMethod.WriteCancellation(writer, !string.IsNullOrEmpty(result.Error));
             writer.EndObject();
             return writer.ToString();
         }

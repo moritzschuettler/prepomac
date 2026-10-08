@@ -42,7 +42,12 @@ namespace PrePoMax.Rpc
             int commandsBefore = GetCommandCount(controller);
             DateTime started = DateTime.Now;
             PythonEngineResult result;
-            if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
+            if (IsCancelledBeforeStart())
+            {
+                result = new PythonEngineResult();
+                result.Error = CancelledBeforeStartError;
+            }
+            else if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
             else result = controller.ExecutePythonWithKeywordStateReport(() => PythonEngineManager.ExecuteScript(source));
             double elapsed = (DateTime.Now - started).TotalSeconds;
             List<Command> recorded = GetRecordedCommands(controller, commandsBefore);
@@ -57,8 +62,37 @@ namespace PrePoMax.Rpc
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);
             WriteRecordedCommands(writer, recorded);
+            WriteCancellation(writer, !string.IsNullOrEmpty(result.Error));
             writer.EndObject();
             return writer.ToString();
+        }
+        // A call cancelled while it waited for the application to be idle does not start its Python
+        public static bool IsCancelledBeforeStart()
+        {
+            RpcRunningCall call = RpcRunningCall.Current;
+            return call != null && call.IsCancelRequested;
+        }
+        public const string CancelledBeforeStartError = "KeyboardInterrupt: the call was cancelled before its " +
+                                                        "Python started, so nothing was run.\n";
+        // Said only of a call that was cancelled, so the answer of every other call is unchanged
+        public static void WriteCancellation(JsonWriter writer, bool failed)
+        {
+            RpcRunningCall call = RpcRunningCall.Current;
+            if (call == null || !call.IsCancelRequested) return;
+            //
+            writer.WriteValue("cancelled", true);
+            if (failed)
+            {
+                writer.WriteValue("message", "The call was cancelled and stopped where it was interrupted. The " +
+                                             "commands it recorded before that are kept in the command history and " +
+                                             "listed in recordedCommands; the user can remove them in Edit - Edit " +
+                                             "History.");
+            }
+            else
+            {
+                writer.WriteValue("message", "The call was cancelled after its Python had already finished, so it " +
+                                             "completed normally.");
+            }
         }
         public static int GetCommandCount(Controller controller)
         {

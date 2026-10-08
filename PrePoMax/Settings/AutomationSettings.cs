@@ -82,6 +82,7 @@ namespace PrePoMax
         public AutomationSettings()
         {
             Reset();
+            _accessToken = "";
         }
 
 
@@ -98,6 +99,8 @@ namespace PrePoMax
             if (_port < MinPort || _port > MaxPort) _port = DefaultPort;
             if (_accessToken == null) _accessToken = "";
         }
+        // The access token is not a setting but the result of an action that asks first, and a running
+        // server keeps serving the token it started with, so resetting the settings keeps it
         public void Reset()
         {
             _startWithApplication = false;
@@ -105,7 +108,6 @@ namespace PrePoMax
             _echoToPythonPanel = true;
             _requestTimeout = 30;
             _port = DefaultPort;
-            _accessToken = "";
         }
     }
 }

@@ -51,15 +51,31 @@ PrePoMax serves an MCP endpoint itself, on this computer only, while its automat
 agent client connects to an address rather than starting a process, so nothing is left running when
 PrePoMax is closed.
 
-1. In PrePoMax, switch on **Tools - Automation Server**, or leave it on with
+1. In PrePoMax, switch on **Tools - Automation Server**. To have it on after every restart, set
    **Tools - Settings - Automation - Start with the application**.
 2. Right click the *Access token* entry in **Tools - Settings - Automation** and choose *Generate the
-   access token*, then read it and the address from that page.
-3. Point the client at them. For Claude Code:
+   access token*, then read it and the *Address* from that page. The address is also written to the
+   output window when the server starts. Copy it rather than assuming the port: it is 8756 unless
+   that port was taken, and then the server answers on the next free one, which the *Address* shows
+   while the server runs.
+3. Point the client at them. For Claude Code, with the address you read:
 
 ```bash
-claude mcp add --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
+claude mcp add --scope user --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
+
+`--scope user` registers the server for every project; without it Claude Code registers it for the
+current directory only. `/mcp` in Claude Code shows the connection and reconnects it - after
+PrePoMax was closed and opened again, the client has to reconnect.
+
+Another MCP client takes the same address and header in its configuration, usually in this form:
+
+```json
+{"mcpServers": {"prepomax": {"type": "http", "url": "http://127.0.0.1:8756/mcp",
+                             "headers": {"Authorization": "Bearer <token>"}}}}
+```
+
+A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`.
 
 The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
 will not start without one, and there is no command line switch for it, so a folder has to be opened
@@ -77,16 +93,12 @@ answers on the address unless the session is open - that is what serving it from
 buys - so open PrePoMax and switch the server on. It is worth telling the agent as much in the
 project's own instructions, so that it asks rather than working around it.
 
-An earlier version shipped `PrePoMaxMcp.exe`, a bridge the client started on stdio. It is gone: a
-process the client starts outlives the application it serves, and with PrePoMax closed every open
-agent session still held an idle one. Remove the old `prepomax` entry from the client and add the
-address instead; the tools and their behaviour are unchanged.
-
 The application serves the agent its own guide: **`get_guide`** is how the work is ordered, what a
 number without a unit means, how to find the face that was meant, and what to do when a call is
 refused. It travels with the version, so there is nothing to keep in step on the client side.
-`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that points an agent at it; copy that
-folder into a project to have it there.
+`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that points an agent at it. Copy the
+`prepomax` folder to `<project>/.claude/skills/prepomax/` to have it in one project, or to
+`~/.claude/skills/prepomax/` to have it in all of them.
 
 `Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
 port, and the pipe the same server also keeps for a client that speaks its protocol directly.
@@ -119,4 +131,4 @@ dll is shipped).
 
 The internal structure of the program is quite complex and there are almost no comments in the code (no time to write them) but I am using very descriptive names. Each class has its own file with .cs extension. You can browse the files in the Solution Explorer.
 
-The PrePoMax project has a Forms folder and inside it is a FrmMain.sc file/class. This is the main form. The form communicates exclusively with the Controller.sc file/class which holds all data about the model. The program records all user actions in order to be able to repeat them later (while running PrePoMax select Edit -> Regenerate) so all needed user functions/subroutines are not called directly but via Commands. There is a special Command class for each user action...
+The PrePoMax project has a Forms folder and inside it is a FrmMain.cs file/class. This is the main form. The form communicates exclusively with the Controller.cs file/class which holds all data about the model. The program records all user actions in order to be able to repeat them later (while running PrePoMax select Edit -> Regenerate History) so all needed user functions/subroutines are not called directly but via Commands. There is a special Command class for each user action...

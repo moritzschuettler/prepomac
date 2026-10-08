@@ -47,8 +47,10 @@ step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
 ```
 
 - `pmx.create.*` makes the detached parts that an `add` takes. It records nothing.
-- Every `add_*` has a `replace_*` taking `old_name` first. On the model side what you do not pass is
-  kept, so a replace changes only what you name.
+- Every `add_*` that makes an item has a `replace_*` taking `old_name` first. On the model side what
+  you do not pass is kept, so a replace changes only what you name. These have no replace:
+  `geometry.parts.add_compound`, `element_sets.add_from_quality`, `tree.add_group` and the view
+  annotations (`pmx.view.annotations.add_*`).
 - Variables survive from one `run_python` call to the next, because the scope is the Python console's.
 - `describe_api` also takes an API type name - `Loads`, `Model.Steps` - so you can read what a
   collection offers before the step that would hold it exists, and a type name followed by a member
@@ -106,10 +108,14 @@ recorded. Set the view before a screenshot and put it back afterwards:
 
 ```python
 camera = pmx.view.get_parameters()
+view = pmx.view.current
 pmx.view.current = 'results'
 pmx.view.set_result_field('DISP', 'U3')
 pmx.view.set_orientation('Isometric')
 pmx.view.zoom_to_fit()
+# ... take the screenshot, then put the view back
+pmx.view.current = view
+pmx.view.set_parameters(camera)
 ```
 
 `screenshot` then writes a PNG of the viewport and returns its path. Use it when a question is about
@@ -143,6 +149,14 @@ it has run, and it goes on to the end and records its commands as usual.
   the `callId` and do the waiting through `get_call`.
 - An answer is handed over once. `get_status` lists under `calls` the ones still running or not
   collected yet.
+- A call that should not finish - a loop that never ends, or more work than you meant - is stopped
+  with `cancel_call` and its `callId`. It is answered at once, even while that call holds the
+  session, and also in read only mode. The call stops at its next Python statement with a
+  `KeyboardInterrupt` error; an operation of PrePoMax it is inside - meshing, an import, a
+  regeneration - cannot be interrupted and finishes first. What it recorded before it stopped stays
+  in the history: collect its answer with `get_call` and check `recordedCommands`.
+- Printed output is capped: an answer keeps the first 1,000,000 and the last 100,000 characters and
+  says `[output truncated: N characters omitted]` between them. Print what you need, not everything.
 
 ## When a call is refused
 
@@ -169,8 +183,8 @@ it has run, and it goes on to the end and records its commands as usual.
 
 ## Undoing your work
 
-Everything you recorded is in **Edit - Commands**, which lists it, removes it and reorders it, and
-**Edit - Regenerate** rebuilds the model without it. Say so when you tell the user what you changed.
+Everything you recorded is in **Edit - Edit History**, which lists it, removes it and reorders it, and
+**Edit - Regenerate History** rebuilds the model without it. Say so when you tell the user what you changed.
 ";
     }
 }

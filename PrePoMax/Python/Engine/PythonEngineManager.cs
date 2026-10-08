@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace PrePoMax.Python
@@ -21,9 +22,75 @@ namespace PrePoMax.Python
     public static class PythonEngineManager
     {
         // Variables
-        private static bool _initialized;
+        private static readonly object _initializationLock = new object();
+        private static volatile bool _initialized;
+        private static bool _engineStarted;
+        private static bool _dictionaryEncoderRegistered;
+        private static bool _apiExceptionEncoderRegistered;
+        private static bool _keywordGuardInstalled;
+        private static Exception _initializationError;
         private static PyDict _scope;
         private static PyObject _console;
+        private static PyObject _capturedOutputClass;
+        private static readonly object _executionLock = new object();
+        private static readonly Dictionary<int, PythonExecution> _executions = new Dictionary<int, PythonExecution>();
+        // What a run keeps of what it prints: the beginning, where the first error usually is, and the end, where
+        // the last one is. Anything between them is counted and left out, so a print in a runaway loop can not
+        // exhaust the memory of the application or bury an agent's answer
+        public const int CapturedOutputHeadLength = 1000000;
+        public const int CapturedOutputTailLength = 100000;
+        private const string CapturedOutputSource =
+            "import io\n" +
+            "\n" +
+            "class CapturedOutput(io.TextIOBase):\n" +
+            "    def __init__(self, head_limit, tail_limit):\n" +
+            "        super().__init__()\n" +
+            "        self._head_limit = head_limit\n" +
+            "        self._tail_limit = tail_limit\n" +
+            "        self._head = []\n" +
+            "        self._head_length = 0\n" +
+            "        self._tail = []\n" +
+            "        self._tail_length = 0\n" +
+            "        self._omitted = 0\n" +
+            "\n" +
+            "    def writable(self):\n" +
+            "        return True\n" +
+            "\n" +
+            "    def write(self, text):\n" +
+            "        if not isinstance(text, str):\n" +
+            "            raise TypeError('write() argument must be str, not ' + type(text).__name__)\n" +
+            "        length = len(text)\n" +
+            "        room = self._head_limit - self._head_length\n" +
+            "        if room > 0:\n" +
+            "            part = text[:room]\n" +
+            "            self._head.append(part)\n" +
+            "            self._head_length += len(part)\n" +
+            "            text = text[room:]\n" +
+            "        if text:\n" +
+            "            self._tail.append(text)\n" +
+            "            self._tail_length += len(text)\n" +
+            "            if self._tail_length > 2 * self._tail_limit:\n" +
+            "                self._trim()\n" +
+            "        return length\n" +
+            "\n" +
+            "    def _trim(self):\n" +
+            "        tail = ''.join(self._tail)\n" +
+            "        cut = len(tail) - self._tail_limit\n" +
+            "        if cut > 0:\n" +
+            "            self._omitted += cut\n" +
+            "            tail = tail[cut:]\n" +
+            "        self._tail = [tail]\n" +
+            "        self._tail_length = len(tail)\n" +
+            "\n" +
+            "    def getvalue(self):\n" +
+            "        self._trim()\n" +
+            "        head = ''.join(self._head)\n" +
+            "        if self._omitted == 0:\n" +
+            "            return head + self._tail[0]\n" +
+            "        marker = '[output truncated: ' + str(self._omitted) + ' characters omitted]\\n'\n" +
+            "        if head and not head.endswith('\\n'):\n" +
+            "            marker = '\\n' + marker\n" +
+            "        return head + marker + self._tail[0]\n";
         private const string ScriptCompiledVariable = "__prepomax_compiled_script__";
         private const string ScriptErrorVariable = "__prepomax_script_error__";
         private const string ScriptScopeVariable = "__prepomax_scope__";
@@ -48,9 +115,52 @@ namespace PrePoMax.Python
 
 
         // Methods
+        // The engine is started by whichever thread asks first - the user interface thread when the Python
+        // panel opens, an automation call thread otherwise - so the start is locked. It is never retried
+        // half way: BeginAllowThreads on a thread that does not hold the GIL is fatal, and a second
+        // exception encoder would replace the PythonAPIException class scripts catch. A start that failed
+        // reports its first error on every later attempt instead
         private static void Initialize()
         {
             if (_initialized) return;
+            //
+            lock (_initializationLock)
+            {
+                if (_initialized) return;
+                if (_initializationError != null)
+                {
+                    throw new InvalidOperationException("The Python engine failed to start earlier in this session " +
+                                                        "and is not started again: " + _initializationError.Message +
+                                                        " Restart PrePoMax to try again.", _initializationError);
+                }
+                //
+                try
+                {
+                    StartEngine();
+                    using (Py.GIL())
+                    {
+                        RegisterEncoders();
+                        if (!_keywordGuardInstalled)
+                        {
+                            PythonKeywordGuard.Install();
+                            _keywordGuardInstalled = true;
+                        }
+                        if (_capturedOutputClass == null) _capturedOutputClass = CreateCapturedOutputClass();
+                        CreateScopeAndConsole();
+                    }
+                    //
+                    _initialized = true;
+                }
+                catch (Exception exception)
+                {
+                    _initializationError = exception;
+                    throw;
+                }
+            }
+        }
+        private static void StartEngine()
+        {
+            if (_engineStarted) return;
             //
             string pythonDll = Application.StartupPath + Globals.PythonDll;
             string pythonDir = Path.GetDirectoryName(pythonDll);
@@ -68,15 +178,115 @@ namespace PrePoMax.Python
             // Important for WinForms/WPF apps so the UI thread is not locked forever by Python.
             PythonEngine.BeginAllowThreads();
             //
-            using (Py.GIL())
+            _engineStarted = true;
+        }
+        private static void RegisterEncoders()
+        {
+            if (!_dictionaryEncoderRegistered)
             {
                 PyObjectConversions.RegisterEncoder(new PythonDictionaryEncoder());
-                PyObjectConversions.RegisterEncoder(new PythonApiExceptionEncoder());
-                PythonKeywordGuard.Install();
-                CreateScopeAndConsole();
+                _dictionaryEncoderRegistered = true;
             }
+            if (!_apiExceptionEncoderRegistered)
+            {
+                PyObjectConversions.RegisterEncoder(new PythonApiExceptionEncoder());
+                _apiExceptionEncoderRegistered = true;
+            }
+        }
+        private static PyObject CreateCapturedOutputClass()
+        {
+            using (PyDict scope = new PyDict())
+            {
+                PythonEngine.Exec(CapturedOutputSource, scope);
+                return scope.GetItem("CapturedOutput");
+            }
+        }
+        // Takes the place of sys.stdout or sys.stderr for one run. Called with the GIL held
+        private static PyObject CreateCapturedOutput()
+        {
+            using (PyObject headLength = CapturedOutputHeadLength.ToPython())
+            using (PyObject tailLength = CapturedOutputTailLength.ToPython())
+            {
+                return _capturedOutputClass.Invoke(headLength, tailLength);
+            }
+        }
+        // Marks the calling thread as running Python someone wrote, so that it can be interrupted. Called with the
+        // GIL held; a run inside a run - a recorded script regenerated by a script - belongs to the outer one
+        private static PythonExecution BeginExecution()
+        {
+            int managedThreadId = Thread.CurrentThread.ManagedThreadId;
+            lock (_executionLock)
+            {
+                if (_executions.ContainsKey(managedThreadId)) return null;
+            }
+            PythonExecution execution = new PythonExecution(managedThreadId, PythonEngine.GetPythonThreadID());
+            lock (_executionLock) _executions.Add(managedThreadId, execution);
+            return execution;
+        }
+        // Called with the GIL held, which the interrupt is delivered under as well, so no interrupt can reach the
+        // thread after this. One that was delivered after the last statement it would have landed in is still
+        // pending on the thread, and is discarded here rather than left to stop the next run
+        private static void EndExecution(PythonExecution execution)
+        {
+            if (execution == null) return;
             //
-            _initialized = true;
+            bool isInterruptDelivered;
+            lock (_executionLock)
+            {
+                _executions.Remove(execution.ManagedThreadId);
+                isInterruptDelivered = execution.IsInterruptDelivered;
+            }
+            if (isInterruptDelivered)
+            {
+                try
+                {
+                    PythonEngine.Exec("pass");
+                }
+                catch (PythonException)
+                {
+                }
+            }
+        }
+        // Raises KeyboardInterrupt in the Python the given thread is running, which stops it at the next statement
+        // it executes. Python waiting in an operation of the application - meshing, an import - is not
+        // interrupted; it stops when that operation returns to Python. The interrupt is delivered from a thread of
+        // its own, because the GIL it needs may be held for a while, so this never waits. Returns false when the
+        // thread is not running Python
+        public static bool RequestInterrupt(int managedThreadId)
+        {
+            PythonExecution execution;
+            lock (_executionLock)
+            {
+                if (!_executions.TryGetValue(managedThreadId, out execution)) return false;
+                if (execution.IsInterruptRequested) return true;
+                execution.IsInterruptRequested = true;
+            }
+            Thread thread = new Thread(delegate () { DeliverInterrupt(execution); });
+            thread.IsBackground = true;
+            thread.Name = "PrePoMax Python interrupt";
+            thread.Start();
+            return true;
+        }
+        private static void DeliverInterrupt(PythonExecution execution)
+        {
+            try
+            {
+                using (Py.GIL())
+                {
+                    lock (_executionLock)
+                    {
+                        PythonExecution current;
+                        if (!_executions.TryGetValue(execution.ManagedThreadId, out current) || current != execution)
+                            return;
+                        if (PythonEngine.Interrupt(execution.PythonThreadId) > 0) execution.IsInterruptDelivered = true;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // An exception on this thread would end the application, and a failed interrupt only leaves the
+                // run going as it would have without one
+            }
         }
         private static void CreateScopeAndConsole()
         {
@@ -168,10 +378,9 @@ namespace PrePoMax.Python
             using (Py.GIL())
             {
                 dynamic sys = Py.Import("sys");
-                dynamic io = Py.Import("io");
 
-                dynamic stdout = io.StringIO();
-                dynamic stderr = io.StringIO();
+                dynamic stdout = CreateCapturedOutput();
+                dynamic stderr = CreateCapturedOutput();
 
                 PyObject oldStdout = sys.stdout;
                 PyObject oldStderr = sys.stderr;
@@ -182,10 +391,29 @@ namespace PrePoMax.Python
                     sys.stderr = stderr;
 
                     dynamic console = _console;
-                    bool needMoreInput = console.push(line);
+                    bool needMoreInput;
+                    PythonException consoleException = null;
+                    PythonExecution execution = BeginExecution();
+                    try
+                    {
+                        needMoreInput = console.push(line);
+                    }
+                    catch (PythonException exception)
+                    {
+                        // The console reports what the code raised itself, so this is an interrupt that landed in
+                        // the console between two of its own statements, and the line it was collecting is dropped
+                        consoleException = exception;
+                        needMoreInput = false;
+                    }
+                    finally
+                    {
+                        EndExecution(execution);
+                    }
+                    if (consoleException != null) console.resetbuffer();
 
                     string output = stdout.getvalue().ToString();
                     string error = stderr.getvalue().ToString();
+                    if (consoleException != null) error += FormatPythonException(consoleException);
 
                     return new PythonEngineResult()
                     {
@@ -210,10 +438,9 @@ namespace PrePoMax.Python
             //
             using (Py.GIL())
             {
-                dynamic io = Py.Import("io");
                 dynamic sys = Py.Import("sys");
-                dynamic stdout = io.StringIO();
-                dynamic stderr = io.StringIO();
+                dynamic stdout = CreateCapturedOutput();
+                dynamic stderr = CreateCapturedOutput();
                 PyObject oldStdout = sys.stdout;
                 PyObject oldStderr = sys.stderr;
                 try
@@ -221,7 +448,15 @@ namespace PrePoMax.Python
                     sys.stdout = stdout;
                     sys.stderr = stderr;
                     //
-                    PythonEngine.Exec(code, null, _scope);
+                    PythonExecution execution = BeginExecution();
+                    try
+                    {
+                        PythonEngine.Exec(code, null, _scope);
+                    }
+                    finally
+                    {
+                        EndExecution(execution);
+                    }
                     //
                     string printedOutput = stdout.getvalue().ToString();
                     string errorOutput = stderr.getvalue().ToString();
@@ -248,10 +483,9 @@ namespace PrePoMax.Python
             using (Py.GIL())
             {
                 PythonEvalResult result = new PythonEvalResult();
-                dynamic io = Py.Import("io");
                 dynamic sys = Py.Import("sys");
-                dynamic stdout = io.StringIO();
-                dynamic stderr = io.StringIO();
+                dynamic stdout = CreateCapturedOutput();
+                dynamic stderr = CreateCapturedOutput();
                 PyObject oldStdout = sys.stdout;
                 PyObject oldStderr = sys.stderr;
                 //
@@ -260,12 +494,20 @@ namespace PrePoMax.Python
                     sys.stdout = stdout;
                     sys.stderr = stderr;
                     //
-                    using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                    PythonExecution execution = BeginExecution();
+                    try
                     {
-                        result.Repr = GetRepr(value);
-                        result.Text = value == null ? "" : value.ToString();
-                        result.TypeName = GetTypeName(value);
-                        result.Json = GetJson(value);
+                        using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                        {
+                            result.Repr = GetRepr(value);
+                            result.Text = value == null ? "" : value.ToString();
+                            result.TypeName = GetTypeName(value);
+                            result.Json = GetJson(value);
+                        }
+                    }
+                    finally
+                    {
+                        EndExecution(execution);
                     }
                     result.Output = stdout.getvalue().ToString();
                     result.Error = stderr.getvalue().ToString();
@@ -349,33 +591,53 @@ namespace PrePoMax.Python
                 return name.ToString();
             }
         }
+        // NaN and infinity have no JSON form, and the default json.dumps writes them as bare tokens
+        // that break the parse of the whole answer, so they are written as null
+        private const string FiniteJsonSource =
+            "import json, math\n" +
+            "def _finite(value):\n" +
+            "    if isinstance(value, float):\n" +
+            "        return value if math.isfinite(value) else None\n" +
+            "    if isinstance(value, dict):\n" +
+            "        return {key: _finite(item) for key, item in value.items()}\n" +
+            "    if isinstance(value, (list, tuple)):\n" +
+            "        return [_finite(item) for item in value]\n" +
+            "    return value\n" +
+            "def dumps(value):\n" +
+            "    return json.dumps(_finite(value), allow_nan=False)\n";
         private static string GetJson(PyObject value)
         {
             if (value == null) return "null";
-            using (PyObject json = Py.Import("json"))
+            using (PyObject builtins = Py.Import("builtins"))
+            using (PyDict scope = new PyDict())
             {
-                string text = TryDumps(json, value);
-                if (text != null) return text;
-                // A .NET collection reaches Python as an object rather than a list
-                try
+                // The scope is the globals of the functions it defines, which find json and _finite there
+                scope.SetItem("__builtins__", builtins);
+                PythonEngine.Exec(FiniteJsonSource, scope);
+                using (PyObject dumps = scope.GetItem("dumps"))
                 {
-                    using (PyObject builtins = Py.Import("builtins"))
-                    using (PyObject list = builtins.InvokeMethod("list", value))
+                    string text = TryDumps(dumps, value);
+                    if (text != null) return text;
+                    // A .NET collection reaches Python as an object rather than a list
+                    try
                     {
-                        return TryDumps(json, list);
+                        using (PyObject list = builtins.InvokeMethod("list", value))
+                        {
+                            return TryDumps(dumps, list);
+                        }
                     }
-                }
-                catch (PythonException)
-                {
-                    return null;
+                    catch (PythonException)
+                    {
+                        return null;
+                    }
                 }
             }
         }
-        private static string TryDumps(PyObject json, PyObject value)
+        private static string TryDumps(PyObject dumps, PyObject value)
         {
             try
             {
-                using (PyObject dumped = json.InvokeMethod("dumps", value))
+                using (PyObject dumped = dumps.Invoke(value))
                 {
                     return dumped.ToString();
                 }
@@ -426,10 +688,9 @@ namespace PrePoMax.Python
         private static PythonEngineResult ExecuteScript(string code, PyDict scope)
         {
             PythonEngineResult result = new PythonEngineResult();
-            dynamic io = Py.Import("io");
             dynamic sys = Py.Import("sys");
-            dynamic stdout = io.StringIO();
-            dynamic stderr = io.StringIO();
+            dynamic stdout = CreateCapturedOutput();
+            dynamic stderr = CreateCapturedOutput();
             PyObject oldStdout = sys.stdout;
             PyObject oldStderr = sys.stderr;
             //
@@ -438,7 +699,15 @@ namespace PrePoMax.Python
                 sys.stdout = stdout;
                 sys.stderr = stderr;
                 //
-                ExecuteCompiledScriptWithTraceback(code, scope);
+                PythonExecution execution = BeginExecution();
+                try
+                {
+                    ExecuteCompiledScriptWithTraceback(code, scope);
+                }
+                finally
+                {
+                    EndExecution(execution);
+                }
                 //
                 result.Output = stdout.getvalue().ToString();
                 result.Error = stderr.getvalue().ToString();

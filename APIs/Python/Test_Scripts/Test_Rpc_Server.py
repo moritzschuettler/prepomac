@@ -49,14 +49,33 @@ class Client(object):
     def send_line(self, line):
         self._pipe.write((line + "\n").encode("utf-8"))
 
-    def read_line(self):
+    def read_raw_line(self):
         data = b""
         while not data.endswith(b"\n"):
             piece = self._pipe.read(1)
             if not piece:
                 return None
             data += piece
-        return json.loads(data.decode("utf-8"))
+        return data.decode("utf-8")
+
+    def read_line(self):
+        line = self.read_raw_line()
+        return None if line is None else json.loads(line)
+
+    def strict_result(self, method, parameters):
+        """Calls a method and parses its answer as strict JSON, which has no NaN or Infinity token."""
+        self._id += 1
+        self.send_line(json.dumps({"jsonrpc": "2.0", "id": self._id, "method": method, "params": parameters}))
+        line = self.read_raw_line()
+        check(line is not None, "the server closed the connection during " + method)
+
+        def refuse_constant(token):
+            raise Exception("TEST FAILED: " + method + " answered with the non JSON token " + token + ": " + line)
+
+        answer = json.loads(line, parse_constant=refuse_constant)
+        check(answer.get("id") == self._id, method + " answered the wrong id: " + str(answer))
+        check("error" not in answer, method + " failed: " + str(answer.get("error")))
+        return answer["result"]
 
     def call(self, method, parameters=None):
         self._id += 1
@@ -165,10 +184,16 @@ def check_eval(client):
     result = client.result("eval", {"expression": "1 / 0"})
     check(result["failed"], "a division by zero must fail")
     check("ZeroDivisionError" in result["error"], "the traceback must name the error: " + result["error"])
+    # NaN and infinity have no JSON form, so they come back as null and the answer stays valid JSON
+    result = client.strict_result("eval", {"expression": "float('nan')"})
+    check(result["hasValue"] and result["value"] is None, "NaN must come back as null: " + str(result))
+    check(result["repr"] == "nan", "the repr must still show NaN: " + result["repr"])
+    result = client.strict_result("eval", {"expression": "[1, float('inf'), {'low': float('-inf')}]"})
+    check(result["value"] == [1, None, {"low": None}], "infinity must come back as null: " + str(result))
     # A missing argument is refused before anything runs
     error = client.error("eval", {})
     check(error["code"] == INVALID_PARAMS, "a missing expression must be InvalidParams: " + str(error))
-    print("eval: values, JSON, printed output and tracebacks")
+    print("eval: values, JSON, non finite numbers as null, printed output and tracebacks")
 
 
 def check_exec(client):

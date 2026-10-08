@@ -103,6 +103,8 @@
     <Compile Include="Python\Commands\ControllerPythonViewGateway.cs" />
     <Compile Include="Python\Engine\PythonConsoleResult.cs" />
     <Compile Include="Python\Engine\PythonEngineManager.cs" />
+    <Compile Include="Python\Engine\PythonExecution.cs" />
+    <Compile Include="Python\Engine\PythonStopWatchdog.cs" />
     <Compile Include="Python\Engine\PythonApiExceptionEncoder.cs" />
     <Compile Include="Python\Engine\PythonDictionaryEncoder.cs" />
     <Compile Include="Python\Engine\PythonKeywordGuard.cs" />
@@ -162,6 +164,7 @@
     <Compile Include="Rpc\RpcMethods\RpcEvalMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcExecMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcWaitMethod.cs" />
+    <Compile Include="Rpc\RpcMethods\RpcCancelMethod.cs" />
     <Compile Include="Python\Engine\PythonEvalResult.cs" />
     <Compile Include="Rpc\RpcServer.cs" />
     <Compile Include="Rpc\RpcSession.cs" />
@@ -979,6 +982,12 @@
     <Compile Include="Forms\FrmSplash.Designer.cs">
       <DependentUpon>FrmSplash.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\FrmPythonStop.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\FrmPythonStop.Designer.cs">
+      <DependentUpon>FrmPythonStop.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\ViewMasterSlaveMultiRegion.cs" />
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
@@ -1240,6 +1249,9 @@
     <EmbeddedResource Include="Forms\FrmSplash.resx">
       <DependentUpon>FrmSplash.cs</DependentUpon>
       <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\FrmPythonStop.resx">
+      <DependentUpon>FrmPythonStop.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>

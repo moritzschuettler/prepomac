@@ -106,7 +106,7 @@ namespace APIs.Python
         [PythonAPI("Creates a new empty model. Not available inside a recorded script, because it replaces " +
                    "the command history.",
                    Arguments = "model_space: str, unit_system: str", Returns = "None",
-                   Example = "pmx.new('ThreeD', 'MM_TON_S_C')")]
+                   Example = "pmx.new_model('ThreeD', 'MM_TON_S_C')")]
         public void new_model(string model_space, string unit_system)
         {
             _documentService.NewModel(model_space, unit_system);

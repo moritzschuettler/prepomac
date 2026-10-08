@@ -67,7 +67,10 @@ namespace PrePoMax.Mcp
                 "collection the work belongs to.",
                 SessionSchema("\"path\": {\"type\": \"string\", \"description\": " +
                               "\"The Python path to describe, for example pmx, pmx.model.steps or " +
-                              "pmx.model.steps['Step-1'].loads. Defaults to pmx.\"}"), true));
+                              "pmx.model.steps['Step-1'].loads. It may also be an API type name, for " +
+                              "example Loads, to read a collection before anything holding it exists, or a " +
+                              "type name followed by a member path, for example Result.mesh, to read the " +
+                              "results side before a result is open. Defaults to pmx.\"}"), true));
             _tools.Add(new McpTool("read_model", "Read the model",
                 "Returns a snapshot of the open model as JSON: the model properties, the parts with their mesh " +
                 "state, the item names of every collection, the parameters with their equation, value and " +
@@ -99,13 +102,14 @@ namespace PrePoMax.Mcp
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
                               "its answer.\"}",
-                              "\"expression\""), true));
+                              "\"expression\""), false));
             _tools.Add(new McpTool("run_python", "Run Python in the session",
                 "Runs Python against the model the user has open, through the same engine the Python panel in " +
                 "PrePoMax runs. Every change is recorded in the command history as the command the user would have " +
-                "produced by hand, so the user can see it in the tree, undo it in Edit - Command history, and " +
-                "regenerate. Write the API calls directly; use describe_api to find them. The variables of one " +
-                "call survive into the next, because the scope is the one the Python console uses.\n\n" +
+                "produced by hand, so the user can see it in the tree, remove it in Edit - Edit History, and " +
+                "rebuild the model in Edit - Regenerate History. Write the API calls directly; use describe_api " +
+                "to find them. The variables of one call survive into the next, because the scope is the one the " +
+                "Python console uses.\n\n" +
                 "record: 'commands' (the default) records each API call as its own command. 'script' records the " +
                 "whole source as one command instead, which is what keeps a computed model parametric - " +
                 "regeneration re-runs the source - but the variables do not survive the call.\n\n" +
@@ -139,6 +143,18 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for it, 0 to 600. Defaults to the requestTimeout " +
                               "get_status reports.\"}",
                               "\"call_id\""), true));
+            _tools.Add(new McpTool("cancel_call", "Stop a long call",
+                "Stops a run_python or eval_expression call that was answered with running and a callId - one " +
+                "that loops forever or is doing more than was meant. It is answered at once, also while that call " +
+                "holds the session, and in read only mode, because it changes nothing in the model itself.\n\n" +
+                "The call is interrupted at its next Python statement and ends with a KeyboardInterrupt error. " +
+                "An operation of PrePoMax it is inside - meshing, an import, a regeneration - cannot be " +
+                "interrupted and finishes first, so the answer may say it has not stopped yet. The commands it " +
+                "recorded before it stopped stay in the command history. Collect its answer with get_call " +
+                "afterwards: it lists them.",
+                SessionSchema("\"call_id\": {\"type\": \"integer\", \"description\": " +
+                              "\"The callId the still running call was answered with.\"}",
+                              "\"call_id\""), false));
             _tools.Add(new McpTool("get_history", "Read the command history",
                 "Returns the command history of the session and, on request, the journal of it: the whole session " +
                 "written as the Python script a user would have written. The journal is the best way to learn what " +
@@ -192,7 +208,7 @@ namespace PrePoMax.Mcp
                               "\"The result field to plot, for example DISP. Needs an open result.\"}, " +
                               "\"component\": {\"type\": \"string\", \"description\": " +
                               "\"The component of that field, for example U3. Defaults to the first one.\"}"),
-                true));
+                false));
             return _tools;
         }
         public static string GetInstructions()
@@ -214,15 +230,17 @@ namespace PrePoMax.Mcp
             text.Append("it is stored as an equation that re-evaluates.\n\n");
             text.Append("Everything you change is recorded in the command history as the command the user would ");
             text.Append("have produced by hand. They can see it in the model tree, remove it in ");
-            text.Append("Edit - Command history and regenerate, so a mistake is recoverable - but it is still ");
+            text.Append("Edit - Edit History and rebuild the model in Edit - Regenerate History, so a mistake is ");
+            text.Append("recoverable - but it is still ");
             text.Append("their session, so do not save over their file or close their application.\n\n");
             text.Append("A tool that answers that the application is busy means the user is doing something - a ");
             text.Append("dialog is open, or a mesher is running. Nothing was done. Wait and try the same call ");
             text.Append("again rather than working around it.\n\n");
-            text.Append("A run_python call that outlasts its wait - meshing a large part, an import, a ");
-            text.Append("regeneration - is answered with running and a callId. It is not stopped: it finishes and ");
+            text.Append("A call that outlasts its wait - meshing a large part, an import, a regeneration, a ");
+            text.Append("long expression - is answered with running and a callId. It is not stopped: it finishes and ");
             text.Append("records its commands as usual, and get_call with that callId returns its answer. Do not ");
-            text.Append("send the same work again; collect it.");
+            text.Append("send the same work again; collect it. If it should not finish - a loop that never ends - ");
+            text.Append("stop it with cancel_call.");
             return text.ToString();
         }
         public static McpTool Find(string name)
@@ -284,6 +302,14 @@ namespace PrePoMax.Mcp
                 parameters.Add("call_id", callId);
                 AddTimeout(arguments, parameters);
                 return Call(dispatcher, "wait", parameters);
+            }
+            if (name == "cancel_call")
+            {
+                Dictionary<string, object> parameters = new Dictionary<string, object>();
+                int callId = JsonReader.GetInt(arguments, "call_id", 0);
+                if (callId <= 0) throw new McpException("The argument call_id is required.");
+                parameters.Add("call_id", callId);
+                return Call(dispatcher, "cancel", parameters);
             }
             if (name == "get_history")
             {

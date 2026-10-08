@@ -45,8 +45,8 @@ namespace APIs.Python.Model
             RegionAPI named = region as RegionAPI;
             if (named == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a selection created " +
-                                             "by pmx.create.selection_by_ids, or a named region created by " +
-                                             "pmx.create.region.");
+                                             "by a pmx.create.selection_* function, or a named region created " +
+                                             "by pmx.create.region.");
             //
             ValidateRegionName(named, argumentName, targets, modelResolver, item);
             item.RegionType = named.RegionType;

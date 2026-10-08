@@ -20,7 +20,7 @@ namespace PrePoMax.Rpc
     public static class RpcStatusMethod
     {
         // Variables                                                                                                                
-        private static readonly string[] Methods = { "ping", "status", "describe", "eval", "exec", "wait", "history",
+        private static readonly string[] Methods = { "ping", "status", "describe", "eval", "exec", "wait", "cancel", "history",
                                                      "screenshot", "shutdown", "exit" };
 
 

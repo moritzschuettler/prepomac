@@ -12,8 +12,8 @@ using CaeModel;
 
 namespace APIs.Python.Model
 {
-    // The region is a selection created by pmx.create.selection_by_ids, or a named region created by
-    // pmx.create.region. Every add method takes the values of its own load type first and the values
+    // The region is a selection created by any pmx.create.selection_* function, or a named region created
+    // by pmx.create.region. Every add method takes the values of its own load type first and the values
     // shared by all load types last. A value that is not given keeps the model default, and on a
     // replace it keeps the value the load already carries.
     public class LoadsAPI : StepItemsAPI<Load, LoadAPI>

@@ -12,7 +12,7 @@ using CaeModel;
 
 namespace APIs.Python.Model
 {
-    // The region is a selection created by pmx.create.selection_by_ids, or a named region created by
+    // The region is a selection created by any pmx.create.selection_* function, or a named region created by
     // pmx.create.region. A value that is not given keeps the model default, and on a replace it keeps
     // the value the boundary condition already carries.
     public class BoundaryConditionsAPI : StepItemsAPI<BoundaryCondition, BoundaryConditionAPI>
@@ -98,7 +98,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Replaces an existing displacement and rotation boundary condition using command history. " +
-                   "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one.",
+                   "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one. " +
+                   "A degree of freedom named in free_dofs cannot also be given a value.",
                    Arguments = "old_name: str, name: str = None, the arguments of " +
                                "add_displacement_rotation, and free_dofs: list[str] = None",
                    Returns = "BoundaryCondition")]
@@ -117,7 +118,7 @@ namespace APIs.Python.Model
                 _service.CloneForReplace<DisplacementRotation>(StepName, old_name, "displacement_rotation");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
-            if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs);
+            if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs, u1, u2, u3, ur1, ur2, ur3);
             if (distribution_name != null)
                 boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
@@ -285,7 +286,9 @@ namespace APIs.Python.Model
             if (ur2 != null) boundaryCondition.UR2.Equation = PythonValueConverter.ToEquationString(ur2, "ur2");
             if (ur3 != null) boundaryCondition.UR3.Equation = PythonValueConverter.ToEquationString(ur3, "ur3");
         }
-        private static void FreeDegreesOfFreedom(DisplacementRotation boundaryCondition, object freeDofs)
+        private static void FreeDegreesOfFreedom(DisplacementRotation boundaryCondition, object freeDofs,
+                                                 object u1, object u2, object u3, object ur1, object ur2,
+                                                 object ur3)
         {
             // An unconstrained degree of freedom carries a NaN
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(freeDofs, "free_dofs");
@@ -293,18 +296,45 @@ namespace APIs.Python.Model
             {
                 switch (dof.Trim().ToUpperInvariant())
                 {
-                    case "U1": boundaryCondition.U1.SetEquationFromValue(double.NaN); break;
-                    case "U2": boundaryCondition.U2.SetEquationFromValue(double.NaN); break;
-                    case "U3": boundaryCondition.U3.SetEquationFromValue(double.NaN); break;
-                    case "UR1": boundaryCondition.UR1.SetEquationFromValue(double.NaN); break;
-                    case "UR2": boundaryCondition.UR2.SetEquationFromValue(double.NaN); break;
-                    case "UR3": boundaryCondition.UR3.SetEquationFromValue(double.NaN); break;
+                    case "U1":
+                        RefuseValueOfFreeDegreeOfFreedom(u1, "u1");
+                        boundaryCondition.U1.SetEquationFromValue(double.NaN);
+                        break;
+                    case "U2":
+                        RefuseValueOfFreeDegreeOfFreedom(u2, "u2");
+                        boundaryCondition.U2.SetEquationFromValue(double.NaN);
+                        break;
+                    case "U3":
+                        RefuseValueOfFreeDegreeOfFreedom(u3, "u3");
+                        boundaryCondition.U3.SetEquationFromValue(double.NaN);
+                        break;
+                    case "UR1":
+                        RefuseValueOfFreeDegreeOfFreedom(ur1, "ur1");
+                        boundaryCondition.UR1.SetEquationFromValue(double.NaN);
+                        break;
+                    case "UR2":
+                        RefuseValueOfFreeDegreeOfFreedom(ur2, "ur2");
+                        boundaryCondition.UR2.SetEquationFromValue(double.NaN);
+                        break;
+                    case "UR3":
+                        RefuseValueOfFreeDegreeOfFreedom(ur3, "ur3");
+                        boundaryCondition.UR3.SetEquationFromValue(double.NaN);
+                        break;
                     default:
                         throw new PythonAPIException("The value '" + dof + "' is not supported for the " +
                                                      "argument 'free_dofs'. Possible values are U1, U2, U3, " +
                                                      "UR1, UR2 and UR3.");
                 }
             }
+        }
+        // Freeing a degree of freedom the same call gives a value would silently discard that value
+        private static void RefuseValueOfFreeDegreeOfFreedom(object value, string argumentName)
+        {
+            if (value == null) return;
+            //
+            throw new PythonAPIException("The degree of freedom " + argumentName.ToUpperInvariant() + " is given " +
+                                         "a value in '" + argumentName + "' and is also named in 'free_dofs'. " +
+                                         "Give it either a value or free it, not both.");
         }
         private static void ApplySubmodelValues(SubmodelBC boundaryCondition, object stepNumber, object u1,
                                                 object u2, object u3, object ur1, object ur2, object ur3)

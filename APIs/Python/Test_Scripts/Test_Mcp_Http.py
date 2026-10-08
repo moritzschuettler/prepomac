@@ -32,8 +32,8 @@ MAXIMUM_BODY = 4 * 1024 * 1024
 SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 EXPECTED_TOOLS = ["get_guide", "list_sessions", "get_status", "describe_api", "read_model",
-                  "read_topology", "eval_expression", "run_python", "get_call", "get_history", "run_job",
-                  "get_job", "screenshot"]
+                  "read_topology", "eval_expression", "run_python", "get_call", "cancel_call",
+                  "get_history", "run_job", "get_job", "screenshot"]
 
 
 def check(condition, message):
@@ -312,7 +312,7 @@ def check_the_guide(endpoint):
     guide = endpoint.tool("get_guide")
     check(len(guide) > 2000, "the guide must be a guide, not a sentence: " + str(len(guide)))
     # The three things a caller cannot work out for itself, and the guide exists to say them
-    for phrase in ("unit system", "preview()", "Edit - Commands", "describe_api", "run_python"):
+    for phrase in ("unit system", "preview()", "Edit - Edit History", "describe_api", "run_python"):
         check(phrase in guide, "the guide must mention " + phrase)
     print("get_guide: " + str(len(guide)) + " characters")
 
@@ -394,6 +394,24 @@ def check_a_long_call(endpoint):
     check("mcp_long" in value["value"] and "mcp_never" not in value["value"],
           "the long call must have changed the model and the refused one not: " + str(value["value"]))
     print("run_python: a 4 s call answered as running after 1 s, collected by get_call with its command")
+
+
+def check_cancel_call(endpoint):
+    """A run_python that never ends is stopped by cancel_call, and the session takes the next call."""
+    source = os.linesep.join(["while True:", "    pass"])
+    answer = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 1}))
+    check(answer.get("running") is True and answer["callId"] > 0, "the loop must be answered as running: " + str(answer))
+    call_id = answer["callId"]
+    answer = json.loads(endpoint.tool("cancel_call", {"call_id": call_id}))
+    check(answer["cancelRequested"] and answer["isInterrupted"], "the loop must be interrupted: " + str(answer))
+    check(answer["isFinished"], "a pure Python loop must stop at once: " + str(answer))
+    # A cancelled call failed, so get_call reports it as an error carrying the whole answer
+    text = endpoint.failing_tool("get_call", {"call_id": call_id, "timeout": 30})
+    check("KeyboardInterrupt" in text and "cancelled" in text,
+          "the collected answer must be the interrupted call: " + text)
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "6 * 7"}))
+    check(value["value"] == 42, "the session must answer after a cancel: " + str(value))
+    print("cancel_call: a loop that never ends was stopped and the session answered the next call")
 
 
 def check_screenshot(endpoint):
@@ -494,6 +512,7 @@ def main():
         check_describing_a_type(endpoint)
         check_writing_tools(endpoint)
         check_a_long_call(endpoint)
+        check_cancel_call(endpoint)
         check_screenshot(endpoint)
         check_refusals(endpoint)
         second = check_second_instance(endpoint, session, port)

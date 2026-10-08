@@ -12,7 +12,9 @@ using System;
 namespace PrePoMax.Mcp
 {
     // One tool as an agent sees it. The schema is written as JSON rather than built from a type,
-    // because it is documentation for a reader that has to get the call right first time.
+    // because it is documentation for a reader that has to get the call right first time. A tool is
+    // read only - sent to the client as readOnlyHint - only when it changes nothing: not the model, not
+    // the view and not a file, and it runs no Python the caller wrote.
     public class McpTool
     {
         // Variables                                                                                                                

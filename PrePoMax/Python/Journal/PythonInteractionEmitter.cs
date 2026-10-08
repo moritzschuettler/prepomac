@@ -49,9 +49,12 @@ namespace PrePoMax.Python.Journal
             arguments.Add(master);
             arguments.Add(slave);
             arguments.Add("method=" + PythonValueFormatter.Text(contactPair.Method.ToString()));
-            // SurfaceToSurface clears small sliding, so it is emitted only where it survives
-            if (contactPair.Method != ContactPairMethod.SurfaceToSurface)
-                arguments.Add("small_sliding=" + PythonValueFormatter.Format(contactPair.SmallSliding));
+            // SurfaceToSurface clears small sliding, so an add leaves it out there; a replace keeps the small
+            // sliding it is not given and refuses SurfaceToSurface over a kept one, so it always writes it
+            bool isSurfaceToSurface = contactPair.Method == ContactPairMethod.SurfaceToSurface;
+            if (oldName != null || !isSurfaceToSurface)
+                arguments.Add("small_sliding=" +
+                              PythonValueFormatter.Format(!isSurfaceToSurface && contactPair.SmallSliding));
             arguments.Add("adjust=" + PythonValueFormatter.Format(contactPair.Adjust));
             if (contactPair.Adjust)
                 arguments.Add("adjustment_size=" + PythonValueFormatter.Number(contactPair.AdjustmentSize));

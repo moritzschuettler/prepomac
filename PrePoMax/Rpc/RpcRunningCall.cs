@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python;
 using System;
 using System.Globalization;
 using System.Runtime.ExceptionServices;
@@ -27,7 +28,8 @@ namespace PrePoMax.Rpc
     // marshals its own user interface work.
     public class RpcRunningCall
     {
-        // Variables                                                                                                                
+        // Variables
+        private const int CancelRetryMilliseconds = 1000;
         private readonly int _id;
         private readonly string _method;
         private readonly DateTime _startTime;
@@ -36,12 +38,18 @@ namespace PrePoMax.Rpc
         private volatile bool _isFinished;
         private string _result;
         private ExceptionDispatchInfo _exception;
+        private int _managedThreadId;
+        private volatile bool _isCancelRequested;
+        [ThreadStatic] private static RpcRunningCall _current;
 
 
         // Properties                                                                                                               
         public int Id { get { return _id; } }
         public string Method { get { return _method; } }
         public bool IsFinished { get { return _isFinished; } }
+        public bool IsCancelRequested { get { return _isCancelRequested; } }
+        // The call the calling thread is running, or null on a thread that is not running one
+        public static RpcRunningCall Current { get { return _current; } }
         public double Elapsed
         {
             get
@@ -63,6 +71,8 @@ namespace PrePoMax.Rpc
             _isFinished = false;
             _result = null;
             _exception = null;
+            _managedThreadId = 0;
+            _isCancelRequested = false;
         }
 
 
@@ -74,10 +84,12 @@ namespace PrePoMax.Rpc
             Thread thread = new Thread(delegate () { Run(handler, finished); });
             thread.IsBackground = true;
             thread.Name = "PrePoMax automation call " + _id.ToString(CultureInfo.InvariantCulture);
+            _managedThreadId = thread.ManagedThreadId;
             thread.Start();
         }
         private void Run(Func<string> handler, Action finished)
         {
+            _current = this;
             try
             {
                 _result = handler();
@@ -88,6 +100,7 @@ namespace PrePoMax.Rpc
             }
             finally
             {
+                _current = null;
                 try
                 {
                     finished();
@@ -117,6 +130,25 @@ namespace PrePoMax.Rpc
                 return true;
             }
         }
+        // Asks the call to stop. The Python it is running is interrupted and stops at its next statement; a call
+        // that has not reached its Python yet does not start it, and one that is past it finishes as it would
+        // have. The call thread may be about to enter its Python or just leaving it, so the interrupt is asked
+        // for again for a moment until it lands there or the call ends. Returns whether the interrupt reached
+        // the Python of the call
+        public bool Cancel()
+        {
+            if (_isFinished) return false;
+            //
+            _isCancelRequested = true;
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(CancelRetryMilliseconds);
+            while (!_isFinished)
+            {
+                if (PythonEngineManager.RequestInterrupt(_managedThreadId)) return true;
+                if (DateTime.UtcNow >= deadline) return false;
+                Wait(20);
+            }
+            return false;
+        }
         // The answer the call would have given had the caller waited for it, refusal and all
         public string GetResult()
         {
@@ -136,14 +168,15 @@ namespace PrePoMax.Rpc
                                          "not been abandoned: it runs to the end, and what it changes is recorded " +
                                          "as usual. Collect its answer with get_call - the wait method on the pipe " +
                                          "- and call id " + id + ". Every call that would change the model waits " +
-                                         "for it until it is done.");
+                                         "for it until it is done. To stop it instead, cancel it with " +
+                                         "cancel_call - the cancel method on the pipe - and the same call id.");
             writer.EndObject();
             return writer.ToString();
         }
         public string GetBusyReason()
         {
             return "Automation call " + _id.ToString(CultureInfo.InvariantCulture) + " (" + _method + ") has been " +
-                   "running for " + FormatSeconds(Elapsed) + ". Collect its answer with get_call.";
+                   "running for " + FormatSeconds(Elapsed) + ". Collect its answer with get_call (wait on the pipe).";
         }
         public static string FormatSeconds(double seconds)
         {

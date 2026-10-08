@@ -830,7 +830,7 @@ namespace PrePoMax
                             {
                                 DialogResult dialogResult = MessageBoxes.ShowWarningQuestionYesNoCancel("Regenerate All",
                                     "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
-                                    "All commands can be regenerated later using Edit -> Regenerate All.");
+                                    "All commands can be regenerated later using Edit -> Regenerate History.");
                                 if (dialogResult == DialogResult.Yes) parameters = Globals.RegenerateAll;
                                 else if (dialogResult == DialogResult.Cancel) fileName = null;
                             }
@@ -3027,8 +3027,11 @@ namespace PrePoMax
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
-            PythonEngineResult result = _controller.ExecutePythonWithKeywordStateReport(
-                () => PythonEngineManager.PushLine(e.Command));
+            PythonEngineResult result;
+            using (new PythonStopWatchdog(Bounds))
+            {
+                result = _controller.ExecutePythonWithKeywordStateReport(() => PythonEngineManager.PushLine(e.Command));
+            }
             //
             e.Output = result.Output;
             e.Error = result.Error;
@@ -3039,8 +3042,12 @@ namespace PrePoMax
             if (!TakeStateForPythonScript(e)) return;
             try
             {
-                PythonEngineResult result = _controller.ExecutePythonWithKeywordStateReport(
-                    () => PythonEngineManager.ExecuteScript(e.Command));
+                PythonEngineResult result;
+                using (new PythonStopWatchdog(Bounds))
+                {
+                    result = _controller.ExecutePythonWithKeywordStateReport(
+                        () => PythonEngineManager.ExecuteScript(e.Command));
+                }
                 //
                 e.Output = result.Output;
                 e.Error = result.Error;
@@ -3056,7 +3063,11 @@ namespace PrePoMax
             if (!TakeStateForPythonScript(e)) return;
             try
             {
-                PythonEngineResult result = _controller.RunPythonScriptCommand(e.Command);
+                PythonEngineResult result;
+                using (new PythonStopWatchdog(Bounds))
+                {
+                    result = _controller.RunPythonScriptCommand(e.Command);
+                }
                 //
                 e.Output = result.Output;
                 e.Error = result.Error;
@@ -7840,7 +7851,7 @@ namespace PrePoMax
                 {
                     CloseAllForms();
                     SetFormLocation(_frmSettings);
-                    _frmSettings.PrepareForm(_controller);
+                    _frmSettings.PrepareForm(_controller, GetRunningAutomationEndpointUrl);
                     _frmSettings.Show();
                 }
             }
@@ -8177,6 +8188,10 @@ namespace PrePoMax
             WriteDataToOutput("This PrePoMax folder is being run for the first time, so the access token found in " +
                               "its settings was cleared. Generate one in Tools - Settings - Automation before " +
                               "starting the automation server.");
+        }
+        private string GetRunningAutomationEndpointUrl()
+        {
+            return _automationServer == null ? "" : _automationServer.EndpointUrl;
         }
         private void StopAutomationServer()
         {

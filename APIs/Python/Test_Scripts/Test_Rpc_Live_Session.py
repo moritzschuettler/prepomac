@@ -11,7 +11,9 @@
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
 #an id, while the call runs to the end and records its command; wait must hand its answer over once,
-#and status must name it while another change waits for its turn and is refused.
+#and status must name it while another change waits for its turn and is refused. A call that never ends
+#must be stopped by cancel, keep what it recorded before it was stopped and leave the session free for
+#the next call, and a flood of printed output must come back cut to its beginning and its end.
 #
 #Neither can be checked from inside a recorded script, because a recorded script suppresses the
 #recording of the commands inside it. So this script starts sessions of its own - PrePoMax with
@@ -301,7 +303,9 @@ def read_replaced_values(client):
     expressions = [step + ".bcs['journal_dr'].get_value('" + dof + "')" for dof in ("u1", "u2", "u3")]
     expressions += [step + ".bcs['journal_sm'].get_value('" + dof + "')" for dof in ("u1", "u2")]
     expressions += ["pmx.model.materials['journal_steel'].description",
-                    step + ".loads['journal_pt'].get_value('auto_direction')"]
+                    step + ".loads['journal_pt'].get_value('auto_direction')",
+                    "pmx.model.contact_pairs['journal_cp'].method",
+                    "pmx.model.contact_pairs['journal_cp'].small_sliding"]
     value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
     check(not value["failed"], "the replaced items must be readable: " + value["error"])
     return value["value"]
@@ -328,7 +332,12 @@ def check_journal_of_replaces(client):
         "loads = pmx.model.steps['journal_static'].loads",
         "loads.add_pre_tension('journal_pt', pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', "
         "{1: [1]}), 500, direction=[0, 0, 1])",
-        "loads.replace_pre_tension('journal_pt', auto_direction=True)"])
+        "loads.replace_pre_tension('journal_pt', auto_direction=True)",
+        "pmx.model.surface_interactions.add('journal_si', pmx.create.friction(0.1))",
+        "pmx.model.contact_pairs.add('journal_cp', 'journal_si', pmx.create.selection_by_ids('femodel', "
+        "'surfaces', 'surfaces', {1: [1]}), pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', "
+        "{1: [2]}), method='NodeToSurface', small_sliding=True)",
+        "pmx.model.contact_pairs.replace('journal_cp', method='SurfaceToSurface', small_sliding=False)"])
     result = client.result("exec", {"source": source})
     check(not result["failed"], "the replaces must not fail: " + result["error"])
     recorded = read_replaced_values(client)
@@ -336,12 +345,25 @@ def check_journal_of_replaces(client):
     check(recorded[3] is True and recorded[4] is False, "the submodel u2 flag was not turned off: " + str(recorded))
     check(not recorded[5], "the material description was not cleared: " + str(recorded))
     check(recorded[6] is True, "the pre-tension did not return to the surface normal: " + str(recorded))
+    check(recorded[7] == "SurfaceToSurface" and recorded[8] is False,
+          "the contact pair did not become surface to surface without small sliding: " + str(recorded))
     # The journal writes the defaults out
     result = client.result("history", {"include_journal": True})
     journal = result["journal"]
     check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
     check(journal["isInline"], "a short journal must come back inline")
     journal_source = journal["source"]
+    # A replace to SurfaceToSurface over a kept small sliding is refused unless small_sliding is given
+    start = journal_source.find("contact_pairs.replace(")
+    check(start >= 0, "the contact pair replace is missing from the journal:" + os.linesep + journal_source)
+    lines = journal_source[start:].splitlines()
+    statement = lines[0]
+    for line in lines[1:]:
+        if not line[:1].isspace():
+            break
+        statement += line
+    check("small_sliding=False" in statement,
+          "the contact pair replace must write small_sliding=False: " + statement)
     for expected in ["free_dofs=['U3'", "u2=False", "description=''", "auto_direction=True"]:
         check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
     # The journal replayed on a new model rebuilds the same values
@@ -533,10 +555,85 @@ def check_long_calls(client):
     print("long call: an uncollected answer kept without holding the turn, a bad timeout refused")
 
 
+def check_cancel(client):
+    """A call that never ends is interrupted by cancel, keeps what it recorded, and frees the session."""
+    status = client.result("status")
+    check("cancel" in status["methods"], "status must name cancel: " + str(status["methods"]))
+    before = status["model"]["commandCount"]
+    source = os.linesep.join(["pmx.model.parameters.add('cancel_a', 1.0)", "while True:", "    pass"])
+    answer = client.result("exec", {"source": source, "timeout": 1})
+    call_id = check_running_answer(answer, "exec", "a loop that never ends must be answered as running")
+    check("cancel_call" in answer["message"], "the running answer must say how to stop it: " + answer["message"])
+    # Answered while the loop holds the turn
+    started = time.time()
+    result = client.result("cancel", {"call_id": call_id})
+    check(time.time() - started < 5, "cancel must not wait for the call it stops")
+    check(result["callId"] == call_id and result["cancelRequested"] and result["isInterrupted"],
+          "the loop must be interrupted: " + str(result))
+    check(result["isFinished"], "a loop of pure Python must stop at once: " + str(result))
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check("running" not in answer and answer["failed"], "the cancelled call must have failed: " + str(answer))
+    check("KeyboardInterrupt" in answer["error"], "the error must be the interrupt: " + answer["error"])
+    check(answer.get("cancelled") is True, "the answer must say it was cancelled: " + str(answer))
+    check([entry["type"] for entry in answer["recordedCommands"]] == ["CAddParameter"],
+          "what was recorded before the interrupt must be kept and listed: " + str(answer["recordedCommands"]))
+    status = client.result("status")
+    check(status["isIdle"], "the session must be idle once the call stopped: " + status["busyReason"])
+    check(status["model"]["commandCount"] == before + 1, "only the command before the loop may be recorded")
+    # The next call runs, and the interrupt did not linger into it
+    result = client.result("exec", {"source": "cancel_probe = sum(range(10))" + os.linesep + "print(cancel_probe)"})
+    check(not result["failed"] and "45" in result["output"], "the next exec must work: " + str(result))
+    check("cancelled" not in result, "a call that was not cancelled must not say so: " + str(result))
+    # An expression is cancelled the same way
+    answer = client.result("eval", {"expression": "sum(1 for _ in iter(int, 1))", "timeout": 1})
+    call_id = check_running_answer(answer, "eval", "an endless expression must be answered as running")
+    result = client.result("cancel", {"call_id": call_id})
+    check(result["isInterrupted"] and result["isFinished"], "the expression must be interrupted: " + str(result))
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check(answer["failed"] and "KeyboardInterrupt" in answer["error"], "the expression must have failed: " + str(answer))
+    value = client.result("eval", {"expression": "6 * 7"})
+    check(value["value"] == 42, "the next eval must work: " + str(value))
+    # A call that is not there is refused; a finished one has nothing to cancel
+    error = client.error("cancel", {"call_id": call_id + 1000})
+    check(error["code"] == INVALID_PARAMS, "cancel of an unknown call must be refused: " + str(error))
+    answer = client.result("exec", {"source": "pmx.model.parameters.add('cancel_b', 2.0)", "timeout": 0})
+    call_id = check_running_answer(answer, "exec", "a timeout of 0 must answer at once")
+    deadline = time.time() + 30
+    while not [entry for entry in client.result("status")["calls"]
+               if entry["callId"] == call_id and entry["isFinished"]]:
+        check(time.time() < deadline, "the call never finished")
+        time.sleep(0.2)
+    result = client.result("cancel", {"call_id": call_id})
+    check(not result["cancelRequested"] and result["isFinished"], "a finished call cannot be cancelled: " + str(result))
+    answer = client.result("wait", {"call_id": call_id})
+    check(not answer["failed"] and "cancelled" not in answer, "the finished call must keep its answer: " + str(answer))
+    print("cancel: a loop and an endless expression stopped, the command before the loop kept")
+
+
+def check_output_cap(client):
+    """A flood of printed output is cut to its beginning and its end, with the cut said in between."""
+    source = os.linesep.join(["for i in range(300000):", "    print('flood line', i)"])
+    result = client.result("exec", {"source": source, "timeout": 120})
+    check(not result["failed"], "the flood must run: " + result["error"])
+    output = result["output"]
+    check(len(output) < 1200000, "the output must be capped, it has %d characters" % len(output))
+    check("[output truncated: " in output and " characters omitted]" in output,
+          "the cut must be marked: " + output[999900:1000200])
+    check(output.startswith("flood line 0\n"), "the beginning must be kept: " + output[:40])
+    check(output.rstrip().endswith("flood line 299999"), "the end must be kept: " + output[-60:])
+    # A short output is not touched
+    result = client.result("exec", {"source": "print('short')"})
+    check(result["output"].strip() == "short", "a short output must be kept whole: " + result["output"])
+    print("output: %d characters kept of a flood of over 5 million, the cut marked" % len(output))
+
+
 def main():
     session = ChildSession("On", arguments=["--rpcTimeout", str(REQUEST_TIMEOUT)])
     try:
-        check_long_calls(session.connect())
+        client = session.connect()
+        check_long_calls(client)
+        check_cancel(client)
+        check_output_cap(client)
     finally:
         session.close()
     #

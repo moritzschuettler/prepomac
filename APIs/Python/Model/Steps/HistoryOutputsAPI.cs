@@ -13,8 +13,8 @@ using CaeModel;
 namespace APIs.Python.Model
 {
     // The output variables are given by name, one or a list of them. The region is a selection created
-    // by pmx.create.selection_by_ids, or a named region created by pmx.create.region; a contact history
-    // output names a contact pair instead.
+    // by any pmx.create.selection_* function, or a named region created by pmx.create.region; a contact
+    // history output names a contact pair instead.
     public class HistoryOutputsAPI : StepItemsAPI<HistoryOutput, HistoryOutputAPI>
     {
         // Variables

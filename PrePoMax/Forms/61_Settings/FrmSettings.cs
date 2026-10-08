@@ -32,6 +32,7 @@ namespace PrePoMax.Forms
         private string _previousSettings;
         private Dictionary<string, IViewSettings> _viewSettings;
         private double _labelRatio = 2.3;
+        private Func<string> _getRunningAutomationEndpointUrl;
 
 
         // Properties                                                                                                               
@@ -77,7 +78,8 @@ namespace PrePoMax.Forms
                     else if (entry.Value is StatusBlockSettings sbs)
                         _viewSettings.Add(entry.Key, new ViewStatusBlockSettings(sbs.DeepClone()));
                     else if (entry.Value is AutomationSettings aus)
-                        _viewSettings.Add(entry.Key, new ViewAutomationSettings(aus.DeepClone()));
+                        _viewSettings.Add(entry.Key, new ViewAutomationSettings(aus.DeepClone(),
+                                                                                _getRunningAutomationEndpointUrl));
                     else throw new NotSupportedException();
                 }
             } 
@@ -218,8 +220,11 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        public void PrepareForm(Controller controller)
+        // The automation server belongs to the main form, so the address it actually took - which may
+        // not be the configured port - is asked of the main form each time the page is drawn
+        public void PrepareForm(Controller controller, Func<string> getRunningAutomationEndpointUrl)
         {
+            _getRunningAutomationEndpointUrl = getRunningAutomationEndpointUrl;
             _propertyItemChanged = false;
             _viewSettings = null;
             lvSettings.Items.Clear();
