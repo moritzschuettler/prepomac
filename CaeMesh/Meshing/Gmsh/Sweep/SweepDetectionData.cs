@@ -56,23 +56,24 @@ namespace CaeMesh
         public string ErrorPartName { get { return _errorPartName; } }
         /// <summary>
         /// The parts the detection did sweep. A group in which one sub-part cannot be reached cannot be swept
-        /// as a whole - but the sub-parts that were reached are still swept by the trial that reached them,
-        /// and are the ones that need no splitting.
+        /// as a whole - but the sub-parts that were reached are still swept by the ways chosen for them, and
+        /// are the ones that need no splitting.
         /// </summary>
         public HashSet<int> SweepablePartIds { get { return _sweepablePartIds; } }
         public string Stamp { get { return _stamp; } }
         /// <summary>
-        /// Every distinct way the detection found to sweep the group as a whole, best first: the blocks of each
-        /// complete trial, one per pair of source and target surfaces, with the best score a trial gave that pair
-        /// in DirectionScores. Blocks is the first of them. For a single part these are the directions it can be
-        /// swept in on its own, a revolved part having its one revolution; empty when the group cannot be swept.
+        /// Every distinct way the detection found to sweep the group as a whole, best first, with their scores in
+        /// DirectionScores. Blocks is the first of them. For a single part these are the directions it can be
+        /// swept in on its own, one per pair of source and target surfaces, a revolved part having its one
+        /// revolution; a compound has the one way chosen for it; empty when the group cannot be swept.
         /// </summary>
         public SweepBlocks[] Directions { get { return _directions; } }
         public double[] DirectionScores { get { return _directionScores; } }
         /// <summary>
         /// Why a part the detection did not sweep cannot be swept with the others although it can be on its own, by
-        /// part id: what the trial seeded with the source the part is swept from alone ran into. A part that cannot
-        /// be swept on its own is not here; its own detection says why.
+        /// part id: the surface on which its best way disagrees with the way a neighbour is swept, or what the source
+        /// it is swept from alone ran into against its neighbours. A part that cannot be swept on its own is not
+        /// here; its own detection says why.
         /// </summary>
         public Dictionary<int, string> UnreachedPartReasons { get { return _unreachedPartReasons; } }
         /// <summary>
@@ -110,33 +111,6 @@ namespace CaeMesh
 
 
         // Methods
-        /// <summary>
-        /// Adds the blocks of a complete trial to the directions found so far, unless a trial with the same source
-        /// and target surfaces is there already, in which case the better scored of the two is kept. The keys are
-        /// those of the directions in the same order.
-        /// </summary>
-        public static void AddDirection(List<SweepBlocks> directions, List<double> directionScores, List<string> keys,
-                                        SweepBlocks blocks, double score)
-        {
-            string key = GetDirectionKey(blocks);
-            int index = keys.IndexOf(key);
-            if (index < 0)
-            {
-                directions.Add(blocks);
-                directionScores.Add(score);
-                keys.Add(key);
-            }
-            else if (score > directionScores[index])
-            {
-                directions[index] = blocks;
-                directionScores[index] = score;
-            }
-        }
-        private static string GetDirectionKey(SweepBlocks blocks)
-        {
-            return string.Join(",", blocks.SourceSurfaceIds.SelectMany(ids => ids).Distinct().OrderBy(id => id)) + "|" +
-                   string.Join(",", blocks.TargetSurfaceIds.SelectMany(ids => ids).Distinct().OrderBy(id => id));
-        }
         /// <summary>
         /// The geometry the detection is a function of: the topology counts of every part of the group, the box it
         /// occupies, the box taken without the offset an exploded view puts on the part, and the lengths of its

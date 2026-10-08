@@ -15,7 +15,7 @@ namespace CaeMesh
 {
     /// <summary>
     /// The maps of a part's visualization that the sweep detection asks for again on every source it tries.
-    /// They depend on the part alone, so one instance of them serves every trial of one detection. They are
+    /// They depend on the part alone, so one instance of them serves every way of one detection. They are
     /// read and never written, and one instance belongs to one detection, so nothing is shared between the
     /// detections of two groups running at the same time.
     /// </summary>
@@ -94,7 +94,7 @@ namespace CaeMesh
         }
         /// <summary>
         /// The recognized face data of the part's surfaces, filled by the caller as it asks for a surface and
-        /// kept for every later trial.
+        /// kept for every later way.
         /// </summary>
         public Dictionary<int, GeomFaceData> GetSurfaceIdFaceData(BasePart part)
         {
@@ -118,7 +118,7 @@ namespace CaeMesh
         }
         /// <summary>
         /// The validation of a block of the part swept from the given source, made once and read again by every
-        /// trial that reaches the same source. Whether the surfaces the parts share were known to the validation
+        /// way that reaches the same source. Whether the surfaces the parts share were known to the validation
         /// is part of the key, since a validation made without them reads a target differently.
         /// </summary>
         public SweepBlockValidation GetSweepBlockValidation(BasePart part, HashSet<int> sourceSurfaceIds,
@@ -142,7 +142,7 @@ namespace CaeMesh
         /// <summary>
         /// The source surfaces a source of the part grows to before its block is validated - over the surfaces in
         /// its plane, and for a source the sweep derived over the surfaces leaning on it - grown once per source
-        /// and read again by every trial that reaches the same source. The set is kept, so a caller only reads it.
+        /// and read again by every way that reaches the same source. The set is kept, so a caller only reads it.
         /// </summary>
         public HashSet<int> GetExtendedSourceSurfaceIds(BasePart part, HashSet<int> sourceSurfaceIds, bool derived,
                                                         Func<HashSet<int>> extend)

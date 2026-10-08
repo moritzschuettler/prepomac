@@ -18,9 +18,9 @@ namespace CaeMesh
     /// side and the target surfaces, the side surfaces ring by ring, the edges following the sweep direction
     /// where the walls were found by following the edges, or the reason the block was refused. The result is
     /// a function of the part and the source alone, so one detection keeps it and reads it again for every
-    /// trial that reaches the same source instead of validating the block again. What the detection derives
+    /// way that reaches the same source instead of validating the block again. What the detection derives
     /// from a validated block - the edges of its walls, whether it is a prism, its layer edges and its arrow -
-    /// is a function of the same, and is kept here as well, found by the first trial and read by the others.
+    /// is a function of the same, and is kept here as well, found by the first way and read by the others.
     /// </summary>
     public class SweepBlockValidation
     {
@@ -69,7 +69,7 @@ namespace CaeMesh
             directionEdgeIds = _directionEdgeIds != null ? _directionEdgeIds.ToArray() : null;
         }
         /// <summary>
-        /// The edges of the side surfaces, found by the first trial and read by every other; the set is kept, so a
+        /// The edges of the side surfaces, found by the first way and read by every other; the set is kept, so a
         /// caller only reads it.
         /// </summary>
         public HashSet<int> GetWallEdgeIds(Func<HashSet<int>> find)
@@ -78,7 +78,7 @@ namespace CaeMesh
             return _wallEdgeIds;
         }
         /// <summary>
-        /// Whether the block is a prism, told by the first trial and read by every other.
+        /// Whether the block is a prism, told by the first way and read by every other.
         /// </summary>
         public bool IsPrismatic(Func<bool> tell)
         {
@@ -86,7 +86,7 @@ namespace CaeMesh
             return _prismatic.Value;
         }
         /// <summary>
-        /// The layer edges of the block, group by group, found by the first trial. Every trial gets its own outer
+        /// The layer edges of the block, group by group, found by the first way. Every way gets its own outer
         /// arrays, since it replaces the groups by their gmsh numbering, and shares the edge arrays, which no caller
         /// changes.
         /// </summary>
@@ -96,7 +96,7 @@ namespace CaeMesh
             return _layerGroupEdgeIds.Select(groups => groups.ToArray()).ToArray();
         }
         /// <summary>
-        /// The arrow of the block, its start and its direction, found by the first trial as a pair and copied to
+        /// The arrow of the block, its start and its direction, found by the first way as a pair and copied to
         /// every other; both are null for a block without a layer edge leaving its source.
         /// </summary>
         public void GetArrow(Func<double[][]> find, out double[] arrowStart, out double[] arrowDirection)

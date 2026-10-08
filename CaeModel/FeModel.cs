@@ -3707,12 +3707,8 @@ namespace CaeModel
             return compoundPart != null ? (GeometryPart)compoundPart : sweptParts[0];
         }
         /// <summary>
-        /// Finds the source surfaces of a sweep by trial. Every surface of every swept part is a candidate
-        /// seed; it is extended over its plane and propagated through the compound exactly as a selected
-        /// surface would be, so what is tried is what the user could have selected. A seed that sweeps every
-        /// part is scored and the best score wins. When no single seed reaches every part, the seed reaching
-        /// the most parts is kept - the best scoring one of those that reach as many - and another seed is
-        /// tried on the parts it did not reach, until every part is swept or no seed adds a part.
+        /// Finds the source surfaces of a sweep, weighing every way every part can be swept against the ways of the
+        /// parts it touches. A single part no way sweeps between two ends may still be revolved.
         /// </summary>
         private SweepDetectionData DetectSweepSources(GeometryPart[] sweptParts, string stamp)
         {
@@ -3783,222 +3779,38 @@ namespace CaeModel
                                    new int[0][][], new double[][] { arrowStart }, new double[][] { arrowDirection },
                                    new double[][] { revolveAxis });
         }
+        /// <summary>
+        /// The sources of a part or a compound, found by weighing every way every cell can be swept against the ways
+        /// of its neighbours. A cell has the ways its own seeds give it - every surface of it, grown over its plane as
+        /// a selected surface is - and the ways its neighbours can give it - from a target or a source they share
+        /// with it, or across a shared wall, from the surfaces continuing their source - and the ways those give in
+        /// turn; each is a block of the cell validated as a selected source is. Two cells agree on a surface they
+        /// share as SweepCellCandidate tells, and SweepDirectionProblem finds the ways that sweep the most cells,
+        /// then continue one another across the most shared surfaces, and then score best, a cell it leaves out
+        /// being meshed by tetrahedra. The blocks are those of the chosen ways, in the order the cells feed one
+        /// another. A single part takes its best scored way, every way it has being kept as its directions. Cells
+        /// may feed one another round a ring, as the cells of a stack about an axis do, when the block feeding back
+        /// into the first cell of the ring has no other target, so that the mesher can close the ring on it; a
+        /// choice that cannot be ordered so is excluded and the problem solved again. A cell left unswept is named
+        /// in the error, with the blocks of the cells that are swept and what keeps every other cell out of the
+        /// sweep.
+        /// </summary>
         private SweepDetectionData DetectPrismSweepSources(GeometryPart[] sweptParts, string stamp)
         {
-            string error;
-            string errorPartName;
-            bool onlyUnreached;
-            double score;
-            double bestScore;
-            double bestPartialScore;
-            int bestReachedCount;
-            SweepBlocks blocks;
-            HashSet<int> sweptPartIds;
-            HashSet<int> bestPartialReachedPartIds = null;
-            HashSet<int> reachedPartIds = new HashSet<int>();
-            HashSet<int> triedSeedIds;
-            Dictionary<int, HashSet<int>> trial;
-            Dictionary<int, HashSet<int>> bestSelection = null;
-            Dictionary<int, HashSet<int>> bestPartialSelection;
-            Dictionary<int, HashSet<int>> selection = new Dictionary<int, HashSet<int>>();
-            Dictionary<int, GeomFaceType> faceTypes = new Dictionary<int, GeomFaceType>();
-            // What the first trial seeded on a part with each seed ran into: why a part swept on its own cannot be
-            // swept with the others, told before the sources kept from the earlier rounds come into it
-            Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors =
-                new Dictionary<int, List<KeyValuePair<HashSet<int>, string>>>();
-            // The maps of every part, which every trial on it asks for again
-            SweepPartMaps maps = new SweepPartMaps();
-            // The surfaces and the edges the sub-parts share are the same for every trial
+            int numOfCells = sweptParts.Length;
+            string groupName = GetSweepGroupPart(sweptParts).Name;
+            Dictionary<int, int> partIdCell = new Dictionary<int, int>();
+            for (int i = 0; i < numOfCells; i++) partIdCell.Add(sweptParts[i].PartId, i);
+            // The surfaces and the edges the cells share
             Dictionary<int, int> twinSurfaceIds = new Dictionary<int, int>();
             Dictionary<int, int> twinEdgeIds = new Dictionary<int, int>();
-            if (sweptParts.Length > 1)
+            if (numOfCells > 1)
             {
                 twinSurfaceIds = _geometry.GetSharedSurfaceIds(sweptParts);
                 twinEdgeIds = _geometry.GetSharedEdgeIds(sweptParts);
             }
-            // The sources are chosen by the solver, which weighs every way of every part against the others; the
-            // trials below run only when it gives no answer, which tells why no source could be found
-            SweepDetectionData solved = DetectCompoundSweepSources(sweptParts, stamp, twinSurfaceIds, twinEdgeIds,
-                                                                   maps);
-            if (solved != null) return solved;
-            // The selections tried on every part, which do not change from one round to the next
-            Dictionary<int, List<HashSet<int>>> partIdSeedSurfaceIds = new Dictionary<int, List<HashSet<int>>>();
-            foreach (var part in sweptParts) partIdSeedSurfaceIds.Add(part.PartId, GetSeedSurfaceIds(part));
-            // A defect of the geometry a trial ran into, which tells the user more than that no source was found
-            string geometryDefect = null;
-            // Every complete trial, by its source and target
-            List<SweepBlocks> directions = new List<SweepBlocks>();
-            List<double> directionScores = new List<double>();
-            List<string> directionKeys = new List<string>();
-            //
-            while (bestSelection == null)
-            {
-                bestScore = double.NegativeInfinity;
-                bestPartialScore = double.NegativeInfinity;
-                bestReachedCount = reachedPartIds.Count;
-                bestPartialSelection = null;
-                // A seed gives the same trial as another only together with the same kept selection
-                triedSeedIds = new HashSet<int>();
-                foreach (var part in sweptParts)
-                {
-                    if (reachedPartIds.Contains(part.PartId)) continue;
-                    //
-                    foreach (var seedSurfaceIds in partIdSeedSurfaceIds[part.PartId])
-                    {
-                        bool singleSurfaceSeed = seedSurfaceIds.Count == 1;
-                        if (singleSurfaceSeed &&
-                            !triedSeedIds.Add(FeMesh.GmshTopologyId(seedSurfaceIds.First(), part.PartId))) continue;
-                        //
-                        trial = CopySelection(selection);
-                        trial[part.PartId] = new HashSet<int>(seedSurfaceIds);
-                        blocks = CreateSweepBlocks(sweptParts, trial, twinSurfaceIds, twinEdgeIds, maps,
-                                                   out error, out _, out sweptPartIds, out onlyUnreached);
-                        // Every surface of the seed's extended source would give the same trial
-                        if (singleSurfaceSeed) MarkTriedSeeds(blocks, part.PartId, triedSeedIds);
-                        if (geometryDefect == null && error != null && error.StartsWith(_splitBoreRimErrorStart))
-                            geometryDefect = error;
-                        if (error != null && !onlyUnreached)
-                            AddSeedError(partIdSeedErrors, part.PartId, seedSurfaceIds, error);
-                        //
-                        if (error == null)
-                        {
-                            score = ScoreSweepBlocks(blocks, faceTypes, maps);
-                            SweepDetectionData.AddDirection(directions, directionScores, directionKeys, blocks, score);
-                            if (score > bestScore)
-                            {
-                                bestScore = score;
-                                bestSelection = trial;
-                            }
-                        }
-                        else if (onlyUnreached && sweptPartIds.Count > reachedPartIds.Count &&
-                                 sweptPartIds.Count >= bestReachedCount)
-                        {
-                            // The partial trial becomes the kept selection of the next round, so it is ranked
-                            // the way a complete one is: first by the number of parts it reached, and among
-                            // the trials that reached as many by the score of the blocks it did build
-                            score = ScoreSweepBlocks(blocks, faceTypes, maps);
-                            if (sweptPartIds.Count > bestReachedCount || score > bestPartialScore)
-                            {
-                                bestReachedCount = sweptPartIds.Count;
-                                bestPartialScore = score;
-                                bestPartialSelection = trial;
-                                bestPartialReachedPartIds = sweptPartIds;
-                            }
-                        }
-                    }
-                }
-                if (bestSelection != null) break;
-                //
-                if (bestPartialSelection == null)
-                {
-                    foreach (var part in sweptParts)
-                    {
-                        if (!reachedPartIds.Contains(part.PartId))
-                        {
-                            // The parts that were reached are swept by the trial that reached them; it is the
-                            // ones left over that have to be selected by hand, or split, or meshed by tetrahedra
-                            SweepBlocks partialBlocks = null;
-                            if (reachedPartIds.Count > 0)
-                            {
-                                partialBlocks = CreateSweepBlocks(sweptParts, selection, twinSurfaceIds, twinEdgeIds,
-                                                                  maps, out _, out _, out _, out onlyUnreached);
-                                if (!onlyUnreached) partialBlocks = null;
-                            }
-                            return new SweepDetectionData(null, "No sweep source surface could be found " +
-                                                          "automatically for the part " + part.Name +
-                                                          ". Select the source surfaces by hand." +
-                                                          (geometryDefect != null ? " " + geometryDefect : ""), null,
-                                                          reachedPartIds, stamp, partialBlocks, null, null,
-                                                          GetUnreachedPartReasons(sweptParts, reachedPartIds,
-                                                                                  partIdSeedErrors));
-                        }
-                    }
-                }
-                selection = bestPartialSelection;
-                reachedPartIds = bestPartialReachedPartIds;
-            }
-            // The blocks of the best selection are the ones the item keeps
-            blocks = CreateSweepBlocks(sweptParts, bestSelection, twinSurfaceIds, twinEdgeIds, maps,
-                                       out error, out errorPartName, out sweptPartIds, out _);
-            //
-            if (error != null)
-            {
-                directions.Clear();
-                directionScores.Clear();
-            }
-            return new SweepDetectionData(error == null ? blocks : null, error, errorPartName, sweptPartIds, stamp, null,
-                                          directions, directionScores);
-        }
-        private static void AddSeedError(Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors,
-                                         int partId, HashSet<int> seedSurfaceIds, string error)
-        {
-            List<KeyValuePair<HashSet<int>, string>> seedErrors;
-            if (!partIdSeedErrors.TryGetValue(partId, out seedErrors))
-            {
-                seedErrors = new List<KeyValuePair<HashSet<int>, string>>();
-                partIdSeedErrors.Add(partId, seedErrors);
-            }
-            if (seedErrors.Any(seedError => seedError.Key.SetEquals(seedSurfaceIds))) return;
-            seedErrors.Add(new KeyValuePair<HashSet<int>, string>(seedSurfaceIds, error));
-        }
-        /// <summary>
-        /// Why the parts the trials did not reach cannot be swept with the others although they can be on their
-        /// own: what the trial seeded with the source a part is swept from alone ran into, the seed being that
-        /// source or a surface it grew from. A part that cannot be swept on its own has its own reason and is left
-        /// out.
-        /// </summary>
-        private Dictionary<int, string> GetUnreachedPartReasons(GeometryPart[] sweptParts, HashSet<int> reachedPartIds,
-            Dictionary<int, List<KeyValuePair<HashSet<int>, string>>> partIdSeedErrors)
-        {
-            Dictionary<int, string> reasons = new Dictionary<int, string>();
-            if (sweptParts.Length < 2) return reasons;
-            //
-            foreach (var part in sweptParts)
-            {
-                List<KeyValuePair<HashSet<int>, string>> seedErrors;
-                if (reachedPartIds.Contains(part.PartId) || !partIdSeedErrors.TryGetValue(part.PartId, out seedErrors))
-                    continue;
-                //
-                SweepDetectionData cellDetection = GetCellSweepDetection(part);
-                if (cellDetection.Error != null) continue;
-                foreach (var direction in cellDetection.Directions)
-                {
-                    HashSet<int> sourceSurfaceIds = new HashSet<int>(direction.SourceSurfaceIds.SelectMany(ids => ids)
-                                                                     .Select(FeMesh.GetItemIdFromGmshTopologyId));
-                    string reason = seedErrors.Where(seedError => seedError.Key.IsSubsetOf(sourceSurfaceIds))
-                                              .Select(seedError => seedError.Value).FirstOrDefault();
-                    if (reason == null) continue;
-                    //
-                    reasons.Add(part.PartId, reason);
-                    break;
-                }
-            }
-            return reasons;
-        }
-        /// <summary>
-        /// The sources of a compound, found by weighing every way every cell can be swept against the ways of its
-        /// neighbours rather than by trials that sweep from a seed and keep what they reach. A cell has the ways its
-        /// own seeds give it and the ways its neighbours can give it - from a target or a source they share with it,
-        /// or across a shared wall, from the surfaces continuing their source - and the ways those give in turn;
-        /// each is a block of the cell validated as the trials validate it. Two cells agree on a surface they share
-        /// as SweepCellCandidate tells, and SweepDirectionProblem finds the ways that sweep the most cells, then
-        /// continue one another across the most shared surfaces, and then score best, a cell it leaves out being
-        /// meshed by tetrahedra. The blocks are those of the chosen ways, in
-        /// the order the cells feed one another. Unlike the trials it cannot be led astray by the order it meets the
-        /// cells in, which is what leaves a cell unswept that a sweep of the whole compound would reach. A single part
-        /// takes its best scored way, every way it has being kept as its directions. Cells may
-        /// feed one another round a ring, as the cells of a stack about an axis do, when the block feeding back into
-        /// the first cell of the ring has no other target, so that the mesher can close the ring on it; a choice that
-        /// cannot be ordered so is excluded and the problem solved again. Null, for the trials to find the sources,
-        /// when a cell has more ways than are worth weighing or when the solver cannot finish.
-        /// </summary>
-        private SweepDetectionData DetectCompoundSweepSources(GeometryPart[] sweptParts, string stamp,
-                                                              Dictionary<int, int> twinSurfaceIds,
-                                                              Dictionary<int, int> twinEdgeIds, SweepPartMaps maps)
-        {
-            int numOfCells = sweptParts.Length;
-            Dictionary<int, int> partIdCell = new Dictionary<int, int>();
-            for (int i = 0; i < numOfCells; i++) partIdCell.Add(sweptParts[i].PartId, i);
+            // The maps of every part, which every way of it asks for again
+            SweepPartMaps maps = new SweepPartMaps();
             // The ways of every cell, grown from the seeds and from every way found until no new one appears
             int twinId;
             int neighbour;
@@ -4007,9 +3819,15 @@ namespace CaeModel
             List<SweepCellCandidate>[] candidates = new List<SweepCellCandidate>[numOfCells];
             HashSet<string> triedSources = new HashSet<string>();
             Queue<Tuple<int, HashSet<int>, bool>> pendingSources = new Queue<Tuple<int, HashSet<int>, bool>>();
+            // What the seeds of every cell ran into, and a defect of the geometry a way ran into, which tells the user
+            // more than that no source was found
+            List<KeyValuePair<HashSet<int>, string>>[] seedErrors =
+                new List<KeyValuePair<HashSet<int>, string>>[numOfCells];
+            string geometryDefect = null;
             for (int i = 0; i < numOfCells; i++)
             {
                 candidates[i] = new List<SweepCellCandidate>();
+                seedErrors[i] = new List<KeyValuePair<HashSet<int>, string>>();
                 foreach (var seedSurfaceIds in GetSeedSurfaceIds(sweptParts[i]))
                     pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(i, seedSurfaceIds, false));
             }
@@ -4020,11 +3838,22 @@ namespace CaeModel
                 GeometryPart part = sweptParts[cell];
                 string key = cell + (pending.Item3 ? "d:" : "s:") + string.Join(",", pending.Item2.OrderBy(id => id));
                 if (!triedSources.Add(key)) continue;
-                if (triedSources.Count > _maxCompoundSweepSources) return null;
+                if (triedSources.Count > _maxCompoundSweepSources)
+                {
+                    return new SweepDetectionData(null, "The part " + groupName + " can be swept in more ways than " +
+                                                  "the detection weighs. Select the source surfaces by hand.", null,
+                                                  new HashSet<int>(), stamp);
+                }
                 //
                 SweepCellCandidate candidate = CreateSweepCellCandidate(part, pending.Item2, pending.Item3,
                                                                         twinSurfaceIds, maps, faceTypes, out error);
-                if (candidate == null) continue;
+                if (candidate == null)
+                {
+                    if (geometryDefect == null && error.StartsWith(_splitBoreRimErrorStart)) geometryDefect = error;
+                    if (!pending.Item3)
+                        seedErrors[cell].Add(new KeyValuePair<HashSet<int>, string>(pending.Item2, error));
+                    continue;
+                }
                 int same = candidates[cell].FindIndex(other =>
                     other.SourceSurfaceIds.SetEquals(candidate.SourceSurfaceIds) &&
                     other.TargetSurfaceIds.SetEquals(candidate.TargetSurfaceIds));
@@ -4051,8 +3880,7 @@ namespace CaeModel
                         pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(neighbour, continuingIds, true));
                 }
             }
-            if (candidates.All(cellCandidates => cellCandidates.Count == 0)) return null;
-            if (numOfCells == 1)
+            if (numOfCells == 1 && candidates[0].Count > 0)
             {
                 // The best scored way, the first found among equals
                 List<SweepCellCandidate> ways = candidates[0].Select((candidate, index) => new { candidate, index })
@@ -4070,7 +3898,8 @@ namespace CaeModel
             double[][] scores = candidates.Select(cellCandidates => cellCandidates.Select(c => c.Score).ToArray())
                                           .ToArray();
             SweepDirectionProblem problem = new SweepDirectionProblem(scores);
-            foreach (var entry in twinSurfaceIds)
+            foreach (var entry in candidates.Any(cellCandidates => cellCandidates.Count > 0)
+                                  ? twinSurfaceIds : new Dictionary<int, int>())
             {
                 int cellA;
                 int cellB;
@@ -4099,22 +3928,34 @@ namespace CaeModel
                 problem.AddSurface(cellA, cellB, compatible, continuing);
             }
             // The blocks in the order the cells feed one another: a cell swept from the target of another after it
-            int[] choices;
-            List<int> order;
+            int[] choices = Enumerable.Repeat(-1, numOfCells).ToArray();
+            List<int> order = new List<int>();
             int[] unorderedCells;
             int numOfSolves = 0;
-            while (true)
+            while (candidates.Any(cellCandidates => cellCandidates.Count > 0))
             {
                 choices = problem.Solve();
-                if (choices == null || choices.All(choice => choice < 0)) return null;
+                if (choices == null)
+                {
+                    return new SweepDetectionData(null, "lp_solve found no way of sweeping the part " + groupName +
+                                                  ". Select the source surfaces by hand.", null, new HashSet<int>(),
+                                                  stamp);
+                }
                 order = GetCompoundSweepOrder(sweptParts, candidates, choices, twinSurfaceIds, partIdCell,
                                               out unorderedCells);
                 if (order != null) break;
-                if (++numOfSolves > _maxCompoundSweepSolves) return null;
+                if (++numOfSolves > _maxCompoundSweepSolves)
+                {
+                    return new SweepDetectionData(null, "The parts of " + groupName + " cannot be swept in an order " +
+                                                  "the mesher can follow. Select the source surfaces by hand.", null,
+                                                  new HashSet<int>(), stamp);
+                }
                 problem.AddExclusion(unorderedCells, unorderedCells.Select(cell => choices[cell]).ToArray());
             }
             //
-            SweepBlocks blocks = SweepBlocks.Merge(order.Select(cell => candidates[cell][choices[cell]].Blocks));
+            SweepBlocks blocks = order.Count > 0
+                                 ? SweepBlocks.Merge(order.Select(cell => candidates[cell][choices[cell]].Blocks))
+                                 : null;
             double score = order.Sum(cell => candidates[cell][choices[cell]].Score);
             HashSet<int> sweptPartIds = new HashSet<int>(order.Select(cell => sweptParts[cell].PartId));
             if (order.Count == numOfCells)
@@ -4127,16 +3968,40 @@ namespace CaeModel
             {
                 if (choices[i] >= 0) continue;
                 if (firstUnswept == null) firstUnswept = sweptParts[i];
+                if (numOfCells == 1) continue;
                 string reason = GetCompoundSweepConflict(sweptParts, i, candidates, choices, twinSurfaceIds, partIdCell,
-                                                         tolerance);
+                                                         tolerance) ??
+                                GetUnsweptCellReason(sweptParts[i], seedErrors[i]);
                 if (reason != null) reasons.Add(sweptParts[i].PartId, reason);
             }
             return new SweepDetectionData(null, "No sweep source surface could be found automatically for the part " +
-                                          firstUnswept.Name + ". Select the source surfaces by hand.", null,
+                                          firstUnswept.Name + ". Select the source surfaces by hand." +
+                                          (geometryDefect != null ? " " + geometryDefect : ""), null,
                                           sweptPartIds, stamp, blocks, null, null, reasons);
         }
         /// <summary>
-        /// The block of a cell swept from the given source, built as a trial builds it - the source grown over the
+        /// Why a cell with no way among its neighbours is not swept although it can be on its own: what the source it
+        /// is swept from alone, or a seed that source grew from, ran into against its neighbours. A cell that cannot
+        /// be swept on its own has its own reason.
+        /// </summary>
+        private string GetUnsweptCellReason(GeometryPart part, List<KeyValuePair<HashSet<int>, string>> seedErrors)
+        {
+            if (seedErrors.Count == 0) return null;
+            //
+            SweepDetectionData cellDetection = GetCellSweepDetection(part);
+            if (cellDetection.Error != null) return null;
+            foreach (var direction in cellDetection.Directions)
+            {
+                HashSet<int> sourceSurfaceIds = new HashSet<int>(direction.SourceSurfaceIds.SelectMany(ids => ids)
+                                                                 .Select(FeMesh.GetItemIdFromGmshTopologyId));
+                string reason = seedErrors.Where(seedError => seedError.Key.IsSubsetOf(sourceSurfaceIds))
+                                          .Select(seedError => seedError.Value).FirstOrDefault();
+                if (reason != null) return reason;
+            }
+            return null;
+        }
+        /// <summary>
+        /// The block of a cell swept from the given source, built as a selected source is - the source grown over the
         /// surfaces in its plane, and a source the cell is given by a neighbour over the surfaces leaning on it -
         /// with the role every edge of its walls plays, or null with the reason when the block is refused.
         /// </summary>
@@ -4252,7 +4117,7 @@ namespace CaeModel
         }
         /// <summary>
         /// The surfaces of a neighbour across a shared wall that continue the source over the wall: those on the
-        /// twins of the wall edges the source touches, as a trial gives them to a neighbour swept alongside.
+        /// twins of the wall edges the source touches, as the propagation gives them to a neighbour swept alongside.
         /// </summary>
         private HashSet<int> GetSourceContinuingAcrossWall(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                                            int sideSurfaceId, GeometryPart neighbour,
@@ -4470,25 +4335,6 @@ namespace CaeModel
             if (leaningSurfaceIds.TryGetValue(surfaceId, out neighbourIds)) neighbourIds.Add(neighbourId);
             else leaningSurfaceIds.Add(surfaceId, new HashSet<int>() { neighbourId });
         }
-        private static Dictionary<int, HashSet<int>> CopySelection(Dictionary<int, HashSet<int>> selection)
-        {
-            Dictionary<int, HashSet<int>> copy = new Dictionary<int, HashSet<int>>();
-            foreach (var entry in selection) copy.Add(entry.Key, new HashSet<int>(entry.Value));
-            return copy;
-        }
-        private static void MarkTriedSeeds(SweepBlocks blocks, int seedPartId, HashSet<int> triedSeedIds)
-        {
-            if (blocks == null) return;
-            //
-            foreach (var blockSourceSurfaceIds in blocks.SourceSurfaceIds)
-            {
-                if (blockSourceSurfaceIds.Length == 0) continue;
-                if (FeMesh.GetPartIdFromGmshTopologyId(blockSourceSurfaceIds[0]) != seedPartId) continue;
-                //
-                triedSeedIds.UnionWith(blockSourceSurfaceIds);
-                break;
-            }
-        }
         /// <summary>
         /// Ranks a set of sweep blocks, complete or partial. A source with many edges carries the features of the cross
         /// section, so sweeping it meshes them once in 2D and extrudes them; a wall that is neither planar
@@ -4682,23 +4528,23 @@ namespace CaeModel
         /// and a sub-part sharing a side surface is swept alongside, from the surfaces that continue the
         /// source across the shared wall.
         ///
-        /// A trial stopped only because a sub-part was never reached still returns the blocks of the
-        /// sub-parts it did sweep, with the error set, so that the detection can rank one such trial against
-        /// another. Every other refusal returns nothing.
+        /// A propagation stopped only because a sub-part was never reached still returns the blocks of the
+        /// sub-parts it did sweep, with the error set, so that a selection that may leave sub-parts out still
+        /// sweeps those. Every other refusal returns nothing.
         ///
         /// A neighbour swept alongside a block across their shared wall is only one way to sweep it: the wall
         /// is a wall to a neighbour swept along its other edges just as well. So when the sweep carried on
         /// from such a neighbour fails further on - the bar beside a plate swept through its thickness, whose
         /// cap is shared with a bar that leans along a chamfer and can only be swept across it - the neighbour
-        /// is set aside and the trial repeated without it. It is then left unreached, for a source of its own,
+        /// is set aside and the propagation repeated without it. It is then left unreached, for a source of its own,
         /// the way a neighbour that cannot be swept alongside at all is left.
         ///
         /// A closed ring of sub-parts, each of which can only be swept from one of its neighbours to the next,
         /// fails that way: a source shared by two of them sends one sweep each way around the ring, and the two
-        /// meet in the sub-part opposite, which would need a source at both ends. Such a trial is repeated with
+        /// meet in the sub-part opposite, which would need a source at both ends. Such a propagation is repeated with
         /// the sweep sent one way round - the neighbours of a selected source are not swept away from it - and
         /// the ring is closed on it: the last block of the ring ends on the selected source, which is already
-        /// meshed, and the mesher sweeps that block between two meshed caps. The repeated trial is kept only
+        /// meshed, and the mesher sweeps that block between two meshed caps. The repeated propagation is kept only
         /// when it did close a ring.
         /// </summary>
         private SweepBlocks CreateSweepBlocks(GeometryPart[] sweptParts,
@@ -4839,7 +4685,7 @@ namespace CaeModel
                 surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
                 // The surfaces lying in the plane of the source are swept from as well. A source the sweep derived
                 // for this part is the surface it is fed through and nothing more, and a chamfer or a round at that
-                // end of the block is left out of it. Every trial that reaches the source grows it the same way
+                // end of the block is left out of it. Every propagation reaching the source grows it the same way
                 bool derived = !partIdSelectedSurfaceIds.ContainsKey(partId);
                 sourceSurfaceIds.UnionWith(maps.GetExtendedSourceSurfaceIds(part, sourceSurfaceIds, derived, () =>
                 {
@@ -4871,7 +4717,7 @@ namespace CaeModel
                         !partIdSideNeighbourId.ContainsKey(neighbourPartId)) partIdSideNeighbourId.Add(neighbourPartId, rootId);
                 }
                 //
-                // A block is validated once per source and read again by every trial that reaches the same source
+                // A block is validated once per source and read again by every propagation reaching the source
                 SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, twinSurfaceIds != null,
                     () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
                 error = validation.Error;
@@ -5010,8 +4856,8 @@ namespace CaeModel
                         "as well.";
                 break;
             }
-            // The blocks of the parts that were reached are returned even when a part was not, so that the
-            // detection can rank one partial trial against another. The error is what says it is partial
+            // The blocks of the parts that were reached are returned even when a part was not, so that a selection
+            // that may leave parts out still sweeps them. The error is what says it is partial
             return new SweepBlocks(blockSourceSurfaceIds.ToArray(), blockSideSurfaceIds.ToArray(),
                                    blockTargetSurfaceIds.ToArray(), layerGroupEdgeIds.ToArray(),
                                    blockArrowStarts.ToArray(), blockArrowDirections.ToArray());
@@ -5488,7 +5334,7 @@ namespace CaeModel
         /// does not. The topological checks only ask that the walls close a loop and reduce to four sides,
         /// which a body satisfies just as readily when the walk stops after one ring and leaves the whole
         /// rest of the body standing as the target. Every measurement below is a property of the geometry
-        /// alone, taken on the visualization the part already carries, so it costs the trial nothing.
+        /// alone, taken on the visualization the part already carries, so it costs the detection nothing.
         /// </summary>
         private string ValidateSweepBlockGeometry(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                                   int[] targetSurfaceIds, int[] sideSurfaceIds,
