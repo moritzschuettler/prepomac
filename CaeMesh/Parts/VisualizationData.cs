@@ -1959,6 +1959,11 @@ namespace CaeMesh
                 // Are the neighbouring faces the last faces of the part
                 if (surfaceIdSurfaceNeighbourIds.Keys.Count == visitedSurfaceIds.Union(neighbourSurfaceIds).Count())
                     loop = false;
+                // A source without free edges has no walls beside it, and surfaces it cannot reach are no target
+                else if (neighbourSurfaceIds.Count == 0)
+                {
+                    return false;
+                }
                 // Check that neighbours form a loop
                 else
                 {
