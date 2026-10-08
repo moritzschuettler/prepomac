@@ -2858,8 +2858,11 @@ namespace CaeMesh
         /// <summary>
         /// The QuadWild sources in groups of surfaces that touch along an edge. An edge is fixed when the user pinned
         /// its count, when it follows the sweep or lies on the target side of a wall, when it is one of a pair of
-        /// imprint edges, or when it bounds a surface that is neither a QuadWild source nor a wall - another part, a
-        /// target, or a source left to gmsh; every other edge is free. A surface whose every edge is fixed needs an
+        /// imprint edges, when it bounds a surface that is neither a QuadWild source nor a wall - another part, a
+        /// target, or a source left to gmsh - or when more than two sources meet on it - two cells swept away from
+        /// the surface they share, each from its own surface beside it - since one QuadWild run meshes a surface
+        /// that has at most two sides at an edge; every other edge is free, and only a free edge or a fixed edge
+        /// of two sources joins its surfaces into one group. A surface whose every edge is fixed needs an
         /// even number of elements around it, since every quadrilateral has four sides, so one with an odd number
         /// is left to gmsh, as a source is without QuadWild, and the groups are formed again without it.
         /// </summary>
@@ -2876,6 +2879,7 @@ namespace CaeMesh
             while (true)
             {
                 Dictionary<int, int[]> surfaceIdEdgeIds = new Dictionary<int, int[]>();
+                Dictionary<int, int> edgeIdNumOfSources = new Dictionary<int, int>();
                 HashSet<int> fixedEdgeIds = new HashSet<int>();
                 foreach (var surfaceId in _quadWildSourceIds.OrderBy(id => id))
                 {
@@ -2883,7 +2887,17 @@ namespace CaeMesh
                     surfaceIdEdgeIds[surfaceId] = edgeIds;
                     foreach (var edgeId in edgeIds)
                     {
-                        if (IsQuadWildEdgeFixed(edgeId, alwaysFixedEdgeIds, wallSurfaceIds)) fixedEdgeIds.Add(edgeId);
+                        int numOfSources;
+                        edgeIdNumOfSources.TryGetValue(edgeId, out numOfSources);
+                        edgeIdNumOfSources[edgeId] = numOfSources + 1;
+                    }
+                }
+                foreach (var entry in surfaceIdEdgeIds)
+                {
+                    foreach (var edgeId in entry.Value)
+                    {
+                        if (edgeIdNumOfSources[edgeId] > 2 ||
+                            IsQuadWildEdgeFixed(edgeId, alwaysFixedEdgeIds, wallSurfaceIds)) fixedEdgeIds.Add(edgeId);
                     }
                 }
                 //
@@ -2911,7 +2925,7 @@ namespace CaeMesh
                                                           "is meshed with gmsh instead of QuadWild."));
                     continue;
                 }
-                // Surfaces sharing an edge are meshed together
+                // Surfaces sharing an edge no third source meets on are meshed together
                 Dictionary<int, int> parent = new Dictionary<int, int>();
                 Dictionary<int, int> edgeIdSurfaceId = new Dictionary<int, int>();
                 foreach (var entry in surfaceIdEdgeIds)
@@ -2919,6 +2933,7 @@ namespace CaeMesh
                     Find(parent, entry.Key);
                     foreach (var edgeId in entry.Value)
                     {
+                        if (edgeIdNumOfSources[edgeId] > 2) continue;
                         int otherSurfaceId;
                         if (edgeIdSurfaceId.TryGetValue(edgeId, out otherSurfaceId)) Unite(parent, entry.Key, otherSurfaceId);
                         else edgeIdSurfaceId[edgeId] = entry.Key;
