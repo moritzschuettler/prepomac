@@ -856,35 +856,76 @@ namespace CaeMesh
             }
         }
         /// <summary>
-        /// The part a volume of a compound was written out of, read off a boundary surface no other volume shares.
+        /// The part a volume of a compound was written out of.
         /// </summary>
         private string GetVolumePartName(int volumeId)
         {
+            int partId;
             string partName;
-            int partId = GetVolumePartId(volumeId);
-            if (partId >= 0 && _gmshData.PartIdPartName != null && _gmshData.PartIdPartName.TryGetValue(partId, out partName))
+            if (GetVolumePartIds().TryGetValue(volumeId, out partId) && _gmshData.PartIdPartName != null &&
+                _gmshData.PartIdPartName.TryGetValue(partId, out partName))
                 return partName;
             return "the cell of gmsh volume " + volumeId;
         }
         /// <summary>
-        /// The id of the part a volume of a compound was written out of, read off a boundary surface no other volume
-        /// shares - a surface two cells share is named after one of them only - or -1 for a volume without one.
+        /// The id of the part every volume of a compound was written out of, read off the names of its boundary
+        /// surfaces. A surface two cells share is named after one of them only, so a surface no other volume shares
+        /// names its volume, and a shared surface named after a part no other volume is known to be names it too;
+        /// a cell its neighbours enclose on every side may have no surface named after it, and is the part left
+        /// over when it is the only volume left. A volume none of these tell is not in the map.
         /// </summary>
-        private int GetVolumePartId(int volumeId)
+        private Dictionary<int, int> GetVolumePartIds()
         {
             int[] volumeIds;
             int topologyId;
+            Tuple<int, int>[] volumeDimTags;
             Tuple<int, int>[] surfaceDimTags;
-            Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(3, volumeId) }, out surfaceDimTags,
-                                   false, false, false);
-            foreach (var surfaceDimTag in surfaceDimTags)
+            Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            Dictionary<int, List<Tuple<int, int[]>>> volumeIdSurfaces = new Dictionary<int, List<Tuple<int, int[]>>>();
+            HashSet<int> allPartIds = new HashSet<int>();
+            if (_gmshData.PartIdPartName != null) allPartIds.UnionWith(_gmshData.PartIdPartName.Keys);
+            foreach (var volumeDimTag in volumeDimTags)
             {
-                int surfaceId = Math.Abs(surfaceDimTag.Item2);
-                Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
-                if (volumeIds.Length == 1 && _gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId))
-                    return FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+                List<Tuple<int, int[]>> surfaces = new List<Tuple<int, int[]>>();
+                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { volumeDimTag }, out surfaceDimTags, false, false, false);
+                foreach (var surfaceDimTag in surfaceDimTags)
+                {
+                    int surfaceId = Math.Abs(surfaceDimTag.Item2);
+                    if (!_gmshSurfaceIdTopologyId.TryGetValue(surfaceId, out topologyId)) continue;
+                    Gmsh.Model.GetAdjacencies(2, surfaceId, out volumeIds, out _);
+                    int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+                    surfaces.Add(new Tuple<int, int[]>(partId, volumeIds));
+                    allPartIds.Add(partId);
+                }
+                volumeIdSurfaces.Add(volumeDimTag.Item2, surfaces);
             }
-            return -1;
+            //
+            Dictionary<int, int> volumeIdPartId = new Dictionary<int, int>();
+            foreach (var entry in volumeIdSurfaces)
+            {
+                Tuple<int, int[]> unshared = entry.Value.FirstOrDefault(surface => surface.Item2.Length == 1);
+                if (unshared != null) volumeIdPartId.Add(entry.Key, unshared.Item1);
+            }
+            bool found = true;
+            while (found)
+            {
+                found = false;
+                HashSet<int> knownPartIds = new HashSet<int>(volumeIdPartId.Values);
+                foreach (var entry in volumeIdSurfaces)
+                {
+                    if (volumeIdPartId.ContainsKey(entry.Key)) continue;
+                    Tuple<int, int[]> own = entry.Value.FirstOrDefault(surface => !knownPartIds.Contains(surface.Item1));
+                    if (own == null) continue;
+                    volumeIdPartId.Add(entry.Key, own.Item1);
+                    knownPartIds.Add(own.Item1);
+                    found = true;
+                }
+            }
+            int[] unknownVolumeIds = volumeIdSurfaces.Keys.Where(id => !volumeIdPartId.ContainsKey(id)).ToArray();
+            int[] unknownPartIds = allPartIds.Where(id => !volumeIdPartId.ContainsValue(id)).ToArray();
+            if (unknownVolumeIds.Length == 1 && unknownPartIds.Length == 1)
+                volumeIdPartId.Add(unknownVolumeIds[0], unknownPartIds[0]);
+            return volumeIdPartId;
         }
         /// <summary>
         /// The volumes of a compound that no sweep block covers: the cells that cannot be swept, which the model side
@@ -5515,12 +5556,9 @@ namespace CaeMesh
             int[] volumeIds;
             HashSet<int> keptVolumeIds = new HashSet<int>();
             HashSet<int> mirroredPartIds = new HashSet<int>(sweepMesh.SymmetryPartIds.Select(row => row[0]));
-            Tuple<int, int>[] cellDimTags;
-            Gmsh.Model.GetEntities(out cellDimTags, 3);
-            foreach (var cellDimTag in cellDimTags)
+            foreach (var entry in GetVolumePartIds())
             {
-                int partId = GetVolumePartId(cellDimTag.Item2);
-                if (partId >= 0 && !mirroredPartIds.Contains(partId)) keptVolumeIds.Add(cellDimTag.Item2);
+                if (!mirroredPartIds.Contains(entry.Value)) keptVolumeIds.Add(entry.Key);
             }
             for (int i = 0; i < sweepMesh.BlockSourceSurfaceIds.Length; i++)
             {
