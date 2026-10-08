@@ -163,9 +163,9 @@ namespace CaeModel
             {
                 if (_interpolator == null) updateData = true;
                 else if (_oldFileInfo == null) updateData = true;
-                else if (fileInfo.Name != _oldFileInfo.Name) updateData = true;
-                // Files have the same name - check if newer
-                else if (fileInfo.LastWriteTimeUtc < _oldFileInfo.LastWriteTimeUtc) updateData = true;
+                else if (fileInfo.FullName != _oldFileInfo.FullName) updateData = true;
+                // Same file - check if it was modified
+                else if (fileInfo.LastWriteTimeUtc != _oldFileInfo.LastWriteTimeUtc) updateData = true;
                 else if (_prevScaleFactor != scaleFactor) updateData = true;
             }
             else
