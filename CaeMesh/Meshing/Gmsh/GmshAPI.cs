@@ -972,7 +972,11 @@ namespace CaeMesh
             while (true)
             {
                 copyDimTags.Clear();
-                foreach (var block in _sweepBlocks) CarryUnmatchedImprints(block, surfaceIdEdgeIds, copyDimTags);
+                foreach (var block in _sweepBlocks)
+                {
+                    CarryUnmatchedImprints(block, surfaceIdEdgeIds,
+                                           sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild, copyDimTags);
+                }
                 if (copyDimTags.Count == 0) break;
                 if (++round > _sweepBlocks.Count + 1)
                     throw new CaeException("The splits of the sweep sources and targets could not be carried across the " +
@@ -1185,21 +1189,38 @@ namespace CaeMesh
         }
         /// <summary>
         /// Copies every edge splitting an end of a prismatic block inside that has no counterpart on the other
-        /// end, and moves the copy onto that other end.
+        /// end, and moves the copy onto that other end. With QuadWild sources, a vertex splitting the target side
+        /// of a wall with no vertex opposite it on the source side - a side that is one edge on the source and two
+        /// on the target - is carried to the source as a point on the edge opposite it, which the fragmentation
+        /// splits there. A wall is meshed as a grid joining the k-th node of one side to the k-th of the other, and
+        /// a gmsh source has the node opposite the split moved there by MatchOppositeSideSpacing; the nodes QuadWild
+        /// places on a source do not move, so every grid line of the wall would lean towards the split and the
+        /// layers of the block follow it. A gmsh source is left unsplit, its own spacing having measured better.
         /// </summary>
         private void CarryUnmatchedImprints(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
-                                            List<Tuple<int, int>> copyDimTags)
+                                            bool carryTargetSideVertices, List<Tuple<int, int>> copyDimTags)
         {
             if (block.ImprintTranslation == null) return;
             //
             HashSet<int> sourceEdgeIds;
             HashSet<int> targetEdgeIds;
             GetInteriorEdgeIds(block, surfaceIdEdgeIds, out sourceEdgeIds, out targetEdgeIds);
-            if (sourceEdgeIds.Count == 0 && targetEdgeIds.Count == 0) return;
             //
             double[] translation = block.ImprintTranslation;
             double[] back = new double[] { -translation[0], -translation[1], -translation[2] };
             double tolerance = 1E-6 * GetModelDiagonal();
+            int numOfCarriedPoints = carryTargetSideVertices
+                                     ? CarryUnmatchedSideVertices(block, surfaceIdEdgeIds, translation, tolerance,
+                                                                  copyDimTags)
+                                     : 0;
+            if (sourceEdgeIds.Count == 0 && targetEdgeIds.Count == 0)
+            {
+                if (numOfCarriedPoints > 0)
+                    _writeOutput?.Invoke(NameGmshEntities("Sweep: " + block.GetDescription() + " - " +
+                                                          numOfCarriedPoints + " vertex/vertices splitting the target " +
+                                                          "side surfaces carried to the source."));
+                return;
+            }
             Dictionary<int, double[]> sourceSignatures = GetEdgeSignatures(sourceEdgeIds);
             Dictionary<int, double[]> targetSignatures = GetEdgeSignatures(targetEdgeIds);
             List<Tuple<int, int>> toSourceDimTags = new List<Tuple<int, int>>();
@@ -1214,7 +1235,14 @@ namespace CaeMesh
                 if (FindTranslatedEdge(entry.Value, back, targetSignatures, tolerance) < 0)
                     toTargetDimTags.Add(new Tuple<int, int>(1, entry.Key));
             }
-            if (toSourceDimTags.Count == 0 && toTargetDimTags.Count == 0) return;
+            if (toSourceDimTags.Count == 0 && toTargetDimTags.Count == 0)
+            {
+                if (numOfCarriedPoints > 0)
+                    _writeOutput?.Invoke(NameGmshEntities("Sweep: " + block.GetDescription() + " - " +
+                                                          numOfCarriedPoints + " vertex/vertices splitting the target " +
+                                                          "side surfaces carried to the source."));
+                return;
+            }
             //
             Tuple<int, int>[] outDimTags;
             if (toSourceDimTags.Count > 0)
@@ -1232,7 +1260,93 @@ namespace CaeMesh
             _writeOutput?.Invoke(NameGmshEntities("Sweep: " + block.GetDescription() + " - " +
                                                   DescribeCarriedEdges(toSourceDimTags) + " splitting the target carried " +
                                                   "to the source, " + DescribeCarriedEdges(toTargetDimTags) + " splitting " +
-                                                  "the source carried to the target."));
+                                                  "the source carried to the target" +
+                                                  (numOfCarriedPoints > 0
+                                                   ? ", " + numOfCarriedPoints + " vertex/vertices splitting the " +
+                                                     "target side surfaces carried to the source" : "") + "."));
+        }
+        /// <summary>
+        /// Adds a point on the source of the block for every vertex inside a side of a wall on the target that has no
+        /// vertex opposite it on the source, where it lands on an edge of the source, and returns how many it added.
+        /// The translation leads from the target to the source.
+        /// </summary>
+        private int CarryUnmatchedSideVertices(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                               double[] translation, double tolerance, List<Tuple<int, int>> copyDimTags)
+        {
+            int[] edgeIds;
+            HashSet<int> wallEdgeIds = new HashSet<int>();
+            HashSet<int> sourceSideEdgeIds = new HashSet<int>();
+            HashSet<int> targetSideEdgeIds = new HashSet<int>();
+            foreach (var id in block.WallSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) wallEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.SourceSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceSideEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.TargetSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) targetSideEdgeIds.UnionWith(edgeIds);
+            }
+            sourceSideEdgeIds.IntersectWith(wallEdgeIds);
+            targetSideEdgeIds.IntersectWith(wallEdgeIds);
+            if (sourceSideEdgeIds.Count == 0 || targetSideEdgeIds.Count == 0) return 0;
+            //
+            Dictionary<int, double[]> sourceVertexCoors = GetEdgeVertexCoors(sourceSideEdgeIds);
+            Dictionary<int, double[]> targetVertexCoors = GetEdgeVertexCoors(targetSideEdgeIds);
+            return AddUnmatchedVertexPoints(targetVertexCoors, translation, sourceVertexCoors, sourceSideEdgeIds,
+                                            tolerance, copyDimTags);
+        }
+        private static Dictionary<int, double[]> GetEdgeVertexCoors(IEnumerable<int> edgeIds)
+        {
+            int[] vertexIds;
+            double[] coor;
+            Dictionary<int, double[]> vertexCoors = new Dictionary<int, double[]>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                foreach (var vertexId in vertexIds)
+                {
+                    if (vertexCoors.ContainsKey(vertexId)) continue;
+                    Gmsh.Model.GetValue(0, vertexId, new double[0], out coor);
+                    vertexCoors.Add(vertexId, coor);
+                }
+            }
+            return vertexCoors;
+        }
+        /// <summary>
+        /// Adds a point where every vertex lands when moved by the translation, unless a vertex of the other end is
+        /// there already or the point lands inside none of the edges of the other end, and returns how many it added.
+        /// </summary>
+        private static int AddUnmatchedVertexPoints(Dictionary<int, double[]> vertexCoors, double[] translation,
+                                                    Dictionary<int, double[]> otherVertexCoors,
+                                                    HashSet<int> otherEdgeIds, double tolerance,
+                                                    List<Tuple<int, int>> copyDimTags)
+        {
+            int count = 0;
+            double[] closestCoor;
+            double[] parametricCoor;
+            foreach (var entry in vertexCoors)
+            {
+                double[] carried = new double[] { entry.Value[0] + translation[0], entry.Value[1] + translation[1],
+                                                  entry.Value[2] + translation[2] };
+                if (otherVertexCoors.Values.Any(coor => GetDistance(coor, carried) <= tolerance)) continue;
+                bool onEdge = false;
+                foreach (var edgeId in otherEdgeIds)
+                {
+                    Gmsh.Model.GetClosestPoint(1, edgeId, carried, out closestCoor, out parametricCoor);
+                    if (closestCoor.Length < 3 || GetDistance(carried, closestCoor) > tolerance) continue;
+                    onEdge = true;
+                    break;
+                }
+                if (!onEdge) continue;
+                //
+                int pointId = Gmsh.Model.OCC.AddPoint(carried[0], carried[1], carried[2]);
+                copyDimTags.Add(new Tuple<int, int>(0, pointId));
+                count++;
+            }
+            return count;
         }
         private static string DescribeCarriedEdges(List<Tuple<int, int>> edgeDimTags)
         {
@@ -1241,13 +1355,13 @@ namespace CaeMesh
                    ")";
         }
         /// <summary>
-        /// Fragments every volume with the carried curves, so that they become real edges of the faces they lie
-        /// on. Every volume goes in, so that a face shared by two blocks stays one face. The operation renumbers
-        /// the entities it touches, and OpenCASCADE reports the new tags only for the inputs, which the volumes
-        /// are: the faces are matched by lying inside a copy of the face they came from, kept aside during the
-        /// operation, and the vertices and the unsplit edges by their centre of mass and size. The two maps are
-        /// rewritten to lead from the new tags to the original ones; an edge the fragmentation made has no
-        /// entry.
+        /// Fragments every volume with the carried curves and points, so that they become real edges of the faces they
+        /// lie on and real vertices of the edges they lie on. Every volume goes in, so that a face shared by two blocks
+        /// stays one face. The operation renumbers the entities it touches, and OpenCASCADE reports the new tags only
+        /// for the inputs, which the volumes are: the faces are matched by lying inside a copy of the face they came
+        /// from, kept aside during the operation, and the vertices and the unsplit edges by their centre of mass and
+        /// size. The two maps are rewritten to lead from the new tags to the original ones; an edge the fragmentation
+        /// made has no entry.
         /// </summary>
         private void FragmentVolumesWithCurves(List<Tuple<int, int>> curveDimTags, ref Dictionary<int, int> surfaceIdOriginalId,
                                                ref Dictionary<int, int> edgeIdOriginalId)
