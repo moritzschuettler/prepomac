@@ -8,6 +8,7 @@
 #
 #Expected process exit code 0.
 
+
 USER_KEYWORD = "*NO ANALYSIS"
 PREFIX = "PyTest_Kw_"
 GROUP_NAME = PREFIX + "Group"
@@ -43,6 +44,7 @@ def generated_roots(generated):
 def test_generated_keywords():
     keywords = pmx.model.keywords
     generated = keywords.get_model_keywords()
+    check(type(generated) is list, "the generated keywords must be a list: " + type(generated).__name__)
     check(len(generated) > 0, "the model generated no CalculiX keywords")
     check(len(generated[0].indices) == 1, "a top level keyword has a one element index path")
     check(type(generated[0].indices).__name__ == "IntListAPI", "an index path must be an IntList: " +
@@ -63,6 +65,7 @@ def test_user_keywords(generated):
     keywords.set_user_keyword(path, USER_KEYWORD)
     check(keywords.count == 1, "the user keyword was not added")
     entries = keywords.get_user_keywords()
+    check(type(entries) is list, "the user keywords must be a list: " + type(entries).__name__)
     check(entries[0].data == USER_KEYWORD, "the keyword text did not read back: " + entries[0].data)
     check(list(entries[0].indices) == path, "the index path did not read back")
     # Replacing the whole editor state is the second way in, and it takes index path and text pairs
@@ -88,6 +91,7 @@ def test_overrides(generated):
     path = list(generated[0].indices)
     keywords.set_override(path, data="** replaced by the Python API")
     overrides = keywords.get_overrides()
+    check(type(overrides) is list, "the overrides must be a list: " + type(overrides).__name__)
     check(keywords.override_count == 1, "the override was not recorded")
     check(list(overrides[0].indices) == path, "the override index path did not read back")
     check(overrides[0].data == "** replaced by the Python API", "the override text did not read back")
@@ -299,8 +303,11 @@ def test_tree_layout_renames():
               "the linked group was not renamed in the geometry view")
         # A name a group of the other view keeps is refused, and nothing is recorded
         find_group(layout, first)['group_name'] = PREFIX + 'Geometry_Only'
+        find_group(layout, linked)['group_name'] = PREFIX + 'Linked_Refused'
         check_refused(lambda: tree.set_layout('femodel', 'parts', layout), "already the name",
                       "a group name the geometry view keeps must be refused")
+        check(find_group(tree.get_layout('geometry', 'parts'), linked)['group_name'] == PREFIX + 'Linked_Renamed',
+              "the refused layout renamed the linked group in the geometry view")
         check(find_group(tree.get_layout('femodel', 'parts'), first)['group_name'] == PREFIX + 'Second',
               "the refused layout was recorded")
         # The empty id is no group id

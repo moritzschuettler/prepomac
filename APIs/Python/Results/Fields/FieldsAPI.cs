@@ -42,10 +42,11 @@ namespace APIs.Python
         {
             get
             {
-                if (!contains(fieldName))
+                string storedFieldName = _dataService.GetStoredFieldName(_resultName, _stepId, _incrementId, fieldName);
+                if (storedFieldName == null)
                     throw new PythonAPIException("The field '" + fieldName + "' does not exist for step " + _stepId +
                                                  ", increment " + _incrementId + ".");
-                return new FieldAPI(_resultName, _stepId, _incrementId, fieldName, _dataService);
+                return new FieldAPI(_resultName, _stepId, _incrementId, storedFieldName, _dataService);
             }
         }
         public int __len__()
@@ -102,10 +103,11 @@ namespace APIs.Python
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Returns true if this increment contains the specified field.", Arguments = "name: str", Returns = "bool")]
+        [PythonAPI("Returns true if this increment contains the specified field. A user-defined field output is " +
+                   "found regardless of case, as the result keys it.", Arguments = "name: str", Returns = "bool")]
         public bool contains(string name)
         {
-            return _dataService.GetFieldNames(_resultName, _stepId, _incrementId).Contains(name);
+            return _dataService.GetStoredFieldName(_resultName, _stepId, _incrementId, name) != null;
         }
         public override string ToString()
         {

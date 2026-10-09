@@ -74,8 +74,8 @@ namespace APIs.Python.Model
                             object pointInXY, object nameVisible)
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateCoordinateSystemName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateCoordinateSystemName(newName, existing.Name);
             CoordinateSystem coordinateSystem = existing.DeepClone();
             coordinateSystem.Name = newName;
             if (type != null)
@@ -89,7 +89,7 @@ namespace APIs.Python.Model
             ValidateDefinition(coordinateSystem);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceModelCoordinateSystem(oldName, coordinateSystem);
+            ModelGateway.ReplaceModelCoordinateSystem(existing.Name, coordinateSystem);
         }
         public void AddFromSelections(string name, string type, string originCreatedFrom,
                                        SelectionAPI originSelection, string pointOnXCreatedFrom,
@@ -116,8 +116,8 @@ namespace APIs.Python.Model
                                            object pointInXY, object nameVisible)
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateCoordinateSystemName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateCoordinateSystemName(newName, existing.Name);
             CoordinateSystem item = existing.DeepClone();
             item.Name = newName;
             if (type != null)
@@ -128,7 +128,7 @@ namespace APIs.Python.Model
             ApplyNameVisible(item, nameVisible);
             ValidateDefinition(item);
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceModelCoordinateSystem(oldName, item);
+            ModelGateway.ReplaceModelCoordinateSystem(existing.Name, item);
         }
         public void Duplicate(string[] names)
         {

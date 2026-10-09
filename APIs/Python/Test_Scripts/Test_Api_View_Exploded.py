@@ -132,6 +132,17 @@ def test_refusals():
     check_raises(lambda: pmx.view.apply_exploded_view(1, axes="W"), "unknown axes must be refused")
     check_raises(lambda: pmx.view.apply_exploded_view(1, direction="XY"), "direction was renamed to axes")
     check_raises(lambda: pmx.view.apply_exploded_view(1, tolerance=-1), "a negative tolerance must be refused")
+    # A value the method does not take is refused, never ignored
+    check_raises(lambda: pmx.view.apply_exploded_view(1, "AssemblyCenter", 2, step_by_step=True),
+                 "step_by_step must be refused by the AssemblyCenter method")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, "AssemblyCenter", 2, step_by_step=False),
+                 "an explicit step_by_step must be refused by the AssemblyCenter method")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, "CenterPoint", 2, tolerance=0, center=[0, 0, 0]),
+                 "tolerance must be refused by the CenterPoint method")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, "Disassembly", 2, center=[0, 0, 0]),
+                 "center must be refused by the Disassembly method")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, "AssemblyCenter", 2, center=[0, 0, 0]),
+                 "center must be refused by the AssemblyCenter method")
     check(not pmx.view.exploded_view_active, "a refused call must apply nothing")
 
 

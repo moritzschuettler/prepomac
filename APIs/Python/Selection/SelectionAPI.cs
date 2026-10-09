@@ -140,7 +140,16 @@ namespace APIs.Python
         {
             return new StringListAPI(_items.Select(item => item.Source).Distinct().ToArray());
         }
-        [PythonAPI("Carries the persisted selection-construction options used by the application during editing and replay.",
+        [PythonAPI("Sets the persisted selection-construction options the application applies to every pick of " +
+                   "this selection, during editing and replay, and returns the selection. max_geometry_ids and " +
+                   "max_item_ids cap the number of geometry ids and of items the selection holds: a pick that " +
+                   "would exceed the cap is dropped, a cap of 1 makes each pick replace the previous one, and " +
+                   "-1, the default of a new selection, means unlimited. limit_to keeps every pick on the parts " +
+                   "of the first one: None (the default) takes any part, FirstPart only the first part, " +
+                   "FirstGeometryType only parts of its part type, such as solid or shell, and FirstMesherType " +
+                   "only parts meshed by its mesher. shell_edges_only limits a pick to shell edge faces and " +
+                   "enable_shell_edge_faces lets a pick take them; both are off by default. A value that is not " +
+                   "given keeps the current option.",
                    Arguments = "max_geometry_ids: int = None, max_item_ids: int = None, limit_to: str = None, " +
                                "shell_edges_only: bool = None, enable_shell_edge_faces: bool = None", Returns = "Selection")]
         public SelectionAPI configure(object max_geometry_ids = null, object max_item_ids = null, string limit_to = null,
@@ -181,7 +190,8 @@ namespace APIs.Python
         private static int ToLimit(object value, string name)
         {
             int limit = PythonValueConverter.ToInt(value, name);
-            if (limit != -1 && limit < 1) throw new PythonAPIException("Selection limits must be -1 (unlimited) or positive.");
+            if (limit != -1 && limit < 1)
+                throw new PythonAPIException("The argument '" + name + "' must be -1 (unlimited) or positive.");
             return limit;
         }
         internal CaeGlobals.Selection CreateSelection()

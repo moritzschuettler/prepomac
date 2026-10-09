@@ -47,11 +47,11 @@ namespace APIs.Python.Model
         }
         public void Replace(string stepName, string oldName, DefinedField definedField)
         {
-            ResolveItem(stepName, oldName);
-            ValidateName(stepName, definedField.Name, oldName);
+            string storedName = ResolveItem(stepName, oldName).Name;
+            ValidateName(stepName, definedField.Name, storedName);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceDefinedField(stepName, oldName, definedField);
+            ModelGateway.ReplaceDefinedField(stepName, storedName, definedField);
         }
         public void Duplicate(string stepName, string[] names)
         {

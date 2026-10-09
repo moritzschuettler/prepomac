@@ -50,11 +50,12 @@ namespace APIs.Python.Model
                    Returns = "list[SurfaceInteractionProperty]",
                    Example = "pmx.model.surface_interactions.replace('SI-1', " +
                              "properties=pmx.model.surface_interactions['SI-1'].get_properties())")]
-        public SurfaceInteractionPropertyAPI[] get_properties()
+        public object get_properties()
         {
             SurfaceInteraction surfaceInteraction = Resolve().DeepClone();
-            return surfaceInteraction.Properties.Select(property => new SurfaceInteractionPropertyAPI(property))
-                                                .ToArray();
+            SurfaceInteractionPropertyAPI[] properties =
+                surfaceInteraction.Properties.Select(property => new SurfaceInteractionPropertyAPI(property)).ToArray();
+            return PythonListConverter.ToPythonList(properties);
         }
         public override string ToString()
         {

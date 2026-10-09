@@ -76,6 +76,12 @@ def read_sites():
     return sites
 
 
+def is_property_key(key):
+    """A property is keyed as its declaring type, its name and its name again."""
+    parts = key.split(".")
+    return len(parts) == 3 and parts[1] == parts[2]
+
+
 def describing_types(argument):
     """The enumerations the vocabulary offers for the argument, however the key is qualified."""
     described = set()
@@ -84,6 +90,8 @@ def describing_types(argument):
         described.add(unqualified.Name)
     types = PythonEnumVocabulary.GetTypes()
     for key in types.keys():
+        if is_property_key(key):
+            continue
         if key == argument or key.endswith("." + argument):
             described.add(types[key].Name)
     return described
@@ -164,6 +172,56 @@ def test_values_are_readable():
     print("every entry resolves to a non empty list of values")
 
 
+def test_property_lookups():
+    """describe_api looks a property up as its declaring type, its name and its name again.
+
+    Where a property shares its name with an argument of another vocabulary, the property key must
+    win, or the schema lists the values of the other enumeration.
+    """
+    expected = {("DistributionAPI", "interpolator_type"): ["ClosestPoint", "Gauss", "Shepard"],
+                ("SurfaceAPI", "created_from"): ["Selection", "NodeSet", "Faces"],
+                ("ResultFieldOutputFilterAPI", "source"): ["AllNodes", "SurfaceNodes"],
+                ("ContactPairAPI", "method"): ["NodeToSurface", "SurfaceToSurface", "Mortar", "Massless"],
+                ("ReferencePointAPI", "created_from"): ["Coordinates", "OnPoint", "BetweenTwoPoints",
+                                                        "CircleCenter", "CenterOfGravity", "BoundingBoxCenter"]}
+    for (declaring, name), values in expected.items():
+        described = PythonEnumVocabulary.GetValues(declaring, name, name)
+        check(described is not None and list(described) == values,
+              "the property %s.%s is described with %s, not %s" %
+              (declaring, name, None if described is None else list(described), values))
+    print("the properties that share a name with an argument resolve to their own vocabulary")
+
+
+def test_narrowed_values():
+    """A member that always refuses some values of its enumeration must not list them."""
+    by_selection = ["OnPoint", "BetweenTwoPoints", "CircleCenter"]
+    by_region = ["CenterOfGravity", "BoundingBoxCenter"]
+    expected = {("ReferencePointsAPI", "add_from_selection", "created_from"): by_selection,
+                ("ReferencePointsAPI", "replace_from_selection", "created_from"): by_selection,
+                ("ResultReferencePointsAPI", "add_from_selection", "created_from"): by_selection,
+                ("ReferencePointsAPI", "add_from_region", "created_from"): by_region,
+                ("ResultReferencePointsAPI", "replace_from_region", "created_from"): by_region}
+    for collection in ["CoordinateSystemsAPI", "ResultCoordinateSystemsAPI"]:
+        for member in ["add_from_selections", "replace_from_selections"]:
+            for point in ["origin", "point_on_x", "point_in_xy"]:
+                expected[(collection, member, point + "_created_from")] = by_selection
+    for (declaring, member, argument), values in expected.items():
+        described = PythonEnumVocabulary.GetValues(declaring, member, argument)
+        check(described is not None and list(described) == values,
+              "%s.%s(%s) is described with %s, not %s" %
+              (declaring, member, argument, None if described is None else list(described), values))
+        check(PythonEnumVocabulary.GetType(declaring, member, argument) is not None,
+              "%s.%s(%s) must still name its enumeration" % (declaring, member, argument))
+    allowed = PythonEnumVocabulary.GetAllowedValues()
+    types = PythonEnumVocabulary.GetTypes()
+    for key in allowed.keys():
+        check(key in types, "the narrowed key " + key + " has no enumeration")
+        names = set(types[key].GetEnumNames())
+        check(all(value in names for value in allowed[key]),
+              "the narrowed key " + key + " lists a value its enumeration does not have")
+    print("the members that accept part of an enumeration list only that part")
+
+
 def main():
     check(os.path.isdir(SOURCES), "the API sources must be beside the test scripts: " + SOURCES)
     sites = read_sites()
@@ -174,6 +232,8 @@ def main():
     test_every_site_is_described(sites)
     test_every_entry_names_a_real_argument(members)
     test_values_are_readable()
+    test_property_lookups()
+    test_narrowed_values()
     print("TEST PASSED")
 
 

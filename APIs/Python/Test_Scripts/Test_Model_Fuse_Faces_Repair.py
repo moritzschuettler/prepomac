@@ -126,6 +126,7 @@ def test_repair_preview():
     added = split_top_face(part())
     preview = parts.repair_preview(name)[name]
     check(preview.edge_count == 1 and len(preview.edges) == 1, "the split line must be previewed: " + str(preview))
+    check(type(preview.edges) is list, "the previewed edges must be a list: " + type(preview.edges).__name__)
     check(len(preview.edges[0]) >= 2 and len(preview.edges[0][0]) == 3,
           "an edge must come as points of three coordinates")
     check(preview.point_count == 2, "the two ends of the split line must be previewed: " + str(preview))

@@ -21,9 +21,14 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The filter type: Minimum, Maximum, Sum or Average.", Returns = "str")]
         public string type { get { return _type.ToString(); } }
-        [PythonAPI("The filter option: Row or Column for a Minimum or Maximum filter, Rows or Columns for a Sum " +
-                   "or Average filter.", Returns = "str")]
-        public string option { get { return _option; } }
+        [PythonAPI("What a Minimum or Maximum filter returns, Row or Column, the return_value argument of " +
+                   "create_minimum_filter and create_maximum_filter; None for a Sum or Average filter.",
+                   Returns = "str or None")]
+        public string return_value { get { return IsMinMax() ? _option : null; } }
+        [PythonAPI("What a Sum or Average filter operates on, Rows or Columns, the operate_on argument of " +
+                   "create_sum_filter and create_average_filter; None for a Minimum or Maximum filter.",
+                   Returns = "str or None")]
+        public string operate_on { get { return IsMinMax() ? null : _option; } }
 
 
         // Constructors
@@ -35,6 +40,10 @@ namespace APIs.Python
 
 
         // Methods
+        private bool IsMinMax()
+        {
+            return _type == HistoryResultFilterTypeEnum.Minimum || _type == HistoryResultFilterTypeEnum.Maximum;
+        }
         internal static ResultHistoryOutputFilterAPI FromBase(HistoryResultFilter filter)
         {
             if (filter == null || filter.Type == HistoryResultFilterTypeEnum.None) return null;
@@ -50,7 +59,7 @@ namespace APIs.Python
         public override string ToString()
         {
             return "HistoryOutputFilter(type=" + StringListAPI.ToDisplayString(type) +
-                   ", option=" + StringListAPI.ToDisplayString(option) + ")";
+                   (IsMinMax() ? ", return_value=" : ", operate_on=") + StringListAPI.ToDisplayString(_option) + ")";
         }
     }
 }

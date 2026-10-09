@@ -27,6 +27,8 @@ namespace PrePoMax.Rpc
     public static class RpcExecMethod
     {
         // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "source", "record", "timeout" };
         private static readonly string[] RecordModes = { "commands", "script" };
 
 

@@ -52,6 +52,8 @@ namespace PrePoMax.Python.Journal
                 else if (character == '\n') builder.Append("\\n");
                 else if (character == '\r') builder.Append("\\r");
                 else if (character == '\t') builder.Append("\\t");
+                else if (character < ' ' || character == '\x7f')
+                    builder.Append("\\x").Append(((int)character).ToString("x2", CultureInfo.InvariantCulture));
                 else builder.Append(character);
             }
             builder.Append('\'');

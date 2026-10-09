@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using PrePoMax.Python.Journal;
 using System.Text;
 
 namespace PrePoMax.Mcp
@@ -23,9 +24,9 @@ namespace PrePoMax.Mcp
     // whole answer shares, which every listed row is taken from, so the answer never lists more rows
     // than the budget. A part reached once it is spent is not detailed. Every part is still summarized, so
     // the caller sees what is there and can ask for one part by name. A part name is compared the way
-    // the model keys its parts, regardless of case and surrounding spaces, and a name that matched no
-    // part is reported rather than silently left out. Like read_model it runs as one private function,
-    // so it leaves none of its names in the console scope.
+    // the model keys its parts, regardless of case; it is not trimmed, so a padded name matches no part,
+    // and a name that matched no part is reported rather than silently left out. Like read_model it runs
+    // as one private function, so it leaves none of its names in the console scope.
     public static class McpTopologyScript
     {
         // Variables                                                                                                                
@@ -110,7 +111,7 @@ namespace PrePoMax.Mcp
             "\n" +
             "def read_topology():\n" +
             "    budget = [BUDGET]\n" +
-            "    wanted = {name.strip().lower(): name for name in PART_NAMES}\n" +
+            "    wanted = {name.lower(): name for name in PART_NAMES}\n" +
             "    matched = set()\n" +
             "    topology = {'note': 'A face or an edge is selected by its id with the surfaces or edges '\n" +
             "                        'source, grouped by part id, or by its geometry_id with the geometry '\n" +
@@ -119,7 +120,7 @@ namespace PrePoMax.Mcp
             "    for view, parts in [('model', pmx.model.parts), ('geometry', pmx.model.geometry.parts)]:\n" +
             "        listed = []\n" +
             "        for name in list(parts.get_names()):\n" +
-            "            key = name.strip().lower()\n" +
+            "            key = name.lower()\n" +
             "            if wanted and key not in wanted:\n" +
             "                continue\n" +
             "            matched.add(key)\n" +
@@ -157,7 +158,7 @@ namespace PrePoMax.Mcp
             for (int i = 0; i < names.Length; i++)
             {
                 if (i > 0) text.Append(", ");
-                text.Append("'").Append(names[i].Replace("\\", "\\\\").Replace("'", "\\'")).Append("'");
+                text.Append(PythonValueFormatter.Text(names[i]));
             }
             //
             return text.Append("]").ToString();

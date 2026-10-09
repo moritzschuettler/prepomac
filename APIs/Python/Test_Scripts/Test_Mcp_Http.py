@@ -353,6 +353,20 @@ def check_reading_tools(endpoint, session):
           "a name that matched no part must be reported: " + str(topology.get("unmatched_part_names")))
     check(len(topology["model"][0]["faces"]) <= 240, "the limit must bound the rows of a part")
     print("read_topology: a name in other case matched, an unknown name reported")
+    # A padded name is no name: it is never trimmed, so it matches no part and is reported as it was given
+    padded = " " + name + " "
+    topology = json.loads(endpoint.tool("read_topology", {"part_names": [padded]}))
+    check(topology["model"] == [] and topology["geometry"] == [],
+          "a padded part name must match no part: " + str(topology["model"]) + " " + str(topology["geometry"]))
+    check(topology.get("unmatched_part_names") == [padded],
+          "a padded part name must be reported unmatched: " + str(topology.get("unmatched_part_names")))
+    # A name carrying a line break or another control character reaches Python escaped, so it is a name
+    # that matches nothing rather than a script that does not compile
+    broken = name + "\n'] + 1\t\x01"
+    topology = json.loads(endpoint.tool("read_topology", {"part_names": [broken]}))
+    check(topology["model"] == [] and topology.get("unmatched_part_names") == [broken],
+          "a part name with control characters must be reported unmatched: " + str(topology))
+    print("read_topology: a padded name and a name with control characters matched nothing and were reported")
     # The limit caps each kind, and what was left out is said kind by kind; the vertices, which have no
     # size, are listed in index order
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [name], "limit": 2}))
@@ -650,11 +664,17 @@ def check_refusals(endpoint):
     check("source" in text, "the refusal must name the missing argument: " + text)
     text = endpoint.failing_tool("eval_expression", {"expression": "pmx.no_such_member"})
     check(len(text) > 0, "a failing expression must say what went wrong")
+    # A name the catalog splices into Python is escaped, control characters included, so a name with a
+    # line break is refused by the API as a name, not by the compiler as a script
+    for tool in ("get_job", "run_job"):
+        text = endpoint.failing_tool(tool, {"name": "no\njob'\r\x00"})
+        check("does not exist" in text and "SyntaxError" not in text,
+              tool + " must refuse a name with a line break as an unknown analysis: " + text)
     # A method the server does not serve
     answer = endpoint.call("resources/list")
     check("error" in answer and answer["error"]["code"] == -32601,
           "an unserved method must be -32601: " + str(answer))
-    print("refusals: an unknown tool, a missing argument and an unserved method")
+    print("refusals: an unknown tool, a missing argument, a name with a line break and an unserved method")
 
 
 def check_argument_values(endpoint):

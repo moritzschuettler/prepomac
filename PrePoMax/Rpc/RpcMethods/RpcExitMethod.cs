@@ -18,6 +18,11 @@ namespace PrePoMax.Rpc
     // server with shutdown, and that is all.
     public static class RpcExitMethod
     {
+        // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "discard_changes" };
+
+
         // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {

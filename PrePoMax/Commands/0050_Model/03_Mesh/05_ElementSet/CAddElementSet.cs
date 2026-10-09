@@ -50,9 +50,9 @@ namespace PrePoMax.Commands
                                                         _elementSet.CreationData);
                 return;
             }
-            // A set the application made from element IDs is rebuilt from them. The set of the elements a run found
-            // without a section is made again by the replayed run when it reaches the check, so it is added only
-            // when that run did not make it, and the commands naming it replay either way.
+            // A set the application made from element IDs is rebuilt from them. The application may have made a set
+            // of the elements a run found without a section or with a nonpositive Jacobian during the replay, so it
+            // is added only when it is not there; a replayed run keeps a set holding those elements and makes none.
             Selection selection = new Selection();
             selection.CurrentView = (int)ViewGeometryModelResults.Model;
             selection.SelectItem = vtkSelectItem.Element;
@@ -60,7 +60,8 @@ namespace PrePoMax.Commands
             string selectionVariable = PythonSelectionEmitter.Emit(writer, selection);
             string name = PythonValueFormatter.Text(_elementSet.Name);
             string add = writer.Call("pmx.model.element_sets", "add", name, selectionVariable);
-            if (_elementSet.Name.StartsWith(Globals.MissingSectionName))
+            if (_elementSet.Name.StartsWith(Globals.MissingSectionName) ||
+                _elementSet.Name.StartsWith(Globals.NonpositiveJacobian))
             {
                 writer.Line("if not pmx.model.element_sets.contains(" + name + "):");
                 writer.Line("    " + add);

@@ -24,6 +24,7 @@ namespace PrePoMax.Commands
         private string _script;
         [OptionalField] private string _fileName;
         [OptionalField] private string[] _arguments;
+        [OptionalField] private bool _failed;
         [NonSerialized] private PythonEngineResult _executionResult;
 
 
@@ -48,8 +49,9 @@ namespace PrePoMax.Commands
         public override bool Execute(Controller receiver)
         {
             _executionResult = receiver.RunPythonScript(_script, _fileName, _arguments);
+            _failed = !string.IsNullOrEmpty(_executionResult.Error);
             //
-            if (!string.IsNullOrEmpty(_executionResult.Error))
+            if (_failed)
                 throw new CaeException(_executionResult.Error.TrimEnd());
             //
             return true;
@@ -80,8 +82,19 @@ namespace PrePoMax.Commands
             }
             writer.Line("_recorded_script_source = '''\\");
             writer.Block(GetTripleQuotedBody(_script) + "'''");
-            writer.Statement("exec(compile(_recorded_script_source, " + scriptFileName + ", 'exec'), " +
-                             "{'__name__': '__main__', '__file__': " + scriptFileName + ", 'pmx': pmx})");
+            string exec = "exec(compile(_recorded_script_source, " + scriptFileName + ", 'exec'), " +
+                          "{'__name__': '__main__', '__file__': " + scriptFileName + ", 'pmx': pmx})";
+            // A script that failed was recorded with the changes it made before its error, so the journal runs it
+            // to that error, reports it and goes on, as Regenerate does
+            if (_failed)
+            {
+                writer.Line("try:");
+                writer.Line("    " + exec);
+                writer.Line("except Exception as _recorded_script_error:");
+                writer.Line("    print('The recorded script failed, as it did when it was recorded: ' + " +
+                            "repr(_recorded_script_error))");
+            }
+            else writer.Statement(exec);
             if (_fileName != null) writer.Assign("_recorded_script_sys.argv", "_recorded_script_saved_argv");
             writer.Comment("--- End of recorded script ---");
             writer.CountEmittedCommand();

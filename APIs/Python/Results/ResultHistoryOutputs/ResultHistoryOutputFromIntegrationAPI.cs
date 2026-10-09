@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeMesh;
 using CaeResults;
 
 namespace APIs.Python
@@ -18,12 +19,27 @@ namespace APIs.Python
         public string integral_type { get { return ResolveFromIntegration().IntegralType.ToString(); } }
         [PythonAPI("The integral result: Geometry, Field or FieldByGeometry.", Returns = "str")]
         public string integral_result { get { return ResolveFromIntegration().IntegralResult.ToString(); } }
-        [PythonAPI("The source result field name.", Returns = "str")]
-        public string field_name { get { return ResolveFromIntegration().FieldName; } }
-        [PythonAPI("The selected field component names.", Returns = "StringList")]
+        [PythonAPI("The source result field name, or None for the Geometry integral_result.",
+                   Returns = "str or None")]
+        public string field_name
+        {
+            get
+            {
+                ResultHistoryOutputFromIntegration historyOutput = ResolveFromIntegration();
+                if (historyOutput.IntegralResult == IntegralResultEnum.Geometry) return null;
+                return historyOutput.FieldName;
+            }
+        }
+        [PythonAPI("The selected field component names, or None for the Geometry integral_result.",
+                   Returns = "StringList or None")]
         public StringListAPI component_names
         {
-            get { return new StringListAPI(ResolveFromIntegration().ComponentNames); }
+            get
+            {
+                ResultHistoryOutputFromIntegration historyOutput = ResolveFromIntegration();
+                if (historyOutput.IntegralResult == IntegralResultEnum.Geometry) return null;
+                return new StringListAPI(historyOutput.ComponentNames);
+            }
         }
         [PythonAPI("The region type: Selection, ElementSetName or SurfaceName.", Returns = "str")]
         public string region_type { get { return ResolveFromIntegration().RegionType.ToString(); } }
@@ -40,8 +56,17 @@ namespace APIs.Python
         [PythonAPI("The out-of-plane cross section scaling for 2D output: None, Thickness or Axisymmetric.",
                    Returns = "str")]
         public string cross_section { get { return ResolveFromIntegration().CrossSection.ToString(); } }
-        [PythonAPI("The out-of-plane thickness used when cross_section is Thickness.", Returns = "float")]
-        public double thickness { get { return ResolveFromIntegration().Thickness; } }
+        [PythonAPI("The out-of-plane thickness, or None when cross_section is not Thickness.",
+                   Returns = "float or None")]
+        public double? thickness
+        {
+            get
+            {
+                ResultHistoryOutputFromIntegration historyOutput = ResolveFromIntegration();
+                if (historyOutput.CrossSection != IntegrationScaleType.Thickness) return null;
+                return historyOutput.Thickness;
+            }
+        }
 
 
         // Constructors
@@ -67,7 +92,7 @@ namespace APIs.Python
             return "HistoryOutputFromIntegration(name=" + StringListAPI.ToDisplayString(_historyOutputName) +
                    ", integral_type=" + StringListAPI.ToDisplayString(integral_type) +
                    ", integral_result=" + StringListAPI.ToDisplayString(integral_result) +
-                   ", field_name=" + StringListAPI.ToDisplayString(historyOutput.FieldName) + ")";
+                   ", field_name=" + StringListAPI.ToDisplayString(field_name) + ")";
         }
     }
 }

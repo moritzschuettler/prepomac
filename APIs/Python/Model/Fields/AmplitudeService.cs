@@ -61,8 +61,8 @@ namespace APIs.Python.Model
                             object shiftAmplitude)
         {
             Amplitude existing = ResolveAmplitude(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             // A value that is not given is kept
             Amplitude amplitude = existing.DeepClone();
             amplitude.Name = newName;
@@ -72,7 +72,7 @@ namespace APIs.Python.Model
             ApplyShifts(amplitude, shiftTime, shiftAmplitude);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceAmplitude(oldName, amplitude);
+            ModelGateway.ReplaceAmplitude(existing.Name, amplitude);
         }
         public void Duplicate(string[] names)
         {

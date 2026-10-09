@@ -70,15 +70,19 @@ namespace PrePoMax.Commands
             List<string> arguments = new List<string>();
             arguments.Add("name=" + PythonValueFormatter.Text(_newModelName));
             arguments.Add("model_type=" + PythonValueFormatter.Text(_newModelProperties.ModelType.ToString()));
-            if (_newModelProperties.GlobalResultsFileName != null)
+            // The replace refuses a value the model type does not use, and keeps the hidden one it is not given
+            if (_newModelProperties.ModelType == ModelType.Submodel && _newModelProperties.GlobalResultsFileName != null)
                 arguments.Add("global_results_file_name=" + writer.Path(_newModelProperties.GlobalResultsFileName));
-            arguments.Add("slip_wear_results=" +
-                          PythonValueFormatter.Text(_newModelProperties.SlipWearResults.ToString()));
-            arguments.Add("number_of_cycles=" + PythonValueFormatter.Equation(_newModelProperties.NumberOfCycles));
-            arguments.Add("cycles_increment=" + PythonValueFormatter.Equation(_newModelProperties.CyclesIncrement));
-            arguments.Add("number_of_smoothing_steps=" +
-                          PythonValueFormatter.Equation(_newModelProperties.NumOfSmoothingSteps));
-            arguments.Add("bdm_remeshing=" + PythonValueFormatter.Format(_newModelProperties.BdmRemeshing));
+            if (_newModelProperties.ModelType == ModelType.SlipWearModel)
+            {
+                arguments.Add("slip_wear_results=" +
+                              PythonValueFormatter.Text(_newModelProperties.SlipWearResults.ToString()));
+                arguments.Add("number_of_cycles=" + PythonValueFormatter.Equation(_newModelProperties.NumberOfCycles));
+                arguments.Add("cycles_increment=" + PythonValueFormatter.Equation(_newModelProperties.CyclesIncrement));
+                arguments.Add("number_of_smoothing_steps=" +
+                              PythonValueFormatter.Equation(_newModelProperties.NumOfSmoothingSteps));
+                arguments.Add("bdm_remeshing=" + PythonValueFormatter.Format(_newModelProperties.BdmRemeshing));
+            }
             // An undefined physical constant is stored as infinity, which has no Python form; the replace makes
             // every constant it is not given undefined when told to, so the replay sets exactly these constants
             bool anyConstantUndefined = false;

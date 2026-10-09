@@ -60,7 +60,8 @@ namespace PrePoMax.Rpc
             return new RpcRequest(method, null, true, parameters);
         }
         // Reads one line. A line that is not a valid request produces the response that has to be sent
-        // instead of it, which is why the failure is a response rather than a message.
+        // instead of it, which is why the failure is a response rather than a message. It is null when
+        // nothing is to be sent, because the line was a notification.
         public static bool TryParse(string line, out RpcRequest request, out RpcResponse failure)
         {
             request = null;
@@ -108,6 +109,17 @@ namespace PrePoMax.Rpc
                 hasId = true;
             }
             //
+            if (TryRead(items, id, hasId, out request, out failure)) return true;
+            // A notification is never answered, and a malformed one is no exception: it is dropped, as the MCP
+            // endpoint drops it
+            if (!hasId) failure = null;
+            return false;
+        }
+        private static bool TryRead(Dictionary<string, object> items, object id, bool hasId, out RpcRequest request,
+                                    out RpcResponse failure)
+        {
+            request = null;
+            failure = null;
             string version = JsonReader.GetString(items, "jsonrpc", null);
             if (version != Version)
             {
@@ -177,10 +189,27 @@ namespace PrePoMax.Rpc
             string value = RequireString(name);
             for (int i = 0; i < allowed.Length; i++)
             {
-                if (string.Equals(value, allowed[i], StringComparison.Ordinal)) return value;
+                if (string.Equals(value, allowed[i], StringComparison.OrdinalIgnoreCase)) return allowed[i];
             }
             throw new RpcException(RpcErrorCode.InvalidParams, "The argument " + name + " must be one of " +
                                                               string.Join(", ", allowed) + ".");
+        }
+        // An argument the method does not take is refused rather than ignored, the way the MCP endpoint refuses
+        // it, because a misspelt optional argument would otherwise run the call as if it had not been given
+        public void RefuseUnknownParameters(string[] accepted)
+        {
+            List<string> unknown = new List<string>();
+            foreach (string name in _parameters.Keys)
+            {
+                if (Array.IndexOf(accepted, name) < 0) unknown.Add(name);
+            }
+            if (unknown.Count == 0) return;
+            //
+            string given = unknown.Count == 1 ? "The argument " + unknown[0] + " is" :
+                                                 "The arguments " + string.Join(", ", unknown) + " are";
+            string taken = accepted.Length == 0 ? "takes no arguments" : "takes " + string.Join(", ", accepted);
+            throw new RpcException(RpcErrorCode.InvalidParams, given + " not known to " + _method + ", which " + taken +
+                                                              ". Nothing was done.");
         }
         private static string ToStringValue(string name, object value)
         {

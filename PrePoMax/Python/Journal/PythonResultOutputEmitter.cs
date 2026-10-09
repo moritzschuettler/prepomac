@@ -111,11 +111,15 @@ namespace PrePoMax.Python.Journal
             {
                 method = verb + "_from_integration";
                 arguments.Add(PythonValueFormatter.Text(fromIntegration.IntegralType.ToString()));
-                arguments.Add("field_name=" + PythonValueFormatter.Text(fromIntegration.FieldName));
-                arguments.Add("component_names=" +
-                              PythonValueFormatter.List(fromIntegration.ComponentNames));
                 arguments.Add("region=" + PythonRegionEmitter.Emit(writer, output.RegionName,
                                                                    output.RegionType, output.CreationData));
+                // The geometry integral takes no field, and the dialog keeps the one it showed before
+                if (fromIntegration.IntegralResult != IntegralResultEnum.Geometry)
+                {
+                    arguments.Add("field_name=" + PythonValueFormatter.Text(fromIntegration.FieldName));
+                    arguments.Add("component_names=" +
+                                  PythonValueFormatter.List(fromIntegration.ComponentNames));
+                }
                 arguments.Add("integral_result=" +
                               PythonValueFormatter.Text(fromIntegration.IntegralResult.ToString()));
                 string deformationVariable =
@@ -125,7 +129,8 @@ namespace PrePoMax.Python.Journal
                 if (fromIntegration.IntegralType != IntegralTypeEnum.Surface)
                     arguments.Add("cross_section=" +
                                   PythonValueFormatter.Text(fromIntegration.CrossSection.ToString()));
-                arguments.Add("thickness=" + PythonValueFormatter.Number(fromIntegration.Thickness));
+                if (fromIntegration.CrossSection == CaeMesh.IntegrationScaleType.Thickness)
+                    arguments.Add("thickness=" + PythonValueFormatter.Number(fromIntegration.Thickness));
             }
             else if (output is ResultHistoryOutputFromMergedHistories merged)
             {

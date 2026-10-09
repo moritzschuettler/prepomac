@@ -46,25 +46,25 @@ namespace APIs.Python.Model
         [PythonAPI("Returns the generated CalculiX keywords with the index path that addresses each one.",
                    Returns = "list[KeywordEntry]",
                    Example = "for keyword in pmx.model.keywords.get_model_keywords(): print(keyword.indices)")]
-        public KeywordEntryAPI[] get_model_keywords()
+        public object get_model_keywords()
         {
             List<KeywordEntryAPI> entries = new List<KeywordEntryAPI>();
             CollectModelKeywords(GetModelKeywords(), new List<int>(), entries);
             //
-            return entries.ToArray();
+            return PythonListConverter.ToPythonList(entries.ToArray());
         }
         [PythonAPI("Returns the user CalculiX keywords with the index path each one is inserted at.",
                    Returns = "list[KeywordEntry]")]
-        public KeywordEntryAPI[] get_user_keywords()
+        public object get_user_keywords()
         {
             List<KeywordEntryAPI> entries = new List<KeywordEntryAPI>();
             foreach (KeyValuePair<int[], CalculixUserKeyword> entry in GetUserKeywords())
                 entries.Add(new KeywordEntryAPI(entry.Key, entry.Value.Data));
             //
-            return entries.ToArray();
+            return PythonListConverter.ToPythonList(entries.ToArray());
         }
         [PythonAPI("Returns the user edits of the generated CalculiX keywords.", Returns = "list[KeywordOverride]")]
-        public KeywordOverrideAPI[] get_overrides()
+        public object get_overrides()
         {
             List<CalculixKeywordOverride> overrides = GetOverrides();
             KeywordOverrideAPI[] entries = new KeywordOverrideAPI[overrides.Count];
@@ -72,7 +72,7 @@ namespace APIs.Python.Model
                 entries[i] = new KeywordOverrideAPI(overrides[i].Indices, overrides[i].Data, overrides[i].Disabled,
                                                     overrides[i].IsSuppressed, overrides[i].OriginalSignature);
             //
-            return entries;
+            return PythonListConverter.ToPythonList(entries);
         }
         [PythonAPI("Inserts or replaces one user CalculiX keyword at a generated keyword index path.",
                    Arguments = "indices: list[int], data: str", Returns = "None",

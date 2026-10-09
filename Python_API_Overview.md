@@ -259,7 +259,7 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | `get_status` | Idle or busy and why, the open model, the view, the unit system (`model.unitSystem`), the command count, read only, and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
 | `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, mesh setup items, how many user keywords and keyword edits there are, steps with their content, analyses with their status. |
-| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal - faces largest first, edges longest first, vertices in index order, at most `limit` of each per part and 240 rows in the whole answer. Part names match regardless of case; a name that matches no part is reported. Leaving `part_names` out reads every part; an empty list is refused. |
+| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal - faces largest first, edges longest first, vertices in index order, at most `limit` of each per part and 240 rows in the whole answer. Part names match regardless of case and are not trimmed; a name that matches no part, a padded one included, is reported. Leaving `part_names` out reads every part; an empty list is refused. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
 | `get_call` | The answer of a call that outlasted its wait, collected by its `callId`, shaped the way the tool that started it shapes it - `run_python` and `eval_expression`, and `read_model`, `read_topology`, `run_job` and `get_job`, which run Python too. An answer whose response never reached the client stays collectable. |
@@ -425,7 +425,8 @@ object to `http://127.0.0.1:<port>/mcp` with `Content-Type: application/json` an
 endpoint serves no event stream, because nothing in its surface pushes - and no session id is issued.
 `initialize` answers with the client's protocol version when it is one the endpoint supports
 (`2024-11-05`, `2025-03-26`, `2025-06-18`) and with the latest of those otherwise. A batch - a JSON
-array - is answered with a JSON-RPC error. A notification - an object without an `id` - is answered
+array - is answered with a JSON-RPC error, and so is a request whose `jsonrpc` is not `"2.0"`. A
+notification - an object without an `id` - is answered
 `202` with no body and is not run, whatever its method: a `tools/call` is a request in MCP, and one
 sent as a notification would change the model with no way to say what it did. The one notification
 that has an effect is `notifications/cancelled`, which keeps the answer of the request it names
@@ -478,7 +479,10 @@ only the user running PrePoMax may open it. It is there for a client that speaks
 directly. Every method is a request and is answered, with one exception: `shutdown` may be sent as a
 notification, without an `id`, and is then run without an answer. Any other notification is dropped
 unanswered and not run, as on MCP, because an `exec` nobody waits for would change the model with no
-way to say what it did, and would hold the turn unseen. An `id` that is `null` is an invalid request,
+way to say what it did, and would hold the turn unseen. A malformed object without an `id` - a wrong
+`jsonrpc`, no `method`, `params` that are not an object - is a notification as well and is dropped
+the same way; a line that is not JSON, a batch and a line that is not an object carry no `id` that
+could be read, and are answered with a `null` one. An `id` that is `null` is an invalid request,
 answered with `-32600`. Either way a running instance writes
 `%LOCALAPPDATA%\PrePoMax\sessions\<process id>.json` while its server is on - process id, pipe
 name, `url`, `port`, `token`, versions, model file, start time - which is how a client finds it. A
@@ -491,7 +495,7 @@ it. The folder is restricted to the current user, because the token is in it.
 | `status` | The state, and the methods this server serves. `connectionCount` counts the pipe connections and an MCP client that sent a request in the last minute. |
 | `describe` | The API schema of a `path` - a name followed by `.attribute` and `['name']` or `[index]` steps, read without being evaluated - or of an API type name. |
 | `eval` | Evaluates an `expression`; `timeout` is the wait in seconds. |
-| `exec` | Runs `source`; `record` is `commands` or `script`, and `timeout` is the wait in seconds. |
+| `exec` | Runs `source`; `record` is `commands` or `script`, regardless of case, and `timeout` is the wait in seconds. |
 | `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
 | `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given. |
@@ -500,7 +504,9 @@ it. The folder is restricted to the current user, because the token is in it.
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
 
 An argument of the wrong type - `"10"` or `2.5` for a whole number, `"true"` for a boolean, a number
-for a string - is refused with `-32602` naming the argument, rather than read as its default.
+for a string - is refused with `-32602` naming the argument, rather than read as its default. An
+argument the method does not take - a misspelt `timout`, or a `timeout` given to `history` - is
+refused the same way, naming it, and nothing is done, as the MCP endpoint refuses it.
 
 The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32003` a
 refused prompt, `-32004` an API error and `-32005` not allowed - `exit` for a session with a window.
@@ -714,17 +720,17 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 
 | Member | Description |
 | --- | --- |
-| `name` | The model name. Writable. |
+| `name` | The model name. Writable; an empty name, or one that starts or ends with a space, is refused. |
 | `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` is refused. |
 | `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` is refused. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
-| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable; `''` clears it, as emptying the field in the dialog does. |
-| `slip_wear_results` | Which results a slip wear model keeps. Writable. |
-| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. |
-| `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
-| `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; `''` clears it, as emptying the field in the dialog does. |
+| `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`. |
+| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. |
+| `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`, on a `SlipWearModel`; another model type returns an empty `dict`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
+| `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable on a `SlipWearModel`. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants as a `float`, or `None` while they are undefined. Writable; assigning `None` makes that constant undefined. |
-| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. |
+| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. A value the model type does not use - `global_results_file_name` on a model that is not a `Submodel`, `slip_wear_results`, `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` or `bdm_remeshing` on one that is not a `SlipWearModel` - is refused naming it, judged by the `model_type` the call ends with, so `replace(model_type='SlipWearModel', number_of_cycles=10)` is accepted. |
 
 A physical constant that has never been given reads back as `None`. Because a value that is not given
 is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
@@ -849,12 +855,12 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_netgen_mesh(name, selection, optimize_steps_2d=None, optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
+| `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
 | `add_sweep_mesh(name, selection, number_of_global_smooth_steps=0, ...)` | A Gmsh sweep mesh item. The selection names the source surfaces; the model derives the sweep direction, the centre, the side surfaces and the layer edges from them. A part selection - a solid or a compound of solids - lets the model find the source surfaces itself. Either selection may span several parts that stand apart from each other, and each of them is then swept on its own. A cell of a compound the sweep cannot reach is meshed by tetrahedra, by Netgen, with a pyramid on every quadrilateral a swept cell leaves on the face they share, rather than refusing the compound, and the output window says why each such cell is left out - what keeps a cell that sweeps on its own from sweeping with the others, or why it cannot be swept at all; a compound all of whose cells sweep is swept as before. A part selection also revolves a solid, or a cell of a compound, that the sweep between two ends cannot reach and that is turned about an axis its source touches: its source is turned through equal layers, and the elements beside the axis collapse into wedges, pyramids and tetrahedra. A wall of a revolved cell may be split along the revolution, by the faces of a neighbour standing on it, and the layers then end at the angles of the split. Revolved cells about one axis are turned the same way round, so that the target of one is the source of the next; a revolved cell shares its walls with other revolved cells and with swept cells, whose counts are settled with its own, hands its surfaces on as the sources of swept cells, and is revolved from the target of a swept cell, which is meshed before it. A swept cell ending on the target of a revolved cell is swept the other way round, from it, when its other end is free or the source of a revolved cell. Swept and revolved cells may form a ring, as the sides and the corners of a frame do; a swept cell closes it, ending on the meshed source of the cell after it. A cell that could be swept as well as revolved is swept, unless its sweep meets a revolved cell in any other way: it then follows that cell and is revolved about the same axis, and the cells it touches follow it in turn. A cell a revolved cell would share a surface with in any other way leaves it to tetrahedra. `symmetry` is `Automatic` (the default for a new item) or `Off`: with `Automatic`, a compound whose cells are mirror images across the planes it is split on sweeps one symmetric piece of its cells and mirrors the mesh onto the others; a cell of the piece the sweep cannot reach is meshed by tetrahedra and mirrored the same way. The symmetry is used only when every cell has a mirror image, every edge of an image is an edge of the cell it is meshed from, and every other mesh setup item selects the images of what it selects; otherwise the compound is swept whole, and when it has a mirror plane the output window says what keeps it from being used - a vertex or edge of one cell its image does not have, named with how far off it is. An item read from a file written before the argument existed has `Off`. The structured sources are the 3-sided and 4-sided faces every mesher structures, by the item's `transfinite_three_sided`, `transfinite_four_sided` and `transfinite_angle_deg`, whether gmsh or QuadWild meshes them: a side may be a chain of edges, a 3-sided source is three blocks of quads around one inner node, or with `transfinite_three_sided="Polar"` the grid collapsed at one corner, which sweeps into hexahedra and a fan of wedges along that corner as a revolution would, opposite sides are balanced to the coarser count together with the walls, and the meshing is refused when numbers of elements set on edges, or the layer counts of a neighbouring block, cannot agree with them. A structured source whose grid folds - a quadrilateral with a corner of 180 degrees or more, from which every swept element would be inverted - is refused with the surface named; a quadrilateral like that in a source the sweep meshes free is split into two triangles, which sweep into wedges. `number_of_global_smooth_steps` is 0 or larger; a negative count is refused. |
-| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, count_search=None, boundary_layer=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `count_search` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `None` (default), `Holes` (one ring of regular quads around every closed edge loop without corners) or `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds). `transfinite_three_sided` (`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (`True` by default) take the model faces with 3 and 4 sides whose corner angles lie between 180° minus `transfinite_angle_deg` (degrees, default 135) and `transfinite_angle_deg` out of the QuadWild patch layout and mesh them as structured grids (4 sides) or three structured blocks around one inner node (3 sides), or with `Polar` the grid collapsed at one corner, whose cells there are a fan of triangles and whose side across from it QuadWild gives an even count, like the transfinite faces of gmsh; QuadWild still chooses their element counts together with the rest of the mesh and gives the opposite sides of a 4-sided face equal counts. A sweep source meshed by QuadWild follows the transfinite settings of its sweep mesh item. Every value that is not given keeps the application default. |
+| `add_shell_quad_wild(name, selection, preview=None, smooth=None, alpha=None, triangulation_mesher=None, flow_profile=None, keep_files_on_failure=None, debug_visualization=None, old_algorithm=None, pin_edge_nodes=None, edge_rotations=None, singularity_position=None, number_of_search_rounds=None, boundary_layer=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A QuadWild shell mesh item. `keep_files_on_failure=True` retains its MeshBatch folder when a QuadWild stage or mesh validation fails. `debug_visualization=True` adds the QuadWild patches as parts, the irregular, prescribed, patch-corner and seam nodes as node sets, the sheets of a shell compound as element sets, and the cross field and feature lines as wire parts; with `preview=True` it shows the traced triangle patches. `old_algorithm=True` meshes without the QuadWild patch layout and mesh quality improvements, for comparison. `pin_edge_nodes=True` keeps every triangulation node on the model edges, as a sweep source meshed after the 1D mesh would need, for comparison. `edge_rotations=True` turns on the quality-driven edge rotations, which change the connectivity where the quads are poor; by default they are off and the connectivity of the quad generation is kept. `singularity_position` (0 = off, 2 to 4 worth testing) weighs placing the irregular node of every 3-, 5- or 6-sided patch where its separatrices fit the patch geometry, for comparison. `number_of_search_rounds` (0 = off) is the number of rounds of the search over the element counts of the patch sides; every round tries the sides of the three worst patches at one or two elements more or fewer and keeps the best change, at the cost of a quantisation and a full smoothing per trial. `boundary_layer` is `None` (default), `Holes` (one ring of regular quads around every closed edge loop without corners) or `All` (along every model edge; helps fine meshes, can hurt coarse ones and shell compounds). `transfinite_three_sided` (`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (`True` by default) take the model faces with 3 and 4 sides whose corner angles lie between 180° minus `transfinite_angle_deg` (degrees, default 135) and `transfinite_angle_deg` out of the QuadWild patch layout and mesh them as structured grids (4 sides) or three structured blocks around one inner node (3 sides), or with `Polar` the grid collapsed at one corner, whose cells there are a fan of triangles and whose side across from it QuadWild gives an even count, like the transfinite faces of gmsh; QuadWild still chooses their element counts together with the rest of the mesh and gives the opposite sides of a 4-sided face equal counts. A sweep source meshed by QuadWild follows the transfinite settings of its sweep mesh item. Every value that is not given keeps the application default. |
 | `replace_meshing_parameters`, `replace_local_mesh_size`, `replace_shell_mmg`, `replace_thicken_shell_mesh`, `replace_netgen_mesh`, `replace_tetrahedral_gmsh`, `replace_shell_gmsh`, `replace_transfinite_mesh`, `replace_sweep_mesh`, `replace_shell_quad_wild` | Every `add_*` has a matching `replace_*` taking `old_name` first, then an optional `name` and `selection`, then the same arguments. A value that is not given is kept, and the region survives a replacement that does not name a new selection. |
 
 A `replace_*` edits one item type: naming an item of another type is refused, saying which `add_*` made it - `The mesh setup item 'X' is made by add_netgen_mesh, so replace_sweep_mesh cannot replace it.`
@@ -872,7 +878,7 @@ carries, not by the verdict of the item it replaces.
 `midside_nodes_on_geometry`, `split_compound_mesh`, `merge_compound_parts` and `merge_cells`.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
-`optimize_steps_2d`, `optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
+`number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
 `transfinite_four_sided` and `transfinite_angle_deg` belong to `add_netgen_mesh`. `transfinite_three_sided`
 (`No` by default, `Mapped` or `Polar`) and `transfinite_four_sided` (off by default) mesh the 3-sided and the
 4-sided faces every mesher structures as structured grids - a 3-sided face as three blocks of quads around one
@@ -894,13 +900,13 @@ changes only that value, and nothing is recorded.
 Before that, every value is checked against the range the model holds it to, and a value outside it is refused naming
 the argument rather than clamped, moved or passed on: `max_size` and `min_size` at least 0; `factor_max`, `factor_min`,
 `fineness` and `grading` larger than 0 and at most 1; `elements_per_edge` and `elements_per_curve` larger than 0;
-`element_size` larger than 0 and `number_of_elements` at least 1; `optimize_steps_2d` and `optimize_steps_3d` at least
-0; the Netgen `transfinite_angle_deg` between 0 and 180, both excluded, and the QuadWild one from 90 to 180 (the Gmsh
+`element_size` larger than 0 and `number_of_elements` at least 1; `number_of_optimize_steps_2d` and `number_of_optimize_steps_3d`
+at least 0; the Netgen `transfinite_angle_deg` between 0 and 180, both excluded, and the QuadWild one from 90 to 180 (the Gmsh
 items and their dialog take any finite `transfinite_angle_deg` and `recombine_min_quality`: a face keeps its
 transfinite constraint while its corner angles lie between 180 minus the angle and the angle, so 180 or more keeps it
 on every face);
 `hausdorff` and `relative_hausdorff` larger than 0; `thickness` larger than 0 and `number_of_layers` at least 1;
-`quad_wild_alpha` of a sweep from 0 to 1; `singularity_position` and `count_search` at least 0. A minimum is checked
+`quad_wild_alpha` of a sweep from 0 to 1; `singularity_position` and `number_of_search_rounds` at least 0. A minimum is checked
 against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
 `min_size` larger than `max_size`, or a `factor_min` larger than `factor_max`, is refused naming both instead of
 dragging the other value along, and `split_compound_mesh` and `merge_compound_parts` cannot both end up `True`.
@@ -960,7 +966,7 @@ failed = {name: why for name, why in pmx.model.mesh.generate(part.name).items() 
 | `mesher_type` | `None`, `Netgen`, `Mmg`, `Gmsh` or `QuadWild`. |
 | `active`, `valid` | Item state. |
 | `get_geometry_ids()` | The geometry IDs the item was created from, as an `IntList`. |
-| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `replace_*` argument that sets each - `max_size`, `min_size`, `element_size`, `optimize_steps_2d`, `optimize_steps_3d`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg` - in the form that argument takes: a transfinite mesh reports `recombine` as a `bool`, not the algorithm it picks, and a local mesh size only the one of `element_size` and `number_of_elements` it uses. Nothing else is returned, so `replace_<type>(name, **item.get_settings())` changes nothing; a list valued setting such as `elements_per_layer` is a Python list. |
+| `get_settings()` | The stored mesher settings of this item type, as a `dict[str, Any]`, keyed by the name of the `replace_*` argument that sets each - `max_size`, `min_size`, `element_size`, `number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `number_of_search_rounds`, `algorithm_2d`, `algorithm_3d`, `elements_per_layer` for a sweep, `transfinite_angle_deg` - in the form that argument takes: a transfinite mesh reports `recombine` as a `bool`, not the algorithm it picks, and a local mesh size only the one of `element_size` and `number_of_elements` it uses. Nothing else is returned, so `replace_<type>(name, **item.get_settings())` changes nothing; a list valued setting such as `elements_per_layer` is a Python list. |
 
 ### `Nodes` and `Elements` of the model mesh
 
@@ -1154,7 +1160,7 @@ refused.
 
 `repair_preview` takes the arguments `repair` takes and runs the repair on a copy, the way Preview in the
 Repair dialog does: nothing changes and no command is recorded. It returns a `RepairPreview` for every part
-the repair would run on, keyed by its name, so a sub-part is answered under its compound. `edges` lists the
+the repair would run on, keyed by its name, so a sub-part is answered under its compound. `edges` lists, as a plain Python list, the
 edges the repair would remove or sew, each as an array of the points sampled on it with shape `(n, 3)`, and
 `points` the vertices it would remove with shape `(point_count, 3)`; `edge_count` and `point_count` count
 them, and `refused` is `True` when the repair would leave the part as it was.
@@ -1382,7 +1388,7 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 `Material` exposes `name`, `description`, `active`, `temperature_dependent`, `property_count`, `get_properties()` and
 `get_property_types()`, which names every property after the `pmx.create` maker that makes it: `elastic`, `density`,
 `elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`,
-`thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies, and the
+`thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies as a plain Python list, and the
 list can be passed straight to `materials.replace`:
 `pmx.model.materials.replace('Steel', properties=pmx.model.materials['Steel'].get_properties())`.
 
@@ -1425,7 +1431,7 @@ dependent with the rows the analysis uses.
 
 | Member | Description |
 | --- | --- |
-| `add_solid(name, material_name, region, thickness=1)` | Solid section. The selection target is `elements`. The thickness is written only in a 2D model, so it is refused in a 3D one. |
+| `add_solid(name, material_name, region, thickness=None)` | Solid section. The selection target is `elements`. The thickness is written only in a 2D model, where it is 1 when not given, so it is refused in a 3D one. |
 | `add_shell(name, material_name, region, thickness=1, offset=0)` | Shell section. The offset of the mid surface from the selected geometry is given in shell thicknesses. |
 | `add_membrane(name, material_name, region, thickness=1, offset=0)` | Membrane section. The offset is given in membrane thicknesses. |
 | `add_point_mass(name, region, mass)` | Point mass section. The selection target is `nodes`. |
@@ -1443,7 +1449,8 @@ on a replace, `None` keeps the material.
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
 
-`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`,
+`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`
+(of a shell or membrane section, or of a solid section in a 2D model, otherwise `None`, as the replace of the type takes it),
 `offset` (of a shell or membrane section, otherwise `None`), `mass` (of a mass section, otherwise `None`), `valid` and
 `get_equations()`, the expressions `thickness`, `offset` and `mass` were entered with, as a `dict[str, str]`; a value
 entered as a plain number is left out, and the property of the same name returns it.
@@ -1586,9 +1593,9 @@ edits the keyword the user would click.
 | Member | Description |
 | --- | --- |
 | `count`, `override_count` | The number of user keywords and of edited generated keywords. |
-| `get_model_keywords()` | The generated keywords, each with the index path that addresses it and its complete text. |
-| `get_user_keywords()` | The user keywords, each with the index path it is inserted at. |
-| `get_overrides()` | The user edits of the generated keywords, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
+| `get_model_keywords()` | The generated keywords, as a plain Python list, each with the index path that addresses it and its complete text. |
+| `get_user_keywords()` | The user keywords, as a plain Python list, each with the index path it is inserted at. |
+| `get_overrides()` | The user edits of the generated keywords, as a plain Python list, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
 | `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
 | `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. |
@@ -1776,7 +1783,7 @@ Reached as `pmx.model.surface_interactions`. A surface interaction is composed o
 
 `SurfaceInteraction` exposes `name`, `property_count`, `get_properties()` and `get_property_types()`, which names every
 property after the `pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
-`get_properties()` returns detached `SurfaceInteractionProperty` copies, and the list can be passed straight to
+`get_properties()` returns detached `SurfaceInteractionProperty` copies as a plain Python list, and the list can be passed straight to
 `surface_interactions.replace`:
 `pmx.model.surface_interactions.replace('SI-1', properties=pmx.model.surface_interactions['SI-1'].get_properties())`.
 
@@ -2032,7 +2039,7 @@ a `Region`; the selection target follows the load type.
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | elements | A gravity load. |
 | `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. The `rotational_speed` is in rad/s. |
-| `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ...)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
+| `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ..., auto_direction=None)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
 | `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
@@ -2071,8 +2078,9 @@ The details the model imposes:
   axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
   and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
 - A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
-  normal unless a `direction` is given. `replace_pre_tension` keeps every value that is not given, takes
-  `auto_direction=True` to return to the surface normal (it cannot be combined with `direction`), and refuses a
+  normal unless a `direction` is given. `auto_direction=True`, the default of an add, cannot be combined with
+  `direction`, and `auto_direction=False` needs one. `replace_pre_tension` keeps every value that is not given, takes
+  `auto_direction=True` to return to the surface normal, and refuses a
   `tension_type` that changes the type unless the `magnitude` is given as well.
 - A **cavity name** has at most three characters, a solver limit, and the emissivity is between 0 and 1.
   A cavity radiation needs a cavity name, and a `cavity_name` is refused unless cavity radiation is on;
@@ -2400,7 +2408,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
 | `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
-| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=False, tolerance=0, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, in any case, and `CenterPoint` needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step` and `tolerance`, where 0 means one thousandth of the assembly diagonal, belong to `Disassembly`. A value out of range is refused, not clamped. |
+| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=None, tolerance=None, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, in any case, and `CenterPoint` needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step`, off when not given, and `tolerance`, where 0 - the value when not given - means one thousandth of the assembly diagonal, are taken only by `Disassembly`, and `center` only by `CenterPoint`; another method refuses them rather than ignoring them. A value out of range is refused, not clamped. |
 | `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
 | `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
 | `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
@@ -2533,10 +2541,20 @@ selection.add_by_ids('nodes', [2], operation='Subtract')
 selection.add_by_ids('nodes', [1, 4], operation='Intersect')
 ```
 
-`configure` records the options the selection was made with and returns the selection, so it chains:
-`max_geometry_ids`, `max_item_ids`, `limit_to` (`None`, `FirstPart`, `FirstGeometryType` or
-`FirstMesherType`, in any case), `shell_edges_only` and `enable_shell_edge_faces`. `get_options()` reads them
-back.
+`configure` records the options the selection was made with and returns the selection, so it chains.
+The application applies them to every pick of the selection, while editing and on replay, and an option that is
+not given keeps its current value:
+
+- `max_geometry_ids` and `max_item_ids` cap the number of geometry ids and of items the selection holds. A pick
+  that would exceed the cap is dropped, a cap of `1` makes each pick replace the previous one, and `-1`, the
+  default of a new selection, means unlimited. Any other value below `1` is refused, naming the argument.
+- `limit_to` keeps every pick on the parts of the first one: `None` (the default) takes any part, `FirstPart`
+  only the first part, `FirstGeometryType` only parts of its part type, such as solid or shell, and
+  `FirstMesherType` only parts meshed by its mesher. It is matched in any case.
+- `shell_edges_only` limits a pick to shell edge faces and `enable_shell_edge_faces` lets a pick take them; both
+  are off by default.
+
+`get_options()` reads them back.
 
 The `view` is `'geometry'`, `'femodel'` or `'results'`, in any case, and reads back lower case.
 
@@ -2715,7 +2733,7 @@ Collection of user-defined result field outputs. These are postprocessing defini
 
 The `name` of every draft is checked as a model item name is, when the draft is created: an empty name, one with leading or trailing spaces or with characters a name cannot hold is refused.
 
-`based_on` is required and must be `"Parts"`, `"ElementSets"`, or `"AllElements"` (in any case; it reads back in this spelling). `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="AllElements"`. Part and element-set names are matched regardless of case and stored as the result spells them, so `item_limits` reads back in that spelling; two keys that name the same item are refused.
+`based_on` is required and must be `"Parts"`, `"ElementSets"`, or `"AllElements"` (in any case; it reads back in this spelling). `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="AllElements"`. Part and element-set names and the `"All elements"` key are matched regardless of case and stored as the result spells them, so `item_limits` reads back in that spelling; two keys that name the same item are refused. The source `field_name` of a limit, an envelope or a coordinate system transform, and the `coordinate_system_name` of a transform, are matched regardless of case as well and stored in the result's spelling, so a user-defined field output is found under any case.
 
 Creation only produces a Python-side draft and does not call the controller or modify command history. Assign optional filters to the draft, then call `add(output)`. The complete draft is converted and validated before the postprocessing command is created. If the current result changes after a `Result` object was obtained, get `pmx.results.current` again before adding the draft.
 
@@ -3369,7 +3387,7 @@ is found first, and otherwise the one history output whose name differs from it 
 | `contains(name)` | Checks whether the history output exists. |
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft. The region is a `Selection`, a `Region` (`NodeSetName` or `SurfaceName`), a result `NodeSet` or a result `Surface`. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
-| `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=1.0)` | Creates a line, surface, or volume integration draft. The `region` is a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name`/`component_names` are ignored for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals; a surface integral is never scaled and refuses any value but `"None"`. |
+| `create_history_output_from_integration(name, integral_type, region, field_name=None, component_names=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=None)` | Creates a line, surface, or volume integration draft. The `region` is required: a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name` and `component_names` are required for `"Field"` and `"FieldByGeometry"` and refused for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) is the out-of-plane scaling of 2D output; a line and a volume integral take it on a 2D and a 3D result alike, as the dialog does, and a surface integral is never scaled and refuses any value but `"None"`. `thickness` is taken only with the `"Thickness"` cross section, where it defaults to 1.0, and refused otherwise. |
 | `create_history_output_from_merged_histories(name, source1, source2, source3=None, source4=None)` | Creates a From Merged Histories draft that merges two to four history components into one history output. |
 | `create_history_output_from_extracted_entry(name, source, entry_name)` | Creates a From Extracted Entry draft that copies one named entry of a history component into its own history output. |
 | `create_history_output_xy(name, x_source, y_source)` | Creates an XY draft that plots the entries of the Y history component against the values of the X history component. |
@@ -3459,6 +3477,7 @@ output = result.history_outputs.create_history_output_from_integration(
     field_name="STRESS",
     component_names=["S11"],
     region=edges,
+    integral_result="Field",
     cross_section="Thickness",
     thickness=0.01,
     unit="N"
@@ -3467,12 +3486,12 @@ result.history_outputs.add(output)
 ```
 
 `integral_result` selects what the integral evaluates: `"Geometry"` (the region size, integrating a unit
-field; the default), `"Field"` (the field integral), or `"FieldByGeometry"` (the region average of the
-field). `"Geometry"` and `"Field"` report one entry per element, so a Sum filter gives the total size
+field; the default), `"Field"` (the field integral, as in the example above), or `"FieldByGeometry"` (the region
+average of the field). `"Geometry"` and `"Field"` report one entry per element, so a Sum filter gives the total size
 and the region total; `"FieldByGeometry"` instead sums the element integrals and the element measures
 over the whole region and divides the sums, so it returns a single `REGION` entry that is already the
-measure-weighted average (no Sum filter needed). `field_name` and `component_names` are not needed for
-`"Geometry"`. The geometry result is reported in a single `SIZE` component; note that the cross section
+measure-weighted average (no Sum filter needed). `field_name` and `component_names` are refused for
+`"Geometry"`, which integrates no field, and read back as `None` there. The geometry result is reported in a single `SIZE` component; note that the cross section
 scaling changes its dimension, so a scaled line integral returns an area and a scaled surface integral a
 volume:
 
@@ -3573,7 +3592,11 @@ Possible `deformation_variable_name` values are `"Displacements"`, `"Forces"`, `
 
 The history outputs have the same single call counterparts: `add_from_field`, `add_from_equation`,
 `add_from_integration`, `add_from_merged_histories`, `add_from_extracted_entry`, `add_xy`
-and `add_from_table`, each with a matching `replace_*`. `add_from_field` and `replace_from_field` take the same `region` as the draft and
+and `add_from_table`, each with a matching `replace_*`, and each taking the optional `filter1` and `filter2` as
+well. `add_from_integration` takes `region` as a required argument after `integral_type`, the way the draft does.
+A source of `add_from_merged_histories`, `add_from_extracted_entry` and `add_xy` is a `HistoryComponent` or a
+list of three names, as for the drafts; the names are matched regardless of case and stored in the spelling of
+the result. `add_from_field` and `replace_from_field` take the same `region` as the draft and
 also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
 `harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
@@ -3586,7 +3609,8 @@ Filters are applied in order, and `filter2` cannot be used without `filter1`.
 | Member | Description |
 | --- | --- |
 | `type` | `"Minimum"`, `"Maximum"`, `"Sum"`, or `"Average"`. |
-| `option` | `"Row"` or `"Column"` for a minimum or maximum filter, `"Rows"` or `"Columns"` for a sum or average filter. |
+| `return_value` | `"Row"` or `"Column"` for a minimum or maximum filter, the `return_value` of `create_minimum_filter` and `create_maximum_filter`; `None` for a sum or average filter. |
+| `operate_on` | `"Rows"` or `"Columns"` for a sum or average filter, the `operate_on` of `create_sum_filter` and `create_average_filter`; `None` for a minimum or maximum filter. |
 
 ### `HistoryOutputDraft`
 
@@ -3605,7 +3629,7 @@ From Merged Histories draft. Adds to `HistoryOutputDraft`:
 
 | Member | Description |
 | --- | --- |
-| `sources` | Merged source components, a list of `StringList` objects `[history_output_name, field_name, component_name]` - the form `source1` to `source4` take, so it can be passed back as `*sources`. Names may contain dots. |
+| `sources` | Merged source components, a plain Python list of `StringList` objects `[history_output_name, field_name, component_name]` - the form `source1` to `source4` take, so it can be passed back as `*sources`. Names may contain dots. |
 
 ### `HistoryOutputFromExtractedEntryDraft`
 
@@ -3691,20 +3715,20 @@ if history_output.is_user_defined and history_output.item_type == "from_field":
 | --- | --- |
 | `integral_type` | `"Line"`, `"Surface"`, or `"Volume"`. |
 | `integral_result` | `"Geometry"`, `"Field"`, or `"FieldByGeometry"`. |
-| `field_name` | Source field name. |
-| `component_names` | Selected field component names. |
+| `field_name` | Source field name, or `None` for the `"Geometry"` integral result. |
+| `component_names` | Selected field component names, or `None` for the `"Geometry"` integral result. |
 | `region_type` | `"Selection"`, `"ElementSetName"`, or `"SurfaceName"`. |
 | `region_name` | Region name, or `None` when the region is a selection. |
 | `deformation_variable_name` | The deformation the region follows, in the spelling `create_history_output_from_integration` takes, such as `SurfaceNormals`. |
 | `unit` | User-defined result unit. |
 | `cross_section` | `"None"`, `"Thickness"`, or `"Axisymmetric"`. |
-| `thickness` | Out-of-plane thickness used when `cross_section` is `"Thickness"`. |
+| `thickness` | Out-of-plane thickness, or `None` when `cross_section` is not `"Thickness"`. |
 
 ### `HistoryOutputFromMergedHistories`
 
 | Member | Description |
 | --- | --- |
-| `sources` | Merged source components, a list of `StringList` objects `[history_output_name, field_name, component_name]` - the form `source1` to `source4` take, so it can be passed back as `*sources`. Names may contain dots. |
+| `sources` | Merged source components, a plain Python list of `StringList` objects `[history_output_name, field_name, component_name]` - the form `source1` to `source4` take, so it can be passed back as `*sources`. Names may contain dots. |
 
 ### `HistoryOutputFromExtractedEntry`
 

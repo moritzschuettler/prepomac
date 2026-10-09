@@ -90,12 +90,12 @@ namespace APIs.Python.Model
         }
         public void Replace(string stepName, string oldName, BoundaryCondition boundaryCondition)
         {
-            ResolveItem(stepName, oldName);
-            ValidateName(stepName, boundaryCondition.Name, oldName);
+            string storedName = ResolveItem(stepName, oldName).Name;
+            ValidateName(stepName, boundaryCondition.Name, storedName);
             EnsureReferencePointRegionSupported(boundaryCondition);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceBoundaryCondition(stepName, oldName, boundaryCondition);
+            ModelGateway.ReplaceBoundaryCondition(stepName, storedName, boundaryCondition);
         }
         // Only some of the types support a reference point, and the dialogs of the others do not
         // offer one. The model check that would catch it runs after the command is already recorded.

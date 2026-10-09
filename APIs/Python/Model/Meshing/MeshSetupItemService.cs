@@ -194,8 +194,8 @@ namespace APIs.Python.Model
         public void Replace(string oldName, MeshSetupItem item, string name, SelectionAPI selection,
                             Action<MeshSetupItem> afterSelectionChanged)
         {
-            ResolveItem(oldName);
-            ValidateName(name, oldName);
+            string storedName = ResolveItem(oldName).Name;
+            ValidateName(name, storedName);
             item.Name = name;
             // A replacement keeps the region it was created from until a new selection is given
             if (selection != null)
@@ -209,7 +209,7 @@ namespace APIs.Python.Model
             // derives what a sweep mirrors, so it runs on every replace as it does on every apply of the dialog
             EnsureCommandsAvailable();
             EnsureModelCanHonour(item);
-            _meshGateway.ReplaceMeshSetupItem(oldName, item);
+            _meshGateway.ReplaceMeshSetupItem(storedName, item);
         }
         public void Duplicate(string[] names)
         {

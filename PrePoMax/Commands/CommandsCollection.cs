@@ -59,6 +59,7 @@ namespace PrePoMax.Commands
         private List<string> _errors;
         private bool _postprocessingDeclined;
         [NonSerialized] private int _commandRecordingSuppressionCount;
+        [NonSerialized] private int _numOfCommandsExecutedWithoutRecording;
         [NonSerialized] private string _commandBlockReason;
 
 
@@ -156,6 +157,8 @@ namespace PrePoMax.Commands
             throw new CaeException(actionName + " was refused. " + _commandBlockReason);
         }
         public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
+        // Counts the commands run while recording was suppressed, so a caller can tell whether a script changed anything
+        public int NumOfCommandsExecutedWithoutRecording { get { return _numOfCommandsExecutedWithoutRecording; } }
         public void BeginCommandRecordingSuppression()
         {
             _commandRecordingSuppressionCount++;
@@ -311,10 +314,23 @@ namespace PrePoMax.Commands
             //
             return result;
         }
+        // A command executed and recorded only after it failed, such as a script that changed the model before its
+        // error: the history must hold it, or the changes it left would be in no command
+        public void AddExecutedCommand(Command command)
+        {
+            if (_commandRecordingSuppressionCount > 0) return;
+            //
+            AddCommand(command);
+            CheckModelChanged(command);
+            WriteToFile();
+            _currPositionIndex++;
+            OnEnableDisableUndoRedo();
+        }
         private bool ExecuteCommandWithoutRecording(Command command, bool executeSynchronous = false)
         {
             // Write to form
             WriteToOutput(command);
+            _numOfCommandsExecutedWithoutRecording++;
             //
             bool result = ExecuteCommandWithTimer(command, false, executeSynchronous);
             if (result) CheckModelChanged(command);
@@ -495,6 +511,20 @@ namespace PrePoMax.Commands
         }
         public void ExecuteAllCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType,
                                        SaveCommand lastSave)
+        {
+            // The history already holds every command a replayed one executes inside itself
+            BeginCommandRecordingSuppression();
+            try
+            {
+                ExecuteHistoryCommands(showFileDialog, showMeshDialog, regenerateType, lastSave);
+            }
+            finally
+            {
+                EndCommandRecordingSuppression();
+            }
+        }
+        private void ExecuteHistoryCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType,
+                                            SaveCommand lastSave)
         {
             int count = 0;
             bool executeWithDialog;

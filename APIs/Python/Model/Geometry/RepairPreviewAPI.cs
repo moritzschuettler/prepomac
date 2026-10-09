@@ -36,7 +36,7 @@ namespace APIs.Python.Model
         [PythonAPI("The edges the repair would remove or sew, each as the points sampled on it with shape " +
                    "(point_count, 3): the edges between fused faces, small edges, the edges of small faces and " +
                    "the free edges sewing would close.", Returns = "list[numpy.ndarray or NumericArray]")]
-        public object[] edges { get { return _edges; } }
+        public object edges { get { return PythonListConverter.ToPythonList(_edges); } }
         [PythonAPI("The number of vertices the repair would remove.", Returns = "int")]
         public int point_count { get { return _pointCount; } }
         [PythonAPI("The vertices the repair would remove with shape (point_count, 3), such as the points joining " +

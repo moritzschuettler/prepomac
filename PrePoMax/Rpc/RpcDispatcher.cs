@@ -105,6 +105,8 @@ namespace PrePoMax.Rpc
             MessageBoxes.IsNonInteractiveThread = true;
             try
             {
+                string[] parameters = GetParameters(request.Method);
+                if (parameters != null) request.RefuseUnknownParameters(parameters);
                 // A method that only reports is answered while another one is still working, so a
                 // client can always ask what is going on; anything that reaches the model waits its
                 // turn, whichever connection it arrived on
@@ -322,6 +324,22 @@ namespace PrePoMax.Rpc
         private static bool ShowsBusyState(string method)
         {
             return method == "exec" || method == "eval";
+        }
+        // The arguments each method takes, or null for a method this server does not serve, which Execute refuses
+        private static string[] GetParameters(string method)
+        {
+            if (method == "ping") return RpcPingMethod.Parameters;
+            else if (method == "shutdown") return RpcShutdownMethod.Parameters;
+            else if (method == "exit") return RpcExitMethod.Parameters;
+            else if (method == "wait") return RpcWaitMethod.Parameters;
+            else if (method == "cancel") return RpcCancelMethod.Parameters;
+            else if (method == "status") return RpcStatusMethod.Parameters;
+            else if (method == "describe") return RpcDescribeMethod.Parameters;
+            else if (method == "eval") return RpcEvalMethod.Parameters;
+            else if (method == "exec") return RpcExecMethod.Parameters;
+            else if (method == "history") return RpcHistoryMethod.Parameters;
+            else if (method == "screenshot") return RpcScreenshotMethod.Parameters;
+            return null;
         }
         private static bool IsSerialized(string method)
         {

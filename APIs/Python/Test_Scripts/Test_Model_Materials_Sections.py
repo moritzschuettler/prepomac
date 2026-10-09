@@ -302,6 +302,18 @@ def test_material_properties():
         after = [plain_values(p) for p in materials[name].get_properties()]
         check(close(after, before), "the properties of " + name + " did not round trip through replace: " +
               str(after))
+    # The properties are a plain Python list, so a list operation extends them
+    properties = materials[PREFIX + "Thermal"].get_properties()
+    check(type(properties) is list, "get_properties must return a list: " + type(properties).__name__)
+    check(len(properties + [pmx.create.density(7.8e-9)]) == len(properties) + 1,
+          "the properties do not extend like a list")
+    # A replace without a name keeps the material under its own spelling, whatever spelling old_name has
+    count = len(materials)
+    for spelling in [(PREFIX + "Thermal").lower(), (PREFIX + "Thermal").upper()]:
+        material = materials.replace(spelling, description="mixed case")
+        check(material.name == PREFIX + "Thermal" and PREFIX + "Thermal" in list(materials.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(materials.get_names())))
+    check(len(materials) == count, "a mixed case replace changed the number of materials")
     materials.remove([PREFIX + "Thermal"])
 
 
@@ -465,6 +477,19 @@ def test_sections(material_name):
         check(message is not None and argument in message,
               "a replace with a refused value must name " + argument + ": " + str(message))
     check(sections[PREFIX + "Shell"].thickness == 3, "a refused replace changed the shell")
+    # The thickness reads back only where the replace of the type takes it, so it goes straight back into it
+    for name in [PREFIX + "Solid", PREFIX + "Mass"]:
+        check(sections[name].thickness is None, name + " must read back no thickness: " + str(sections[name].thickness))
+        check("thickness" not in sections[name].get_equations(), name + " must return no thickness equation")
+    shell = sections.replace_shell(PREFIX + "Shell", thickness=sections[PREFIX + "Shell"].thickness)
+    check(shell.thickness == 3, "the shell thickness did not go back into replace_shell")
+    # A replace without a name keeps the section under its own spelling, whatever spelling old_name has
+    count = len(sections)
+    for spelling in [(PREFIX + "Shell").lower(), (PREFIX + "Shell").upper()]:
+        shell = sections.replace_shell(spelling, thickness=3)
+        check(shell.name == PREFIX + "Shell" and PREFIX + "Shell" in list(sections.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(sections.get_names())))
+    check(len(sections) == count, "a mixed case replace changed the number of sections")
     # A replace never turns one section type into another
     for function, expected in [(lambda: sections.replace_solid(PREFIX + "Mass"),
                                 "is made by add_point_mass, so replace_solid cannot replace it"),

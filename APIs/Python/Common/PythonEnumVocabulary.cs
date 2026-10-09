@@ -27,7 +27,13 @@ namespace APIs.Python
     // A key is the argument name, optionally qualified by the member and by the declaring type, and
     // the most specific one wins. The qualified forms exist for the few names two areas share:
     // 'variables' means a different vocabulary on a field output than on a history output, and
-    // 'damping_type' a different one on damping than on modal damping.
+    // 'damping_type' a different one on damping than on modal damping. A property is keyed as its
+    // declaring type, its name and its name again where it reads another enumeration than the
+    // argument of the same name.
+    //
+    // A member that accepts only some values of the enumeration lists only those: its key carries
+    // the allowed values beside the enumeration, so the schema never offers a value the member
+    // always refuses.
     //
     // Test_Api_Enum_Vocabulary.py checks this against every ToEnum site in the API sources, so an
     // argument added without an entry here is reported rather than silently undescribed.
@@ -35,29 +41,80 @@ namespace APIs.Python
     {
         // Variables
         private static Dictionary<string, Type> _types;
+        private static Dictionary<string, string[]> _allowedValues;
 
 
         // Static methods
         // The values the argument accepts, or null when the argument is not enumeration valued
         public static string[] GetValues(string declaringTypeName, string memberName, string argumentName)
         {
-            Type type = GetType(declaringTypeName, memberName, argumentName);
-            if (type == null) return null;
+            string key = GetKey(declaringTypeName, memberName, argumentName);
+            if (key == null) return null;
             //
-            return Enum.GetNames(type);
+            string[] allowedValues;
+            if (GetAllowedValues().TryGetValue(key, out allowedValues)) return allowedValues;
+            return Enum.GetNames(GetTypes()[key]);
         }
         public static Type GetType(string declaringTypeName, string memberName, string argumentName)
+        {
+            string key = GetKey(declaringTypeName, memberName, argumentName);
+            if (key == null) return null;
+            //
+            return GetTypes()[key];
+        }
+        private static string GetKey(string declaringTypeName, string memberName, string argumentName)
         {
             if (string.IsNullOrEmpty(argumentName)) return null;
             //
             Dictionary<string, Type> types = GetTypes();
-            Type type;
-            if (declaringTypeName != null && memberName != null &&
-                types.TryGetValue(declaringTypeName + "." + memberName + "." + argumentName, out type)) return type;
-            if (memberName != null && types.TryGetValue(memberName + "." + argumentName, out type)) return type;
-            if (types.TryGetValue(argumentName, out type)) return type;
+            string key;
+            if (declaringTypeName != null && memberName != null)
+            {
+                key = declaringTypeName + "." + memberName + "." + argumentName;
+                if (types.ContainsKey(key)) return key;
+            }
+            if (memberName != null)
+            {
+                key = memberName + "." + argumentName;
+                if (types.ContainsKey(key)) return key;
+            }
+            if (types.ContainsKey(argumentName)) return argumentName;
             //
             return null;
+        }
+        // The keys whose member accepts only some values of the enumeration, with those values
+        public static Dictionary<string, string[]> GetAllowedValues()
+        {
+            if (_allowedValues != null) return _allowedValues;
+            //
+            string[] referencePointBySelection = Names(FeReferencePointCreatedFrom.OnPoint,
+                                                       FeReferencePointCreatedFrom.BetweenTwoPoints,
+                                                       FeReferencePointCreatedFrom.CircleCenter);
+            string[] referencePointByRegion = Names(FeReferencePointCreatedFrom.CenterOfGravity,
+                                                    FeReferencePointCreatedFrom.BoundingBoxCenter);
+            string[] coordinateSystemPointBySelection = Names(CsPointCreatedFromEnum.OnPoint,
+                                                              CsPointCreatedFromEnum.BetweenTwoPoints,
+                                                              CsPointCreatedFromEnum.CircleCenter);
+            Dictionary<string, string[]> allowedValues = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            allowedValues.Add("add_from_selection.created_from", referencePointBySelection);
+            allowedValues.Add("replace_from_selection.created_from", referencePointBySelection);
+            allowedValues.Add("add_from_region.created_from", referencePointByRegion);
+            allowedValues.Add("replace_from_region.created_from", referencePointByRegion);
+            foreach (string point in new[] { "origin", "point_on_x", "point_in_xy" })
+            {
+                allowedValues.Add("add_from_selections." + point + "_created_from", coordinateSystemPointBySelection);
+                allowedValues.Add("replace_from_selections." + point + "_created_from",
+                                  coordinateSystemPointBySelection);
+            }
+            //
+            _allowedValues = allowedValues;
+            return _allowedValues;
+        }
+        private static string[] Names(params Enum[] values)
+        {
+            string[] names = new string[values.Length];
+            for (int i = 0; i < values.Length; i++) names[i] = values[i].ToString();
+            return names;
         }
         public static Dictionary<string, Type> GetTypes()
         {
@@ -80,10 +137,18 @@ namespace APIs.Python
             types.Add("operation", typeof(vtkSelectOperation));
             types.Add("geometry_select_mode", typeof(GeometrySelectModeEnum));
             types.Add("created_from", typeof(FeReferencePointCreatedFrom));
+            types.Add("add_from_selection.created_from", typeof(FeReferencePointCreatedFrom));
+            types.Add("replace_from_selection.created_from", typeof(FeReferencePointCreatedFrom));
+            types.Add("add_from_region.created_from", typeof(FeReferencePointCreatedFrom));
+            types.Add("replace_from_region.created_from", typeof(FeReferencePointCreatedFrom));
+            types.Add("SurfaceAPI.created_from.created_from", typeof(FeSurfaceCreatedFrom));
             types.Add("coordinate_system_type", typeof(CoordinateSystemTypeEnum));
-            types.Add("origin_created_from", typeof(CsPointCreatedFromEnum));
-            types.Add("point_on_x_created_from", typeof(CsPointCreatedFromEnum));
-            types.Add("point_in_xy_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("add_from_selections.origin_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("replace_from_selections.origin_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("add_from_selections.point_on_x_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("replace_from_selections.point_on_x_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("add_from_selections.point_in_xy_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("replace_from_selections.point_in_xy_created_from", typeof(CsPointCreatedFromEnum));
             types.Add("limit_to", typeof(SelectionLimitToEnum));
             types.Add("surface_type", typeof(FeSurfaceType));
             // Materials
@@ -100,6 +165,7 @@ namespace APIs.Python
             // Qualified, because the exploded view takes an argument of the same name with other values
             types.Add("ContactPairsAPI.add.method", typeof(ContactPairMethod));
             types.Add("ContactPairsAPI.replace.method", typeof(ContactPairMethod));
+            types.Add("ContactPairAPI.method.method", typeof(ContactPairMethod));
             types.Add("joint_type", typeof(JointTypeEnum));
             types.Add("center_defined_by", typeof(JointCenterDefinitionEnum));
             types.Add("axis_defined_by", typeof(JointDefinitionEnum));
@@ -147,10 +213,12 @@ namespace APIs.Python
             types.Add("interpolator_type", typeof(InterpolatorEnum));
             types.Add("add_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
             types.Add("replace_from_file.interpolator_type", typeof(CloudInterpolatorEnum));
+            types.Add("DistributionAPI.interpolator_type.interpolator_type", typeof(CloudInterpolatorEnum));
             types.Add("based_on", typeof(LimitPlotBasedOnEnum));
             types.Add("ResultFieldOutputsAPI.create_median_filter.source", typeof(FieldResultFilterSourceTypeEnum));
             types.Add("ResultFieldOutputsAPI.create_average_filter.source", typeof(FieldResultFilterSourceTypeEnum));
             types.Add("ResultFieldOutputsAPI.create_smooth_filter.source", typeof(FieldResultFilterSourceTypeEnum));
+            types.Add("ResultFieldOutputFilterAPI.source.source", typeof(FieldResultFilterSourceTypeEnum));
             types.Add("integral_type", typeof(IntegralTypeEnum));
             types.Add("integral_result", typeof(IntegralResultEnum));
             types.Add("cross_section", typeof(IntegrationScaleType));

@@ -17,6 +17,11 @@ namespace PrePoMax.Rpc
     // never waits for the turn, because the call it waits for is the one holding it.
     public static class RpcWaitMethod
     {
+        // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "call_id", "timeout" };
+
+
         // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {

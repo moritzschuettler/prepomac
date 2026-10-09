@@ -266,7 +266,7 @@ namespace APIs.Python
         private static void ValidateLimit(FeResults result, ResultFieldOutputLimit limit)
         {
             ValidateDefinition(limit.Name, limit.FieldName, limit.ComponentName, limit.ItemNameLimit);
-            ValidateSourceFieldComponent(result, limit.FieldName, limit.ComponentName);
+            limit.FieldName = ValidateSourceFieldComponent(result, limit.FieldName, limit.ComponentName);
             if (result.Mesh == null) throw new PythonAPIException("The result does not contain a mesh.");
             // The mesh finds a part or an element set regardless of case, while the result checks the limit keys
             // against its own spelling, so every key is stored as the mesh spells it
@@ -291,10 +291,13 @@ namespace APIs.Python
                 }
                 else if (limit.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
                 {
-                    if (limit.ItemNameLimit.Count != 1 ||
-                        entry.Key != LimitPlotBasedOnEnum.AllElements.GetDisplayedName())
-                        throw new PythonAPIException("An all-elements limit must contain exactly one limit value.");
-                    storedName = entry.Key;
+                    storedName = LimitPlotBasedOnEnum.AllElements.GetDisplayedName();
+                    if (limit.ItemNameLimit.Count != 1)
+                        throw new PythonAPIException("An AllElements limit must contain exactly one limit value, " +
+                                                     "under the key '" + storedName + "'.");
+                    if (!PythonNameComparer.AreSame(entry.Key, storedName))
+                        throw new PythonAPIException("The argument 'item_limits' of an AllElements limit takes the " +
+                                                     "key '" + storedName + "', not '" + entry.Key + "'.");
                 }
                 else throw new PythonAPIException("Unsupported limit assignment type '" +
                                                   limit.LimitPlotBasedOn + "'.");
@@ -309,7 +312,7 @@ namespace APIs.Python
         {
             ValidateRequiredString(envelope.FieldName, "field_name");
             ValidateRequiredString(envelope.ComponentName, "component_name");
-            ValidateSourceFieldComponent(result, envelope.FieldName, envelope.ComponentName);
+            envelope.FieldName = ValidateSourceFieldComponent(result, envelope.FieldName, envelope.ComponentName);
         }
         private static void ValidateEquation(FeResults result, ResultFieldOutputEquation equation)
         {
@@ -327,11 +330,12 @@ namespace APIs.Python
         {
             ValidateRequiredString(transform.FieldName, "field_name");
             ValidateRequiredString(transform.CoordinateSystemName, "coordinate_system_name");
-            ValidateSourceField(result, transform.FieldName);
+            transform.FieldName = ValidateSourceField(result, transform.FieldName);
             if (result.Mesh == null) throw new PythonAPIException("The result does not contain a mesh.");
             if (!result.Mesh.CoordinateSystems.ContainsValidKey(transform.CoordinateSystemName))
                 throw new PythonAPIException("The result coordinate system '" + transform.CoordinateSystemName +
                                              "' does not exist or is invalid.");
+            transform.CoordinateSystemName = result.Mesh.CoordinateSystems[transform.CoordinateSystemName].Name;
             DataTypeEnum dataType = result.GetFieldDataType(transform.FieldName);
             if (dataType != DataTypeEnum.Vector && dataType != DataTypeEnum.Tensor)
                 throw new PythonAPIException("Only vector or tensor field outputs can be transformed.");
@@ -339,19 +343,22 @@ namespace APIs.Python
                 throw new PythonAPIException("The field output '" + transform.FieldName +
                                              "' does not contain all required components.");
         }
-        private static void ValidateSourceFieldComponent(FeResults result, string fieldName, string componentName)
+        // Both return the source field in its stored spelling
+        private static string ValidateSourceFieldComponent(FeResults result, string fieldName, string componentName)
         {
-            ValidateSourceField(result, fieldName);
-            string[] componentNames = result.GetFieldComponentNames(fieldName);
+            string storedFieldName = ValidateSourceField(result, fieldName);
+            string[] componentNames = result.GetFieldComponentNames(storedFieldName);
             if (componentNames == null || !componentNames.Contains(componentName))
                 throw new PythonAPIException("The component '" + componentName +
-                                             "' does not exist in field '" + fieldName + "'.");
+                                             "' does not exist in field '" + storedFieldName + "'.");
+            return storedFieldName;
         }
-        private static void ValidateSourceField(FeResults result, string fieldName)
+        private static string ValidateSourceField(FeResults result, string fieldName)
         {
-            if (!result.GetAllFieldNames().Contains(fieldName))
-                throw new PythonAPIException("The source field '" + fieldName +
-                                             "' does not exist in the result.");
+            if (result.ContainsResultFieldOutput(fieldName)) return result.GetResultFieldOutput(fieldName).Name;
+            if (result.GetAllFieldNames().Contains(fieldName)) return fieldName;
+            //
+            throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
         }
         private static LimitPlotBasedOnEnum ParseBasedOn(string basedOn)
         {

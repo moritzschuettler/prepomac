@@ -67,15 +67,16 @@ namespace APIs.Python.Model
         public SurfaceInteraction Replace(string oldName, string name, object properties)
         {
             SurfaceInteraction surfaceInteraction = ResolveSurfaceInteraction(oldName).DeepClone();
+            string storedName = surfaceInteraction.Name;
             if (name != null)
             {
-                ValidateName(name, oldName);
+                ValidateName(name, storedName);
                 surfaceInteraction.Name = name;
             }
             if (properties != null) ApplyProperties(surfaceInteraction, properties);
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceSurfaceInteraction(oldName, surfaceInteraction);
+            _modelGateway.ReplaceSurfaceInteraction(storedName, surfaceInteraction);
             //
             return surfaceInteraction;
         }

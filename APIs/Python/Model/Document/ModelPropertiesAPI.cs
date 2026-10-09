@@ -18,7 +18,8 @@ namespace APIs.Python.Model
 
 
         // Properties
-        [PythonAPI("The model name.", Returns = "str")]
+        [PythonAPI("The model name. An empty name, or one that starts or ends with a space, is refused.",
+                   Returns = "str")]
         public string name
         {
             get { return _service.GetModelName(); }
@@ -45,14 +46,14 @@ namespace APIs.Python.Model
             set { Update(model_type: RefuseNone(value, "model_type")); }
         }
         [PythonAPI("The global results file a submodel reads its boundary values from; '' clears it, as " +
-                   "emptying the field in the dialog does.", Returns = "str")]
+                   "emptying the field in the dialog does. It is set on a Submodel only.", Returns = "str")]
         public string global_results_file_name
         {
             get { return _service.GetGlobalResultsFileName(); }
             set { Update(global_results_file_name: RefuseNone(value, "global_results_file_name")); }
         }
-        [PythonAPI("The results a slip wear model keeps: All, LastIncrementOfEachStep or LastIncrement.",
-                   Returns = "str")]
+        [PythonAPI("The results a slip wear model keeps: All, LastIncrementOfEachStep or LastIncrement. It is " +
+                   "set on a SlipWearModel only.", Returns = "str")]
         public string slip_wear_results
         {
             get { return _service.GetSlipWearResults(); }
@@ -60,7 +61,7 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The number of slip wear cycles, a whole number evaluated from the value or equation it was " +
                    "entered with; get_equations() returns the equation. It takes a whole number or an equation " +
-                   "given as a str, as replace does.", Returns = "int")]
+                   "given as a str, as replace does, on a SlipWearModel only.", Returns = "int")]
         public object number_of_cycles
         {
             get { return _service.GetNumberOfCycles(); }
@@ -68,7 +69,7 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The slip wear cycle increment, a whole number evaluated from the value or equation it was " +
                    "entered with; get_equations() returns the equation. It takes a whole number or an equation " +
-                   "given as a str, as replace does.", Returns = "int")]
+                   "given as a str, as replace does, on a SlipWearModel only.", Returns = "int")]
         public object cycles_increment
         {
             get { return _service.GetCyclesIncrement(); }
@@ -76,13 +77,14 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The number of slip wear smoothing steps, a whole number evaluated from the value or equation " +
                    "it was entered with; get_equations() returns the equation. It takes a whole number or an " +
-                   "equation given as a str, as replace does.", Returns = "int")]
+                   "equation given as a str, as replace does, on a SlipWearModel only.", Returns = "int")]
         public object number_of_smoothing_steps
         {
             get { return _service.GetNumberOfSmoothingSteps(); }
             set { Update(number_of_smoothing_steps: RefuseNone(value, "number_of_smoothing_steps")); }
         }
-        [PythonAPI("Whether a slip wear model uses BDM remeshing.", Returns = "bool")]
+        [PythonAPI("Whether a slip wear model uses BDM remeshing. It is set on a SlipWearModel only.",
+                   Returns = "bool")]
         public object bdm_remeshing
         {
             get { return _service.GetBdmRemeshing(); }
@@ -124,7 +126,9 @@ namespace APIs.Python.Model
                    "number_of_cycles, cycles_increment and number_of_smoothing_steps are whole numbers, or an " +
                    "equation given as a str whose value is rounded to a whole number. number_of_cycles and " +
                    "cycles_increment must be 1 or larger and number_of_smoothing_steps 0 or larger; a smaller " +
-                   "value is refused rather than raised to the minimum.",
+                   "value is refused rather than raised to the minimum. A value the model type does not use - " +
+                   "global_results_file_name on a model that is not a Submodel, or a slip wear value on one " +
+                   "that is not a SlipWearModel - is refused, judged by the model_type the call ends with.",
                    Arguments = "name: str = None, model_type: str = None, " +
                                "global_results_file_name: str = None, slip_wear_results: str = None, " +
                                "number_of_cycles: int or str = None, cycles_increment: int or str = None, " +
@@ -148,7 +152,8 @@ namespace APIs.Python.Model
                                       absolute_zero, stefan_boltzmann, newton_gravity, clearUndefinedConstants);
         }
         [PythonAPI("Returns the expressions number_of_cycles, cycles_increment and number_of_smoothing_steps " +
-                   "were entered with, without evaluating them. Only a value entered as an expression is " +
+                   "were entered with, without evaluating them, on a SlipWearModel; another model type returns " +
+                   "an empty dict. Only a value entered as an expression is " +
                    "returned, with its leading equals sign; a value entered as a plain number is left out, and " +
                    "the property of the same name returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()

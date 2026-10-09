@@ -69,8 +69,8 @@ namespace APIs.Python.Model
         {
             Distribution existing = ResolveDistribution(oldName);
             EnsureReplaceable(oldName, existing, typeof(DistributionFromEquation), "from_equation");
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             //
             Distribution distribution = equation == null ? existing.DeepClone() : CreateFromEquation(newName, equation);
             distribution.Name = newName;
@@ -159,8 +159,8 @@ namespace APIs.Python.Model
             Distribution resolved = ResolveDistribution(oldName);
             EnsureReplaceable(oldName, resolved, typeof(DistributionFromFile), "from_file");
             DistributionFromFile existing = (DistributionFromFile)resolved;
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             DistributionFromFile distribution = (DistributionFromFile)existing.DeepClone();
             distribution.Name = newName;
             if (fileName != null)
@@ -267,10 +267,10 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, Distribution distribution)
         {
-            ResolveDistribution(oldName);
+            string storedName = ResolveDistribution(oldName).Name;
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceDistribution(oldName, distribution);
+            ModelGateway.ReplaceDistribution(storedName, distribution);
         }
         public void Duplicate(string[] names)
         {

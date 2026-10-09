@@ -82,6 +82,7 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, object coordinates, object nameVisible, object color)
         {
+            oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             if (coordinates != null) ApplyCoordinates(referencePoint, coordinates);
             ApplyDisplayValues(referencePoint, nameVisible, color);
@@ -94,6 +95,7 @@ namespace APIs.Python.Model
         public void ReplaceFromSelection(string oldName, string name, string createdFrom,
                                          SelectionAPI selection, object nameVisible, object color)
         {
+            oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
             if (selection == null) ApplyKeptSelection(referencePoint, mode);
@@ -106,6 +108,7 @@ namespace APIs.Python.Model
         public void ReplaceFromRegion(string oldName, string name, string createdFrom, string regionType,
                                       string regionName, object nameVisible, object color)
         {
+            oldName = ResolveReferencePoint(oldName).Name;
             FeReferencePoint referencePoint = CloneForReplace(oldName, name);
             string mode = createdFrom != null ? createdFrom : GetKeptCreatedFrom(referencePoint, "created_from");
             string region = regionType != null ? regionType : GetKeptRegionType(referencePoint);
@@ -160,8 +163,8 @@ namespace APIs.Python.Model
         private FeReferencePoint CloneForReplace(string oldName, string name)
         {
             FeReferencePoint existing = ResolveReferencePoint(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             FeReferencePoint referencePoint = existing.DeepClone();
             referencePoint.Name = newName;
             //

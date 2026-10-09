@@ -46,8 +46,11 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Comment("Split a face using two points has no Python form. Its successor is split_face " +
-                           "with pmx.create.split_tool_line_by_two_points.");
+            writer.Unsupported(this, "the retired Split a Face Using Two Points has no Python form: its face was " +
+                                     "picked in the 'geometry' target, which split_face does not take, and its " +
+                                     "vertices in a vertex target the API has no form for. " +
+                                     "Split the face again with pmx.model.geometry.parts.split_face(surfaces, " +
+                                     "pmx.create.split_tool_line_by_two_points(splitter=vertices)).");
         }
         public override string GetCommandString()
         {

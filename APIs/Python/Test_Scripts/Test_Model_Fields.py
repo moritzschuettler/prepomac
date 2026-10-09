@@ -419,8 +419,30 @@ def test_distribution_reaches_the_deck():
           "the initial temperature was not exported")
 
 
+def test_mixed_case_replace():
+    """A replace without a name keeps the item under the model's own spelling, whatever spelling old_name has."""
+    amplitudes = pmx.model.amplitudes
+    distributions = pmx.model.distributions
+    amplitudes.add(PREFIX + "Amp_Case", [[0, 0], [1, 1]])
+    distributions.add_from_equation(PREFIX + "D_Case", "x + 1")
+    cases = [(amplitudes, PREFIX + "Amp_Case", lambda c, n: c.replace(n, time_span="TotalTime")),
+             (distributions, PREFIX + "D_Case", lambda c, n: c.replace_from_equation(n, equation="x + 2"))]
+    for collection, name, replace in cases:
+        count = len(collection)
+        for spelling in (name.lower(), name.upper()):
+            item = replace(collection, spelling)
+            check(item.name == name, "a replace of '" + spelling + "' renamed " + name + " to " + item.name)
+            check(name in list(collection.get_names()),
+                  name + " is not stored in its own spelling after a replace of '" + spelling + "'")
+            check(len(collection) == count, "a replace of '" + spelling + "' changed the number of items")
+    check(amplitudes[PREFIX + "Amp_Case"].time_span == "TotalTime", "the mixed case replace changed nothing")
+    amplitudes.remove([PREFIX + "Amp_Case"])
+    distributions.remove([PREFIX + "D_Case"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
+    test_mixed_case_replace()
     test_amplitudes()
     test_amplitude_shifts()
     test_distributions()

@@ -44,6 +44,19 @@ namespace APIs.Python
             ValidateIncrement(resultName, result, stepId, incrementId);
             return result.GetIncrementTime(stepId, incrementId);
         }
+        // A user-defined field output is found regardless of case, as the result keys it, while a field read
+        // from the result file is found by its exact name; null when the increment has no such field
+        public string GetStoredFieldName(string resultName, int stepId, int incrementId, string fieldName)
+        {
+            if (fieldName == null) return null;
+            //
+            string[] fieldNames = GetFieldNames(resultName, stepId, incrementId);
+            if (fieldNames.Contains(fieldName)) return fieldName;
+            FeResults result = _resolver.ResolveResult(resultName);
+            if (!result.ContainsResultFieldOutput(fieldName)) return null;
+            string storedFieldName = result.GetResultFieldOutput(fieldName).Name;
+            return fieldNames.Contains(storedFieldName) ? storedFieldName : null;
+        }
         public string[] GetFieldNames(string resultName, int stepId, int incrementId)
         {
             FeResults result = _resolver.ResolveResult(resultName);

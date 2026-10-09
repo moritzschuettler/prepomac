@@ -65,9 +65,10 @@ namespace APIs.Python.Model
                                 object temperatureDependent)
         {
             Material material = ResolveMaterial(oldName).DeepClone();
+            string storedName = material.Name;
             if (name != null)
             {
-                ValidateName(name, oldName);
+                ValidateName(name, storedName);
                 material.Name = name;
             }
             if (properties != null) ApplyProperties(material, properties);
@@ -78,7 +79,7 @@ namespace APIs.Python.Model
             if (properties != null || temperatureDependent != null) CheckRowsAreUsed(material);
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceMaterial(oldName, material);
+            _modelGateway.ReplaceMaterial(storedName, material);
             //
             return material;
         }

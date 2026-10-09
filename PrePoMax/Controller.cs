@@ -19444,6 +19444,19 @@ namespace PrePoMax
             //
             return _settings.GetWorkDirectory();
         }
+        // A set of the elements a run found wrong is recorded as its own command, so a replayed run meets the set that
+        // command made. A set is made only when no set of that kind holds those elements, or a replay, or the run
+        // repeated, would end with a second one.
+        public bool ContainsElementSetOfElements(string elementSetNamePrefix, int[] elementIds)
+        {
+            HashSet<int> elementIdsSet = new HashSet<int>(elementIds);
+            foreach (var entry in _model.Mesh.ElementSets)
+            {
+                if (entry.Key.StartsWith(elementSetNamePrefix) && elementIdsSet.SetEquals(entry.Value.Labels))
+                    return true;
+            }
+            return false;
+        }
         private bool CheckModelBeforeJobRun(FEMSolverEnum femSolver)
         {
             // Check for missing section
@@ -19451,8 +19464,11 @@ namespace PrePoMax
             int[] unAssignedElementIds = _model.GetSectionAssignments(out _);
             if (unAssignedElementIds.Length != 0)
             {
-                string elementSetName = _model.Mesh.ElementSets.GetNextNumberedKey(Globals.MissingSectionName);
-                AddElementSetCommand(new FeElementSet(elementSetName, unAssignedElementIds));
+                if (!ContainsElementSetOfElements(Globals.MissingSectionName, unAssignedElementIds))
+                {
+                    string elementSetName = _model.Mesh.ElementSets.GetNextNumberedKey(Globals.MissingSectionName);
+                    AddElementSetCommand(new FeElementSet(elementSetName, unAssignedElementIds));
+                }
                 //
                 msg = unAssignedElementIds.Length + " finite elements are missing a section assignment. Continue?";
                 if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
@@ -19910,14 +19926,28 @@ namespace PrePoMax
         public PythonEngineResult RunPythonScriptCommand(string script, string fileName = null, string[] arguments = null)
         {
             CRunPythonScript comm = new CRunPythonScript(script, fileName, arguments);
+            int numOfCommandsBefore = _commands.NumOfCommandsExecutedWithoutRecording;
             try
             {
                 _commands.AddAndExecute(comm);
             }
             catch
             {
-                if (comm.ExecutionResult != null) return comm.ExecutionResult;
-                else throw;
+                if (comm.ExecutionResult == null) throw;
+                // The changes a script made before its error stay in the model, so the history keeps the script
+                if (!string.IsNullOrEmpty(comm.ExecutionResult.Error) && !_commands.IsCommandRecordingSuppressed &&
+                    _commands.NumOfCommandsExecutedWithoutRecording != numOfCommandsBefore)
+                {
+                    _commands.AddExecutedCommand(comm);
+                    string error = comm.ExecutionResult.Error.TrimEnd();
+                    string note = error.Contains("KeyboardInterrupt") ?
+                                  " Regenerate runs the whole script, as it is not interrupted there." :
+                                  " Regenerate runs it to the same error.";
+                    comm.ExecutionResult.Error = error + Environment.NewLine + "The script failed, and it was " +
+                                                 "recorded in the command history with the changes it made before " +
+                                                 "the error." + note + Environment.NewLine;
+                }
+                return comm.ExecutionResult;
             }
             //
             return comm.ExecutionResult;
@@ -21199,6 +21229,19 @@ namespace PrePoMax
             }
             _commands.AddAndExecute(command);
         }
+        public void SetLinkedPartGroupLayoutsCommand(OrderedDictionaryItemLayout<string> geometryLayout,
+                                                     OrderedDictionaryItemLayout<string> modelLayout)
+        {
+            if (_model.Geometry?.Parts == null || _model.Mesh?.Parts == null)
+                throw new InvalidOperationException("The linked part-group layouts are not available.");
+            //
+            CreateOrderedDictionaryItemLayoutPreview(_model.Geometry.Parts, geometryLayout,
+                                                     "Linked part group layout preview");
+            CreateOrderedDictionaryItemLayoutPreview(_model.Mesh.Parts, modelLayout, "Linked part group layout preview");
+            //
+            _commands.AddAndExecute(new CSetLinkedPartGroupLayouts("Set tree layout", geometryLayout, modelLayout,
+                                                                   _model.Mesh.Parts.Keys.Count + " items"));
+        }
         private static OrderedDictionaryItemLayout<string> CreateRenamedGroupLayout(
             IOrderedDictionaryItemLayout<string> dictionary, Guid groupId, string newName)
         {
@@ -21237,8 +21280,8 @@ namespace PrePoMax
                 throw new InvalidOperationException("The linked part-group layouts are not available.");
             //
             OrderedDictionaryItemLayout<string> oldModelLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
-            SynchronizeCompoundPartGroupRenames(oldModelLayout.Nodes, modelLayout.Nodes);
             _model.Geometry.Parts.SetItemLayout(geometryLayout);
+            SynchronizeCompoundPartGroupRenames(oldModelLayout.Nodes, modelLayout.Nodes);
             _model.Mesh.Parts.SetItemLayout(modelLayout);
             _form?.RegenerateTree(false);
         }

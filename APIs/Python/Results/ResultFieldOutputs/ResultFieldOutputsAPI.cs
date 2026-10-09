@@ -102,8 +102,9 @@ namespace APIs.Python
 
         [PythonAPI("Creates a limit field-output draft. Possible based_on values are Parts, ElementSets " +
                    "and AllElements. For AllElements, item_limits must contain one item named 'All elements'. " +
-                   "Part and element set names are matched regardless of case and stored as the result " +
-                   "spells them; two keys naming the same item are refused when the output is added. " +
+                   "Part and element set names and the 'All elements' key are matched regardless of case and " +
+                   "stored as the result spells them; two keys naming the same item are refused when the " +
+                   "output is added. The source field_name is matched the same way. " +
                    "This does not modify the result.",
                    Arguments = "name: str, field_name: str, component_name: str, based_on: str, " +
                                "item_limits: dict[str, float]",

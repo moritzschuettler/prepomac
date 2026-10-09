@@ -85,7 +85,7 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("singularity_position=" +
                                   PythonValueFormatter.Number(quadWild.SingularityPosition));
                 if (replace || quadWild.CountSearch > 0)
-                    arguments.Add("count_search=" + PythonValueFormatter.Format(quadWild.CountSearch));
+                    arguments.Add("number_of_search_rounds=" + PythonValueFormatter.Format(quadWild.CountSearch));
                 if (replace || quadWild.TransfiniteThreeSided != TransfiniteThreeSidedEnum.Mapped)
                     arguments.Add("transfinite_three_sided=" +
                                   PythonValueFormatter.Text(quadWild.TransfiniteThreeSided.ToString()));
@@ -145,8 +145,8 @@ namespace PrePoMax.Python.Journal
             }
             if (item is NetgenMesh netgenMesh)
             {
-                arguments.Add("optimize_steps_2d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps2D));
-                arguments.Add("optimize_steps_3d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps3D));
+                arguments.Add("number_of_optimize_steps_2d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps2D));
+                arguments.Add("number_of_optimize_steps_3d=" + PythonValueFormatter.Format(netgenMesh.OptimizeSteps3D));
                 arguments.Add("quad_dominated=" + PythonValueFormatter.Format(netgenMesh.QuadDominated));
                 arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Text(netgenMesh.TransfiniteThreeSided.ToString()));
                 arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteFourSided));

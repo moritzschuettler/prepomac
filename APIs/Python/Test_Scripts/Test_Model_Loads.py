@@ -273,6 +273,27 @@ def test_surface_loads():
     check_raises(lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), 1,
                                                tension_type="NotAType"),
                  "an unknown pre-tension type must be rejected")
+    # The add takes auto_direction, which get_value reads back, with the rules of the replace
+    count = len(loads)
+    load = loads.add_pre_tension(PREFIX + "PT_A", surface_selection(1), 100, auto_direction=True)
+    check(load.get_value("auto_direction"), "auto_direction=True must compute the direction")
+    load = loads.add_pre_tension(PREFIX + "PT_F", surface_selection(1), 100, direction=[0, 0, 1],
+                                 auto_direction=False)
+    check(not load.get_value("auto_direction") and load.get_value("direction") == [0, 0, 1],
+          "auto_direction=False with a direction must keep the direction")
+    for arguments, argument in [({"direction": [0, 0, 1], "auto_direction": True}, "'auto_direction'"),
+                                ({"auto_direction": False}, "'direction'")]:
+        message = raised_message(lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), 1, **arguments))
+        check(message is not None and argument in message,
+              "an add with " + str(arguments) + " must be refused naming " + argument + ": " + str(message))
+    check(len(loads) == count + 2, "a refused pre-tension was recorded")
+    # A replace without a name keeps the load under its own spelling, whatever spelling old_name has
+    for spelling in [(PREFIX + "PT_A").lower(), (PREFIX + "PT_A").upper()]:
+        load = loads.replace_pre_tension(spelling, magnitude=200)
+        check(load.name == PREFIX + "PT_A" and PREFIX + "PT_A" in list(loads.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(loads.get_names())))
+    check(len(loads) == count + 2, "a mixed case replace changed the number of loads")
+    loads.remove([PREFIX + "PT_A", PREFIX + "PT_F"])
 
 
 def test_body_loads():

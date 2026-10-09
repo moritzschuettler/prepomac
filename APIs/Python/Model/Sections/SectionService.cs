@@ -95,10 +95,10 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, Section section)
         {
-            ResolveSection(oldName);
+            string storedName = ResolveSection(oldName).Name;
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceSection(oldName, section);
+            _modelGateway.ReplaceSection(storedName, section);
         }
         // Controller.ReplaceSection deletes the internal set of the old section and converts the new one, so a
         // region that was selection based is reset to its selection for the conversion to recreate it, the way

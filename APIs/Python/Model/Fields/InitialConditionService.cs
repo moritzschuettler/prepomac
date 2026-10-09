@@ -97,10 +97,10 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, InitialCondition initialCondition)
         {
-            ResolveInitialCondition(oldName);
+            string storedName = ResolveInitialCondition(oldName).Name;
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceInitialCondition(oldName, initialCondition);
+            ModelGateway.ReplaceInitialCondition(storedName, initialCondition);
         }
         public void Duplicate(string[] names)
         {

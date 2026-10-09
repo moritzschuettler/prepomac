@@ -29,8 +29,10 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Adds a solid section using command history. The region is a selection or a named " +
                    "region; the selection target is elements. The thickness is used only in a 2D model, so " +
-                   "it is refused in a 3D one; it must be larger than 0.",
-                   Arguments = "name: str, material_name: str, region: Selection or Region, thickness: float = 1",
+                   "it is refused in a 3D one; it must be larger than 0, and a 2D section that is not given " +
+                   "one gets 1.",
+                   Arguments = "name: str, material_name: str, region: Selection or Region, " +
+                               "thickness: float = None",
                    Returns = "Section",
                    Example = "pmx.model.sections.add_solid('Sec-1', 'Steel', selection)")]
         public SectionAPI add_solid(string name, string material_name, object region, object thickness = null)

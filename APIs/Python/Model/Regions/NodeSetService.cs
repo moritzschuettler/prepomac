@@ -61,22 +61,22 @@ namespace APIs.Python.Model
         {
             FeNodeSet existing = ResolveNodeSet(oldName);
             RefuseInternal(existing, "node set", "replaced");
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             // A value that is not given is kept, so a rename alone keeps the selection the set has
             FeNodeSet nodeSet;
             if (selection == null)
             {
                 if (existing.CreationData == null)
                     throw new PythonAPIException("The argument 'selection' must be given, because the node set " +
-                                                 "'" + oldName + "' was not created from a selection.");
+                                                 "'" + existing.Name + "' was not created from a selection.");
                 nodeSet = existing.DeepClone();
                 nodeSet.Name = newName;
             }
             else nodeSet = Build(newName, selection);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceNodeSet(oldName, nodeSet);
+            ModelGateway.ReplaceNodeSet(existing.Name, nodeSet);
         }
         public void Duplicate(string[] names)
         {

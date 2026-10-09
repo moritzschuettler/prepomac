@@ -25,6 +25,8 @@ namespace PrePoMax.Rpc
     public static class RpcScreenshotMethod
     {
         // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "file_name", "transparent_background", "magnification" };
         private const int MaxMagnification = 4;
 
 

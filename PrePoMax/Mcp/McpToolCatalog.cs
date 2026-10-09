@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Python.Journal;
 using PrePoMax.Rpc;
 using System;
 using System.Collections.Generic;
@@ -48,28 +49,28 @@ namespace PrePoMax.Mcp
         {
             if (_tools != null) return _tools;
             //
-            _tools = new List<McpTool>();
-            _tools.Add(new McpTool("get_guide", "Read the driving guide",
+            List<McpTool> tools = new List<McpTool>();
+            tools.Add(new McpTool("get_guide", "Read the driving guide",
                 "How to drive a PrePoMax session: the order the work goes in, what a number without a unit " +
                 "means, how to find the face you meant before you load it, how to run an analysis and read it " +
                 "back, and what to do when a call is refused. It is served by the application, so it is the " +
                 "guide of this version. Read it before the first change of a session.",
                 NoArguments, true));
-            _tools.Add(new McpTool("list_sessions", "List PrePoMax sessions",
+            tools.Add(new McpTool("list_sessions", "List PrePoMax sessions",
                 "Lists the running PrePoMax instances that have their automation server on, each with the URL it " +
                 "answers on, and marks the one this connection reaches. Every tool here acts on that one session - " +
                 "the URL is the address, so there is nothing to switch. Call this when the user has more than one " +
                 "PrePoMax open, and tell them which URL to point the client at; do not try to reach another " +
                 "session yourself.",
                 NoArguments, true));
-            _tools.Add(new McpTool("get_status", "Read the session state",
+            tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
                 "the current view, the unit system (model.unitSystem), how many commands are in the history, " +
                 "whether the server is in read only mode, and under calls the long calls still running or waiting " +
                 "to be collected. Call it when a tool answers that the application is busy, and before a change, " +
                 "so the state the change assumes is the state it finds.",
                 SessionSchema(null), true));
-            _tools.Add(new McpTool("describe_api", "Learn the Python API",
+            tools.Add(new McpTool("describe_api", "Learn the Python API",
                 "Describes a part of the PrePoMax Python API, read off the API itself, so it is always current. " +
                 "'pmx' is the root object; every path below it is described the same way, and a collection also " +
                 "reports the item names it holds right now. A path that ends at a method or a property describes " +
@@ -82,7 +83,7 @@ namespace PrePoMax.Mcp
                               "example Loads, to read a collection before anything holding it exists, or a " +
                               "type name followed by a member path, for example Result.mesh, to read the " +
                               "results side before a result is open. Defaults to pmx.\"}"), true));
-            _tools.Add(new McpTool("read_model", "Read the model",
+            tools.Add(new McpTool("read_model", "Read the model",
                 "Returns a snapshot of the open model as JSON: the model properties, the parts with their mesh " +
                 "state - whether each one is meshed, with its node and element count - the item names of every " +
                 "collection, the mesh setup items, how many user keywords and keyword edits there are, the " +
@@ -90,7 +91,7 @@ namespace PrePoMax.Mcp
                 "description, the steps with what they contain, and the analyses with their status. Nothing is " +
                 "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
-            _tools.Add(new McpTool("read_topology", "Read the part geometry",
+            tools.Add(new McpTool("read_topology", "Read the part geometry",
                 "Returns the faces, edges and vertices of the parts as JSON, each with the ID a selection " +
                 "takes, its size, its centroid and - for a face - its normal. This is how to find the entity " +
                 "you mean without seeing the viewport: the top face of a box is the one whose normal points " +
@@ -101,8 +102,8 @@ namespace PrePoMax.Mcp
                 "together, so on an assembly the first parts are detailed and the rest say to ask for them by " +
                 "name. " +
                 "Read the remainder of one part through get_face_data and get_edge_data on it. Part names are " +
-                "compared regardless of case, and a name that matches no part is reported under " +
-                "unmatched_part_names.",
+                "compared regardless of case but never trimmed, and a name that matches no part - a padded one " +
+                "included - is reported under unmatched_part_names.",
                 SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
                               "\"description\": \"The parts to read, at least one. All of them when this is " +
                               "left out.\"}, " +
@@ -110,7 +111,7 @@ namespace PrePoMax.Mcp
                               TopologyRowBudget + ", \"description\": " +
                               "\"How many faces, edges and vertices to list per part, 1 to " + TopologyRowBudget +
                               ". Defaults to " + DefaultTopologyLimit + ".\"}"), true));
-            _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
+            tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
                 "it has a JSON form and as its repr. Use it for reading - a name list, a property, a computed " +
                 "number. It is not meant to change the model; use run_python for that. An expression that takes " +
@@ -127,7 +128,7 @@ namespace PrePoMax.Mcp
                               "request timeout of your own client, or pass 0 and wait through get_call for " +
                               "long work.\"}",
                               "\"expression\""), false));
-            _tools.Add(new McpTool("run_python", "Run Python in the session",
+            tools.Add(new McpTool("run_python", "Run Python in the session",
                 "Runs Python against the model the user has open, through the same engine the Python panel in " +
                 "PrePoMax runs. Every change is recorded in the command history as the command the user would have " +
                 "produced by hand, so the user can see it in the tree, remove it in Edit - Edit History, and " +
@@ -136,7 +137,8 @@ namespace PrePoMax.Mcp
                 "Python console uses.\n\n" +
                 "record: 'commands' (the default) records each API call as its own command. 'script' records the " +
                 "whole source as one command instead, which is what keeps a computed model parametric - " +
-                "regeneration re-runs the source - but the variables do not survive the call.\n\n" +
+                "regeneration re-runs the source - but the variables do not survive the call. A script that fails " +
+                "after it changed the model is still recorded, so the history holds what it did up to the error.\n\n" +
                 "A long operation - meshing a large part, an import, a regeneration - may outlast the wait, which " +
                 "is the requestTimeout get_status reports unless timeout says otherwise. It is not stopped and not " +
                 "lost: the answer is {\"running\": true, \"callId\": n}, the call runs to the end and records " +
@@ -163,7 +165,7 @@ namespace PrePoMax.Mcp
                               "request timeout of your own client, or pass 0 and wait through get_call for " +
                               "long work.\"}",
                               "\"source\""), false));
-            _tools.Add(new McpTool("get_call", "Collect a long call",
+            tools.Add(new McpTool("get_call", "Collect a long call",
                 "Collects the answer of a call that was still running when its wait ran out and was answered " +
                 "with running and a callId - by run_python or eval_expression, or by read_model, read_topology, " +
                 "run_job or get_job, which run Python as well. It waits up to timeout seconds and returns the " +
@@ -179,7 +181,7 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for it, 0 to 600. Defaults to the requestTimeout " +
                               "get_status reports. Keep it below the request timeout of your own client.\"}",
                               "\"call_id\""), true));
-            _tools.Add(new McpTool("cancel_call", "Stop a long call",
+            tools.Add(new McpTool("cancel_call", "Stop a long call",
                 "Stops a call that was answered with running and a callId - by run_python, eval_expression or " +
                 "another tool that runs Python - one that loops forever or is doing more than was meant. It is " +
                 "answered within a few seconds, also while that call holds the session, and in read only mode, " +
@@ -198,7 +200,7 @@ namespace PrePoMax.Mcp
                 SessionSchema("\"call_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": " +
                               "\"The callId the still running call was answered with.\"}",
                               "\"call_id\""), false));
-            _tools.Add(new McpTool("get_history", "Read the command history",
+            tools.Add(new McpTool("get_history", "Read the command history",
                 "Returns the command history of the session and, on request, the journal of it: the whole session " +
                 "written as the Python script a user would have written. The journal is the best way to learn what " +
                 "the user did by hand - it names the exact API calls - and the best way to hand the session back " +
@@ -209,16 +211,16 @@ namespace PrePoMax.Mcp
                               "\"limit\": {\"type\": \"integer\", \"minimum\": 0, \"description\": " +
                               "\"How many of the most recent commands to list. 0 lists all of them. " +
                               "Defaults to 200.\"}"), true));
-            _tools.Add(new McpTool("run_job", "Run an analysis",
+            tools.Add(new McpTool("run_job", "Run an analysis",
                 "Writes the solver input file and starts the analysis, without waiting for it, and returns the " +
                 "status it started with. The solver runs while the user keeps working; no monitor is opened " +
                 "for it. Poll get_job for the status, and open the results with run_python when it reports OK. " +
                 "If the user opens the monitor of the analysis, it is a dialog like any other: every tool but " +
-                "get_status, get_call, cancel_call, get_guide, list_sessions and exit_session is refused as busy " +
-                "until it is closed.",
+                "get_status, get_call, cancel_call, get_guide and list_sessions is refused as busy until it is " +
+                "closed.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
                               "\"The name of the analysis to run.\"}", "\"name\""), false));
-            _tools.Add(new McpTool("get_job", "Read an analysis status",
+            tools.Add(new McpTool("get_job", "Read an analysis status",
                 "Reports the status of an analysis - None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
                 "FailedWithResults - and isUpToDate, which is false when the model changed after the run, and " +
                 "on request everything the solver wrote to its output.",
@@ -226,7 +228,7 @@ namespace PrePoMax.Mcp
                               "\"The name of the analysis.\"}, " +
                               "\"include_output\": {\"type\": \"boolean\", \"description\": " +
                               "\"Return the solver output as well. Defaults to false.\"}", "\"name\""), true));
-            _tools.Add(new McpTool("screenshot", "Picture the viewport",
+            tools.Add(new McpTool("screenshot", "Picture the viewport",
                 "Writes a PNG of the 3D viewport, returns the path and attaches the picture as an image, " +
                 "unless it is larger than 4 MB. Use it to see what the user sees - a " +
                 "picture settles a question about orientation, a selection or a result plot that no amount of " +
@@ -261,7 +263,7 @@ namespace PrePoMax.Mcp
                               "\"The component of that field, for example U3. Defaults to the first one. " +
                               "Needs field.\"}"),
                 false));
-            _tools.Add(new McpTool("exit_session", "Close a hidden session",
+            tools.Add(new McpTool("exit_session", "Close a hidden session",
                 "Closes this PrePoMax, and only when it runs without a window - a session started with -g No " +
                 "and the automation server, which nobody is looking at and which has no other way to end. A " +
                 "session open on the user's desktop is refused: the user closes their own application. The " +
@@ -270,6 +272,7 @@ namespace PrePoMax.Mcp
                 SessionSchema("\"discard_changes\": {\"type\": \"boolean\", \"description\": " +
                               "\"Close although the model has unsaved changes, which are lost. Defaults to " +
                               "false.\"}"), false));
+            _tools = tools;
             return _tools;
         }
         public static string GetInstructions()
@@ -652,7 +655,7 @@ namespace PrePoMax.Mcp
         }
         private static string Quote(string value)
         {
-            return "'" + value.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
+            return PythonValueFormatter.Text(value);
         }
         // Every tool may name the session it acts on, because the user may have more than one PrePoMax open
         private static string SessionSchema(string properties)

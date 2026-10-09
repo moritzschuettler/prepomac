@@ -150,11 +150,11 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, ContactPair contactPair)
         {
-            ResolveContactPair(oldName);
-            ValidateName(contactPair.Name, oldName);
+            string storedName = ResolveContactPair(oldName).Name;
+            ValidateName(contactPair.Name, storedName);
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceContactPair(oldName, contactPair);
+            _modelGateway.ReplaceContactPair(storedName, contactPair);
         }
         public void Duplicate(string[] names)
         {

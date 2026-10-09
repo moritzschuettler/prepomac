@@ -25,6 +25,8 @@ namespace PrePoMax.Rpc
     public static class RpcDescribeMethod
     {
         // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "path" };
         private const string RootPath = "pmx";
 
 

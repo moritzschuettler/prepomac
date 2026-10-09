@@ -344,6 +344,43 @@ try:
                              deformation_variable_name=old_spelling),
                          "the results spelling '%s' was accepted" % old_spelling)
         print("PASS: From Integration history output options")
+        # A value the integral does not use is refused rather than stored and ignored
+        names_before = get_history_output_names(history_outputs)
+        refused_name = INTEGRATION_NAME + "_refused"
+        check_raises(lambda: history_outputs.add_from_integration(
+                         name=refused_name, integral_type="Volume", region=volume_region,
+                         field_name="STRESS", component_names=[stress_component]),
+                     "a Geometry integral took field_name and component_names")
+        check_raises(lambda: history_outputs.add_from_integration(
+                         name=refused_name, integral_type="Volume", region=volume_region, thickness=2.0),
+                     "thickness was taken without the Thickness cross_section")
+        check_raises(lambda: history_outputs.add_from_integration(
+                         name=refused_name, integral_type="Volume", region=volume_region,
+                         cross_section="Axisymmetric", thickness=2.0),
+                     "thickness was taken with the Axisymmetric cross_section")
+        check_raises(lambda: history_outputs.add_from_integration(name=refused_name, integral_type="Volume"),
+                     "an integration without a region was accepted")
+        check(get_history_output_names(history_outputs) == names_before,
+              "a refused integration left a history output behind")
+        # The dialog offers the cross section of a Line and a Volume integral on any result, so a 3D
+        # result takes it too, and the thickness reads back only where it applies
+        draft = history_outputs.create_history_output_from_integration(
+            name=INTEGRATION_NAME, integral_type="Volume", region=volume_region, cross_section="Thickness",
+            thickness=2.0)
+        check(draft.cross_section == "Thickness" and draft.thickness == 2.0,
+              "the thickness draft read back %s, %s" % (draft.cross_section, draft.thickness))
+        draft = history_outputs.create_history_output_from_integration(
+            name=INTEGRATION_NAME, integral_type="Volume", region=volume_region, cross_section="Axisymmetric")
+        check(draft.thickness is None and draft.field_name is None and draft.component_names is None,
+              "a Geometry draft without the Thickness cross_section read back a value it does not take")
+        geometry_output = history_outputs[ELEMENT_SIZE_NAME]
+        check(geometry_output.field_name is None and geometry_output.component_names is None and
+              geometry_output.thickness is None,
+              "the Geometry integral read back a field or a thickness it does not take")
+        check(integration_output.field_name == "STRESS" and
+              list(integration_output.component_names) == [stress_component],
+              "the Field integral did not read back its field")
+        print("PASS: refuse an integration value that does not apply, and read back only what applies")
         if solid_element_set is not None:
             replaced = history_outputs.replace_from_integration(
                 INTEGRATION_NAME, name=INTEGRATION_NAME, integral_type="Volume", field_name="STRESS",
@@ -447,7 +484,8 @@ try:
     check(table_output.x_axis_unit == "s", "The table output reported the wrong X-axis unit.")
     check(table_output.y_axis_unit == "mm", "The table output reported the wrong Y-axis unit.")
     check(table_output.filter1 is not None, "The table output did not return its filter.")
-    check(table_output.filter1.type == "Maximum" and table_output.filter1.option == "Column",
+    check(table_output.filter1.type == "Maximum" and table_output.filter1.return_value == "Column" and
+          table_output.filter1.operate_on is None,
           "The table output returned the wrong filter.")
     check(table_output.filter2 is None, "The table output returned an unused second filter.")
     print("PASS: read back a From Table history-output definition")
@@ -478,10 +516,32 @@ try:
     history_outputs.replace_from_merged_histories(MERGED_NAME, MERGED_NAME, *merged_output.sources)
     check([list(source) for source in history_outputs[MERGED_NAME].sources] == [merge_source_1, merge_source_2],
           "The merged sources read back did not round trip through replace_from_merged_histories().")
+    check(isinstance(merged_output.sources, list), "The merged sources are not a plain Python list.")
+    # A source is found regardless of case and stored in the spelling of the result
+    history_outputs.replace_from_merged_histories(MERGED_NAME, MERGED_NAME,
+                                                  [name.upper() for name in merge_source_1],
+                                                  [name.lower() for name in merge_source_2])
+    check([list(source) for source in history_outputs[MERGED_NAME].sources] == [merge_source_1, merge_source_2],
+          "The merged sources were not stored in the spelling of the result: %s" %
+          [list(s) for s in history_outputs[MERGED_NAME].sources])
+    history_outputs.replace_xy(XY_NAME, XY_NAME, [name.lower() for name in expected_x_source],
+                               [name.upper() for name in merge_source_1])
+    check(list(history_outputs[XY_NAME].x_source) == expected_x_source and
+          list(history_outputs[XY_NAME].y_source) == merge_source_1,
+          "The XY sources were not stored in the spelling of the result.")
+    history_outputs.replace_from_extracted_entry(EXTRACTED_NAME, EXTRACTED_NAME,
+                                                 [name.upper() for name in merge_source_1], str(entry_names[0]))
+    check(list(history_outputs[EXTRACTED_NAME].source) == merge_source_1,
+          "The extracted-entry source was not stored in the spelling of the result.")
     # A table column name may contain a dot, so a source is three names rather than one dotted string.
     dotted_source = [TABLE_NAME, "Y", "Force.Measured"]
     dotted_draft = history_outputs.create_history_output_xy(name=XY_NAME, x_source=expected_x_source,
                                                             y_source=dotted_source)
+    merged_draft = history_outputs.create_history_output_from_merged_histories(
+        name=MERGED_NAME, source1=merge_source_1, source2=merge_source_2)
+    check(isinstance(merged_draft.sources, list) and
+          [list(source) for source in merged_draft.sources] == [merge_source_1, merge_source_2],
+          "The merged draft sources are not a plain Python list of the three names.")
     check(list(dotted_draft.y_source) == dotted_source,
           "A source with a dotted component name did not read back as its three names: %s" % dotted_draft.y_source)
     print("PASS: read back history sources in the form the source arguments take")
@@ -495,9 +555,17 @@ try:
           "The From Field output read back %s, %s" % (from_field_output.output_node_coordinates,
                                                       from_field_output.complex_result_type))
     # A filter option is matched ignoring case and read back in the spelling the argument takes
-    check(history_outputs.create_sum_filter(operate_on="rows").option == "Rows",
+    check(history_outputs.create_sum_filter(operate_on="rows").operate_on == "Rows",
           "operate_on is compared with its case")
-    check(history_outputs.create_minimum_filter().option == "Column", "the default return_value is not Column")
+    check(history_outputs.create_minimum_filter().return_value == "Column", "the default return_value is not Column")
+    # A filter reads back under the argument that sets it, and the other one is None
+    check(history_outputs.create_sum_filter().return_value is None and
+          history_outputs.create_maximum_filter().operate_on is None,
+          "a filter read back an option its maker does not take")
+    check(not hasattr(history_outputs.create_sum_filter(), "option"), "the filter still exposes option")
+    round_trip = history_outputs.create_maximum_filter(
+        return_value=history_outputs.create_maximum_filter(return_value="Row").return_value)
+    check(round_trip.return_value == "Row", "the return_value read back did not go back into the filter maker")
     check(history_outputs.create_average_filter().type == "Average", "the filter type is not read back as Average")
     check_raises(lambda: history_outputs.create_maximum_filter(return_value="Rows"),
                  "a min/max filter took an aggregate option")

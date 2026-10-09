@@ -64,7 +64,7 @@ namespace APIs.Python
                                                                                  string deformationVariableName,
                                                                                  string unit,
                                                                                  string crossSection,
-                                                                                 double thickness)
+                                                                                 object thickness)
         {
             ValidateNameSyntax(name);
             IntegralTypeEnum type = ParseIntegralType(integralType);
@@ -77,18 +77,29 @@ namespace APIs.Python
                 components = PythonStringListConverter.ToStringArray(componentNames, "component_names");
                 ValidateStringList(components, "component_names");
             }
+            else if (fieldName != null || componentNames != null)
+                throw new PythonAPIException("The arguments 'field_name' and 'component_names' are not used by " +
+                                             "the Geometry integral_result, so they must not be given.");
             string deformationModelName = PythonDeformationVariable.ToModelName(deformationVariableName,
                                                                                 "deformation_variable_name");
             if (unit == null) throw new PythonAPIException("The argument 'unit' must not be None.");
             IntegrationScaleType scale = ParseCrossSection(crossSection);
-            ValidateCrossSection(type, scale, thickness);
+            double thicknessValue = 1.0;
+            if (thickness != null)
+            {
+                if (scale != IntegrationScaleType.Thickness)
+                    throw new PythonAPIException("The argument 'thickness' is used only when cross_section is " +
+                                                 "Thickness, so it must not be given.");
+                thicknessValue = PythonValueConverter.ToFiniteDouble(thickness, "thickness");
+            }
+            ValidateCrossSection(type, scale, thicknessValue);
             if (type == IntegralTypeEnum.Line)
                 ValidateRegionArgument(region, "edges");
             else if (type == IntegralTypeEnum.Surface)
                 ValidateRegionArgument(region, "surfaces", RegionTypeEnum.SurfaceName);
             else ValidateRegionArgument(region, "elements", RegionTypeEnum.ElementSetName);
             return new ResultHistoryOutputFromIntegrationDraftAPI(name, type, resultType, fieldName, components, region,
-                                                                   deformationModelName, unit, scale, thickness);
+                                                                   deformationModelName, unit, scale, thicknessValue);
         }
         public ResultHistoryOutputFromMergedHistoriesDraftAPI CreateFromMergedHistories(string name, object source1,
                                                                                         object source2, object source3,
@@ -376,10 +387,12 @@ namespace APIs.Python
                                                        ResultHistoryOutputFromMergedHistories output,
                                                        string replacedName)
         {
-            HistoryResultData[] sources = output.GetSources();
-            if (sources.Length < 2)
+            if (output.GetSources().Length < 2)
                 throw new PythonAPIException("At least two history sources are required for merging.");
-            ValidateHistorySourcesExist(result, sources);
+            output.Source1 = ResolveHistorySource(result, output.Source1);
+            output.Source2 = ResolveHistorySource(result, output.Source2);
+            if (output.Source3 != null) output.Source3 = ResolveHistorySource(result, output.Source3);
+            if (output.Source4 != null) output.Source4 = ResolveHistorySource(result, output.Source4);
             try
             {
                 DerivedHistorySetBuilder.CreateMergedSet(result, output);
@@ -394,7 +407,7 @@ namespace APIs.Python
                                                        string replacedName)
         {
             ValidateRequiredString(output.EntryName, "entry_name");
-            ValidateHistorySourcesExist(result, new HistoryResultData[] { output.Source });
+            output.Source = ResolveHistorySource(result, output.Source);
             try
             {
                 DerivedHistorySetBuilder.CreateExtractedSet(result, output);
@@ -407,7 +420,8 @@ namespace APIs.Python
         }
         private static void ValidateXY(FeResults result, ResultHistoryOutputXY output, string replacedName)
         {
-            ValidateHistorySourcesExist(result, new HistoryResultData[] { output.XSource, output.YSource });
+            output.XSource = ResolveHistorySource(result, output.XSource);
+            output.YSource = ResolveHistorySource(result, output.YSource);
             try
             {
                 DerivedHistorySetBuilder.CreateXYSet(result, output);
@@ -429,15 +443,30 @@ namespace APIs.Python
                 throw new PythonAPIException(ex.Message);
             }
         }
-        private static void ValidateHistorySourcesExist(FeResults result, HistoryResultData[] sources)
+        // A source is found regardless of case and stored in the spelling of the result
+        private static HistoryResultData ResolveHistorySource(FeResults result, HistoryResultData source)
         {
-            foreach (HistoryResultData source in sources)
+            if (source == null) throw new PythonAPIException("The history source must not be None.");
+            string setName = ResultHistoryOutputDataService.GetStoredHistoryOutputName(result, source.SetName);
+            string fieldName = null;
+            string componentName = null;
+            if (setName != null)
             {
-                if (source == null) throw new PythonAPIException("The history source must not be None.");
-                if (result.GetHistoryResultComponent(source.SetName, source.FieldName, source.ComponentName) == null)
-                    throw new PythonAPIException("The history source '" + source.GetDisplayName() +
-                                                 "' does not exist in the current result.");
+                HistoryResultSet set = result.GetHistory().Sets[setName];
+                fieldName = GetStoredKey(set.Fields.Keys, source.FieldName);
+                if (fieldName != null)
+                    componentName = GetStoredKey(set.Fields[fieldName].Components.Keys, source.ComponentName);
             }
+            if (componentName == null)
+                throw new PythonAPIException("The history source '" + source.GetDisplayName() +
+                                             "' does not exist in the current result.");
+            return new HistoryResultData(setName, fieldName, componentName);
+        }
+        private static string GetStoredKey(IEnumerable<string> keys, string name)
+        {
+            if (name == null) return null;
+            if (keys.Contains(name)) return name;
+            return keys.FirstOrDefault(key => string.Equals(key, name, StringComparison.OrdinalIgnoreCase));
         }
         private static void ValidateHistorySourceDependencies(FeResults result, ResultHistoryOutput output,
                                                               string replacedName)

@@ -17,7 +17,12 @@ LIMIT_NAME = "PyTest_Stress_limit"
 ENVELOPE_NAME = "PyTest_Strain_envelope"
 EQUATION_NAME = "PyTest_Normalized_stress"
 RENAMED_EQUATION_NAME = "PyTest_Normalized_stress_R"
-TEST_NAMES = [LIMIT_NAME, ENVELOPE_NAME, EQUATION_NAME, RENAMED_EQUATION_NAME]
+EQUATION_ENVELOPE_NAME = "PyTest_Normalized_stress_envelope"
+TRANSFORM_NAME = "PyTest_Disp_transform"
+COORDINATE_SYSTEM_NAME = "PyTest_Field_Output_CS"
+# Outputs that depend on another test output come first, so they are removed before it
+TEST_NAMES = [EQUATION_ENVELOPE_NAME, TRANSFORM_NAME, LIMIT_NAME, ENVELOPE_NAME, EQUATION_NAME,
+              RENAMED_EQUATION_NAME]
 
 
 def check(condition, message):
@@ -200,6 +205,19 @@ try:
                       "'item_limits'", "two keys naming one part were accepted")
     print("PASS: item limits named in another case")
 
+    # ALL ELEMENTS: the single key is matched regardless of case and stored in its own spelling, and
+    # another key is refused naming the key it takes
+    all_elements_limit = field_outputs.replace_limit(LIMIT_NAME, LIMIT_NAME, "STRESS", stress_component,
+                                                     "AllElements", {"all elements": 250.0},
+                                                     filter1=field_outputs.create_average_filter(
+                                                         source="SurfaceNodes", number_of_layers=2))
+    check(all_elements_limit.item_limits == {"All elements": 250.0},
+          "the All elements key was not stored in its own spelling: " + str(all_elements_limit.item_limits))
+    check_refused(lambda: field_outputs.replace_limit(LIMIT_NAME, LIMIT_NAME, "STRESS", stress_component,
+                                                      "AllElements", {"Everything": 1.0}),
+                  "'All elements'", "an AllElements limit took another key")
+    print("PASS: the All elements key in another case")
+
     # FILTER COUNTS: the counts read back under the argument names that set them
     filter1 = field_outputs[LIMIT_NAME].filter1
     check(filter1.number_of_layers == 2 and filter1.number_of_iterations == 1,
@@ -230,6 +248,32 @@ try:
     created_names.append(EQUATION_NAME)
     check(field_outputs.contains(EQUATION_NAME), "add() did not create the equation output.")
     print("PASS: add equation field output")
+
+    # SOURCE NAMES: a user-defined field output is found in any case, as a source and as a field of an
+    # increment, and a source is stored in the spelling of the result
+    equation_envelope = field_outputs.add_envelope(EQUATION_ENVELOPE_NAME, EQUATION_NAME.lower(), "VALUE")
+    created_names.append(EQUATION_ENVELOPE_NAME)
+    check(equation_envelope.field_name == EQUATION_NAME,
+          "the envelope source was stored as " + equation_envelope.field_name)
+    increment_fields = result.steps[step.id].increments[increment.id].fields
+    check(increment_fields.contains(EQUATION_NAME.lower()), "a user-defined field was not found in another case")
+    check(increment_fields[EQUATION_NAME.upper()].name == EQUATION_NAME,
+          "the field read back in the lookup spelling: " + increment_fields[EQUATION_NAME.upper()].name)
+    field_outputs.remove(EQUATION_ENVELOPE_NAME)
+    created_names.remove(EQUATION_ENVELOPE_NAME)
+    coordinate_systems = result.mesh.coordinate_systems
+    if coordinate_systems.contains(COORDINATE_SYSTEM_NAME):
+        coordinate_systems.remove(COORDINATE_SYSTEM_NAME)
+    coordinate_systems.add(COORDINATE_SYSTEM_NAME, [0, 0, 0], [1, 0, 0], [0, 1, 0])
+    transform = field_outputs.add_coordinate_system_transform(TRANSFORM_NAME, "DISP",
+                                                              COORDINATE_SYSTEM_NAME.upper())
+    created_names.append(TRANSFORM_NAME)
+    check(transform.coordinate_system_name == COORDINATE_SYSTEM_NAME,
+          "the coordinate system was stored as " + transform.coordinate_system_name)
+    field_outputs.remove(TRANSFORM_NAME)
+    created_names.remove(TRANSFORM_NAME)
+    coordinate_systems.remove(COORDINATE_SYSTEM_NAME)
+    print("PASS: source names in another case are stored in the spelling of the result")
 
     # REPLACE TYPE: a replace never turns one output type into another, and a refused one records nothing
     names_before = list(field_outputs.get_names())
@@ -309,4 +353,6 @@ try:
 finally:
     # Make the script rerunnable after a failed assertion or command.
     remove_existing(field_outputs, TEST_NAMES)
+    if result.mesh.coordinate_systems.contains(COORDINATE_SYSTEM_NAME):
+        result.mesh.coordinate_systems.remove(COORDINATE_SYSTEM_NAME)
 

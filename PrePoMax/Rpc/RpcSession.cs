@@ -65,7 +65,7 @@ namespace PrePoMax.Rpc
                     RpcResponse failure;
                     if (!RpcRequest.TryParse(line, out request, out failure))
                     {
-                        writer.WriteLine(failure.Line);
+                        if (failure != null) writer.WriteLine(failure.Line);
                         continue;
                     }
                     // A notification is not answered, so only shutdown is run as one: an exec sent without an id

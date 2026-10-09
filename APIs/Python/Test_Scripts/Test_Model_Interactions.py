@@ -195,6 +195,22 @@ def test_surface_interaction_properties():
     interactions.replace(name, properties=interactions[name].get_properties())
     after = [plain_values(p) for p in interactions[name].get_properties()]
     check(after == before, "the properties did not round trip through replace: " + str(after))
+    # The properties are a plain Python list, so a property is added to them with a list operation
+    extended = PREFIX + "SI_List"
+    interactions.add(extended, pmx.create.surface_behavior('Hard'))
+    read_back = interactions[extended].get_properties()
+    check(type(read_back) is list, "get_properties must return a list: " + type(read_back).__name__)
+    interactions.replace(extended, properties=read_back + [pmx.create.friction(0.2)])
+    check(sorted(interactions[extended].get_property_types()) == ["friction", "surface_behavior"],
+          "the extended list did not go into replace: " + str(list(interactions[extended].get_property_types())))
+    # A replace without a name keeps the interaction under its own spelling, whatever spelling old_name has
+    count = len(interactions)
+    for spelling in [extended.lower(), extended.upper()]:
+        interaction = interactions.replace(spelling, properties=pmx.create.friction(0.3))
+        check(interaction.name == extended and extended in list(interactions.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(interactions.get_names())))
+    check(len(interactions) == count, "a mixed case replace changed the number of surface interactions")
+    interactions.remove([extended])
     # A read back property is a copy, so changing the surface interaction does not change it
     interactions.replace(name, properties=pmx.create.friction(0.5))
     check(plain_values(properties[0])["coefficient"] == 0.2, "a read back property followed the model")

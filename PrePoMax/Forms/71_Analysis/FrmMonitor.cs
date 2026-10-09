@@ -243,8 +243,14 @@ namespace PrePoMax.Forms
                         tmp = sets[i].Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
                         errorElementIds.Add(int.Parse(tmp[0]));
                     }
+                    // While the history is replayed or a script recorded as one command runs, the set would be made
+                    // by no recorded command
+                    if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) return;
+                    int[] elementIds = errorElementIds.ToArray();
+                    if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
+                    //
                     string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey(Globals.NonpositiveJacobian);
-                    _controller.AddElementSet(new CaeMesh.FeElementSet(elementSetName, errorElementIds.ToArray()));
+                    _controller.AddElementSetCommand(new CaeMesh.FeElementSet(elementSetName, elementIds));
                     //
                     tbOutput.AppendText(Environment.NewLine);
                     tbOutput.AppendText(" An element set containing elements with nonpositive Jacobian determinant was created.");

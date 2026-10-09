@@ -270,6 +270,29 @@ def test_derived_coordinate_systems():
                  "a mode without its selection must be rejected")
 
 
+def test_mixed_case_replace():
+    """A replace without a name keeps the item under the model's own spelling, whatever spelling old_name has,
+    and replaces it rather than adding a second item."""
+    cases = [(pmx.model.node_sets, PREFIX + "NS", lambda c, n: c.replace(n)),
+             (pmx.model.element_sets, PREFIX + "ES", lambda c, n: c.replace(n)),
+             (pmx.model.surfaces, PREFIX + "SU", lambda c, n: c.replace(n)),
+             (pmx.model.surfaces, PREFIX + "SU_NS", lambda c, n: c.replace_from_node_set(n)),
+             (pmx.model.reference_points, PREFIX + "RP_Kind", lambda c, n: c.replace(n, coordinates=[0, 0, 3])),
+             (pmx.model.reference_points, PREFIX + "RP_Mid", lambda c, n: c.replace_from_selection(n)),
+             (pmx.model.reference_points, PREFIX + "RP_Cog", lambda c, n: c.replace_from_region(n)),
+             (pmx.model.coordinate_systems, PREFIX + "CS_Sel", lambda c, n: c.replace_from_selections(n))]
+    for collection, name, replace in cases:
+        count = len(collection)
+        for spelling in (name.lower(), name.upper()):
+            item = replace(collection, spelling)
+            check(item.name == name, "a replace of '" + spelling + "' renamed " + name + " to " + item.name)
+            check(name in list(collection.get_names()),
+                  name + " is not stored in its own spelling after a replace of '" + spelling + "'")
+            check(len(collection) == count, "a replace of '" + spelling + "' changed the number of items")
+    check(pmx.model.reference_points[PREFIX + "RP_Kind"].get_coordinates() == [0.0, 0.0, 3.0],
+          "the mixed case replace did not change the coordinates")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_node_sets()
@@ -279,6 +302,7 @@ def main():
     test_coordinate_systems()
     test_derived_reference_points()
     test_derived_coordinate_systems()
+    test_mixed_case_replace()
     # Clean up in reverse order, so that a surface never outlives the node set it uses
     clean(pmx.model.coordinate_systems)
     clean(pmx.model.reference_points)

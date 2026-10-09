@@ -22,6 +22,8 @@ namespace PrePoMax.Rpc
     public static class RpcHistoryMethod
     {
         // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "limit", "include_journal", "journal_file" };
         private const int DefaultLimit = 200;
         // A journal longer than this is written to a file instead of being returned inline
         private const int InlineJournalLimit = 200000;

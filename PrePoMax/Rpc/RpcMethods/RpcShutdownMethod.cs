@@ -16,6 +16,11 @@ namespace PrePoMax.Rpc
     // stays open, because the user is sitting in front of it.
     public static class RpcShutdownMethod
     {
+        // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { };
+
+
         // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {

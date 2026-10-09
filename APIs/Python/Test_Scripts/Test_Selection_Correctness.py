@@ -62,6 +62,19 @@ def test_select_all():
 
 def test_options():
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
+    defaults = selection.get_options()
+    check(defaults['max_geometry_ids'] == -1 and defaults['max_item_ids'] == -1 and defaults['limit_to'] == 'None',
+          "a new selection must be unlimited")
+    # A refused limit names the argument it came from
+    for argument in ['max_geometry_ids', 'max_item_ids']:
+        try:
+            selection.configure(**{argument: 0})
+        except Exception as ex:
+            check("'" + argument + "'" in str(ex), "the refusal must name " + argument + ": " + str(ex))
+        else:
+            raise Exception("TEST FAILED: a zero " + argument + " was accepted")
+    check(selection.get_options()['max_geometry_ids'] == -1 and selection.get_options()['max_item_ids'] == -1,
+          "a refused limit changed the options")
     options = selection.configure(max_geometry_ids=12, max_item_ids=7, limit_to='FirstPart',
                                   shell_edges_only=True, enable_shell_edge_faces=True).get_options()
     check(options['max_geometry_ids'] == 12, "max_geometry_ids did not read back")

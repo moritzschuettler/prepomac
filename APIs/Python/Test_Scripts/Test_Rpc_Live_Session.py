@@ -19,7 +19,10 @@
 #Element and Node surfaces, a contact adjustment size taken back to Default and the colors the
 #constraint, contact pair and initial condition dialogs set. One more carries a
 #recorded script that binds selection_1, which must not change the journal lines after it, and a global
-#results file name cleared with '' as the dialog clears it.
+#results file name cleared with '' as the dialog clears it. A recorded script that fails part way must be
+#recorded with what it changed before the error and its journal must run it to that error and go on, while
+#one that fails before changing anything records nothing. Two model checks of elements without a section
+#must leave one Missing_section set, and so must their journal.
 #
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
@@ -929,6 +932,97 @@ def check_journal_of_script_and_properties(client):
     print("journal: a recorded script and a cleared global results file replay to " + str(replayed))
 
 
+def read_failed_script_states(client):
+    names = ("failed_before", "failed_after", "failed_later")
+    value = client.result("eval", {"expression": "[pmx.model.node_sets.contains(name) for name in " +
+                                                 str(list(names)) + "]"})
+    check(not value["failed"], "the node sets must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_failed_script(client):
+    """A recorded script that fails part way keeps what it changed before the error, so the history records it and
+    its journal runs it to the same error and goes on; one that changed nothing records nothing."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    first_node = "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])"
+    script = os.linesep.join(["pmx.model.node_sets.add('failed_before', " + first_node + ")",
+                              "raise ValueError('planned failure')",
+                              "pmx.model.node_sets.add('failed_after', " + first_node + ")"])
+    result = client.result("exec", {"source": script, "record": "script"})
+    check(result["failed"], "the script must fail: " + str(result))
+    check("planned failure" in result["error"], "the error of the script must be reported: " + result["error"])
+    check("recorded in the command history" in result["error"],
+          "the user must be told the failed script was recorded: " + result["error"])
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CRunPythonScript"],
+          "the failed script must be recorded as one command: " + str(result["recordedCommands"]))
+    result = client.result("exec", {"source": "raise ValueError('nothing changed')", "record": "script"})
+    check(result["failed"], "the second script must fail: " + str(result))
+    check(result["recordedCommands"] == [],
+          "a script that failed before changing anything must not be recorded: " + str(result["recordedCommands"]))
+    check("recorded in the command history" not in result["error"],
+          "a script that was not recorded must not be said to be: " + result["error"])
+    result = client.result("exec", {"source": "pmx.model.node_sets.add('failed_later', " + first_node + ")"})
+    check(not result["failed"], "the node set after the script must be added: " + result["error"])
+    recorded = read_failed_script_states(client)
+    check(recorded == [True, False, True], "the states are not the ones built: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    journal_source = journal["source"]
+    check("except Exception as _recorded_script_error" in journal_source,
+          "the journal must let the failed script fail and go on:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the failed script must replay: " + result["error"] + os.linesep +
+          journal_source)
+    check("planned failure" in result["output"], "the replay must report the failure: " + result["output"])
+    replayed = read_failed_script_states(client)
+    check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: a script that failed part way replays to " + str(replayed))
+
+
+def read_missing_section_sets(client):
+    value = client.result("eval", {"expression": "sorted(name for name in pmx.model.element_sets.get_names() " +
+                                                 "if name.startswith('Missing_section'))"})
+    check(not value["failed"], "the element sets must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_missing_section(client):
+    """A run that finds elements without a section records a set of them before the run is recorded. The run
+    repeated, and the journal replayed, must keep that one set rather than make another."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "step = pmx.model.steps.add_static('missing_static', time_period=1.0)",
+        "step.bcs.add_fixed('missing_fix', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))",
+        "job = pmx.jobs.add('missing_job')",
+        "job.check_model(timeout=120)",
+        "job.check_model(timeout=120)"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the model without a section must be checked: " + result["error"])
+    recorded = read_missing_section_sets(client)
+    check(recorded == ["Missing_section-1"], "the two runs must leave one set: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    journal_source = journal["source"]
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the runs must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_missing_section_sets(client)
+    check(replayed == recorded, "the replayed sets differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: two runs without a section replay to " + str(replayed))
+
+
 def export_deck(client, file_name):
     """The model as CalculiX reads it, without the lines that differ between two runs of the same model."""
     result = client.result("exec", {"source": "pmx.export_to_calculix(r'" + file_name + "')"})
@@ -1336,6 +1430,8 @@ def main():
         check_journal_of_dialog_values(client)
         check_journal_of_dialog_appearance(client)
         check_journal_of_script_and_properties(client)
+        check_journal_of_failed_script(client)
+        check_journal_of_missing_section(client)
         check_journal_of_layouts(client)
         check_result_file_opening(client)
         check_journal_round_trip(client)

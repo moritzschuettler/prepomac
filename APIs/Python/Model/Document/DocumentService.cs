@@ -204,6 +204,9 @@ namespace APIs.Python.Model
         {
             ModelProperties properties = _modelResolver.GetModel().Properties;
             Dictionary<string, string> equations = new Dictionary<string, string>();
+            // Only the model type that uses the counts takes them back
+            if (properties.ModelType != ModelType.SlipWearModel) return equations;
+            //
             AddEquation(equations, "number_of_cycles", properties.NumberOfCycles);
             AddEquation(equations, "cycles_increment", properties.CyclesIncrement);
             AddEquation(equations, "number_of_smoothing_steps", properties.NumOfSmoothingSteps);
@@ -244,10 +247,11 @@ namespace APIs.Python.Model
         {
             FeModel model = _modelResolver.GetModel();
             ModelProperties properties = model.Properties.DeepClone();
-            if (name != null && name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (name != null) ValidateModelName(name);
             if (modelType != null)
                 properties.ModelType = PythonValueConverter.ToEnum<ModelType>(modelType, "model_type");
+            RefuseUnusedProperties(properties.ModelType, globalResultsFileName, slipWearResults, numberOfCycles,
+                                   cyclesIncrement, numOfSmoothingSteps, bdmRemeshing);
             if (globalResultsFileName != null)
             {
                 if (globalResultsFileName.Length > 0 && globalResultsFileName.Trim().Length == 0)
@@ -320,8 +324,7 @@ namespace APIs.Python.Model
         }
         public void SetModelName(string name)
         {
-            if (name == null || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            ValidateModelName(name);
             //
             ModelProperties properties = _modelResolver.GetModel().Properties.DeepClone();
             //
@@ -329,6 +332,39 @@ namespace APIs.Python.Model
             _modelGateway.ReplaceModelProperties(name, properties);
         }
         //
+        // The dialog takes any model name, so a journal of it may carry one the item names refuse; only a padded
+        // name is refused, as it is for every other name
+        private static void ValidateModelName(string name)
+        {
+            if (name == null || name.Trim().Length == 0)
+                throw new PythonAPIException("The argument 'name' must not be empty.");
+            if (name.Trim().Length != name.Length)
+                throw new PythonAPIException("The argument 'name' must not start or end with a space: '" + name +
+                                             "'.");
+        }
+        // The dialog shows the submodel file and the slip wear values only for the model type that uses them, so
+        // a value given for a model type that does not use it is refused rather than stored unseen
+        private static void RefuseUnusedProperties(ModelType modelType, string globalResultsFileName,
+                                                   string slipWearResults, object numberOfCycles,
+                                                   object cyclesIncrement, object numOfSmoothingSteps,
+                                                   object bdmRemeshing)
+        {
+            if (modelType != ModelType.Submodel && globalResultsFileName != null)
+                throw new PythonAPIException("The argument 'global_results_file_name' applies only to a Submodel, " +
+                                             "but the model type is " + modelType + ".");
+            if (modelType == ModelType.SlipWearModel) return;
+            //
+            string[] argumentNames = new string[] { "slip_wear_results", "number_of_cycles", "cycles_increment",
+                                                    "number_of_smoothing_steps", "bdm_remeshing" };
+            object[] values = new object[] { slipWearResults, numberOfCycles, cyclesIncrement, numOfSmoothingSteps,
+                                             bdmRemeshing };
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] != null)
+                    throw new PythonAPIException("The argument '" + argumentNames[i] + "' applies only to a " +
+                                                 "SlipWearModel, but the model type is " + modelType + ".");
+            }
+        }
         // Undefined is the state of a model nothing has set yet, not a value a model can be given
         private static ModelSpaceEnum ToModelSpace(string modelSpace)
         {

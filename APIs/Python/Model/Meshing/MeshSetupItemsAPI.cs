@@ -24,8 +24,8 @@ namespace APIs.Python.Model
             "factor_min: float = None, split_compound_mesh: bool = None, merge_compound_parts: bool = None, " +
             "merge_cells: bool = None";
         private const string NetgenMeshArguments =
-            "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
-            "transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +
+            "number_of_optimize_steps_2d: int = None, number_of_optimize_steps_3d: int = None, " +
+            "quad_dominated: bool = None, transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +
             "transfinite_angle_deg: float = None";
         // The Gmsh item and its dialog take any number for these two, so a script may give the same, and the
         // description says where a value stops making a difference
@@ -81,8 +81,8 @@ namespace APIs.Python.Model
                 ModelItemValueReader.AddArguments(names, "thickness", "number_of_layers", "offset", "keep_model_edges");
             else if (item is NetgenMesh)
             {
-                names.Add("optimize_steps_2d", new string[] { "optimize_steps2_d" });
-                names.Add("optimize_steps_3d", new string[] { "optimize_steps3_d" });
+                names.Add("number_of_optimize_steps_2d", new string[] { "optimize_steps2_d" });
+                names.Add("number_of_optimize_steps_3d", new string[] { "optimize_steps3_d" });
                 ModelItemValueReader.AddArguments(names, "quad_dominated", "transfinite_three_sided",
                                                   "transfinite_four_sided", "transfinite_angle_deg");
             }
@@ -114,12 +114,15 @@ namespace APIs.Python.Model
                 else AddGmshArguments(names, "optimize_first_order_shell");
             }
             else if (item is ShellQuadWild)
+            {
                 ModelItemValueReader.AddArguments(names, "preview", "smooth", "alpha", "triangulation_mesher",
                                                   "flow_profile", "keep_files_on_failure", "debug_visualization",
                                                   "old_algorithm", "pin_edge_nodes", "edge_rotations",
-                                                  "singularity_position", "count_search", "boundary_layer",
-                                                  "transfinite_three_sided", "transfinite_four_sided",
-                                                  "transfinite_angle_deg");
+                                                  "singularity_position");
+                names.Add("number_of_search_rounds", new string[] { "count_search" });
+                ModelItemValueReader.AddArguments(names, "boundary_layer", "transfinite_three_sided",
+                                                  "transfinite_four_sided", "transfinite_angle_deg");
+            }
             //
             return names;
         }
@@ -314,20 +317,21 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a Netgen mesh item for the selected solid or shell parts. The mesh size comes " +
                    "from the meshing parameters; the item carries the settings that apply to Netgen alone. " +
-                   "optimize_steps_2d and optimize_steps_3d are at least 0, and transfinite_angle_deg lies " +
-                   "between 0 and 180, both excluded.",
+                   "number_of_optimize_steps_2d and number_of_optimize_steps_3d are at least 0, and " +
+                   "transfinite_angle_deg lies between 0 and 180, both excluded.",
                    Arguments = "name: str, selection: Selection, " + NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection, object optimize_steps_2d = null,
-                                                object optimize_steps_3d = null, object quad_dominated = null,
+        public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection,
+                                                object number_of_optimize_steps_2d = null,
+                                                object number_of_optimize_steps_3d = null, object quad_dominated = null,
                                                 string transfinite_three_sided = null,
                                                 object transfinite_four_sided = null,
                                                 object transfinite_angle_deg = null)
         {
             _service.ValidateNewName(name);
             NetgenMesh item = new NetgenMesh(name);
-            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
-                            transfinite_four_sided, transfinite_angle_deg);
+            ApplyNetgenMesh(item, number_of_optimize_steps_2d, number_of_optimize_steps_3d, quad_dominated,
+                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -337,15 +341,16 @@ namespace APIs.Python.Model
                                NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI replace_netgen_mesh(string old_name, string name = null, SelectionAPI selection = null,
-                                                    object optimize_steps_2d = null, object optimize_steps_3d = null,
+                                                    object number_of_optimize_steps_2d = null,
+                                                    object number_of_optimize_steps_3d = null,
                                                     object quad_dominated = null,
                                                     string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
         {
             NetgenMesh item = _service.CloneItem<NetgenMesh>(old_name);
-            ApplyNetgenMesh(item, optimize_steps_2d, optimize_steps_3d, quad_dominated, transfinite_three_sided,
-                            transfinite_four_sided, transfinite_angle_deg);
+            ApplyNetgenMesh(item, number_of_optimize_steps_2d, number_of_optimize_steps_3d, quad_dominated,
+                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             return Replace(old_name, name, item, selection);
         }
 
@@ -555,14 +560,14 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry. Every parameter that is not " +
                    "given keeps the application default. triangulation_mesher is Gmsh, Netgen or Mmg, " +
-                   "singularity_position and count_search are at least 0, and transfinite_angle_deg lies from 90 " +
-                   "to 180.",
+                   "singularity_position and number_of_search_rounds are at least 0, and transfinite_angle_deg " +
+                   "lies from 90 to 180.",
                    Arguments = "name: str, selection: Selection, preview: bool = None, smooth: bool = None, " +
                                "alpha: float = None, triangulation_mesher: str = None, " +
                                "flow_profile: str = None, " +
                                "keep_files_on_failure: bool = None, debug_visualization: bool = None, " +
                                "old_algorithm: bool = None, pin_edge_nodes: bool = None, edge_rotations: bool = None, " +
-                               "singularity_position: float = None, count_search: int = None, " +
+                               "singularity_position: float = None, number_of_search_rounds: int = None, " +
                                "boundary_layer: str = None, transfinite_three_sided: str = None, " +
                                "transfinite_four_sided: bool = None, transfinite_angle_deg: float = None",
                    Returns = "MeshSetupItem")]
@@ -572,7 +577,8 @@ namespace APIs.Python.Model
                                                     object keep_files_on_failure = null,
                                                     object debug_visualization = null, object old_algorithm = null,
                                                     object pin_edge_nodes = null, object edge_rotations = null,
-                                                    object singularity_position = null, object count_search = null,
+                                                    object singularity_position = null,
+                                                    object number_of_search_rounds = null,
                                                     string boundary_layer = null, string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
@@ -581,7 +587,8 @@ namespace APIs.Python.Model
             ShellQuadWild item = new ShellQuadWild(name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
-                               pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer,
+                               pin_edge_nodes, edge_rotations, singularity_position, number_of_search_rounds,
+                               boundary_layer,
                                transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             _service.Add(item, name, selection);
             return this[name];
@@ -598,7 +605,8 @@ namespace APIs.Python.Model
                                                         object debug_visualization = null,
                                                         object old_algorithm = null,
                                                         object pin_edge_nodes = null, object edge_rotations = null,
-                                                    object singularity_position = null, object count_search = null,
+                                                    object singularity_position = null,
+                                                    object number_of_search_rounds = null,
                                                     string boundary_layer = null, string transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
@@ -606,7 +614,8 @@ namespace APIs.Python.Model
             ShellQuadWild item = _service.CloneItem<ShellQuadWild>(old_name);
             ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
                                flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
-                               pin_edge_nodes, edge_rotations, singularity_position, count_search, boundary_layer,
+                               pin_edge_nodes, edge_rotations, singularity_position, number_of_search_rounds,
+                               boundary_layer,
                                transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
             return Replace(old_name, name, item, selection);
         }
@@ -652,8 +661,9 @@ namespace APIs.Python.Model
         private MeshSetupItemAPI Replace(string oldName, string name, MeshSetupItem item, SelectionAPI selection,
                                          Action<MeshSetupItem> afterSelectionChanged)
         {
-            string newName = name == null ? oldName : name;
-            _service.Replace(oldName, item, newName, selection, afterSelectionChanged);
+            string storedName = _service.ResolveItem(oldName).Name;
+            string newName = name == null ? storedName : name;
+            _service.Replace(storedName, item, newName, selection, afterSelectionChanged);
             //
             return this[newName];
         }
@@ -878,12 +888,12 @@ namespace APIs.Python.Model
                                              " was given.");
             return number;
         }
-        private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
+        private static void ApplyNetgenMesh(NetgenMesh item, object numberOfOptimizeSteps2D, object numberOfOptimizeSteps3D,
                                             object quadDominated, string transfiniteThreeSided,
                                             object transfiniteFourSided, object transfiniteAngle)
         {
-            int? steps2D = ToNonNegativeInt(optimizeSteps2D, "optimize_steps_2d");
-            int? steps3D = ToNonNegativeInt(optimizeSteps3D, "optimize_steps_3d");
+            int? steps2D = ToNonNegativeInt(numberOfOptimizeSteps2D, "number_of_optimize_steps_2d");
+            int? steps3D = ToNonNegativeInt(numberOfOptimizeSteps3D, "number_of_optimize_steps_3d");
             double? angle = ToAngle(transfiniteAngle, "transfinite_angle_deg", 0, 180, false);
             //
             if (steps2D.HasValue) item.OptimizeSteps2D = steps2D.Value;
@@ -993,7 +1003,7 @@ namespace APIs.Python.Model
                                                string flowProfile, object keepFilesOnFailure,
                                                object debugVisualization, object oldAlgorithm,
                                                object pinEdgeNodes, object edgeRotations, object singularityPosition,
-                                               object countSearch, string boundaryLayer,
+                                               object numberOfSearchRounds, string boundaryLayer,
                                                string transfiniteThreeSided, object transfiniteFourSided,
                                                object transfiniteAngle)
         {
@@ -1026,7 +1036,7 @@ namespace APIs.Python.Model
                                                  "but " + position + " was given.");
                 item.SingularityPosition = position;
             }
-            int? rounds = ToNonNegativeInt(countSearch, "count_search");
+            int? rounds = ToNonNegativeInt(numberOfSearchRounds, "number_of_search_rounds");
             if (rounds.HasValue) item.CountSearch = rounds.Value;
             if (boundaryLayer != null)
                 item.BoundaryLayer = PythonValueConverter.ToEnum<QuadWildBoundaryLayerEnum>(boundaryLayer, "boundary_layer");

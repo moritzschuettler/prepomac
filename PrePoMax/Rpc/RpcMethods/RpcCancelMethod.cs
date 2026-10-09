@@ -26,6 +26,8 @@ namespace PrePoMax.Rpc
     public static class RpcCancelMethod
     {
         // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "call_id" };
         private const int FinishWaitMilliseconds = 2000;
 
 

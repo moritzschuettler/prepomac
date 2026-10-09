@@ -3,7 +3,8 @@
 #
 #Checks the automation server. The script is its own client: it runs inside the application and
 #connects to the named pipe of its own process, so the whole contract is checked unattended. A null id is
-#refused, and a request sent as a notification is dropped and not run, shutdown alone excepted.
+#refused, and a request sent as a notification is dropped and not run, shutdown alone excepted - a malformed
+#one is dropped unanswered as well. An argument a method does not take is refused, naming it.
 #
 #  PrePoMax.com --script Test_Rpc_Server.py --rpc On -g No -x Yes -w <work directory>
 #
@@ -175,6 +176,14 @@ def check_notifications(client):
         if parameters is not None:
             request["params"] = parameters
         client.send_line(json.dumps(request))
+    # A malformed notification is not answered either: it has no id an answer could carry
+    malformed = ['{"jsonrpc":"1.0","method":"ping"}',
+                 '{"jsonrpc":"2.0"}',
+                 '{"jsonrpc":"2.0","method":""}',
+                 '{"jsonrpc":"2.0","method":"ping","params":[1]}',
+                 '{"jsonrpc":"2.0","method":"exec","params":{"source":"rpc_notified = 1","timout":5}}']
+    for line in malformed:
+        client.send_line(line)
     # Nothing was answered for them, so the next answer is the one of the next request
     check_ping(client)
     value = client.result("eval", {"expression": "[name for name in ('rpc_notified', 'rpc_notified_eval') "
@@ -182,7 +191,8 @@ def check_notifications(client):
     check(value["value"] == [], "an exec or eval sent as a notification must not run: " + str(value))
     status = client.result("status")
     check(status["calls"] == [], "a notification must leave no call behind: " + str(status["calls"]))
-    print("notifications: an exec, an eval and a ping sent without an id were dropped, not run")
+    print("notifications: an exec, an eval and a ping sent without an id were dropped, not run, and " +
+          str(len(malformed)) + " malformed ones were not answered")
 
 
 def check_eval(client):
@@ -243,6 +253,10 @@ def check_exec(client):
           "nothing can be recorded while recording is suppressed: " + str(result["recordedCommands"]))
     result = client.result("exec", {"source": "pmx.model.parameters.add('rpc_u', 3.5)", "record": "script"})
     check(not result["failed"], "the recorded script must not fail: " + result["error"])
+    # The recording mode is matched regardless of case and answered in its declared spelling
+    result = client.result("exec", {"source": "rpc_record_case = 1", "record": "Script"})
+    check(not result["failed"], "record 'Script' must be accepted: " + result["error"])
+    check(result["record"] == "script", "the recording mode must be answered as script: " + str(result["record"]))
     # A failing source is a result with a traceback, and the connection stays usable
     result = client.result("exec", {"source": "raise ValueError('deliberate')"})
     check(result["failed"], "a raising source must fail")
@@ -426,6 +440,27 @@ def check_argument_types(client):
     print("argument types: " + str(len(refused)) + " values of the wrong type refused by name")
 
 
+def check_unknown_arguments(client):
+    """An argument a method does not take is refused by name before anything is done, as on MCP."""
+    refused = [("exec", {"source": "rpc_unknown = 1", "timout": 5}, "timout"),
+               ("eval", {"expression": "globals().update(rpc_unknown_eval=1)", "record": "script"}, "record"),
+               ("history", {"timeout": 5}, "timeout"),
+               ("describe", {"path": "pmx", "paths": "pmx"}, "paths"),
+               ("ping", {"verbose": True}, "verbose"),
+               ("status", {"session": 1}, "session"),
+               ("screenshot", {"filename": "x.png"}, "filename"),
+               ("wait", {"callId": 1}, "callId")]
+    for method, parameters, argument in refused:
+        error = client.error(method, parameters)
+        check(error["code"] == INVALID_PARAMS, method + " must refuse " + argument + " as InvalidParams: " + str(error))
+        check(argument in error["message"] and "Nothing was done." in error["message"],
+              method + " must name " + argument + " and say nothing was done: " + str(error))
+    value = client.result("eval", {"expression": "[name for name in ('rpc_unknown', 'rpc_unknown_eval') "
+                                                 "if name in dir()]"})
+    check(value["value"] == [], "a call with an unknown argument must not have run: " + str(value))
+    print("unknown arguments: " + str(len(refused)) + " refused by name, none of them run")
+
+
 def check_second_connection():
     first = Client()
     second = Client()
@@ -510,6 +545,7 @@ def main():
         check_history(client)
         check_screenshot(client)
         check_argument_types(client)
+        check_unknown_arguments(client)
     finally:
         client.close()
     #

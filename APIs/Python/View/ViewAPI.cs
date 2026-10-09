@@ -287,11 +287,13 @@ namespace APIs.Python
                    "slider, and the magnification - from 1 to 10 for Disassembly, 25 for AssemblyCenter and 1000 " +
                    "for CenterPoint - how far the full separation goes. The axes limit the movement to the " +
                    "given coordinate axes: XYZ, X, Y, Z, XY, XZ or YZ. A compound part moves as one body. Step " +
-                   "by step and the contact tolerance, where 0 means one thousandth of the assembly diagonal, belong to the " +
-                   "Disassembly method. An exploded view is a display translation only: it is not recorded, and " +
-                   "meshing always runs without it.",
+                   "by step, off when not given, and the contact tolerance, where 0 - the value when not given - " +
+                   "means one thousandth of the assembly diagonal, are taken only by the Disassembly method, and " +
+                   "the center only and always by the CenterPoint method; another method refuses them. An " +
+                   "exploded view is a display translation only: it is not recorded, and meshing always runs " +
+                   "without it.",
                    Arguments = "scale_factor: float = 0.5, method: str = 'Disassembly', magnification: float = 2, " +
-                               "axes: str = 'XYZ', step_by_step: bool = False, tolerance: float = 0, " +
+                               "axes: str = 'XYZ', step_by_step: bool = None, tolerance: float = None, " +
                                "center: list[float] = None",
                    Returns = "None",
                    Example = "pmx.view.current = 'geometry'\n" +
@@ -317,6 +319,12 @@ namespace APIs.Python
                                              " for the " + methodName + " method.");
             string axesName = axes == null ? ViewExplodedAxesEnum.XYZ.ToString()
                                            : PythonValueConverter.ToEnum<ViewExplodedAxesEnum>(axes, "axes").ToString();
+            if (methodValue != ViewExplodedMethodEnum.Disassembly && (step_by_step != null || tolerance != null))
+                throw new PythonAPIException("The arguments 'step_by_step' and 'tolerance' are taken only by the " +
+                                             "Disassembly method, not by the " + methodName + " method.");
+            if (methodValue != ViewExplodedMethodEnum.CenterPoint && center != null)
+                throw new PythonAPIException("The argument 'center' is taken only by the CenterPoint method, not by " +
+                                             "the " + methodName + " method.");
             bool sequential = step_by_step != null && PythonValueConverter.ToBool(step_by_step, "step_by_step");
             double toleranceValue = tolerance == null ? 0 : PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
             if (toleranceValue < 0) throw new PythonAPIException("The argument 'tolerance' must not be negative.");

@@ -43,6 +43,14 @@ def test_properties():
     #
     pmx.model.properties.name = "PyTest_Model"
     check(pmx.model.name == "PyTest_Model", "the model name was not changed")
+    # A padded name is no name: it is refused rather than trimmed, by the property and by replace
+    for bad_name in [" PyTest_Model", "PyTest_Model ", "  "]:
+        for call in [lambda: setattr(pmx.model.properties, "name", bad_name),
+                     lambda: pmx.model.properties.replace(name=bad_name)]:
+            message = raised_message(call)
+            check(message is not None and "'name'" in message,
+                  "the model name " + repr(bad_name) + " must be refused naming it: " + str(message))
+    check(pmx.model.name == "PyTest_Model", "a refused model name changed the name")
     #
     check_raises(lambda: setattr(pmx.model.properties, "unit_system", "NOT_A_UNIT_SYSTEM"),
                  "an unknown unit system must be rejected")
@@ -53,6 +61,31 @@ def test_properties():
               "an undefined " + argument + " must be refused naming it: " + str(message))
     check(pmx.model.properties.unit_system == "MM_TON_S_C" and pmx.model.properties.model_space == "ThreeD",
           "a refused value changed the model properties")
+    # A value the model type does not use is refused naming it, judged by the model type the call ends with
+    model_type = pmx.model.properties.model_type
+    pmx.model.properties.model_type = "GeneralModel"
+    for argument, value in [("global_results_file_name", "global.frd"), ("slip_wear_results", "All"),
+                            ("number_of_cycles", 2), ("cycles_increment", 1), ("number_of_smoothing_steps", 1),
+                            ("bdm_remeshing", True)]:
+        message = raised_message(lambda: pmx.model.properties.replace(**{argument: value}))
+        check(message is not None and "'" + argument + "'" in message and "GeneralModel" in message,
+              "a " + argument + " on a general model must be refused naming it: " + str(message))
+        message = raised_message(lambda: setattr(pmx.model.properties, argument, value))
+        check(message is not None and "'" + argument + "'" in message,
+              "an assigned " + argument + " on a general model must be refused naming it: " + str(message))
+    message = raised_message(lambda: pmx.model.properties.replace(model_type="Submodel", number_of_cycles=2))
+    check(message is not None and "'number_of_cycles'" in message and "Submodel" in message,
+          "a slip wear value on a submodel must be refused naming it: " + str(message))
+    message = raised_message(lambda: pmx.model.properties.replace(model_type="SlipWearModel",
+                                                                  global_results_file_name="global.frd"))
+    check(message is not None and "'global_results_file_name'" in message,
+          "a submodel file on a slip wear model must be refused naming it: " + str(message))
+    check(pmx.model.properties.model_type == "GeneralModel", "a refused replace changed the model type")
+    check(len(pmx.model.properties.get_equations()) == 0, "a general model must return no slip wear equations")
+    # A replace that changes the model type takes the values of the new type in the same call
+    pmx.model.properties.replace(model_type="SlipWearModel", number_of_cycles="=1 + 3", cycles_increment=1)
+    check(pmx.model.properties.model_type == "SlipWearModel" and pmx.model.properties.number_of_cycles == 4,
+          "a slip wear value given with the model type was not accepted")
     # The model raises a count below its minimum to the minimum, so the value is refused naming the argument
     counts = [pmx.model.properties.number_of_cycles, pmx.model.properties.cycles_increment,
               pmx.model.properties.number_of_smoothing_steps]
@@ -82,6 +115,7 @@ def test_properties():
     check(pmx.model.properties.get_equations().get("cycles_increment", "").replace(" ", "") == "=1+1",
           "the cycles_increment equation did not read back: " + str(pmx.model.properties.get_equations()))
     pmx.model.properties.cycles_increment = counts[1]
+    pmx.model.properties.model_type = model_type
     message = raised_message(lambda: pmx.model.properties.replace(clear_undefined_constants=1))
     check(message is not None and "'clear_undefined_constants'" in message,
           "a non boolean clear_undefined_constants must be refused naming it: " + str(message))
@@ -182,6 +216,22 @@ def test_parameter_refusals():
     check(message is not None and "values[1]" in message, "the item that is not a value must be named: " + str(message))
     message = raised_message(lambda: pmx.model.parameters.set_all(["pytest_p", "pytest_q"], [1.0, None]))
     check(message is not None and "values[1]" in message, "a None item must be named: " + str(message))
+    # A name with a hyphen is refused naming the argument it was given in
+    pmx.model.parameters.add("pytest_w", 1.0)
+    for call, argument in [(lambda: pmx.model.parameters.add("pytest-x", 1.0), "'name'"),
+                           (lambda: pmx.model.parameters.replace("pytest_w", name="pytest-x"), "'name'"),
+                           (lambda: pmx.model.parameters.rename("pytest_w", "pytest-x"), "'new_name'"),
+                           (lambda: pmx.model.parameters.set_all(["pytest-x"], [1.0]), "'names'")]:
+        message = raised_message(call)
+        check(message is not None and argument in message and "hyphen" in message,
+              "a hyphen must be refused naming " + argument + ": " + str(message))
+    # A replace without a name keeps the parameter under its own spelling, whatever spelling old_name has
+    for spelling in ["PYTEST_W", "Pytest_W"]:
+        pmx.model.parameters.replace(spelling, value=2.0)
+        check("pytest_w" in list(pmx.model.parameters.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(pmx.model.parameters.get_names())))
+    check(pmx.model.parameters["pytest_w"].value == 2.0, "the mixed case replace did not change the value")
+    pmx.model.parameters.remove(["pytest_w"])
     check(list(pmx.model.parameters.get_names()) == names, "a refused call changed the parameters")
 
 

@@ -31,10 +31,19 @@ namespace APIs.Python
         public string integral_type { get { return _integralType.ToString(); } }
         [PythonAPI("The integral result: Geometry, Field or FieldByGeometry.", Returns = "str")]
         public string integral_result { get { return _integralResult.ToString(); } }
-        [PythonAPI("The source result field name.", Returns = "str")]
-        public string field_name { get { return _fieldName; } }
-        [PythonAPI("The selected field component names.", Returns = "StringList")]
-        public StringListAPI component_names { get { return new StringListAPI(_componentNames); } }
+        [PythonAPI("The source result field name, or None for the Geometry integral_result.",
+                   Returns = "str or None")]
+        public string field_name { get { return _integralResult == IntegralResultEnum.Geometry ? null : _fieldName; } }
+        [PythonAPI("The selected field component names, or None for the Geometry integral_result.",
+                   Returns = "StringList or None")]
+        public StringListAPI component_names
+        {
+            get
+            {
+                if (_integralResult == IntegralResultEnum.Geometry) return null;
+                return new StringListAPI(_componentNames);
+            }
+        }
         [PythonAPI("The deformation the region follows: Displacements, Forces, SurfaceNormals, WearDepths, " +
                    "MeshDeformation, DispDef or DispDefDepth.", Returns = "str")]
         public string deformation_variable_name
@@ -46,8 +55,16 @@ namespace APIs.Python
         [PythonAPI("The out-of-plane cross section scaling for 2D output: None, Thickness or Axisymmetric.",
                    Returns = "str")]
         public string cross_section { get { return _crossSection.ToString(); } }
-        [PythonAPI("The out-of-plane thickness used when cross_section is Thickness.", Returns = "float")]
-        public double thickness { get { return _thickness; } }
+        [PythonAPI("The out-of-plane thickness, or None when cross_section is not Thickness.",
+                   Returns = "float or None")]
+        public double? thickness
+        {
+            get
+            {
+                if (_crossSection != IntegrationScaleType.Thickness) return null;
+                return _thickness;
+            }
+        }
 
 
         // Constructors
@@ -92,7 +109,7 @@ namespace APIs.Python
         {
             return "HistoryOutputFromIntegrationDraft(name=" + StringListAPI.ToDisplayString(name) +
                    ", integral_type=" + StringListAPI.ToDisplayString(integral_type) +
-                   ", field_name=" + StringListAPI.ToDisplayString(_fieldName) +
+                   ", field_name=" + StringListAPI.ToDisplayString(field_name) +
                    ", components=" + _componentNames.Length + ")";
         }
     }

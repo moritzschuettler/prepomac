@@ -81,6 +81,8 @@ namespace PrePoMax.Mcp
             // A notification this server does not need - initialized, progress - and a request sent as a
             // notification, which is not run because it could not be answered
             if (isNotification) return null;
+            if (JsonReader.GetString(document, "jsonrpc", null) != "2.0")
+                return Error(id, -32600, "The jsonrpc member must be \"2.0\".");
             if (string.IsNullOrEmpty(method)) return Error(id, -32600, "The request names no method.");
             try
             {

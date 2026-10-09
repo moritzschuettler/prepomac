@@ -82,7 +82,9 @@ keeps web pages out.
 
 The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
 will not start without one, and there is no command line switch for it, so a folder has to be opened
-once with its window before an unattended run can serve.
+once with its window before an unattended run can serve. Unpack PrePoMax into a folder inside your
+user profile, such as `C:\Users\<you>\PrePoMax`: other local accounts can read a folder created
+directly under `C:\`, and with it the token in `settings.bin`.
 
 A newly unpacked PrePoMax starts without a token on purpose: `settings.bin` is part of the
 redistributable, and a token left in it would be shipped to everyone. The first run in a folder

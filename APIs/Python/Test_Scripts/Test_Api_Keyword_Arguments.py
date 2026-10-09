@@ -100,6 +100,8 @@ def test_typed_arguments():
     check(pmx.create.environment_variable("A", "b", active=None).Active, "None must take the default True")
     # A whole number property takes the values and equations replace takes, and refuses None
     properties = pmx.model.properties
+    model_type = properties.model_type
+    properties.model_type = "SlipWearModel"
     cycles = properties.number_of_cycles
     properties.number_of_cycles = 3.0
     check(properties.number_of_cycles == 3, "a whole float must set the number of cycles")
@@ -113,6 +115,7 @@ def test_typed_arguments():
           "None must be refused naming the property: " + str(message))
     check(properties.number_of_cycles == 4, "a refused assignment changed the number of cycles")
     properties.number_of_cycles = cycles
+    properties.model_type = model_type
 
 
 def main():

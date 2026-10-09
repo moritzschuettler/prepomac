@@ -20,7 +20,7 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The merged history source components, each as [history_output_name, field_name, " +
                    "component_name], the form the source1 to source4 arguments take.", Returns = "list[StringList]")]
-        public StringListAPI[] sources { get { return ResultHistoryOutputAPI.ToSourceNames(_sources); } }
+        public object sources { get { return ResultHistoryOutputAPI.ToSourceNames(_sources); } }
 
 
         // Constructors

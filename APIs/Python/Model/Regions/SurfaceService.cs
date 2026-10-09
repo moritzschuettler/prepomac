@@ -72,8 +72,8 @@ namespace APIs.Python.Model
         {
             FeSurface existing = ResolveSurface(oldName);
             RefuseInternal(existing, "surface", "replaced");
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             FeSurfaceType type = ToSurfaceType(surfaceType, existing.Type);
             FeSurface surface;
             if (selection == null)
@@ -88,14 +88,14 @@ namespace APIs.Python.Model
             surface.Type = type;
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceSurface(oldName, surface);
+            ModelGateway.ReplaceSurface(existing.Name, surface);
         }
         public void ReplaceFromNodeSet(string oldName, string name, string nodeSetName, string surfaceType)
         {
             FeSurface existing = ResolveSurface(oldName);
             RefuseInternal(existing, "surface", "replaced");
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             FeSurfaceType type = ToSurfaceType(surfaceType, existing.Type);
             // A node set surface is fully described by its node set, so it is built rather than cloned;
             // a node set that is not given is the one the surface already uses
@@ -104,7 +104,7 @@ namespace APIs.Python.Model
             surface.Type = type;
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceSurface(oldName, surface);
+            ModelGateway.ReplaceSurface(existing.Name, surface);
         }
         public void Duplicate(string[] names)
         {

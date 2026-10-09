@@ -67,22 +67,22 @@ namespace APIs.Python.Model
         {
             FeElementSet existing = ResolveElementSet(oldName);
             RefuseInternal(existing, "element set", "replaced");
-            string newName = name == null ? oldName : name;
-            ValidateNewName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateNewName(newName, existing.Name);
             // A value that is not given is kept, so a rename alone keeps the selection the set has
             FeElementSet elementSet;
             if (selection == null)
             {
                 if (existing.CreationData == null)
                     throw new PythonAPIException("The argument 'selection' must be given, because the element " +
-                                                 "set '" + oldName + "' was not created from a selection.");
+                                                 "set '" + existing.Name + "' was not created from a selection.");
                 elementSet = existing.DeepClone();
                 elementSet.Name = newName;
             }
             else elementSet = Build(newName, selection);
             //
             EnsureCommandsAvailable();
-            ModelGateway.ReplaceElementSet(oldName, elementSet);
+            ModelGateway.ReplaceElementSet(existing.Name, elementSet);
         }
         public void Duplicate(string[] names)
         {

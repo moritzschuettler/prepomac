@@ -133,27 +133,31 @@ namespace APIs.Python
                    "an element-target selection, an ElementSetName region or a result element set, where a " +
                    "region created by pmx.create.region is resolved against the result mesh. Possible " +
                    "integral_result values are Geometry (the region length/area/volume), Field (the field " +
-                   "integral) and FieldByGeometry (the region average of the field); field_name and component_names are ignored for Geometry. The cross_section " +
-                   "scaling (None, Thickness or Axisymmetric) applies to Line and Volume integrals of " +
-                   "2D output, and Thickness additionally uses the thickness argument. Possible " +
+                   "integral) and FieldByGeometry (the region average of the field); field_name and " +
+                   "component_names are required for Field and FieldByGeometry and refused for Geometry. The " +
+                   "cross_section scaling (None, Thickness or Axisymmetric) is the out-of-plane scaling of 2D " +
+                   "output; the Line and Volume integrals take it on a 2D and a 3D result alike, as the " +
+                   "dialog does, and the Surface " +
+                   "integral refuses any value but None. The thickness argument is taken only with the " +
+                   "Thickness cross_section, where it defaults to 1.0. Possible " +
                    "deformation_variable_name values are Displacements, Forces, SurfaceNormals, WearDepths, " +
                    "MeshDeformation, DispDef and DispDefDepth.",
-                   Arguments = "name: str, integral_type: str, field_name: str = None, " +
-                               "component_names: list[str] = None, " +
-                               "region: Selection or Region or ElementSet or Surface = None, " +
+                   Arguments = "name: str, integral_type: str, " +
+                               "region: Selection or Region or ElementSet or Surface, " +
+                               "field_name: str = None, component_names: list[str] = None, " +
                                "integral_result: str = 'Geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
-                               "unit: str = '/', cross_section: str = 'None', thickness: float = 1.0",
+                               "unit: str = '/', cross_section: str = 'None', thickness: float = None",
                    Returns = "HistoryOutputFromIntegrationDraft")]
         public ResultHistoryOutputFromIntegrationDraftAPI create_history_output_from_integration(
-            string name, string integral_type, string field_name = null, object component_names = null,
-            object region = null, string integral_result = "Geometry",
+            string name, string integral_type, object region, string field_name = null,
+            object component_names = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
             string cross_section = "None", object thickness = null)
         {
             return _service.CreateFromIntegration(name, integral_type, field_name, component_names, region,
                                                   integral_result, deformation_variable_name, unit,
-                                                  cross_section, ToThickness(thickness));
+                                                  cross_section, thickness);
         }
 
         [PythonAPI("Creates a From Merged Histories draft that merges two to four history components into a " +
@@ -305,11 +309,17 @@ namespace APIs.Python
         [PythonAPI("Creates a From Integration history output and adds it to the current result, in one " +
                    "call. It takes the arguments of create_history_output_from_integration plus the " +
                    "optional filters.",
-                   Arguments = "name: str, integral_type: str, and the arguments of " +
-                               "create_history_output_from_integration", Returns = "HistoryOutput")]
+                   Arguments = "name: str, integral_type: str, " +
+                               "region: Selection or Region or ElementSet or Surface, " +
+                               "field_name: str = None, component_names: list[str] = None, " +
+                               "integral_result: str = 'Geometry', " +
+                               "deformation_variable_name: str = 'Displacements', " +
+                               "unit: str = '/', cross_section: str = 'None', thickness: float = None, " +
+                               "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
+                   Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_integration(
-            string name, string integral_type, string field_name = null, object component_names = null,
-            object region = null, string integral_result = "Geometry",
+            string name, string integral_type, object region, string field_name = null,
+            object component_names = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
             string cross_section = "None", object thickness = null,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
@@ -317,7 +327,7 @@ namespace APIs.Python
             return add(WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
                                                                    component_names, region, integral_result,
                                                                    deformation_variable_name, unit,
-                                                                   cross_section, ToThickness(thickness)),
+                                                                   cross_section, thickness),
                                    filter1, filter2));
         }
 
@@ -325,8 +335,8 @@ namespace APIs.Python
                    Arguments = "old_name: str, and the arguments of add_from_integration",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_integration(
-            string old_name, string name, string integral_type, string field_name = null,
-            object component_names = null, object region = null, string integral_result = "Geometry",
+            string old_name, string name, string integral_type, object region, string field_name = null,
+            object component_names = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
             string cross_section = "None", object thickness = null,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
@@ -335,14 +345,16 @@ namespace APIs.Python
                                                                                 component_names, region,
                                                                                 integral_result,
                                                                                 deformation_variable_name,
-                                                                                unit, cross_section,
-                                                                                ToThickness(thickness)),
+                                                                                unit, cross_section, thickness),
                                                  filter1, filter2));
         }
 
         [PythonAPI("Creates a From Merged Histories history output and adds it to the current result, in " +
                    "one call.",
-                   Arguments = "name: str, source1, source2, source3 = None, source4 = None, " +
+                   Arguments = "name: str, source1: HistoryComponent or list[str], " +
+                               "source2: HistoryComponent or list[str], " +
+                               "source3: HistoryComponent or list[str] = None, " +
+                               "source4: HistoryComponent or list[str] = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_merged_histories(string name, object source1, object source2,
@@ -369,7 +381,7 @@ namespace APIs.Python
 
         [PythonAPI("Creates a From Extracted Entry history output and adds it to the current result, in " +
                    "one call.",
-                   Arguments = "name: str, source, entry_name: str, " +
+                   Arguments = "name: str, source: HistoryComponent or list[str], entry_name: str, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_extracted_entry(string name, object source, string entry_name,
@@ -392,7 +404,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates an XY history output and adds it to the current result, in one call.",
-                   Arguments = "name: str, x_source, y_source, filter1: HistoryOutputFilter = None, " +
+                   Arguments = "name: str, x_source: HistoryComponent or list[str], " +
+                               "y_source: HistoryComponent or list[str], filter1: HistoryOutputFilter = None, " +
                                "filter2: HistoryOutputFilter = None", Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_xy(string name, object x_source, object y_source,
                                              ResultHistoryOutputFilterAPI filter1 = null,
@@ -514,12 +527,6 @@ namespace APIs.Python
             if (incrementId != null) draft.increment_id = PythonValueConverter.ToInt(incrementId, "increment_id");
             if (harmonic != null) draft.harmonic = PythonValueConverter.ToBool(harmonic, "harmonic");
             if (outputNodeCoordinates != null) draft.output_node_coordinates = outputNodeCoordinates;
-        }
-        private static double ToThickness(object thickness)
-        {
-            if (thickness == null) return 1.0;
-            //
-            return PythonValueConverter.ToFiniteDouble(thickness, "thickness");
         }
         private static TDraft WithFilters<TDraft>(TDraft draft, ResultHistoryOutputFilterAPI filter1,
                                                   ResultHistoryOutputFilterAPI filter2)

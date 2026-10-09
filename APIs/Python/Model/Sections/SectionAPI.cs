@@ -40,8 +40,9 @@ namespace APIs.Python.Model
         public string region_name { get { return _service.ResolveSection(_sectionName).RegionName; } }
         [PythonAPI("The region type the section is applied to.", Returns = "str")]
         public string region_type { get { return _service.ResolveSection(_sectionName).RegionType.ToString(); } }
-        [PythonAPI("The section thickness.", Returns = "float")]
-        public double thickness { get { return _service.ResolveSection(_sectionName).Thickness.Value; } }
+        [PythonAPI("The thickness of a shell or membrane section, or of a solid section in a 2D model, or None " +
+                   "for a section whose replace_* method takes no thickness.", Returns = "float or None")]
+        public object thickness { get { return GetThickness(_service.ResolveSection(_sectionName)); } }
         [PythonAPI("The offset of a shell or membrane section, in thicknesses, or None for another section.",
                    Returns = "float or None")]
         public object offset { get { return GetOffset(_service.ResolveSection(_sectionName)); } }
@@ -76,6 +77,17 @@ namespace APIs.Python.Model
             throw new PythonAPIException("The section '" + section.Name + "' is a " + section.GetType().Name +
                                          ", which no add_* method of the Python API makes.");
         }
+        private static object GetThickness(Section section)
+        {
+            if (!HasThickness(section)) return null;
+            return section.Thickness.Value;
+        }
+        private static bool HasThickness(Section section)
+        {
+            if (section is ShellSection || section is MembraneSection) return true;
+            SolidSection solidSection = section as SolidSection;
+            return solidSection != null && solidSection.TwoD;
+        }
         private static object GetOffset(Section section)
         {
             ShellSection shellSection = section as ShellSection;
@@ -99,7 +111,8 @@ namespace APIs.Python.Model
             if (section is ShellSection || section is MembraneSection)
                 names = ModelItemValueReader.Arguments("thickness", "offset");
             else if (section is MassSection) names = ModelItemValueReader.Arguments("mass");
-            else names = ModelItemValueReader.Arguments("thickness");
+            else if (HasThickness(section)) names = ModelItemValueReader.Arguments("thickness");
+            else names = ModelItemValueReader.Arguments();
             //
             return ModelItemValueReader.GetScalarEquations(section, names);
         }

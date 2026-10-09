@@ -21,6 +21,11 @@ namespace PrePoMax.Rpc
     // add method would show up there, and a client can see that it asked for the wrong thing.
     public static class RpcEvalMethod
     {
+        // Variables                                                                                                                
+        // The arguments the method takes; any other is refused before anything is done
+        public static readonly string[] Parameters = { "expression", "timeout" };
+
+
         // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {

@@ -310,18 +310,19 @@ namespace APIs.Python.Model
                 new OrderedDictionary<string, object>("Tree layout", dictionary.Comparer);
             foreach (string key in dictionary.Keys) preview.Add(key, null);
             PlaceLayoutEntries(preview, entries, null);
+            OrderedDictionaryItemLayout<string> newLayout = preview.GetItemLayoutSnapshot();
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.SetTreeLayout(viewName, item_type, step_name,
-                                                      preview.GetItemLayoutSnapshot());
-            // The linked layout is read after the first one is set, which may rename a compound part
-            if (linkedRenames.Count > 0)
+            if (linkedRenames.Count == 0)
             {
-                string linkedView = GetLinkedPartView(viewName);
-                _modelResolver.ModelGateway.SetTreeLayout(linkedView, item_type, null,
-                                                          CreateRenamedLayout(GetLinkedPartLayout(viewName),
-                                                                              linkedRenames));
+                _modelResolver.ModelGateway.SetTreeLayout(viewName, item_type, step_name, newLayout);
+                return;
             }
+            // Both views change in one command, as the tree records a linked rename, so one undo reverts both
+            OrderedDictionaryItemLayout<string> linkedLayout = CreateRenamedLayout(GetLinkedPartLayout(viewName),
+                                                                                   linkedRenames);
+            if (viewName == "geometry") _modelResolver.ModelGateway.SetLinkedPartTreeLayouts(newLayout, linkedLayout);
+            else _modelResolver.ModelGateway.SetLinkedPartTreeLayouts(linkedLayout, newLayout);
         }
         public override string ToString()
         {

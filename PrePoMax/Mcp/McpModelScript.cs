@@ -98,11 +98,11 @@ namespace PrePoMax.Mcp
             "# A geometry part is meshed into the model part of the same name; a model part without a\n" +
             "# geometry part is an imported mesh. Names are compared the way the model keys them\n" +
             "def read_mesh_state(model_names, geometry_names):\n" +
-            "    meshes = {name.strip().lower(): name for name in model_names}\n" +
+            "    meshes = {name.lower(): name for name in model_names}\n" +
             "    parts = []\n" +
             "    for name in geometry_names:\n" +
             "        entry = {'name': name, 'has_geometry': True}\n" +
-            "        entry.update(mesh_state(meshes.pop(name.strip().lower(), None)))\n" +
+            "        entry.update(mesh_state(meshes.pop(name.lower(), None)))\n" +
             "        parts.append(entry)\n" +
             "    for name in meshes.values():\n" +
             "        entry = {'name': name, 'has_geometry': False}\n" +

@@ -387,22 +387,23 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
-                   "unless one is given. Possible tension_type values are Force and Displacement. It needs a " +
-                   "three dimensional model, and refuses phase_deg, because the solver input carries no phase " +
-                   "for it. The selection target is surfaces.",
+                   "unless one is given; auto_direction=True, the default, cannot be combined with a direction, " +
+                   "and auto_direction=False needs one. Possible tension_type values are Force and " +
+                   "Displacement. It needs a three dimensional model, and refuses phase_deg, because the solver " +
+                   "input carries no phase for it. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "direction: list[float] = None, tension_type: str = None, and the shared load " +
-                               "arguments", Returns = "Load")]
+                               "arguments, then auto_direction: bool = None", Returns = "Load")]
         public LoadAPI add_pre_tension(string name, object region, object magnitude, object direction = null,
                                        object tension_type = null, object amplitude_name = null,
                                        object coordinate_system_name = null, object phase_deg = null,
-                                       object color = null)
+                                       object color = null, object auto_direction = null)
         {
             _service.ValidateName(StepName, name, null);
             RefuseNone(magnitude, "magnitude");
             PreTensionLoad load = new PreTensionLoad(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
-            LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, null);
+            LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
@@ -411,7 +412,7 @@ namespace APIs.Python.Model
                    "not given. A tension_type that changes the type needs the magnitude as well, and " +
                    "auto_direction=True returns to the surface normal.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_pre_tension with " +
-                               "magnitude optional, and auto_direction: bool = None", Returns = "Load")]
+                               "magnitude optional", Returns = "Load")]
         public LoadAPI replace_pre_tension(string old_name, string name = null, object region = null,
                                            object magnitude = null, object direction = null,
                                            object tension_type = null, object amplitude_name = null,

@@ -59,10 +59,12 @@ namespace APIs.Python.Model
                    Returns = "list[MaterialProperty]",
                    Example = "pmx.model.materials.replace('Steel', " +
                              "properties=pmx.model.materials['Steel'].get_properties())")]
-        public MaterialPropertyAPI[] get_properties()
+        public object get_properties()
         {
             Material material = _service.ResolveMaterial(_materialName).DeepClone();
-            return material.Properties.Select(property => new MaterialPropertyAPI(property)).ToArray();
+            MaterialPropertyAPI[] properties =
+                material.Properties.Select(property => new MaterialPropertyAPI(property)).ToArray();
+            return PythonListConverter.ToPythonList(properties);
         }
         public override string ToString()
         {

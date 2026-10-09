@@ -55,7 +55,7 @@ namespace APIs.Python.Model
         }
         public void Add(string name, object value, string description)
         {
-            EquationParameter parameter = Build(name, value, null);
+            EquationParameter parameter = Build(name, "name", value, null);
             parameter.Description = description;
             //
             EnsureCommandsAvailable();
@@ -63,23 +63,26 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, object value, string description)
         {
-            bool isRenamed = name != null && !string.Equals(name, oldName, StringComparison.Ordinal);
-            Replace(oldName, name, value, description, isRenamed ? "name" : "value");
+            string storedName = ResolveParameter(oldName).Name;
+            bool isRenamed = name != null && !string.Equals(name, storedName, StringComparison.Ordinal);
+            Replace(storedName, name, value, description, isRenamed ? "name" : "value");
         }
         private void Replace(string oldName, string name, object value, string description, string changedArgumentName)
         {
             EquationParameter existing = ResolveParameter(oldName);
+            oldName = existing.Name;
             string newName = name == null ? oldName : name;
+            string nameArgumentName = changedArgumentName == "new_name" ? "new_name" : "name";
             // A value that is not given is kept, so a rename alone keeps the expression
             EquationParameter parameter;
             if (value == null)
             {
-                ValidateName(newName, oldName);
+                ValidateName(newName, nameArgumentName, oldName);
                 parameter = new EquationParameter();
                 parameter.Name = newName;
                 SetEquation(parameter, new EquationString(existing.EquationStr.Equation), oldName);
             }
-            else parameter = Build(newName, value, oldName);
+            else parameter = Build(newName, nameArgumentName, value, oldName);
             // A description that is not given is kept, and an empty one clears it
             parameter.Description = description == null ? existing.Description : description;
             //
@@ -178,9 +181,9 @@ namespace APIs.Python.Model
             _modelGateway.ExportParameters(fullFileName);
         }
         //
-        private EquationParameter Build(string name, object value, string allowedExistingName)
+        private EquationParameter Build(string name, string nameArgumentName, object value, string allowedExistingName)
         {
-            ValidateName(name, allowedExistingName);
+            ValidateName(name, nameArgumentName, allowedExistingName);
             EquationString equation = PythonValueConverter.ToEquationString(value, "value");
             //
             EquationParameter parameter = new EquationParameter();
@@ -285,9 +288,9 @@ namespace APIs.Python.Model
             //
             return "The parameters cannot be evaluated.";
         }
-        private void ValidateName(string name, string allowedExistingName)
+        private void ValidateName(string name, string argumentName, string allowedExistingName)
         {
-            ValidateNameFormat(name, "name", allowedExistingName);
+            ValidateNameFormat(name, argumentName, allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
@@ -301,7 +304,8 @@ namespace APIs.Python.Model
             PythonNameComparer.ValidateFormat(name, argumentName, allowedExistingName);
             // The parameter name is used inside equations, so it must not carry the minus character
             if (name.Contains("-"))
-                throw new PythonAPIException("The parameter name must not contain the hyphen character.");
+                throw new PythonAPIException("The argument '" + argumentName + "' must not contain the hyphen " +
+                                             "character, because a parameter name is used inside equations.");
         }
         private static string ResolveFileName(string fileName)
         {

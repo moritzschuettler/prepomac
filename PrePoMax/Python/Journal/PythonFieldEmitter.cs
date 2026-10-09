@@ -126,6 +126,7 @@ namespace PrePoMax.Python.Journal
                                             InitialCondition condition)
         {
             const string collection = "pmx.model.initial_conditions";
+            if (condition is InitialVelocity initialVelocity) condition = ToTranslationalVelocity(initialVelocity);
             string region = PythonRegionEmitter.Emit(writer, condition.RegionName, condition.RegionType,
                                                      condition.CreationData);
             List<string> arguments = new List<string>();
@@ -166,6 +167,25 @@ namespace PrePoMax.Python.Journal
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, condition);
             writer.CountEmittedCommand();
+        }
+        // A v2.2.2 history adds the initial velocity that opening a file converts into a translational one
+        // applied to the parts its selection picked, so it is written as that conversion makes it. The
+        // conversion changes the selection it is given, so it is given a copy.
+        private static InitialTranslationalVelocity ToTranslationalVelocity(InitialVelocity initialVelocity)
+        {
+            InitialTranslationalVelocity translational = new InitialTranslationalVelocity(initialVelocity);
+            if (initialVelocity.CreationData == null) return translational;
+            //
+            translational.RegionType = RegionTypeEnum.Selection;
+            translational.CreationData = initialVelocity.CreationData.DeepCopy(true, true);
+            foreach (var node in translational.CreationData.Nodes)
+            {
+                if (node is SelectionNodeMouse selectionNodeMouse) selectionNodeMouse.SelectBy = vtkSelectBy.GeometryPart;
+            }
+            translational.CreationData.SelectItem = vtkSelectItem.Geometry;
+            translational.CreationIds = initialVelocity.CreationIds;
+            //
+            return translational;
         }
         private static bool IsPicked(CoordinateSystem coordinateSystem)
         {

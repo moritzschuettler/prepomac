@@ -120,11 +120,11 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, Constraint constraint)
         {
-            ResolveConstraint(oldName);
-            ValidateName(constraint.Name, oldName);
+            string storedName = ResolveConstraint(oldName).Name;
+            ValidateName(constraint.Name, storedName);
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceConstraint(oldName, constraint);
+            _modelGateway.ReplaceConstraint(storedName, constraint);
         }
         public void Duplicate(string[] names)
         {

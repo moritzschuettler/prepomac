@@ -57,17 +57,25 @@ def test_meshing_parameters(items, selection):
 
 
 def test_netgen_mesh(items, selection, shell_selection):
-    items.add_netgen_mesh(PREFIX + "Netgen", selection, optimize_steps_2d=4, transfinite_four_sided=True)
-    items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_3d=5)
+    items.add_netgen_mesh(PREFIX + "Netgen", selection, number_of_optimize_steps_2d=4, transfinite_four_sided=True)
+    items.replace_netgen_mesh(PREFIX + "Netgen", number_of_optimize_steps_3d=5)
     values = settings(items, PREFIX + "Netgen")
-    check(values["optimize_steps_3d"] == 5, "the Netgen 3-D optimization steps were not replaced")
-    check(values["optimize_steps_2d"] == 4, "the omitted Netgen optimization steps were not kept: " + str(values))
+    check(values["number_of_optimize_steps_3d"] == 5, "the Netgen 3-D optimization steps were not replaced")
+    check(values["number_of_optimize_steps_2d"] == 4,
+          "the omitted Netgen optimization steps were not kept: " + str(values))
     check(values["transfinite_four_sided"] is True and values["transfinite_three_sided"] == "No",
           "the omitted Netgen transfinite settings were not kept: " + str(values))
     check(items[PREFIX + "Netgen"].mesher_type == "Netgen", "the Netgen mesh item does not select Netgen")
     check(len(items[PREFIX + "Netgen"].get_geometry_ids()) > 0, "the Netgen region was lost")
-    check_raises(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_2d=2.5),
+    check_raises(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", number_of_optimize_steps_2d=2.5),
                  "a fractional optimization step count was accepted")
+    # A replace without a name keeps the item under its own spelling, whatever spelling old_name has
+    count = len(items)
+    for spelling in [(PREFIX + "Netgen").lower(), (PREFIX + "Netgen").upper()]:
+        item = items.replace_netgen_mesh(spelling, number_of_optimize_steps_3d=5)
+        check(item.name == PREFIX + "Netgen" and PREFIX + "Netgen" in list(items.get_names()),
+              "a replace of '" + spelling + "' changed the stored spelling: " + str(list(items.get_names())))
+    check(len(items) == count, "a mixed case replace changed the number of mesh setup items")
     # The item meshes shell parts as well as solid ones
     items.add_netgen_mesh(PREFIX + "NetgenShell", shell_selection, quad_dominated=True)
     check(settings(items, PREFIX + "NetgenShell")["quad_dominated"] is True,
@@ -160,8 +168,10 @@ def test_layer_validation(items):
 def test_quad_wild(items, selection):
     items.add_shell_quad_wild(PREFIX + "QuadWild", selection, triangulation_mesher="Netgen",
                               alpha=0.02, flow_profile="NoAlignment", keep_files_on_failure=True)
-    items.replace_shell_quad_wild(PREFIX + "QuadWild", smooth=False, flow_profile="Aligned")
+    items.replace_shell_quad_wild(PREFIX + "QuadWild", smooth=False, flow_profile="Aligned",
+                                  number_of_search_rounds=2)
     values = settings(items, PREFIX + "QuadWild")
+    check(values["number_of_search_rounds"] == 2, "the number of search rounds was not replaced: " + str(values))
     check(values["smooth"] is False, "the smoothing flag was not replaced")
     check(values["flow_profile"] == "Aligned", "the flow profile was not replaced")
     check(values["alpha"] == 0.02, "the omitted alpha was not kept")
@@ -233,7 +243,7 @@ def test_value_ranges(items, solid_selection, shell_selection):
             "a zero element size was accepted")
     refused(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=0), ["number_of_elements"],
             "a zero number of elements was accepted")
-    refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_2d=-1), ["optimize_steps_2d"],
+    refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", number_of_optimize_steps_2d=-1), ["number_of_optimize_steps_2d"],
             "a negative number of optimization steps was accepted")
     refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", transfinite_angle_deg=180),
             ["transfinite_angle_deg"], "a Netgen transfinite angle of 180 degrees was accepted")
@@ -257,7 +267,7 @@ def test_value_ranges(items, solid_selection, shell_selection):
     for mesher in ["QuadWild", "None"]:
         refused(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", triangulation_mesher=mesher),
                 ["triangulation_mesher", "Gmsh"], "the triangulation mesher " + mesher + " was accepted")
-    for arguments in [{"singularity_position": -1}, {"count_search": -1}, {"transfinite_angle_deg": 80}]:
+    for arguments in [{"singularity_position": -1}, {"number_of_search_rounds": -1}, {"transfinite_angle_deg": 80}]:
         argument = list(arguments)[0]
         refused(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", **arguments), [argument],
                 "the QuadWild value " + str(arguments) + " was accepted")

@@ -123,11 +123,11 @@ namespace APIs.Python
         {
             return new StringListAPI(new string[] { source.SetName, source.FieldName, source.ComponentName });
         }
-        internal static StringListAPI[] ToSourceNames(HistoryResultData[] sources)
+        internal static object ToSourceNames(HistoryResultData[] sources)
         {
-            StringListAPI[] sourceNames = new StringListAPI[sources.Length];
+            object[] sourceNames = new object[sources.Length];
             for (int i = 0; i < sources.Length; i++) sourceNames[i] = ToSourceNames(sources[i]);
-            return sourceNames;
+            return PythonListConverter.ToPythonList(sourceNames);
         }
         public override string ToString()
         {
