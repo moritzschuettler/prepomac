@@ -53,6 +53,21 @@ def test_properties():
               "an undefined " + argument + " must be refused naming it: " + str(message))
     check(pmx.model.properties.unit_system == "MM_TON_S_C" and pmx.model.properties.model_space == "ThreeD",
           "a refused value changed the model properties")
+    # The model raises a count below its minimum to the minimum, so the value is refused naming the argument
+    counts = [pmx.model.properties.number_of_cycles, pmx.model.properties.cycles_increment,
+              pmx.model.properties.number_of_smoothing_steps]
+    for argument, value in [("number_of_cycles", 0), ("cycles_increment", 0), ("number_of_smoothing_steps", -2),
+                            ("number_of_cycles", "=1 - 1")]:
+        message = raised_message(lambda: pmx.model.properties.replace(**{argument: value}))
+        check(message is not None and "'" + argument + "'" in message,
+              "a " + argument + " of " + str(value) + " must be refused naming it: " + str(message))
+    check([pmx.model.properties.number_of_cycles, pmx.model.properties.cycles_increment,
+           pmx.model.properties.number_of_smoothing_steps] == counts, "a refused count changed the model properties")
+    pmx.model.properties.replace(number_of_cycles=2, cycles_increment=1, number_of_smoothing_steps=0)
+    check(pmx.model.properties.number_of_cycles == 2 and pmx.model.properties.number_of_smoothing_steps == 0,
+          "the counts at their minimum were not accepted")
+    pmx.model.properties.replace(number_of_cycles=counts[0], cycles_increment=counts[1],
+                                 number_of_smoothing_steps=counts[2])
 
 
 def test_parameters():
@@ -120,7 +135,23 @@ def test_parameter_refusals():
         check(message is not None and "'value'" in message,
               "a replace that makes the parameter use itself must be refused naming the value: " + str(message))
     check(pmx.model.parameters["pytest_r"].value == 1.0, "a refused replace changed the parameter")
-    pmx.model.parameters.remove(["pytest_s", "pytest_r"])
+    # A change that leaves another parameter unable to be evaluated is refused naming it, the way the parameter
+    # editor refuses such a table, rather than recorded and reported by the model in a message box
+    pmx.model.parameters.add("pytest_u", "1 / pytest_r")
+    for call, argument in [(lambda: pmx.model.parameters.remove(["pytest_r"]), "'names'"),
+                           (lambda: pmx.model.parameters.rename("pytest_r", "pytest_t"), "'new_name'"),
+                           (lambda: pmx.model.parameters.replace("pytest_r", name="pytest_t"), "'name'"),
+                           (lambda: pmx.model.parameters.replace("pytest_r", value=0), "'value'")]:
+        message = raised_message(call)
+        check(message is not None and argument in message and "pytest_u" in message,
+              "a change that breaks a dependent parameter must be refused naming both: " + str(message))
+    check(pmx.model.parameters.contains("pytest_r") and pmx.model.parameters["pytest_r"].value == 1.0 and
+          not pmx.model.parameters.contains("pytest_t"), "a refused change altered the parameters")
+    # A parameter named twice is refused
+    message = raised_message(lambda: pmx.model.parameters.remove(["pytest_u", "PYTEST_U"]))
+    check(message is not None and "'names'" in message, "a parameter named twice must be refused: " + str(message))
+    # Removing a parameter together with every one that uses it is allowed
+    pmx.model.parameters.remove(["pytest_u", "pytest_s", "pytest_r"])
     # set_all refuses a padded name rather than trimming it, and names the item that is not a value
     message = raised_message(lambda: pmx.model.parameters.set_all([" pytest_p"], [1.0]))
     check(message is not None and "'names'" in message, "a padded name must be refused: " + str(message))

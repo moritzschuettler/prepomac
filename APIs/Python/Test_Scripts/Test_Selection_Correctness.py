@@ -125,6 +125,12 @@ def test_geometry_source():
     nodes_from_surfaces = pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]})
     check(ids(nodes_from_geometry) == ids(nodes_from_surfaces),
           "the geometry source and the surface source disagree on the nodes")
+    # An edge or a surface counts from 1 on its part, so 0 or a negative ID is refused rather than turned
+    # into the geometry ID of another item
+    for source in ['surfaces', 'edges']:
+        for item_id in [0, -1]:
+            check_raises(lambda: ids(pmx.create.selection_by_ids('femodel', 'geometry', source, {1: [item_id]})),
+                         "the " + source + " ID " + str(item_id) + " was accepted")
 
 
 def test_case_insensitive_names():

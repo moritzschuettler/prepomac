@@ -36,7 +36,9 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces a model parameter using command history. A value that is not given is kept.",
+        [PythonAPI("Replaces a model parameter using command history. A value that is not given is kept. A " +
+                   "rename or a value that would leave another parameter unable to be evaluated is refused, and " +
+                   "so is a remove of a parameter that another one uses; set_all changes them together.",
                    Arguments = "old_name: str, name: str = None, value: float or str = None, " +
                                "description: str = None",
                    Returns = "Parameter")]

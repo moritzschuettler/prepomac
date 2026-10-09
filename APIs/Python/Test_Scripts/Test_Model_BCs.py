@@ -192,8 +192,10 @@ def test_displacement_rotation():
     # Only an expression is an equation: a plain value is left out, and get_value returns it as a number
     check(sorted(equations) == ["u1"], "a plain value must be left out of the equations: " + str(sorted(equations)))
     check(bc.get_value("u2") == 0, "the plain u2 value did not read back: " + str(bc.get_value("u2")))
-    # Only a displacement rotation takes a phase, so only it reads one back
-    check("phase_deg" in list(bc.get_value_names()), "phase_deg must be listed for a displacement rotation")
+    # Only a complex displacement rotation takes a phase, so only it reads one back; a static step is not complex
+    check("phase_deg" not in list(bc.get_value_names()),
+          "phase_deg must not be listed for a displacement rotation of a static step")
+    check("phase_deg" not in bc.get_equations(), "a displacement rotation of a static step reported a phase")
     check("phase_deg" not in list(bcs[PREFIX + "Fix_Set"].get_value_names()),
           "a fixed boundary condition takes no phase")
 
@@ -212,6 +214,13 @@ def test_complex_phase():
         check(bc.get_value("phase_deg") == 45, "the phase expression was not evaluated")
         bc = bcs.replace_displacement_rotation(PREFIX + "DR_Phase", phase_deg=bc.get_equations()["phase_deg"])
         check(bc.get_equations()["phase_deg"].replace(" ", "") == "=20+25", "the read back phase did not go back")
+        check("phase_deg" in list(bc.get_value_names()), "phase_deg must be listed for a complex displacement")
+        # The boundary condition would wrap a phase outside 0 to 360 degrees and store the number in place of
+        # the expression
+        for phase in [360, -45, "=20 * 20"]:
+            check_refused(lambda: bcs.replace_displacement_rotation(PREFIX + "DR_Phase", phase_deg=phase),
+                          "'phase_deg'", "the phase " + str(phase) + " must be refused")
+        check(bc.get_equations()["phase_deg"].replace(" ", "") == "=20+25", "a refused phase changed the phase")
     finally:
         pmx.model.steps.remove([name])
 
@@ -459,18 +468,21 @@ def test_propagate():
     bcs.propagate(name)
     check(following.contains(name), "the boundary condition was not propagated")
     check_raises(lambda: bcs.propagate("NoSuchBC"), "propagating an unknown name must be rejected")
-    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal of
+    # that replays
     last = pmx.model.steps[THERMAL_STEP].bcs
     check(last.contains(PREFIX + "T"), "the last step must carry the temperature boundary condition")
-    check_refused(lambda: last.propagate(PREFIX + "T"), "no following step",
-                  "propagating from the last step must be refused")
-    # The controller would skip a following step that does not take the type, so the propagation is refused
+    names = list(last.get_names())
+    last.propagate(PREFIX + "T")
+    check(list(last.get_names()) == names, "propagating from the last step changed its boundary conditions")
+    # A following step that does not take the type is skipped, as the dialog does
     frequency = PREFIX + "Frequency"
     pmx.model.steps.add_frequency(frequency)
     try:
-        check_refused(lambda: bcs.propagate(PREFIX + "SM"), "does not support",
-                      "propagating into a step that does not take the boundary condition type must be refused")
-        check(not following.contains(PREFIX + "SM"), "the refused propagation was recorded")
+        check(not following.contains(PREFIX + "SM"), "the following step must not carry the submodel yet")
+        bcs.propagate(PREFIX + "SM")
+        check(following.contains(PREFIX + "SM"), "the submodel was not propagated to the static step")
+        check(not pmx.model.steps[frequency].bcs.contains(PREFIX + "SM"), "the frequency step took a submodel")
     finally:
         pmx.model.steps.remove([frequency])
 

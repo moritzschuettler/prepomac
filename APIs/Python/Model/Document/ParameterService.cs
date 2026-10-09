@@ -63,6 +63,11 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, string name, object value, string description)
         {
+            bool isRenamed = name != null && !string.Equals(name, oldName, StringComparison.Ordinal);
+            Replace(oldName, name, value, description, isRenamed ? "name" : "value");
+        }
+        private void Replace(string oldName, string name, object value, string description, string changedArgumentName)
+        {
             EquationParameter existing = ResolveParameter(oldName);
             string newName = name == null ? oldName : name;
             // A value that is not given is kept, so a rename alone keeps the expression
@@ -78,11 +83,17 @@ namespace APIs.Python.Model
             // A description that is not given is kept, and an empty one clears it
             parameter.Description = description == null ? existing.Description : description;
             //
+            List<KeyValuePair<string, string>> resultingEquations = GetEquations(new string[] { oldName });
+            resultingEquations.Add(new KeyValuePair<string, string>(parameter.Name, parameter.EquationStr.Equation));
+            RefuseBrokenParameters(resultingEquations, changedArgumentName, "changes");
+            //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceParameter(oldName, parameter);
         }
         public void Remove(string[] names)
         {
+            RefuseBrokenParameters(GetEquations(names), "names", "removes");
+            //
             EnsureCommandsAvailable();
             _modelGateway.RemoveParameters(names);
         }
@@ -145,7 +156,7 @@ namespace APIs.Python.Model
         public void Rename(EquationParameter parameter, string newName)
         {
             // The parameters have no rename command, so the replacement carries the new name
-            Replace(parameter.Name, newName, parameter.EquationStr.Equation, null);
+            Replace(parameter.Name, newName, parameter.EquationStr.Equation, null, "new_name");
         }
         public void ImportFromFile(string fileName)
         {
@@ -183,15 +194,8 @@ namespace APIs.Python.Model
         // failing inside the model
         private void SetEquation(EquationParameter parameter, EquationString equation, string replacedName)
         {
-            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
-            foreach (string existingName in GetNames())
-            {
-                if (replacedName != null && PythonNameComparer.AreSame(existingName, replacedName)) continue;
-                //
-                EquationParameter existing = GetParameter(existingName);
-                if (existing != null && existing.EquationStr != null)
-                    nameEquations.Add(new KeyValuePair<string, string>(existingName, existing.EquationStr.Equation));
-            }
+            List<KeyValuePair<string, string>> nameEquations =
+                GetEquations(replacedName == null ? new string[0] : new string[] { replacedName });
             nameEquations.Add(new KeyValuePair<string, string>(parameter.Name, equation.Equation));
             //
             OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
@@ -220,6 +224,55 @@ namespace APIs.Python.Model
             {
                 throw new PythonAPIException("The argument 'value' of the parameter '" + parameter.Name +
                                              "' cannot be evaluated: " + ex.Message);
+            }
+        }
+        private List<KeyValuePair<string, string>> GetEquations(string[] excludedNames)
+        {
+            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+            foreach (string existingName in GetNames())
+            {
+                if (PythonNameComparer.Contains(excludedNames, existingName)) continue;
+                //
+                EquationParameter existing = GetParameter(existingName);
+                if (existing != null && existing.EquationStr != null)
+                    nameEquations.Add(new KeyValuePair<string, string>(existingName, existing.EquationStr.Equation));
+            }
+            //
+            return nameEquations;
+        }
+        // The model evaluates the whole table after every change and reports a parameter that no longer evaluates
+        // in a message box, while the parameter editor refuses to apply such a table. So a change that breaks a
+        // parameter which evaluated before is refused, naming the parameters that depend on what it changes
+        private void RefuseBrokenParameters(List<KeyValuePair<string, string>> resultingEquations, string argumentName,
+                                            string change)
+        {
+            Dictionary<string, string> errorsBefore = EvaluateEquations(GetEquations(new string[0]));
+            Dictionary<string, string> errorsAfter = EvaluateEquations(resultingEquations);
+            List<string> brokenNames = new List<string>();
+            foreach (KeyValuePair<string, string> entry in errorsAfter)
+            {
+                if (!errorsBefore.ContainsKey(entry.Key)) brokenNames.Add(entry.Key);
+            }
+            if (brokenNames.Count == 0) return;
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' " + change + " a parameter that the " +
+                                         "parameters '" + string.Join("', '", brokenNames) + "' depend on, so they " +
+                                         "could no longer be evaluated: " + errorsAfter[brokenNames[0]] + " Change " +
+                                         "them first, or give the whole table to set_all.");
+        }
+        private Dictionary<string, string> EvaluateEquations(List<KeyValuePair<string, string>> nameEquations)
+        {
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            try
+            {
+                Dictionary<string, double> resolvedValues;
+                return EquationParameterResolver.Evaluate(nameEquations, _modelResolver.GetModel().GetPropertyParameters(),
+                                                          out resolvedValues);
+            }
+            finally
+            {
+                // A rejected call must leave the parameters of the model registered
+                MyNCalc.ExistingParameters = existingParameters;
             }
         }
         private static string GetFirstError(string[] parameterNames, Dictionary<string, string> errors)

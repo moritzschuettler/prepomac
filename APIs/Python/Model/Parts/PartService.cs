@@ -270,6 +270,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
             foreach (string name in names) ResolvePart(name);
+            PythonNameComparer.RefuseRepeated(names, argumentName);
             //
             return names;
         }

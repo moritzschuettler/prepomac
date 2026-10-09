@@ -31,6 +31,9 @@ namespace PrePoMax.Mcp
         // The whole answer stops detailing parts after this many listed faces, edges and vertices, and
         // no one part may list more than that either
         private const int TopologyRowBudget = 240;
+        // The bound of every timeout argument, which the dispatcher checks as well
+        private static readonly string TimeoutRange = "\"type\": \"integer\", \"minimum\": 0, \"maximum\": " +
+                                                       RpcDispatcher.MaximumWaitSeconds + ", ";
         private static List<McpTool> _tools;
 
 
@@ -75,7 +78,8 @@ namespace PrePoMax.Mcp
             _tools.Add(new McpTool("read_model", "Read the model",
                 "Returns a snapshot of the open model as JSON: the model properties, the parts with their mesh " +
                 "state - whether each one is meshed, with its node and element count - the item names of every " +
-                "collection, the parameters with their equation, value and " +
+                "collection, the mesh setup items, how many user keywords and keyword edits there are, the " +
+                "parameters with their equation, value and " +
                 "description, the steps with what they contain, and the analyses with their status. Nothing is " +
                 "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
@@ -92,9 +96,10 @@ namespace PrePoMax.Mcp
                 "unmatched_part_names.",
                 SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
                               "\"description\": \"The parts to read. All of them when this is left out.\"}, " +
-                              "\"limit\": {\"type\": \"integer\", \"description\": " +
-                              "\"How many faces, edges and vertices to list per part, 1 to 240. Defaults to " +
-                              "40.\"}"), true));
+                              "\"limit\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": " +
+                              TopologyRowBudget + ", \"description\": " +
+                              "\"How many faces, edges and vertices to list per part, 1 to " + TopologyRowBudget +
+                              ". Defaults to " + DefaultTopologyLimit + ".\"}"), true));
             _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
                 "it has a JSON form and as its repr. Use it for reading - a name list, a property, a computed " +
@@ -102,7 +107,7 @@ namespace PrePoMax.Mcp
                 "longer than the wait is answered the way run_python answers a long call.",
                 SessionSchema("\"expression\": {\"type\": \"string\", \"description\": " +
                               "\"One Python expression, for example pmx.model.parts.get_names().\"}, " +
-                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"timeout\": {" + TimeoutRange + "\"description\": " +
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
@@ -122,7 +127,9 @@ namespace PrePoMax.Mcp
                 "is the requestTimeout get_status reports unless timeout says otherwise. It is not stopped and not " +
                 "lost: the answer is {\"running\": true, \"callId\": n}, the call runs to the end and records " +
                 "its commands as usual, and get_call with that callId returns the answer this tool would have " +
-                "returned. Until then every call that changes the model waits for it, and get_status names it.\n\n" +
+                "returned. Until then every other tool waits for it and is refused as busy after the " +
+                "requestTimeout - all but get_status, get_call, cancel_call, get_guide and list_sessions - and " +
+                "get_status names it.\n\n" +
                 "If the answer says the application is busy, the user is editing something. Wait and try again " +
                 "rather than working around it.",
                 SessionSchema("\"source\": {\"type\": \"string\", \"description\": " +
@@ -130,7 +137,7 @@ namespace PrePoMax.Mcp
                               "\"record\": {\"type\": \"string\", \"enum\": [\"commands\", \"script\"], " +
                               "\"description\": \"How the source is recorded in the command history. " +
                               "Defaults to commands.\"}, " +
-                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"timeout\": {" + TimeoutRange + "\"description\": " +
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
@@ -142,9 +149,9 @@ namespace PrePoMax.Mcp
                 "the answer that call would have returned - its output, its error and the commands it recorded - " +
                 "or, if it is still working, running and the callId once more; ask again. An answer is handed " +
                 "over once. get_status lists the calls that are running or waiting to be collected.",
-                SessionSchema("\"call_id\": {\"type\": \"integer\", \"description\": " +
+                SessionSchema("\"call_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": " +
                               "\"The callId the still running call was answered with.\"}, " +
-                              "\"timeout\": {\"type\": \"integer\", \"description\": " +
+                              "\"timeout\": {" + TimeoutRange + "\"description\": " +
                               "\"How many seconds to wait for it, 0 to 600. Defaults to the requestTimeout " +
                               "get_status reports.\"}",
                               "\"call_id\""), true));
@@ -158,9 +165,11 @@ namespace PrePoMax.Mcp
                 "interrupted until it returns, so the answer may say it has not stopped yet. Code that catches the " +
                 "interrupt - a bare except - keeps running: cancel it again, since every cancel delivers a new " +
                 "interrupt. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
-                "isInterruptPending while it waits for such an operation. The commands it recorded before it " +
-                "stopped stay in the command history. Collect its answer with get_call afterwards: it lists them.",
-                SessionSchema("\"call_id\": {\"type\": \"integer\", \"description\": " +
+                "isInterruptPending while it waits - for such an operation to return, or for a call that has not " +
+                "reached its Python yet, which then does not run it. The commands it recorded " +
+                "before it stopped stay in the command history. Collect its answer with get_call afterwards: it " +
+                "lists them.",
+                SessionSchema("\"call_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": " +
                               "\"The callId the still running call was answered with.\"}",
                               "\"call_id\""), false));
             _tools.Add(new McpTool("get_history", "Read the command history",
@@ -171,14 +180,16 @@ namespace PrePoMax.Mcp
                 "to a file in the temporary folder, and the answer gives its path as journal.fileName.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
-                              "\"limit\": {\"type\": \"integer\", \"description\": " +
+                              "\"limit\": {\"type\": \"integer\", \"minimum\": 0, \"description\": " +
                               "\"How many of the most recent commands to list. 0 lists all of them. " +
                               "Defaults to 200.\"}"), true));
             _tools.Add(new McpTool("run_job", "Run an analysis",
                 "Writes the solver input file and starts the analysis, without waiting for it, and returns the " +
-                "status it started with. The solver runs while the user keeps working, and PrePoMax shows its " +
-                "own monitor. Poll get_job for the status, and open the results with run_python when it " +
-                "reports OK.",
+                "status it started with. The solver runs while the user keeps working; no monitor is opened " +
+                "for it. Poll get_job for the status, and open the results with run_python when it reports OK. " +
+                "If the user opens the monitor of the analysis, it is a dialog like any other: every tool but " +
+                "get_status, get_call, cancel_call, get_guide, list_sessions and exit_session is refused as busy " +
+                "until it is closed.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
                               "\"The name of the analysis to run.\"}", "\"name\""), false));
             _tools.Add(new McpTool("get_job", "Read an analysis status",
@@ -204,7 +215,8 @@ namespace PrePoMax.Mcp
                               "\"transparent_background\": {\"type\": \"boolean\", \"description\": " +
                               "\"Leave the viewport background out of the picture, so it can be put on a page " +
                               "of any color. Defaults to false, which pictures the background the user sees.\"}, " +
-                              "\"magnification\": {\"type\": \"integer\", \"description\": " +
+                              "\"magnification\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": 4, " +
+                              "\"description\": " +
                               "\"Render the picture this many times larger than the viewport, 1 to 4. Defaults " +
                               "to 1. It is for a picture that is going to be printed, not for reading a label: " +
                               "the model is drawn at the larger size, but the legend, the scale bar and the " +
@@ -297,8 +309,6 @@ namespace PrePoMax.Mcp
                 List<string> names = JsonReader.ToStringList(JsonReader.GetArray(arguments, "part_names"));
                 string[] partNames = names == null ? null : names.ToArray();
                 int limit = JsonReader.GetInt(arguments, "limit", DefaultTopologyLimit);
-                if (limit <= 0) limit = DefaultTopologyLimit;
-                if (limit > TopologyRowBudget) limit = TopologyRowBudget;
                 return CallAndReadOutput(dispatcher, McpTopologyScript.GetSource(partNames, limit, TopologyRowBudget),
                                          "Automation server - read_topology");
             }
@@ -569,7 +579,7 @@ namespace PrePoMax.Mcp
             StringBuilder schema = new StringBuilder();
             schema.Append("{\"type\": \"object\", \"properties\": {");
             if (properties != null) schema.Append(properties).Append(", ");
-            schema.Append("\"process_id\": {\"type\": \"integer\", \"description\": ");
+            schema.Append("\"process_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": ");
             schema.Append("\"The process id this call expects to reach, from list_sessions. It is checked, not ");
             schema.Append("routed: this URL serves one session, so a call naming another one is refused rather ");
             schema.Append("than served against the wrong model. Leave it out unless you mean to assert.\"}}");

@@ -81,6 +81,7 @@ namespace APIs.Python.Model
                 if (mesh == null || !mesh.Parts.ContainsKey(name))
                     throw new PythonAPIException("The model part '" + name + "' does not exist.");
             }
+            PythonNameComparer.RefuseRepeated(names, "part_names");
             double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
             int layers = MeshSetupItemsAPI.ToNumberOfLayers(numberOfLayers);
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");

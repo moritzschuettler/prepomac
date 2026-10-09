@@ -402,11 +402,11 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument 'region_type' must be NodeSetName or SurfaceName.");
             if (regionName == null || regionName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'region_name' must not be empty.");
-            ValidateRegionExists(region, regionName);
+            string storedRegionName = ResolveRegionName(region, regionName);
             //
             point.CreatedFrom = mode;
             point.RegionType = region;
-            point.RegionName = regionName;
+            point.RegionName = storedRegionName;
         }
         private SelectionCompilation CompileResultSelection(SelectionAPI selection)
         {
@@ -416,17 +416,22 @@ namespace APIs.Python
             //
             return _selectionService.CompileForResult(selection, _resultName, "nodes");
         }
-        private void ValidateRegionExists(RegionTypeEnum region, string regionName)
+        private string ResolveRegionName(RegionTypeEnum region, string regionName)
         {
             FeMesh mesh = ResolveResult().Mesh;
-            bool exists = false;
+            string storedName = null;
             if (mesh != null)
             {
-                if (region == RegionTypeEnum.NodeSetName) exists = mesh.NodeSets.ContainsKey(regionName);
-                else if (region == RegionTypeEnum.SurfaceName) exists = mesh.Surfaces.ContainsKey(regionName);
+                FeNodeSet nodeSet;
+                FeSurface surface;
+                if (region == RegionTypeEnum.NodeSetName && mesh.NodeSets.TryGetValue(regionName, out nodeSet))
+                    storedName = nodeSet.Name;
+                else if (region == RegionTypeEnum.SurfaceName && mesh.Surfaces.TryGetValue(regionName, out surface))
+                    storedName = surface.Name;
             }
-            if (!exists)
+            if (storedName == null)
                 throw new PythonAPIException("The " + region + " '" + regionName + "' does not exist in the result.");
+            return storedName;
         }
     }
 }

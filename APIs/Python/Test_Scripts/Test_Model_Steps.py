@@ -118,6 +118,10 @@ def test_collection_verbs():
     duplicated = [n for n in steps.get_names() if n.startswith(PREFIX) and n != name]
     steps.remove(duplicated)
     check(len(steps) == count_before, "the duplicated step was not removed")
+    # A name given twice, in any case, is refused: the controller would remove the removed step again
+    for verb in [steps.remove, steps.duplicate, steps.deactivate]:
+        check_refused(lambda: verb([name, name.lower()]), "'names'", "a step named twice must be refused")
+    check(len(steps) == count_before and steps[name].active, "a refused call with a repeated name changed the steps")
     # Activate and deactivate
     steps.deactivate([name])
     check(not steps[name].active, "the step was not deactivated")
@@ -187,8 +191,6 @@ def test_refused_values():
                 (lambda: steps.add_static(bad, time_period=1.0, initial_time_increment=2.0),
                  "'initial_time_increment'"),
                 (lambda: steps.add_static(bad, time_period=1.0, min_time_increment=2.0), "'min_time_increment'"),
-                (lambda: steps.add_static(bad, initial_time_increment=0.5, max_time_increment=0.1),
-                 "'max_time_increment'"),
                 (lambda: steps.add_dynamic(bad, alpha=0.1), "'alpha'"),
                 (lambda: steps.add_dynamic(bad, alpha=-0.5), "'alpha'"),
                 (lambda: steps.add_modal_dynamics(bad, relative_error=-0.1), "'relative_error'"),
@@ -224,6 +226,18 @@ def test_refused_values():
                   "'cyclic_symmetry_mode_max'", "a mode maximum below the stored minimum must be refused")
     check(steps[PREFIX + "F2"].get_value("cyclic_symmetry_mode_min") == 2,
           "the refused replace moved the stored minimum mode")
+    # An initial increment above the maximum one is stored as given, as the dialog does, and a replace that
+    # sets the maximum, which would shorten it, keeps it
+    initial = PREFIX + "S_Initial"
+    step = steps.add_static(initial, time_period=1.0, initial_time_increment=0.5, max_time_increment=0.1)
+    check(step.get_value("initial_time_increment") == 0.5 and step.get_value("max_time_increment") == 0.1,
+          "an initial increment above the maximum one was not kept")
+    step = steps.replace_static(initial, max_time_increment=0.2)
+    check(step.get_value("initial_time_increment") == 0.5 and step.get_value("max_time_increment") == 0.2,
+          "setting the maximum increment changed the kept initial one")
+    step = steps.replace_static(initial, time_period=2.0)
+    check(step.get_value("initial_time_increment") == 0.5, "a replace changed the kept initial increment")
+    steps.remove([initial])
     # The step control parameters clamp a value outside their range
     control_refusals = [(lambda: pmx.create.time_incrementation_control(i0=0), "'i0'"),
                         (lambda: pmx.create.time_incrementation_control(dd=-1.0), "'dd'"),
@@ -253,6 +267,29 @@ def test_frequency_types():
           "a range moved below the stored one was not accepted")
     check_raises(lambda: steps.replace_frequency(PREFIX + "F2", lower_frequency=80.0),
                  "a lower frequency above the stored upper one must be rejected")
+    # A limit that is not set reads back as None
+    unset = PREFIX + "F3"
+    step = steps.add_frequency(unset)
+    check(step.get_value("lower_frequency") is None and step.get_value("upper_frequency") is None,
+          "unset frequency limits must read back as None: " + str(step.get_value("lower_frequency")))
+    # An upper limit of 0 is no upper limit, so the dialog lets it sit below a lower limit, and so does the API
+    step = steps.replace_frequency(unset, lower_frequency=5.0, upper_frequency=0)
+    check(step.get_value("lower_frequency") == 5.0 and step.get_value("upper_frequency") == 0,
+          "a lower limit with no upper limit was not accepted")
+    step = steps.add_frequency(PREFIX + "F4", lower_frequency=5.0, upper_frequency=0)
+    check(step.get_value("upper_frequency") == 0, "an add with no upper limit was not accepted")
+    steps.remove([PREFIX + "F4"])
+    # float('nan') clears a limit, which a value left out, None, cannot do on a replace
+    step = steps.replace_frequency(unset, lower_frequency=float("nan"))
+    check(step.get_value("lower_frequency") is None and step.get_value("upper_frequency") == 0,
+          "the lower limit was not cleared: " + str(step.get_value("lower_frequency")))
+    step = steps.replace_frequency(unset, upper_frequency=float("nan"))
+    check(step.get_value("upper_frequency") is None, "the upper limit was not cleared")
+    step = steps.replace_frequency(unset, number_of_frequencies=12)
+    check(step.get_value("lower_frequency") is None, "a replace that left the limits out set one")
+    check_refused(lambda: steps.replace_frequency(unset, upper_frequency=float("inf")), "'upper_frequency'",
+                  "an infinite upper limit must be refused")
+    steps.remove([unset])
     #
     step = steps.add_complex_frequency(PREFIX + "CF1", number_of_frequencies=5)
     check(step.get_value("number_of_frequencies") == 5, "the complex frequency count was not set")
@@ -377,6 +414,11 @@ def test_controls():
     check(list(step.get_control_types()) == ["reset_control"], "the reset control was not set")
     step.set_controls([pmx.create.field_control(rna=0.005)])
     check(list(step.get_control_types()) == ["field_control"], "the field control was not set")
+    # None is a value left out: the solver default stays, unset where the solver has none
+    step.set_controls([pmx.create.time_incrementation_control(i0=8, is_value=None, ds=None, wg=None),
+                       pmx.create.field_control(q0a=None, qua=None)])
+    check(list(step.get_control_types()) == ["time_incrementation_control", "field_control"],
+          "step controls with values left out were not set")
     step.clear_controls()
     check(len(step.get_control_types()) == 0, "the step controls were not cleared")
     check_raises(lambda: step.set_controls(["not a control parameter"]),

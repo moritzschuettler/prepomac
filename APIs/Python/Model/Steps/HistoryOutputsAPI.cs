@@ -172,7 +172,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, historyOutput, totals_type, global_output);
         }
 
-        [PythonAPI("Copies the history output to every following step using command history.",
+        [PythonAPI("Copies the history output to every following step using command history. From the " +
+                   "last step nothing changes, as in the dialog.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {

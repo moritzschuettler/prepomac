@@ -40,7 +40,11 @@ namespace APIs.Python.Model
                 if (!load.Complex)
                     throw new PythonAPIException("The argument 'phase_deg' applies only to a load of a " +
                                                  "steady_state_dynamics step, which is complex. Leave it out here.");
-                load.PhaseDeg.Equation = PythonValueConverter.ToEquationString(phaseDeg, "phase_deg");
+                if (!LoadAPI.TakesPhase(load))
+                    throw new PythonAPIException("The argument 'phase_deg' does not apply to a " +
+                                                 LoadAPI.GetItemType(load) + " load, which the solver input " +
+                                                 "carries without a phase. Leave it out here.");
+                load.PhaseDeg.Equation = ToPhaseDeg(load.PhaseDeg, phaseDeg);
             }
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }
@@ -73,9 +77,7 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            Load load = ResolveItem(stepName, name);
-            EnsureFollowingStepExists(stepName, name);
-            EnsureFollowingStepsSupport(stepName, load, step => step.IsLoadSupported(load));
+            ResolveItem(stepName, name);
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateLoad(stepName, name);

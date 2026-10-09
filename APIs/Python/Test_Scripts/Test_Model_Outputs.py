@@ -128,11 +128,13 @@ def test_field_outputs():
     check(not following.contains(PREFIX + "NF"), "the following step must not carry it yet")
     outputs.propagate(PREFIX + "NF")
     check(following.contains(PREFIX + "NF"), "the field output was not propagated")
-    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal
+    # of that replays
     last = pmx.model.steps[THERMAL_STEP].field_outputs
     check(len(last) > 0, "the last step must carry its default field outputs")
-    check_refused(lambda: last.propagate(last.get_names()[0]), "no following step",
-                  "propagating a field output from the last step must be refused")
+    names = list(last.get_names())
+    last.propagate(names[0])
+    check(list(last.get_names()) == names, "propagating from the last step changed its field outputs")
 
 
 def test_history_outputs():
@@ -175,8 +177,9 @@ def test_history_outputs():
     check(following.contains(PREFIX + "HN"), "the history output was not propagated")
     last = pmx.model.steps[THERMAL_STEP].history_outputs
     check(last.contains(PREFIX + "HN"), "the history output was not propagated to the last step")
-    check_refused(lambda: last.propagate(PREFIX + "HN"), "no following step",
-                  "propagating a history output from the last step must be refused")
+    # From the last step nothing is copied, as in the dialog, and a journal of it replays
+    last.propagate(PREFIX + "HN")
+    check(last.contains(PREFIX + "HN"), "propagating from the last step changed its history outputs")
     outputs.remove([PREFIX + "HE"])
     check(not outputs.contains(PREFIX + "HE"), "the history output was not removed")
 
@@ -264,11 +267,14 @@ def test_defined_fields():
         try:
             field = fields.replace_temperature(PREFIX + "DF", amplitude_name=amplitude.upper())
             check(field.amplitude_name == amplitude, "the amplitude did not read back as the model spells it")
-            check_refused(lambda: fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name),
-                          "amplitude_name", "reading a field that carries an amplitude from a file must be refused")
-            check(fields[PREFIX + "DF"].get_value("type") == "ByValue", "the refused replacement changed the type")
-            field = fields.replace_temperature(PREFIX + "DF", amplitude_name="default")
-            check(field.amplitude_name == "Default", "the amplitude was not cleared")
+            # The conversion the dialog makes keeps the amplitude, which a file does not use, so a journal of it
+            # replaces a field that carries one; the from file form has none, so the amplitude becomes Default
+            field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name)
+            check(field.get_value("type") == "FromFile", "the field carrying an amplitude was not read from a file")
+            check(field.amplitude_name == "Default", "the amplitude a file does not use was kept: " +
+                  field.amplitude_name)
+            field = fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2]), temperature=300)
+            check(field.get_value("type") == "ByValue", "the defined field was not switched back to a value")
         finally:
             pmx.model.amplitudes.remove([amplitude])
     finally:
@@ -278,12 +284,13 @@ def test_defined_fields():
     check(not fields[PREFIX + "DF"].visible, "the defined field was not hidden")
     fields.show([PREFIX + "DF"])
     check(fields[PREFIX + "DF"].visible, "the defined field was not shown")
-    # The thermal step carries no defined temperature, and the controller would skip it silently, so a
-    # propagation that reaches it is refused naming it
+    # The thermal step carries no defined temperature, so the propagation skips it, as the dialog does
     following = pmx.model.steps[NEXT_STEP].defined_fields
-    check_refused(lambda: fields.propagate(PREFIX + "DF"), THERMAL_STEP,
-                  "propagating a defined field into a step that does not take it must be refused")
-    check(not following.contains(PREFIX + "DF"), "the refused propagation was recorded")
+    check(not following.contains(PREFIX + "DF"), "the following step must not carry the defined field yet")
+    fields.propagate(PREFIX + "DF")
+    check(following.contains(PREFIX + "DF"), "the defined field was not propagated to the static step")
+    check(not pmx.model.steps[THERMAL_STEP].defined_fields.contains(PREFIX + "DF"),
+          "the thermal step took a defined temperature")
     # Two static steps after the thermal one take the field
     pmx.model.steps.add_static(PREFIX + "Static_Last", time_period=1.0)
     pmx.model.steps.add_static(PREFIX + "Static_After", time_period=1.0)
@@ -293,8 +300,9 @@ def test_defined_fields():
     check(pmx.model.steps[PREFIX + "Static_After"].defined_fields.contains(PREFIX + "DF_Last"),
           "the defined field was not propagated")
     pmx.model.steps.remove([PREFIX + "Static_After"])
-    check_refused(lambda: last.propagate(PREFIX + "DF_Last"), "no following step",
-                  "propagating a defined field from the last step must be refused")
+    # From the last step nothing is copied, as in the dialog, and a journal of it replays
+    last.propagate(PREFIX + "DF_Last")
+    check(list(last.get_names()) == [PREFIX + "DF_Last"], "propagating from the last step changed its fields")
 
 
 def main():

@@ -6,14 +6,20 @@
 #change the model whatever Python is sent. It also replays the journal of replaces that set values back
 #to their defaults, which a journal must write out because a replace keeps what it is not given, and
 #round trips a varied model: the journal of the session that built it is replayed in a second, fresh
-#session, and the CalculiX decks the two sessions export must be the same.
+#session, and the CalculiX decks the two sessions export must be the same. A third journal carries the
+#states the dialogs can store and the API once refused: step controls left at their unset defaults, an
+#initial increment above the maximum one, frequency limits that are unset or have no upper limit, a
+#propagation into or from steps that do not take the item, a defined temperature with an amplitude read
+#from a file, complex phases, and a radiation load whose cavity radiation was turned off.
 #
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
 #an id, while the call runs to the end and records its command; wait must hand its answer over once,
 #and status must name it while another change waits for its turn and is refused. A call that never ends
 #must be stopped by cancel, keep what it recorded before it was stopped and leave the session free for
-#the next call, and a flood of printed output must come back cut to its beginning and its end.
+#the next call, and a flood of printed output must come back cut to its beginning and its end. A call
+#cancelled while it still waits for the window, before its Python has started, must be told that the
+#interrupt is pending, and must then end without running its Python or recording anything.
 #
 #Read only mode is also checked against a status call that arrives while a long exec runs: status
 #must not lift the block the exec holds, so the change the exec tries after it is still refused.
@@ -418,6 +424,164 @@ def check_journal_of_replaces(client):
     print("journal: a replace back to the defaults replays to " + str(replayed))
 
 
+def read_job_values(client):
+    expressions = []
+    for name in ("journal_job_b", "journal_job_c"):
+        job = "pmx.jobs['" + name + "']"
+        expressions += [job + ".fem_solver", job + ".argument", job + ".compatibility_mode",
+                        job + ".number_of_cpus", "len(" + job + ".environment_variables)"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the analyses must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_jobs(client):
+    """The journal of an analysis carries the solver, an edited argument and every override a replace takes back."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "pmx.jobs.add('journal_job_a', fem_solver='Abaqus', compatibility_mode=True, number_of_cpus=3, "
+        "environment_variables=[pmx.create.environment_variable('PMX_JOURNAL', 'one')])",
+        "pmx.jobs.replace('journal_job_a', 'journal_job_b', compatibility_mode=False, environment_variables=[], "
+        "inherit_number_of_cpus=True)",
+        "pmx.jobs.add('journal_job_c', argument='-i custom')",
+        "pmx.jobs.replace('journal_job_c', fem_solver='FEMaster')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the analyses must be built: " + result["error"])
+    recorded = read_job_values(client)
+    # A renamed analysis whose argument was the solver default follows the new name, an edited one is kept
+    check(recorded[0] == "Abaqus" and recorded[1] == "job=journal_job_b",
+          "the renamed Abaqus analysis must run job=journal_job_b: " + str(recorded))
+    check(recorded[2] is False and recorded[4] == 0,
+          "the replace must switch compatibility mode off and empty the environment: " + str(recorded))
+    check(recorded[5] == "FEMaster" and recorded[6] == "-i custom",
+          "the edited argument must survive the new solver: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    journal_source = journal["source"]
+    for expected in ["fem_solver='Abaqus'", "compatibility_mode=False", "environment_variables=[]",
+                     "inherit_number_of_cpus=True", "argument='-i custom'"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal must replay: " + result["error"])
+    replayed = read_job_values(client)
+    check(replayed == recorded, "the replayed analyses differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: the analyses replay to " + str(replayed))
+
+
+def read_model_states(client):
+    steps = "pmx.model.steps"
+    expressions = [steps + "['state_static'].get_value('initial_time_increment')",
+                   steps + "['state_static'].get_value('max_time_increment')",
+                   "list(" + steps + "['state_static'].get_control_types())",
+                   steps + "['state_frequency'].get_value('lower_frequency')",
+                   steps + "['state_frequency'].get_value('upper_frequency')",
+                   steps + "['state_frequency_cleared'].get_value('lower_frequency')",
+                   steps + "['state_frequency_cleared'].get_value('upper_frequency')",
+                   steps + "['state_steady'].loads.contains('state_force')",
+                   steps + "['state_frequency'].bcs.contains('state_fix')",
+                   steps + "['state_static'].defined_fields['state_temperature'].get_value('type')",
+                   steps + "['state_static'].defined_fields['state_temperature'].amplitude_name",
+                   steps + "['state_steady'].loads['state_phase'].get_equations()['phase_deg'].replace(' ', '')",
+                   steps + "['state_steady'].bcs['state_rotation'].get_value('phase_deg')",
+                   "'phase_deg' in list(" + steps + "['state_steady'].loads['state_tension'].get_value_names())",
+                   steps + "['state_steady'].loads['state_tension'].get_value('magnitude')",
+                   steps + "['state_heat'].loads['state_radiation'].get_value('cavity_radiation')"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the model states must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_model_states(client):
+    """States the dialogs store, built through the API, must come back from their journal."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    # A temperature read from a file only needs the file to exist until the analysis is written
+    temperature_file = os.path.join(tempfile.mkdtemp(prefix="rpc_states_"), "temperature.frd")
+    open(temperature_file, "w").close()
+    source = os.linesep.join([
+        "node = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])",
+        "face = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [1]})",
+        "pmx.model.amplitudes.add('state_ramp', [[0, 0], [1, 1]])",
+        # An initial increment above the maximum one, and controls whose unset values the journal leaves out
+        "static = pmx.model.steps.add_static('state_static', time_period=1.0, initial_time_increment=0.5, "
+        "max_time_increment=0.1)",
+        "static.set_controls([pmx.create.time_incrementation_control(i0=8), pmx.create.field_control(rna=0.01), "
+        "pmx.create.contact_control(delcon=0.002)])",
+        "static.loads.add_concentrated_force('state_force', node, f1=1)",
+        "static.bcs.add_fixed('state_fix', node)",
+        # The conversion to a file keeps nothing the file form does not use
+        "static.defined_fields.add_temperature('state_temperature', node, 20, amplitude_name='state_ramp')",
+        "static.defined_fields.replace_temperature_from_file('state_temperature', file_name=r'" +
+        temperature_file + "')",
+        # A lower limit with no upper limit, and limits cleared again
+        "pmx.model.steps.add_frequency('state_frequency', lower_frequency=5.0, upper_frequency=0)",
+        "pmx.model.steps.add_frequency('state_frequency_cleared', lower_frequency=5.0, upper_frequency=50.0)",
+        "pmx.model.steps.replace_frequency('state_frequency_cleared', lower_frequency=float('nan'))",
+        "steady = pmx.model.steps.add_steady_state_dynamics('state_steady')",
+        "steady.loads.add_concentrated_force('state_phase', node, f1=1, phase_deg='=15 * 2')",
+        "steady.bcs.add_displacement_rotation('state_rotation', node, u1=0.1, phase_deg=45)",
+        "steady.loads.add_pre_tension('state_tension', face, 500)",
+        "steady.loads.replace_pre_tension('state_tension', magnitude=600)",
+        "heat = pmx.model.steps.add_heat_transfer('state_heat')",
+        "heat.loads.add_radiation_heat_transfer('state_radiation', face, 20, 0.5, cavity_radiation=True, "
+        "cavity_name='C1')",
+        "heat.loads.replace_radiation_heat_transfer('state_radiation', cavity_radiation=False)",
+        # The frequency steps take no load and no defined temperature, the heat transfer step neither, and from
+        # the last step nothing follows: the dialog propagates anyway and skips what does not take the item
+        "static.loads.propagate('state_force')",
+        "static.bcs.propagate('state_fix')",
+        "static.defined_fields.propagate('state_temperature')",
+        "heat.loads.propagate('state_radiation')",
+        "heat.field_outputs.propagate(list(heat.field_outputs.get_names())[0])"])
+    try:
+        result = client.result("exec", {"source": source})
+        check(not result["failed"], "the model states must be accepted: " + result["error"])
+        recorded = read_model_states(client)
+        check(recorded[0] == 0.5 and recorded[1] == 0.1, "the increments were not kept: " + str(recorded))
+        check(recorded[3] == 5.0 and recorded[4] == 0, "the frequency limits were not kept: " + str(recorded))
+        check(recorded[5] is None and recorded[6] == 50.0, "the lower limit was not cleared: " + str(recorded))
+        check(recorded[7] is True and recorded[8] is True, "the propagation did not reach the steps that take " +
+              "the items: " + str(recorded))
+        check(recorded[9] == "FromFile" and recorded[10] == "Default",
+              "the defined temperature was not read from a file without an amplitude: " + str(recorded))
+        check(recorded[11] == "=15*2" and recorded[12] == 45, "the phases were not kept: " + str(recorded))
+        check(recorded[13] is False and recorded[14] == 600, "the pre-tension took a phase: " + str(recorded))
+        check(recorded[15] is False, "the cavity radiation was not turned off: " + str(recorded))
+        result = client.result("history", {"include_journal": True})
+        journal = result["journal"]
+        check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+        check(journal["isInline"], "a short journal must come back inline")
+        journal_source = journal["source"]
+        # The unset control values and the unset limit are written so that the API takes them back
+        for unexpected in ["is_value", "ij", "it", "ds", "dh", "wg", "q0a", "qua"]:
+            check(not re.search(r"[(\s]" + unexpected + "=", journal_source),
+                  unexpected + " must be left out of the journal:" + os.linesep + journal_source)
+        for expected in ["lower_frequency=float('nan')", "upper_frequency=0.0", "cavity_radiation=False",
+                         "replace_temperature_from_file", "propagate("]:
+            check(expected in journal_source, expected + " is missing from the journal:" + os.linesep +
+                  journal_source)
+        # The journal replayed on a new model rebuilds the same states
+        result = client.result("exec", {"source": model})
+        check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+        result = client.result("exec", {"source": journal_source})
+        check(not result["failed"], "the journal of the model states must replay: " + result["error"] +
+              os.linesep + journal_source)
+        replayed = read_model_states(client)
+        check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
+    finally:
+        os.remove(temperature_file)
+        os.rmdir(os.path.dirname(temperature_file))
+    print("journal: the states the dialogs store replay to " + str(replayed))
+
+
 def export_deck(client, file_name):
     """The model as CalculiX reads it, without the lines that differ between two runs of the same model."""
     result = client.result("exec", {"source": "pmx.export_to_calculix(r'" + file_name + "')"})
@@ -673,6 +837,42 @@ def check_cancel(client):
           "before the loop kept, a finished call not reported as interrupted")
 
 
+def check_cancel_before_python(client):
+    """A call cancelled before its Python starts is told the interrupt is pending, and never runs it."""
+    status = client.result("status")
+    check(status["requestTimeout"] >= 20, "the session needs a request timeout the hold fits in: " +
+          str(status["requestTimeout"]))
+    before = status["model"]["commandCount"]
+    # The window is held from a thread of the session's own once the call that starts it has finished, so
+    # the next call gets the turn but waits for the window before it reaches its Python
+    hold = os.linesep.join(["import threading, time",
+                            "from System import Action",
+                            "from System.Windows.Forms import Application",
+                            "hold_form = [form for form in Application.OpenForms if form.GetType().Name == 'FrmMain'][0]",
+                            "def hold_window():",
+                            "    time.sleep(2)",
+                            "    hold_form.BeginInvoke(Action(lambda: time.sleep(10)))",
+                            "threading.Thread(target=hold_window).start()"])
+    result = client.result("exec", {"source": hold})
+    check(not result["failed"], "the window hold must be set up: " + result["error"])
+    time.sleep(3.5)
+    answer = client.result("exec", {"source": "pmx.model.parameters.add('cancel_early', 1.0)", "timeout": 0})
+    call_id = check_running_answer(answer, "exec", "a call waiting for the window must be answered as running")
+    result = client.result("cancel", {"call_id": call_id})
+    check(result["cancelRequested"] and not result["isInterrupted"] and result["isInterruptPending"],
+          "a call that has not reached its Python must report the interrupt as pending: " + str(result))
+    check(not result["isFinished"], "the call must still be waiting for the window: " + str(result))
+    check("pending" in result["message"] and "does not run" in result["message"],
+          "the message must say the interrupt waits for its Python: " + result["message"])
+    answer = client.result("wait", {"call_id": call_id, "timeout": 60})
+    check("running" not in answer and answer["failed"] and "KeyboardInterrupt" in answer["error"] and
+          answer.get("cancelled") is True, "the call must stop before its Python runs: " + str(answer))
+    check(answer["recordedCommands"] == [], "nothing may be recorded: " + str(answer["recordedCommands"]))
+    status = client.result("status")
+    check(status["model"]["commandCount"] == before, "the cancelled call must record nothing")
+    print("cancel: a call still waiting for the window reported the interrupt pending and never ran its Python")
+
+
 def check_output_cap(client):
     """A flood of printed output is cut to its beginning and its end, with the cut said in between."""
     source = os.linesep.join(["for i in range(300000):", "    print('flood line', i)"])
@@ -700,12 +900,15 @@ def main():
     finally:
         session.close()
     #
-    session = ChildSession("On")
+    session = ChildSession("On", arguments=["--rpcTimeout", "30"])
     try:
         client = session.connect()
+        check_cancel_before_python(client)
         check_recording(client)
         check_history(client)
         check_journal_of_replaces(client)
+        check_journal_of_jobs(client)
+        check_journal_of_model_states(client)
         check_journal_round_trip(client)
         check_exit_guards(client)
         read_only_model = os.path.join(session.directory, "read_only.pmx")

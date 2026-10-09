@@ -117,11 +117,36 @@ namespace APIs.Python
         public HistoryResultSet ResolveHistoryOutput(string resultName, string historyOutputName)
         {
             HistoryResults history = ResolveHistory(resultName);
-            HistoryResultSet historyOutput;
-            if (!history.Sets.TryGetValue(historyOutputName, out historyOutput))
+            return history.Sets[ResolveHistoryOutputName(resultName, historyOutputName)];
+        }
+        public string ResolveHistoryOutputName(string resultName, string historyOutputName)
+        {
+            ResolveHistory(resultName);
+            string storedName = GetStoredHistoryOutputName(_resolver.ResolveResult(resultName), historyOutputName);
+            if (storedName == null)
                 throw new PythonAPIException("The history output '" + historyOutputName +
                                              "' does not exist in result '" + resultName + "'.");
-            return historyOutput;
+            return storedName;
+        }
+        public bool ContainsHistoryOutput(string resultName, string historyOutputName)
+        {
+            ResolveHistory(resultName);
+            return GetStoredHistoryOutputName(_resolver.ResolveResult(resultName), historyOutputName) != null;
+        }
+        // A user-defined history output is found regardless of case, as the result keys its definitions. A history
+        // output read from the solver files is keyed with case, so its exact name wins and otherwise the one set that
+        // differs from it only in case is taken; two such sets leave the name unresolved.
+        public static string GetStoredHistoryOutputName(FeResults result, string historyOutputName)
+        {
+            HistoryResults history = result.GetHistory();
+            if (historyOutputName == null || history == null) return null;
+            //
+            ResultHistoryOutput definition = result.GetResultHistoryOutputOrNull(historyOutputName.Trim());
+            if (definition != null && history.Sets.ContainsKey(definition.Name)) return definition.Name;
+            if (history.Sets.ContainsKey(historyOutputName)) return historyOutputName;
+            string[] matchingNames = history.Sets.Keys.Where(name => PythonNameComparer.AreSame(name, historyOutputName))
+                                                      .ToArray();
+            return matchingNames.Length == 1 ? matchingNames[0] : null;
         }
         public HistoryResultField ResolveField(string resultName, string historyOutputName, string fieldName)
         {

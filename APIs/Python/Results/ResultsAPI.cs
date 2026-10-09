@@ -122,6 +122,7 @@ namespace APIs.Python
                 throw new PythonAPIException("The current result is set to the name of a loaded result or to a Result.");
             if (!_resolver.ContainsResult(resultName))
                 throw new PythonAPIException("The result '" + resultName + "' is not loaded.");
+            resultName = _resolver.GetStoredResultName(resultName);
             if (_commandGateway == null)
                 throw new PythonAPIException("Result selection is not available in this Python API context.");
             _commandGateway.SetCurrentResults(resultName);

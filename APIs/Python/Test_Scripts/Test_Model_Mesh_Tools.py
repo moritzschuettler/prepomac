@@ -152,6 +152,13 @@ def test_element_set_from_quality():
     message = raised_message(lambda: pmx.model.element_sets.add_from_quality(
         PREFIX + "Q", "minSICN", part_name, True, float("nan")))
     check(message is not None and "limit" in message, "a limit that is not finite must be refused: " + str(message))
+    # A part is written to the solver input as an element set of its name, so a part name is refused as well;
+    # the dialog numbers its set past every mesh entity name for the same reason
+    message = raised_message(lambda: pmx.model.element_sets.add_from_quality(part_name, "minSICN", part_name, True, 0.0))
+    check(message is not None and "already used" in message, "a part name must be refused: " + str(message))
+    message = raised_message(lambda: pmx.model.element_sets.add_from_quality(
+        PREFIX + "Q", "minSICN", [part_name, part_name.upper()], True, 0.0))
+    check(message is not None and "'part_names'" in message, "a part named twice must be refused: " + str(message))
     pmx.model.element_sets.remove([PREFIX + "Used"])
     check(list(pmx.model.element_sets.get_names()) == before, "a refused call changed the element sets")
 

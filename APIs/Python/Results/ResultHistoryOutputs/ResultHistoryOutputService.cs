@@ -166,28 +166,29 @@ namespace APIs.Python
             ValidateRequiredString(oldName, "old_name");
             if (output == null) throw new PythonAPIException("The argument 'output' must not be None.");
             FeResults result = ResolveCurrentResult(resultName);
-            if (!result.ContainsResultHistoryOutput(oldName))
+            ResultHistoryOutput oldHistoryOutput = result.GetResultHistoryOutputOrNull(oldName.Trim());
+            if (oldHistoryOutput == null)
                 throw new PythonAPIException("The result history output definition '" + oldName +
                                              "' does not exist in the current result.");
+            string storedOldName = oldHistoryOutput.Name;
             ResultHistoryOutput historyOutput = output.CreateBase(_selectionService, resultName);
-            ResultHistoryOutput oldHistoryOutput = result.GetResultHistoryOutput(oldName);
             if (!IsSameItemType(oldHistoryOutput, historyOutput))
                 throw new PythonAPIException("The result history output '" + oldHistoryOutput.Name + "' is made " +
                                              "by add_" + ResultHistoryOutputAPI.GetItemType(oldHistoryOutput) +
                                              ", so replace_" + ResultHistoryOutputAPI.GetItemType(historyOutput) +
                                              " cannot replace it. Remove it and add the new type instead.");
-            Validate(result, historyOutput, oldName);
+            Validate(result, historyOutput, storedOldName);
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultHistoryOutput(oldName, historyOutput);
+            _commandGateway.ReplaceResultHistoryOutput(storedOldName, historyOutput);
             return historyOutput.Name;
         }
         public void RenameHistoryOutput(string resultName, string oldName, string newName)
         {
             ValidateRequiredString(oldName, "old_name");
             FeResults result = ResolveCurrentResult(resultName);
-            ResolveHistorySet(result, oldName);
+            string storedOldName = ResolveHistoryOutputName(result, oldName);
             // Only a user-defined history output carries a definition the rename can be applied to
-            ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(oldName);
+            ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(storedOldName);
             if (historyOutput == null)
                 throw new PythonAPIException("The history output '" + oldName +
                                              "' is not a user-defined history output and cannot be renamed.");
@@ -204,16 +205,20 @@ namespace APIs.Python
         {
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(historyOutputNames, "names");
             ValidateStringList(names, "names");
+            PythonNameComparer.RefuseRepeated(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
-            foreach (string name in names)
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
                 // Only user-defined history outputs carry a definition that can be duplicated
-                if (result.GetResultHistoryOutputOrNull(name) == null)
-                    throw new PythonAPIException("The history output '" + name +
+                ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(names[i].Trim());
+                if (historyOutput == null)
+                    throw new PythonAPIException("The history output '" + names[i] +
                                                  "' is not a user-defined history output and cannot be duplicated.");
+                storedNames[i] = historyOutput.Name;
             }
             EnsureCommandsAvailable();
-            _commandGateway.DuplicateResultHistoryOutputs(names);
+            _commandGateway.DuplicateResultHistoryOutputs(storedNames);
         }
         public void ExportHistoryOutputsToCsv(string resultName, string fileName, object historyOutputNames,
                                               string delimiter)
@@ -235,9 +240,9 @@ namespace APIs.Python
             if (!Directory.Exists(directoryName))
                 throw new PythonAPIException("The export directory '" + directoryName + "' does not exist.");
             FeResults result = ResolveCurrentResult(resultName);
-            foreach (string name in names) ResolveHistorySet(result, name);
+            string[] storedNames = names.Select(name => ResolveHistoryOutputName(result, name)).ToArray();
             EnsureCommandsAvailable();
-            _commandGateway.ExportResultHistoryOutput(fullFileName, names, delimiter);
+            _commandGateway.ExportResultHistoryOutput(fullFileName, storedNames, delimiter);
         }
         public void RemoveHistoryFields(string resultName, string historyOutputName, object fieldNames)
         {
@@ -245,7 +250,8 @@ namespace APIs.Python
             string[] names = PythonStringListConverter.ToStringArray(fieldNames, "field_names");
             ValidateStringList(names, "field_names");
             FeResults result = ResolveCurrentResult(resultName);
-            HistoryResultSet set = ResolveHistorySet(result, historyOutputName);
+            string storedName = ResolveHistoryOutputName(result, historyOutputName);
+            HistoryResultSet set = result.GetHistory().Sets[storedName];
             foreach (string name in names)
             {
                 if (!set.Fields.ContainsKey(name))
@@ -253,7 +259,7 @@ namespace APIs.Python
                                                  historyOutputName + "'.");
             }
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultHistoryFields(historyOutputName, names);
+            _commandGateway.RemoveResultHistoryFields(storedName, names);
         }
         public void RemoveHistoryComponents(string resultName, string historyOutputName, string fieldName,
                                             object componentNames)
@@ -263,7 +269,8 @@ namespace APIs.Python
             string[] names = PythonStringListConverter.ToStringArray(componentNames, "component_names");
             ValidateStringList(names, "component_names");
             FeResults result = ResolveCurrentResult(resultName);
-            HistoryResultSet set = ResolveHistorySet(result, historyOutputName);
+            string storedName = ResolveHistoryOutputName(result, historyOutputName);
+            HistoryResultSet set = result.GetHistory().Sets[storedName];
             HistoryResultField field;
             if (!set.Fields.TryGetValue(fieldName, out field))
                 throw new PythonAPIException("The history field '" + fieldName + "' does not exist in history output '" +
@@ -275,30 +282,25 @@ namespace APIs.Python
                                                  fieldName + "'.");
             }
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultHistoryComponents(historyOutputName, fieldName, names);
+            _commandGateway.RemoveResultHistoryComponents(storedName, fieldName, names);
         }
-        private static HistoryResultSet ResolveHistorySet(FeResults result, string historyOutputName)
+        private static string ResolveHistoryOutputName(FeResults result, string historyOutputName)
         {
-            HistoryResultSet set;
-            if (!result.GetHistory().Sets.TryGetValue(historyOutputName, out set))
+            string storedName = ResultHistoryOutputDataService.GetStoredHistoryOutputName(result, historyOutputName);
+            if (storedName == null)
                 throw new PythonAPIException("The history output '" + historyOutputName +
                                              "' does not exist in the current result.");
-            return set;
+            return storedName;
         }
         public void RemoveHistoryOutputs(string resultName, object historyOutputNames)
         {
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(historyOutputNames, "names");
             ValidateStringList(names, "names");
+            PythonNameComparer.RefuseRepeated(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
-            string[] existingNames = result.GetHistory().Sets.Keys.ToArray();
-            foreach (string name in names)
-            {
-                if (!existingNames.Contains(name))
-                    throw new PythonAPIException("The history output '" + name +
-                                                 "' does not exist in the current result.");
-            }
+            string[] storedNames = names.Select(name => ResolveHistoryOutputName(result, name)).ToArray();
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultHistoryOutputs(names);
+            _commandGateway.RemoveResultHistoryOutputs(storedNames);
         }
         private static void Validate(FeResults result, ResultHistoryOutput output, string replacedName)
         {
@@ -504,6 +506,7 @@ namespace APIs.Python
                 if (!result.Mesh.NodeSets.TryGetValue(output.RegionName, out nodeSet) || nodeSet.Internal)
                     throw new PythonAPIException("The node set '" + output.RegionName +
                                                  "' does not exist in the current result.");
+                output.RegionName = nodeSet.Name;
                 if (nodeSet.Labels == null || nodeSet.Labels.Length == 0)
                     throw new PythonAPIException("The node set '" + output.RegionName + "' is empty.");
             }
@@ -513,6 +516,7 @@ namespace APIs.Python
                 if (!result.Mesh.ElementSets.TryGetValue(output.RegionName, out elementSet) || elementSet.Internal)
                     throw new PythonAPIException("The element set '" + output.RegionName +
                                                  "' does not exist in the current result.");
+                output.RegionName = elementSet.Name;
                 if (elementSet.Labels == null || elementSet.Labels.Length == 0)
                     throw new PythonAPIException("The element set '" + output.RegionName + "' is empty.");
             }
@@ -522,6 +526,7 @@ namespace APIs.Python
                 if (!result.Mesh.Surfaces.TryGetValue(output.RegionName, out surface) || surface.Internal)
                     throw new PythonAPIException("The surface '" + output.RegionName +
                                                  "' does not exist in the current result.");
+                output.RegionName = surface.Name;
                 if (selectionTarget == "nodes")
                 {
                     FeNodeSet surfaceNodeSet;

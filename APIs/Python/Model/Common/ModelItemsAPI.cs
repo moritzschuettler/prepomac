@@ -117,29 +117,29 @@ namespace APIs.Python.Model
             return this[names[names.Length - 1]];
         }
 
-        [PythonAPI("Duplicates the named items using command history.", Arguments = "names: list[str] or str",
-                   Returns = "None")]
+        [PythonAPI("Duplicates the named items using command history. A name given twice is refused.",
+                   Arguments = "names: list[str] or str", Returns = "None")]
         public void duplicate(object names)
         {
             DuplicateItems(ResolveNames(names, "names"));
         }
 
-        [PythonAPI("Removes the named items using command history.", Arguments = "names: list[str] or str",
-                   Returns = "None")]
+        [PythonAPI("Removes the named items using command history. A name given twice is refused.",
+                   Arguments = "names: list[str] or str", Returns = "None")]
         public void remove(object names)
         {
             RemoveItems(ResolveNames(names, "names"));
         }
 
-        [PythonAPI("Activates the named items using command history.", Arguments = "names: list[str] or str",
-                   Returns = "None")]
+        [PythonAPI("Activates the named items using command history. A name given twice is refused.",
+                   Arguments = "names: list[str] or str", Returns = "None")]
         public void activate(object names)
         {
             SetItemsActive(ResolveItems(names), true);
         }
 
         [PythonAPI("Deactivates the named items using command history. A deactivated item is kept in the " +
-                   "model but is not written to the solver input file.",
+                   "model but is not written to the solver input file. A name given twice is refused.",
                    Arguments = "names: list[str] or str", Returns = "None")]
         public void deactivate(object names)
         {
@@ -209,6 +209,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
             foreach (string name in resolved) ResolveItem(name);
+            PythonNameComparer.RefuseRepeated(resolved, argumentName);
             //
             return resolved;
         }

@@ -91,7 +91,11 @@ namespace APIs.Python
             if (femSolver != null)
                 job.FEMSolver = PythonValueConverter.ToEnum<FEMSolverEnum>(AsString(femSolver, "fem_solver"),
                                                                            "fem_solver");
-            job.Argument = argument == null ? existing.Argument : AsString(argument, "argument");
+            // An argument the user typed survives a new name or solver; the solver default follows them both
+            bool argumentEdited = existing.Argument != AnalysisJob.GetDefaultArgument(existing.FEMSolver, existing.Name);
+            if (argument != null) job.Argument = AsString(argument, "argument");
+            else if (argumentEdited) job.Argument = existing.Argument;
+            else job.Argument = AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name);
             if (executable != null)
             {
                 job.Executable = AsString(executable, "executable");
@@ -204,23 +208,23 @@ namespace APIs.Python
             if (job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("The analysis is already running.");
             int milliseconds = timeoutSeconds == 0 ? 0 : Math.Max(1, (int)Math.Ceiling(timeoutSeconds * 1000));
-            if (!_jobGateway.PrepareAndRunJob(name, onlyCheckModel, runSynchronous, milliseconds))
+            if (!_jobGateway.PrepareAndRunJob(job.Name, onlyCheckModel, runSynchronous, milliseconds))
                 throw new PythonAPIException("The analysis was not started because model preparation was refused.");
             return job.JobStatus.ToString();
         }
         public void Kill(string name)
         {
             EnsureCommandsAvailable();
-            ResolveJob(name);
+            string storedName = ResolveJob(name).Name;
             //
-            _jobGateway.KillJob(name, "The analysis was killed from the Python API.");
+            _jobGateway.KillJob(storedName, "The analysis was killed from the Python API.");
         }
         public void OpenResults(string name)
         {
             EnsureCommandsAvailable();
-            ResolveJob(name);
+            string storedName = ResolveJob(name).Name;
             //
-            _jobGateway.OpenResults(name);
+            _jobGateway.OpenResults(storedName);
         }
         public void ValidateName(string name, string allowedExistingName)
         {

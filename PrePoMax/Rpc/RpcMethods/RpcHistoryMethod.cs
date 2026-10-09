@@ -36,7 +36,8 @@ namespace PrePoMax.Rpc
             List<Command> commands = controller.GetCommands();
             if (commands == null) commands = new List<Command>();
             int limit = request.GetInt("limit", DefaultLimit);
-            if (limit < 0) limit = DefaultLimit;
+            if (limit < 0)
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument limit must be 0 or more: 0 lists every command.");
             int first = limit == 0 || limit >= commands.Count ? 0 : commands.Count - limit;
             //
             JsonWriter writer = new JsonWriter();

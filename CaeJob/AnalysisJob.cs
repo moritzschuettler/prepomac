@@ -105,10 +105,7 @@ namespace CaeJob
                 {
                     base.Name = value;
                     //
-                    if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
-                    else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
-                    else if (_femSolver == FEMSolverEnum.FEMaster) _argument = Name + ".inp";
-                    else throw new NotSupportedException();
+                    _argument = GetDefaultArgument(_femSolver, Name);
                 }
             }
         }
@@ -178,10 +175,7 @@ namespace CaeJob
                 {
                     _femSolver = value;
                     //
-                    if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
-                    else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
-                    else if (_femSolver == FEMSolverEnum.FEMaster) _argument = Name + ".inp";
-                    else throw new NotSupportedException();
+                    _argument = GetDefaultArgument(_femSolver, Name);
                 }
             }
         }
@@ -900,6 +894,13 @@ namespace CaeJob
             if (_energyOutputParser != null) _energyOutputParser.Reset();
         }
         //
+        public static string GetDefaultArgument(FEMSolverEnum femSolver, string name)
+        {
+            if (femSolver == FEMSolverEnum.Calculix) return name;
+            else if (femSolver == FEMSolverEnum.Abaqus) return "job=" + name;
+            else if (femSolver == FEMSolverEnum.FEMaster) return name + ".inp";
+            else throw new NotSupportedException();
+        }
         public static bool IsAdministrator()
         {
             System.Security.Principal.WindowsIdentity identity = System.Security.Principal.WindowsIdentity.GetCurrent();

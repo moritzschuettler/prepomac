@@ -125,6 +125,7 @@ namespace APIs.Python.Model
                 if (mesh == null || !mesh.Parts.ContainsKey(partName))
                     throw new PythonAPIException("The model part '" + partName + "' does not exist.");
             }
+            PythonNameComparer.RefuseRepeated(names, "part_names");
             //
             EnsureCommandsAvailable();
             _meshGateway.CreateElementSetFromElementQuality(name, metricName, names, largerThan, limitValue);

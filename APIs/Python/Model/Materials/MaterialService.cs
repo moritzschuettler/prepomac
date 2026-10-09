@@ -127,10 +127,19 @@ namespace APIs.Python.Model
             if (materialProperties.Count == 0)
                 throw new PythonAPIException("The argument 'properties' must contain at least one material property.");
             //
-            // AddProperty rejects a second elastic property with a message that names no argument
+            // AddProperty rejects a second elastic property with a message that names no argument, and the dialog
+            // adds a property type only once
             material.Properties.Clear();
+            HashSet<System.Type> propertyTypes = new HashSet<System.Type>();
             foreach (MaterialPropertyAPI property in materialProperties)
-                PythonModelArgumentCheck.Apply(() => material.AddProperty(property.GetPropertyCopy()), "properties");
+            {
+                MaterialProperty propertyCopy = property.GetPropertyCopy();
+                if (!propertyTypes.Add(propertyCopy.GetType()))
+                    throw new PythonAPIException("The argument 'properties' contains the " +
+                                                 MaterialPropertyAPI.GetPropertyType(propertyCopy) + " property more " +
+                                                 "than once; a material holds one property of each type.");
+                PythonModelArgumentCheck.Apply(() => material.AddProperty(propertyCopy), "properties");
+            }
         }
         // A material that is not temperature dependent writes no temperature column, and of every property but
         // plastic only the first row, so a table the analysis would cut short is refused

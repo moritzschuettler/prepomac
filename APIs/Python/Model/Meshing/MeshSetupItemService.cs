@@ -251,6 +251,7 @@ namespace APIs.Python.Model
                 if (geometry == null || !geometry.Parts.ContainsKey(name))
                     throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
             }
+            PythonNameComparer.RefuseRepeated(names, "part_names");
             //
             return names;
         }

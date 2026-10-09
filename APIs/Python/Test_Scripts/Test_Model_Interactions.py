@@ -106,6 +106,17 @@ def test_surface_interactions():
                  "a property given as a string must be rejected")
     check_raises(lambda: interactions.add(INTERACTION, pmx.create.friction(0.1)),
                  "a duplicate name must be rejected")
+    # The dialog adds a property type once, so a repeated one is refused naming the argument
+    count_before_repeated = len(interactions)
+    message = raised_message(lambda: interactions.add(PREFIX + "Bad", [pmx.create.friction(0.1),
+                                                                       pmx.create.friction(0.3)]))
+    check(message is not None and "'properties'" in message and "friction" in message,
+          "a repeated surface interaction property type must be refused: " + str(message))
+    message = raised_message(lambda: interactions.replace(INTERACTION, properties=[pmx.create.friction(0.1),
+                                                                                   pmx.create.friction(0.3)]))
+    check(message is not None and "'properties'" in message,
+          "a replace with a repeated property type must be refused: " + str(message))
+    check(len(interactions) == count_before_repeated, "a refused surface interaction was recorded")
     # Collection verbs
     interactions.rename(INTERACTION, INTERACTION + "_R")
     check(interactions.contains(INTERACTION + "_R"), "the surface interaction was not renamed")

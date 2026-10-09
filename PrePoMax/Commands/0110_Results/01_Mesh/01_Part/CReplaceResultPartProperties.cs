@@ -47,7 +47,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            PythonPartPropertiesEmitter.Emit(writer, "PythonResultEmitter.Parts", _oldPartName, _newPartProperties, false);
+            PythonPartPropertiesEmitter.Emit(writer, PythonResultEmitter.Parts,_oldPartName, _newPartProperties, false);
         }
         public override string GetCommandString()
         {

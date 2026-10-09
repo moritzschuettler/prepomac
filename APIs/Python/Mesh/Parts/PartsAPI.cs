@@ -166,25 +166,25 @@ namespace APIs.Python
         public void replace_properties(string old_name, string name = null, object color = null)
         {
             if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
-            ResolvePartNames(old_name);
+            string storedOldName = ResolvePartNames(old_name, "old_name")[0];
             EnsureCommandsAvailable();
             CaeMesh.PartProperties properties =
-                _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[old_name].GetProperties();
+                _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[storedOldName].GetProperties();
             if (name != null)
             {
-                ValidateNewPartName(name, old_name);
+                ValidateNewPartName(name, storedOldName);
                 properties.Name = name;
             }
             if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
-            _commandGateway.ReplaceResultPartProperties(old_name, properties);
+            _commandGateway.ReplaceResultPartProperties(storedOldName, properties);
         }
         [PythonAPI("Renames a result part using command history.", Arguments = "old_name: str, new_name: str",
                    Returns = "None")]
         public void rename(string old_name, string new_name)
         {
             if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
-            ResolvePartNames(old_name);
-            CaeMesh.BasePart part = _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[old_name];
+            string storedOldName = ResolvePartNames(old_name, "old_name")[0];
+            CaeMesh.BasePart part = _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[storedOldName];
             PythonNameComparer.ValidateFormat(new_name, "new_name", part.Name);
             if (string.Equals(part.Name, new_name)) return;
             if (!PythonNameComparer.AreSame(new_name, part.Name) &&
@@ -217,9 +217,7 @@ namespace APIs.Python
         // is refused here, against the result part names the dialog checks
         private void ValidateNewPartName(string name, string oldName)
         {
-            if (name.Trim().Length == 0) throw new PythonAPIException("The argument 'name' must not be empty.");
-            string error = CaeGlobals.NamedClass.CheckNameError(name, null);
-            if (error != null) throw new PythonAPIException("The argument 'name' is not valid: " + error);
+            PythonNameComparer.ValidateFormat(name, "name", oldName);
             if (!PythonNameComparer.AreSame(name, oldName) &&
                 PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), name))
                 throw new PythonAPIException("The result part '" + name + "' already exists.");

@@ -195,11 +195,8 @@ namespace APIs.Python
             string[] names = PythonStringListConverter.ToStringArray(componentNames, "component_names");
             ValidateStringList(names, "component_names");
             FeResults result = ResolveCurrentResult(resultName);
-            string[] existingFieldNames = result.GetAllFieldNames();
-            if (!existingFieldNames.Contains(fieldOutputName))
-                throw new PythonAPIException("The result field output '" + fieldOutputName +
-                                             "' does not exist in result '" + resultName + "'.");
-            string[] existingComponentNames = result.GetFieldComponentNames(fieldOutputName);
+            string storedFieldOutputName = ResolveStoredFieldName(result, resultName, fieldOutputName);
+            string[] existingComponentNames = result.GetFieldComponentNames(storedFieldOutputName);
             foreach (string name in names)
             {
                 if (existingComponentNames == null || !existingComponentNames.Contains(name))
@@ -208,7 +205,7 @@ namespace APIs.Python
             }
             //
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultFieldOutputComponents(fieldOutputName, names);
+            _commandGateway.RemoveResultFieldOutputComponents(storedFieldOutputName, names);
         }
         public void ExportFieldOutputToCsv(string resultName, string fileName, string fieldOutputName,
                                            int stepId, int incrementId)
@@ -229,19 +226,18 @@ namespace APIs.Python
                 throw new PythonAPIException("The export directory '" + directoryName + "' does not exist.");
             //
             FeResults result = ResolveCurrentResult(resultName);
-            if (!result.GetAllFieldNames().Contains(fieldOutputName))
-                throw new PythonAPIException("The result field output '" + fieldOutputName +
-                                             "' does not exist in result '" + resultName + "'.");
+            string storedFieldOutputName = ResolveStoredFieldName(result, resultName, fieldOutputName);
             if (!result.GetAllStepIds().Contains(stepId))
                 throw new PythonAPIException("The result step ID " + stepId + " does not exist.");
             if (!result.GetStepIncrementIds(stepId).Contains(incrementId))
                 throw new PythonAPIException("The increment ID " + incrementId +
                                              " does not exist in result step " + stepId + ".");
-            string[] componentNames = result.GetFieldComponentNames(fieldOutputName);
+            string[] componentNames = result.GetFieldComponentNames(storedFieldOutputName);
             if (componentNames == null || componentNames.Length == 0)
                 throw new PythonAPIException("The result field output '" + fieldOutputName +
                                              "' does not contain any components.");
-            FieldData fieldData = result.GetFieldData(fieldOutputName, componentNames[0], stepId, incrementId, true);
+            FieldData fieldData = result.GetFieldData(storedFieldOutputName, componentNames[0], stepId, incrementId,
+                                                      true);
             if (fieldData == null || !fieldData.Valid)
                 throw new PythonAPIException("The result field output '" + fieldOutputName +
                                              "' is not available at step " + stepId + ", increment " +
@@ -272,28 +268,42 @@ namespace APIs.Python
             ValidateDefinition(limit.Name, limit.FieldName, limit.ComponentName, limit.ItemNameLimit);
             ValidateSourceFieldComponent(result, limit.FieldName, limit.ComponentName);
             if (result.Mesh == null) throw new PythonAPIException("The result does not contain a mesh.");
+            // The mesh finds a part or an element set regardless of case, while the result checks the limit keys
+            // against its own spelling, so every key is stored as the mesh spells it
+            OrderedDictionary<string, double> storedItemLimits = new OrderedDictionary<string, double>("ItemNameLimit");
             foreach (var entry in limit.ItemNameLimit)
             {
+                string storedName;
                 if (limit.LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
                 {
-                    if (!result.Mesh.Parts.ContainsKey(entry.Key))
+                    CaeMesh.BasePart part;
+                    if (!result.Mesh.Parts.TryGetValue(entry.Key, out part))
                         throw new PythonAPIException("The result part '" + entry.Key + "' does not exist.");
+                    storedName = part.Name;
                 }
                 else if (limit.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
                 {
-                    if (!result.Mesh.ElementSets.ContainsKey(entry.Key))
+                    CaeMesh.FeElementSet elementSet;
+                    if (!result.Mesh.ElementSets.TryGetValue(entry.Key, out elementSet))
                         throw new PythonAPIException("The result element set '" + entry.Key +
                                                      "' does not exist.");
+                    storedName = elementSet.Name;
                 }
                 else if (limit.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
                 {
                     if (limit.ItemNameLimit.Count != 1 ||
                         entry.Key != LimitPlotBasedOnEnum.AllElements.GetDisplayedName())
                         throw new PythonAPIException("An all-elements limit must contain exactly one limit value.");
+                    storedName = entry.Key;
                 }
                 else throw new PythonAPIException("Unsupported limit assignment type '" +
                                                   limit.LimitPlotBasedOn + "'.");
+                if (storedItemLimits.ContainsKey(storedName))
+                    throw new PythonAPIException("The argument 'item_limits' names '" + storedName + "' more than " +
+                                                 "once.");
+                storedItemLimits.Add(storedName, entry.Value);
             }
+            limit.ItemNameLimit = storedItemLimits;
         }
         private static void ValidateEnvelope(FeResults result, ResultFieldOutputEnvelope envelope)
         {
@@ -389,6 +399,16 @@ namespace APIs.Python
                 throw new PythonAPIException("This Result object is no longer the current result. " +
                                              "Get pmx.results.current again before modifying field outputs.");
             return result;
+        }
+        // A result field output is keyed regardless of case, while a field read from the result file is keyed
+        // by its exact name
+        private static string ResolveStoredFieldName(FeResults result, string resultName, string fieldName)
+        {
+            if (result.ContainsResultFieldOutput(fieldName)) return result.GetResultFieldOutput(fieldName).Name;
+            if (result.GetAllFieldNames().Contains(fieldName)) return fieldName;
+            //
+            throw new PythonAPIException("The result field output '" + fieldName + "' does not exist in result '" +
+                                         resultName + "'.");
         }
         private void EnsureCommandsAvailable()
         {

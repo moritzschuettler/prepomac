@@ -88,4 +88,18 @@ print("Created history output '%s' from part %s, surface %s." %
       (SOURCE_OUTPUT_NAME, PART_ID, SURFACE_ID))
 print("Created table history output '%s' with %s DISP.ALL column(s) multiplied by %g." %
       (TABLE_OUTPUT_NAME, entry_count, FACTOR))
+
+# A replace may name the output in another case: the stored output is replaced, so its data follows the new
+# definition and the recorded command names the output the way the result stores it
+history_outputs.replace_from_table(TABLE_OUTPUT_NAME.lower(), TABLE_OUTPUT_NAME, [[0.0, 0.0], [1.0, 3.0]],
+                                   y_column_names=["Case_check"], x_axis_unit=X_AXIS_UNIT,
+                                   y_axis_unit=component_data.unit)
+replaced_output = history_outputs[TABLE_OUTPUT_NAME.upper()]
+check(replaced_output.name == TABLE_OUTPUT_NAME, "the output was not found in another case: " + replaced_output.name)
+replaced_field = str(replaced_output.fields.get_names()[0])
+replaced_component = str(replaced_output.fields[replaced_field].components.get_names()[0])
+replaced_entries = [str(name) for name in
+                    replaced_output.fields[replaced_field].components[replaced_component].get_entry_names()]
+check(replaced_entries == ["Case_check"], "the replaced output kept its old data: " + str(replaced_entries))
+print("Replaced table history output '%s' through its name in lower case." % TABLE_OUTPUT_NAME)
 print("TEST PASSED")

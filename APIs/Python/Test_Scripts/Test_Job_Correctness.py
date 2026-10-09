@@ -3,7 +3,8 @@
 #
 #Checks the analysis settings contract: an explicit value survives the application settings, a
 #replacement keeps what it is not told about, an inherit switch restores the application default,
-#and a timeout reports the same status through the return value and the analysis itself.
+#a timeout reports the same status through the return value and the analysis itself, and an argument
+#that is the solver default follows a new name or solver while an edited one is kept.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
@@ -98,6 +99,25 @@ def test_rename_by_case():
     pmx.jobs.remove(name.upper())
 
 
+def test_argument_follows_name_and_solver():
+    # An argument that is the solver default for the name follows a new name or solver; an edited one is kept
+    def argument(name):
+        return pmx.jobs[PREFIX + name].argument
+    pmx.jobs.add(PREFIX + "Arg1")
+    pmx.jobs.replace(PREFIX + "Arg1", PREFIX + "Arg2")
+    check(argument("Arg2") == PREFIX + "Arg2", "the default argument did not follow the name: " + argument("Arg2"))
+    pmx.jobs.replace(PREFIX + "Arg2", fem_solver="Abaqus")
+    check(argument("Arg2") == "job=" + PREFIX + "Arg2",
+          "the default argument did not follow the solver: " + argument("Arg2"))
+    pmx.jobs.replace(PREFIX + "Arg2", argument="-custom")
+    pmx.jobs.replace(PREFIX + "Arg2", PREFIX + "Arg3", fem_solver="Calculix")
+    check(argument("Arg3") == "-custom", "the edited argument was lost: " + argument("Arg3"))
+    pmx.jobs.replace(PREFIX + "Arg3", argument=PREFIX + "Arg3")
+    pmx.jobs.replace(PREFIX + "Arg3", PREFIX + "Arg4", argument="-given")
+    check(argument("Arg4") == "-given", "a given argument must win: " + argument("Arg4"))
+    pmx.jobs.remove(PREFIX + "Arg4")
+
+
 def test_rejected_arguments():
     check_raises(lambda: pmx.jobs.add(PREFIX + "Fractional", number_of_cpus=2.5), "a fractional CPU count was accepted")
     check_raises(lambda: pmx.jobs.add(PREFIX + "Zero", number_of_cpus=0), "a zero CPU count was accepted")
@@ -153,6 +173,7 @@ def main():
     test_explicit_settings(tempfile.gettempdir())
     test_replacement_and_inheritance()
     test_rename_by_case()
+    test_argument_follows_name_and_solver()
     test_rejected_arguments()
     test_custom_work_directory(tempfile.gettempdir())
     test_timeout()

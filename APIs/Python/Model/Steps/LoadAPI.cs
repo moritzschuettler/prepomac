@@ -109,12 +109,19 @@ namespace APIs.Python.Model
             //
             return names;
         }
-        // The phase is stored on every load, so the shared reader leaves it out; it is an add_* argument of each
+        // A phase is written to the solver input only for a complex load, which a steady state dynamics step makes,
+        // and never for a pre-tension; a thermal load is never complex
+        internal static bool TakesPhase(Load load)
+        {
+            return load.Complex && !(load is PreTensionLoad);
+        }
+        // The phase is stored on every load, so the shared reader leaves it out; it is read back only where the
+        // phase_deg argument takes it, because elsewhere the argument is refused
         private static Dictionary<string, object> GetValues(Load load)
         {
             Dictionary<string, object> values = ModelItemValueReader.GetValues(load, typeof(Load),
                                                                                GetArgumentValueNames(load));
-            values["phase_deg"] = load.PhaseDeg.Value;
+            if (TakesPhase(load)) values["phase_deg"] = load.PhaseDeg.Value;
             //
             return values;
         }
@@ -129,8 +136,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this load type by the name of the add_* argument that " +
-                   "sets it, for example f1, magnitude or phase_deg; a vector argument such as axis_point " +
-                   "returns its components as a list. Use get_value_names to list them.", Arguments = "name: str",
+                   "sets it, for example f1 or magnitude; a vector argument such as axis_point returns its " +
+                   "components as a list. phase_deg is read back only for a complex load of a " +
+                   "steady_state_dynamics step, which takes it. Use get_value_names to list them.",
+                   Arguments = "name: str",
                    Returns = "float, int, bool, str or list[float]")]
         public object get_value(string name)
         {
@@ -145,7 +154,11 @@ namespace APIs.Python.Model
         public Dictionary<string, object> get_equations()
         {
             Load load = Resolve();
-            return ModelItemValueReader.GetEquations(load, GetArgumentValueNames(load));
+            Dictionary<string, object> equations = ModelItemValueReader.GetEquations(load,
+                                                                                     GetArgumentValueNames(load));
+            if (!TakesPhase(load)) equations.Remove("phase_deg");
+            //
+            return equations;
         }
         public override string ToString()
         {

@@ -181,6 +181,25 @@ try:
           str(round_trip.item_limits))
     print("PASS: item limits map")
 
+    # ITEM LIMITS BY NAME: a part is named in any case and stored as the result spells it, which is the
+    # spelling the result checks the limit against; two keys naming one part are refused
+    part_name = str(result.mesh.parts.get_names()[0])
+    if part_name.lower() != part_name:
+        parts_limit = field_outputs.replace_limit(LIMIT_NAME, LIMIT_NAME, "STRESS", stress_component, "Parts",
+                                                  {part_name.lower(): 240.0},
+                                                  filter1=field_outputs.create_average_filter(
+                                                      source="SurfaceNodes", number_of_layers=2))
+        check(parts_limit.item_limits == {part_name: 240.0},
+              "the part limit was not stored in the result spelling: " + str(parts_limit.item_limits))
+        check(result.steps[step.id].increments[increment.id].fields.contains(LIMIT_NAME),
+              "the part limit named in another case did not produce a valid field")
+    if part_name.lower() != part_name.upper():
+        check_refused(lambda: field_outputs.replace_limit(LIMIT_NAME, LIMIT_NAME, "STRESS", stress_component,
+                                                          "Parts", {part_name.lower(): 1.0,
+                                                                    part_name.upper(): 2.0}),
+                      "'item_limits'", "two keys naming one part were accepted")
+    print("PASS: item limits named in another case")
+
     # FILTER COUNTS: the counts read back under the argument names that set them
     filter1 = field_outputs[LIMIT_NAME].filter1
     check(filter1.number_of_layers == 2 and filter1.number_of_iterations == 1,
@@ -243,7 +262,7 @@ try:
     # EXPORT: writes every component of the generated limit field at one increment.
     field_outputs.export_to_csv(
         file_name=export_file,
-        field_output_name=LIMIT_NAME,
+        field_output_name=LIMIT_NAME.lower(),
         step_id=step.id,
         increment_id=increment.id
     )
@@ -251,7 +270,7 @@ try:
     print("PASS: export field output to " + export_file)
 
     # REMOVE COMPONENTS: operate on a generated output, never on a standard source field.
-    field_outputs.remove_components(ENVELOPE_NAME, ["AVERAGE"])
+    field_outputs.remove_components(ENVELOPE_NAME.lower(), ["AVERAGE"])
     current_increment = result.steps[step.id].increments[increment.id]
     check(not current_increment.fields[ENVELOPE_NAME].components.contains("AVERAGE"),
           "remove_components() did not remove AVERAGE.")

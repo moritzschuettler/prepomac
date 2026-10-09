@@ -97,8 +97,8 @@ namespace PrePoMax.Python.Journal
             if (step is FrequencyStep frequency)
             {
                 arguments.Add("number_of_frequencies=" + frequency.NumOfFrequencies);
-                arguments.Add("lower_frequency=" + PythonValueFormatter.Number(frequency.LowerFrequency));
-                arguments.Add("upper_frequency=" + PythonValueFormatter.Number(frequency.UpperFrequency));
+                arguments.Add("lower_frequency=" + GetFrequencyLimit(frequency.LowerFrequency));
+                arguments.Add("upper_frequency=" + GetFrequencyLimit(frequency.UpperFrequency));
                 arguments.Add("storage=" + PythonValueFormatter.Format(frequency.Storage));
                 arguments.Add("cyclic_symmetry_mode_min=" + frequency.CyclicSymmetryModeMin);
                 arguments.Add("cyclic_symmetry_mode_max=" + frequency.CyclicSymmetryModeMax);
@@ -146,6 +146,11 @@ namespace PrePoMax.Python.Journal
             // An unlimited temperature change is the default, and a replace must be able to restore it
             arguments.Add("deltmx=" + (double.IsPositiveInfinity(step.Deltmx) ? "float('inf')" :
                                        PythonValueFormatter.Number(step.Deltmx)));
+        }
+        // A limit that is not set is NaN, which None would keep on a replace instead of clearing
+        private static string GetFrequencyLimit(double limit)
+        {
+            return double.IsNaN(limit) ? "float('nan')" : PythonValueFormatter.Number(limit);
         }
         private static void AddCommonValues(List<string> arguments, Step step)
         {

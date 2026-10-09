@@ -23,9 +23,9 @@ namespace PrePoMax.Rpc
         {
             if (server.Form == null || !server.Form.IsWindowHidden)
             {
-                throw new RpcException(RpcErrorCode.NotAllowed, "PrePoMax is open on the user's desktop, so exit is " +
-                                       "refused: the user closes their own session. Use shutdown to stop the " +
-                                       "automation server instead.");
+                throw new RpcException(RpcErrorCode.NotAllowed, "PrePoMax is open on the user's desktop, so " +
+                                       "exit_session (exit on the pipe) is refused: the user closes their own " +
+                                       "session.");
             }
             // A hidden session answers its own close time questions, and the answer to "save before
             // closing" is no. So an agent that has not saved is told rather than losing the work
@@ -34,8 +34,8 @@ namespace PrePoMax.Rpc
             if (!discard && controller != null && controller.ModelChanged)
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "The model has unsaved changes and closing " +
-                                       "discards them. Save it with pmx.save(file_name) first, or call exit with " +
-                                       "discard_changes set to true.");
+                                       "discards them. Save it with pmx.save(file_name) first, or call " +
+                                       "exit_session (exit on the pipe) with discard_changes set to true.");
             }
             server.Form.RequestAutomationExit();
             //

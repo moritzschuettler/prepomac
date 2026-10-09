@@ -168,23 +168,13 @@ namespace APIs.Python.Model
         //
         private CoordinateSystem Build(string name, string type, object origin, object pointOnX, object pointInXY)
         {
-            EquationString[] originPoint = PythonValueConverter.ToEquationArray(origin, "origin", 3);
-            EquationString[] xPoint = PythonValueConverter.ToEquationArray(pointOnX, "point_on_x", 3);
-            EquationString[] xyPoint = PythonValueConverter.ToEquationArray(pointInXY, "point_in_xy", 3);
-            //
             CoordinateSystem coordinateSystem = new CoordinateSystem(name, GetIsTwoDimensional());
             if (type != null)
                 coordinateSystem.Type = PythonValueConverter.ToEnum<CoordinateSystemTypeEnum>(type,
                                                                                               "coordinate_system_type");
-            coordinateSystem.X1.Equation = originPoint[0];
-            coordinateSystem.Y1.Equation = originPoint[1];
-            coordinateSystem.Z1.Equation = originPoint[2];
-            coordinateSystem.X2.Equation = xPoint[0];
-            coordinateSystem.Y2.Equation = xPoint[1];
-            coordinateSystem.Z2.Equation = xPoint[2];
-            coordinateSystem.X3.Equation = xyPoint[0];
-            coordinateSystem.Y3.Equation = xyPoint[1];
-            coordinateSystem.Z3.Equation = xyPoint[2];
+            ApplyCoordinates(coordinateSystem, origin, 1);
+            ApplyCoordinates(coordinateSystem, pointOnX, 2);
+            ApplyCoordinates(coordinateSystem, pointInXY, 3);
             //
             return coordinateSystem;
         }
@@ -258,6 +248,12 @@ namespace APIs.Python.Model
         {
             string argumentName = point == 1 ? "origin" : (point == 2 ? "point_on_x" : "point_in_xy");
             EquationString[] equations = PythonValueConverter.ToEquationArray(value, argumentName, 3);
+            // A 2D coordinate system stores every z as zero, so a z the script gave is refused rather than dropped
+            if (coordinateSystem.TwoD &&
+                PythonModelArgumentCheck.Evaluate(coordinateSystem.Z1, equations[2], argumentName) != 0)
+                throw new PythonAPIException("The z value of the argument '" + argumentName + "' must be zero in a " +
+                                             "2D model, which has no out of plane direction.");
+            //
             if (point == 1)
             {
                 coordinateSystem.CenterCreatedFrom = CsPointCreatedFromEnum.Coordinates;

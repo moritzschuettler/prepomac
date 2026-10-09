@@ -42,8 +42,8 @@ namespace APIs.Python
         {
             get
             {
-                _dataService.ResolveHistoryOutput(_resultName, historyOutputName);
-                return _dataService.CreateAPI(_resultName, historyOutputName);
+                string storedName = _dataService.ResolveHistoryOutputName(_resultName, historyOutputName);
+                return _dataService.CreateAPI(_resultName, storedName);
             }
         }
         public int __len__()
@@ -103,7 +103,7 @@ namespace APIs.Python
         [PythonAPI("Returns true if the history output exists.", Arguments = "name: str", Returns = "bool")]
         public bool contains(string name)
         {
-            return _dataService.GetHistoryOutputNames(_resultName).Contains(name);
+            return _dataService.ContainsHistoryOutput(_resultName, name);
         }
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +

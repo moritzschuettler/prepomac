@@ -97,6 +97,8 @@ namespace CaeResults
         // Old files deserialize _crossSection == None, so the result is an unscaled integral.
         public IntegrationScale GetIntegrationScale()
         {
+            if (_integralType == IntegralTypeEnum.Surface) return IntegrationScale.None;
+            //
             switch (_crossSection)
             {
                 case IntegrationScaleType.None:

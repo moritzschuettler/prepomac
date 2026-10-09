@@ -43,7 +43,8 @@ namespace PrePoMax.Python.Journal
             //
             PythonStepItemEmitter.AddAmplitude(arguments, load.AmplitudeName);
             PythonStepItemEmitter.AddCoordinateSystem(arguments, load.CoordinateSystemName);
-            PythonStepItemEmitter.AddPhase(arguments, load.Complex, load.PhaseDeg);
+            // A pre-tension is complex in a steady state dynamics step, but the solver input carries no phase for it
+            PythonStepItemEmitter.AddPhase(arguments, load.Complex && !(load is PreTensionLoad), load.PhaseDeg);
             PythonStepItemEmitter.AddColor(arguments, load.Color, DefaultColor(), replace);
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));

@@ -184,6 +184,16 @@ namespace APIs.Python.Model
             AddEquation(equations, "number_of_smoothing_steps", properties.NumOfSmoothingSteps);
             return equations;
         }
+        // The model raises a count below its minimum to the minimum, so the value the script gave is refused instead
+        private static EquationString ToCount(EquationContainer container, object value, int minimum,
+                                              string argumentName)
+        {
+            EquationString equation = PythonValueConverter.ToEquationString(value, argumentName);
+            if (PythonModelArgumentCheck.Evaluate(container, equation, argumentName) < minimum)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be " + minimum + " or larger.");
+            //
+            return equation;
+        }
         // A plain value is read by its property as a number, so only an expression is an equation
         private static void AddEquation(Dictionary<string, string> equations, string name, EquationContainer equation)
         {
@@ -223,14 +233,14 @@ namespace APIs.Python.Model
                 properties.SlipWearResults = PythonValueConverter.ToEnum<SlipWearResultsEnum>(slipWearResults,
                                                                                               "slip_wear_results");
             if (numberOfCycles != null)
-                properties.NumberOfCycles.Equation = PythonValueConverter.ToEquationString(numberOfCycles,
-                                                                                           "number_of_cycles");
+                properties.NumberOfCycles.Equation = ToCount(properties.NumberOfCycles, numberOfCycles, 1,
+                                                             "number_of_cycles");
             if (cyclesIncrement != null)
-                properties.CyclesIncrement.Equation = PythonValueConverter.ToEquationString(cyclesIncrement,
-                                                                                            "cycles_increment");
+                properties.CyclesIncrement.Equation = ToCount(properties.CyclesIncrement, cyclesIncrement, 1,
+                                                              "cycles_increment");
             if (numOfSmoothingSteps != null)
-                properties.NumOfSmoothingSteps.Equation =
-                    PythonValueConverter.ToEquationString(numOfSmoothingSteps, "number_of_smoothing_steps");
+                properties.NumOfSmoothingSteps.Equation = ToCount(properties.NumOfSmoothingSteps, numOfSmoothingSteps, 0,
+                                                                  "number_of_smoothing_steps");
             if (bdmRemeshing != null)
                 properties.BdmRemeshing = PythonValueConverter.ToBool(bdmRemeshing, "bdm_remeshing");
             properties.AbsoluteZero = ToConstant(absoluteZero, properties.AbsoluteZero, clearUndefinedConstants,

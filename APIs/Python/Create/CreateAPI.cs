@@ -401,7 +401,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a time incrementation step control parameter. Only the given values override " +
-                   "the CalculiX defaults.",
+                   "the CalculiX defaults; a value left out or None keeps the default, and is_value, ij, it, ds, " +
+                   "dh and wg are unset by default.",
                    Arguments = "i0: int = None, ir: int = None, ip: int = None, ic: int = None, " +
                                "il: int = None, ig: int = None, is_value: int = None, ia: int = None, " +
                                "ij: int = None, it: int = None, df: float = None, dc: float = None, " +
@@ -419,7 +420,7 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a field step control parameter. Only the given values override the CalculiX " +
-                   "defaults.",
+                   "defaults; a value left out or None keeps the default, and q0a and qua are unset by default.",
                    Arguments = "rna: float = None, cna: float = None, q0a: float = None, qua: float = None, " +
                                "rpa: float = None, ea: float = None, cea: float = None, rla: float = None",
                    Returns = "StepControlParameter")]

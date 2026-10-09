@@ -62,7 +62,7 @@ namespace APIs.Python.Model
                                      object nameVisible, object color)
         {
             ValidateNewName(name, null);
-            FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
+            FeReferencePoint referencePoint = CreateReferencePoint(name);
             ApplySelection(referencePoint, createdFrom, selection);
             ApplyDisplayValues(referencePoint, nameVisible, color);
             //
@@ -73,7 +73,7 @@ namespace APIs.Python.Model
                                   object nameVisible, object color)
         {
             ValidateNewName(name, null);
-            FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
+            FeReferencePoint referencePoint = CreateReferencePoint(name);
             ApplyRegion(referencePoint, createdFrom, regionType, regionName);
             ApplyDisplayValues(referencePoint, nameVisible, color);
             //
@@ -146,10 +146,16 @@ namespace APIs.Python.Model
         //
         private FeReferencePoint Build(string name, object coordinates)
         {
-            FeReferencePoint referencePoint = new FeReferencePoint(name, 0, 0, 0);
+            FeReferencePoint referencePoint = CreateReferencePoint(name);
             ApplyCoordinates(referencePoint, coordinates);
             //
             return referencePoint;
+        }
+        // The dialog creates a 2D point in a 2D model, which keeps its z at zero
+        private FeReferencePoint CreateReferencePoint(string name)
+        {
+            if (GetIsTwoDimensional()) return new FeReferencePoint(name, 0, 0);
+            return new FeReferencePoint(name, 0, 0, 0);
         }
         private FeReferencePoint CloneForReplace(string oldName, string name)
         {
@@ -173,6 +179,10 @@ namespace APIs.Python.Model
         private static void ApplyCoordinates(FeReferencePoint referencePoint, object coordinates)
         {
             EquationString[] point = PythonValueConverter.ToEquationArray(coordinates, "coordinates", 3);
+            // A 2D point stores its z as zero, so a z the script gave is refused rather than dropped
+            if (referencePoint.TwoD && PythonModelArgumentCheck.Evaluate(referencePoint.Z, point[2], "coordinates") != 0)
+                throw new PythonAPIException("The z value of the argument 'coordinates' must be zero in a 2D model, " +
+                                             "which has no out of plane direction.");
             referencePoint.CreatedFrom = FeReferencePointCreatedFrom.Coordinates;
             referencePoint.X.Equation = point[0];
             referencePoint.Y.Equation = point[1];

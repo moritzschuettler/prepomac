@@ -11,8 +11,10 @@
 #asserts because it is the one thing this transport gives up.
 #
 #It also checks what the protocol promises beyond the tools: a body is read as UTF-8 whatever its
-#Content-Type says, a batch and an argument a tool does not take are refused, the protocol version is
-#negotiated, and the tools that run a script of their own leave the console scope as they found it.
+#Content-Type says, a batch and an argument a tool does not take are refused, a value of the wrong type
+#or out of the declared range is refused rather than read as the default, a tools/call sent as a
+#notification is not run, the protocol version is negotiated, and the tools that run a script of their
+#own leave the console scope as they found it.
 #
 #  PrePoMax.com --script Test_Mcp_Http.py -g No -x Yes -w <work directory>
 #
@@ -303,6 +305,12 @@ def check_reading_tools(endpoint, session):
     meshed = [part for part in model["parts_mesh_state"] if part["meshed"]]
     check(len(meshed) >= 1 and meshed[0]["element_count"] > 0 and meshed[0]["node_count"] > 0,
           "the snapshot must carry the mesh state of the parts: " + str(model["parts_mesh_state"]))
+    check(isinstance(model.get("mesh_setup_items"), list),
+          "the snapshot must carry the mesh setup items: " + str(model.get("mesh_setup_items")))
+    check(isinstance(model.get("keywords", {}).get("user_keyword_count"), int),
+          "the snapshot must count the user keywords: " + str(model.get("keywords")))
+    check(not [entry for entry in model["unreadable"] if "setup_items" in entry or "keywords" in entry],
+          "the snapshot must read the mesh setup items and the keywords: " + str(model["unreadable"]))
     print("read_model: " + str(len(model)) + " entries, unit system " + str(model["properties"]["unit_system"]))
     #
     described = json.loads(endpoint.tool("describe_api", {"path": "pmx.model"}))
@@ -329,12 +337,12 @@ def check_reading_tools(endpoint, session):
     # A part name is compared regardless of case, and a name that matched nothing is reported
     name = part["name"]
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [name.upper(), "no_such_part"],
-                                                          "limit": 100000}))
+                                                          "limit": 240}))
     check(len(topology["model"]) == 1 and topology["model"][0]["name"] == name,
           "a part name must match regardless of case: " + str(topology["model"]))
     check(topology.get("unmatched_part_names") == ["no_such_part"],
           "a name that matched no part must be reported: " + str(topology.get("unmatched_part_names")))
-    check(len(topology["model"][0]["faces"]) <= 240, "the limit must be clamped to the row budget")
+    check(len(topology["model"][0]["faces"]) <= 240, "the limit must bound the rows of a part")
     print("read_topology: a name in other case matched, an unknown name reported")
 
 
@@ -542,6 +550,77 @@ def check_refusals(endpoint):
     print("refusals: an unknown tool, a missing argument and an unserved method")
 
 
+def check_argument_values(endpoint):
+    """A value the schema does not allow is refused by name, never read as the default or clamped."""
+    count = json.loads(endpoint.tool("get_status"))["model"]["commandCount"]
+    refused = [("get_history", {"include_journal": "true"}, "include_journal"),
+               ("get_history", {"limit": -1}, "limit"),
+               ("get_history", {"limit": "10"}, "limit"),
+               ("screenshot", {"magnification": "2"}, "magnification"),
+               ("screenshot", {"magnification": 5}, "magnification"),
+               ("screenshot", {"transparent_background": 1}, "transparent_background"),
+               ("screenshot", {"orientation": "Sideways"}, "orientation"),
+               ("run_python", {"source": "pmx.model.parameters.add('mcp_typed', 1.0)", "record": 5}, "record"),
+               ("run_python", {"source": "pmx.model.parameters.add('mcp_typed', 1.0)", "record": "lines"}, "record"),
+               ("run_python", {"source": "pmx.model.parameters.add('mcp_typed', 1.0)", "timeout": 2.5}, "timeout"),
+               ("run_python", {"source": 7}, "source"),
+               ("read_topology", {"limit": "10"}, "limit"),
+               ("read_topology", {"limit": 0}, "limit"),
+               ("read_topology", {"limit": -5}, "limit"),
+               ("read_topology", {"limit": 1000}, "limit"),
+               ("read_topology", {"part_names": [5]}, "part_names"),
+               ("read_topology", {"part_names": [None]}, "part_names"),
+               ("read_topology", {"part_names": "Part-1"}, "part_names"),
+               ("get_call", {"call_id": 1.5}, "call_id"),
+               ("get_call", {"call_id": 0}, "call_id"),
+               ("cancel_call", {"call_id": "1"}, "call_id"),
+               ("eval_expression", {"expression": "1", "timeout": 601}, "timeout"),
+               ("get_status", {"process_id": "1"}, "process_id"),
+               ("exit_session", {"discard_changes": "true"}, "discard_changes")]
+    for name, arguments, argument in refused:
+        text = endpoint.failing_tool(name, arguments)
+        check(("argument " + argument) in text and "Nothing was done" in text,
+              name + " must refuse " + str(arguments) + " naming " + argument + ": " + text)
+    text = endpoint.failing_tool("read_topology", {"limit": 1000})
+    check("from 1 to 240" in text, "an out of range limit must be refused with its range: " + text)
+    text = endpoint.failing_tool("get_history", {"include_journal": "true"})
+    check("true or false" in text, "a string for a boolean must be refused as such: " + text)
+    # Nothing ran: the session is still there, and nothing was recorded
+    status = json.loads(endpoint.tool("get_status"))
+    check(status["model"]["commandCount"] == count, "a refused call must record nothing: " + str(status["model"]))
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.model.parameters.get_names()"}))
+    check("mcp_typed" not in value["value"], "a refused run_python must not have run: " + str(value["value"]))
+    # The bounds themselves are served
+    endpoint.tool("read_topology", {"limit": 1})
+    endpoint.tool("get_history", {"limit": 0})
+    # An option string is compared regardless of case, as the API compares it
+    result = json.loads(endpoint.tool("run_python", {"source": "pass", "record": "Commands"}))
+    check(not result["failed"] and result["record"] == "commands",
+          "an option in another case must be taken in its declared spelling: " + str(result))
+    result = json.loads(endpoint.tool("screenshot", {"view": "FEMODEL", "orientation": "isometric"}))
+    os.remove(result["fileName"])
+    print("argument values: " + str(len(refused)) + " values of the wrong type or out of range refused by name")
+
+
+def check_notification_not_run(endpoint):
+    """A tools/call without an id is a notification: it is not answered, and so it is not run either."""
+    endpoint.notify("tools/call", {"name": "run_python",
+                                   "arguments": {"source": "pmx.model.parameters.add('mcp_notified', 1.0)"}})
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.model.parameters.get_names()"}))
+    check("mcp_notified" not in value["value"], "a tools/call sent as a notification must not run: " +
+          str(value["value"]))
+    # An id that is null is not a notification and not a valid request either
+    body = json.dumps({"jsonrpc": "2.0", "id": None, "method": "tools/call",
+                       "params": {"name": "run_python",
+                                  "arguments": {"source": "pmx.model.parameters.add('mcp_null_id', 1.0)"}}})
+    status, text, _ = request(endpoint.url, body.encode("utf-8"), endpoint.token)
+    check(status == 200 and json.loads(text)["error"]["code"] == -32600,
+          "a request with a null id must be an invalid request: HTTP " + str(status) + ": " + text)
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.model.parameters.get_names()"}))
+    check("mcp_null_id" not in value["value"], "a request with a null id must not run: " + str(value["value"]))
+    print("notifications: a tools/call without an id was not run, a null id was refused")
+
+
 def check_second_instance(endpoint, session, port):
     """One port per instance, so the URL is the address and a process id is only an assertion."""
     second = ChildSession(port)
@@ -609,6 +688,8 @@ def main():
         check_cancel_call(endpoint)
         check_screenshot(endpoint)
         check_refusals(endpoint)
+        check_argument_values(endpoint)
+        check_notification_not_run(endpoint)
         second = check_second_instance(endpoint, session, port)
         check_pruning(endpoint, second)
         check_unreachable(session)

@@ -116,14 +116,19 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
-                   "sets it, for example time_period. Use get_value_names to list them. A damping or " +
+                   "sets it, for example time_period. Use get_value_names to list them. A frequency limit that " +
+                   "is not set is None. A damping or " +
                    "modal_damping is returned as a copy of the part pmx.create makes, which the argument takes " +
                    "back.", Arguments = "name: str",
                    Returns = "float, int, bool, str, Damping or ModalDamping")]
         public object get_value(string name)
         {
             Step step = _service.ResolveStep(_stepName);
-            return ModelItemValueReader.GetValue(step, typeof(Step), null, name, GetItemType(step) + " step");
+            object value = ModelItemValueReader.GetValue(step, typeof(Step), null, name, GetItemType(step) + " step");
+            // A frequency limit that is not set is stored as NaN
+            if (value is double number && double.IsNaN(number)) return null;
+            //
+            return value;
         }
 
         [PythonAPI("Returns the types of the step control parameters of the step, named after the pmx.create " +

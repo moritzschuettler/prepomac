@@ -32,9 +32,10 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a static step using command history. The time period and the increments are positive, " +
-                   "and neither the initial nor the minimum increment may exceed the time period, nor the " +
-                   "initial increment the maximum one; on a replace this holds for the values the step keeps " +
-                   "as well. max_increments is at least 1 and output_frequency at least 0. " +
+                   "and neither the initial nor the minimum increment may exceed the time period; on a " +
+                   "replace this holds for the values the step keeps as well. An initial increment above the " +
+                   "maximum one is kept as given, as the dialog does. max_increments is at least 1 and " +
+                   "output_frequency at least 0. " +
                    "copy_bcs_and_loads copies the boundary conditions, loads and defined fields of the last " +
                    "step that the new step supports and leaves out the others, as the dialog does.",
                    Arguments = "name: str, time_period: float = None, initial_time_increment: float = None, " +
@@ -158,7 +159,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a frequency step using command history. number_of_frequencies is at least 1, the " +
-                   "frequency limits are not negative and the lower one is below the upper one, and the cyclic " +
+                   "frequency limits are not negative and the lower one is below the upper one, unless the " +
+                   "upper one is 0, which means no upper limit. float('nan') leaves a limit unset, which is " +
+                   "how a replace clears one, and get_value reads an unset limit as None. The cyclic " +
                    "symmetry modes are not negative, the minimum not above the maximum; on a replace this " +
                    "holds for the values the step keeps as well. With an active cyclic symmetry the modes are " +
                    "checked against its number of sectors, as the dialog does.",

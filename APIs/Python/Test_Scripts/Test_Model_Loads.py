@@ -136,6 +136,10 @@ def test_concentrated():
     check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", phase_deg=30), "'phase_deg'",
                   "a phase given to a load of a static step must be refused")
     check(not loads.contains(PREFIX + "Bad"), "a load with a refused phase was recorded")
+    # What the phase_deg argument refuses is not read back either, so a read value always goes back
+    check("phase_deg" not in list(loads[PREFIX + "F"].get_value_names()),
+          "a load of a static step must not read back a phase")
+    check("phase_deg" not in loads[PREFIX + "F"].get_equations(), "a load of a static step reported a phase")
 
 
 def test_surface_loads():
@@ -367,6 +371,24 @@ def test_thermal_loads():
     check(load.get_value("cavity_radiation"), "the cavity radiation was not set")
     check(load.get_value("cavity_name") == "Cav",
           "unexpected cavity name " + str(load.get_value("cavity_name")))
+    # The solver input names the cavity of a cavity radiation, and a name without cavity radiation is unused
+    check_refused(lambda: loads.add_radiation_heat_transfer(PREFIX + "Bad", surface_selection(1), 20, 0.8,
+                                                            cavity_radiation=True),
+                  "'cavity_name'", "a cavity radiation without a cavity name must be refused")
+    check_refused(lambda: loads.add_radiation_heat_transfer(PREFIX + "Bad", surface_selection(1), 20, 0.8,
+                                                            cavity_name="Cav"),
+                  "cavity_radiation=True", "a cavity name without cavity radiation must be refused")
+    check(not loads.contains(PREFIX + "Bad"), "a refused radiation load was recorded")
+    # The dialog keeps the name when cavity radiation is turned off, and so does a replace, whose journal
+    # leaves the kept name out
+    load = loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=False)
+    check(not load.get_value("cavity_radiation"), "the cavity radiation was not turned off")
+    check(load.get_value("cavity_name") == "Cav", "the kept cavity name was dropped")
+    check_refused(lambda: loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_name="Cv2"),
+                  "cavity_radiation=True", "a cavity name for a load without cavity radiation must be refused")
+    # The merged load is checked, so turning cavity radiation on again finds the kept name
+    load = loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=True)
+    check(load.get_value("cavity_name") == "Cav", "the kept cavity name was not used")
     # The model would clamp an emissivity outside 0 to 1
     for emissivity in [1.5, -0.1]:
         check_refused(lambda: loads.replace_radiation_heat_transfer(PREFIX + "RH", emissivity=emissivity),
@@ -397,6 +419,11 @@ def test_collection_verbs():
     duplicated = [n for n in loads.get_names() if n.startswith(name) and n != name]
     loads.remove(duplicated)
     check(len(loads) == count_before, "the duplicate was not removed")
+    # A name given twice is refused: the controller would remove the removed load again
+    for verb in [loads.remove, loads.duplicate, loads.deactivate, loads.hide]:
+        check_refused(lambda: verb([name, name]), "'names'", "a load named twice must be refused")
+    check(len(loads) == count_before and loads[name].active and loads[name].visible,
+          "a refused call with a repeated name changed the loads")
     # Activate, deactivate, hide, show
     loads.deactivate([name])
     check(not loads[name].active, "the load was not deactivated")
@@ -416,18 +443,21 @@ def test_propagate():
     loads.propagate(name)
     check(following.contains(name), "the load was not propagated")
     check_raises(lambda: loads.propagate("NoSuchLoad"), "propagating an unknown name must be rejected")
-    # The thermal step is the last one, so a propagation from it would record a command that copies nothing
+    # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal of
+    # that replays
     last = pmx.model.steps[THERMAL_STEP].loads
     check(last.contains(PREFIX + "CF"), "the last step must carry the concentrated flux")
-    check_refused(lambda: last.propagate(PREFIX + "CF"), "no following step",
-                  "propagating from the last step must be refused")
-    # The controller would skip a following step that does not take the load type, so the propagation is refused
+    names = list(last.get_names())
+    last.propagate(PREFIX + "CF")
+    check(list(last.get_names()) == names, "propagating from the last step changed its loads")
+    # A following step that does not take the load type is skipped, as the dialog does
     frequency = PREFIX + "Frequency"
     pmx.model.steps.add_frequency(frequency)
     try:
-        check_refused(lambda: loads.propagate(PREFIX + "P"), frequency,
-                      "propagating into a step that does not take the load type must be refused")
-        check(not following.contains(PREFIX + "P"), "the refused propagation was recorded")
+        check(not following.contains(PREFIX + "P"), "the following step must not carry the pressure yet")
+        loads.propagate(PREFIX + "P")
+        check(following.contains(PREFIX + "P"), "the pressure was not propagated to the static step")
+        check(not pmx.model.steps[frequency].loads.contains(PREFIX + "P"), "the frequency step took a pressure")
     finally:
         pmx.model.steps.remove([frequency])
 
@@ -453,6 +483,19 @@ def test_complex_phase():
         load = loads.replace_concentrated_force(PREFIX + "FC", phase_deg=equation)
         check(load.get_equations()["phase_deg"] == equation and load.get_value("phase_deg") == 30,
               "the read back phase did not go back: " + str(load.get_equations()))
+        # The load would wrap a phase outside 0 to 360 degrees and store the number in place of the expression
+        for phase in [360, -30, "=400", 720.5]:
+            check_refused(lambda: loads.replace_concentrated_force(PREFIX + "FC", phase_deg=phase), "'phase_deg'",
+                          "the phase " + str(phase) + " must be refused")
+        check(loads[PREFIX + "FC"].get_equations()["phase_deg"] == equation, "a refused phase changed the load")
+        load = loads.replace_concentrated_force(PREFIX + "FC", phase_deg=359.5)
+        check(load.get_value("phase_deg") == 359.5, "a phase below 360 was changed: " + str(load.get_value("phase_deg")))
+        # A pre-tension is complex here too, but the solver input carries no phase for it
+        pre_tension = loads.add_pre_tension(PREFIX + "PT", surface_selection(1), 500)
+        check("phase_deg" not in list(pre_tension.get_value_names()), "a pre-tension must not read back a phase")
+        check_refused(lambda: loads.replace_pre_tension(PREFIX + "PT", phase_deg=30), "'phase_deg'",
+                      "a phase of a pre-tension must be refused")
+        loads.replace_pre_tension(PREFIX + "PT", magnitude=600)
     finally:
         steps.remove([name])
 

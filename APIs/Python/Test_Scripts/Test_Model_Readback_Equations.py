@@ -53,11 +53,12 @@ def test_equation_readback():
     check(equations['f2'] == '=3', "the equation did not read back: " + str(equations['f2']))
     check('f3' not in equations, "the plain value was read back as an equation: " + str(equations))
     check(load.get_value('f3') == 4, "the plain value did not read back: " + str(load.get_value('f3')))
-    # Every name the equations use, and the phase every load takes, is one get_value reads
+    # Every name the equations use is one get_value reads; a static step is not complex, so its loads take no
+    # phase and read none back
     value_names = list(load.get_value_names())
-    missing = [name for name in list(equations) + ["phase_deg"] if name not in value_names]
+    missing = [name for name in list(equations) if name not in value_names]
     check(not missing, "these names are not read by get_value: " + str(missing))
-    check(load.get_value('phase_deg') == 0, "the phase did not read back: " + str(load.get_value('phase_deg')))
+    check("phase_deg" not in value_names, "a load of a static step read back a phase: " + str(value_names))
 
 
 def test_script_context():

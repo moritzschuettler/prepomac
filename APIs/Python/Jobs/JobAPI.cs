@@ -9,6 +9,7 @@
 
 using CaeJob;
 using CaeGlobals;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
@@ -40,7 +41,12 @@ namespace APIs.Python
                    Returns = "list[EnvironmentVariable]")]
         public object environment_variables
         {
-            get { return PythonListConverter.ToPythonList(Resolve().EnvironmentVariables.DeepClone().ToArray()); }
+            get
+            {
+                List<EnvironmentVariable> environmentVariables = Resolve().EnvironmentVariables;
+                if (environmentVariables == null) return PythonListConverter.ToPythonList(new EnvironmentVariable[0]);
+                return PythonListConverter.ToPythonList(environmentVariables.DeepClone().ToArray());
+            }
         }
         [PythonAPI("The status of the last run: None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
                    "FailedWithResults.", Returns = "str")]

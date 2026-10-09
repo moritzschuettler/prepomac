@@ -126,8 +126,15 @@ def test_part_commands():
     check(message is not None and "must not be empty" in message, "an empty part name was accepted: " + str(message))
     message = raised_message(lambda: parts.replace_properties(name, name="two words"))
     check(message is not None and "is not valid" in message, "an invalid part name was accepted: " + str(message))
+    message = raised_message(lambda: parts.replace_properties(name, name=" " + name))
+    check(message is not None and "space" in message, "a padded part name was accepted: " + str(message))
     check(list(parts.get_names().to_array()) == list(names), "a refused rename changed the part names")
     check(parts[name].name == name, "a refused rename changed the part name to " + parts[name].name)
+    # The part to replace is named in any case, and the command is given the name the result stores
+    if name.swapcase() != name:
+        parts.replace_properties(name.swapcase(), color=[40, 50, 60])
+        check(list(parts.get_names().to_array()) == list(names),
+              "a replace naming the part in another case changed the part names")
     if len(names) > 1:
         message = raised_message(lambda: parts.replace_properties(name, name=names[1].swapcase()))
         check(message is not None and "already exists" in message,
@@ -208,6 +215,11 @@ def test_field_output_duplication():
 def test_result_lifecycle():
     names = list(pmx.results.get_names())
     check(len(names) > 0, "no result is loaded")
+    # A result is made current by its name in any case, and is then named as the collection stores it
+    if names[0].swapcase() != names[0]:
+        pmx.results.current = names[0].swapcase()
+        check(pmx.results.current.name == names[0],
+              "the current result is named in the lookup spelling: " + pmx.results.current.name)
     pmx.results.remove_current()
     check(len(list(pmx.results.get_names())) == len(names) - 1, "the current result was not removed")
     pmx.results.clear()

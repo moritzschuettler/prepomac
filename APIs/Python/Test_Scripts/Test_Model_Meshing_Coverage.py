@@ -229,6 +229,12 @@ def test_value_ranges(items, solid_selection, shell_selection):
             "a thickness that is not finite was accepted")
     refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", quad_wild_alpha=1.5), ["quad_wild_alpha"],
             "a sweep QuadWild alpha above 1 was accepted")
+    refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", number_of_global_smooth_steps=-2),
+            ["number_of_global_smooth_steps"], "a negative number of sweep smooth steps was accepted")
+    refused(lambda: items.add_sweep_mesh(PREFIX + "Bad", solid_selection, number_of_global_smooth_steps=-1),
+            ["number_of_global_smooth_steps"], "a negative number of sweep smooth steps was accepted by the add")
+    check(settings(items, PREFIX + "Sweep")["number_of_global_smooth_steps"] == 1,
+          "a refused replace changed the sweep smooth steps")
     # QuadWild triangulates with Gmsh, Netgen or MMG only
     for mesher in ["QuadWild", "None"]:
         refused(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", triangulation_mesher=mesher),

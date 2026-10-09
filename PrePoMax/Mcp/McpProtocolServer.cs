@@ -37,7 +37,11 @@ namespace PrePoMax.Mcp
         // Static methods                                                                                                           
         // Returns the response to send, or null when the request was a notification and there is
         // nothing to answer. A request that is not JSON is answered rather than dropped, because the
-        // caller reached the protocol and a parse error is the protocol's own answer
+        // caller reached the protocol and a parse error is the protocol's own answer.
+        //
+        // A notification is never answered, so nothing it asks for is done either: a tools/call sent
+        // without an id would change the model with no way to tell the caller what it did, and MCP
+        // allows a tools/call only as a request
         public static string Handle(string requestBody, RpcDispatcher dispatcher)
         {
             object document;
@@ -51,21 +55,20 @@ namespace PrePoMax.Mcp
             //
             string method = JsonReader.GetString(document, "method", null);
             object id = GetId(document);
-            bool isNotification = !JsonReader.HasItem(document, "id") || id == null;
-            if (string.IsNullOrEmpty(method))
-            {
-                if (isNotification) return null;
-                return Error(id, -32600, "The request names no method.");
-            }
+            bool isNotification = !JsonReader.HasItem(document, "id");
+            // MCP narrows JSON-RPC here: the id of a request is a string or a number, and never null
+            if (!isNotification && id == null)
+                return Error(null, -32600, "The id of a request must be a string or a number.");
+            // A notification this server does not need - initialized, cancelled, progress - and a
+            // request sent as a notification, which is not run because it could not be answered
+            if (isNotification) return null;
+            if (string.IsNullOrEmpty(method)) return Error(id, -32600, "The request names no method.");
             try
             {
                 if (method == "initialize") return Initialize(id, document);
                 if (method == "ping") return Result(id, "{}");
                 if (method == "tools/list") return ToolsList(id);
                 if (method == "tools/call") return ToolsCall(id, document, dispatcher);
-                // A notification this server does not need - initialized, cancelled, progress
-                if (method.StartsWith("notifications/", StringComparison.Ordinal)) return null;
-                if (isNotification) return null;
                 //
                 return Error(id, -32601, "This server does not serve " + method + ".");
             }
@@ -139,6 +142,10 @@ namespace PrePoMax.Mcp
             // would run without what the caller meant to ask for
             string unknown = GetUnknownArguments(tool, arguments);
             if (unknown != null) return ToolResult(id, unknown, true);
+            // A value of the wrong type or out of range would otherwise be read as the default, and the
+            // call would run as if the argument had not been given
+            string invalid = McpArgumentValidator.Validate(tool, arguments);
+            if (invalid != null) return ToolResult(id, invalid, true);
             //
             try
             {

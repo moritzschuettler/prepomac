@@ -143,8 +143,10 @@ it has run, and it goes on to the end and records its commands as usual.
 
 - Collect the answer with `get_call` and that `callId`. It waits again and returns exactly what the
   original call would have - output, error and `recordedCommands` - or `running` once more.
-- Do not send the same work again. Every call that changes the model waits for the running one, and
-  is refused as busy if it waits longer than the timeout; `get_status` names the call that holds it.
+- Do not send the same work again. Every other tool waits for the running one - all but
+  `get_status`, `get_call`, `cancel_call`, `get_guide` and `list_sessions`, reading tools included -
+  and is refused as busy if it waits longer than `requestTimeout`; `get_status` names the call that
+  holds it.
 - When you know a call is long, pass a larger `timeout` - or `timeout=0` to be answered at once with
   the `callId` and do the waiting through `get_call`.
 - An answer is handed over once. `get_status` lists under `calls` the ones still running or not

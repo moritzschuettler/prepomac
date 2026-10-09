@@ -49,7 +49,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Replaces an existing analysis using command history. A value that is not given is " +
-                   "preserved from the analysis being replaced. Inherit switches restore application defaults.",
+                   "preserved from the analysis being replaced. Inherit switches restore application defaults. " +
+                   "An argument edited away from the solver default is kept through a new name or solver; " +
+                   "otherwise the argument follows them.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add; " +
                                "inherit_executable: bool = None, inherit_work_directory: bool = None, " +
                                "inherit_number_of_cpus: bool = None, inherit_environment_variables: bool = None",

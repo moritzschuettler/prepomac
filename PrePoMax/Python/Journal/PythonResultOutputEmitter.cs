@@ -122,7 +122,9 @@ namespace PrePoMax.Python.Journal
                     APIs.Python.PythonDeformationVariable.ToApiName(fromIntegration.DeformationVariableName);
                 arguments.Add("deformation_variable_name=" + PythonValueFormatter.Text(deformationVariable));
                 arguments.Add("unit=" + PythonValueFormatter.Text(fromIntegration.Unit));
-                arguments.Add("cross_section=" + PythonValueFormatter.Text(fromIntegration.CrossSection.ToString()));
+                if (fromIntegration.IntegralType != IntegralTypeEnum.Surface)
+                    arguments.Add("cross_section=" +
+                                  PythonValueFormatter.Text(fromIntegration.CrossSection.ToString()));
                 arguments.Add("thickness=" + PythonValueFormatter.Number(fromIntegration.Thickness));
             }
             else if (output is ResultHistoryOutputFromMergedHistories merged)

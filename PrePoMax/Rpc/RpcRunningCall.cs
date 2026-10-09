@@ -42,6 +42,7 @@ namespace PrePoMax.Rpc
         private volatile bool _isCancelRequested;
         private PythonExecution _execution;
         private int _startInterruptCount;
+        private bool _hasReachedPython;
         [ThreadStatic] private static RpcRunningCall _current;
 
 
@@ -50,6 +51,7 @@ namespace PrePoMax.Rpc
         public string Method { get { return _method; } }
         public bool IsFinished { get { return _isFinished; } }
         public bool IsCancelRequested { get { return _isCancelRequested; } }
+        public bool HasReachedPython { get { lock (_stateLock) return _hasReachedPython; } }
         // The call the calling thread is running, or null on a thread that is not running one
         public static RpcRunningCall Current { get { return _current; } }
         public double Elapsed
@@ -76,6 +78,7 @@ namespace PrePoMax.Rpc
             _isCancelRequested = false;
             _execution = null;
             _startInterruptCount = 0;
+            _hasReachedPython = false;
         }
 
 
@@ -140,6 +143,7 @@ namespace PrePoMax.Rpc
             lock (_stateLock)
             {
                 _execution = execution;
+                _hasReachedPython = true;
                 if (_isCancelRequested) _startInterruptCount++;
                 Monitor.PulseAll(_stateLock);
                 return _isCancelRequested;
@@ -157,22 +161,27 @@ namespace PrePoMax.Rpc
         // as it would have. Every cancel delivers an interrupt of its own, so code that caught the one before -
         // a bare except - is reached again. Returns whether an interrupt was aimed at the Python of the call, and
         // tells whether it was delivered; one that is not delivered waits for the GIL, which an operation of the
-        // application holds until it returns to Python
+        // application holds until it returns to Python, or for a call that has not reached its Python yet to
+        // start it
         public bool Cancel(out bool isDelivered)
         {
             isDelivered = false;
             PythonExecution execution;
             int startInterruptsBefore;
+            bool hasReachedPython;
             lock (_stateLock)
             {
                 if (_isFinished) return false;
                 startInterruptsBefore = _startInterruptCount;
                 _isCancelRequested = true;
                 execution = _execution;
+                hasReachedPython = _hasReachedPython;
             }
             if (execution != null)
                 return PythonEngineManager.RequestInterrupt(execution, InterruptDeliveryWaitMilliseconds, out isDelivered);
-            // Not in its Python: a call about to start it is interrupted as it does, which is waited for a moment
+            if (hasReachedPython) return false;
+            // Not in its Python yet: it does not start it, or is interrupted as it does, which is waited for a
+            // moment, and the interrupt stays pending while it has not got there
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(CancelStartWaitMilliseconds);
             lock (_stateLock)
             {
@@ -183,7 +192,7 @@ namespace PrePoMax.Rpc
                     Monitor.Wait(_stateLock, left);
                 }
                 isDelivered = _startInterruptCount > startInterruptsBefore;
-                return isDelivered;
+                return true;
             }
         }
         // The answer the call would have given had the caller waited for it, refusal and all
@@ -204,8 +213,10 @@ namespace PrePoMax.Rpc
             writer.WriteValue("message", "The call is still running after " + FormatSeconds(Elapsed) + ". It has " +
                                          "not been abandoned: it runs to the end, and what it changes is recorded " +
                                          "as usual. Collect its answer with get_call - the wait method on the pipe " +
-                                         "- and call id " + id + ". Every call that would change the model waits " +
-                                         "for it until it is done. To stop it instead, cancel it with " +
+                                         "- and call id " + id + ". Until it is done every other call waits for " +
+                                         "it and is refused as busy after the requestTimeout, except get_status, " +
+                                         "get_call, cancel_call, get_guide and list_sessions (status, wait, " +
+                                         "cancel, ping and shutdown on the pipe). To stop it instead, cancel it with " +
                                          "cancel_call - the cancel method on the pipe - and the same call id.");
             writer.EndObject();
             return writer.ToString();

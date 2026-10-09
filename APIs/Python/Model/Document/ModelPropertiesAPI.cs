@@ -118,7 +118,9 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces the model properties using command history. A property that is not given is kept, " +
                    "unless clear_undefined_constants makes the omitted physical constants undefined. " +
                    "number_of_cycles, cycles_increment and number_of_smoothing_steps are whole numbers, or an " +
-                   "equation given as a str whose value is rounded to a whole number.",
+                   "equation given as a str whose value is rounded to a whole number. number_of_cycles and " +
+                   "cycles_increment must be 1 or larger and number_of_smoothing_steps 0 or larger; a smaller " +
+                   "value is refused rather than raised to the minimum.",
                    Arguments = "name: str = None, model_type: str = None, " +
                                "global_results_file_name: str = None, slip_wear_results: str = None, " +
                                "number_of_cycles: int or str = None, cycles_increment: int or str = None, " +

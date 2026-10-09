@@ -129,6 +129,13 @@ namespace PrePoMax.Mcp
             "    # The geometry parts are the unmeshed ones; model parts are what meshing produced\n" +
             "    model['geometry_parts'] = names(pmx.model.geometry, 'parts', 'model.geometry.parts')\n" +
             "    model['parts_mesh_state'] = read_mesh_state(model['parts'] or [], model['geometry_parts'] or [])\n" +
+            "    model['mesh_setup_items'] = names(pmx.model.mesh, 'setup_items', 'model.mesh.setup_items')\n" +
+            "    # The keyword editor is counted only: its texts are long, and get_user_keywords reads them\n" +
+            "    keywords = value(pmx.model, 'keywords', 'model.keywords')\n" +
+            "    if keywords is not None:\n" +
+            "        model['keywords'] = {'user_keyword_count': value(keywords, 'count', 'keywords.count'),\n" +
+            "                             'override_count': value(keywords, 'override_count',\n" +
+            "                                                     'keywords.override_count')}\n" +
             "    # A parameter is read whole: a name alone says nothing about what it drives\n" +
             "    model['parameters_detail'] = read_parameters()\n" +
             "    model['steps_detail'] = read_steps()\n" +

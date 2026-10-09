@@ -32,6 +32,18 @@ namespace APIs.Python
             }
             return false;
         }
+        // A list naming one item twice reaches the controller as two operations on it, and the second one fails
+        // after the command has been recorded - a removed step is removed again
+        public static void RefuseRepeated(string[] names, string argumentName)
+        {
+            HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string name in names)
+            {
+                if (name != null && !usedNames.Add(name.Trim()))
+                    throw new PythonAPIException("The argument '" + argumentName + "' names '" + name + "' more " +
+                                                 "than once.");
+            }
+        }
         // The name setter of a model item throws on a name it cannot take and trims the one it can, so a name is
         // refused here, before anything is constructed or recorded, and is never stored under a different spelling
         // than the one the script goes on to look up. The name an item already carries is not checked again, so an

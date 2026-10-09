@@ -144,6 +144,15 @@ def test_materials():
                                                                     pmx.create.elastic(2, 0.3)]))
     check(message is not None and "'properties'" in message,
           "a second elastic property must be refused naming the argument: " + str(message))
+    # The dialog adds a property type once, so a repeated one is refused naming the argument and the type
+    count_before_repeated = len(materials)
+    for properties in [[pmx.create.density(1e-9), pmx.create.density(2e-9)],
+                       [pmx.create.elastic(1, 0.3), pmx.create.plastic([[250, 0, 20]]),
+                        pmx.create.plastic([[300, 0, 20]])]]:
+        message = raised_message(lambda: materials.add(PREFIX + "Bad", properties))
+        check(message is not None and "'properties'" in message and "more than once" in message,
+              "a repeated material property type must be refused: " + str(message))
+    check(len(materials) == count_before_repeated, "a material with a repeated property type was recorded")
     # A material that is not temperature dependent writes only the first row without its temperature, so a
     # property the analysis would cut short is refused rather than recorded
     count_before_rows = len(materials)

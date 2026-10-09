@@ -36,7 +36,8 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Adds a concentrated force using command history. A two dimensional model refuses a nonzero " +
                    "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
-                   "and is refused elsewhere. The selection target is nodes.",
+                   "and is refused elsewhere; it is at least 0 and below 360 degrees. The selection target is " +
+                   "nodes.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
@@ -384,8 +385,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
                    "unless one is given. Possible tension_type values are Force and Displacement. It needs a " +
-                   "three dimensional model, and as it is never complex it refuses phase_deg. The selection " +
-                   "target is surfaces.",
+                   "three dimensional model, and refuses phase_deg, because the solver input carries no phase " +
+                   "for it. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "direction: list[float] = None, tension_type: str = None, and the shared load " +
                                "arguments", Returns = "Load")]
@@ -559,7 +560,10 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a radiation heat transfer load using command history. The emissivity is between 0 " +
                    "and 1 and can carry its own amplitude, and a cavity radiation needs a cavity name of at most " +
-                   "three characters, which the solver limits it to. The selection target is surfaces.",
+                   "three characters, which the solver limits it to. A cavity_name without cavity radiation is " +
+                   "refused, because the load would keep it unused; on a replace the check covers the values " +
+                   "the load keeps, while a kept cavity name stays when cavity_radiation=False turns cavity " +
+                   "radiation off. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, sink_temperature: float, " +
                                "emissivity: float, cavity_radiation: bool = None, cavity_name: str = None, " +
                                "emissivity_amplitude_name: str = None, and the shared load arguments",
@@ -602,8 +606,9 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Copies the load to every following step using command history. It is refused when a " +
-                   "following step does not support the load type.",
+        [PythonAPI("Copies the load to every following step using command history. A following step that " +
+                   "does not support the load type is skipped, as the dialog does, so from the last step, or " +
+                   "when no following step supports it, nothing changes.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {
@@ -683,8 +688,16 @@ namespace APIs.Python.Model
                 if (cavity.Length > 3)
                     throw new PythonAPIException("The argument 'cavity_name' must not be longer than three " +
                                                  "characters: '" + cavity + "'.");
+                if (!load.CavityRadiation)
+                    throw new PythonAPIException("The argument 'cavity_name' applies only to a cavity radiation, " +
+                                                 "which the load does not use. Give cavity_radiation=True as well, " +
+                                                 "or leave cavity_name out.");
                 load.CavityName = cavity;
             }
+            // The solver input names the cavity of a cavity radiation, so the merged load needs one
+            if (load.CavityRadiation && string.IsNullOrEmpty(load.CavityName))
+                throw new PythonAPIException("A cavity radiation needs a cavity name. Give the argument " +
+                                             "'cavity_name', or cavity_radiation=False.");
             if (emissivityAmplitudeName != null)
                 load.EmissivityAmplitudeName =
                     _service.ResolveAmplitudeName(emissivityAmplitudeName, "emissivity_amplitude_name");

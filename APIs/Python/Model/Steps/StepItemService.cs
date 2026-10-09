@@ -197,30 +197,6 @@ namespace APIs.Python.Model
                                                  "the step '" + stepName + "'.");
             }
         }
-        // A propagation copies the item to the steps that follow, so from the last step it would record a command
-        // that changes nothing
-        public void EnsureFollowingStepExists(string stepName, string name)
-        {
-            Step step = _stepService.ResolveStep(stepName);
-            if (_modelResolver.GetModel().StepCollection.GetNextStepNames(step.Name).Length == 0)
-                throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' cannot be propagated, " +
-                                             "because the step '" + step.Name + "' is the last step and has no " +
-                                             "following step.");
-        }
-        // The controller copies the item into every following step that takes its type and silently skips the others
-        protected void EnsureFollowingStepsSupport(string stepName, TItem item, Func<Step, bool> isSupported)
-        {
-            Step step = _stepService.ResolveStep(stepName);
-            foreach (string nextStepName in _modelResolver.GetModel().StepCollection.GetNextStepNames(step.Name))
-            {
-                Step nextStep = _stepService.ResolveStep(nextStepName);
-                if (!isSupported(nextStep))
-                    throw new PythonAPIException("The " + _itemTypeName + " '" + item.Name + "' cannot be propagated, " +
-                                                 "because the following step '" + nextStep.Name + "' is a " +
-                                                 StepAPI.GetItemType(nextStep) + " step, which does not support a " +
-                                                 GetItemType(item) + " " + _itemTypeName + ".");
-            }
-        }
         protected void EnsureCommandsAvailable()
         {
             if (_modelGateway == null)
@@ -233,6 +209,18 @@ namespace APIs.Python.Model
                 if (PythonNameComparer.AreSame(key, name)) return key;
             }
             return null;
+        }
+        // The item wraps a phase into 0 to 360 degrees and then stores the wrapped number in place of an expression,
+        // so a phase outside that range is refused, read from a copy that does not wrap it
+        protected static EquationString ToPhaseDeg(EquationContainer phaseDeg, object value)
+        {
+            EquationString equation = PythonValueConverter.ToEquationString(value, "phase_deg");
+            double phase = GivenEquationValue.Evaluate(phaseDeg, equation, "phase_deg");
+            if (!(phase >= 0 && phase < 360))
+                throw new PythonAPIException("The argument 'phase_deg' is " + phase + ", but a phase is at least 0 " +
+                                             "and below 360 degrees. Give " + Tools.GetPhase360(phase) + " instead.");
+            //
+            return equation;
         }
         protected static string AsString(object value, string argumentName)
         {

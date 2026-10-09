@@ -120,9 +120,19 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'properties' must contain at least one surface " +
                                              "interaction property.");
             //
+            // The dialog adds a property type only once
             surfaceInteraction.Properties.Clear();
+            HashSet<System.Type> propertyTypes = new HashSet<System.Type>();
             foreach (SurfaceInteractionPropertyAPI property in converted)
-                surfaceInteraction.AddProperty(property.GetPropertyCopy());
+            {
+                SurfaceInteractionProperty propertyCopy = property.GetPropertyCopy();
+                if (!propertyTypes.Add(propertyCopy.GetType()))
+                    throw new PythonAPIException("The argument 'properties' contains the " +
+                                                 SurfaceInteractionPropertyAPI.GetPropertyType(propertyCopy) +
+                                                 " property more than once; a surface interaction holds one " +
+                                                 "property of each type.");
+                surfaceInteraction.AddProperty(propertyCopy);
+            }
         }
         private void EnsureCommandsAvailable()
         {

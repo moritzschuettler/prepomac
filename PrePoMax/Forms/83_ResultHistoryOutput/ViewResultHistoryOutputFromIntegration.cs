@@ -42,7 +42,12 @@ namespace PrePoMax
         public IntegralTypeEnum IntegralType
         {
             get { return _historyOutput.IntegralType; }
-            set { _historyOutput.IntegralType = value; UpdateVisibility(); }
+            set
+            {
+                _historyOutput.IntegralType = value;
+                if (value == IntegralTypeEnum.Surface) _historyOutput.CrossSection = IntegrationScaleType.None;
+                UpdateVisibility();
+            }
         }
         //
         [CategoryAttribute("Data")]

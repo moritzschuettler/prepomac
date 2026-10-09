@@ -138,6 +138,7 @@
     <Compile Include="Python\Journal\PythonValueFormatter.cs" />
     <Compile Include="Python\PythonScriptException.cs" />
     <Compile Include="Mcp\McpAccessToken.cs" />
+    <Compile Include="Mcp\McpArgumentValidator.cs" />
     <Compile Include="Mcp\McpException.cs" />
     <Compile Include="Mcp\McpHttpRequestHandler.cs" />
     <Compile Include="Mcp\McpHttpServer.cs" />

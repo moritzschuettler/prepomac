@@ -46,9 +46,10 @@ namespace APIs.Python.Model
                 step.Perturbation = perturbation;
             }
         }
-        // The model shortens an increment longer than the time period, and an initial increment longer than the
-        // maximum one. It may do so with a default of a new step, but never with a value the caller gave, and on a
-        // replace every stored value counts as one the caller gave.
+        // The model shortens an increment longer than the time period, which it may do with a default of a new
+        // step, but never with a value the caller gave, and on a replace every stored value counts as one the
+        // caller gave. An initial increment longer than the maximum one is stored as it is, but setting the maximum
+        // shortens it, so the initial increment is set after the maximum and a replace sets the kept one again.
         public static void ApplyStaticValues(StaticStep step, object timePeriod, object initialTimeIncrement,
                                              object minTimeIncrement, object maxTimeIncrement, object direct,
                                              bool replace)
@@ -69,14 +70,10 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The minimum time increment " + minimum + " exceeds the time period " +
                                              period + ". Give a smaller 'min_time_increment' or a larger " +
                                              "'time_period'.");
-            if ((replace || initialTimeIncrement != null) && initial > maximum)
-                throw new PythonAPIException("The initial time increment " + initial + " exceeds the maximum time " +
-                                             "increment " + maximum + ". Give a smaller 'initial_time_increment' or " +
-                                             "a larger 'max_time_increment'.");
             //
             if (timePeriod != null) step.TimePeriod = period;
             if (maxTimeIncrement != null) step.MaxTimeIncrement = maximum;
-            if (initialTimeIncrement != null) step.InitialTimeIncrement = initial;
+            if (replace || initialTimeIncrement != null) step.InitialTimeIncrement = initial;
             if (minTimeIncrement != null) step.MinTimeIncrement = minimum;
             if (direct != null) step.Direct = PythonValueConverter.ToBool(direct, "direct");
         }
@@ -86,18 +83,23 @@ namespace APIs.Python.Model
         {
             if (numOfFrequencies != null)
                 step.NumOfFrequencies = ToIntAtLeast(numOfFrequencies, "number_of_frequencies", 1);
-            // The model reads a stored upper frequency of 0 as no upper limit, but refuses to set one below a lower limit
+            // The model stores NaN for a limit that is not set and reads an upper limit of 0 as no upper limit. Its
+            // setters refuse a limit past the stored other one, so the range is checked whole and the lower limit is
+            // unset while the upper one is set
             double lower = lowerFrequency == null ? step.LowerFrequency :
-                           ToDoubleAtLeast(lowerFrequency, "lower_frequency", 0);
+                           ToFrequencyLimit(lowerFrequency, "lower_frequency");
             double upper = upperFrequency == null ? step.UpperFrequency :
-                           ToDoubleAtLeast(upperFrequency, "upper_frequency", 0);
-            if ((lowerFrequency != null || upperFrequency != null) && !double.IsNaN(lower) && !double.IsNaN(upper) &&
-                lower >= upper && (upper != 0 || (upperFrequency != null && lower != 0)))
-                throw new PythonAPIException("The lower frequency " + lower + " must be smaller than the upper " +
-                                             "frequency " + upper + ". Give a smaller 'lower_frequency' or a larger " +
-                                             "'upper_frequency'.");
-            SetFrequencyRange(lowerFrequency, upperFrequency, lower, upper, step.UpperFrequency,
-                              value => step.LowerFrequency = value, value => step.UpperFrequency = value);
+                           ToFrequencyLimit(upperFrequency, "upper_frequency");
+            if (lowerFrequency != null || upperFrequency != null)
+            {
+                if (!double.IsNaN(lower) && !double.IsNaN(upper) && upper != 0 && lower >= upper)
+                    throw new PythonAPIException("The lower frequency " + lower + " must be smaller than the upper " +
+                                                 "frequency " + upper + ". Give a smaller 'lower_frequency' or a " +
+                                                 "larger 'upper_frequency'.");
+                step.LowerFrequency = double.NaN;
+                step.UpperFrequency = upper;
+                step.LowerFrequency = lower;
+            }
             if (storage != null) step.Storage = PythonValueConverter.ToBool(storage, "storage");
             // Each mode limit setter moves the other limit past it silently, so the pair is checked as it is stored
             int modeMin = cyclicSymmetryModeMin == null ? step.CyclicSymmetryModeMin :
@@ -222,6 +224,15 @@ namespace APIs.Python.Model
             double converted = PythonValueConverter.ToDouble(value, argumentName);
             if (!(converted >= minimum))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
+            //
+            return converted;
+        }
+        private static double ToFrequencyLimit(object value, string argumentName)
+        {
+            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            if (!double.IsNaN(converted) && !(converted >= 0 && !double.IsInfinity(converted)))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be at least 0, or " +
+                                             "float('nan') for no limit.");
             //
             return converted;
         }

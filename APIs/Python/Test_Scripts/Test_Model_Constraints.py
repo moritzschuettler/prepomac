@@ -239,6 +239,21 @@ def test_joint():
                                                                axis_direction=[0, 0, 1]))
         check(message is not None and "'axis_direction'" in message,
               "an axis direction for a " + joint_type + " joint must be refused: " + str(message))
+    # A value given with a definition that does not use it would be stored and never used, so both are named
+    for arguments in [{"center": [0, 0, 0], "center_defined_by": "MasterSurface"},
+                      {"axis_direction": [0, 0, 1], "axis_defined_by": "MasterSurface"},
+                      {"formulation": "Springs", "stiffness": 5e6, "stiffness_defined_by": "FromModel"}]:
+        names = [name for name in arguments if name != "formulation"]
+        message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1),
+                                                               surface_selection(2), **arguments))
+        check(message is not None and all("'" + name + "'" in message for name in names),
+              "the unused value of " + str(arguments) + " must be refused naming both: " + str(message))
+    message = raised_message(lambda: constraints.replace_joint(PREFIX + "J", center=[1, 1, 1],
+                                                               center_defined_by="MasterSurface"))
+    check(message is not None and "'center'" in message and "'center_defined_by'" in message,
+          "a replaced centre with a master surface centre must be refused: " + str(message))
+    check(list(constraints[PREFIX + "J"].get_value("center")) == [0.5, 0.5, 0.5],
+          "a refused replace changed the joint centre")
     check(not constraints.contains(PREFIX + "Bad"), "a rejected joint must not be added")
     # Swap works on a joint
     master_before = constraints[PREFIX + "J"].master_region_name

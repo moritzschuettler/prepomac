@@ -103,9 +103,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing defined temperature read from a results file using command history, " +
                    "keeping every value that is not given. A defined temperature given by value becomes one " +
-                   "read from a file, which needs a file name, and is refused while it carries an amplitude, " +
-                   "which a temperature read from a file does not use; replace_temperature with " +
-                   "amplitude_name='Default' clears it first.",
+                   "read from a file, which needs a file name, and its amplitude becomes Default, because a " +
+                   "temperature read from a file is written without one.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_temperature_from_file with file_name optional", Returns = "DefinedField")]
         public DefinedFieldAPI replace_temperature_from_file(string old_name, string name = null,
@@ -118,12 +117,8 @@ namespace APIs.Python.Model
             if (definedField.Type != DefinedTemperatureTypeEnum.FromFile && file_name == null)
                 throw new PythonAPIException("The defined field '" + old_name + "' is given by value, so the " +
                                              "argument 'file_name' must be given to read it from a file.");
-            if (definedField.Type != DefinedTemperatureTypeEnum.FromFile &&
-                !PythonNameComparer.AreSame(definedField.AmplitudeName, Amplitude.DefaultAmplitudeName))
-                throw new PythonAPIException("The defined field '" + old_name + "' carries the amplitude '" +
-                                             definedField.AmplitudeName + "', which a temperature read from a " +
-                                             "file does not use. Clear it with replace_temperature and " +
-                                             "amplitude_name='" + Amplitude.DefaultAmplitudeName + "' first.");
+            if (definedField.Type != DefinedTemperatureTypeEnum.FromFile)
+                definedField.AmplitudeName = Amplitude.DefaultAmplitudeName;
             if (file_name != null)
                 definedField.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             definedField.Type = DefinedTemperatureTypeEnum.FromFile;
@@ -132,8 +127,9 @@ namespace APIs.Python.Model
             return Replace(old_name, name, definedField, null, color);
         }
 
-        [PythonAPI("Copies the defined field to every following step using command history. It is refused " +
-                   "when a following step does not support the defined field type.",
+        [PythonAPI("Copies the defined field to every following step using command history. A following " +
+                   "step that does not support the defined field type is skipped, as the dialog does, so from " +
+                   "the last step, or when no following step supports it, nothing changes.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {

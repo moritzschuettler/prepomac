@@ -36,7 +36,7 @@ namespace APIs.Python.Model
                 if (!boundaryCondition.Complex)
                     throw new PythonAPIException("The argument 'phase_deg' applies only to a boundary condition of a " +
                                                  "steady_state_dynamics step, which is complex. Leave it out here.");
-                boundaryCondition.PhaseDeg.Equation = PythonValueConverter.ToEquationString(phaseDeg, "phase_deg");
+                boundaryCondition.PhaseDeg.Equation = ToPhaseDeg(boundaryCondition.PhaseDeg, phaseDeg);
             }
             if (color != null) boundaryCondition.Color = PythonColorConverter.ToColor(color, "color");
         }
@@ -116,10 +116,7 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            BoundaryCondition boundaryCondition = ResolveItem(stepName, name);
-            EnsureFollowingStepExists(stepName, name);
-            EnsureFollowingStepsSupport(stepName, boundaryCondition,
-                                        step => step.IsBoundaryConditionSupported(boundaryCondition));
+            ResolveItem(stepName, name);
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateBoundaryCondition(stepName, name);

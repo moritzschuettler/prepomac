@@ -74,13 +74,18 @@ namespace APIs.Python.Model
                                          boundaryCondition.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
-        // The phase is stored on every boundary condition, so the shared reader leaves it out; only the
-        // displacement rotation takes it as an add_* argument
+        // Only a displacement rotation takes a phase, and only when a steady state dynamics step makes it complex
+        private static bool TakesPhase(BoundaryCondition boundaryCondition)
+        {
+            return boundaryCondition is DisplacementRotation && boundaryCondition.Complex;
+        }
+        // The phase is stored on every boundary condition, so the shared reader leaves it out; it is read back
+        // only where the phase_deg argument takes it, because elsewhere the argument is refused
         private static Dictionary<string, object> GetValues(BoundaryCondition boundaryCondition)
         {
             Dictionary<string, object> values = ModelItemValueReader.GetValues(boundaryCondition,
                                                                                typeof(BoundaryCondition), null);
-            if (boundaryCondition is DisplacementRotation) values["phase_deg"] = boundaryCondition.PhaseDeg.Value;
+            if (TakesPhase(boundaryCondition)) values["phase_deg"] = boundaryCondition.PhaseDeg.Value;
             //
             return values;
         }
@@ -95,7 +100,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this boundary condition type by the name of the add_* " +
-                   "argument that sets it, for example u1 or phase_deg. A " +
+                   "argument that sets it, for example u1. phase_deg is read back only for a displacement " +
+                   "rotation of a steady_state_dynamics step, which is complex and takes it. A " +
                    "displacement degree of freedom that is not constrained reads back as None. Use " +
                    "get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, int, bool or str")]
@@ -112,7 +118,11 @@ namespace APIs.Python.Model
                    "left out, and get_value returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve());
+            BoundaryCondition boundaryCondition = Resolve();
+            Dictionary<string, string> equations = ModelItemValueReader.GetEquations(boundaryCondition);
+            if (!TakesPhase(boundaryCondition)) equations.Remove("phase_deg");
+            //
+            return equations;
         }
         public override string ToString()
         {

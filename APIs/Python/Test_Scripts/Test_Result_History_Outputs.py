@@ -560,7 +560,7 @@ try:
 
     # DUPLICATE: the duplicate keeps the definition type and gets a generated name.
     names_before = get_history_output_names(history_outputs)
-    history_outputs.duplicate(TABLE_NAME)
+    history_outputs.duplicate(TABLE_NAME.lower())
     new_names = [name for name in get_history_output_names(history_outputs) if name not in names_before]
     check(len(new_names) == 1, "duplicate() did not create exactly one history output.")
     duplicated_name = new_names[0]
@@ -585,16 +585,37 @@ try:
           "a refused rename changed the history outputs")
     print("PASS: rename a history output")
 
+    # NAMES: a user-defined history output is found in any case, and every command is given its stored name
+    other_case = duplicated_name.upper()
+    check(history_outputs.contains(other_case) and other_case in history_outputs,
+          "contains() compared a user-defined history output with its case.")
+    check(history_outputs[other_case].name == duplicated_name,
+          "the indexer did not return the stored name: %s" % history_outputs[other_case].name)
+    history_outputs.replace_from_table(other_case, duplicated_name, [[0.0, 0.0], [1.0, 2.0]],
+                                       y_column_names=["Case_check"])
+    replaced = history_outputs[duplicated_name]
+    replaced_field = str(replaced.fields.get_names()[0])
+    replaced_component = str(replaced.fields[replaced_field].components.get_names()[0])
+    check([str(name) for name in replaced.fields[replaced_field].components[replaced_component].get_entry_names()]
+          == ["Case_check"], "a replace through another case kept the old data.")
+    check(duplicated_name in get_history_output_names(history_outputs) and
+          other_case not in get_history_output_names(history_outputs),
+          "a replace through another case changed the stored name.")
+    check_raises(lambda: history_outputs.remove([duplicated_name, other_case]),
+                 "a remove naming one output twice was accepted")
+    check(history_outputs.contains(duplicated_name), "a refused remove removed the output")
+    print("PASS: find, replace and remove a history output in another case")
+
     # REMOVE FIELDS AND COMPONENTS: exercised on the duplicate so the tested outputs stay intact.
     duplicated = history_outputs[duplicated_name]
     field_name = str(duplicated.fields.get_names()[0])
     component_name = str(duplicated.fields[field_name].components.get_names()[0])
-    history_outputs.remove_components(duplicated_name, field_name, [component_name])
+    history_outputs.remove_components(duplicated_name.lower(), field_name, [component_name])
     check(len(history_outputs[duplicated_name].fields[field_name].components) == 0,
           "remove_components() did not remove the history component.")
     print("PASS: remove a history-output component")
 
-    history_outputs.remove_fields(duplicated_name, [field_name])
+    history_outputs.remove_fields(duplicated_name.lower(), [field_name])
     check(len(history_outputs[duplicated_name].fields) == 0, "remove_fields() did not remove the history field.")
     print("PASS: remove a history-output field")
 
@@ -602,12 +623,12 @@ try:
     csv_file_name = os.path.join(tempfile.gettempdir(), "PyTest_History_export.csv")
     if os.path.exists(csv_file_name):
         os.remove(csv_file_name)
-    history_outputs.export_to_csv(csv_file_name, [TABLE_NAME], delimiter=";")
+    history_outputs.export_to_csv(csv_file_name, [TABLE_NAME.upper()], delimiter=";")
     check(os.path.exists(csv_file_name), "export_to_csv() did not create the file.")
     os.remove(csv_file_name)
     print("PASS: export a history output to CSV")
 
-    history_outputs.remove(duplicated_name)
+    history_outputs.remove(duplicated_name.upper())
     check(not history_outputs.contains(duplicated_name), "remove() did not remove the duplicated output.")
 
     # REMOVE: remove the dependent equation first, then all remaining test outputs together.

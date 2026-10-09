@@ -51,6 +51,7 @@ namespace PrePoMax.Rpc
             bool isDelivered;
             bool isRequested = call.Cancel(out isDelivered);
             bool isFinished = call.Wait(FinishWaitMilliseconds);
+            bool hasReachedPython = call.HasReachedPython;
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -60,12 +61,13 @@ namespace PrePoMax.Rpc
             writer.WriteValue("isInterrupted", isDelivered);
             writer.WriteValue("isInterruptPending", isRequested && !isDelivered);
             writer.WriteValue("isFinished", isFinished);
-            writer.WriteValue("message", GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished));
+            writer.WriteValue("message", GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished,
+                                                    hasReachedPython));
             writer.EndObject();
             return writer.ToString();
         }
         private static string GetMessage(int callId, bool wasRunning, bool isRequested, bool isDelivered,
-                                         bool isFinished)
+                                         bool isFinished, bool hasReachedPython)
         {
             string call = "Call " + callId.ToString(CultureInfo.InvariantCulture);
             string collect = "Collect its answer with get_call - the wait method on the pipe.";
@@ -88,9 +90,19 @@ namespace PrePoMax.Rpc
                        "except - keeps running: cancel it again, and every cancel delivers a new interrupt. " + collect +
                        recorded;
             }
+            if (isRequested && isFinished && !hasReachedPython)
+            {
+                return call + " was cancelled before its Python started, so nothing was run. " + collect;
+            }
             if (isRequested && isFinished)
             {
                 return call + " finished before the interrupt reached its Python. " + collect;
+            }
+            if (isRequested && !hasReachedPython)
+            {
+                return call + " has not reached its Python yet - it is waiting for the application to be idle - so " +
+                       "the interrupt is pending: its Python does not run when it gets there, and the call ends with " +
+                       "a KeyboardInterrupt error. " + collect;
             }
             if (isRequested)
             {
@@ -103,9 +115,8 @@ namespace PrePoMax.Rpc
                 return call + " was not running Python when the cancel arrived and has finished: it had already " +
                        "run its Python, so it completed as it would have, or it ended before starting it. " + collect;
             }
-            return call + " was not running Python when the cancel arrived and is still working: it is waiting " +
-                   "for the application to be idle, and is interrupted as soon as its Python starts, or it is " +
-                   "finishing after its Python. " + collect;
+            return call + " had already run its Python when the cancel arrived and is finishing after it, so it " +
+                   "completes as it would have. " + collect;
         }
     }
 }

@@ -65,7 +65,8 @@ namespace APIs.Python.Model
                    "its three components; either needs a nonzero prescribed value and a region that is not a " +
                    "reference point. A two dimensional model has no u3, ur1 and ur2, so it refuses a value for " +
                    "them. The phase_deg applies only in a steady_state_dynamics step, where a boundary " +
-                   "condition is complex, and is refused elsewhere. The selection target is nodes.",
+                   "condition is complex, and is refused elsewhere; it is at least 0 and below 360 degrees. The " +
+                   "selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
                                "distribution_name: str = None, " +
@@ -223,8 +224,10 @@ namespace APIs.Python.Model
             return Replace(old_name, name, boundaryCondition);
         }
 
-        [PythonAPI("Copies the boundary condition to every following step using command history. It is " +
-                   "refused when a following step does not support the boundary condition type.",
+        [PythonAPI("Copies the boundary condition to every following step using command history. A " +
+                   "following step that does not support the boundary condition type is skipped, as the " +
+                   "dialog does, so from the last step, or when no following step supports it, nothing " +
+                   "changes.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {

@@ -103,7 +103,9 @@ namespace PrePoMax.Forms
         }
         protected override void OnApply(bool onOkAddNew)
         {
-            string name = _controller.Model.Mesh.ElementSets.GetNextNumberedKey("Element_qualities");
+            // An element set shares its name space with the parts and the other mesh entities, since a part is
+            // written to the solver input as an element set of its name
+            string name = _controller.GetAllMeshEntityNames().GetNextNumberedKey("Element_qualities");
             bool largerThan = _viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Larger;
             //
             _controller.CreateElementSetFromElementQualityCommand(name, _viewElementQuality.ElementQualityMetric.ToString(),

@@ -44,7 +44,8 @@ namespace APIs.Python
 
 
         // Methods
-        [PythonAPI("Adds IDs to the selection. Edges and surfaces use dict[part_id, list[item_id]]; " +
+        [PythonAPI("Adds IDs to the selection. Edges and surfaces use dict[part_id, list[item_id]], an item ID " +
+                   "counting from 1 on its part; " +
                    "nodes, elements, vertices, parts, and geometry use list[int]. The 'geometry' source " +
                    "takes recorded geometry IDs unchanged.",
                    Arguments = "source: str, ids: list[int] or dict[int, list[int]], operation: str = None, " +

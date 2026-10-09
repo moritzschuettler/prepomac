@@ -555,7 +555,7 @@ namespace APIs.Python
                 int edgeCount = part.Visualization != null ? part.Visualization.EdgeCount : 0;
                 foreach (int edgeId in entry.Value)
                 {
-                    if (edgeId > edgeCount)
+                    if (edgeId < 1 || edgeId > edgeCount)
                         throw new PythonAPIException("Edge ID " + edgeId + " does not exist on part ID " +
                                                      entry.Key + ".");
                     geometryIds.Add(FeMesh.GetGeometryId(edgeId - 1, (int)GeometryType.Edge, entry.Key));
@@ -573,7 +573,7 @@ namespace APIs.Python
                 GeometryType geometryType = GetSurfaceGeometryType(part);
                 foreach (int surfaceId in entry.Value)
                 {
-                    if (surfaceId > faceCount)
+                    if (surfaceId < 1 || surfaceId > faceCount)
                         throw new PythonAPIException("Surface ID " + surfaceId + " does not exist on part ID " +
                                                      entry.Key + ".");
                     geometryIds.Add(FeMesh.GetGeometryId(surfaceId - 1, (int)geometryType, entry.Key));

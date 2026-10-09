@@ -41,6 +41,17 @@ namespace APIs.Python
             return currentResultName != null &&
                    string.Equals(currentResultName, resultName, System.StringComparison.OrdinalIgnoreCase);
         }
+        public string GetStoredResultName(string resultName)
+        {
+            if (!ContainsResult(resultName)) return null;
+            //
+            foreach (string storedName in _results.GetResultNames())
+            {
+                if (string.Equals(storedName, resultName, System.StringComparison.OrdinalIgnoreCase))
+                    return storedName;
+            }
+            return null;
+        }
         public bool ContainsResult(string resultName)
         {
             return _results != null && resultName != null && _results.ContainsResult(resultName);

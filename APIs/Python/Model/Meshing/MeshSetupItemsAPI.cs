@@ -440,7 +440,7 @@ namespace APIs.Python.Model
                    "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
                    "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +
                    "cells, a cell of the piece the sweep cannot reach meshed by tetrahedra and mirrored alike; Off sweeps " +
-                   "every cell. quad_wild_alpha lies from 0 to 1.",
+                   "every cell. quad_wild_alpha lies from 0 to 1, and number_of_global_smooth_steps is 0 or larger.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
@@ -464,7 +464,7 @@ namespace APIs.Python.Model
             _service.ValidateNewName(name);
             SweepMesh item = new SweepMesh(name);
             if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
-            item.NumberOfGlobalSmoothSteps = number_of_global_smooth_steps;
+            item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps);
             item.KeepImprintEdges = keep_imprint_edges;
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
@@ -494,8 +494,7 @@ namespace APIs.Python.Model
             SweepMesh item = _service.CloneItem<SweepMesh>(old_name);
             if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
             if (number_of_global_smooth_steps != null)
-                item.NumberOfGlobalSmoothSteps =
-                    PythonValueConverter.ToInt(number_of_global_smooth_steps, "number_of_global_smooth_steps");
+                item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps);
             if (keep_imprint_edges != null)
                 item.KeepImprintEdges = PythonValueConverter.ToBool(keep_imprint_edges, "keep_imprint_edges");
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
@@ -811,6 +810,15 @@ namespace APIs.Python.Model
             if (number <= 0)
                 throw new PythonAPIException("The argument 'thickness' must be larger than 0, but " + number +
                                              " was given.");
+            return number;
+        }
+        // The sweep item raises a negative count to zero, so the value the script gave is refused instead
+        private static int ToNumberOfGlobalSmoothSteps(object value)
+        {
+            int number = PythonValueConverter.ToInt(value, "number_of_global_smooth_steps");
+            if (number < 0)
+                throw new PythonAPIException("The argument 'number_of_global_smooth_steps' must be 0 or larger, but " +
+                                             number + " was given.");
             return number;
         }
         internal static int ToNumberOfLayers(object value)

@@ -149,7 +149,9 @@ namespace APIs.Python.Model
                    "joint axis tied by equations, which needs no rigid body and solves on shell elements; its " +
                    "stiffness comes from the model unless a stiffness is given. stiffness and " +
                    "stiffness_defined_by are refused with the RigidBody formulation, axis_direction with a Ball " +
-                   "or Weld joint, which has no axis, and a joint is refused in a 2D model.",
+                   "or Weld joint, which has no axis, and a joint is refused in a 2D model. A center, " +
+                   "axis_direction or stiffness given together with a definition that does not use it - " +
+                   "MasterSurface or FromModel - is refused.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, joint_type: str = None, center_defined_by: str = None, " +
                                "center: list[float] = None, axis_defined_by: str = None, " +
@@ -510,6 +512,11 @@ namespace APIs.Python.Model
                 constraint.StiffnessDefinition =
                     PythonValueConverter.ToEnum<JointStiffnessDefinitionEnum>(AsString(stiffnessDefinedBy, "stiffness_defined_by"),
                                                                               "stiffness_defined_by");
+            // A value the definition does not use would be stored and never written, so the pair is refused
+            if (stiffness != null && constraint.StiffnessDefinition != JointStiffnessDefinitionEnum.UserDefined)
+                throw new PythonAPIException("The argument 'stiffness' is not used when the argument " +
+                                             "'stiffness_defined_by' is '" + constraint.StiffnessDefinition + "'. Give " +
+                                             "stiffness_defined_by='UserDefined' with it, or leave stiffness out.");
             if (constraint.HasUserDefinedStiffness)
             {
                 double value = constraint.Stiffness.Value;
@@ -538,6 +545,10 @@ namespace APIs.Python.Model
                                                  "' selects the joint centre by picking nodes in the dialog; from a " +
                                                  "script give the argument 'center' instead.");
             }
+            if (center != null && constraint.CenterDefinition != JointCenterDefinitionEnum.Coordinates)
+                throw new PythonAPIException("The argument 'center' is not used when the argument " +
+                                             "'center_defined_by' is '" + constraint.CenterDefinition + "'. Give " +
+                                             "center_defined_by='Coordinates' with it, or leave center out.");
             if (axisDirection != null)
             {
                 EquationString[] values = PythonValueConverter.ToEquationArray(axisDirection, "axis_direction", 3);
@@ -550,6 +561,10 @@ namespace APIs.Python.Model
                 constraint.AxisDefinition =
                     PythonValueConverter.ToEnum<JointDefinitionEnum>(AsString(axisDefinedBy, "axis_defined_by"),
                                                                      "axis_defined_by");
+            if (axisDirection != null && constraint.AxisDefinition != JointDefinitionEnum.UserDefined)
+                throw new PythonAPIException("The argument 'axis_direction' is not used when the argument " +
+                                             "'axis_defined_by' is '" + constraint.AxisDefinition + "'. Give " +
+                                             "axis_defined_by='UserDefined' with it, or leave axis_direction out.");
             //
             if (constraint.HasUserDefinedAxis)
             {
