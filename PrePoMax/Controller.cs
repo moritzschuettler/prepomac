@@ -19362,7 +19362,10 @@ namespace PrePoMax
         public void RenameJob(string oldJobName, string newJobName)
         {
             AnalysisJob job = _jobs[oldJobName];
+            string argument = job.Argument;
+            bool isEditedArgument = argument != AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name);
             job.Name = newJobName;
+            if (isEditedArgument) job.Argument = argument;
             ReplaceJob(oldJobName, job);
         }
         public void DuplicateJobs(string[] jobNames)
@@ -19391,10 +19394,7 @@ namespace PrePoMax
         {
             string inputFileName = GetCalculiXInpFileName(jobName);
             bool useBackgroundWorker = asynchronous;
-            string argument = job.Argument;
-            bool isEditedArgument = argument != AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name);
             AnalysisJob job = _jobs[jobName];
-            if (isEditedArgument) job.Argument = argument;
             string workDirectory = Path.GetDirectoryName(inputFileName);
             if (workDirectory == null || !Directory.Exists(workDirectory))
                 throw new CaeException("The work directory '" + workDirectory + "' of the analysis does not exist.");
@@ -21155,6 +21155,11 @@ namespace PrePoMax
                     commandName = "Move tree group";
                     details = GetOrderedDictionaryGroupName(oldLayout.Nodes, change.GroupId.Value);
                     break;
+                case OrderedDictionaryTreeLayoutAction.SetLayout:
+                    preview.SetItemLayout(change.Layout);
+                    commandName = "Set tree layout";
+                    details = dictionary.Keys.Count + " items";
+                    break;
                 default:
                     throw new NotSupportedException();
             }
@@ -21184,11 +21189,6 @@ namespace PrePoMax
             }
             //
             if (command == null)
-                case OrderedDictionaryTreeLayoutAction.SetLayout:
-                    preview.SetItemLayout(change.Layout);
-                    commandName = "Set tree layout";
-                    details = dictionary.Keys.Count + " items";
-                    break;
             {
                 if (view == ViewGeometryModelResults.Results)
                     command = new CSetResultOrderedDictionaryItemLayout(commandName, change.ItemType, view,
