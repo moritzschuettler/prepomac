@@ -55,7 +55,7 @@ namespace PrePoMax.Commands
             ResultsExportFormatEnum inferredFormat;
             string format = null;
             if (!ExportFormatTools.TryGetResultsFormat(fileName, out inferredFormat) || inferredFormat != ResultsExportFormatEnum.Calculix)
-                format = "format=" + PythonValueFormatter.Format(ResultsExportFormatEnum.Calculix.ToString().ToLower());
+                format = "format=" + PythonValueFormatter.Format(ResultsExportFormatEnum.Calculix.ToString());
             writer.Statement(writer.Call("pmx", "export_results", PythonValueFormatter.List(_partNames), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }

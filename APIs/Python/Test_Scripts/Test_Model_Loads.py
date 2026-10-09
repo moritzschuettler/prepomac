@@ -441,10 +441,18 @@ def test_complex_phase():
         # The step is found without regard to case, and its loads are recorded under the name the model uses
         loads = steps[name.lower()].loads
         check(loads.step_name == name, "unexpected step name " + loads.step_name)
-        loads.add_concentrated_force(PREFIX + "FC", node_selection([1]), f1=1, phase_deg=30)
+        load = loads.add_concentrated_force(PREFIX + "FC", node_selection([1]), f1=1, phase_deg=30)
         check(loads.contains(PREFIX + "FC"), "a load with a phase was not added to a complex step")
+        # The phase reads back under its argument name, and goes back into it
+        check(load.get_value("phase_deg") == 30, "unexpected phase " + str(load.get_value("phase_deg")))
+        check("phase_deg" in list(load.get_value_names()), "phase_deg must be listed")
         load = loads.replace_concentrated_force(PREFIX + "FC", phase_deg="=15 * 2")
         check("phase_deg" in load.get_equations(), "the phase was not replaced: " + str(load.get_equations()))
+        check(load.get_value("phase_deg") == 30, "the phase expression was not evaluated")
+        equation = load.get_equations()["phase_deg"]
+        load = loads.replace_concentrated_force(PREFIX + "FC", phase_deg=equation)
+        check(load.get_equations()["phase_deg"] == equation and load.get_value("phase_deg") == 30,
+              "the read back phase did not go back: " + str(load.get_equations()))
     finally:
         steps.remove([name])
 

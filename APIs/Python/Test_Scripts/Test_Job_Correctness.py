@@ -58,8 +58,14 @@ def test_explicit_settings(work):
     check(job.environment_variables[0].Name == "PMX_TEST_VALUE", "the environment variable was not stored")
     # The readback is detached, so changing it cannot reach the stored analysis
     copy = job.environment_variables
+    check(type(copy) is list, "the environment variables must read back as a plain list: " + str(type(copy)))
     copy[0].Value = "changed"
     check(job.environment_variables[0].Value == "one", "the environment readback was not detached")
+    # The read-back goes back into the argument that sets it
+    pmx.jobs.replace(PREFIX + "Explicit", environment_variables=job.environment_variables)
+    variables = pmx.jobs[PREFIX + "Explicit"].environment_variables
+    check(len(variables) == 1 and variables[0].Name == "PMX_TEST_VALUE" and variables[0].Value == "one",
+          "the environment variables did not survive a round trip")
     # Adding another analysis reapplies the settings, which must leave the explicit values alone
     pmx.jobs.add(PREFIX + "Other")
     check(pmx.jobs[PREFIX + "Explicit"].executable == SLEEPING_SOLVER, "the executable was reset")
@@ -78,6 +84,18 @@ def test_replacement_and_inheritance():
                  "a value and its inherit switch were accepted together")
     pmx.jobs.replace(PREFIX + "Explicit", number_of_cpus=2)
     check(pmx.jobs[PREFIX + "Explicit"].number_of_cpus == 2, "the CPU count was not restored")
+
+
+def test_rename_by_case():
+    # An analysis renamed by case only keeps its own name, which no other analysis holds
+    name = PREFIX + "Case"
+    pmx.jobs.add(name)
+    pmx.jobs.rename(name, name.upper())
+    check(pmx.jobs.contains(name.upper()) and name.upper() in list(pmx.jobs.get_names()),
+          "the analysis was not renamed by case: " + str(pmx.jobs.get_names()))
+    check_raises(lambda: pmx.jobs.rename(name.upper(), PREFIX + "Other".upper()),
+                 "a rename onto another analysis was accepted")
+    pmx.jobs.remove(name.upper())
 
 
 def test_rejected_arguments():
@@ -134,6 +152,7 @@ def main():
     build_solvable_model()
     test_explicit_settings(tempfile.gettempdir())
     test_replacement_and_inheritance()
+    test_rename_by_case()
     test_rejected_arguments()
     test_custom_work_directory(tempfile.gettempdir())
     test_timeout()

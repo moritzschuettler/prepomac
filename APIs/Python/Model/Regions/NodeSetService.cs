@@ -60,6 +60,7 @@ namespace APIs.Python.Model
         public void Replace(string oldName, string name, SelectionAPI selection)
         {
             FeNodeSet existing = ResolveNodeSet(oldName);
+            RefuseInternal(existing, "node set", "replaced");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
             // A value that is not given is kept, so a rename alone keeps the selection the set has
@@ -84,11 +85,14 @@ namespace APIs.Python.Model
         }
         public void Remove(string[] names)
         {
+            foreach (string name in names) RefuseInternal(GetNodeSet(name), "node set", "removed");
+            //
             EnsureCommandsAvailable();
             ModelGateway.RemoveNodeSets(names);
         }
         public void Rename(NamedClass item, string newName)
         {
+            RefuseInternal(item, "node set", "renamed");
             ValidateNewName(newName, item.Name);
             //
             EnsureCommandsAvailable();

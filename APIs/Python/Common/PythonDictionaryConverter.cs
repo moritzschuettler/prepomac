@@ -22,7 +22,7 @@ namespace APIs.Python
         public static OrderedDictionary<string, string> ToStringStringDictionary(object value, string argumentName)
         {
             OrderedDictionary<string, string> converted =
-                new OrderedDictionary<string, string>("StringStringDictionary");
+                new OrderedDictionary<string, string>("StringStringDictionary", StringComparer.OrdinalIgnoreCase);
             if (value == null) throw InvalidDictionary(argumentName);
             //
             PyObject pyObject = value as PyObject;
@@ -45,7 +45,8 @@ namespace APIs.Python
                                     if (!PyString.IsStringType(keyObject))
                                         throw new PythonAPIException("All keys in '" + argumentName +
                                                                      "' must be strings.");
-                                    converted.Add(keyObject.As<string>(), valueObject.ToString());
+                                    AddOnce(converted, keyObject.As<string>(), valueObject.ToString(),
+                                            argumentName);
                                 }
                             }
                         }
@@ -70,7 +71,7 @@ namespace APIs.Python
                 string key = entry.Key as string;
                 if (key == null)
                     throw new PythonAPIException("All keys in '" + argumentName + "' must be strings.");
-                converted.Add(key, entry.Value == null ? null : entry.Value.ToString());
+                AddOnce(converted, key, entry.Value == null ? null : entry.Value.ToString(), argumentName);
             }
             //
             return converted;
@@ -89,7 +90,8 @@ namespace APIs.Python
         }
         private static OrderedDictionary<string, double> ConvertPythonDictionary(PyObject value, string argumentName)
         {
-            OrderedDictionary<string, double> converted = new OrderedDictionary<string, double>("StringDoubleDictionary");
+            OrderedDictionary<string, double> converted =
+                new OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
             try
             {
                 using (Py.GIL())
@@ -111,6 +113,12 @@ namespace APIs.Python
                                     double itemValue;
                                     try
                                     {
+                                        // A bool converts to 1 or 0, which is never what a script meant
+                                        using (PyObject type = valueObject.GetPythonType())
+                                        using (PyObject typeName = type.GetAttr("__name__"))
+                                        {
+                                            if (typeName.As<string>() == "bool") throw new InvalidCastException();
+                                        }
                                         itemValue = valueObject.As<double>();
                                     }
                                     catch
@@ -118,7 +126,7 @@ namespace APIs.Python
                                         throw new PythonAPIException("The value for item '" + key + "' in '" +
                                                                      argumentName + "' must be numeric.");
                                     }
-                                    converted.Add(key, itemValue);
+                                    AddOnce(converted, key, itemValue, argumentName);
                                 }
                             }
                         }
@@ -138,23 +146,38 @@ namespace APIs.Python
         }
         private static OrderedDictionary<string, double> ConvertManagedDictionary(IDictionary value, string argumentName)
         {
-            OrderedDictionary<string, double> converted = new OrderedDictionary<string, double>("StringDoubleDictionary");
+            OrderedDictionary<string, double> converted =
+                new OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
             foreach (DictionaryEntry entry in value)
             {
                 string key = entry.Key as string;
                 if (key == null)
                     throw new PythonAPIException("All keys in '" + argumentName + "' must be strings.");
+                double itemValue;
                 try
                 {
-                    converted.Add(key, Convert.ToDouble(entry.Value, CultureInfo.InvariantCulture));
+                    if (entry.Value is bool) throw new InvalidCastException();
+                    itemValue = Convert.ToDouble(entry.Value, CultureInfo.InvariantCulture);
                 }
                 catch
                 {
                     throw new PythonAPIException("The value for item '" + key + "' in '" + argumentName +
                                                  "' must be numeric.");
                 }
+                AddOnce(converted, key, itemValue, argumentName);
             }
             return converted;
+        }
+        // The keys name model items, which the model compares regardless of case, so two keys that differ only
+        // in case name the same item twice
+        private static void AddOnce<TValue>(OrderedDictionary<string, TValue> converted, string key, TValue value,
+                                            string argumentName)
+        {
+            if (converted.ContainsKey(key))
+                throw new PythonAPIException("The argument '" + argumentName + "' names '" + key + "' more than " +
+                                             "once; names are compared regardless of case.");
+            //
+            converted.Add(key, value);
         }
         private static PythonAPIException InvalidDictionary(string argumentName)
         {

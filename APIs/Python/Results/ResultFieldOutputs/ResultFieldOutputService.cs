@@ -48,15 +48,16 @@ namespace APIs.Python
         public ResultFieldOutputAPI CreateAPI(string resultName, string fieldOutputName)
         {
             ResultFieldOutput fieldOutput = ResolveFieldOutput(resultName, fieldOutputName);
+            string storedName = fieldOutput.Name;
             if (fieldOutput is ResultFieldOutputLimit)
-                return new ResultFieldOutputLimitAPI(resultName, fieldOutputName, this);
+                return new ResultFieldOutputLimitAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputEnvelope)
-                return new ResultFieldOutputEnvelopeAPI(resultName, fieldOutputName, this);
+                return new ResultFieldOutputEnvelopeAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputEquation)
-                return new ResultFieldOutputEquationAPI(resultName, fieldOutputName, this);
+                return new ResultFieldOutputEquationAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputCoordinateSystemTransform)
-                return new ResultFieldOutputCoordinateSystemTransformAPI(resultName, fieldOutputName, this);
-            return new ResultFieldOutputAPI(resultName, fieldOutputName, this);
+                return new ResultFieldOutputCoordinateSystemTransformAPI(resultName, storedName, this);
+            return new ResultFieldOutputAPI(resultName, storedName, this);
         }
         public ResultFieldOutputLimitDraftAPI CreateFieldOutputLimit(string name, string fieldName,
                                                                     string componentName, string basedOn,
@@ -117,12 +118,19 @@ namespace APIs.Python
             if (!result.ContainsResultFieldOutput(oldFieldOutputName))
                 throw new PythonAPIException("The result field output '" + oldFieldOutputName +
                                              "' does not exist in result '" + resultName + "'.");
-            Validate(result, fieldOutput, oldFieldOutputName);
-            if (result.AreResultFieldOutputsInCyclicDependance(oldFieldOutputName, fieldOutput))
+            ResultFieldOutput oldFieldOutput = result.GetResultFieldOutput(oldFieldOutputName);
+            string storedOldName = oldFieldOutput.Name;
+            if (oldFieldOutput.GetType() != fieldOutput.GetType())
+                throw new PythonAPIException("The result field output '" + storedOldName + "' is made by add_" +
+                                             ResultFieldOutputAPI.GetItemType(oldFieldOutput) + ", so replace_" +
+                                             ResultFieldOutputAPI.GetItemType(fieldOutput) + " cannot replace " +
+                                             "it. Remove it and add the new type instead.");
+            Validate(result, fieldOutput, storedOldName);
+            if (result.AreResultFieldOutputsInCyclicDependance(storedOldName, fieldOutput))
                 throw new PythonAPIException("The replacement would create a cyclic field-output dependency.");
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultFieldOutput(oldFieldOutputName, fieldOutput);
+            _commandGateway.ReplaceResultFieldOutput(storedOldName, fieldOutput);
             //
             return CreateAPI(resultName, fieldOutput.Name);
         }
@@ -145,31 +153,41 @@ namespace APIs.Python
         }
         public void DuplicateFieldOutputs(string resultName, object fieldOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "names");
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(fieldOutputNames, "names");
             ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
-            foreach (string name in names)
-                if (!result.ContainsResultFieldOutput(name))
-                    throw new PythonAPIException("The result field output '" + name + "' does not exist in " +
-                                                 "result '" + resultName + "'.");
-            EnsureCommandsAvailable();
-            _commandGateway.DuplicateResultFieldOutputs(names);
-        }
-        public void RemoveFieldOutputs(string resultName, object fieldOutputNames)
-        {
-            string[] names = PythonStringListConverter.ToStringArray(fieldOutputNames, "names");
-            ValidateStringList(names, "names");
-            FeResults result = ResolveCurrentResult(resultName);
-            string[] existingFieldNames = result.GetAllFieldNames();
-            foreach (string name in names)
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
-                if (!result.ContainsResultFieldOutput(name) && !existingFieldNames.Contains(name))
-                    throw new PythonAPIException("The result field output '" + name +
-                                                 "' does not exist in result '" + resultName + "'.");
+                if (!result.ContainsResultFieldOutput(names[i]))
+                    throw new PythonAPIException("The result field output '" + names[i] + "' does not exist in " +
+                                                 "result '" + resultName + "'.");
+                storedNames[i] = result.GetResultFieldOutput(names[i]).Name;
             }
             //
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultFieldOutputs(names);
+            _commandGateway.DuplicateResultFieldOutputs(storedNames);
+        }
+        // A result field output is keyed regardless of case, while a field read from the result file is keyed
+        // by its exact name
+        public void RemoveFieldOutputs(string resultName, object fieldOutputNames)
+        {
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(fieldOutputNames, "names");
+            ValidateStringList(names, "names");
+            FeResults result = ResolveCurrentResult(resultName);
+            string[] existingFieldNames = result.GetAllFieldNames();
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (result.ContainsResultFieldOutput(names[i]))
+                    storedNames[i] = result.GetResultFieldOutput(names[i]).Name;
+                else if (existingFieldNames.Contains(names[i])) storedNames[i] = names[i];
+                else throw new PythonAPIException("The result field output '" + names[i] +
+                                                  "' does not exist in result '" + resultName + "'.");
+            }
+            //
+            EnsureCommandsAvailable();
+            _commandGateway.RemoveResultFieldOutputs(storedNames);
         }
         public void RemoveFieldOutputComponents(string resultName, string fieldOutputName, object componentNames)
         {

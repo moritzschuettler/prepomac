@@ -89,9 +89,12 @@ def test_surfaces():
     check(len(surface.get_face_ids()) > 0, "the surface has no face IDs")
     check_collection_verbs(pmx.model.surfaces, PREFIX + "SU", "surface")
     # A surface can also be created from an existing node set
-    pmx.model.surfaces.add_from_node_set(PREFIX + "SU_NS", PREFIX + "NS")
+    pmx.model.surfaces.add_from_node_set(PREFIX + "SU_NS", (PREFIX + "NS").lower())
     check(pmx.model.surfaces[PREFIX + "SU_NS"].created_from == "NodeSet",
           "the surface was not created from the node set")
+    # The node set is stored in the model's own spelling, which the controller compares exactly
+    check(pmx.model.surfaces[PREFIX + "SU_NS"].node_set_name == PREFIX + "NS",
+          "the node set name was stored in the caller's spelling")
     check_raises(lambda: pmx.model.surfaces.add_from_node_set(PREFIX + "Bad", "NoSuchNodeSet"),
                  "an unknown node set must be rejected")
 

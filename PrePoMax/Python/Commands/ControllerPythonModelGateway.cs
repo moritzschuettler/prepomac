@@ -178,7 +178,8 @@ namespace PrePoMax.Python
             if (view == "femodel") return ViewGeometryModelResults.Model;
             if (view == "results") return ViewGeometryModelResults.Results;
             //
-            throw new CaeException("The model tree view '" + view + "' does not exist.");
+            throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel' or 'results', not '" +
+                                         view + "'.");
         }
         private static Type GetTreeItemType(string itemType)
         {
@@ -204,7 +205,8 @@ namespace PrePoMax.Python
             if (IsItemType(itemType, "loads")) return typeof(Load);
             if (IsItemType(itemType, "defined_fields")) return typeof(DefinedField);
             //
-            throw new CaeException("The model tree collection '" + itemType + "' cannot be organized.");
+            throw new PythonAPIException("The model tree collection '" + itemType + "' given as the argument " +
+                                         "'item_type' cannot be organized.");
         }
         // The journal needs the same vocabulary in the other direction, and the two must agree, so the
         // inverse lives next to the map

@@ -85,6 +85,10 @@ def test_the_plot_type():
         pmx.view.result_type = name
         check(pmx.view.result_type == name, "the plot type must be set: " + pmx.view.result_type)
     check_raises(lambda: setattr(pmx.view, "result_type", "Rainbow"), "an unknown plot type must be rejected")
+    # An option string is matched regardless of case and reads back in the spelling of its enumeration
+    pmx.view.result_type = "colorcontours"
+    check(pmx.view.result_type == "ColorContours", "the plot type must be taken regardless of case: " +
+          pmx.view.result_type)
 
 
 # The PNG header says everything this has to check: the size after the signature and the IHDR
@@ -100,6 +104,9 @@ def read_png_header(path):
 
 def test_the_picture():
     camera = pmx.view.get_parameters()
+    pmx.view.set_orientation("isometricnegative")
+    check_raises(lambda: pmx.view.set_orientation("Sideways"), "an unknown orientation must be rejected")
+    check("IsometricNegative" in list(pmx.view.get_orientation_names()), "the orientation names are incomplete")
     pmx.view.set_orientation("Isometric")
     pmx.view.zoom_to_fit()
     path = pmx.view.save_image()

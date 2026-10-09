@@ -55,7 +55,7 @@ namespace PrePoMax.Commands
             GeometryExportFormatEnum inferredFormat;
             string format = null;
             if (!ExportFormatTools.TryGetGeometryFormat(fileName, out inferredFormat) || inferredFormat != GeometryExportFormatEnum.Step)
-                format = "format=" + PythonValueFormatter.Format(GeometryExportFormatEnum.Step.ToString().ToLower());
+                format = "format=" + PythonValueFormatter.Format(GeometryExportFormatEnum.Step.ToString());
             writer.Statement(writer.Call("pmx", "export_geometry", PythonValueFormatter.List(_partNames), writer.Path(fileName), format));
             writer.CountEmittedCommand();
         }

@@ -54,6 +54,10 @@
     <Compile Include="Python\Commands\IPythonMeshGateway.cs" />
     <Compile Include="Python\Commands\IPythonViewGateway.cs" />
     <Compile Include="Python\View\ViewAPI.cs" />
+    <Compile Include="Python\View\ViewExplodedAxesEnum.cs" />
+    <Compile Include="Python\View\ViewExplodedMethodEnum.cs" />
+    <Compile Include="Python\View\ViewOrientationEnum.cs" />
+    <Compile Include="Python\View\ViewResultTypeEnum.cs" />
     <Compile Include="Python\View\ViewAnnotationsAPI.cs" />
     <Compile Include="Python\Common\PythonEnumVocabulary.cs" />
     <Compile Include="Python\Model\Meshing\MeshAPI.cs" />
@@ -123,6 +127,7 @@
     <Compile Include="Python\Model\Steps\DefinedFieldAPI.cs" />
     <Compile Include="Python\Model\Steps\DefinedFieldService.cs" />
     <Compile Include="Python\Model\Steps\DefinedFieldsAPI.cs" />
+    <Compile Include="Python\Model\Steps\DegreeOfFreedomEnum.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputAPI.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputService.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputsAPI.cs" />
@@ -191,7 +196,6 @@
     <Compile Include="Python\Common\PythonIntListMapConverter.cs" />
     <Compile Include="Python\Common\PythonListConverter.cs" />
     <Compile Include="Python\Common\PythonStringListConverter.cs" />
-    <Compile Include="Python\Common\StringDoubleMapAPI.cs" />
     <Compile Include="Python\Common\StringListAPI.cs" />
     <Compile Include="Python\Mesh\ElementSets\ResultElementSetAPI.cs" />
     <Compile Include="Python\Mesh\ElementSets\ResultElementSetsAPI.cs" />
@@ -251,6 +255,10 @@
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentDataAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentsAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputDataService.cs" />
+    <Compile Include="Python\Results\ResultHistoryOutputs\DeformationVariableEnum.cs" />
+    <Compile Include="Python\Results\ResultHistoryOutputs\HistoryFilterOperateOnEnum.cs" />
+    <Compile Include="Python\Results\ResultHistoryOutputs\HistoryFilterReturnValueEnum.cs" />
+    <Compile Include="Python\Results\ResultHistoryOutputs\PythonDeformationVariable.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputDraftAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputEntriesAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputEntryAPI.cs" />
@@ -277,6 +285,7 @@
     <Compile Include="Python\Results\ResultResolver.cs" />
     <Compile Include="Python\Results\ResultsAPI.cs" />
     <Compile Include="Python\Selection\SelectionAPI.cs" />
+    <Compile Include="Python\Selection\SelectionLimitToEnum.cs" />
     <Compile Include="Python\Selection\SelectionCompilation.cs" />
     <Compile Include="Python\Selection\SelectionFactoryAPI.cs" />
     <Compile Include="Python\Selection\SelectionItemAPI.cs" />

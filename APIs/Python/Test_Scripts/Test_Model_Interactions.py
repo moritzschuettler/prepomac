@@ -287,6 +287,14 @@ def test_contact_history_output():
     check(output.region_type == "ContactPair", "unexpected region type " + output.region_type)
     check(output.region_name == PAIR, "unexpected region name " + str(output.region_name))
     check(sorted(list(output.get_variables())) == ["CDIS", "CSTR"], "unexpected contact variables")
+    # The contact pair reads back under the argument that sets it
+    check(output.get_value("contact_pair_name") == PAIR,
+          "unexpected contact_pair_name " + str(output.get_value("contact_pair_name")))
+    check("contact_pair_name" in list(output.get_value_names()), "contact_pair_name must be listed")
+    output = step.history_outputs.replace_contact(PREFIX + "HC",
+                                                  contact_pair_name=output.get_value("contact_pair_name"),
+                                                  variables=output.get_value("variables"))
+    check(sorted(list(output.get_variables())) == ["CDIS", "CSTR"], "the read back values did not go back")
     check_raises(lambda: step.history_outputs.add_contact(PREFIX + "Bad", "NoSuchPair", "CDIS"),
                  "an unknown contact pair must be rejected")
 

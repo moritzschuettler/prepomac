@@ -35,8 +35,12 @@ namespace APIs.Python
         public string field_name { get { return _fieldName; } }
         [PythonAPI("The selected field component names.", Returns = "StringList")]
         public StringListAPI component_names { get { return new StringListAPI(_componentNames); } }
-        [PythonAPI("The deformation variable name.", Returns = "str")]
-        public string deformation_variable_name { get { return _deformationVariableName; } }
+        [PythonAPI("The deformation the region follows: Displacements, Forces, SurfaceNormals, WearDepths, " +
+                   "MeshDeformation, DispDef or DispDefDepth.", Returns = "str")]
+        public string deformation_variable_name
+        {
+            get { return PythonDeformationVariable.ToApiName(_deformationVariableName); }
+        }
         [PythonAPI("The user-defined result unit.", Returns = "str")]
         public string unit { get { return _unit; } set { _unit = value; } }
         [PythonAPI("The out-of-plane cross section scaling for 2D output: None, Thickness or Axisymmetric.",

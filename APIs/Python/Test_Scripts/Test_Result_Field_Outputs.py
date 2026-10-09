@@ -99,13 +99,13 @@ try:
     )
     output.filter1 = field_outputs.create_median_filter(
         source="SurfaceNodes",
-        layers=2,
-        iterations=1
+        number_of_layers=2,
+        number_of_iterations=1
     )
     output.filter2 = field_outputs.create_smooth_filter(
         source="AllNodes",
-        layers=1,
-        iterations=2
+        number_of_layers=1,
+        number_of_iterations=2
     )
     added = field_outputs.add(output)
     created_names.append(LIMIT_NAME)
@@ -123,8 +123,8 @@ try:
     )
     replacement.filter1 = field_outputs.create_average_filter(
         source="SurfaceNodes",
-        layers=2,
-        iterations=1
+        number_of_layers=2,
+        number_of_iterations=1
     )
     replaced = field_outputs.replace(LIMIT_NAME, replacement)
     check(field_outputs.contains(LIMIT_NAME), "replace() removed the limit output.")
@@ -165,20 +165,30 @@ try:
     check(not pmx.results.contains(None), "contains(None) must be False")
     print("PASS: field output names")
 
-    # MAP: the item limits read back as a map with the methods of a dict, and without the .NET members
+    # MAP: the item limits read back as a plain dict, which goes back into the members that set them
     limits = limit_output.item_limits
-    check(len(limits) == 1 and limits.count == 1, "the item limits must hold one limit: " + str(limits))
+    check(isinstance(limits, dict), "the item limits must be a dict: " + str(type(limits)))
+    check(len(limits) == 1, "the item limits must hold one limit: " + str(limits))
     limit_name = list(limits.keys())[0]
     check(limits[limit_name] == 250.0, "the item limit read back as %s" % limits[limit_name])
-    check([float(value) for value in limits.values()] == [250.0], "values() must follow keys()")
-    check(limits.items() == [(limit_name, 250.0)], "items() must be (name, value) tuples: " + str(limits.items()))
-    check(dict(limits) == {limit_name: 250.0}, "the map must convert to a dict")
-    check(limit_name in limits and "PyTest_no_such_item" not in limits, "'in' must test the names")
-    check(limits.get(limit_name) == 250.0 and limits.get("PyTest_no_such_item") is None and
-          limits.get("PyTest_no_such_item", -1.0) == -1.0, "get() must return the default for a missing name")
-    for member in ("Keys", "Values", "Count"):
-        check(not hasattr(limits, member), "the .NET member %s must not be exposed" % member)
+    check(limits == {limit_name: 250.0}, "the item limits read back as " + str(limits))
+    check(replacement.item_limits == {"All elements": 250.0}, "the draft item limits must be a dict")
+    round_trip = field_outputs.replace_limit(LIMIT_NAME, LIMIT_NAME, "STRESS", stress_component,
+                                             limit_output.based_on, limits,
+                                             filter1=field_outputs.create_average_filter(
+                                                 source="SurfaceNodes", number_of_layers=2))
+    check(round_trip.item_limits == limits, "the item limits did not survive a round trip: " +
+          str(round_trip.item_limits))
     print("PASS: item limits map")
+
+    # FILTER COUNTS: the counts read back under the argument names that set them
+    filter1 = field_outputs[LIMIT_NAME].filter1
+    check(filter1.number_of_layers == 2 and filter1.number_of_iterations == 1,
+          "the filter counts read back as %s, %s" % (filter1.number_of_layers, filter1.number_of_iterations))
+    check(not hasattr(filter1, "layers") and not hasattr(filter1, "iterations"), "the old count names remain")
+    check_refused(lambda: field_outputs.create_smooth_filter(number_of_iterations=0), "'number_of_iterations'",
+                  "a zero iteration count was accepted")
+    print("PASS: filter counts")
 
     # ADD: envelope output. Its generated AVERAGE component is removed below.
     output = field_outputs.create_field_output_envelope(
@@ -201,6 +211,34 @@ try:
     created_names.append(EQUATION_NAME)
     check(field_outputs.contains(EQUATION_NAME), "add() did not create the equation output.")
     print("PASS: add equation field output")
+
+    # REPLACE TYPE: a replace never turns one output type into another, and a refused one records nothing
+    names_before = list(field_outputs.get_names())
+    check_refused(lambda: field_outputs.replace_equation(LIMIT_NAME, LIMIT_NAME, "=1"), "add_limit",
+                  "replace_equation turned a limit output into an equation output")
+    check_refused(lambda: field_outputs.replace(EQUATION_NAME, field_outputs.create_field_output_envelope(
+                      EQUATION_NAME, "TOSTRAIN", strain_component)), "add_equation",
+                  "replace turned an equation output into an envelope output")
+    check(list(field_outputs.get_names()) == names_before, "a refused replace changed the field outputs")
+    check(field_outputs[LIMIT_NAME].item_type == "limit" and field_outputs[EQUATION_NAME].item_type == "equation",
+          "a refused replace changed an output type")
+    print("PASS: refuse a replace that changes the output type")
+
+    # NAMES: a field output is found in any case and reports the spelling it is stored under
+    check(field_outputs.contains(LIMIT_NAME.upper()) and LIMIT_NAME.lower() in field_outputs,
+          "contains() compared the field output names with their case")
+    check(field_outputs[LIMIT_NAME.upper()].name == LIMIT_NAME,
+          "the name read back in the lookup spelling: " + field_outputs[LIMIT_NAME.upper()].name)
+    print("PASS: field output names in any case")
+
+    # DUPLICATE: a single name is taken as well as a list
+    names_before = list(field_outputs.get_names())
+    field_outputs.duplicate(ENVELOPE_NAME.upper())
+    copies = [name for name in field_outputs.get_names() if name not in names_before]
+    check(len(copies) == 1, "duplicate() of a single name made %s" % copies)
+    field_outputs.remove(copies[0])
+    check(list(field_outputs.get_names()) == names_before, "the duplicate was not removed by its single name")
+    print("PASS: duplicate and remove by a single name")
 
     # EXPORT: writes every component of the generated limit field at one increment.
     field_outputs.export_to_csv(
@@ -237,7 +275,7 @@ try:
     print("PASS: rename field output")
 
     # REMOVE: exercise both a single-item command and a multi-item command.
-    field_outputs.remove([EQUATION_NAME])
+    field_outputs.remove(EQUATION_NAME.upper())
     created_names.remove(EQUATION_NAME)
     check(not field_outputs.contains(EQUATION_NAME), "remove() did not remove the equation output.")
     print("PASS: remove one field output")

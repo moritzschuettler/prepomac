@@ -26,9 +26,9 @@ namespace APIs.Python
         [PythonAPI("The source nodes: AllNodes or SurfaceNodes.", Returns = "str")]
         public string source { get { return _source.ToString(); } }
         [PythonAPI("The number of neighbouring node layers.", Returns = "int")]
-        public int layers { get { return _layers; } }
+        public int number_of_layers { get { return _layers; } }
         [PythonAPI("The number of filter iterations.", Returns = "int")]
-        public int iterations { get { return _iterations; } }
+        public int number_of_iterations { get { return _iterations; } }
 
 
         // Constructors
@@ -64,7 +64,7 @@ namespace APIs.Python
         {
             return "FieldOutputFilter(type=" + StringListAPI.ToDisplayString(type) +
                    ", source=" + StringListAPI.ToDisplayString(source) +
-                   ", layers=" + _layers + ", iterations=" + _iterations + ")";
+                   ", number_of_layers=" + _layers + ", number_of_iterations=" + _iterations + ")";
         }
     }
 }

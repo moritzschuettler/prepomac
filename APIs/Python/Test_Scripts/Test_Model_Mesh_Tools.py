@@ -85,6 +85,12 @@ def test_element_types():
                  "an undefined numeric element type value must be rejected")
     check_raises(lambda: parts.replace_properties(part_name, element_types={"linear_hexa": "999"}),
                  "an undefined numeric element type value must be rejected by replace_properties")
+    # Two keys that differ only in case name one slot twice, so the map is refused rather than one value winning
+    message = raised_message(lambda: parts.replace_properties(
+        part_name, element_types={"linear_hexa": "C3D8", "Linear_Hexa": "C3D8R"}))
+    check(message is not None and "element_types" in message and "more than once" in message,
+          "a slot named twice in different case was accepted: " + str(message))
+    check(parts.get_element_types(part_name)["linear_hexa"] == "C3D8", "a refused map changed the element type")
     check_raises(lambda: parts.set_element_type(part_name, "part", "Solid"),
                  "the part type must not be settable as an element type")
     # None marks an absent element kind and the part ignores it, so it is not a value

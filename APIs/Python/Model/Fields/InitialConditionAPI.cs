@@ -36,6 +36,8 @@ namespace APIs.Python.Model
         public string region_name { get { return Resolve().RegionName; } }
         [PythonAPI("The region type the initial condition is applied to.", Returns = "str")]
         public string region_type { get { return Resolve().RegionType.ToString(); } }
+        [PythonAPI("True when the initial condition is written to the solver input file.", Returns = "bool")]
+        public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the initial condition is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
         [PythonAPI("True when the initial condition resolved during the last regeneration.", Returns = "bool")]

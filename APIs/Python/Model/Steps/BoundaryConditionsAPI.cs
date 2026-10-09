@@ -101,7 +101,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing displacement and rotation boundary condition using command history. " +
                    "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one. " +
-                   "A degree of freedom named in free_dofs cannot also be given a value.",
+                   "A degree of freedom named in free_dofs cannot also be given a value. Possible free_dofs " +
+                   "values are U1, U2, U3, UR1, UR2 and UR3, in any case.",
                    Arguments = "old_name: str, name: str = None, the arguments of " +
                                "add_displacement_rotation, and free_dofs: list[str] = None",
                    Returns = "BoundaryCondition")]
@@ -311,36 +312,32 @@ namespace APIs.Python.Model
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(freeDofs, "free_dofs");
             foreach (string dof in names)
             {
-                switch (dof.Trim().ToUpperInvariant())
+                switch (PythonValueConverter.ToEnum<DegreeOfFreedomEnum>(dof, "free_dofs"))
                 {
-                    case "U1":
+                    case DegreeOfFreedomEnum.U1:
                         RefuseValueOfFreeDegreeOfFreedom(u1, "u1");
                         boundaryCondition.U1.SetEquationFromValue(double.NaN);
                         break;
-                    case "U2":
+                    case DegreeOfFreedomEnum.U2:
                         RefuseValueOfFreeDegreeOfFreedom(u2, "u2");
                         boundaryCondition.U2.SetEquationFromValue(double.NaN);
                         break;
-                    case "U3":
+                    case DegreeOfFreedomEnum.U3:
                         RefuseValueOfFreeDegreeOfFreedom(u3, "u3");
                         boundaryCondition.U3.SetEquationFromValue(double.NaN);
                         break;
-                    case "UR1":
+                    case DegreeOfFreedomEnum.UR1:
                         RefuseValueOfFreeDegreeOfFreedom(ur1, "ur1");
                         boundaryCondition.UR1.SetEquationFromValue(double.NaN);
                         break;
-                    case "UR2":
+                    case DegreeOfFreedomEnum.UR2:
                         RefuseValueOfFreeDegreeOfFreedom(ur2, "ur2");
                         boundaryCondition.UR2.SetEquationFromValue(double.NaN);
                         break;
-                    case "UR3":
+                    case DegreeOfFreedomEnum.UR3:
                         RefuseValueOfFreeDegreeOfFreedom(ur3, "ur3");
                         boundaryCondition.UR3.SetEquationFromValue(double.NaN);
                         break;
-                    default:
-                        throw new PythonAPIException("The value '" + dof + "' is not supported for the " +
-                                                     "argument 'free_dofs'. Possible values are U1, U2, U3, " +
-                                                     "UR1, UR2 and UR3.");
                 }
             }
         }

@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using CaeMesh;
 using CaeModel;
 using System.Collections.Generic;
@@ -69,6 +70,16 @@ namespace APIs.Python.Model
                 if (PythonNameComparer.AreSame(name, existingName))
                     throw new PythonAPIException("The name '" + name + "' is already used by another model item.");
             }
+        }
+        // An internal region is the converted selection of the item that made it, and the model tree does not
+        // show it, so it changes only through that item
+        protected static void RefuseInternal(NamedClass region, string regionDescription, string action)
+        {
+            if (region == null || !region.Internal) return;
+            //
+            throw new PythonAPIException("The " + regionDescription + " '" + region.Name + "' is internal: it " +
+                                         "belongs to the model item that made it from a selection, so it cannot " +
+                                         "be " + action + ". Change the region of that item instead.");
         }
         protected void EnsureCommandsAvailable()
         {

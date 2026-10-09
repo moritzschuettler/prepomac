@@ -29,7 +29,8 @@ def test_part_reading(parts, label):
     check(part.node_count > 0, "the part has no nodes")
     check(part.element_count > 0, "the part has no elements")
     check(part.part_type != "", "the part type is empty")
-    check(len(part.color) == 4, "the color must have 4 channels")
+    check(type(part.color) is list and len(part.color) == 4,
+          "the color must be a plain list of 4 channels: " + repr(part.color))
     check(len(part.get_bounding_box()) == 6, "the bounding box must have 6 values")
     check(len(part.get_node_ids()) == part.node_count, "the node ID count does not match")
     coordinates = part.get_node_coordinates()
@@ -92,6 +93,11 @@ def test_model_parts():
     check(list(parts[name].color)[0:3] == [255, 0, 0], "the color was not set")
     parts.set_color(name, "Green")
     check(list(parts[name].color)[0:3] == [0, 128, 0], "the named color was not set")
+    # The color read back goes back into the argument that sets it
+    color = parts[name].color
+    parts.set_color(name, [255, 0, 0])
+    parts.set_color(name, color)
+    check(parts[name].color == color, "the color did not survive a round trip: " + repr(parts[name].color))
     parts.reset_color(name)
     # The opacity is the alpha channel of the color: 0 is fully transparent, 255 opaque
     parts.set_opacity(name, 128)
@@ -103,9 +109,9 @@ def test_model_parts():
     check(not hasattr(parts, "set_transparency"), "set_transparency was renamed to set_opacity")
     check_raises(lambda: parts.set_opacity(name, 256), "an opacity above 255 was accepted")
     # Visibility
-    parts.hide(name)
+    parts.hide(part_names=name)
     check(not parts[name].visible, "the part was not hidden")
-    parts.show(name)
+    parts.show(part_names=[name])
     check(parts[name].visible, "the part was not shown")
     # Rename
     parts.rename(name, "PyTest_Part")

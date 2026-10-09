@@ -35,10 +35,12 @@ namespace APIs.Python
         public bool compatibility_mode { get { return Resolve().CompatibilityMode; } }
         [PythonAPI("The number of solver CPUs.", Returns = "int")]
         public int number_of_cpus { get { return Resolve().NumCPUs; } }
-        [PythonAPI("Detached copies of solver environment variable definitions.", Returns = "list[EnvironmentVariable]")]
-        public System.Collections.Generic.List<EnvironmentVariable> environment_variables
+        [PythonAPI("Detached copies of the solver environment variable definitions, as a plain list that goes " +
+                   "back into the argument environment_variables of add and replace.",
+                   Returns = "list[EnvironmentVariable]")]
+        public object environment_variables
         {
-            get { return Resolve().EnvironmentVariables.DeepClone(); }
+            get { return PythonListConverter.ToPythonList(Resolve().EnvironmentVariables.DeepClone().ToArray()); }
         }
         [PythonAPI("The status of the last run: None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
                    "FailedWithResults.", Returns = "str")]

@@ -55,6 +55,12 @@ def test_materials():
     check(materials.contains(PREFIX + "Steel"), "the material was not added")
     check(material.property_count == 2, "2 properties expected, found " + str(material.property_count))
     check(material.description == "Test steel", "the description was not stored")
+    # The activation state reads back on the item
+    check(material.active, "a new material must be active")
+    materials.deactivate([PREFIX + "Steel"])
+    check(not materials[PREFIX + "Steel"].active, "the material was not deactivated")
+    materials.activate([PREFIX + "Steel"])
+    check(materials[PREFIX + "Steel"].active, "the material was not activated")
     types = list(material.get_property_types())
     check("elastic" in types and "density" in types, "unexpected property types " + str(types))
     # A single property does not have to be wrapped in a list
@@ -387,6 +393,17 @@ def test_sections(material_name):
         check(message is not None and argument in message,
               "a replace with a refused value must name " + argument + ": " + str(message))
     check(sections[PREFIX + "Shell"].thickness == 3, "a refused replace changed the shell")
+    # A replace never turns one section type into another
+    for function, expected in [(lambda: sections.replace_solid(PREFIX + "Mass"),
+                                "is made by add_point_mass, so replace_solid cannot replace it"),
+                               (lambda: sections.replace_distributed_mass(PREFIX + "Mass", mass=1),
+                                "is made by add_point_mass, so replace_distributed_mass cannot replace it"),
+                               (lambda: sections.replace_point_mass(PREFIX + "Shell", mass=1),
+                                "is made by add_shell, so replace_point_mass cannot replace it")]:
+        message = raised_message(function)
+        check(message is not None and expected in message,
+              "a replace of another section type must be refused: " + str(message))
+    check(sections[PREFIX + "Mass"].item_type == "point_mass", "a refused replace changed the section type")
     # A default offset stays zero rather than becoming undefined
     plain = sections.add_shell(PREFIX + "Shell_D", material_name, element_selection)
     check(plain.offset == 0, "an omitted offset must stay zero")

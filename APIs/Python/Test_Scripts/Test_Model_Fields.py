@@ -176,13 +176,19 @@ def test_distributions():
         check(list(mapped.get_equations()["translate"])[0] == "=0.5", "the translate expression did not round trip")
         distributions.remove([PREFIX + "Mapped"])
         distributions.add_from_file(PREFIX + "File", file_name)
-        check_raises(lambda: distributions.replace_from_equation(PREFIX + "File"),
-                     "a file distribution was replaced without an equation")
+        # A replace never turns one form into the other, and is refused before anything is recorded
+        message = raised_message(lambda: distributions.replace_from_equation(PREFIX + "File", equation="1"))
+        check(message is not None and "is made by add_from_file, so replace_from_equation cannot replace it" in
+              message, "an equation replacing a file distribution must be refused: " + str(message))
         check(distributions[PREFIX + "File"].item_type == "from_file",
               "the refused replacement changed the file distribution")
-        distribution = distributions.replace_from_equation(PREFIX + "File", equation="1")
-        check(distribution.item_type == "from_equation",
-              "the file distribution was not replaced by an equation one")
+        distributions.add_from_equation(PREFIX + "Equation", "1")
+        message = raised_message(lambda: distributions.replace_from_file(PREFIX + "Equation", file_name=file_name))
+        check(message is not None and "is made by add_from_equation, so replace_from_file cannot replace it" in
+              message, "a file replacing an equation distribution must be refused: " + str(message))
+        check(distributions[PREFIX + "Equation"].item_type == "from_equation",
+              "the refused replacement changed the equation distribution")
+        distributions.remove([PREFIX + "File", PREFIX + "Equation"])
         # A new file is read again and may turn a scalar distribution into a vector one, which is refused
         # while an item uses it, the way an equation that does so is
         with open(vector_file_name, "w") as writer:
@@ -231,6 +237,12 @@ def test_initial_conditions():
     # The controller converts the selection into an internal node set
     check(condition.region_type == "NodeSetName",
           "the selection was not converted, region type is " + condition.region_type)
+    # The activation state reads back on the item
+    check(condition.active, "a new initial condition must be active")
+    conditions.deactivate([PREFIX + "Temp"])
+    check(not conditions[PREFIX + "Temp"].active, "the initial condition was not deactivated")
+    conditions.activate([PREFIX + "Temp"])
+    check(conditions[PREFIX + "Temp"].active, "the initial condition was not activated")
     #
     conditions.add_translational_velocity(PREFIX + "Vel", selection, 1, 0, 0)
     conditions.add_angular_velocity(PREFIX + "Ang", selection, [0, 0, 0], [0, 0, 1], 10)

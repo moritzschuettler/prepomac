@@ -81,6 +81,10 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
+        public bool __contains__(string name)
+        {
+            return contains(name);
+        }
         [PythonAPI("Returns the names of the result coordinate systems.", Returns = "StringList")]
         public StringListAPI get_names()
         {
@@ -191,7 +195,7 @@ namespace APIs.Python
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultCoordinateSystem(old_name, system);
+            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(old_name).Name, system);
             return this[system.Name];
         }
         [PythonAPI("Replaces a result coordinate system the way add_from_selections builds one. A result " +
@@ -226,7 +230,7 @@ namespace APIs.Python
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultCoordinateSystem(old_name, system);
+            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(old_name).Name, system);
             return this[system.Name];
         }
         [PythonAPI("Duplicates result coordinate systems using command history.",
@@ -312,13 +316,15 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument 'names' must not be empty.");
             //
             string[] existing = GetNames();
-            foreach (string name in names)
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
-                if (!existing.Contains(name))
-                    throw new PythonAPIException("The result coordinate system '" + name + "' does not exist.");
+                storedNames[i] = existing.FirstOrDefault(name => PythonNameComparer.AreSame(name, names[i]));
+                if (storedNames[i] == null)
+                    throw new PythonAPIException("The result coordinate system '" + names[i] + "' does not exist.");
             }
             //
-            return names;
+            return storedNames;
         }
         private void ValidateName(string name, string allowedExistingName)
         {
@@ -343,8 +349,8 @@ namespace APIs.Python
         private CoordinateSystem CloneForReplace(string oldName, string name)
         {
             CoordinateSystem existing = ResolveCoordinateSystem(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateName(newName, existing.Name);
             CoordinateSystem system = existing.DeepClone();
             system.Name = newName;
             //

@@ -1,8 +1,8 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks that export_geometry writes one file per part for the "step" and "brep" formats and a single
-#joined file for "stepassembly" and "brepassembly", and that the joined file still holds every part.
+#Checks that export_geometry writes one file per part for the "Step" and "Brep" formats and a single
+#joined file for "StepAssembly" and "BrepAssembly", and that the joined file still holds every part.
 #A CAD geometry of more than one part must be open before the script runs, so box_and_cylinder.brep
 #is imported.
 #
@@ -58,12 +58,12 @@ def main():
     part_names = list(pmx.model.geometry.parts.get_names())
     check(len(part_names) > 1, "a geometry of more than one part is required")
     #
-    test_export(part_names, "step", ".stp", len(part_names))
-    test_export(part_names, "brep", ".brep", len(part_names))
-    step_file_name = test_export(part_names, "stepassembly", ".stp", 1)
+    test_export(part_names, "Step", ".stp", len(part_names))
+    test_export(part_names, "Brep", ".brep", len(part_names))
+    step_file_name = test_export(part_names, "StepAssembly", ".stp", 1)
     test_assembly_holds_every_part(step_file_name, part_names)
     #
-    brep_file_name = test_export(part_names, "brepassembly", ".brep", 1)
+    brep_file_name = test_export(part_names, "BrepAssembly", ".brep", 1)
     test_assembly_holds_every_part(brep_file_name, part_names)
     #
     empty_directory()

@@ -84,23 +84,26 @@ namespace APIs.Python.Model
             get { return _service.GetBdmRemeshing(); }
             set { Update(bdm_remeshing: value); }
         }
-        [PythonAPI("The absolute zero temperature, or None when it is undefined.", Returns = "float")]
+        [PythonAPI("The absolute zero temperature, or None when it is undefined. Assigning None makes it " +
+                   "undefined.", Returns = "float")]
         public object absolute_zero
         {
             get { return _service.GetAbsoluteZero(); }
-            set { Update(absolute_zero: value); }
+            set { _service.SetPhysicalConstant("absolute_zero", value); }
         }
-        [PythonAPI("The Stefan Boltzmann constant, or None when it is undefined.", Returns = "float")]
+        [PythonAPI("The Stefan Boltzmann constant, or None when it is undefined. Assigning None makes it " +
+                   "undefined.", Returns = "float")]
         public object stefan_boltzmann
         {
             get { return _service.GetStefanBoltzmann(); }
-            set { Update(stefan_boltzmann: value); }
+            set { _service.SetPhysicalConstant("stefan_boltzmann", value); }
         }
-        [PythonAPI("The Newton gravitational constant, or None when it is undefined.", Returns = "float")]
+        [PythonAPI("The Newton gravitational constant, or None when it is undefined. Assigning None makes " +
+                   "it undefined.", Returns = "float")]
         public object newton_gravity
         {
             get { return _service.GetNewtonGravity(); }
-            set { Update(newton_gravity: value); }
+            set { _service.SetPhysicalConstant("newton_gravity", value); }
         }
 
 
@@ -154,12 +157,11 @@ namespace APIs.Python.Model
         private void Update(string model_type = null, string global_results_file_name = null,
                             string slip_wear_results = null, object number_of_cycles = null,
                             object cycles_increment = null, object number_of_smoothing_steps = null,
-                            object bdm_remeshing = null, object absolute_zero = null,
-                            object stefan_boltzmann = null, object newton_gravity = null)
+                            object bdm_remeshing = null)
         {
             _service.UpdateProperties(null, model_type, global_results_file_name, slip_wear_results,
                                       number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
-                                      absolute_zero, stefan_boltzmann, newton_gravity, false);
+                                      null, null, null, false);
         }
     }
 }

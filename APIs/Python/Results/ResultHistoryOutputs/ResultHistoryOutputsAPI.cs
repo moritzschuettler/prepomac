@@ -57,7 +57,7 @@ namespace APIs.Python
         {
             get
             {
-                string[] keys = get_names().to_array();
+                string[] keys = get_names().ToArray();
                 if (index < 0) index = keys.Length + index;
                 if (index < 0 || index >= keys.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
@@ -67,7 +67,7 @@ namespace APIs.Python
         }
         public IEnumerator<ResultHistoryOutputAPI> GetEnumerator()
         {
-            foreach (string key in get_names().to_array()) yield return this[key];
+            foreach (string key in get_names().ToArray()) yield return this[key];
         }
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -136,9 +136,8 @@ namespace APIs.Python
                    "integral) and FieldByGeometry (the region average of the field); field_name and component_names are ignored for Geometry. The cross_section " +
                    "scaling (None, Thickness or Axisymmetric) applies to Line and Volume integrals of " +
                    "2D output, and Thickness additionally uses the thickness argument. Possible " +
-                   "deformation_variable_name values are 'Displacements', " +
-                   "'Forces', 'Surface Normals', 'Wear Depths', 'Mesh Deformation', 'Disp&Def', and " +
-                   "'Disp&Def&Depth'.",
+                   "deformation_variable_name values are Displacements, Forces, SurfaceNormals, WearDepths, " +
+                   "MeshDeformation, DispDef and DispDefDepth.",
                    Arguments = "name: str, integral_type: str, field_name: str = None, " +
                                "component_names: list[str] = None, " +
                                "region: Selection or Region or ElementSet or Surface = None, " +
@@ -448,7 +447,8 @@ namespace APIs.Python
             return this[name];
         }
 
-        [PythonAPI("Validates and replaces a result history-output definition using command history.",
+        [PythonAPI("Validates and replaces a result history-output definition using command history. The " +
+                   "draft must be of the type the replaced output is made by.",
                    Arguments = "old_name: str, output: HistoryOutputDraft", Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace(string old_name, ResultHistoryOutputDraftAPI output)
         {
@@ -465,14 +465,14 @@ namespace APIs.Python
 
         [PythonAPI("Validates and duplicates user-defined result history outputs using command history. " +
                    "Solver-generated history outputs cannot be duplicated.",
-                   Arguments = "names: list[str]", Returns = "None")]
+                   Arguments = "names: list[str] or str", Returns = "None")]
         public void duplicate(object names)
         {
             _service.DuplicateHistoryOutputs(_resultName, names);
         }
 
         [PythonAPI("Validates and removes result history outputs using command history.",
-                   Arguments = "names: list[str]", Returns = "None")]
+                   Arguments = "names: list[str] or str", Returns = "None")]
         public void remove(object names)
         {
             _service.RemoveHistoryOutputs(_resultName, names);
@@ -539,34 +539,23 @@ namespace APIs.Python
             return "HistoryOutputs(count=" + names.Length + ", names=" +
                    (full ? list.GetFullDisplayString() : list.ToString()) + ")";
         }
+        // A filter option is a name the results keep rather than an enumeration, so it is parsed as one whose
+        // names are those the results keep
         private static ResultHistoryOutputFilterAPI CreateMinMaxFilter(HistoryResultFilterTypeEnum type,
                                                                         string returnValue)
         {
-            string option = ToFilterOption(returnValue, "return_value", HistoryResultFilter.Row,
-                                           HistoryResultFilter.Column);
-            return new ResultHistoryOutputFilterAPI(type, option);
+            HistoryFilterReturnValueEnum option =
+                PythonValueConverter.ToEnum<HistoryFilterReturnValueEnum>(returnValue, "return_value");
+            return new ResultHistoryOutputFilterAPI(type, option == HistoryFilterReturnValueEnum.Row
+                                                          ? HistoryResultFilter.Row : HistoryResultFilter.Column);
         }
         private static ResultHistoryOutputFilterAPI CreateAggregateFilter(HistoryResultFilterTypeEnum type,
                                                                            string operateOn)
         {
-            string option = ToFilterOption(operateOn, "operate_on", HistoryResultFilter.Rows,
-                                           HistoryResultFilter.Columns);
-            return new ResultHistoryOutputFilterAPI(type, option);
-        }
-        // A filter option is a name of the results rather than an enumeration, so it is matched here the
-        // way ToEnum matches one: ignoring case, and read back in the spelling the results keep
-        private static string ToFilterOption(string value, string argumentName, params string[] options)
-        {
-            if (value == null)
-                throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
-            //
-            foreach (string option in options)
-            {
-                if (string.Equals(option, value.Trim(), System.StringComparison.OrdinalIgnoreCase)) return option;
-            }
-            throw new PythonAPIException("The value '" + value + "' is not supported for the argument '" +
-                                         argumentName + "'. Possible values are " + string.Join(", ", options) +
-                                         ".");
+            HistoryFilterOperateOnEnum option =
+                PythonValueConverter.ToEnum<HistoryFilterOperateOnEnum>(operateOn, "operate_on");
+            return new ResultHistoryOutputFilterAPI(type, option == HistoryFilterOperateOnEnum.Rows
+                                                          ? HistoryResultFilter.Rows : HistoryResultFilter.Columns);
         }
     }
 }

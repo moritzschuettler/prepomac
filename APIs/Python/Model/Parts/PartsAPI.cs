@@ -28,18 +28,18 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Hides the named parts using command history.", Arguments = "names: list[str] or str",
-                   Returns = "None")]
-        public void hide(object names)
+        [PythonAPI("Hides the named parts using command history.",
+                   Arguments = "part_names: list[str] or str", Returns = "None")]
+        public void hide(object part_names)
         {
-            _service.Hide(_service.ResolveNames(names, "names"));
+            _service.Hide(_service.ResolveNames(part_names, "part_names"));
         }
 
-        [PythonAPI("Shows the named parts using command history.", Arguments = "names: list[str] or str",
-                   Returns = "None")]
-        public void show(object names)
+        [PythonAPI("Shows the named parts using command history.",
+                   Arguments = "part_names: list[str] or str", Returns = "None")]
+        public void show(object part_names)
         {
-            _service.Show(_service.ResolveNames(names, "names"));
+            _service.Show(_service.ResolveNames(part_names, "part_names"));
         }
 
         [PythonAPI("Sets the color of the named parts. The color is [R, G, B] or [R, G, B, A] with channels " +

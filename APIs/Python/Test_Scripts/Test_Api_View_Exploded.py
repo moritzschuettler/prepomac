@@ -108,8 +108,8 @@ def test_the_other_methods(sub_parts):
     # The coordinate axes the movement is limited to are 'axes', not a direction vector
     pmx.view.apply_exploded_view(0.5, "AssemblyCenter", 2, axes="xy")
     check(pmx.view.exploded_view_active, "the axes must be taken regardless of case")
-    pmx.view.apply_exploded_view(1, "CenterPoint", 500, center=[0, 0, 0])
-    check(pmx.view.exploded_view_active, "the center point method must apply")
+    pmx.view.apply_exploded_view(1, "centerpoint", 500, center=[0, 0, 0])
+    check(pmx.view.exploded_view_active, "the method must be taken regardless of case")
     check_moved_as_one_body(unexploded, boxes(sub_parts), largest_shift(cube, boxes([cube_part()])) > 1E-6)
     pmx.view.remove_exploded_view()
     check(largest_shift(unexploded, boxes(sub_parts)) < 1E-6, "a replaced exploded view must not accumulate")

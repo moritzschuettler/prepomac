@@ -81,14 +81,14 @@ namespace APIs.Python.Model
             return new IntListAPI(creationIds == null ? new int[0] : creationIds);
         }
         [PythonAPI("Returns the stored user meshing settings, including Gmsh and QuadWild options, keyed by " +
-                   "the name of the add_* argument that sets each, for example max_size or algorithm_2d; a " +
-                   "stored value no argument sets keeps the name of its property.",
+                   "the name of the add_* argument that sets each, for example max_size or algorithm_2d, in the " +
+                   "form that argument takes: a transfinite mesh reports recombine as a bool, and a local mesh " +
+                   "size only the one of element_size and number_of_elements it uses. A stored value no " +
+                   "argument sets keeps the name of its property.",
                    Returns = "dict[str, Any]")]
         public Dictionary<string, object> get_settings()
         {
-            MeshSetupItem item = _service.ResolveItem(_itemName);
-            return ModelItemValueReader.GetValues(item, typeof(MeshSetupItem),
-                                                  MeshSetupItemsAPI.GetArgumentValueNames(item));
+            return MeshSetupItemsAPI.GetSettings(_service.ResolveItem(_itemName));
         }
         public override string ToString()
         {

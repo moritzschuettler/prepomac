@@ -62,7 +62,7 @@ namespace APIs.Python
         {
             get
             {
-                string[] keys = get_names().to_array();
+                string[] keys = get_names().ToArray();
                 if (index < 0) index = keys.Length + index;
                 if (index < 0 || index >= keys.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
@@ -72,7 +72,7 @@ namespace APIs.Python
         }
         public IEnumerator<string> GetEnumerator()
         {
-            foreach (string key in get_names().to_array()) yield return key;
+            foreach (string key in get_names().ToArray()) yield return key;
         }
         IEnumerator IEnumerable.GetEnumerator()
         {

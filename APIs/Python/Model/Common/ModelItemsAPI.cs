@@ -80,10 +80,19 @@ namespace APIs.Python.Model
             return new StringListAPI(GetItemNames());
         }
 
-        [PythonAPI("Returns true if an item with the specified name exists.", Arguments = "name: str", Returns = "bool")]
+        // Python's in operator; without it, in compares the name with every item object and is always False
+        public bool __contains__(string name)
+        {
+            return contains(name);
+        }
+
+        [PythonAPI("Returns true if an item with the specified name exists. The name is compared regardless of " +
+                   "case, the way the item is found by get and by indexing.", Arguments = "name: str",
+                   Returns = "bool")]
         public bool contains(string name)
         {
-            return PythonNameComparer.Contains(GetItemNames(), name);
+            // The same lookup as get, so a name contains accepts is one get finds
+            return name != null && GetItem(name) != null;
         }
 
         [PythonAPI("Returns the item with the specified name.", Arguments = "name: str")]
@@ -142,8 +151,9 @@ namespace APIs.Python.Model
         public void rename(string old_name, string new_name)
         {
             TItem item = ResolveItem(old_name);
-            PythonNameComparer.ValidateFormat(new_name, "new_name", old_name, GetAdditionalNameCharacters());
-            if (string.Equals(old_name, new_name)) return;
+            PythonNameComparer.ValidateFormat(new_name, "new_name", item.Name, GetAdditionalNameCharacters());
+            // The stored spelling decides, so a rename that changes only the case is still carried out
+            if (string.Equals(item.Name, new_name, System.StringComparison.Ordinal)) return;
             //
             RenameItem(item, new_name);
         }

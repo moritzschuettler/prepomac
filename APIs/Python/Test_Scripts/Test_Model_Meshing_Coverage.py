@@ -77,7 +77,17 @@ def test_netgen_mesh(items, selection, shell_selection):
 def test_local_mesh_size(items, selection):
     items.add_local_mesh_size(PREFIX + "Local", selection, element_size=0.4)
     items.replace_local_mesh_size(PREFIX + "Local", element_size=0.2)
-    check(settings(items, PREFIX + "Local")["element_size"] == 0.2, "the element size was not replaced")
+    values = settings(items, PREFIX + "Local")
+    check(values["element_size"] == 0.2, "the element size was not replaced")
+    # Only the value of the stored type is reported, so the settings go back into the replace that refuses both
+    check("number_of_elements" not in values and "type" not in values,
+          "a local mesh size reported a value its type does not use: " + str(values))
+    items.replace_local_mesh_size(PREFIX + "Local", element_size=values["element_size"])
+    items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=3)
+    values = settings(items, PREFIX + "Local")
+    check(values.get("number_of_elements") == 3 and "element_size" not in values,
+          "a local mesh size by count reported the size it does not use: " + str(values))
+    items.replace_local_mesh_size(PREFIX + "Local", element_size=0.2)
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=2.5),
                  "a fractional element count was accepted")
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", element_size=1, number_of_elements=2),
@@ -120,9 +130,15 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
                                allow_pyramid_elements=True)
     items.replace_transfinite_mesh(PREFIX + "Transfinite", transfinite_angle_deg=110.0)
     values = settings(items, PREFIX + "Transfinite")
-    check(values["algorithm_recombine"] != "None", "the omitted recombine switch was not kept")
+    check(values["recombine"] is True and "algorithm_recombine" not in values,
+          "the omitted recombine switch was not kept, or not read back as the switch: " + str(values))
     check(values["transfinite_angle_deg"] == 110.0, "the transfinite angle was not replaced")
     check(values["allow_pyramid_elements"] is True, "the omitted pyramid element switch was not kept")
+    # The read back switch goes straight back into the replace
+    items.replace_transfinite_mesh(PREFIX + "Transfinite", recombine=values["recombine"],
+                                   transfinite_angle_deg=values["transfinite_angle_deg"],
+                                   allow_pyramid_elements=values["allow_pyramid_elements"])
+    check(settings(items, PREFIX + "Transfinite")["recombine"] is True, "the read back switch did not round trip")
 
 
 def test_derived_arguments(items, selection):

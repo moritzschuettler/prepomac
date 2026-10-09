@@ -70,6 +70,10 @@ def test_options():
     check(options['shell_edges_only'], "shell_edges_only did not read back")
     check(options['enable_shell_edge_faces'], "enable_shell_edge_faces did not read back")
     check_raises(lambda: selection.configure(limit_to='NotAMode'), "an unknown limit_to was accepted")
+    # An option string is matched regardless of case and reads back in the spelling of its enumeration
+    options = selection.configure(limit_to='firstgeometrytype').get_options()
+    check(options['limit_to'] == 'FirstGeometryType', "limit_to must be taken regardless of case: " +
+          str(options['limit_to']))
 
 
 def test_repeated_picks():

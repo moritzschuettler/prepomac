@@ -89,6 +89,28 @@ def test_part_commands():
     metadata = part.get_geometry_metadata()
     check(metadata.format_version >= 0, "the result metadata format version is invalid")
     check(len(metadata.get_entities("face")) >= 0, "the result metadata is unreadable")
+    # to_array hands over a plain Python list, of names and of IDs alike
+    check(type(names) is list and all(type(item) is str for item in names),
+          "StringList.to_array must return a list[str]: " + type(names).__name__)
+    check(type(part.get_node_ids().to_array()) is list and part.get_node_ids().to_array() == node_ids,
+          "IntList.to_array must return a list[int]")
+    # A result part is found in any case and reports the spelling it is stored under
+    if name.swapcase() != name:
+        check(parts.contains(name.swapcase()), "contains() compared the part names with their case")
+        check(parts[name.swapcase()].name == name, "the part name read back in the lookup spelling: " +
+              parts[name.swapcase()].name)
+        parts.hide(name.swapcase())
+        parts.show([name.swapcase()])
+        check(list(parts.get_names().to_array()) == list(names), "hiding in another case changed the part names")
+    for region_names, regions in ((mesh.node_sets.get_names(), mesh.node_sets),
+                                  (mesh.element_sets.get_names(), mesh.element_sets),
+                                  (mesh.surfaces.get_names(), mesh.surfaces)):
+        for region_name in list(region_names)[:1]:
+            if region_name.swapcase() != region_name:
+                check(regions.contains(region_name.swapcase()),
+                      "contains() compared the region names with their case: " + region_name)
+                check(regions[region_name.swapcase()].name == region_name,
+                      "the region name read back in the lookup spelling: " + region_name)
     #
     parts.hide(name)
     parts.show(name)

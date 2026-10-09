@@ -36,6 +36,16 @@ def main():
     # Equation strings are retained as model inputs and evaluate component-wise.
     rp = pmx.model.reference_points.add(PREFIX + "RP", ["=1", 2, "=3"])
     check(rp.get_coordinates() == [1.0, 2.0, 3.0], "reference point equations did not evaluate")
+    # The expressions read back under the argument that sets them, so they go straight back into it
+    equations = rp.get_equations()
+    check(sorted(equations) == ["coordinates"] and list(equations["coordinates"]) == ["=1", 2.0, "=3"],
+          "the reference point expressions did not read back under coordinates: " + str(equations))
+    pmx.model.reference_points.replace(PREFIX + "RP", coordinates=equations["coordinates"])
+    check(rp.get_coordinates() == [1.0, 2.0, 3.0], "the read back expressions did not go back into replace")
+    construction = rp.get_construction()
+    check(construction["created_from"] == "Coordinates" and construction["region_type"] is None and
+          construction["region_name"] is None,
+          "a coordinate point reported a region: " + str(construction))
     pmx.model.reference_points.hide(PREFIX + "RP")
     pmx.model.reference_points.replace(PREFIX + "RP", PREFIX + "RP2", ["=4", "=5", "=6"])
     check(not pmx.model.reference_points[PREFIX + "RP2"].visible, "reference point replace lost visibility")
@@ -49,10 +59,16 @@ def main():
     pmx.model.reference_points.replace_from_selection(PREFIX + "RPS", PREFIX + "RPS2", "OnPoint", one)
     check(pmx.model.reference_points[PREFIX + "RPS2"].created_from == "OnPoint",
           "reference point selection replacement failed")
+    selection_construction = pmx.model.reference_points[PREFIX + "RPS2"].get_construction()
+    check(selection_construction["region_type"] is None and selection_construction["region_name"] is None,
+          "a selection point reported a region: " + str(selection_construction))
+    # The region is stored in the model's own spelling, so the controller still finds it when it changes
     pmx.model.reference_points.replace_from_region(PREFIX + "RPS2", PREFIX + "RPR", "CenterOfGravity",
-                                                    "NodeSetName", PREFIX + "NS")
+                                                    "NodeSetName", (PREFIX + "NS").upper())
     check(pmx.model.reference_points[PREFIX + "RPR"].created_from == "CenterOfGravity",
           "reference point region replacement failed")
+    check(pmx.model.reference_points[PREFIX + "RPR"].get_construction()["region_name"] == PREFIX + "NS",
+          "the region name was stored in the caller's spelling")
     # A model side replacement keeps what it is not given, so the mode alone is a valid change
     pmx.model.reference_points.replace_from_region(PREFIX + "RPR", created_from="BoundingBoxCenter")
     check(pmx.model.reference_points[PREFIX + "RPR"].created_from == "BoundingBoxCenter",
@@ -105,8 +121,16 @@ def main():
           "mixed coordinate system definition was not created")
     check(cs_mix.get_point_on_x() == [1.0, 0.0, 0.0],
           "the selected X point was not resolved on the mesh")
-    check(cs_mix.get_construction()["point_on_x"] == "OnPoint",
-          "the construction of the selected X point was not read back")
+    construction = cs_mix.get_construction()
+    check(construction == {"origin_created_from": None, "point_on_x_created_from": "OnPoint",
+                           "point_in_xy_created_from": None},
+          "the construction of the points was not read back under the argument names: " + str(construction))
+    # The typed points read back under the arguments that set them and go straight back into a replace
+    equations = cs_mix.get_equations()
+    check(sorted(equations) == ["origin", "point_in_xy"] and list(equations["point_in_xy"]) == ["=0", "=1", "=0"],
+          "the coordinate system expressions did not read back under the point arguments: " + str(equations))
+    pmx.model.coordinate_systems.replace_from_selections(PREFIX + "CSMix", **equations)
+    check(cs_mix.get_point_in_xy() == [0.0, 1.0, 0.0], "the read back expressions did not go back into replace")
     # A selected point is resolved before the axes are checked, so node 1 sitting on the typed origin
     # is refused the way the dialog refuses it
     raises(lambda: pmx.model.coordinate_systems.add_from_selections(

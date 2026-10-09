@@ -48,15 +48,17 @@ namespace APIs.Python.Model
                                              "by a pmx.create.selection_* function, or a named region created " +
                                              "by pmx.create.region.");
             //
-            ValidateRegionName(named, argumentName, targets, modelResolver, item);
+            string storedRegionName = GetStoredRegionName(named, argumentName, targets, modelResolver, item);
             item.RegionType = named.RegionType;
-            item.RegionName = named.name;
+            item.RegionName = storedRegionName;
             item.CreationData = null;
             item.CreationIds = null;
         }
         //
-        private static void ValidateRegionName(RegionAPI region, string argumentName, string[] targets,
-                                               ModelResolver modelResolver, IMultiRegion item)
+        // The controller follows a renamed or replaced region by comparing names exactly, so the name is
+        // stored in the model's own spelling rather than the caller's
+        private static string GetStoredRegionName(RegionAPI region, string argumentName, string[] targets,
+                                                  ModelResolver modelResolver, IMultiRegion item)
         {
             FeModel model = modelResolver.GetModel();
             // A mass section names a section of the model rather than an entity of the mesh, and only
@@ -67,8 +69,7 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("A MassSection region can only be used by a gravity load " +
                                                  "or by a centrifugal load.");
                 //
-                ValidateMassSectionName(region, model);
-                return;
+                return GetStoredMassSectionName(region, model);
             }
             //
             ValidateRegionType(region.RegionType, argumentName, targets, item);
@@ -77,28 +78,37 @@ namespace APIs.Python.Model
             if (mesh == null)
                 throw new PythonAPIException("A named region needs a mesh, and the model has none.");
             //
-            bool exists;
+            NamedClass stored;
             switch (region.RegionType)
             {
                 case RegionTypeEnum.NodeSetName:
-                    exists = mesh.NodeSets.ContainsKey(region.name); break;
+                    stored = GetStored(mesh.NodeSets, region.name); break;
                 case RegionTypeEnum.ElementSetName:
-                    exists = mesh.ElementSets.ContainsKey(region.name); break;
+                    stored = GetStored(mesh.ElementSets, region.name); break;
                 case RegionTypeEnum.SurfaceName:
-                    exists = mesh.Surfaces.ContainsKey(region.name); break;
+                    stored = GetStored(mesh.Surfaces, region.name); break;
                 case RegionTypeEnum.ReferencePointName:
-                    exists = mesh.ReferencePoints.ContainsKey(region.name); break;
+                    stored = GetStored(mesh.ReferencePoints, region.name); break;
                 case RegionTypeEnum.PartName:
-                    exists = mesh.Parts.ContainsKey(region.name); break;
+                    stored = GetStored(mesh.Parts, region.name); break;
                 default:
                     throw new PythonAPIException("The region type " + region.RegionType + " cannot name a " +
                                                  "region. Possible values are NodeSetName, ElementSetName, " +
                                                  "SurfaceName, ReferencePointName, PartName and MassSection.");
             }
             //
-            if (!exists)
+            if (stored == null)
                 throw new PythonAPIException("The " + region.RegionType + " region '" + region.name +
                                              "' does not exist.");
+            //
+            return stored.Name;
+        }
+        private static NamedClass GetStored<T>(IDictionary<string, T> items, string name) where T : NamedClass
+        {
+            T stored;
+            if (!items.TryGetValue(name, out stored)) return null;
+            //
+            return stored;
         }
         // The model accepts any named region on any item and only flags the item invalid later, so the region types
         // the dialog of the item offers are the ones a script may name
@@ -156,7 +166,7 @@ namespace APIs.Python.Model
                    item is InitialTranslationalVelocity || item is InitialAngularVelocity;
         }
         //
-        private static void ValidateMassSectionName(RegionAPI region, FeModel model)
+        private static string GetStoredMassSectionName(RegionAPI region, FeModel model)
         {
             Section section;
             if (!model.Sections.TryGetValue(region.name, out section))
@@ -166,6 +176,8 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The section '" + region.name + "' is a " +
                                              SectionAPI.GetItemType(section) + " section and cannot be used as a " +
                                              "MassSection region. Use a point mass or a distributed mass section.");
+            //
+            return section.Name;
         }
     }
 }

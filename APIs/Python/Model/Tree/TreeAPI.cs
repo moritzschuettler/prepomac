@@ -52,8 +52,9 @@ namespace APIs.Python.Model
         }
         [PythonAPI("Adds a model tree group and optionally moves items into it. The view is 'geometry', " +
                    "'femodel' or 'results'. It returns the group id, which is generated when it is not given. " +
-                   "A step owned collection also needs the name of the step that owns it. A group of the " +
-                   "geometry or the mesh parts shares the names of the parts, so its name follows the same rules.",
+                   "A step owned collection also needs the name of the step that owns it. A group name follows the " +
+                   "rules of a model item name, and a group of the geometry or the mesh parts also shares the " +
+                   "names of the parts.",
                    Arguments = "view: str, item_type: str, group_name: str, group_id: str = None, " +
                                "parent_group_id: str = None, target_index: int = 0, " +
                                "item_names: list[str] = None, step_name: str = None", Returns = "str",
@@ -62,8 +63,10 @@ namespace APIs.Python.Model
                                 string parent_group_id = null, int target_index = 0, object item_names = null,
                                 string step_name = null)
         {
+            item_type = ToItemType(view, item_type);
             string viewName = Validate(view, item_type, step_name, group_name, target_index);
-            ValidateGroupName(viewName, item_type, group_name);
+            step_name = ToStepName(viewName, item_type, step_name);
+            ValidateGroupName(group_name);
             string id = group_id == null ? Guid.NewGuid().ToString() : group_id;
             Guid groupId = ValidateGroupId(id, "group_id");
             Guid? parentGroupId = null;
@@ -89,15 +92,17 @@ namespace APIs.Python.Model
                                                          id, parent_group_id, target_index, group_name);
             return id;
         }
-        [PythonAPI("Renames a model tree group. The view is 'geometry', 'femodel' or 'results'. A group of the " +
-                   "geometry or the mesh parts follows the rules of a part name.",
+        [PythonAPI("Renames a model tree group. The view is 'geometry', 'femodel' or 'results'. A group name " +
+                   "follows the rules of a model item name.",
                    Arguments = "view: str, item_type: str, group_id: str, group_name: str, " +
                                "step_name: str = None", Returns = "None")]
         public void rename_group(string view, string item_type, string group_id, string group_name,
                                  string step_name = null)
         {
+            item_type = ToItemType(view, item_type);
             string viewName = Validate(view, item_type, step_name, group_name, 0);
-            ValidateGroupName(viewName, item_type, group_name);
+            step_name = ToStepName(viewName, item_type, step_name);
+            ValidateGroupName(group_name);
             Guid groupId = ValidateGroupId(group_id, "group_id");
             //
             IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
@@ -118,7 +123,9 @@ namespace APIs.Python.Model
                    Returns = "None")]
         public void remove_groups(string view, string item_type, object group_ids, string step_name = null)
         {
+            item_type = ToItemType(view, item_type);
             string viewName = Validate(view, item_type, step_name, null, 0);
+            step_name = ToStepName(viewName, item_type, step_name);
             string[] ids = ToNames(group_ids, "group_ids");
             if (ids == null || ids.Length == 0)
                 throw new PythonAPIException("The argument 'group_ids' must not be empty.");
@@ -166,7 +173,9 @@ namespace APIs.Python.Model
         public void move_items(string view, string item_type, object item_names, string target_group_id = null,
                                int target_index = 0, string step_name = null)
         {
+            item_type = ToItemType(view, item_type);
             string viewName = Validate(view, item_type, step_name, null, target_index);
+            step_name = ToStepName(viewName, item_type, step_name);
             string[] names = ToNames(item_names, "item_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'item_names' must not be empty.");
@@ -198,7 +207,9 @@ namespace APIs.Python.Model
         public void move_group(string view, string item_type, string group_id, string target_group_id = null,
                                int target_index = 0, string step_name = null)
         {
+            item_type = ToItemType(view, item_type);
             string viewName = Validate(view, item_type, step_name, null, target_index);
+            step_name = ToStepName(viewName, item_type, step_name);
             Guid groupId = ValidateGroupId(group_id, "group_id");
             Guid? targetGroupId = null;
             if (target_group_id != null) targetGroupId = ValidateGroupId(target_group_id, "target_group_id");
@@ -247,6 +258,27 @@ namespace APIs.Python.Model
                 }
             }
             throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel' or 'results'.");
+        }
+        // The gateway matches a collection regardless of case, so the API does as well and passes the word on
+        // in its own spelling
+        private static string ToItemType(string view, string itemType)
+        {
+            if (itemType == null) return null;
+            //
+            foreach (string supportedType in GetItemTypes(ToView(view)))
+            {
+                if (string.Equals(supportedType, itemType.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return supportedType;
+            }
+            return itemType;
+        }
+        // The step collection matches a name exactly, so a step owned collection is reached through the step's
+        // own name, found the way every model collection finds a name
+        private string ToStepName(string view, string itemType, string stepName)
+        {
+            if (view == "results" || !IsOwnedByStep(itemType)) return stepName;
+            //
+            return new StepService(_modelResolver, _modelResolver.ModelGateway).ResolveStep(stepName).Name;
         }
         private static string[] GetItemTypes(string view)
         {
@@ -385,12 +417,11 @@ namespace APIs.Python.Model
                                                  "letters are regarded as equal.");
             }
         }
-        // A part group of the geometry and the mesh shares the namespace of the parts themselves, so its name
-        // follows the rules of a part name, which the model checks only after the command is recorded
-        private static void ValidateGroupName(string view, string itemType, string name)
+        // A group name follows the rules of a model item name in every collection, and a part group of the
+        // geometry and the mesh also shares the namespace of the parts, which CheckPartGroupName checks
+        private static void ValidateGroupName(string name)
         {
             if (name == null) throw new PythonAPIException("The argument 'group_name' must not be None.");
-            if (view == "results" || itemType != "parts") return;
             //
             PythonNameComparer.ValidateFormat(name, "group_name", null);
         }

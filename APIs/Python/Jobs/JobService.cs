@@ -37,7 +37,7 @@ namespace APIs.Python
         public AnalysisJob GetJob(string name)
         {
             if (name == null || _jobGateway == null) return null;
-            return _jobGateway.GetJob(name);
+            return _jobGateway.GetAllJobs().FirstOrDefault(job => PythonNameComparer.AreSame(job.Name, name));
         }
         public AnalysisJob ResolveJob(string name)
         {
@@ -85,7 +85,7 @@ namespace APIs.Python
             AnalysisJob existing = ResolveJob(oldName);
             if (existing.JobStatus == JobStatus.Running || existing.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("A running analysis cannot be replaced.");
-            if (name != null) ValidateName(name, oldName);
+            if (name != null) ValidateName(name, existing.Name);
             AnalysisJob job = existing.DeepClone();
             job.Name = name ?? existing.Name;
             if (femSolver != null)
@@ -166,10 +166,10 @@ namespace APIs.Python
         public void Replace(string oldName, AnalysisJob job)
         {
             EnsureCommandsAvailable();
-            ResolveJob(oldName);
-            ValidateName(job.Name, oldName);
+            string storedOldName = ResolveJob(oldName).Name;
+            ValidateName(job.Name, storedOldName);
             //
-            _jobGateway.ReplaceJob(oldName, job);
+            _jobGateway.ReplaceJob(storedOldName, job);
         }
         public void Duplicate(string[] names)
         {
@@ -225,7 +225,8 @@ namespace APIs.Python
         public void ValidateName(string name, string allowedExistingName)
         {
             PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
-            if (allowedExistingName != null && string.Equals(name, allowedExistingName)) return;
+            // Renaming an analysis by case only keeps its own name, which no other analysis holds
+            if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
             //
             foreach (string existingName in GetNames())
             {

@@ -16,6 +16,10 @@ namespace APIs.Python
     public class ResultReferencePointAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<string, string[]> CoordinateArguments = new Dictionary<string, string[]>
+        {
+            { "coordinates", new string[] { "x", "y", "z" } }
+        };
         private readonly string _referencePointName;
         private readonly ResultReferencePointsAPI _referencePoints;
 
@@ -28,8 +32,9 @@ namespace APIs.Python
         public string created_from { get { return Resolve().CreatedFrom.ToString(); } }
         [PythonAPI("True when the result reference point name is drawn next to its symbol.", Returns = "bool")]
         public bool name_visible { get { return Resolve().NameVisible; } }
-        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
-        public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
+        [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
+                   "back.", Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
         [PythonAPI("True when the result reference point is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
 
@@ -52,23 +57,28 @@ namespace APIs.Python
                                                                    referencePoint.Z.Value });
         }
         [PythonAPI("Returns the coordinate expressions the result reference point was entered with, without " +
-                   "evaluating them, under x, y and z. Only a value entered as an expression is returned, with " +
-                   "its leading equals sign; a coordinate entered as a plain number, or computed from a " +
-                   "selection, is left out, and get_coordinates returns it as a number.",
-                   Returns = "dict[str, str]")]
-        public Dictionary<string, string> get_equations()
+                   "evaluating them, under the argument coordinates as a list [x, y, z]. The coordinates are " +
+                   "returned only when one of them was entered as an expression, with its leading equals sign; " +
+                   "the others stay numbers. Coordinates entered as plain numbers, or computed from a " +
+                   "selection, are left out, and get_coordinates returns them as numbers.",
+                   Returns = "dict[str, list]")]
+        public Dictionary<string, object> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve());
+            return ModelItemValueReader.GetEquations(Resolve(), CoordinateArguments);
         }
-        [PythonAPI("Returns the stored region construction mode and name.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns how the result reference point is built, under created_from, region_type and " +
+                   "region_name. region_type and region_name are None unless created_from is CenterOfGravity or " +
+                   "BoundingBoxCenter, the modes add_from_region takes.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_construction()
         {
             FeReferencePoint item = Resolve();
+            bool isRegion = item.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity ||
+                            item.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter;
             return new Dictionary<string, string>
             {
                 { "created_from", item.CreatedFrom.ToString() },
-                { "region_type", item.RegionType.ToString() },
-                { "region_name", item.RegionName }
+                { "region_type", isRegion ? item.RegionType.ToString() : null },
+                { "region_name", isRegion ? item.RegionName : null }
             };
         }
         public override string ToString()

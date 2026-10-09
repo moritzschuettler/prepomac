@@ -58,20 +58,16 @@ namespace APIs.Python.Model
             ValidateNewName(name, null);
             return CreateFromEquation(name, equation);
         }
-        // An equation that is given may change a scalar distribution into a vector one or replace one read from
-        // a file, so it builds the distribution anew; the coordinate system, which the API cannot set, is
-        // carried over either way
+        // An equation that is given may change a scalar distribution into a vector one, so it builds the
+        // distribution anew; the coordinate system, which the API cannot set, is carried over either way
         public Distribution BuildReplacementFromEquation(string oldName, string name, object equation)
         {
             Distribution existing = ResolveDistribution(oldName);
+            EnsureReplaceable(oldName, existing, typeof(DistributionFromEquation), "from_equation");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
             //
-            Distribution distribution;
-            if (equation != null) distribution = CreateFromEquation(newName, equation);
-            else if (existing is DistributionFromEquation) distribution = existing.DeepClone();
-            else throw new PythonAPIException("The distribution '" + oldName + "' is read from a file, so the " +
-                                              "argument 'equation' must be given to replace it.");
+            Distribution distribution = equation == null ? existing.DeepClone() : CreateFromEquation(newName, equation);
             distribution.Name = newName;
             distribution.CoordinateSystemName = existing.CoordinateSystemName;
             if (distribution.DistributionType != existing.DistributionType)
@@ -79,6 +75,15 @@ namespace APIs.Python.Model
                                        distribution.DistributionType + " distribution");
             //
             return distribution;
+        }
+        // A replace edits only the form it is named after, so it never turns an equation into a file or back
+        private static void EnsureReplaceable(string name, Distribution distribution, Type replacedType,
+                                              string itemType)
+        {
+            if (distribution.GetType() != replacedType)
+                throw new PythonAPIException("The distribution '" + name + "' is made by add_" +
+                                             DistributionAPI.GetItemType(distribution) + ", so replace_" + itemType +
+                                             " cannot replace it. Remove it and add the new type instead.");
         }
         // An item that takes a distribution was checked against the type it had when the item was defined, and the
         // model reports a mismatch only when the deck is written, so the type of a used distribution is kept
@@ -143,10 +148,9 @@ namespace APIs.Python.Model
                                                      string interpolatorType, object interpolatorRadius,
                                                      object scale, object translate)
         {
-            DistributionFromFile existing = ResolveDistribution(oldName) as DistributionFromFile;
-            if (existing == null)
-                throw new PythonAPIException("The distribution '" + oldName + "' is not read from a file.");
-            //
+            Distribution resolved = ResolveDistribution(oldName);
+            EnsureReplaceable(oldName, resolved, typeof(DistributionFromFile), "from_file");
+            DistributionFromFile existing = (DistributionFromFile)resolved;
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
             DistributionFromFile distribution = (DistributionFromFile)existing.DeepClone();

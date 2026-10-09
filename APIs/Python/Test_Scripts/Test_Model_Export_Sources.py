@@ -42,7 +42,7 @@ def test_export_geometry(part_name):
     os.remove(file_name)
     # A given format wins over the extension
     file_name = output("pytest_geometry_source.txt")
-    pmx.export_geometry(part_name, file_name, format="stl")
+    pmx.export_geometry(part_name, file_name, format="Stl")
     check(os.path.isfile(file_name), "the format argument was not honoured")
     os.remove(file_name)
     # An imported .stl body is neither a solid nor a shell part, which the Mmg format needs
@@ -54,15 +54,15 @@ def test_export_geometry(part_name):
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.brep")),
                  "a .brep export of a part without CAD data was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.stp"),
-                                             format="stepassembly"),
+                                             format="StepAssembly"),
                  "a STEP assembly export of a part without CAD data was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.brep"),
-                                             format="brepassembly"),
+                                             format="BrepAssembly"),
                  "a BREP assembly export of a part without CAD data was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.txt")),
                  "an extension that names no geometry format was accepted")
     check_raises(lambda: pmx.export_geometry([part_name], output("pytest_geometry_source.stl"),
-                                             format="calculix"),
+                                             format="Calculix"),
                  "a format the geometry export does not offer was accepted")
     check_raises(lambda: pmx.export_geometry(["__missing_part__"], output("pytest_missing.stl")),
                  "a geometry export of a missing part was accepted")
@@ -81,7 +81,7 @@ def test_export_mesh(part_name):
 def test_export_model():
     check_raises(lambda: pmx.export_model(output("pytest_model_source.txt")),
                  "an extension that names no model format was accepted")
-    check_raises(lambda: pmx.export_model(output("pytest_model_source.inp"), format="gmsh"),
+    check_raises(lambda: pmx.export_model(output("pytest_model_source.inp"), format="Gmsh"),
                  "a format the model export does not offer was accepted")
 
 

@@ -67,6 +67,15 @@ namespace APIs.Python.Model
                                          historyOutput.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
+        private static Dictionary<string, object> GetValues(HistoryOutput historyOutput)
+        {
+            Dictionary<string, object> values = ModelItemValueReader.GetValues(historyOutput, typeof(HistoryOutput),
+                                                                               null);
+            // A contact history output names its contact pair as its region
+            if (historyOutput is ContactHistoryOutput) values["contact_pair_name"] = historyOutput.RegionName;
+            //
+            return values;
+        }
 
 
         // Methods
@@ -99,16 +108,17 @@ namespace APIs.Python.Model
                    "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(HistoryOutput), null).Keys);
+            return new StringListAPI(GetValues(Resolve()).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this history output type by the name of the add_* " +
-                   "argument that sets it. Use get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+                   "argument that sets it, for example variables or contact_pair_name. Use get_value_names to " +
+                   "list them. The variables are returned as a list of names, the form the variables argument " +
+                   "takes.", Arguments = "name: str", Returns = "float, int, bool, str or list[str]")]
         public object get_value(string name)
         {
             HistoryOutput historyOutput = Resolve();
-            return ModelItemValueReader.GetValue(historyOutput, typeof(HistoryOutput), null, name,
+            return ModelItemValueReader.GetValue(GetValues(historyOutput), name,
                                                  GetItemType(historyOutput) + " history output");
         }
         public override string ToString()

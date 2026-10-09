@@ -40,9 +40,11 @@ namespace APIs.Python
             if (channels.Length == 3) return Color.FromArgb(channels[0], channels[1], channels[2]);
             else return Color.FromArgb(channels[3], channels[0], channels[1], channels[2]);
         }
-        public static IntListAPI ToChannels(Color color)
+        // A color is a short value of a fixed size, so it is read back as the plain list a color argument takes
+        public static object ToChannels(Color color)
         {
-            return new IntListAPI(new int[] { color.R, color.G, color.B, color.A });
+            return PythonListConverter.ToPythonList(new object[] { (int)color.R, (int)color.G, (int)color.B,
+                                                                   (int)color.A });
         }
         public static byte ToAlpha(object transparency, string argumentName)
         {

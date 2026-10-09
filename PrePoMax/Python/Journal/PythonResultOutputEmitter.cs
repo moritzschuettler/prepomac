@@ -118,8 +118,9 @@ namespace PrePoMax.Python.Journal
                                                                    output.RegionType, output.CreationData));
                 arguments.Add("integral_result=" +
                               PythonValueFormatter.Text(fromIntegration.IntegralResult.ToString()));
-                arguments.Add("deformation_variable_name=" +
-                              PythonValueFormatter.Text(fromIntegration.DeformationVariableName));
+                string deformationVariable =
+                    APIs.Python.PythonDeformationVariable.ToApiName(fromIntegration.DeformationVariableName);
+                arguments.Add("deformation_variable_name=" + PythonValueFormatter.Text(deformationVariable));
                 arguments.Add("unit=" + PythonValueFormatter.Text(fromIntegration.Unit));
                 arguments.Add("cross_section=" + PythonValueFormatter.Text(fromIntegration.CrossSection.ToString()));
                 arguments.Add("thickness=" + PythonValueFormatter.Number(fromIntegration.Thickness));
@@ -162,8 +163,9 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("region=" + PythonRegionEmitter.Emit(writer, output.RegionName, output.RegionType,
                                                                    output.CreationData));
                 arguments.Add("integral_result=" + PythonValueFormatter.Text("Geometry"));
-                arguments.Add("deformation_variable_name=" +
-                              PythonValueFormatter.Text(elementSize.DeformationVariableName));
+                string deformationVariable =
+                    APIs.Python.PythonDeformationVariable.ToApiName(elementSize.DeformationVariableName);
+                arguments.Add("deformation_variable_name=" + PythonValueFormatter.Text(deformationVariable));
             }
             else throw new NotSupportedException("the result history output type " + output.GetType().Name +
                                                  " has no API form");
@@ -192,8 +194,8 @@ namespace PrePoMax.Python.Journal
             //
             return PythonJournalWriter.Join(FieldOutputs + "." + method,
                                             PythonValueFormatter.Text(filter.SourceType.ToString()),
-                                            "layers=" + filter.NumberOfNeighbouringLayers,
-                                            "iterations=" + filter.NumberOfIterations);
+                                            "number_of_layers=" + filter.NumberOfNeighbouringLayers,
+                                            "number_of_iterations=" + filter.NumberOfIterations);
         }
         private static string GetHistoryFilter(HistoryResultFilter filter)
         {

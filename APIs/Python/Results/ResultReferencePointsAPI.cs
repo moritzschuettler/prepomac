@@ -81,6 +81,10 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
+        public bool __contains__(string name)
+        {
+            return contains(name);
+        }
         [PythonAPI("Returns the names of the result reference points.", Returns = "StringList")]
         public StringListAPI get_names()
         {
@@ -183,7 +187,7 @@ namespace APIs.Python
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by result mesh points selected the way " +
@@ -204,7 +208,7 @@ namespace APIs.Python
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by a named result region the way add_from_region " +
@@ -226,7 +230,7 @@ namespace APIs.Python
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(old_name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Duplicates result reference points using command history.",
@@ -311,13 +315,15 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument 'names' must not be empty.");
             //
             string[] existing = GetNames();
-            foreach (string name in names)
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
-                if (!existing.Contains(name))
-                    throw new PythonAPIException("The result reference point '" + name + "' does not exist.");
+                storedNames[i] = existing.FirstOrDefault(name => PythonNameComparer.AreSame(name, names[i]));
+                if (storedNames[i] == null)
+                    throw new PythonAPIException("The result reference point '" + names[i] + "' does not exist.");
             }
             //
-            return names;
+            return storedNames;
         }
         private void ValidateName(string name, string allowedExistingName)
         {
@@ -337,8 +343,8 @@ namespace APIs.Python
         private FeReferencePoint CloneForReplace(string oldName, string name)
         {
             FeReferencePoint existing = ResolveReferencePoint(oldName);
-            string newName = name == null ? oldName : name;
-            ValidateName(newName, oldName);
+            string newName = name == null ? existing.Name : name;
+            ValidateName(newName, existing.Name);
             FeReferencePoint point = existing.DeepClone();
             point.Name = newName;
             //

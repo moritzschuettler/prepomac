@@ -38,8 +38,9 @@ namespace APIs.Python.Model
         public string region_name { get { return Resolve().RegionName; } }
         [PythonAPI("The amplitude name.", Returns = "str")]
         public string amplitude_name { get { return Resolve().AmplitudeName; } }
-        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
-        public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
+        [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
+                   "back.", Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
 
 
         // Constructors

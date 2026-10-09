@@ -78,10 +78,11 @@ def test_field_outputs():
     check(output.last_iterations, "last_iterations was not set")
     check(output.global_output, "a field output is global by default")
     check(output.active, "a new field output must be active")
-    # A single variable does not need a list, and a combined value reads back by name
+    # A single variable does not need a list, but the variables always read back as a list of names
     output = outputs.add_nodal(PREFIX + "NF_One", "NT")
     check(list(output.get_variables()) == ["NT"], "the single variable was not set")
-    check(output.get_value("variables") == "NT", "unexpected variables value")
+    check(output.get_value("variables") == ["NT"], "unexpected variables value " +
+          str(output.get_value("variables")))
     check_raises(lambda: outputs.add_nodal(PREFIX + "Bad", ["U", "NotAVariable"]),
                  "an unknown nodal variable must be rejected")
     check_raises(lambda: outputs.add_nodal(PREFIX + "Bad", []),
@@ -90,6 +91,11 @@ def test_field_outputs():
     output = outputs.add_element(PREFIX + "EF", ["S", "E"], output="ThreeD")
     check(output.get_value("output") == "ThreeD", "the element output was not set")
     check(sorted(list(output.get_variables())) == ["E", "S"], "unexpected element variables")
+    # A combined value reads back as the list the variables argument takes
+    variables = output.get_value("variables")
+    check(sorted(variables) == ["E", "S"], "unexpected combined variables value " + str(variables))
+    output = outputs.replace_element(PREFIX + "EF", variables=variables)
+    check(sorted(list(output.get_variables())) == ["E", "S"], "the read back variables did not go back")
     check_raises(lambda: outputs.add_element(PREFIX + "Bad", ["S"], output="NotAnOutput"),
                  "an unknown element output must be rejected")
     # Contact

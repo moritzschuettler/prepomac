@@ -22,6 +22,15 @@ namespace APIs.Python.Model
     // Writing is always done with named arguments, so this is a read side only.
     internal static class ModelItemValueReader
     {
+        // Variables
+        private static readonly HashSet<Type> FlagsEnumTypes = new HashSet<Type>
+        {
+            typeof(NodalFieldVariable), typeof(ElementFieldVariable), typeof(ContactFieldVariable),
+            typeof(NodalHistoryVariable), typeof(ElementHistoryVariable), typeof(SectionHistoryVariableEnum),
+            typeof(ContactHistoryVariable)
+        };
+
+
         // Methods
         public static Dictionary<string, object> GetValues(object item, Type baseType)
         {
@@ -42,32 +51,20 @@ namespace APIs.Python.Model
                     values[name] = double.IsNaN(equation.Value) ? null : (object)equation.Value;
                     continue;
                 }
-                Damping damping = value as Damping;
-                if (damping != null)
+                // A damping is handed over as the part pmx.create makes, a copy, so it goes back into the step
+                // argument it came from and changing it changes nothing in the model
+                if (value is Damping || value is ModalDamping)
                 {
-                    values["damping_type"] = damping.DampingType.ToString();
-                    values["damping_alpha"] = damping.Alpha;
-                    values["damping_beta"] = damping.Beta;
+                    values[name] = value.DeepClone();
                     continue;
                 }
-                ModalDamping modalDamping = value as ModalDamping;
-                if (modalDamping != null)
+                if (value != null && FlagsEnumTypes.Contains(value.GetType()))
                 {
-                    values["damping_type"] = modalDamping.DampingType.ToString();
-                    values["damping_alpha"] = modalDamping.Alpha;
-                    values["damping_beta"] = modalDamping.Beta;
-                    values["damping_viscous_damping_ratio"] = modalDamping.ViscousDampingRatio;
-                    values["damping_ratio_count"] = modalDamping.DampingRatiosAndRanges == null ? 0 :
-                                                    modalDamping.DampingRatiosAndRanges.Count;
-                    continue;
+                    // A flag like enum is set from a list of names, so it is read back as one, even with one flag
+                    value = PythonListConverter.ToPythonList(PythonValueConverter.FromFlagsEnum(value.GetType(),
+                                                                                                 value));
                 }
-                if (value != null && value.GetType().IsEnum)
-                {
-                    // A combined value of a flag like enum has no name of its own
-                    Type enumType = value.GetType();
-                    if (Enum.IsDefined(enumType, value)) value = value.ToString();
-                    else value = string.Join(", ", PythonValueConverter.FromFlagsEnum(enumType, value));
-                }
+                else if (value != null && value.GetType().IsEnum) value = value.ToString();
                 // A list valued setting, such as the layer sizes of a multi layer mesh, is part of the
                 // definition, so a snapshot that leaves it out is not a complete one. It is handed over as a
                 // Python list, the form the argument that sets it takes
@@ -180,9 +177,12 @@ namespace APIs.Python.Model
         public static object GetValue(object item, Type baseType, Dictionary<string, string[]> argumentValueNames,
                                       string name, string itemDescription)
         {
+            return GetValue(GetValues(item, baseType, argumentValueNames), name, itemDescription);
+        }
+        public static object GetValue(Dictionary<string, object> values, string name, string itemDescription)
+        {
             if (name == null) throw new PythonAPIException("The argument 'name' must not be empty.");
             //
-            Dictionary<string, object> values = GetValues(item, baseType, argumentValueNames);
             object value;
             if (!values.TryGetValue(name.Trim(), out value))
                 throw new PythonAPIException("The value '" + name + "' is not defined for a " + itemDescription +

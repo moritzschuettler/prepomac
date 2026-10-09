@@ -97,8 +97,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this field output type by the name of the add_* argument " +
-                   "that sets it, for example output. Use get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+                   "that sets it, for example output. Use get_value_names to list them. The variables are " +
+                   "returned as a list of names, the form the variables argument takes.", Arguments = "name: str",
+                   Returns = "float, int, bool, str or list[str]")]
         public object get_value(string name)
         {
             FieldOutput fieldOutput = Resolve();

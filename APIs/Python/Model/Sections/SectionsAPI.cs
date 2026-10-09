@@ -155,7 +155,7 @@ namespace APIs.Python.Model
         public SectionAPI replace_point_mass(string old_name, string name = null, object region = null,
                                              object mass = null)
         {
-            PointMassSection section = Clone<PointMassSection>(old_name, "point mass");
+            PointMassSection section = Clone<PointMassSection>(old_name, "point_mass");
             if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
             //
             return Replace(old_name, name, null, region, section, "nodes");
@@ -167,7 +167,7 @@ namespace APIs.Python.Model
         public SectionAPI replace_distributed_mass(string old_name, string name = null, object region = null,
                                                    object mass = null)
         {
-            DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed mass");
+            DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed_mass");
             if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
             //
             return Replace(old_name, name, null, region, section, "surfaces");
@@ -210,13 +210,16 @@ namespace APIs.Python.Model
             _service.ApplyRegion(section, region, target);
             _service.Add(section);
         }
-        private TSection Clone<TSection>(string oldName, string sectionKind) where TSection : Section
+        // The type cannot change on a replace, the same way the dialog only edits the type it opened
+        private TSection Clone<TSection>(string oldName, string itemType) where TSection : Section
         {
-            TSection section = _service.Clone(oldName) as TSection;
-            if (section == null)
-                throw new PythonAPIException("The section '" + oldName + "' is not a " + sectionKind + " section.");
+            Section section = _service.Clone(oldName);
+            if (section.GetType() != typeof(TSection))
+                throw new PythonAPIException("The section '" + oldName + "' is made by add_" +
+                                             SectionAPI.GetItemType(section) + ", so replace_" + itemType +
+                                             " cannot replace it. Remove it and add the new type instead.");
             //
-            return section;
+            return (TSection)section;
         }
         private SectionAPI Replace(string oldName, string name, string materialName, object region,
                                    Section section, string target)

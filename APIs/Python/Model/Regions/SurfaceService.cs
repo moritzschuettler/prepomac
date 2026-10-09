@@ -67,6 +67,7 @@ namespace APIs.Python.Model
         public void Replace(string oldName, string name, SelectionAPI selection)
         {
             FeSurface existing = ResolveSurface(oldName);
+            RefuseInternal(existing, "surface", "replaced");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
             FeSurface surface;
@@ -86,6 +87,7 @@ namespace APIs.Python.Model
         public void ReplaceFromNodeSet(string oldName, string name, string nodeSetName)
         {
             FeSurface existing = ResolveSurface(oldName);
+            RefuseInternal(existing, "surface", "replaced");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
             // A node set surface is fully described by its node set, so it is built rather than cloned;
@@ -103,11 +105,14 @@ namespace APIs.Python.Model
         }
         public void Remove(string[] names)
         {
+            foreach (string name in names) RefuseInternal(GetSurface(name), "surface", "removed");
+            //
             EnsureCommandsAvailable();
             ModelGateway.RemoveSurfaces(names);
         }
         public void Rename(NamedClass item, string newName)
         {
+            RefuseInternal(item, "surface", "renamed");
             ValidateNewName(newName, item.Name);
             //
             EnsureCommandsAvailable();
@@ -137,10 +142,12 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'node_set_name' must not be empty.");
             //
             FeMesh mesh = GetMeshOrNull();
-            if (mesh == null || !mesh.NodeSets.ContainsKey(nodeSetName))
+            FeNodeSet nodeSet = null;
+            if (mesh == null || !mesh.NodeSets.TryGetValue(nodeSetName, out nodeSet))
                 throw new PythonAPIException("The node set '" + nodeSetName + "' does not exist.");
-            //
-            FeSurface surface = new FeSurface(name, nodeSetName);
+            // The controller follows a renamed node set by comparing names exactly, so the surface stores the
+            // model's own spelling rather than the caller's
+            FeSurface surface = new FeSurface(name, nodeSet.Name);
             surface.CreatedFrom = FeSurfaceCreatedFrom.NodeSet;
             //
             return surface;

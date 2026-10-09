@@ -215,11 +215,11 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'region_type' must be NodeSetName or SurfaceName.");
             if (regionName == null || regionName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'region_name' must not be empty.");
-            ValidateRegionExists(region, regionName);
+            string storedRegionName = GetStoredRegionName(region, regionName);
             //
             referencePoint.CreatedFrom = mode;
             referencePoint.RegionType = region;
-            referencePoint.RegionName = regionName;
+            referencePoint.RegionName = storedRegionName;
             ClearOtherKinds(referencePoint);
         }
         private static string GetKeptCreatedFrom(FeReferencePoint referencePoint, string argumentName)
@@ -299,17 +299,29 @@ namespace APIs.Python.Model
             return mode == FeReferencePointCreatedFrom.CenterOfGravity ||
                    mode == FeReferencePointCreatedFrom.BoundingBoxCenter;
         }
-        private void ValidateRegionExists(RegionTypeEnum region, string regionName)
+        // The controller follows a renamed or replaced region by comparing names exactly, so the name is
+        // stored in the model's own spelling rather than the caller's
+        private string GetStoredRegionName(RegionTypeEnum region, string regionName)
         {
             FeMesh mesh = GetMeshOrNull();
-            bool exists = false;
+            NamedClass item = null;
             if (mesh != null)
             {
-                if (region == RegionTypeEnum.NodeSetName) exists = mesh.NodeSets.ContainsKey(regionName);
-                else if (region == RegionTypeEnum.SurfaceName) exists = mesh.Surfaces.ContainsKey(regionName);
+                if (region == RegionTypeEnum.NodeSetName)
+                {
+                    FeNodeSet nodeSet;
+                    if (mesh.NodeSets.TryGetValue(regionName, out nodeSet)) item = nodeSet;
+                }
+                else if (region == RegionTypeEnum.SurfaceName)
+                {
+                    FeSurface surface;
+                    if (mesh.Surfaces.TryGetValue(regionName, out surface)) item = surface;
+                }
             }
-            if (!exists)
+            if (item == null)
                 throw new PythonAPIException("The " + region + " '" + regionName + "' does not exist.");
+            //
+            return item.Name;
         }
     }
 }

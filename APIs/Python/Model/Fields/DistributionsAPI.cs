@@ -51,9 +51,9 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces an existing distribution with an equation based one using command history, " +
-                   "keeping every value that is not given. The equation may be left out only when the " +
-                   "distribution is already equation based.",
+        [PythonAPI("Replaces an existing equation based distribution using command history, keeping every " +
+                   "value that is not given. A distribution read from a file is refused; remove it and add " +
+                   "the equation based one instead.",
                    Arguments = "old_name: str, name: str = None, equation: str or list[str] = None",
                    Returns = "Distribution")]
         public DistributionAPI replace_from_equation(string old_name, string name = null, object equation = null)
@@ -63,7 +63,9 @@ namespace APIs.Python.Model
             //
             return this[item.Name];
         }
-        [PythonAPI("Replaces a file based distribution, keeping every value that is not given.",
+        [PythonAPI("Replaces a file based distribution using command history, keeping every value that is not " +
+                   "given. An equation based distribution is refused; remove it and add the file based one " +
+                   "instead.",
                    Arguments = "old_name: str, name: str = None, file_name: str = None, " +
                                "interpolator_type: str = None, interpolator_radius: float = None, " +
                                "scale: list[float] = None, translate: list[float] = None",

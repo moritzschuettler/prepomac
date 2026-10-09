@@ -60,8 +60,8 @@ steps.replace_coupled_temp_disp('%(coupled)s', deltmx=float('inf'))
        "sweep": SWEEP, "heat_transfer": HEAT_TRANSFER, "uncoupled": UNCOUPLED, "coupled": COUPLED}
 CHECKED = [(TETRAHEDRAL, ["algorithm_recombine", "recombine_min_quality", "transfinite_four_sided",
                           "transfinite_angle_deg", "optimize_high_order"]),
-           (TRANSFINITE, ["algorithm_recombine", "transfinite_angle_deg"]),
-           (TRANSFINITE_OFF, ["algorithm_recombine"]),
+           (TRANSFINITE, ["recombine", "transfinite_angle_deg"]),
+           (TRANSFINITE_OFF, ["recombine"]),
            (SWEEP, ["transfinite_four_sided", "transfinite_angle_deg"])]
 STEPS = {HEAT_TRANSFER: "inf", UNCOUPLED: "5.0", COUPLED: "inf"}
 
@@ -206,7 +206,7 @@ def main():
     # An argument the API does not take is ignored rather than refused, so the recording is checked first
     check(recorded[TETRAHEDRAL]["transfinite_angle_deg"] == "150.0",
           "the tetrahedral item did not take its transfinite angle: " + str(recorded[TETRAHEDRAL]))
-    check(recorded[TRANSFINITE_OFF]["algorithm_recombine"] == "None",
+    check(recorded[TRANSFINITE_OFF]["recombine"] == "False",
           "the transfinite item did not take recombine=False: " + str(recorded[TRANSFINITE_OFF]))
     for name, deltmx in STEPS.items():
         check(recorded[name] == deltmx, name + " recorded deltmx " + recorded[name] + ", expected " + deltmx)

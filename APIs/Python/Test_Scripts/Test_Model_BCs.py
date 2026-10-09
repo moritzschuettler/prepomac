@@ -96,10 +96,29 @@ def test_regions():
           "the selection was not converted into its own node set, got " + str(bc.region_name))
     check(bc.active, "a new boundary condition must be active")
     check(len(bc.get_value_names()) == 0, "a fixed boundary condition has no values of its own")
+    # The internal node set belongs to the boundary condition, which the model tree does not show, so it
+    # cannot be replaced, renamed or removed on its own, and a refusal leaves it as it was
+    internal_name = bc.region_name
+    check(pmx.model.node_sets[internal_name].is_internal, "the converted selection is not an internal node set")
+    other = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [7])
+    check_raises(lambda: pmx.model.node_sets.replace(internal_name, selection=other),
+                 "an internal node set was replaced")
+    check_raises(lambda: pmx.model.node_sets.rename(internal_name, PREFIX + "Internal_Renamed"),
+                 "an internal node set was renamed")
+    check_raises(lambda: pmx.model.node_sets.remove(internal_name), "an internal node set was removed")
+    check(pmx.model.node_sets.contains(internal_name) and pmx.model.node_sets[internal_name].is_internal and
+          list(pmx.model.node_sets[internal_name].get_node_ids()) == [5, 6] and
+          not pmx.model.node_sets.contains(PREFIX + "Internal_Renamed"),
+          "a refused change of an internal node set changed it")
     # A named region points at an existing entity instead
     bc = bcs.add_fixed(PREFIX + "Fix_Set", pmx.create.region('NodeSetName', NODE_SET))
     check(bc.region_type == "NodeSetName", "unexpected region type " + bc.region_type)
     check(bc.region_name == NODE_SET, "unexpected region name " + str(bc.region_name))
+    # A region named in another case is stored in the model's own spelling, which the controller compares
+    # exactly when the node set is renamed or replaced
+    bc = bcs.add_fixed(PREFIX + "Fix_Case", pmx.create.region('NodeSetName', NODE_SET.upper()))
+    check(bc.region_name == NODE_SET, "the region name was stored in the caller's spelling: " + str(bc.region_name))
+    bcs.remove(PREFIX + "Fix_Case")
     # The named region is checked
     check_raises(lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.region('NodeSetName', 'NoSuchNodeSet')),
                  "an unknown node set must be rejected")
@@ -123,6 +142,7 @@ def test_displacement_rotation():
     check(bc.get_value("ur1") is None, "ur1 must be unconstrained, got " + str(bc.get_value("ur1")))
     # The colour reads back as red, green, blue and alpha
     check(list(bc.color) == [255, 0, 0, 255], "the color was not set, got " + str(list(bc.color)))
+    check(type(bc.color) is list, "the color must read back as a plain list: " + repr(bc.color))
     check(bc.amplitude_name == "Default", "unexpected amplitude name " + bc.amplitude_name)
     # The names are checked against the model
     check_raises(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", selection, u1=0,
@@ -172,6 +192,28 @@ def test_displacement_rotation():
     # Only an expression is an equation: a plain value is left out, and get_value returns it as a number
     check(sorted(equations) == ["u1"], "a plain value must be left out of the equations: " + str(sorted(equations)))
     check(bc.get_value("u2") == 0, "the plain u2 value did not read back: " + str(bc.get_value("u2")))
+    # Only a displacement rotation takes a phase, so only it reads one back
+    check("phase_deg" in list(bc.get_value_names()), "phase_deg must be listed for a displacement rotation")
+    check("phase_deg" not in list(bcs[PREFIX + "Fix_Set"].get_value_names()),
+          "a fixed boundary condition takes no phase")
+
+
+def test_complex_phase():
+    # A steady state dynamics step makes its boundary conditions complex, and only then they take a phase
+    name = PREFIX + "SteadyState"
+    pmx.model.steps.add_steady_state_dynamics(name)
+    try:
+        bcs = pmx.model.steps[name].bcs
+        selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2])
+        bc = bcs.add_displacement_rotation(PREFIX + "DR_Phase", selection, u1=0.1, phase_deg=45)
+        # The phase reads back under its argument name, and goes back into it
+        check(bc.get_value("phase_deg") == 45, "unexpected phase " + str(bc.get_value("phase_deg")))
+        bc = bcs.replace_displacement_rotation(PREFIX + "DR_Phase", phase_deg="=20 + 25")
+        check(bc.get_value("phase_deg") == 45, "the phase expression was not evaluated")
+        bc = bcs.replace_displacement_rotation(PREFIX + "DR_Phase", phase_deg=bc.get_equations()["phase_deg"])
+        check(bc.get_equations()["phase_deg"].replace(" ", "") == "=20+25", "the read back phase did not go back")
+    finally:
+        pmx.model.steps.remove([name])
 
 
 def read_boundary_lines(name):
@@ -439,6 +481,7 @@ def main():
     setup()
     test_regions()
     test_displacement_rotation()
+    test_complex_phase()
     test_displacement_rotation_distribution()
     test_displacement_rotation_distribution_local_system()
     test_submodel()

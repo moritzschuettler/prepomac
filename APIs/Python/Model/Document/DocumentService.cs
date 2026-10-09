@@ -243,6 +243,22 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(name == null ? model.Name : name, properties);
         }
+        // A property assignment sets exactly the constant it names, so None makes it undefined, the state the
+        // getter reports as None
+        public void SetPhysicalConstant(string argumentName, object value)
+        {
+            FeModel model = _modelResolver.GetModel();
+            ModelProperties properties = model.Properties.DeepClone();
+            double constant = value == null ? double.PositiveInfinity
+                                            : PythonValueConverter.ToFiniteDouble(value, argumentName);
+            if (argumentName == "absolute_zero") properties.AbsoluteZero = constant;
+            else if (argumentName == "stefan_boltzmann") properties.StefanBoltzmann = constant;
+            else if (argumentName == "newton_gravity") properties.NewtonGravity = constant;
+            else throw new ArgumentException("The physical constant '" + argumentName + "' is unknown.");
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.ReplaceModelProperties(model.Name, properties);
+        }
         public string GetModelSpace()
         {
             return _modelResolver.GetModel().Properties.ModelSpace.ToString();

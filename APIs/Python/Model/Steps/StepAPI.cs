@@ -116,8 +116,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
-                   "sets it, for example time_period. Use get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+                   "sets it, for example time_period. Use get_value_names to list them. A damping or " +
+                   "modal_damping is returned as a copy of the part pmx.create makes, which the argument takes " +
+                   "back.", Arguments = "name: str",
+                   Returns = "float, int, bool, str, Damping or ModalDamping")]
         public object get_value(string name)
         {
             Step step = _service.ResolveStep(_stepName);

@@ -49,8 +49,9 @@ namespace APIs.Python.Model
         public string amplitude_name { get { return Resolve().AmplitudeName; } }
         [PythonAPI("The coordinate system name.", Returns = "str")]
         public string coordinate_system_name { get { return Resolve().CoordinateSystemName; } }
-        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
-        public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
+        [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
+                   "back.", Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
 
 
         // Constructors
@@ -73,6 +74,16 @@ namespace APIs.Python.Model
                                          boundaryCondition.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
+        // The phase is stored on every boundary condition, so the shared reader leaves it out; only the
+        // displacement rotation takes it as an add_* argument
+        private static Dictionary<string, object> GetValues(BoundaryCondition boundaryCondition)
+        {
+            Dictionary<string, object> values = ModelItemValueReader.GetValues(boundaryCondition,
+                                                                               typeof(BoundaryCondition), null);
+            if (boundaryCondition is DisplacementRotation) values["phase_deg"] = boundaryCondition.PhaseDeg.Value;
+            //
+            return values;
+        }
 
 
         // Methods
@@ -80,18 +91,18 @@ namespace APIs.Python.Model
                    "add_* argument names, followed by the stored values no argument sets.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(BoundaryCondition), null).Keys);
+            return new StringListAPI(GetValues(Resolve()).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this boundary condition type by the name of the add_* " +
-                   "argument that sets it, for example u1. A " +
+                   "argument that sets it, for example u1 or phase_deg. A " +
                    "displacement degree of freedom that is not constrained reads back as None. Use " +
                    "get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, int, bool or str")]
         public object get_value(string name)
         {
             BoundaryCondition boundaryCondition = Resolve();
-            return ModelItemValueReader.GetValue(boundaryCondition, typeof(BoundaryCondition), null, name,
+            return ModelItemValueReader.GetValue(GetValues(boundaryCondition), name,
                                                  GetItemType(boundaryCondition) + " boundary condition");
         }
 

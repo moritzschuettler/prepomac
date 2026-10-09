@@ -116,6 +116,16 @@ def test_model_properties():
     properties.replace(clear_undefined_constants=True)
     check(properties.absolute_zero is None, "absolute zero was not cleared")
     check(properties.stefan_boltzmann is None, "the Stefan Boltzmann constant was not cleared")
+    # What the property reads back goes back into it: None clears that constant alone
+    properties.newton_gravity = 6.67e-11
+    properties.absolute_zero = -273.15
+    check(properties.absolute_zero == -273.15 and properties.newton_gravity == 6.67e-11,
+          "a constant assigned to the property was not stored")
+    properties.absolute_zero = None
+    check(properties.absolute_zero is None, "assigning None did not make absolute zero undefined")
+    check(properties.newton_gravity == 6.67e-11, "assigning None to one constant cleared another")
+    properties.newton_gravity = None
+    check(properties.newton_gravity is None, "assigning None did not make the gravitational constant undefined")
     #
     check_raises(lambda: properties.replace(model_type="NotAType"), "an unknown model type was accepted")
     check_raises(lambda: properties.replace(absolute_zero=float('nan')), "a NaN constant was accepted")

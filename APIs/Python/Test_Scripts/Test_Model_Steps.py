@@ -271,8 +271,12 @@ def test_dynamic_types():
     check(step.get_value("alpha") == -0.1, "the step alpha was not set")
     check(step.get_value("solution_procedure") == "ImplicitExplicit", "the solution procedure was not set")
     check(step.get_value("relative_to_absolute"), "relative_to_absolute was not set")
-    check(step.get_value("damping_type") == "Rayleigh", "the damping type was not set")
-    check(step.get_value("damping_alpha") == 0.1, "the damping alpha was not set")
+    read_damping = step.get_value("damping")
+    check(read_damping.DampingType.ToString() == "Rayleigh", "the damping type was not set")
+    check(read_damping.Alpha == 0.1 and read_damping.Beta == 0.001, "the damping alpha and beta were not set")
+    # The damping read back is the part pmx.create.damping makes, so it goes back into the argument
+    step = steps.replace_dynamic(PREFIX + "D1", damping=read_damping)
+    check(step.get_value("damping").Alpha == 0.1, "the damping read back did not go back into the step")
     check(step.get_value("time_period") == 0.5, "a dynamic step also takes the static values")
     check_raises(lambda: steps.add_dynamic(PREFIX + "Bad", damping="Rayleigh"),
                  "a damping given as a string must be rejected")
@@ -283,8 +287,12 @@ def test_dynamic_types():
         pmx.create.damping_ratio(0.02, 1, 5), pmx.create.damping_ratio(0.03, 6, 10)])
     step = steps.add_modal_dynamics(PREFIX + "MD1", steady_state=True, relative_error=0.001,
                                     modal_damping=modal_damping)
-    check(step.get_value("damping_type") == "Direct", "the modal damping type was not set")
-    check(step.get_value("damping_ratio_count") == 2, "the modal damping ratios were not set")
+    read_modal_damping = step.get_value("modal_damping")
+    check(read_modal_damping.DampingType.ToString() == "Direct", "the modal damping type was not set")
+    check(read_modal_damping.DampingRatiosAndRanges.Count == 2, "the modal damping ratios were not set")
+    step = steps.replace_modal_dynamics(PREFIX + "MD1", modal_damping=read_modal_damping)
+    check(step.get_value("modal_damping").DampingRatiosAndRanges.Count == 2,
+          "the modal damping read back did not go back into the step")
     check(step.get_value("steady_state"), "steady_state was not set")
     check(step.get_value("relative_error") == 0.001, "relative_error was not set")
     check_raises(lambda: steps.add_modal_dynamics(PREFIX + "Bad", modal_damping=pmx.create.damping()),
@@ -297,7 +305,7 @@ def test_dynamic_types():
                                                "Constant", viscous_damping_ratio=0.02))
     check(not step.get_value("harmonic"), "harmonic was not set")
     check(step.get_value("number_of_data_points") == 10, "number_of_data_points was not set")
-    check(step.get_value("damping_viscous_damping_ratio") == 0.02, "the viscous damping ratio was not set")
+    check(step.get_value("modal_damping").ViscousDampingRatio == 0.02, "the viscous damping ratio was not set")
     # The default upper frequency is 10, so a range above it is set upper limit first
     step = steps.add_steady_state_dynamics(PREFIX + "SSD2", lower_frequency=20.0, upper_frequency=100.0)
     check(step.get_value("lower_frequency") == 20.0, "the lower frequency above the default was not set")

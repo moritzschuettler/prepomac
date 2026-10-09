@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeResults;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
@@ -28,9 +29,12 @@ namespace APIs.Python
         public string component_name { get { return _componentName; } }
         [PythonAPI("How limits are assigned: Parts, ElementSets or AllElements.", Returns = "str")]
         public string based_on { get { return _basedOn.ToString(); } }
-        [PythonAPI("Limit values indexed by part, element set, or all-elements name.",
-                   Returns = "StringDoubleMap")]
-        public StringDoubleMapAPI item_limits { get { return new StringDoubleMapAPI(_itemLimits); } }
+        [PythonAPI("Limit values keyed by part, element set, or all-elements name; the dict goes back into " +
+                   "item_limits of add_limit.", Returns = "dict[str, float]")]
+        public Dictionary<string, double> item_limits
+        {
+            get { return ResultFieldOutputLimitAPI.ToDictionary(_itemLimits); }
+        }
 
 
         // Constructors

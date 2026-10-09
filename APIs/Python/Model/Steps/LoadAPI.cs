@@ -59,8 +59,9 @@ namespace APIs.Python.Model
         public string amplitude_name { get { return Resolve().AmplitudeName; } }
         [PythonAPI("The coordinate system name.", Returns = "str")]
         public string coordinate_system_name { get { return Resolve().CoordinateSystemName; } }
-        [PythonAPI("The red, green, blue and alpha channels of the symbol color.", Returns = "IntList")]
-        public IntListAPI color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
+        [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
+                   "back.", Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
 
 
         // Constructors
@@ -108,6 +109,15 @@ namespace APIs.Python.Model
             //
             return names;
         }
+        // The phase is stored on every load, so the shared reader leaves it out; it is an add_* argument of each
+        private static Dictionary<string, object> GetValues(Load load)
+        {
+            Dictionary<string, object> values = ModelItemValueReader.GetValues(load, typeof(Load),
+                                                                               GetArgumentValueNames(load));
+            values["phase_deg"] = load.PhaseDeg.Value;
+            //
+            return values;
+        }
 
 
         // Methods
@@ -115,20 +125,17 @@ namespace APIs.Python.Model
                    "names, followed by the stored values no argument sets.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            Load load = Resolve();
-            return new StringListAPI(ModelItemValueReader.GetValues(load, typeof(Load),
-                                                                    GetArgumentValueNames(load)).Keys);
+            return new StringListAPI(GetValues(Resolve()).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this load type by the name of the add_* argument that " +
-                   "sets it, for example f1 or magnitude; a vector argument such as axis_point returns its " +
-                   "components as a list. Use get_value_names to list them.", Arguments = "name: str",
+                   "sets it, for example f1, magnitude or phase_deg; a vector argument such as axis_point " +
+                   "returns its components as a list. Use get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, int, bool, str or list[float]")]
         public object get_value(string name)
         {
             Load load = Resolve();
-            return ModelItemValueReader.GetValue(load, typeof(Load), GetArgumentValueNames(load), name,
-                                                 GetItemType(load) + " load");
+            return ModelItemValueReader.GetValue(GetValues(load), name, GetItemType(load) + " load");
         }
         [PythonAPI("Returns the expressions the load was entered with, without evaluating them, under the names " +
                    "get_value uses. Only a value entered as an expression is returned, with its leading equals " +

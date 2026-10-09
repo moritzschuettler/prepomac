@@ -150,13 +150,10 @@ namespace APIs.Python
             if (max_item_ids != null) options.MaxNumberOfItemIds = ToLimit(max_item_ids, "max_item_ids");
             if (limit_to != null)
             {
-                if (limit_to != "None" && limit_to != "FirstPart" && limit_to != "FirstGeometryType" &&
-                    limit_to != "FirstMesherType")
-                    throw new PythonAPIException("The argument 'limit_to' must be None, FirstPart, " +
-                                                 "FirstGeometryType or FirstMesherType.");
-                options.LimitSelectionToFirstPart = limit_to == "FirstPart";
-                options.LimitSelectionToFirstGeometryType = limit_to == "FirstGeometryType";
-                options.LimitSelectionToFirstMesherType = limit_to == "FirstMesherType";
+                SelectionLimitToEnum limitTo = PythonValueConverter.ToEnum<SelectionLimitToEnum>(limit_to, "limit_to");
+                options.LimitSelectionToFirstPart = limitTo == SelectionLimitToEnum.FirstPart;
+                options.LimitSelectionToFirstGeometryType = limitTo == SelectionLimitToEnum.FirstGeometryType;
+                options.LimitSelectionToFirstMesherType = limitTo == SelectionLimitToEnum.FirstMesherType;
             }
             if (shell_edges_only != null)
                 options.LimitSelectionToShellEdges = PythonValueConverter.ToBool(shell_edges_only, "shell_edges_only");

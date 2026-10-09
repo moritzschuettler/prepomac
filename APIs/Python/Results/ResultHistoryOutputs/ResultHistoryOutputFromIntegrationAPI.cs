@@ -29,8 +29,12 @@ namespace APIs.Python
         public string region_type { get { return ResolveFromIntegration().RegionType.ToString(); } }
         [PythonAPI("The region name, or None when the region is a selection.", Returns = "str or None")]
         public string region_name { get { return FormatRegionName(ResolveFromIntegration()); } }
-        [PythonAPI("The deformation variable name.", Returns = "str")]
-        public string deformation_variable_name { get { return ResolveFromIntegration().DeformationVariableName; } }
+        [PythonAPI("The deformation the region follows: Displacements, Forces, SurfaceNormals, WearDepths, " +
+                   "MeshDeformation, DispDef or DispDefDepth.", Returns = "str")]
+        public string deformation_variable_name
+        {
+            get { return PythonDeformationVariable.ToApiName(ResolveFromIntegration().DeformationVariableName); }
+        }
         [PythonAPI("The user-defined result unit.", Returns = "str")]
         public string unit { get { return ResolveFromIntegration().Unit; } }
         [PythonAPI("The out-of-plane cross section scaling for 2D output: None, Thickness or Axisymmetric.",

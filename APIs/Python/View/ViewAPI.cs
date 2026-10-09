@@ -27,13 +27,13 @@ namespace APIs.Python
         // application stays the one deciding what a picture of a viewport may cost
         private const int MaxMagnification = 4;
         private static readonly string[] Views = { "geometry", "femodel", "results" };
-        private static readonly string[] Orientations = { "Front", "Back", "Top", "Bottom", "Left", "Right",
-                                                          "Isometric", "IsometricNegative", "Normal", "Vertical" };
-        private static readonly string[] ResultTypes = { "Undeformed", "Deformed", "ColorContours", "VectorPlot",
-                                                         "TensorPlot" };
-        private static readonly string[] ExplodedViewMethods = { "Disassembly", "AssemblyCenter", "CenterPoint" };
-        private static readonly double[] ExplodedViewMaxMagnifications = { 10, 25, 1000 };
-        private static readonly string[] ExplodedViewAxes = { "XYZ", "X", "Y", "Z", "XY", "XZ", "YZ" };
+        private static readonly Dictionary<ViewExplodedMethodEnum, double> ExplodedViewMaxMagnifications =
+            new Dictionary<ViewExplodedMethodEnum, double>
+            {
+                { ViewExplodedMethodEnum.Disassembly, 10 },
+                { ViewExplodedMethodEnum.AssemblyCenter, 25 },
+                { ViewExplodedMethodEnum.CenterPoint, 1000 }
+            };
 
         private readonly IPythonViewGateway _gateway;
         private readonly ViewAnnotationsAPI _annotations;
@@ -52,7 +52,11 @@ namespace APIs.Python
         public string result_type
         {
             get { return Resolve().GetResultType(); }
-            set { Resolve().SetResultType(ValidateOneOf(value, ResultTypes, "result_type")); }
+            set
+            {
+                Resolve().SetResultType(PythonValueConverter.ToEnum<ViewResultTypeEnum>(value, "result_type")
+                                                            .ToString());
+            }
         }
         [PythonAPI("How much the plotted result is deformed, as the results toolbar sets it: Undeformed, " +
                    "TrueScale, Automatic - which fits the largest displacement to a quarter of the model size - " +
@@ -109,7 +113,8 @@ namespace APIs.Python
                    Example = "pmx.view.set_orientation('Isometric')")]
         public void set_orientation(string orientation)
         {
-            Resolve().SetStandardView(ValidateOneOf(orientation, Orientations, "orientation"));
+            Resolve().SetStandardView(PythonValueConverter.ToEnum<ViewOrientationEnum>(orientation, "orientation")
+                                                          .ToString());
         }
         [PythonAPI("Zooms the camera so that everything visible fits in the viewport.", Returns = "None")]
         public void zoom_to_fit()
@@ -300,15 +305,18 @@ namespace APIs.Python
                                                                                                 "scale_factor");
             if (scaleFactor < 0 || scaleFactor > 1)
                 throw new PythonAPIException("The argument 'scale_factor' must be from 0 to 1.");
-            string methodName = method == null ? ExplodedViewMethods[0]
-                                               : ValidateOneOf(method, ExplodedViewMethods, "method");
-            double maxMagnification = ExplodedViewMaxMagnifications[Array.IndexOf(ExplodedViewMethods, methodName)];
+            ViewExplodedMethodEnum methodValue =
+                method == null ? ViewExplodedMethodEnum.Disassembly
+                               : PythonValueConverter.ToEnum<ViewExplodedMethodEnum>(method, "method");
+            string methodName = methodValue.ToString();
+            double maxMagnification = ExplodedViewMaxMagnifications[methodValue];
             double magnificationValue = magnification == null ? 2 : PythonValueConverter.ToFiniteDouble(magnification,
                                                                                                        "magnification");
             if (magnificationValue < 1 || magnificationValue > maxMagnification)
                 throw new PythonAPIException("The argument 'magnification' must be from 1 to " + maxMagnification +
                                              " for the " + methodName + " method.");
-            string axesName = axes == null ? ExplodedViewAxes[0] : ValidateOneOf(axes, ExplodedViewAxes, "axes");
+            string axesName = axes == null ? ViewExplodedAxesEnum.XYZ.ToString()
+                                           : PythonValueConverter.ToEnum<ViewExplodedAxesEnum>(axes, "axes").ToString();
             bool sequential = step_by_step != null && PythonValueConverter.ToBool(step_by_step, "step_by_step");
             double toleranceValue = tolerance == null ? 0 : PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
             if (toleranceValue < 0) throw new PythonAPIException("The argument 'tolerance' must not be negative.");
@@ -319,7 +327,7 @@ namespace APIs.Python
                 if (centerPoint == null || centerPoint.Length != 3)
                     throw new PythonAPIException("The argument 'center' must contain 3 coordinates.");
             }
-            else if (methodName == "CenterPoint")
+            else if (methodValue == ViewExplodedMethodEnum.CenterPoint)
                 throw new PythonAPIException("The CenterPoint method needs the argument 'center'.");
             //
             Resolve().ApplyExplodedView(methodName, scaleFactor, magnificationValue, axesName, sequential,
@@ -335,7 +343,7 @@ namespace APIs.Python
         [PythonAPI("Returns the standard orientation names set_orientation accepts.", Returns = "StringList")]
         public StringListAPI get_orientation_names()
         {
-            return new StringListAPI(Orientations);
+            return new StringListAPI(Enum.GetNames(typeof(ViewOrientationEnum)));
         }
         //
         private IPythonViewGateway Resolve()

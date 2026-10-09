@@ -84,6 +84,7 @@ namespace APIs.Python
             types.Add("origin_created_from", typeof(CsPointCreatedFromEnum));
             types.Add("point_on_x_created_from", typeof(CsPointCreatedFromEnum));
             types.Add("point_in_xy_created_from", typeof(CsPointCreatedFromEnum));
+            types.Add("limit_to", typeof(SelectionLimitToEnum));
             // Materials
             types.Add("hardening", typeof(PlasticHardening));
             // Steps, loads and interactions
@@ -93,6 +94,7 @@ namespace APIs.Python
             types.Add("time_span", typeof(AmplitudeTimeSpanEnum));
             types.Add("cutoff", typeof(HydrostaticPressureCutoffEnum));
             types.Add("tension_type", typeof(PreTensionLoadType));
+            types.Add("free_dofs", typeof(APIs.Python.Model.DegreeOfFreedomEnum));
             // Qualified, because the exploded view takes an argument of the same name with other values
             types.Add("ContactPairsAPI.add.method", typeof(ContactPairMethod));
             types.Add("ContactPairsAPI.replace.method", typeof(ContactPairMethod));
@@ -152,9 +154,16 @@ namespace APIs.Python
             types.Add("cross_section", typeof(IntegrationScaleType));
             types.Add("complex_result_type", typeof(ComplexResultTypeEnum));
             types.Add("output_node_coordinates", typeof(OutputNodeCoordinatesEnum));
+            types.Add("deformation_variable_name", typeof(DeformationVariableEnum));
+            types.Add("return_value", typeof(HistoryFilterReturnValueEnum));
+            types.Add("operate_on", typeof(HistoryFilterOperateOnEnum));
             // View
             types.Add("deformation_type", typeof(DeformationScaleFactorTypeEnum));
             types.Add("undeformed_model", typeof(UndeformedModelTypeEnum));
+            types.Add("result_type", typeof(ViewResultTypeEnum));
+            types.Add("orientation", typeof(ViewOrientationEnum));
+            types.Add("ViewAPI.apply_exploded_view.method", typeof(ViewExplodedMethodEnum));
+            types.Add("axes", typeof(ViewExplodedAxesEnum));
             //
             _types = types;
             return _types;

@@ -79,6 +79,30 @@ namespace APIs.Python.Model
             //
             return names;
         }
+        // A value an argument sets in another form is reported in the form that argument takes, so the settings
+        // go back into the replace_* method of the item
+        internal static Dictionary<string, object> GetSettings(MeshSetupItem item)
+        {
+            Dictionary<string, object> values = ModelItemValueReader.GetValues(item, typeof(MeshSetupItem),
+                                                                               GetArgumentValueNames(item));
+            TransfiniteMesh transfiniteMesh = item as TransfiniteMesh;
+            if (transfiniteMesh != null)
+            {
+                // add_transfinite_mesh takes recombination as a switch, which picks the algorithm itself
+                values.Remove("algorithm_recombine");
+                values["recombine"] = transfiniteMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            }
+            LocalMeshSize localMeshSize = item as LocalMeshSize;
+            if (localMeshSize != null)
+            {
+                // The argument that is given decides the type, and only one of the two is accepted at a time
+                values.Remove("type");
+                if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize) values.Remove("number_of_elements");
+                else values.Remove("element_size");
+            }
+            //
+            return values;
+        }
 
 
         // Methods

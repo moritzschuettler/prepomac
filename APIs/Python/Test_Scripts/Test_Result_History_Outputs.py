@@ -329,6 +329,20 @@ try:
                          component_names=[stress_component], region=volume_region,
                          integral_result="field_by_geometry"),
                      "the old integral_result spelling was accepted")
+        # The deformation is an option string as well: the results call it 'Surface Normals', the API
+        # SurfaceNormals, and it reads back in the spelling the argument takes
+        check(integration_output.deformation_variable_name == "Displacements",
+              "the deformation read back as " + integration_output.deformation_variable_name)
+        draft = history_outputs.create_history_output_from_integration(
+            name=INTEGRATION_NAME, integral_type="Volume", region=volume_region,
+            deformation_variable_name="surfacenormals")
+        check(draft.deformation_variable_name == "SurfaceNormals",
+              "the deformation draft read back as " + draft.deformation_variable_name)
+        for old_spelling in ["Surface Normals", "Disp&Def"]:
+            check_raises(lambda: history_outputs.create_history_output_from_integration(
+                             name=INTEGRATION_NAME, integral_type="Volume", region=volume_region,
+                             deformation_variable_name=old_spelling),
+                         "the results spelling '%s' was accepted" % old_spelling)
         print("PASS: From Integration history output options")
         if solid_element_set is not None:
             replaced = history_outputs.replace_from_integration(
@@ -528,9 +542,25 @@ try:
     check(equation_output.equation.startswith("="), "The equation output did not report its equation.")
     print("PASS: read back the merged, extracted-entry, XY, From Field, and equation definitions")
 
+    # REPLACE TYPE: a replace never turns one output type into another, and a refused one records nothing
+    names_before = get_history_output_names(history_outputs)
+    check_raises(lambda: history_outputs.replace_from_equation(TABLE_NAME, TABLE_NAME, "=1"),
+                 "replace_from_equation turned a table output into an equation output")
+    try:
+        history_outputs.replace(EQUATION_NAME, history_outputs.create_history_output_from_table(
+            name=EQUATION_NAME, data_points=[[0.0, 0.0], [1.0, 1.0]]))
+    except Exception as ex:
+        check("add_from_equation" in str(ex) and "replace_from_table" in str(ex),
+              "the refusal must name both types: " + str(ex))
+    else:
+        raise Exception("TEST FAILED: replace turned an equation output into a table output")
+    check(get_history_output_names(history_outputs) == names_before, "a refused replace changed the history outputs")
+    check(history_outputs[TABLE_NAME].item_type == "from_table", "a refused replace changed the output type")
+    print("PASS: refuse a replace that changes the output type")
+
     # DUPLICATE: the duplicate keeps the definition type and gets a generated name.
     names_before = get_history_output_names(history_outputs)
-    history_outputs.duplicate([TABLE_NAME])
+    history_outputs.duplicate(TABLE_NAME)
     new_names = [name for name in get_history_output_names(history_outputs) if name not in names_before]
     check(len(new_names) == 1, "duplicate() did not create exactly one history output.")
     duplicated_name = new_names[0]
@@ -577,7 +607,7 @@ try:
     os.remove(csv_file_name)
     print("PASS: export a history output to CSV")
 
-    history_outputs.remove([duplicated_name])
+    history_outputs.remove(duplicated_name)
     check(not history_outputs.contains(duplicated_name), "remove() did not remove the duplicated output.")
 
     # REMOVE: remove the dependent equation first, then all remaining test outputs together.

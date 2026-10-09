@@ -39,6 +39,16 @@ def main():
     check(pmx.model.node_sets[TEST_NAME].count == 4, "indexing by name failed")
     check(pmx.model.node_sets.get(TEST_NAME).count == 4, "get failed")
     check(TEST_NAME in list(pmx.model.node_sets.get_names()), "get_names does not list the node set")
+    # The in operator and contains find what get finds: regardless of case, and a padded name is no name
+    check(TEST_NAME in pmx.model.node_sets, "the in operator did not find the node set")
+    check(TEST_NAME.upper() in pmx.model.node_sets and pmx.model.node_sets.contains(TEST_NAME.lower()),
+          "the name was not compared regardless of case")
+    check("NoSuchNodeSet" not in pmx.model.node_sets, "the in operator found a missing node set")
+    check(not pmx.model.node_sets.contains(" " + TEST_NAME + " "),
+          "contains accepted a padded name that get does not find")
+    # The item is found in any case, and a rename to the spelling it already has changes nothing
+    pmx.model.node_sets.rename(TEST_NAME.upper(), TEST_NAME)
+    check(pmx.model.node_sets[TEST_NAME].name == TEST_NAME, "a rename to the stored spelling changed the name")
     # Rename
     pmx.model.node_sets.rename(TEST_NAME, RENAMED_NAME)
     check(pmx.model.node_sets.contains(RENAMED_NAME), "the node set was not renamed")

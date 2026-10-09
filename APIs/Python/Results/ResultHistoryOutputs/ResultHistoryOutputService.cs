@@ -77,7 +77,8 @@ namespace APIs.Python
                 components = PythonStringListConverter.ToStringArray(componentNames, "component_names");
                 ValidateStringList(components, "component_names");
             }
-            ValidateDeformationVariableName(deformationVariableName);
+            string deformationModelName = PythonDeformationVariable.ToModelName(deformationVariableName,
+                                                                                "deformation_variable_name");
             if (unit == null) throw new PythonAPIException("The argument 'unit' must not be None.");
             IntegrationScaleType scale = ParseCrossSection(crossSection);
             ValidateCrossSection(type, scale, thickness);
@@ -87,7 +88,7 @@ namespace APIs.Python
                 ValidateRegionArgument(region, "surfaces", RegionTypeEnum.SurfaceName);
             else ValidateRegionArgument(region, "elements", RegionTypeEnum.ElementSetName);
             return new ResultHistoryOutputFromIntegrationDraftAPI(name, type, resultType, fieldName, components, region,
-                                                                   deformationVariableName, unit, scale, thickness);
+                                                                   deformationModelName, unit, scale, thickness);
         }
         public ResultHistoryOutputFromMergedHistoriesDraftAPI CreateFromMergedHistories(string name, object source1,
                                                                                         object source2, object source3,
@@ -169,6 +170,12 @@ namespace APIs.Python
                 throw new PythonAPIException("The result history output definition '" + oldName +
                                              "' does not exist in the current result.");
             ResultHistoryOutput historyOutput = output.CreateBase(_selectionService, resultName);
+            ResultHistoryOutput oldHistoryOutput = result.GetResultHistoryOutput(oldName);
+            if (!IsSameItemType(oldHistoryOutput, historyOutput))
+                throw new PythonAPIException("The result history output '" + oldHistoryOutput.Name + "' is made " +
+                                             "by add_" + ResultHistoryOutputAPI.GetItemType(oldHistoryOutput) +
+                                             ", so replace_" + ResultHistoryOutputAPI.GetItemType(historyOutput) +
+                                             " cannot replace it. Remove it and add the new type instead.");
             Validate(result, historyOutput, oldName);
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultHistoryOutput(oldName, historyOutput);
@@ -195,7 +202,7 @@ namespace APIs.Python
         }
         public void DuplicateHistoryOutputs(string resultName, object historyOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "names");
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(historyOutputNames, "names");
             ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             foreach (string name in names)
@@ -280,7 +287,7 @@ namespace APIs.Python
         }
         public void RemoveHistoryOutputs(string resultName, object historyOutputNames)
         {
-            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "names");
+            string[] names = PythonStringListConverter.ToStringArrayOrSingle(historyOutputNames, "names");
             ValidateStringList(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
             string[] existingNames = result.GetHistory().Sets.Keys.ToArray();
@@ -622,12 +629,21 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument 'thickness' must be larger than zero when " +
                                              "cross_section is Thickness.");
         }
+        // An old From Element Size output journals as the integration over the geometry that took its place
+        private static bool IsSameItemType(ResultHistoryOutput oldHistoryOutput, ResultHistoryOutput historyOutput)
+        {
+            if (oldHistoryOutput is ResultHistoryOutputFromElementSize &&
+                historyOutput is ResultHistoryOutputFromIntegration) return true;
+            //
+            return oldHistoryOutput.GetType() == historyOutput.GetType();
+        }
         private static void ValidateDeformationVariableName(string deformationVariableName)
         {
             ValidateRequiredString(deformationVariableName, "deformation_variable_name");
             if (!FeResults.GetPossibleDeformationFieldOutputNamesMap().ContainsKey(deformationVariableName))
-                throw new PythonAPIException("Unsupported deformation_variable_name '" +
-                                             deformationVariableName + "'.");
+                throw new PythonAPIException("The value '" +
+                                             PythonDeformationVariable.ToApiName(deformationVariableName) +
+                                             "' is not supported for the argument 'deformation_variable_name'.");
         }
         private static void ValidateNameSyntax(string name)
         {

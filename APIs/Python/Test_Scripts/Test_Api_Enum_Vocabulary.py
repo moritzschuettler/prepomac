@@ -138,6 +138,26 @@ def test_values_are_readable():
     history_variables = list(PythonEnumVocabulary.GetValues("HistoryOutputsAPI", "add_nodal", "variables"))
     check(field_variables != history_variables,
           "a field output and a history output must not share the variable vocabulary")
+    # The degrees of freedom a displacement rotation frees are listed like any other option string
+    free_dofs = list(PythonEnumVocabulary.GetValues("BoundaryConditionsAPI", "replace_displacement_rotation",
+                                                    "free_dofs"))
+    check(free_dofs == ["U1", "U2", "U3", "UR1", "UR2", "UR3"], "unexpected free_dofs values " + str(free_dofs))
+    # The view options, the history filter options and the deformation are option strings like any other
+    expected = {("ViewAPI", "set_orientation", "orientation"): "IsometricNegative",
+                ("ViewAPI", "result_type", "result_type"): "ColorContours",
+                ("ViewAPI", "apply_exploded_view", "method"): "CenterPoint",
+                ("ViewAPI", "apply_exploded_view", "axes"): "XZ",
+                ("ResultHistoryOutputsAPI", "create_minimum_filter", "return_value"): "Row",
+                ("ResultHistoryOutputsAPI", "create_sum_filter", "operate_on"): "Columns",
+                ("SelectionAPI", "configure", "limit_to"): "FirstMesherType",
+                ("ResultHistoryOutputsAPI", "create_history_output_from_integration",
+                 "deformation_variable_name"): "SurfaceNormals"}
+    for (declaring, member, argument), value in expected.items():
+        values = PythonEnumVocabulary.GetValues(declaring, member, argument)
+        check(values is not None and value in list(values),
+              "the vocabulary does not describe %s.%s: %s" % (member, argument, values))
+    contact_methods = list(PythonEnumVocabulary.GetValues("ContactPairsAPI", "add", "method"))
+    check("CenterPoint" not in contact_methods, "the exploded view method leaked into the contact pair method")
     print("every entry resolves to a non empty list of values")
 
 

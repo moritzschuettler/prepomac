@@ -15,6 +15,12 @@ namespace APIs.Python.Model
     public class CoordinateSystemAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<string, string[]> PointValueNames = new Dictionary<string, string[]>
+        {
+            { "origin", new[] { "x1", "y1", "z1" } },
+            { "point_on_x", new[] { "x2", "y2", "z2" } },
+            { "point_in_xy", new[] { "x3", "y3", "z3" } }
+        };
         private readonly string _coordinateSystemName;
         private readonly CoordinateSystemService _service;
 
@@ -68,23 +74,27 @@ namespace APIs.Python.Model
                                                                    coordinateSystem.Z3.Value });
         }
         [PythonAPI("Returns the coordinate expressions the coordinate system was entered with, without " +
-                   "evaluating them: x1, y1, z1 of the origin, x2, y2, z2 of the point on X and x3, y3, z3 of " +
-                   "the point in XY. Only a value entered as an expression is returned, with its leading equals " +
-                   "sign; a coordinate entered as a plain number is left out, and get_origin, get_point_on_x " +
-                   "and get_point_in_xy return it as a number.", Returns = "dict[str, str]")]
-        public Dictionary<string, string> get_equations()
+                   "evaluating them, under origin, point_on_x and point_in_xy, the arguments of add and replace, " +
+                   "each as a list of three. A point is returned when any of its coordinates is an expression, " +
+                   "with its leading equals sign, its plain coordinates as numbers; a point without an " +
+                   "expression is left out, and get_origin, get_point_on_x and get_point_in_xy return its " +
+                   "numbers.", Returns = "dict[str, list]")]
+        public Dictionary<string, object> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve());
+            return ModelItemValueReader.GetEquations(Resolve(), PointValueNames);
         }
-        [PythonAPI("Returns how each defining point was constructed.", Returns = "dict[str, str]")]
+        [PythonAPI("Returns how each defining point was constructed, under origin_created_from, " +
+                   "point_on_x_created_from and point_in_xy_created_from, the arguments of " +
+                   "add_from_selections: OnPoint, BetweenTwoPoints or CircleCenter for a point computed from " +
+                   "a selection, and None for a point given by its coordinates.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_construction()
         {
             CoordinateSystem item = Resolve();
             return new Dictionary<string, string>
             {
-                { "origin", item.CenterCreatedFrom.ToString() },
-                { "point_on_x", item.PointXCreatedFrom.ToString() },
-                { "point_in_xy", item.PointXYCreatedFrom.ToString() }
+                { "origin_created_from", ToCreatedFromArgument(item.CenterCreatedFrom) },
+                { "point_on_x_created_from", ToCreatedFromArgument(item.PointXCreatedFrom) },
+                { "point_in_xy_created_from", ToCreatedFromArgument(item.PointXYCreatedFrom) }
             };
         }
         public override string ToString()
@@ -94,6 +104,10 @@ namespace APIs.Python.Model
                    ", type=" + coordinateSystem.Type + ")";
         }
         //
+        private static string ToCreatedFromArgument(CsPointCreatedFromEnum createdFrom)
+        {
+            return createdFrom == CsPointCreatedFromEnum.Coordinates ? null : createdFrom.ToString();
+        }
         private CoordinateSystem Resolve()
         {
             return _service.ResolveCoordinateSystem(_coordinateSystemName);

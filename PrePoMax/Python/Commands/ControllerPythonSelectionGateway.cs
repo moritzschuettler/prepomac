@@ -33,14 +33,16 @@ namespace PrePoMax.Python
             if (view == "geometry") return (int)ViewGeometryModelResults.Geometry;
             if (view == "femodel") return (int)ViewGeometryModelResults.Model;
             if (view == "results") return (int)ViewGeometryModelResults.Results;
-            throw new ArgumentException("Unsupported selection view '" + view + "'.", nameof(view));
+            throw new PythonAPIException("The argument 'view' must be 'geometry', 'femodel' or 'results', not '" +
+                                         view + "'.");
         }
         public FeMesh GetMesh(string view)
         {
             if (_controller.Model == null) return null;
             if (view == "geometry") return _controller.Model.Geometry;
             if (view == "femodel") return _controller.Model.Mesh;
-            throw new ArgumentException("Unsupported selection view '" + view + "'.", nameof(view));
+            throw new PythonAPIException("The argument 'view' must be 'geometry' or 'femodel' for a model mesh, " +
+                                         "not '" + view + "'.");
         }
         public int[] ResolveSelectionIds(Selection selection)
         {

@@ -41,8 +41,9 @@ namespace APIs.Python.Model
                 return labels == null ? 0 : labels.Length;
             }
         }
-        [PythonAPI("The part color as [R, G, B, A] channel values.", Returns = "IntList")]
-        public IntListAPI color { get { return PythonColorConverter.ToChannels(ResolvePart().Color); } }
+        [PythonAPI("The part color as a list [R, G, B, A] of channel values, which the color argument takes back.",
+                   Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(ResolvePart().Color); } }
         [PythonAPI("True when the part is visible.", Returns = "bool")]
         public bool visible { get { return ResolvePart().Visible; } }
         [PythonAPI("True when the part is active.", Returns = "bool")]

@@ -239,6 +239,13 @@ def test_tree_item_types():
         pmx.model.materials.add(material_name, pmx.create.elastic(210000, 0.3))
     group = tree.add_group('femodel', 'materials', GROUP_NAME, item_names=[material_name])
     tree.move_items('femodel', 'materials', [material_name], target_group_id=group)
+    # The collection word is compared regardless of case, as the application compares it
+    tree.move_items('femodel', 'Materials', [material_name], target_group_id=group)
+    # Every group name follows the rules of a model item name, not only a part group's
+    check_refused(lambda: tree.add_group('femodel', 'materials', 'PyTest_Bad#'), "group_name",
+                  "a material group name with a character a name cannot hold was accepted")
+    check_refused(lambda: tree.rename_group('femodel', 'materials', group, ' ' + GROUP_NAME), "group_name",
+                  "a material group name padded with a space was accepted")
     tree.remove_groups('femodel', 'materials', group)
     pmx.model.materials.remove([material_name])
     # A step owned collection is named by its step, and only such a collection takes one
@@ -250,7 +257,9 @@ def test_tree_item_types():
     check_raises(lambda: tree.add_group('femodel', 'loads', 'PyTest_Bad', step_name='__missing_step__'),
                  "an unknown owning step was accepted")
     step_group = tree.add_group('femodel', 'loads', GROUP_NAME, step_name=step_name)
-    tree.remove_groups('femodel', 'loads', step_group, step_name=step_name)
+    # The owning step is found regardless of case, like every model name
+    tree.rename_group('femodel', 'loads', step_group, GROUP_NAME + "_Renamed", step_name=step_name.upper())
+    tree.remove_groups('femodel', 'loads', step_group, step_name=step_name.lower())
     pmx.model.steps.remove([step_name])
     check_raises(lambda: tree.add_group('femodel', 'parts', 'PyTest_Bad', step_name=step_name),
                  "a step name on a collection no step owns was accepted")

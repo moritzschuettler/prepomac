@@ -164,7 +164,7 @@ namespace APIs.Python
         }
 
         [PythonAPI("Exports the nodes and elements of the named mesh parts using command history. The file " +
-                   "extension picks the format: .inp is CalculiX unless format='abaqus', .msh is Gmsh, .mesh is Mmg " +
+                   "extension picks the format: .inp is CalculiX unless format='Abaqus', .msh is Gmsh, .mesh is Mmg " +
                    "and .stl the visualization surface. Give 'format' to override the extension.",
                    Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
         public void export_mesh(object part_names, string file_name, string format = null)
@@ -173,7 +173,7 @@ namespace APIs.Python
         }
 
         [PythonAPI("Exports the whole model as a solver input deck using command history. An .inp file is " +
-                   "CalculiX unless format='abaqus'.",
+                   "CalculiX unless format='Abaqus'.",
                    Arguments = "file_name: str, format: str = None", Returns = "None")]
         public void export_model(string file_name, string format = null)
         {

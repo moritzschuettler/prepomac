@@ -116,9 +116,10 @@ namespace APIs.Python
         {
             RequireName(partName, "part");
             FeResults result = ResolveResultWithMesh(resultName);
-            if (!result.Mesh.Parts.ContainsKey(partName))
+            BasePart part;
+            if (!result.Mesh.Parts.TryGetValue(partName, out part))
                 throw new PythonAPIException("The part '" + partName + "' does not exist in result '" + resultName + "'.");
-            return new PartAPI(resultName, partName, this);
+            return new PartAPI(resultName, part.Name, this);
         }
         public PartData GetPartData(string resultName, string partName)
         {
@@ -152,7 +153,7 @@ namespace APIs.Python
         public ResultNodeSetAPI GetNodeSet(string resultName, string nodeSetName)
         {
             ValidateUserRegion(resultName, RegionTypeEnum.NodeSetName, nodeSetName);
-            return new ResultNodeSetAPI(resultName, nodeSetName, this);
+            return new ResultNodeSetAPI(resultName, ResolveUserNodeSet(resultName, nodeSetName).Name, this);
         }
         public int[] GetNodeSetIds(string resultName, string nodeSetName)
         {
@@ -168,7 +169,7 @@ namespace APIs.Python
         public ResultElementSetAPI GetElementSet(string resultName, string elementSetName)
         {
             ValidateUserRegion(resultName, RegionTypeEnum.ElementSetName, elementSetName);
-            return new ResultElementSetAPI(resultName, elementSetName, this);
+            return new ResultElementSetAPI(resultName, ResolveUserElementSet(resultName, elementSetName).Name, this);
         }
         public int[] GetElementSetIds(string resultName, string elementSetName)
         {
@@ -184,7 +185,7 @@ namespace APIs.Python
         public ResultSurfaceAPI GetSurface(string resultName, string surfaceName)
         {
             ValidateUserRegion(resultName, RegionTypeEnum.SurfaceName, surfaceName);
-            return new ResultSurfaceAPI(resultName, surfaceName, this);
+            return new ResultSurfaceAPI(resultName, ResolveUserSurface(resultName, surfaceName).Name, this);
         }
         public int[] GetSurfaceFaceIds(string resultName, string surfaceName)
         {

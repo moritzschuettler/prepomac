@@ -58,7 +58,7 @@ namespace APIs.Python
         {
             get
             {
-                int[] keys = get_ids().to_array();
+                int[] keys = get_ids().ToArray();
                 if (index < 0) index = keys.Length + index;
                 if (index < 0 || index >= keys.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
@@ -68,7 +68,7 @@ namespace APIs.Python
         }
         public IEnumerator<ResultIncrementAPI> GetEnumerator()
         {
-            foreach (int key in get_ids().to_array()) yield return this[key];
+            foreach (int key in get_ids().ToArray()) yield return this[key];
         }
         IEnumerator IEnumerable.GetEnumerator()
         {
