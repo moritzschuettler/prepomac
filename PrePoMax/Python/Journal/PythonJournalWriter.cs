@@ -86,8 +86,9 @@ namespace PrePoMax.Python.Journal
         public void Block(string block)
         {
             if (block == null) return;
-            // A recorded script is emitted as it was written, so its own line breaks are kept
-            foreach (string line in block.Replace("\r\n", "\n").Split('\n')) Line(line.TrimEnd());
+            // A recorded script is emitted as it was written, so its own line breaks and the spaces that
+            // end a line inside one of its strings are kept
+            foreach (string line in block.Replace("\r\n", "\n").Split('\n')) Line(line);
         }
         public void Unsupported(Command command, string reason)
         {

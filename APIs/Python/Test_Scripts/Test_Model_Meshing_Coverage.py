@@ -176,6 +176,24 @@ def test_quad_wild(items, selection):
     check(settings(items, PREFIX + "QuadWild")["alpha"] == 0.02, "a refused replace changed the alpha")
 
 
+# What get_settings returns goes back into the replace of the item type, every key an argument it takes, and the
+# replace changes nothing
+def test_settings_round_trip(items):
+    names = [name for name in items.get_names() if name.startswith(PREFIX)]
+    item_types = set(items[name].item_type for name in names)
+    check(len(item_types) == 10, "every mesh setup item type must be covered: " + str(sorted(item_types)))
+    for name in names:
+        item = items[name]
+        before = settings(items, name)
+        geometry_ids = list(item.get_geometry_ids())
+        getattr(items, "replace_" + item.item_type)(name, **before)
+        after = settings(items, name)
+        check(after == before, "the settings of " + name + " did not round trip: " + str(before) + " became " +
+              str(after))
+        check(list(items[name].get_geometry_ids()) == geometry_ids, "the round trip of " + name +
+              " changed its region")
+
+
 def refused(function, words, message):
     text = raised_message(function)
     check(text is not None and all(word in text for word in words), message + ": " + str(text))
@@ -347,6 +365,7 @@ def main():
     test_derived_arguments(items, box_face)
     test_layer_validation(items)
     test_quad_wild(items, shell_selection)
+    test_settings_round_trip(items)
     test_value_ranges(items, solid_selection, shell_selection)
     test_size_defaults(items, solid, solid_selection, box, part_selection(box))
     test_rejection_leaves_no_trace(items)

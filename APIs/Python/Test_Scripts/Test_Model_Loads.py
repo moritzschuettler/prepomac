@@ -130,6 +130,13 @@ def test_concentrated():
     check(load.amplitude_name == "Default", "unexpected amplitude name " + load.amplitude_name)
     check(load.coordinate_system_name == "Global", "unexpected coordinate system name " + load.coordinate_system_name)
     loads.remove([PREFIX + "M2"])
+    # A name with surrounding spaces is no name, here as in every collection
+    check_refused(lambda: loads.add_moment(PREFIX + "Bad", node_selection([3]), m3=1, amplitude_name="Default "),
+                  "does not exist", "a padded amplitude name must name no amplitude")
+    check_refused(lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([3]), f1=1,
+                                                       coordinate_system_name=" Global"),
+                  "does not exist", "a padded coordinate system name must name no coordinate system")
+    check(not loads.contains(PREFIX + "Bad"), "a load with a padded name was recorded")
     # A static step is not complex, so a phase would be kept without effect
     check_refused(lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([1]), f1=1, phase_deg=30),
                   "'phase_deg'", "a phase in a static step must be refused")
@@ -200,8 +207,11 @@ def test_surface_loads():
     # groups, and the model writes only the one that matches the distribution, so the other is refused
     load = loads.add_surface_traction(PREFIX + "ST", surface_selection(1), f1=100)
     check(load.get_value("f1") == 100, "f1 was not set")
-    check(load.get_value("f_magnitude") == 100, "the force magnitude must follow the components")
-    check(load.get_value("p1") == 0, "the force per area group must stay untouched")
+    # Only what replace_surface_traction takes reads back: the derived magnitudes and the force per area group a
+    # surface traction without a distribution refuses are left out
+    names = list(load.get_value_names())
+    check(names == ["f1", "f2", "f3", "distribution_name"],
+          "a surface traction without a distribution read back other values: " + str(names))
     check_refused(lambda: loads.replace_surface_traction(PREFIX + "ST", p2=3.5), "'p2'",
                   "a force per area without a distribution must be refused")
     check_refused(lambda: loads.add_surface_traction(PREFIX + "Bad", surface_selection(1), f1=1,
@@ -210,18 +220,22 @@ def test_surface_loads():
     check(not loads.contains(PREFIX + "Bad"), "the refused surface traction was recorded")
     load = loads.replace_surface_traction(PREFIX + "ST", p2=3.5, distribution_name=VECTOR_DISTRIBUTION)
     check(load.get_value("p2") == 3.5, "p2 was not set")
-    check(load.get_value("f1") == 100, "f1 must survive a replace")
+    # The force a surface traction with a distribution does not use is kept, but not read back, as the
+    # argument would refuse it
+    check("f1" not in list(load.get_value_names()) and "p1" in list(load.get_value_names()),
+          "a surface traction with a distribution must read back the force per area only")
     check(load.get_value("distribution_name") == VECTOR_DISTRIBUTION, "the vector distribution was not set")
     # The group is checked against the distribution the load keeps
     check_refused(lambda: loads.replace_surface_traction(PREFIX + "ST", f1=5), "'f1'",
                   "a force for a surface traction that keeps its distribution must be refused")
-    check(loads[PREFIX + "ST"].get_value("f1") == 100, "the refused replace changed f1")
+    check(loads[PREFIX + "ST"].get_value("p2") == 3.5, "the refused replace changed the load")
     # A surface traction scales its components by either kind of distribution
     load = loads.replace_surface_traction(PREFIX + "ST", distribution_name=SCALAR_DISTRIBUTION)
     check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
     load = loads.replace_surface_traction(PREFIX + "ST", f2=50, distribution_name="Constant")
     check(load.get_value("f2") == 50 and load.get_value("distribution_name") == "Constant",
           "a force together with the return to no distribution was not accepted")
+    check(load.get_value("f1") == 100, "f1 must survive the replaces with a distribution")
     # Shell edge load
     load = loads.add_shell_edge_load(PREFIX + "SE", pmx.create.region('SurfaceName', SURFACE), 7.5)
     check(load.get_value("magnitude") == 7.5, "the shell edge magnitude was not set")
@@ -383,7 +397,9 @@ def test_thermal_loads():
     # leaves the kept name out
     load = loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=False)
     check(not load.get_value("cavity_radiation"), "the cavity radiation was not turned off")
-    check(load.get_value("cavity_name") == "Cav", "the kept cavity name was dropped")
+    # The kept name is not read back, as cavity_name would refuse it without cavity radiation
+    check("cavity_name" not in list(load.get_value_names()),
+          "a radiation without cavity radiation read back its cavity name")
     check_refused(lambda: loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_name="Cv2"),
                   "cavity_radiation=True", "a cavity name for a load without cavity radiation must be refused")
     # The merged load is checked, so turning cavity radiation on again finds the kept name
@@ -398,6 +414,25 @@ def test_thermal_loads():
 
 # A replace keeps a value given as None, and the load factory follows it, so an add refused a None for a value it
 # needs only when it reached the model - which took it as zero
+# The equation setter of a container throws on an equation it cannot evaluate, with a message that names no
+# argument, so the API refuses it naming the argument, a component of a vector by its index
+def test_invalid_equations():
+    loads = pmx.model.steps[STEP].loads
+    count_before = len(loads)
+    check_refused(lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([1]), f1="=1+"), "'f1'",
+                  "an equation that does not parse must be refused naming f1")
+    check_refused(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), "=undefined_param"),
+                  "'magnitude'", "an equation naming an undefined parameter must be refused naming magnitude")
+    check_refused(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]), axis_point=[0, "=1+", 0],
+                                                axis_direction=[0, 0, 1], rotational_speed=1),
+                  "'axis_point[1]'", "a vector component that cannot be evaluated must be refused by its index")
+    check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", f2="=undefined_param"), "'f2'",
+                  "a replace with an equation that cannot be evaluated must be refused naming f2")
+    check(len(loads) == count_before and not loads.contains(PREFIX + "Bad"),
+          "a load with an invalid equation was recorded")
+    check(loads[PREFIX + "F"].get_value("f2") == 0, "the refused replace changed f2")
+
+
 def test_required_values():
     loads = pmx.model.steps[STEP].loads
     thermal = pmx.model.steps[THERMAL_STEP].loads
@@ -574,6 +609,7 @@ def main():
     finally:
         os.remove(file_name)
     test_thermal_loads()
+    test_invalid_equations()
     test_required_values()
     test_load_coordinate_system()
     test_collection_verbs()

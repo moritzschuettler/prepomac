@@ -10,6 +10,7 @@
 using CaeGlobals;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 
@@ -22,7 +23,8 @@ namespace PrePoMax.Rpc
     //
     // A call that runs Python can take as long as the work it was asked for, so it runs on a thread of
     // its own and its caller is waited for no longer than the request timeout, or the timeout the call
-    // names. A call still running then is answered with its call id rather than abandoned: it goes on
+    // names. That wait includes the wait for the turn, so a call is answered within it whatever it queued
+    // behind. A call still running then is answered with its call id rather than abandoned: it goes on
     // holding the turn, its commands are recorded as usual, and its answer is kept until wait collects
     // it. The turn is a semaphore rather than a lock for that reason - it is given back on the thread
     // that ran the call, not on the one that took it.
@@ -30,8 +32,8 @@ namespace PrePoMax.Rpc
     {
         // Variables                                                                                                                
         public const int MaximumWaitSeconds = AutomationSettings.MaxRequestTimeout;
-        private const int MaximumUncollectedCalls = 16;
-        private const int MaximumUncollectedMinutes = 60;
+        public const int MaximumUncollectedCalls = 16;
+        public const int MaximumUncollectedMinutes = 60;
         private readonly RpcServer _server;
         private readonly SemaphoreSlim _turn;
         private readonly object _callLock;
@@ -120,7 +122,7 @@ namespace PrePoMax.Rpc
         // into a server that never answers again, and a caller cannot tell that from a slow model
         private string ExecuteWhenFree(RpcRequest request)
         {
-            WaitForTurn();
+            WaitForTurn(Math.Max(1, _server.RequestTimeout));
             try
             {
                 return Execute(request);
@@ -130,9 +132,8 @@ namespace PrePoMax.Rpc
                 _turn.Release();
             }
         }
-        private void WaitForTurn()
+        private void WaitForTurn(int seconds)
         {
-            int seconds = Math.Max(1, _server.RequestTimeout);
             if (_turn.Wait(1000 * seconds)) return;
             //
             RpcRunningCall running = GetRunningCall();
@@ -148,12 +149,16 @@ namespace PrePoMax.Rpc
                                    "then try again.");
         }
         // The call is started once it has the turn, and the turn is given back by the thread that ran it.
-        // The caller waits for it as long as it said it would; a call that outlasts that is answered with
-        // its id, and goes on
+        // The caller waits as long as it said it would, the wait for the turn included: the turn is waited
+        // for no longer than that, nor longer than the request timeout, and is refused as busy when it is not
+        // free by then - at once for a timeout of 0. What is left of the wait is given to the call, and a call
+        // that outlasts it is answered with its id, and goes on
         private string StartWhenFree(RpcRequest request)
         {
             int waitSeconds = GetWaitSeconds(request, "timeout", _server.RequestTimeout);
-            WaitForTurn();
+            Stopwatch turnWait = Stopwatch.StartNew();
+            WaitForTurn(Math.Min(Math.Max(1, _server.RequestTimeout), waitSeconds));
+            int callWaitMilliseconds = (int)Math.Max(0, 1000L * waitSeconds - turnWait.ElapsedMilliseconds);
             RpcRunningCall call;
             lock (_callLock)
             {
@@ -178,7 +183,7 @@ namespace PrePoMax.Rpc
                 _turn.Release();
                 throw;
             }
-            return Collect(call, waitSeconds);
+            return CollectWithin(call, callWaitMilliseconds);
         }
         private string ExecuteOnCallThread(RpcRequest request)
         {
@@ -204,9 +209,9 @@ namespace PrePoMax.Rpc
         // A finished answer is given up only once it has reached the caller. Inside a delivery the transport
         // has begun, it stays collectable until the transport says the response was written, because a client
         // whose own request timeout ran out first is gone, and its answer would otherwise be lost with it
-        private string Collect(RpcRunningCall call, int waitSeconds)
+        private string CollectWithin(RpcRunningCall call, int waitMilliseconds)
         {
-            if (!call.Wait(1000 * waitSeconds)) return call.GetRunningAnswer();
+            if (!call.Wait(waitMilliseconds)) return call.GetRunningAnswer();
             //
             if (_undeliveredCalls != null) _undeliveredCalls.Add(call);
             else lock (_callLock) _calls.Remove(call.Id);
@@ -250,7 +255,7 @@ namespace PrePoMax.Rpc
                                        "Call get_status (status on the pipe) for the calls that are running or " +
                                        "waiting to be collected.");
             }
-            return Collect(call, waitSeconds);
+            return CollectWithin(call, 1000 * waitSeconds);
         }
         // A caller that never collects must not have every answer kept for the rest of the session: only the
         // latest answers are kept, and none longer than an hour after its call finished
@@ -277,7 +282,11 @@ namespace PrePoMax.Rpc
         public RpcRunningCall FindCall(int callId)
         {
             RpcRunningCall call;
-            lock (_callLock) _calls.TryGetValue(callId, out call);
+            lock (_callLock)
+            {
+                RemoveOldestCollectableCalls();
+                _calls.TryGetValue(callId, out call);
+            }
             return call;
         }
         // The calls still running or still waiting to be collected, oldest first

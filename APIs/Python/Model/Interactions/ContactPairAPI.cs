@@ -37,7 +37,8 @@ namespace APIs.Python.Model
         }
         [PythonAPI("True when the slave nodes are adjusted onto the master surface.", Returns = "bool")]
         public bool adjust { get { return Resolve().Adjust; } }
-        [PythonAPI("The adjustment size. It reads back as None when no size is given.", Returns = "float")]
+        [PythonAPI("The adjustment size. The Default size the dialog offers reads back as None; the argument " +
+                   "adjustment_size takes float('nan') to set it back to Default.", Returns = "float or None")]
         public object adjustment_size
         {
             get
@@ -58,6 +59,12 @@ namespace APIs.Python.Model
         public string slave_region_type { get { return Resolve().SlaveRegionType.ToString(); } }
         [PythonAPI("The region name of the slave side.", Returns = "str")]
         public string slave_region_name { get { return Resolve().SlaveRegionName; } }
+        [PythonAPI("The master surface color as a list [R, G, B, A] of channel values, which the master_color " +
+                   "argument takes back.", Returns = "list[int]")]
+        public object master_color { get { return PythonColorConverter.ToChannels(Resolve().MasterColor); } }
+        [PythonAPI("The slave surface color as a list [R, G, B, A] of channel values, which the slave_color " +
+                   "argument takes back.", Returns = "list[int]")]
+        public object slave_color { get { return PythonColorConverter.ToChannels(Resolve().SlaveColor); } }
 
 
         // Constructors

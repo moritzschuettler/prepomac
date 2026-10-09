@@ -27,6 +27,13 @@ namespace APIs.Python.Model
             "optimize_steps_2d: int = None, optimize_steps_3d: int = None, quad_dominated: bool = None, " +
             "transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +
             "transfinite_angle_deg: float = None";
+        // The Gmsh item and its dialog take any number for these two, so a script may give the same, and the
+        // description says where a value stops making a difference
+        private const string GmshValueRanges =
+            "recombine_min_quality and transfinite_angle_deg take any finite number, as the dialog does. A " +
+            "face keeps its transfinite constraint when every corner angle lies between 180 - " +
+            "transfinite_angle_deg and transfinite_angle_deg, so 180 or more keeps it on every face and a " +
+            "smaller angle on fewer faces.";
         private const string ShellMmgArguments =
             "relative_size: bool = None, relative_hausdorff: float = None, hausdorff: float = None, " +
             "keep_model_edges: bool = None";
@@ -45,8 +52,9 @@ namespace APIs.Python.Model
 
 
         // Static methods
-        // The stored values the add_* and replace_* arguments set under another name, which is how the
-        // apply methods below write them; a value no argument sets keeps the name of its property
+        // The arguments of the replace_* method of the item type, each with the stored value it sets, which is how
+        // the apply methods below write them. Nothing else is read, so the settings go back into the replace_*
+        // method of the item
         internal static Dictionary<string, string[]> GetArgumentValueNames(MeshSetupItem item)
         {
             Dictionary<string, string[]> names = new Dictionary<string, string[]>();
@@ -54,52 +62,85 @@ namespace APIs.Python.Model
             {
                 names.Add("max_size", new string[] { "max_h" });
                 names.Add("min_size", new string[] { "min_h" });
+                ModelItemValueReader.AddArguments(names, "fineness", "grading", "elements_per_edge",
+                                                  "elements_per_curve", "second_order", "midside_nodes_on_geometry",
+                                                  "relative_size", "factor_max", "factor_min", "split_compound_mesh",
+                                                  "merge_compound_parts", "merge_cells");
             }
             else if (item is LocalMeshSize)
             {
-                names.Add("element_size", new string[] { "mesh_size" });
+                // The argument that is given decides the type, and only one of the two is accepted at a time
+                if (((LocalMeshSize)item).Type == LocalMeshSizeTypeEnum.ElementSize)
+                    names.Add("element_size", new string[] { "mesh_size" });
+                else ModelItemValueReader.AddArguments(names, "number_of_elements");
             }
+            else if (item is ShellMmg)
+                ModelItemValueReader.AddArguments(names, "relative_size", "relative_hausdorff", "hausdorff",
+                                                  "keep_model_edges");
+            else if (item is ThickenShellMesh)
+                ModelItemValueReader.AddArguments(names, "thickness", "number_of_layers", "offset", "keep_model_edges");
             else if (item is NetgenMesh)
             {
                 names.Add("optimize_steps_2d", new string[] { "optimize_steps2_d" });
                 names.Add("optimize_steps_3d", new string[] { "optimize_steps3_d" });
+                ModelItemValueReader.AddArguments(names, "quad_dominated", "transfinite_three_sided",
+                                                  "transfinite_four_sided", "transfinite_angle_deg");
             }
             else if (item is SweepMesh)
             {
+                ModelItemValueReader.AddArguments(names, "number_of_global_smooth_steps");
                 // The 2D algorithm of a sweep may also be QuadWild, so it is stored apart from the gmsh one
                 names.Add("algorithm_2d", new string[] { "sweep_algorithm_mesh2_d" });
                 names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
+                AddGmshArguments(names, "optimize_first_order_shell");
                 names.Add("elements_per_layer", new string[] { "number_of_elements_per_layer" });
+                ModelItemValueReader.AddArguments(names, "keep_imprint_edges", "quad_wild_flow_profile",
+                                                  "quad_wild_alpha", "quad_wild_smooth", "symmetry");
             }
-            else if (item is GmshSetupItem)
+            else if (item is TransfiniteMesh)
+            {
+                // add_transfinite_mesh takes recombination as a switch, which GetSettings reads
+                ModelItemValueReader.AddArguments(names, "allow_pyramid_elements");
+                names.Add("algorithm_2d", new string[] { "algorithm_mesh2_d" });
+                names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
+                ModelItemValueReader.AddArguments(names, "transfinite_angle_deg", "transfinite_three_sided");
+            }
+            else if (item is TetrahedralGmsh || item is ShellGmsh)
             {
                 names.Add("algorithm_2d", new string[] { "algorithm_mesh2_d" });
                 names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
+                if (item is TetrahedralGmsh)
+                    AddGmshArguments(names, "optimize_first_order_solid", "optimize_high_order");
+                else AddGmshArguments(names, "optimize_first_order_shell");
             }
+            else if (item is ShellQuadWild)
+                ModelItemValueReader.AddArguments(names, "preview", "smooth", "alpha", "triangulation_mesher",
+                                                  "flow_profile", "keep_files_on_failure", "debug_visualization",
+                                                  "old_algorithm", "pin_edge_nodes", "edge_rotations",
+                                                  "singularity_position", "count_search", "boundary_layer",
+                                                  "transfinite_three_sided", "transfinite_four_sided",
+                                                  "transfinite_angle_deg");
             //
             return names;
+        }
+        // The recombination and transfinite settings every gmsh item but the transfinite one takes, followed by
+        // the optimization settings of the item type
+        private static void AddGmshArguments(Dictionary<string, string[]> names, params string[] optimizeArguments)
+        {
+            ModelItemValueReader.AddArguments(names, "recombine_min_quality", "algorithm_recombine",
+                                              "transfinite_three_sided", "transfinite_four_sided",
+                                              "transfinite_angle_deg");
+            ModelItemValueReader.AddArguments(names, optimizeArguments);
         }
         // A value an argument sets in another form is reported in the form that argument takes, so the settings
         // go back into the replace_* method of the item
         internal static Dictionary<string, object> GetSettings(MeshSetupItem item)
         {
-            Dictionary<string, object> values = ModelItemValueReader.GetValues(item, typeof(MeshSetupItem),
-                                                                               GetArgumentValueNames(item));
+            Dictionary<string, object> values = ModelItemValueReader.GetValues(item, GetArgumentValueNames(item));
+            // add_transfinite_mesh takes recombination as a switch, which picks the algorithm itself
             TransfiniteMesh transfiniteMesh = item as TransfiniteMesh;
             if (transfiniteMesh != null)
-            {
-                // add_transfinite_mesh takes recombination as a switch, which picks the algorithm itself
-                values.Remove("algorithm_recombine");
                 values["recombine"] = transfiniteMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            }
-            LocalMeshSize localMeshSize = item as LocalMeshSize;
-            if (localMeshSize != null)
-            {
-                // The argument that is given decides the type, and only one of the two is accepted at a time
-                values.Remove("type");
-                if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize) values.Remove("number_of_elements");
-                else values.Remove("element_size");
-            }
             //
             return values;
         }
@@ -137,7 +178,10 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces meshing parameters, keeping every value that is not given.",
+        [PythonAPI("Replaces meshing parameters, keeping every value that is not given. A new selection given " +
+                   "without any of the values rebuilds the sizes from the part defaults of the new selection, as " +
+                   "the dialog does, when they still equal the part defaults of the region the item had; sizes " +
+                   "that differ from those were set earlier and are kept.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                MeshingParameterArguments,
                    Returns = "MeshSetupItem")]
@@ -214,7 +258,10 @@ namespace APIs.Python.Model
             return this[name];
         }
 
-        [PythonAPI("Replaces a shell MMG mesh setup item, keeping every value that is not given.",
+        [PythonAPI("Replaces a shell MMG mesh setup item, keeping every value that is not given. A new selection " +
+                   "given without any of the values rebuilds the sizes from the part defaults of the new " +
+                   "selection, as the dialog does, when they still equal the part defaults of the region the item " +
+                   "had; sizes that differ from those were set earlier and are kept.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                ShellMmgArguments,
                    Returns = "MeshSetupItem")]
@@ -302,7 +349,7 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a Gmsh tetrahedral mesh item for the selected geometry.",
+        [PythonAPI("Adds a Gmsh tetrahedral mesh item for the selected geometry. " + GmshValueRanges,
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "algorithm_3d: str = None, recombine_min_quality: float = None, " +
                                GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
@@ -348,7 +395,7 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a Gmsh shell mesh item for the selected geometry.",
+        [PythonAPI("Adds a Gmsh shell mesh item for the selected geometry. " + GmshValueRanges,
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "algorithm_3d: str = None, recombine_min_quality: float = None, " +
                                GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
@@ -390,7 +437,7 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a Gmsh transfinite mesh item for the selected geometry.",
+        [PythonAPI("Adds a Gmsh transfinite mesh item for the selected geometry. " + GmshValueRanges,
                    Arguments = "name: str, selection: Selection, allow_pyramid_elements: bool = False, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, recombine: bool = None, " +
                                "transfinite_angle_deg: float = None, transfinite_three_sided: str = None",

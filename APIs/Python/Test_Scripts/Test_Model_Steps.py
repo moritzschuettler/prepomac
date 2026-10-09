@@ -208,7 +208,12 @@ def test_refused_values():
                 (lambda: steps.add_frequency(bad, cyclic_symmetry_mode_min=3, cyclic_symmetry_mode_max=1),
                  "'cyclic_symmetry_mode_max'"),
                 (lambda: steps.add_complex_frequency(bad, number_of_frequencies=0), "'number_of_frequencies'"),
-                (lambda: steps.add_buckle(bad, number_of_buckling_factors=0), "'number_of_buckling_factors'")]
+                (lambda: steps.add_buckle(bad, number_of_buckling_factors=0), "'number_of_buckling_factors'"),
+                # An option is a member name: Enum.TryParse would take a number and combine a comma separated
+                # list into another member
+                (lambda: steps.add_static(bad, incrementation_type="1"), "'incrementation_type'"),
+                (lambda: steps.add_static(bad, incrementation_type="Automatic, Direct"), "'incrementation_type'"),
+                (lambda: steps.add_static(bad, solver_type="0"), "'solver_type'")]
     for function, fragment in refusals:
         check_refused(function, fragment, "a value of " + fragment + " the model would change must be refused")
     check(len(steps) == count_before and not steps.contains(bad), "a refused step was recorded")
@@ -226,6 +231,31 @@ def test_refused_values():
                   "'cyclic_symmetry_mode_max'", "a mode maximum below the stored minimum must be refused")
     check(steps[PREFIX + "F2"].get_value("cyclic_symmetry_mode_min") == 2,
           "the refused replace moved the stored minimum mode")
+    # A count that is not set reads back as None, never as the smallest integer the model stores for it, and
+    # float('nan') leaves one unset, as it does a frequency limit; None keeps it
+    step = steps.replace_frequency(PREFIX + "F2", cyclic_symmetry_mode_max=float('nan'))
+    check(step.get_value("cyclic_symmetry_mode_max") is None,
+          "an unset mode must read back as None, got " + repr(step.get_value("cyclic_symmetry_mode_max")))
+    check(step.get_value("cyclic_symmetry_mode_min") == 2, "unsetting the maximum mode changed the minimum")
+    step = steps.replace_frequency(PREFIX + "F2", cyclic_symmetry_mode_min=float('nan'))
+    check(step.get_value("cyclic_symmetry_mode_min") is None, "the minimum mode was not unset")
+    check_refused(lambda: steps.replace_frequency(PREFIX + "F2", cyclic_symmetry_mode_min=-2147483648),
+                  "'cyclic_symmetry_mode_min'", "the stored form of an unset mode must be refused for float('nan')")
+    unset = PREFIX + "S_Unset"
+    step = steps.add_static(unset)
+    check(step.output_frequency is None, "a new step must read an unset output frequency as None, got " +
+          repr(step.output_frequency))
+    step = steps.replace_static(unset, output_frequency=3)
+    check(step.output_frequency == 3, "the output frequency was not set")
+    step = steps.replace_static(unset, output_frequency=None)
+    check(step.output_frequency == 3, "None must keep the output frequency")
+    step = steps.replace_static(unset, output_frequency=float('nan'))
+    check(step.output_frequency is None, "float('nan') must unset the output frequency")
+    steps.remove([unset])
+    steady = PREFIX + "SSD_Unset"
+    step = steps.add_steady_state_dynamics(steady, number_of_data_points=float('nan'))
+    check(step.get_value("number_of_data_points") is None, "an unset number of data points must read back as None")
+    steps.remove([steady])
     # An initial increment above the maximum one is stored as given, as the dialog does, and a replace that
     # sets the maximum, which would shorten it, keeps it
     initial = PREFIX + "S_Initial"
@@ -419,10 +449,49 @@ def test_controls():
                        pmx.create.field_control(q0a=None, qua=None)])
     check(list(step.get_control_types()) == ["time_incrementation_control", "field_control"],
           "step controls with values left out were not set")
+    # The controls read back as detached copies that go back into set_controls
+    step.set_controls([pmx.create.time_incrementation_control(i0=8, ic=32),
+                       pmx.create.contact_control(delcon=0.5)])
+    copies = step.get_controls()
+    check(type(copies) is list and len(copies) == 2, "the controls did not read back as a list: " + repr(copies))
+    step.set_controls(copies)
+    check(list(step.get_control_types()) == ["time_incrementation_control", "contact_control"],
+          "the controls read back did not go back into set_controls")
     step.clear_controls()
     check(len(step.get_control_types()) == 0, "the step controls were not cleared")
+    check(len(step.get_controls()) == 0, "cleared controls must read back as an empty list")
     check_raises(lambda: step.set_controls(["not a control parameter"]),
                  "a control parameter given as a string must be rejected")
+
+
+def plain(value):
+    """A read-back value in a form two snapshots compare by: a part such as a damping by its type."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [plain(item) for item in value]
+    return type(value).__name__
+
+
+# What get_value reads goes back into the replace of the step type, every name an argument it takes, and
+# the replace changes nothing
+def test_read_back_round_trip():
+    steps = pmx.model.steps
+    names = [n for n in steps.get_names() if n.startswith(PREFIX)]
+    item_types = set(steps[name].item_type for name in names)
+    check(len(item_types) == 12, "every step type must be covered: " + str(sorted(item_types)))
+    for name in names:
+        step = steps[name]
+        values = {key: step.get_value(key) for key in step.get_value_names()}
+        before = {key: plain(value) for key, value in values.items()}
+        shared = [step.nlgeom, step.max_increments, step.output_frequency, step.solver_type]
+        getattr(steps, "replace_" + step.item_type)(name, **values)
+        step = steps[name]
+        after = {key: plain(step.get_value(key)) for key in step.get_value_names()}
+        check(after == before, "the values of " + name + " did not round trip: " + str(before) + " became " +
+              str(after))
+        check([step.nlgeom, step.max_increments, step.output_frequency, step.solver_type] == shared,
+              "the round trip of " + name + " changed a shared value")
 
 
 def test_move():
@@ -453,6 +522,7 @@ def main():
     test_dynamic_types()
     test_refused_values()
     test_thermal_and_wear_types()
+    test_read_back_round_trip()
     test_controls()
     test_move()
     clean()

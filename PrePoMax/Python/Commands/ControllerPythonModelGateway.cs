@@ -63,9 +63,10 @@ namespace PrePoMax.Python
             _controller.New();
             _controller.SetNewModelPropertiesCommand(modelSpace, unitSystemType);
         }
+        // Opened and recorded as File - Open opens and records it, so a result file and a .pmh history replay the same
         public void OpenFile(string fileName)
         {
-            _controller.OpenFileCommand(fileName);
+            _controller.OpenFileCommand(fileName, Globals.FromFileOpenMenu);
         }
         public void ImportFile(string fileName, bool onlyMaterials)
         {

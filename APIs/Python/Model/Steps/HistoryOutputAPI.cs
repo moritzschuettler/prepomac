@@ -69,8 +69,9 @@ namespace APIs.Python.Model
         }
         private static Dictionary<string, object> GetValues(HistoryOutput historyOutput)
         {
-            Dictionary<string, object> values = ModelItemValueReader.GetValues(historyOutput, typeof(HistoryOutput),
-                                                                               null);
+            // The totals type and the global output are shared by every type and are properties of the output
+            Dictionary<string, object> values =
+                ModelItemValueReader.GetValues(historyOutput, ModelItemValueReader.Arguments("variables"));
             // A contact history output names its contact pair as its region
             if (historyOutput is ContactHistoryOutput) values["contact_pair_name"] = historyOutput.RegionName;
             //
@@ -104,8 +105,9 @@ namespace APIs.Python.Model
                                          " is not supported.");
         }
 
-        [PythonAPI("Returns the names of the values that are specific to this history output type: the add_* " +
-                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this history output type: the names of " +
+                   "the replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the history output.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
             return new StringListAPI(GetValues(Resolve()).Keys);

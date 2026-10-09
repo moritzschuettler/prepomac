@@ -18,8 +18,10 @@ namespace PrePoMax.Mcp
     //
     // The answer is bounded twice, because an assembly of eighty parts with a hundred faces each
     // would otherwise bury it. Each part lists at most a given number of faces, edges and vertices -
-    // the largest and the longest first, which is the order they are worth reading in - and the whole
-    // answer stops detailing parts once it has listed enough rows. Every part is still summarized, so
+    // the largest faces and the longest edges first, which is the order they are worth reading in, and
+    // the vertices, which have no size, in index order - and no more than what is left of a budget the
+    // whole answer shares, which every listed row is taken from, so the answer never lists more rows
+    // than the budget. A part reached once it is spent is not detailed. Every part is still summarized, so
     // the caller sees what is there and can ask for one part by name. A part name is compared the way
     // the model keys its parts, regardless of case and surrounding spaces, and a name that matched no
     // part is reported rather than silently left out. Like read_model it runs as one private function,
@@ -89,14 +91,20 @@ namespace PrePoMax.Mcp
             "        entry['detail'] = ('Not listed: the answer is full. Ask for this part by name to see its '\n" +
             "                           'faces, edges and vertices.')\n" +
             "        return entry\n" +
-            "    entry['faces'] = face_rows(faces, LIMIT)\n" +
-            "    entry['edges'] = edge_rows(edges, LIMIT)\n" +
-            "    entry['vertices'] = vertex_rows(vertices, LIMIT)\n" +
-            "    budget[0] -= len(entry['faces']) + len(entry['edges']) + len(entry['vertices'])\n" +
-            "    if faces.count > LIMIT or edges.count > LIMIT or vertices.count > LIMIT:\n" +
-            "        entry['listed'] = ('Only %d of each are listed, largest first. Read the rest with '\n" +
-            "                           'get_face_data(), get_edge_data() and get_vertex_data() on the part.'\n" +
-            "                           % LIMIT)\n" +
+            "    entry['faces'] = face_rows(faces, min(LIMIT, budget[0]))\n" +
+            "    budget[0] -= len(entry['faces'])\n" +
+            "    entry['edges'] = edge_rows(edges, min(LIMIT, budget[0]))\n" +
+            "    budget[0] -= len(entry['edges'])\n" +
+            "    entry['vertices'] = vertex_rows(vertices, min(LIMIT, budget[0]))\n" +
+            "    budget[0] -= len(entry['vertices'])\n" +
+            "    if (len(entry['faces']) < faces.count or len(entry['edges']) < edges.count or\n" +
+            "            len(entry['vertices']) < vertices.count):\n" +
+            "        entry['listed'] = ('Listed %d of %d faces and %d of %d edges, largest first, and %d of %d '\n" +
+            "                           'vertices, in index order. Read the rest with get_face_data(), '\n" +
+            "                           'get_edge_data() and get_vertex_data() on the part, or ask for this '\n" +
+            "                           'part by name.'\n" +
+            "                           % (len(entry['faces']), faces.count, len(entry['edges']), edges.count,\n" +
+            "                              len(entry['vertices']), vertices.count))\n" +
             "    return entry\n" +
             "\n" +
             "\n" +

@@ -85,6 +85,7 @@ namespace APIs.Python
             types.Add("point_on_x_created_from", typeof(CsPointCreatedFromEnum));
             types.Add("point_in_xy_created_from", typeof(CsPointCreatedFromEnum));
             types.Add("limit_to", typeof(SelectionLimitToEnum));
+            types.Add("surface_type", typeof(FeSurfaceType));
             // Materials
             types.Add("hardening", typeof(PlasticHardening));
             // Steps, loads and interactions

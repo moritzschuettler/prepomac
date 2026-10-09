@@ -65,24 +65,37 @@ namespace APIs.Python.Model
                                          definedField.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
+        // The arguments of the replace_* method of the defined field type, each with the stored value it sets
+        private static Dictionary<string, string[]> GetArgumentValueNames(DefinedField definedField)
+        {
+            if (GetItemType(definedField) == "temperature_from_file")
+                return ModelItemValueReader.Arguments("file_name", "step_id");
+            //
+            return ModelItemValueReader.Arguments("temperature", "distribution_name");
+        }
 
 
         // Methods
-        [PythonAPI("Returns the names of the values that are specific to this defined field type: the add_* " +
-                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this defined field type: the names of " +
+                   "the replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the defined field.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(DefinedField), null).Keys);
+            DefinedField definedField = Resolve();
+            return new StringListAPI(ModelItemValueReader.GetValues(definedField,
+                                                                    GetArgumentValueNames(definedField)).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this defined field type by the name of the add_* " +
-                   "argument that sets it, for example temperature. Use get_value_names to list them.",
-                   Arguments = "name: str", Returns = "float, int, bool or str")]
+                   "argument that sets it: temperature and distribution_name, or file_name and step_id for a " +
+                   "temperature read from a file. Use get_value_names to list them.",
+                   Arguments = "name: str", Returns = "float, int or str")]
         public object get_value(string name)
         {
             DefinedField definedField = Resolve();
-            return ModelItemValueReader.GetValue(definedField, typeof(DefinedField), null, name,
-                                                 GetItemType(definedField) + " defined field");
+            return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(definedField,
+                                                                                GetArgumentValueNames(definedField)),
+                                                 name, GetItemType(definedField) + " defined field");
         }
 
         [PythonAPI("Returns the expressions the defined field was entered with, without evaluating them, under " +
@@ -91,7 +104,8 @@ namespace APIs.Python.Model
                    "get_value returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve());
+            DefinedField definedField = Resolve();
+            return ModelItemValueReader.GetScalarEquations(definedField, GetArgumentValueNames(definedField));
         }
         public override string ToString()
         {

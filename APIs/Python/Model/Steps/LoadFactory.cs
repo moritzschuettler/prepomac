@@ -46,25 +46,19 @@ namespace APIs.Python.Model
             {
                 EquationString[] values = ToVector(firstPoint, "first_point");
                 RefuseOutOfPlaneComponent(load, load.Z1, values[2], "first_point");
-                load.X1.Equation = values[0];
-                load.Y1.Equation = values[1];
-                load.Z1.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.X1, load.Y1, load.Z1 }, values, "first_point");
             }
             if (secondPoint != null)
             {
                 EquationString[] values = ToVector(secondPoint, "second_point");
                 RefuseOutOfPlaneComponent(load, load.Z2, values[2], "second_point");
-                load.X2.Equation = values[0];
-                load.Y2.Equation = values[1];
-                load.Z2.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.X2, load.Y2, load.Z2 }, values, "second_point");
             }
             if (direction != null)
             {
                 EquationString[] values = ToVector(direction, "direction");
                 RefuseOutOfPlaneComponent(load, load.N3, values[2], "direction");
-                load.N1.Equation = values[0];
-                load.N2.Equation = values[1];
-                load.N3.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.N1, load.N2, load.N3 }, values, "direction");
             }
             SetEquation(load.FirstPointPressure, firstPointPressure, "first_point_pressure");
             SetEquation(load.SecondPointPressure, secondPointPressure, "second_point_pressure");
@@ -133,25 +127,21 @@ namespace APIs.Python.Model
             {
                 EquationString[] values = ToVector(axisPoint, "axis_point");
                 if (load.Axisymmetric) RefuseAxisymmetricAxis(load.X, values, new double[] { 0, 0, 0 }, "axis_point");
-                load.X.Equation = values[0];
-                load.Y.Equation = values[1];
-                load.Z.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.X, load.Y, load.Z }, values, "axis_point");
             }
             if (axisDirection != null)
             {
                 EquationString[] values = ToVector(axisDirection, "axis_direction");
                 if (load.Axisymmetric)
                     RefuseAxisymmetricAxis(load.N1, values, new double[] { 0, 1, 0 }, "axis_direction");
-                load.N1.Equation = values[0];
-                load.N2.Equation = values[1];
-                load.N3.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.N1, load.N2, load.N3 }, values, "axis_direction");
             }
             if (rotationalSpeed != null)
             {
                 EquationString equation = PythonValueConverter.ToEquationString(rotationalSpeed, "rotational_speed");
                 if (GivenEquationValue.Evaluate(load.RotationalSpeed, equation, "rotational_speed") < 0)
                     throw new PythonAPIException("The argument 'rotational_speed' must not be negative.");
-                load.RotationalSpeed.Equation = equation;
+                PythonModelArgumentCheck.SetEquation(load.RotationalSpeed, equation, "rotational_speed");
             }
         }
         // The force and the displacement are stored apart, so a type change without a magnitude would silently
@@ -186,9 +176,7 @@ namespace APIs.Python.Model
                 EquationString[] values = ToVector(direction, "direction");
                 RefuseOutOfPlaneComponent(load, load.Z, values[2], "direction");
                 load.AutoComputeDirection = false;
-                load.X.Equation = values[0];
-                load.Y.Equation = values[1];
-                load.Z.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { load.X, load.Y, load.Z }, values, "direction");
             }
             else if (autoDirection != null)
             {
@@ -228,7 +216,7 @@ namespace APIs.Python.Model
                 double value = GivenEquationValue.Evaluate(load.Emissivity, equation, "emissivity");
                 if (!(value >= 0 && value <= 1))
                     throw new PythonAPIException("The argument 'emissivity' must be between 0 and 1.");
-                load.Emissivity.Equation = equation;
+                PythonModelArgumentCheck.SetEquation(load.Emissivity, equation, "emissivity");
             }
             if (cavityRadiation != null)
                 load.CavityRadiation = PythonValueConverter.ToBool(cavityRadiation, "cavity_radiation");
@@ -238,7 +226,7 @@ namespace APIs.Python.Model
         {
             if (value == null) return;
             //
-            container.Equation = PythonValueConverter.ToEquationString(value, argumentName);
+            PythonModelArgumentCheck.SetEquation(container, value, argumentName);
         }
         private static void SetInPlaneEquation(Load load, EquationContainer container, object value,
                                                string argumentName)
@@ -249,7 +237,7 @@ namespace APIs.Python.Model
             if (load.TwoD)
                 GivenEquationValue.RefuseOutOfPlaneValue(container, equation, argumentName,
                                                          "The argument '" + argumentName + "'");
-            container.Equation = equation;
+            PythonModelArgumentCheck.SetEquation(container, equation, argumentName);
         }
         private static void RefuseOutOfPlaneComponent(Load load, EquationContainer container, EquationString equation,
                                                       string argumentName)

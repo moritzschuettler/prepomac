@@ -53,7 +53,7 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The argument 'phase_deg' does not apply to a " +
                                                  LoadAPI.GetItemType(load) + " load, which the solver input " +
                                                  "carries without a phase. Leave it out here.");
-                load.PhaseDeg.Equation = ToPhaseDeg(load.PhaseDeg, phaseDeg);
+                PythonModelArgumentCheck.SetEquation(load.PhaseDeg, ToPhaseDeg(load.PhaseDeg, phaseDeg), "phase_deg");
             }
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }

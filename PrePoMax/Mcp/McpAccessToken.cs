@@ -23,9 +23,12 @@ namespace PrePoMax.Mcp
     //
     // What the token bounds is worth being exact about: it is stored in a file the user can read, so
     // any program running as this user can read it, exactly as any such program can open the pipe. It
-    // stops another account on the machine, which cannot read this folder, and the browser, which
-    // cannot read a file at all. It is not a defence against code already running as the user, and
-    // nothing served over loopback can be.
+    // stops the browser, which cannot read a file at all. It stops another account on the machine only
+    // when that account cannot read the PrePoMax folder: the settings file is given no access rules of
+    // its own and inherits those of the folder, so the token is private to the user only in a folder
+    // only the user can read, such as one inside the user profile. A folder under C:\ is readable by
+    // every local account by default, and there the token is not private. It is not a defence against
+    // code already running as the user, and nothing served over loopback can be.
     public static class McpAccessToken
     {
         // Variables                                                                                                                

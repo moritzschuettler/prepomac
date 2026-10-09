@@ -365,9 +365,7 @@ namespace APIs.Python
         {
             EquationString[] values = PythonValueConverter.ToEquationArray(coordinates, "coordinates", 3);
             point.CreatedFrom = FeReferencePointCreatedFrom.Coordinates;
-            point.X.Equation = values[0];
-            point.Y.Equation = values[1];
-            point.Z.Equation = values[2];
+            PythonModelArgumentCheck.SetEquations(new[] { point.X, point.Y, point.Z }, values, "coordinates");
         }
         private void ApplySelection(FeReferencePoint point, string createdFrom, SelectionAPI selection)
         {

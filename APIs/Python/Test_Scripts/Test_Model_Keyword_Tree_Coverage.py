@@ -265,6 +265,55 @@ def test_tree_item_types():
                  "a step name on a collection no step owns was accepted")
 
 
+def find_group(layout, group_id):
+    for entry in layout:
+        if isinstance(entry, dict):
+            if entry['group_id'] == group_id:
+                return entry
+            found = find_group(entry['items'], group_id)
+            if found is not None:
+                return found
+    return None
+
+
+# A part group of the geometry and the mesh with one id is one group shown in both views, so set_layout
+# renames it in both, as rename_group does, and group names are checked against the names they carry once the
+# layout is set, so two groups may swap their names
+def test_tree_layout_renames():
+    tree = pmx.model.tree
+    linked = tree.add_group('geometry', 'parts', PREFIX + 'Linked')
+    tree.add_group('femodel', 'parts', PREFIX + 'Linked', group_id=linked)
+    geometry_only = tree.add_group('geometry', 'parts', PREFIX + 'Geometry_Only')
+    first = tree.add_group('femodel', 'parts', PREFIX + 'First')
+    second = tree.add_group('femodel', 'parts', PREFIX + 'Second')
+    try:
+        layout = tree.get_layout('femodel', 'parts')
+        find_group(layout, linked)['group_name'] = PREFIX + 'Linked_Renamed'
+        find_group(layout, first)['group_name'] = PREFIX + 'Second'
+        find_group(layout, second)['group_name'] = PREFIX + 'First'
+        tree.set_layout('femodel', 'parts', layout)
+        layout = tree.get_layout('femodel', 'parts')
+        check(find_group(layout, first)['group_name'] == PREFIX + 'Second' and
+              find_group(layout, second)['group_name'] == PREFIX + 'First', "the two groups did not swap their names")
+        check(find_group(tree.get_layout('geometry', 'parts'), linked)['group_name'] == PREFIX + 'Linked_Renamed',
+              "the linked group was not renamed in the geometry view")
+        # A name a group of the other view keeps is refused, and nothing is recorded
+        find_group(layout, first)['group_name'] = PREFIX + 'Geometry_Only'
+        check_refused(lambda: tree.set_layout('femodel', 'parts', layout), "already the name",
+                      "a group name the geometry view keeps must be refused")
+        check(find_group(tree.get_layout('femodel', 'parts'), first)['group_name'] == PREFIX + 'Second',
+              "the refused layout was recorded")
+        # The empty id is no group id
+        empty = '00000000-0000-0000-0000-000000000000'
+        check_refused(lambda: tree.add_group('femodel', 'parts', PREFIX + 'Empty', group_id=empty), "'group_id'",
+                      "the empty group id must be refused naming group_id")
+        check_refused(lambda: tree.rename_group('femodel', 'parts', empty, PREFIX + 'Empty'), "'group_id'",
+                      "the empty group id must be refused naming group_id")
+    finally:
+        tree.remove_groups('femodel', 'parts', [linked, first, second])
+        tree.remove_groups('geometry', 'parts', [linked, geometry_only])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     generated = test_generated_keywords()
@@ -274,6 +323,7 @@ def main():
     test_tree_views()
     test_tree_existence()
     test_tree_item_types()
+    test_tree_layout_renames()
     print("TEST PASSED")
 
 

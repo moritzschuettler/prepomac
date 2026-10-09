@@ -33,6 +33,7 @@ namespace PrePoMax.Commands
 
 
         // Variables                                                                                                                
+        public Type ItemType { get { return _itemType; } }
         public ViewGeometryModelResults View { get { return _view; } }
 
 

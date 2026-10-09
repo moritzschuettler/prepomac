@@ -93,7 +93,15 @@ namespace APIs.Python.Model
                    "same name returns it as a number.", Returns = "dict[str, str]")]
         public Dictionary<string, string> get_equations()
         {
-            return ModelItemValueReader.GetEquations(_service.ResolveSection(_sectionName));
+            Section section = _service.ResolveSection(_sectionName);
+            // Only the values the replace_* method of the section type takes
+            Dictionary<string, string[]> names;
+            if (section is ShellSection || section is MembraneSection)
+                names = ModelItemValueReader.Arguments("thickness", "offset");
+            else if (section is MassSection) names = ModelItemValueReader.Arguments("mass");
+            else names = ModelItemValueReader.Arguments("thickness");
+            //
+            return ModelItemValueReader.GetScalarEquations(section, names);
         }
         public override string ToString()
         {

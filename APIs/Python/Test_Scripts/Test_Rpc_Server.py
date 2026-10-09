@@ -2,7 +2,8 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the automation server. The script is its own client: it runs inside the application and
-#connects to the named pipe of its own process, so the whole contract is checked unattended.
+#connects to the named pipe of its own process, so the whole contract is checked unattended. A null id is
+#refused, and a request sent as a notification is dropped and not run, shutdown alone excepted.
 #
 #  PrePoMax.com --script Test_Rpc_Server.py --rpc On -g No -x Yes -w <work directory>
 #
@@ -152,6 +153,7 @@ def check_errors(client):
                 ('{"jsonrpc":"1.0","id":1,"method":"ping"}', INVALID_REQUEST),
                 ('{"jsonrpc":"2.0","id":1}', INVALID_REQUEST),
                 ('{"jsonrpc":"2.0","id":true,"method":"ping"}', INVALID_REQUEST),
+                ('{"jsonrpc":"2.0","id":null,"method":"ping"}', INVALID_REQUEST),
                 ('{"jsonrpc":"2.0","id":1,"method":"ping","params":[1]}', INVALID_PARAMS)]
     for line, code in refusals:
         error = client.refusal(line)
@@ -162,6 +164,25 @@ def check_errors(client):
     # The connection survives every one of them
     check_ping(client)
     print("errors: " + str(len(refusals) + 1) + " refusals, the connection stayed open")
+
+
+def check_notifications(client):
+    """Only shutdown is run as a notification: any other one is dropped unanswered and not run."""
+    for method, parameters in (("exec", {"source": "rpc_notified = 1"}),
+                               ("eval", {"expression": "globals().update(rpc_notified_eval=1)"}),
+                               ("ping", None)):
+        request = {"jsonrpc": "2.0", "method": method}
+        if parameters is not None:
+            request["params"] = parameters
+        client.send_line(json.dumps(request))
+    # Nothing was answered for them, so the next answer is the one of the next request
+    check_ping(client)
+    value = client.result("eval", {"expression": "[name for name in ('rpc_notified', 'rpc_notified_eval') "
+                                                 "if name in dir()]"})
+    check(value["value"] == [], "an exec or eval sent as a notification must not run: " + str(value))
+    status = client.result("status")
+    check(status["calls"] == [], "a notification must leave no call behind: " + str(status["calls"]))
+    print("notifications: an exec, an eval and a ping sent without an id were dropped, not run")
 
 
 def check_eval(client):
@@ -481,6 +502,7 @@ def main():
         check_ping(client)
         check_status(client)
         check_errors(client)
+        check_notifications(client)
         check_describe(client)
         check_eval(client)
         check_exec(client)

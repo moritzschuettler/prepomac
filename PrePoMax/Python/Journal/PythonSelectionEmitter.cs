@@ -238,8 +238,11 @@ namespace PrePoMax.Python.Journal
             //
             return "configure(" + string.Join(", ", arguments) + ")";
         }
+        // A selection that never had its view set - a search contact pairs item of an older history, or
+        // a v0.5.2 one - is resolved by the controller in the FE model view, so it replays there
         private static string GetViewName(int currentView)
         {
+            if (currentView == -1) return "femodel";
             if (currentView == (int)ViewGeometryModelResults.Geometry) return "geometry";
             if (currentView == (int)ViewGeometryModelResults.Model) return "femodel";
             if (currentView == (int)ViewGeometryModelResults.Results) return "results";

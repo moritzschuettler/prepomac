@@ -217,7 +217,8 @@ namespace PrePoMax.Rpc
                                          "not been abandoned: it runs to the end, and what it changes is recorded " +
                                          "as usual. Collect its answer with get_call - the wait method on the pipe " +
                                          "- and call id " + id + ". Until it is done every other call waits for " +
-                                         "it and is refused as busy after the requestTimeout, except get_status, " +
+                                         "it and is refused as busy after the requestTimeout - or after its own " +
+                                         "timeout when that is shorter - except get_status, " +
                                          "get_call, cancel_call, get_guide and list_sessions (status, wait, " +
                                          "cancel, ping and shutdown on the pipe). To stop it instead, cancel it with " +
                                          "cancel_call - the cancel method on the pipe - and the same call id.");

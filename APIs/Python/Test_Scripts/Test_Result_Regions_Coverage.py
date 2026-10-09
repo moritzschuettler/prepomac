@@ -224,6 +224,12 @@ def test_coordinate_system_construction(systems):
     systems.add_from_selections(PREFIX + "Default", origin=[0, 0, 0])
     check(construction_modes(systems[PREFIX + "Default"]) == [None] * 3,
           "an omitted point did not keep its default")
+    # The positional order is the one of the model's add_from_selections: the three created_from and selection
+    # pairs, then the three points, then the type
+    systems.replace_from_selections(PREFIX + "Default", None, None, None, None, None, None, None, [0, 0, 0],
+                                    [1, 0, 0], [0, 1, 0], "Rectangular")
+    check(construction_modes(systems[PREFIX + "Default"]) == [None] * 3,
+          "the positional points were not taken as coordinates")
     # A replacement re-specifies the whole definition, so every point is required
     check_raises(lambda: systems.replace_from_selections(PREFIX + "Default", origin=[0, 0, 0],
                                                          point_on_x=[1, 0, 0]),

@@ -36,7 +36,8 @@ namespace APIs.Python.Model
                 if (!boundaryCondition.Complex)
                     throw new PythonAPIException("The argument 'phase_deg' applies only to a boundary condition of a " +
                                                  "steady_state_dynamics step, which is complex. Leave it out here.");
-                boundaryCondition.PhaseDeg.Equation = ToPhaseDeg(boundaryCondition.PhaseDeg, phaseDeg);
+                PythonModelArgumentCheck.SetEquation(boundaryCondition.PhaseDeg,
+                                                     ToPhaseDeg(boundaryCondition.PhaseDeg, phaseDeg), "phase_deg");
             }
             if (color != null) boundaryCondition.Color = PythonColorConverter.ToColor(color, "color");
         }

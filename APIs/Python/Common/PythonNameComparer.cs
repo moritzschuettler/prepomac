@@ -12,9 +12,10 @@ using System.Collections.Generic;
 
 namespace APIs.Python
 {
-    // The model keys its collections without regard to case and trims every name it is given, so a name the API
-    // checks is compared the same way. A check that let 'steel' past 'Steel' only moved the refusal into the model,
-    // after the item had been renamed in place.
+    // The model keys its collections without regard to case, so a name the API checks is compared the same way. A
+    // check that let 'steel' past 'Steel' only moved the refusal into the model, after the item had been renamed in
+    // place. A name with surrounding spaces is no name: the model trims a name it stores, so no item carries one,
+    // and the dictionary lookups of get, contains and a region do not trim the name they are given either.
     internal static class PythonNameComparer
     {
         // Methods
@@ -22,7 +23,7 @@ namespace APIs.Python
         {
             if (name1 == null || name2 == null) return name1 == name2;
             //
-            return string.Equals(name1.Trim(), name2.Trim(), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(name1, name2, StringComparison.OrdinalIgnoreCase);
         }
         public static bool Contains(IEnumerable<string> names, string name)
         {
@@ -39,7 +40,7 @@ namespace APIs.Python
             HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string name in names)
             {
-                if (name != null && !usedNames.Add(name.Trim()))
+                if (name != null && !usedNames.Add(name))
                     throw new PythonAPIException("The argument '" + argumentName + "' names '" + name + "' more " +
                                                  "than once.");
             }

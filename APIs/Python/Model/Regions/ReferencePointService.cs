@@ -184,9 +184,8 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The z value of the argument 'coordinates' must be zero in a 2D model, " +
                                              "which has no out of plane direction.");
             referencePoint.CreatedFrom = FeReferencePointCreatedFrom.Coordinates;
-            referencePoint.X.Equation = point[0];
-            referencePoint.Y.Equation = point[1];
-            referencePoint.Z.Equation = point[2];
+            PythonModelArgumentCheck.SetEquations(new[] { referencePoint.X, referencePoint.Y, referencePoint.Z }, point,
+                                                  "coordinates");
             ClearOtherKinds(referencePoint);
         }
         private void ApplySelection(FeReferencePoint referencePoint, string createdFrom, SelectionAPI selection)

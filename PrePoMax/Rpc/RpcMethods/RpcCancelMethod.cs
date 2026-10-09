@@ -43,8 +43,12 @@ namespace PrePoMax.Rpc
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "There is no automation call " +
                                        callId.ToString(CultureInfo.InvariantCulture) + " to cancel: it was never " +
-                                       "started, or its answer was already collected. Call get_status (status on " +
-                                       "the pipe) for the calls that are running or waiting to be collected.");
+                                       "started, its answer was already collected, or it finished and waited too " +
+                                       "long - the latest " + RpcDispatcher.MaximumUncollectedCalls.ToString(
+                                       CultureInfo.InvariantCulture) + " answers are kept for " +
+                                       RpcDispatcher.MaximumUncollectedMinutes.ToString(CultureInfo.InvariantCulture) +
+                                       " minutes. Call get_status (status on the pipe) for the calls that are " +
+                                       "running or waiting to be collected.");
             }
             //
             bool wasRunning = !call.IsFinished;

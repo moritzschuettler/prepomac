@@ -35,7 +35,8 @@ namespace APIs.Python.Model
                    "and neither the initial nor the minimum increment may exceed the time period; on a " +
                    "replace this holds for the values the step keeps as well. An initial increment above the " +
                    "maximum one is kept as given, as the dialog does. max_increments is at least 1 and " +
-                   "output_frequency at least 0. " +
+                   "output_frequency at least 0, or float('nan') to leave it unset; the step property reads an " +
+                   "unset one as None. " +
                    "copy_bcs_and_loads copies the boundary conditions, loads and defined fields of the last " +
                    "step that the new step supports and leaves out the others, as the dialog does.",
                    Arguments = "name: str, time_period: float = None, initial_time_increment: float = None, " +
@@ -163,7 +164,8 @@ namespace APIs.Python.Model
                    "upper one is 0, which means no upper limit. float('nan') leaves a limit unset, which is " +
                    "how a replace clears one, and get_value reads an unset limit as None. The cyclic " +
                    "symmetry modes are not negative, the minimum not above the maximum; on a replace this " +
-                   "holds for the values the step keeps as well. With an active cyclic symmetry the modes are " +
+                   "holds for the values the step keeps as well. float('nan') leaves a mode unset, and get_value " +
+                   "reads an unset mode as None. With an active cyclic symmetry the modes are " +
                    "checked against its number of sectors, as the dialog does.",
                    Arguments = "name: str, number_of_frequencies: int = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, storage: bool = None, " +
@@ -338,7 +340,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a steady state dynamics step using command history. The modal damping is created " +
                    "by pmx.create.modal_damping. The lower frequency does not exceed the upper one, also on a " +
-                   "replace with the value the step keeps, number_of_data_points is at least 2, bias at least 1 " +
+                   "replace with the value the step keeps, number_of_data_points is at least 2, or float('nan') " +
+                   "to leave it unset, which get_value reads as None, bias at least 1 " +
                    "and number_of_fourier_terms at least 1.",
                    Arguments = "name: str, harmonic: bool = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, number_of_data_points: int = None, " +

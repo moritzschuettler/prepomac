@@ -59,8 +59,10 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The equation solver type.", Returns = "str")]
         public string solver_type { get { return _service.ResolveStep(_stepName).SolverType.ToString(); } }
-        [PythonAPI("The results output frequency.", Returns = "int")]
-        public int output_frequency { get { return _service.ResolveStep(_stepName).OutputFrequency; } }
+        [PythonAPI("The results output frequency, or None when it is not set: the solver input then names no " +
+                   "frequency and the solver writes the results of every increment. output_frequency=" +
+                   "float('nan') unsets it.", Returns = "int or None")]
+        public object output_frequency { get { return FromUnsetInt(_service.ResolveStep(_stepName).OutputFrequency); } }
         [PythonAPI("The boundary conditions of the step.", Returns = "BoundaryConditions")]
         public BoundaryConditionsAPI bcs
         {
@@ -103,30 +105,62 @@ namespace APIs.Python.Model
             throw new PythonAPIException("The step '" + step.Name + "' is a " + step.GetType().Name +
                                          ", which no add_* method of the Python API makes.");
         }
+        // The arguments of the replace_* method of the step type that the step types do not share, each with the
+        // stored value it sets
+        private static Dictionary<string, string[]> GetArgumentValueNames(Step step)
+        {
+            Dictionary<string, string[]> names = new Dictionary<string, string[]>();
+            if (step is FrequencyStep)
+                ModelItemValueReader.AddArguments(names, "number_of_frequencies", "lower_frequency", "upper_frequency",
+                                                  "storage", "cyclic_symmetry_mode_min", "cyclic_symmetry_mode_max");
+            else if (step is ComplexFrequencyStep) ModelItemValueReader.AddArguments(names, "number_of_frequencies");
+            else if (step is BuckleStep)
+                ModelItemValueReader.AddArguments(names, "number_of_buckling_factors", "accuracy");
+            else if (step is SteadyStateDynamicsStep)
+                ModelItemValueReader.AddArguments(names, "harmonic", "lower_frequency", "upper_frequency",
+                                                  "number_of_data_points", "bias", "number_of_fourier_terms",
+                                                  "time_lower", "time_upper", "modal_damping");
+            else if (step is ModalDynamicsStep)
+                ModelItemValueReader.AddArguments(names, "steady_state", "relative_error", "modal_damping");
+            else if (step is DynamicStep)
+                ModelItemValueReader.AddArguments(names, "alpha", "solution_procedure", "relative_to_absolute",
+                                                  "damping");
+            else if (step is HeatTransferStep) ModelItemValueReader.AddArguments(names, "steady_state", "deltmx");
+            // The step types that take the arguments of add_static derive from the static step
+            if (step is StaticStep)
+                ModelItemValueReader.AddArguments(names, "time_period", "initial_time_increment", "min_time_increment",
+                                                  "max_time_increment", "direct");
+            //
+            return names;
+        }
 
 
         // Methods
-        [PythonAPI("Returns the names of the values that are specific to this step type: the add_* argument " +
-                   "names, followed by the stored values no argument sets. The values shared by every step " +
-                   "type are properties of the step.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this step type: the names of the " +
+                   "replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the step. The values shared by every step type are properties of the " +
+                   "step.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(_service.ResolveStep(_stepName),
-                                                                    typeof(Step), null).Keys);
+            Step step = _service.ResolveStep(_stepName);
+            return new StringListAPI(ModelItemValueReader.GetValues(step, GetArgumentValueNames(step)).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
-                   "sets it, for example time_period. Use get_value_names to list them. A frequency limit that " +
-                   "is not set is None. A damping or " +
+                   "sets it, for example time_period. Use get_value_names to list them. A frequency limit, a " +
+                   "cyclic symmetry mode or a number of data points that is not set is None. A damping or " +
                    "modal_damping is returned as a copy of the part pmx.create makes, which the argument takes " +
                    "back.", Arguments = "name: str",
-                   Returns = "float, int, bool, str, Damping or ModalDamping")]
+                   Returns = "float, int, bool, str, Damping, ModalDamping or None")]
         public object get_value(string name)
         {
             Step step = _service.ResolveStep(_stepName);
-            object value = ModelItemValueReader.GetValue(step, typeof(Step), null, name, GetItemType(step) + " step");
-            // A frequency limit that is not set is stored as NaN
+            object value = ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(step,
+                                                                                        GetArgumentValueNames(step)),
+                                                         name, GetItemType(step) + " step");
+            // A frequency limit that is not set is stored as NaN, and a count as the smallest integer
             if (value is double number && double.IsNaN(number)) return null;
+            if (value is int count) return FromUnsetInt(count);
             //
             return value;
         }
@@ -136,6 +170,15 @@ namespace APIs.Python.Model
         public StringListAPI get_control_types()
         {
             return new StringListAPI(_service.GetControlTypeNames(_stepName));
+        }
+
+        [PythonAPI("Returns detached copies of the step control parameters of the step, the parts pmx.create " +
+                   "makes, as a plain list that goes back into set_controls; changing a copy changes nothing in " +
+                   "the model.", Returns = "list[StepControlParameter]",
+                   Example = "step.set_controls(step.get_controls())")]
+        public object get_controls()
+        {
+            return PythonListConverter.ToPythonList(_service.GetControls(_stepName));
         }
 
         [PythonAPI("Replaces the step control parameters using command history. The parameters are created " +
@@ -151,6 +194,12 @@ namespace APIs.Python.Model
         public void clear_controls()
         {
             _service.SetControls(_stepName, null);
+        }
+        private static object FromUnsetInt(int value)
+        {
+            if (value == int.MinValue) return null;
+            //
+            return value;
         }
         public override string ToString()
         {

@@ -2,7 +2,8 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the constraint collection: the 9 constraint types, the master and slave regions, the
-#reference point based ones and the collection verbs. A meshed model must be open before the run.
+#reference point based ones, the colors each type has and the collection verbs. A meshed model must be
+#open before the run.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Constraints.py -g No -x Yes -w <dir>
 #
@@ -117,13 +118,13 @@ def test_cyclic_symmetry():
           "the axis direction equations did not read back: " + repr(equations["axis_direction"]))
     check(cs.get_value("number_of_sectors") == 6, "the sector count was not set")
     # The sector angle is derived from the sector count
-    check(abs(cs.get_value("sector_angle_deg") - 60.0) < 1e-9,
-          "unexpected sector angle " + str(cs.get_value("sector_angle_deg")))
+    check(abs(cs.sector_angle_deg - 60.0) < 1e-9,
+          "unexpected sector angle " + str(cs.sector_angle_deg))
     check(list(cs.get_value("axis_direction")) == [0, 0, 1], "the axis direction was not set")
     # The result expansion region is a third region, separate from the two sector faces
     check(cs.get_value("number_of_graph_sectors") == 2, "the graph sector count was not set")
-    check(cs.get_value("region_type") == "ElementSetName",
-          "unexpected sector region " + str(cs.get_value("region_type")))
+    check(cs.region_type == "ElementSetName",
+          "unexpected sector region " + str(cs.region_type))
     check_raises(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
                                                          surface_selection(2), axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
@@ -158,13 +159,13 @@ def test_cyclic_symmetry():
           "clearing the region of two graph sectors must be refused: " + str(message))
     cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=1, clear_expansion_region=True)
     check(cs.get_value("number_of_graph_sectors") == 1, "the graph sector count was not lowered")
-    check(cs.get_value("region_type") != "ElementSetName", "the expansion region was not cleared")
+    check(cs.region_type is None, "the expansion region was not cleared: " + str(cs.region_type))
     # Raising the count again needs the region again
     check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3),
                  "more graph sectors without an expansion region must be refused on a replace")
     cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3, region=element_selection([1]))
     check(cs.get_value("number_of_graph_sectors") == 3, "the graph sector count was not raised")
-    check(cs.get_value("region_type") == "ElementSetName", "the expansion region was not set again")
+    check(cs.region_type == "ElementSetName", "the expansion region was not set again")
     # The model would lower the kept graph sectors to fewer sectors on its own, so the merged pair is refused
     message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_sectors=2))
     check(message is not None and "'number_of_graph_sectors'" in message,
@@ -204,8 +205,14 @@ def test_joint():
     check(list(joint.get_value("center")) == [0.5, 0.5, 0.5], "the centre must survive a replace")
     # The formulation defaults to rigid bodies; a given stiffness switches the spring stiffness to user defined
     check(joint.get_value("formulation") == "RigidBody", "a joint defaults to the rigid body formulation")
+    # The rigid body formulation refuses a spring stiffness, so none reads back, and a ball has no axis direction
+    names = list(joint.get_value_names())
+    check("stiffness_defined_by" not in names and "stiffness" not in names and "axis_direction" not in names,
+          "a ball joint of the rigid body formulation read back values its replace refuses: " + str(names))
+    joint = constraints.replace_joint(PREFIX + "J", formulation="Springs")
     check(joint.get_value("stiffness_defined_by") == "FromModel", "the spring stiffness defaults to the model")
-    joint = constraints.replace_joint(PREFIX + "J", formulation="Springs", stiffness=5e6)
+    check("stiffness" not in list(joint.get_value_names()), "a stiffness from the model must not read back")
+    joint = constraints.replace_joint(PREFIX + "J", stiffness=5e6)
     check(joint.get_value("formulation") == "Springs", "the formulation was not replaced")
     check(joint.get_value("stiffness_defined_by") == "UserDefined", "a given stiffness is user defined")
     check(abs(joint.get_value("stiffness") - 5e6) < 1e-6, "the stiffness was not set")
@@ -356,6 +363,47 @@ def test_springs_and_compression_only():
     check(constraints[PREFIX + "PS"].get_value("k1") == 100, "a refused replace changed the spring")
 
 
+def test_colors():
+    constraints = pmx.model.constraints
+    yellow = [255, 255, 0, 255]
+    # A tie colors its two surfaces, as the dialog shows them
+    tie = constraints[PREFIX + "Tie"]
+    check(list(tie.master_color) == yellow and list(tie.slave_color) == yellow,
+          "unexpected default tie colors " + str(list(tie.master_color)) + ", " + str(list(tie.slave_color)))
+    tie = constraints.replace_tie(PREFIX + "Tie", master_color=[10, 20, 30], slave_color="Blue")
+    check(list(tie.master_color) == [10, 20, 30, 255], "the master color was not set: " + str(list(tie.master_color)))
+    check(list(tie.slave_color) == [0, 0, 255, 255], "the slave color was not set: " + str(list(tie.slave_color)))
+    tie = constraints.replace_tie(PREFIX + "Tie", adjust=True)
+    check(list(tie.master_color) == [10, 20, 30, 255], "a replace that does not name the colors must keep them")
+    tie = constraints.replace_tie(PREFIX + "Tie", master_color=tie.slave_color, slave_color=tie.master_color)
+    check(list(tie.master_color) == [0, 0, 255, 255] and list(tie.slave_color) == [10, 20, 30, 255],
+          "the colors read back must go back into the arguments")
+    # Every other constraint has one color, which is refused on a tie and the other way around
+    message = raised_message(lambda: tie.color)
+    check(message is not None and "master_color" in message, "a tie has no single color: " + str(message))
+    ps = constraints.replace_point_spring(PREFIX + "PS", color=[1, 2, 3, 128])
+    check(list(ps.color) == [1, 2, 3, 128], "the point spring color was not set: " + str(list(ps.color)))
+    message = raised_message(lambda: ps.master_color)
+    check(message is not None and "has color" in message, "a point spring has no master color: " + str(message))
+    rb = constraints.replace_rigid_body(PREFIX + "RB", color=ps.color)
+    check(list(rb.color) == [1, 2, 3, 128], "the color read back must go back into the argument")
+    for add in [lambda: constraints.add_compression_only(PREFIX + "Bad", surface_selection(3), color="Green"),
+                lambda: constraints.add_kinematic_coupling(PREFIX + "Bad", RP, surface_selection(3), color="Green")]:
+        item = add()
+        check(list(item.color) == [0, 128, 0, 255], "the color of a new constraint was not set: " +
+              str(list(item.color)))
+        constraints.remove([PREFIX + "Bad"])
+    # A malformed color is refused naming the argument, and records nothing
+    count_before = len(constraints)
+    message = raised_message(lambda: constraints.add_tie(PREFIX + "Bad", surface_selection(3), surface_selection(4),
+                                                         slave_color=[1, 2]))
+    check(message is not None and "'slave_color'" in message,
+          "a two channel color must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: constraints.replace_surface_spring(PREFIX + "SS", color="NoSuchColor"))
+    check(message is not None and "'color'" in message, "an unknown color name must be refused: " + str(message))
+    check(len(constraints) == count_before, "a refused constraint was recorded")
+
+
 def test_collection_verbs():
     constraints = pmx.model.constraints
     name = PREFIX + "Tie"
@@ -396,6 +444,7 @@ def main():
     test_joint()
     test_reference_point_constraints()
     test_springs_and_compression_only()
+    test_colors()
     test_collection_verbs()
     clean()
     if pmx.model.parameters.contains(PREFIX + "k"):

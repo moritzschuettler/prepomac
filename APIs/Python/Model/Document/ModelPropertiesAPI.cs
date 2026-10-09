@@ -44,7 +44,8 @@ namespace APIs.Python.Model
             get { return _service.GetModelType(); }
             set { Update(model_type: RefuseNone(value, "model_type")); }
         }
-        [PythonAPI("The global results file a submodel reads its boundary values from.", Returns = "str")]
+        [PythonAPI("The global results file a submodel reads its boundary values from; '' clears it, as " +
+                   "emptying the field in the dialog does.", Returns = "str")]
         public string global_results_file_name
         {
             get { return _service.GetGlobalResultsFileName(); }

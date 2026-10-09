@@ -84,10 +84,19 @@ namespace PrePoMax.Rpc
                 failure = RpcResponse.FromError(null, RpcErrorCode.InvalidRequest, "The request must be an object.");
                 return false;
             }
-            // The id is read first, so that everything after it can be reported against the right id
+            // The id is read first, so that everything after it can be reported against the right id. A null id
+            // is neither a request that can be told from another nor a notification, so it is refused, the way
+            // the MCP endpoint refuses it
             object id = null;
             bool hasId = false;
-            if (items.ContainsKey("id") && items["id"] != null)
+            if (items.ContainsKey("id") && items["id"] == null)
+            {
+                failure = RpcResponse.FromError(null, RpcErrorCode.InvalidRequest,
+                                                "The id must be a string or a number, not null. Leave it out only " +
+                                                "for shutdown, the one method run as a notification.");
+                return false;
+            }
+            if (items.ContainsKey("id"))
             {
                 id = items["id"];
                 if (!(id is string) && !(id is double))

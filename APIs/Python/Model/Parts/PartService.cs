@@ -354,17 +354,17 @@ namespace APIs.Python.Model
             else message += "The part contains " + string.Join(", ", presentKinds) + " elements.";
             throw new PythonAPIException(message);
         }
-        // Enum.Parse accepts any number, so a value is also checked to name a member of the enumeration.
-        // None is not a value: it marks an absent element kind, and the part ignores it
+        // Enum.Parse accepts a number and combines a comma separated list into another member, so only a member
+        // name is taken. None is not a value: it marks an absent element kind, and the part ignores it
         private static object ParseElementTypeValue(FieldInfo field, string elementType, string value)
         {
             object parsed = null;
-            try
+            foreach (string memberName in Enum.GetNames(field.FieldType))
             {
-                parsed = Enum.Parse(field.FieldType, value.Trim(), true);
+                if (string.Equals(memberName, value.Trim(), StringComparison.OrdinalIgnoreCase))
+                    parsed = Enum.Parse(field.FieldType, memberName);
             }
-            catch (Exception) { }
-            if (parsed == null || !Enum.IsDefined(field.FieldType, parsed) || Convert.ToInt32(parsed) == 0)
+            if (parsed == null || Convert.ToInt32(parsed) == 0)
             {
                 List<string> possibleValues = new List<string>();
                 foreach (object member in Enum.GetValues(field.FieldType))

@@ -29,44 +29,47 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Adds an initial temperature using command history. The region is a selection or a named " +
                    "region; the selection target is nodes. A distribution scales the temperature over the " +
-                   "region.",
+                   "region. color is the symbol color, given as [R, G, B], [R, G, B, A] or a color name, as " +
+                   "every initial condition takes it.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
-                               "distribution_name: str = None",
+                               "distribution_name: str = None, color: list[int] or str = None",
                    Returns = "InitialCondition",
                    Example = "pmx.model.initial_conditions.add_temperature('IC-1', selection, 20)")]
         public InitialConditionAPI add_temperature(string name, object region, object temperature,
-                                                   object distribution_name = null)
+                                                   object distribution_name = null, object color = null)
         {
             _service.ValidateNewName(name, null);
             InitialTemperature initialCondition =
                 new InitialTemperature(name, null, RegionTypeEnum.Selection, 0,
                                        _service.GetIsTwoDimensional());
-            initialCondition.Temperature.Equation = PythonValueConverter.ToEquationString(temperature,
-                                                                                          "temperature");
+            PythonModelArgumentCheck.SetEquation(initialCondition.Temperature, temperature, "temperature");
             _service.ApplyRegion(initialCondition, region, "nodes");
             if (distribution_name != null)
                 initialCondition.DistributionName = _service.ResolveScalarDistributionName(distribution_name);
+            ApplyColor(initialCondition, color);
             _service.Add(initialCondition);
             return this[name];
         }
 
         [PythonAPI("Adds an initial translational velocity using command history. The selection target is " +
                    "nodes. In a 2D model v3 must be zero.",
-                   Arguments = "name: str, region: Selection or Region, v1: float, v2: float, v3: float",
+                   Arguments = "name: str, region: Selection or Region, v1: float, v2: float, v3: float, " +
+                               "color: list[int] or str = None",
                    Returns = "InitialCondition")]
         public InitialConditionAPI add_translational_velocity(string name, object region, object v1,
-                                                              object v2, object v3)
+                                                              object v2, object v3, object color = null)
         {
             _service.ValidateNewName(name, null);
             InitialTranslationalVelocity initialCondition =
                 new InitialTranslationalVelocity(name, null, RegionTypeEnum.Selection, 0, 0, 0,
                                                  _service.GetIsTwoDimensional());
-            initialCondition.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
-            initialCondition.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
-            initialCondition.V3.Equation =
+            PythonModelArgumentCheck.SetEquation(initialCondition.V1, v1, "v1");
+            PythonModelArgumentCheck.SetEquation(initialCondition.V2, v2, "v2");
+            PythonModelArgumentCheck.SetEquation(initialCondition.V3,
                 ToInPlane(initialCondition, initialCondition.V3, PythonValueConverter.ToEquationString(v3, "v3"),
-                          "v3", null);
+                          "v3", null), "v3");
             _service.ApplyRegion(initialCondition, region, "nodes");
+            ApplyColor(initialCondition, color);
             _service.Add(initialCondition);
             return this[name];
         }
@@ -76,10 +79,11 @@ namespace APIs.Python.Model
                    "The rotational_speed is in rad/s and must be zero or larger. In a 2D model the third " +
                    "value of axis_point and the first two of axis_direction must be zero.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float], " +
-                               "axis_direction: list[float], rotational_speed: float",
+                               "axis_direction: list[float], rotational_speed: float, color: list[int] or str = None",
                    Returns = "InitialCondition")]
         public InitialConditionAPI add_angular_velocity(string name, object region, object axis_point,
-                                                        object axis_direction, object rotational_speed)
+                                                        object axis_direction, object rotational_speed,
+                                                        object color = null)
         {
             _service.ValidateNewName(name, null);
             EquationString[] point = PythonValueConverter.ToEquationArray(axis_point, "axis_point", 3);
@@ -89,24 +93,27 @@ namespace APIs.Python.Model
                                            _service.GetIsTwoDimensional());
             ApplyAxisPoint(initialCondition, point);
             ApplyAxisDirection(initialCondition, direction);
-            initialCondition.RotationalSpeed.Equation = ToRotationalSpeed(initialCondition, rotational_speed);
+            PythonModelArgumentCheck.SetEquation(initialCondition.RotationalSpeed,
+                                                 ToRotationalSpeed(initialCondition, rotational_speed),
+                                                 "rotational_speed");
             _service.ApplyRegion(initialCondition, region, "nodes");
+            ApplyColor(initialCondition, color);
             _service.Add(initialCondition);
             return this[name];
         }
 
         [PythonAPI("Replaces an initial temperature, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
-                               "temperature: float = None, distribution_name: str = None",
+                               "temperature: float = None, distribution_name: str = None, color: list[int] or str = None",
                    Returns = "InitialCondition")]
         public InitialConditionAPI replace_temperature(string old_name, string name = null, object region = null,
                                                        object temperature = null,
-                                                       object distribution_name = null)
+                                                       object distribution_name = null, object color = null)
         {
             InitialTemperature item = _service.Clone<InitialTemperature>(old_name, "temperature");
-            ApplyReplacedName(item, old_name, name, region);
+            ApplyReplacedName(item, old_name, name, region, color);
             if (temperature != null)
-                item.Temperature.Equation = PythonValueConverter.ToEquationString(temperature, "temperature");
+                PythonModelArgumentCheck.SetEquation(item.Temperature, temperature, "temperature");
             if (distribution_name != null)
                 item.DistributionName = _service.ResolveScalarDistributionName(distribution_name);
             //
@@ -115,20 +122,21 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an initial translational velocity, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
-                               "v1: float = None, v2: float = None, v3: float = None",
+                               "v1: float = None, v2: float = None, v3: float = None, color: list[int] or str = None",
                    Returns = "InitialCondition")]
         public InitialConditionAPI replace_translational_velocity(string old_name, string name = null,
                                                                   object region = null, object v1 = null,
-                                                                  object v2 = null, object v3 = null)
+                                                                  object v2 = null, object v3 = null,
+                                                                  object color = null)
         {
             InitialTranslationalVelocity item =
                 _service.Clone<InitialTranslationalVelocity>(old_name, "translational_velocity");
-            ApplyReplacedName(item, old_name, name, region);
-            if (v1 != null) item.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
-            if (v2 != null) item.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
+            ApplyReplacedName(item, old_name, name, region, color);
+            if (v1 != null) PythonModelArgumentCheck.SetEquation(item.V1, v1, "v1");
+            if (v2 != null) PythonModelArgumentCheck.SetEquation(item.V2, v2, "v2");
             if (v3 != null)
-                item.V3.Equation = ToInPlane(item, item.V3, PythonValueConverter.ToEquationString(v3, "v3"), "v3",
-                                             null);
+                PythonModelArgumentCheck.SetEquation(item.V3, ToInPlane(item, item.V3,
+                    PythonValueConverter.ToEquationString(v3, "v3"), "v3", null), "v3");
             //
             return Replace(old_name, item);
         }
@@ -137,20 +145,22 @@ namespace APIs.Python.Model
                    "rotational_speed is in rad/s.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "axis_point: list[float] = None, axis_direction: list[float] = None, " +
-                               "rotational_speed: float = None", Returns = "InitialCondition")]
+                               "rotational_speed: float = None, color: list[int] or str = None", Returns = "InitialCondition")]
         public InitialConditionAPI replace_angular_velocity(string old_name, string name = null,
                                                             object region = null, object axis_point = null,
                                                             object axis_direction = null,
-                                                            object rotational_speed = null)
+                                                            object rotational_speed = null, object color = null)
         {
             InitialAngularVelocity item =
                 _service.Clone<InitialAngularVelocity>(old_name, "angular_velocity");
-            ApplyReplacedName(item, old_name, name, region);
+            ApplyReplacedName(item, old_name, name, region, color);
             if (axis_point != null)
                 ApplyAxisPoint(item, PythonValueConverter.ToEquationArray(axis_point, "axis_point", 3));
             if (axis_direction != null)
                 ApplyAxisDirection(item, PythonValueConverter.ToEquationArray(axis_direction, "axis_direction", 3));
-            if (rotational_speed != null) item.RotationalSpeed.Equation = ToRotationalSpeed(item, rotational_speed);
+            if (rotational_speed != null)
+                PythonModelArgumentCheck.SetEquation(item.RotationalSpeed, ToRotationalSpeed(item, rotational_speed),
+                                                     "rotational_speed");
             //
             return Replace(old_name, item);
         }
@@ -204,12 +214,18 @@ namespace APIs.Python.Model
                    new StringListAPI(names).ToString() + ")";
         }
         //
-        private void ApplyReplacedName(InitialCondition item, string oldName, string name, object region)
+        private void ApplyReplacedName(InitialCondition item, string oldName, string name, object region,
+                                       object color)
         {
             string newName = name == null ? item.Name : name;
             _service.ValidateNewName(newName, oldName);
             item.Name = newName;
             if (region != null) _service.ApplyRegion(item, region, "nodes");
+            ApplyColor(item, color);
+        }
+        private static void ApplyColor(InitialCondition item, object color)
+        {
+            if (color != null) item.Color = PythonColorConverter.ToColor(color, "color");
         }
         private InitialConditionAPI Replace(string oldName, InitialCondition item)
         {
@@ -219,15 +235,18 @@ namespace APIs.Python.Model
         }
         private static void ApplyAxisPoint(InitialAngularVelocity item, EquationString[] point)
         {
-            item.X.Equation = point[0];
-            item.Y.Equation = point[1];
-            item.Z.Equation = ToInPlane(item, item.Z, point[2], "axis_point", "third");
+            PythonModelArgumentCheck.SetEquation(item.X, point[0], "axis_point[0]");
+            PythonModelArgumentCheck.SetEquation(item.Y, point[1], "axis_point[1]");
+            PythonModelArgumentCheck.SetEquation(item.Z, ToInPlane(item, item.Z, point[2], "axis_point", "third"),
+                                                 "axis_point[2]");
         }
         private static void ApplyAxisDirection(InitialAngularVelocity item, EquationString[] direction)
         {
-            item.N1.Equation = ToInPlane(item, item.N1, direction[0], "axis_direction", "first");
-            item.N2.Equation = ToInPlane(item, item.N2, direction[1], "axis_direction", "second");
-            item.N3.Equation = direction[2];
+            PythonModelArgumentCheck.SetEquation(item.N1, ToInPlane(item, item.N1, direction[0], "axis_direction",
+                                                                    "first"), "axis_direction[0]");
+            PythonModelArgumentCheck.SetEquation(item.N2, ToInPlane(item, item.N2, direction[1], "axis_direction",
+                                                                    "second"), "axis_direction[1]");
+            PythonModelArgumentCheck.SetEquation(item.N3, direction[2], "axis_direction[2]");
         }
         // The model sets an out of plane value of a 2D initial condition to zero, so a given one is refused instead
         private static EquationString ToInPlane(InitialCondition item, EquationContainer container,

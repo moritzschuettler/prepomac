@@ -44,7 +44,30 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            PythonModelItemEmitter.AddFromSelection(writer, "pmx.model.element_sets", _elementSet, _elementSet.CreationData);
+            if (_elementSet.CreationData != null)
+            {
+                PythonModelItemEmitter.AddFromSelection(writer, "pmx.model.element_sets", _elementSet,
+                                                        _elementSet.CreationData);
+                return;
+            }
+            // A set the application made from element IDs is rebuilt from them. The set of the elements a run found
+            // without a section is made again by the replayed run when it reaches the check, so it is added only
+            // when that run did not make it, and the commands naming it replay either way.
+            Selection selection = new Selection();
+            selection.CurrentView = (int)ViewGeometryModelResults.Model;
+            selection.SelectItem = vtkSelectItem.Element;
+            selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false, _elementSet.Labels));
+            string selectionVariable = PythonSelectionEmitter.Emit(writer, selection);
+            string name = PythonValueFormatter.Text(_elementSet.Name);
+            string add = writer.Call("pmx.model.element_sets", "add", name, selectionVariable);
+            if (_elementSet.Name.StartsWith(Globals.MissingSectionName))
+            {
+                writer.Line("if not pmx.model.element_sets.contains(" + name + "):");
+                writer.Line("    " + add);
+            }
+            else writer.Statement(add);
+            PythonModelItemEmitter.EmitState(writer, "pmx.model.element_sets", _elementSet);
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

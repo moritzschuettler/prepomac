@@ -45,19 +45,27 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
+            // A replace keeps the type it is not given, so the Element type is written out too
+            string surfaceType = "surface_type=" + PythonValueFormatter.Text(_newSurface.Type.ToString());
             if (_newSurface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
             {
                 writer.Statement(writer.Call("pmx.model.surfaces", "replace_from_node_set",
                                              PythonValueFormatter.Text(_oldSurfaceName),
                                              PythonValueFormatter.Text(_newSurface.Name),
-                                             PythonValueFormatter.Text(_newSurface.CreatedFromNodeSetName)));
+                                             PythonValueFormatter.Text(_newSurface.CreatedFromNodeSetName),
+                                             surfaceType));
                 PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _newSurface);
                 writer.CountEmittedCommand();
             }
             else if (_newSurface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
             {
-                PythonModelItemEmitter.ReplaceFromSelection(writer, "pmx.model.surfaces", _oldSurfaceName,
-                                                            _newSurface, _newSurface.CreationData);
+                string selectionVariable = PythonSelectionEmitter.Emit(writer, _newSurface.CreationData);
+                writer.Statement(writer.Call("pmx.model.surfaces", "replace",
+                                             PythonValueFormatter.Text(_oldSurfaceName),
+                                             PythonValueFormatter.Text(_newSurface.Name), selectionVariable,
+                                             surfaceType));
+                PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _newSurface);
+                writer.CountEmittedCommand();
             }
             else writer.Unsupported(this, "a surface created from " + _newSurface.CreatedFrom +
                                           " has no API form");

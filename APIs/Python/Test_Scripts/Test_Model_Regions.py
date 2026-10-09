@@ -2,7 +2,8 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the region collections: node sets, element sets, surfaces, reference points and coordinate
-#systems. A meshed model must be open before the script runs.
+#systems. A surface is an Element or a Node surface, and a load refuses a Node one. A meshed model must
+#be open before the script runs.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Regions.py -g No -x Yes -w <dir>
 #
@@ -97,6 +98,42 @@ def test_surfaces():
           "the node set name was stored in the caller's spelling")
     check_raises(lambda: pmx.model.surfaces.add_from_node_set(PREFIX + "Bad", "NoSuchNodeSet"),
                  "an unknown node set must be rejected")
+    test_surface_types(selection)
+
+
+def test_surface_types(selection):
+    surfaces = pmx.model.surfaces
+    check(surfaces[PREFIX + "SU"].surface_type == "Element", "a surface is an Element surface by default")
+    # The dialog offers a Node surface too, from a selection and from a node set
+    surface = surfaces.add(PREFIX + "SU_N", selection, surface_type="node")
+    check(surface.surface_type == "Node", "the surface type was not set: " + surface.surface_type)
+    surface = surfaces.add_from_node_set(PREFIX + "SU_NS_N", PREFIX + "NS", surface_type="Node")
+    check(surface.surface_type == "Node", "the node set surface type was not set: " + surface.surface_type)
+    # A replace keeps the type it is not given, and the type read back goes back into the argument
+    surface = surfaces.replace(PREFIX + "SU_N", selection=selection)
+    check(surface.surface_type == "Node", "a replace with a new selection must keep the surface type")
+    surface = surfaces.replace_from_node_set(PREFIX + "SU_NS_N", node_set_name=PREFIX + "NS")
+    check(surface.surface_type == "Node", "a replace with a node set must keep the surface type")
+    surface = surfaces.replace(PREFIX + "SU_N", surface_type=surfaces[PREFIX + "SU"].surface_type)
+    check(surface.surface_type == "Element", "a replace did not change the surface type")
+    surface = surfaces.replace(PREFIX + "SU_N", surface_type="Node")
+    message = raised_message(lambda: surfaces.add(PREFIX + "Bad", selection, surface_type="Edge"))
+    check(message is not None and "'surface_type'" in message,
+          "an unknown surface type must be refused naming the argument: " + str(message))
+    check(not surfaces.contains(PREFIX + "Bad"), "a refused surface was recorded")
+    # A load acts on an Element surface only, as the load dialog lists no other
+    step = pmx.model.steps.add_static(PREFIX + "Step")
+    try:
+        message = raised_message(lambda: step.loads.add_pressure(PREFIX + "Pressure",
+                                                                 pmx.create.region('SurfaceName', PREFIX + "SU_N"),
+                                                                 1.0))
+        check(message is not None and "'region'" in message and "Node" in message,
+              "a load on a Node surface must be refused naming the argument: " + str(message))
+        check(len(step.loads) == 0, "a refused load was recorded")
+        step.loads.add_pressure(PREFIX + "Pressure", pmx.create.region('SurfaceName', PREFIX + "SU"), 1.0)
+    finally:
+        pmx.model.steps.remove([PREFIX + "Step"])
+    surfaces.remove([PREFIX + "SU_N", PREFIX + "SU_NS_N"])
 
 
 def test_reference_points():

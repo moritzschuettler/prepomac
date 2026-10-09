@@ -159,6 +159,17 @@ def test_displacement_rotation():
     check_refused(lambda: bcs.replace_displacement_rotation(name, phase_deg=45), "'phase_deg'",
                   "a phase given to a boundary condition of a static step must be refused")
     check(not bcs.contains(PREFIX + "Bad"), "a boundary condition with a refused phase was recorded")
+    # An equation the application cannot evaluate is refused naming the argument, before anything is recorded
+    count_before = len(bcs)
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", selection, u1="=undefined_param"), "'u1'",
+                  "an equation naming an undefined parameter must be refused naming u1")
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", selection, u1=0, ur3="=1+"), "'ur3'",
+                  "an equation that does not parse must be refused naming ur3")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, u2="=undefined_param"), "'u2'",
+                  "a replace with an equation that cannot be evaluated must be refused naming u2")
+    check(len(bcs) == count_before and not bcs.contains(PREFIX + "Bad"),
+          "a boundary condition with an invalid equation was recorded")
+    check(bcs[name].get_value("u2") == 0, "the refused replace changed u2, got " + str(bcs[name].get_value("u2")))
     # The default names are matched without regard to case
     bc = bcs.replace_displacement_rotation(name, amplitude_name="DEFAULT", coordinate_system_name="global")
     check(bc.amplitude_name == "Default", "unexpected amplitude name " + bc.amplitude_name)

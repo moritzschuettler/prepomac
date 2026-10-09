@@ -191,7 +191,6 @@ def test_defined_fields():
     check(field.item_type == "temperature", "unexpected type " + field.item_type)
     check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
     check(field.get_value("temperature") == 100, "the temperature was not set")
-    check(field.get_value("type") == "ByValue", "unexpected defined temperature type")
     check(field.amplitude_name == "Default", "unexpected amplitude name " + field.amplitude_name)
     check(field.active and field.visible, "a new defined field must be active and visible")
     check_raises(lambda: fields.add_temperature(PREFIX + "Bad", node_selection([1]), 100,
@@ -231,14 +230,13 @@ def test_defined_fields():
                  "a missing temperature file must be rejected")
     check_raises(lambda: fields.replace_temperature_from_file(PREFIX + "DF"),
                  "a by value defined field must need a file name to be read from a file")
-    check(fields[PREFIX + "DF"].get_value("type") == "ByValue", "the refused replacement changed the type")
+    check(fields[PREFIX + "DF"].item_type == "temperature", "the refused replacement changed the type")
     # Any existing file proves the path check; a defined temperature from a file needs no region and its
     # file is only read when the analysis is written
     file_name = os.path.join(tempfile.gettempdir(), "pytest_temperature.frd")
     open(file_name, "w").close()
     try:
         field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name, step_id=1)
-        check(field.get_value("type") == "FromFile", "the defined field was not switched to a file")
         check(field.item_type == "temperature_from_file", "unexpected type " + field.item_type)
         # Back to a value needs the region that a field read from a file does not carry
         check_raises(lambda: fields.replace_temperature(PREFIX + "DF", temperature=300),
@@ -246,10 +244,10 @@ def test_defined_fields():
         # Nor does it carry a temperature, so a region alone would leave the field at zero
         check_refused(lambda: fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2])),
                       "'temperature'", "a from file defined field was given a region without a temperature")
-        check(fields[PREFIX + "DF"].get_value("type") == "FromFile",
+        check(fields[PREFIX + "DF"].item_type == "temperature_from_file",
               "the refused replacement changed the type")
         field = fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2]), temperature=300)
-        check(field.get_value("type") == "ByValue", "the defined field was not switched back to a value")
+        check(field.item_type == "temperature", "the defined field was not switched back to a value")
         check(field.get_value("temperature") == 300, "the temperature was not replaced")
         check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
         check(pmx.model.node_sets[field.region_name].count == 2,
@@ -270,11 +268,11 @@ def test_defined_fields():
             # The conversion the dialog makes keeps the amplitude, which a file does not use, so a journal of it
             # replaces a field that carries one; the from file form has none, so the amplitude becomes Default
             field = fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name)
-            check(field.get_value("type") == "FromFile", "the field carrying an amplitude was not read from a file")
+            check(field.item_type == "temperature_from_file", "the field carrying an amplitude was not read from a file")
             check(field.amplitude_name == "Default", "the amplitude a file does not use was kept: " +
                   field.amplitude_name)
             field = fields.replace_temperature(PREFIX + "DF", region=node_selection([1, 2]), temperature=300)
-            check(field.get_value("type") == "ByValue", "the defined field was not switched back to a value")
+            check(field.item_type == "temperature", "the defined field was not switched back to a value")
         finally:
             pmx.model.amplitudes.remove([amplitude])
     finally:

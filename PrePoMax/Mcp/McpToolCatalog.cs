@@ -28,13 +28,19 @@ namespace PrePoMax.Mcp
         // Variables                                                                                                                
         private const string NoArguments = "{\"type\": \"object\", \"properties\": {}, \"additionalProperties\": false}";
         private const int DefaultTopologyLimit = 40;
-        // The whole answer stops detailing parts after this many listed faces, edges and vertices, and
-        // no one part may list more than that either
+        // The whole answer lists no more than this many faces, edges and vertices together: each part
+        // lists up to its limit of each kind, out of what is left
         private const int TopologyRowBudget = 240;
         // The bound of every timeout argument, which the dispatcher checks as well
         private static readonly string TimeoutRange = "\"type\": \"integer\", \"minimum\": 0, \"maximum\": " +
                                                        RpcDispatcher.MaximumWaitSeconds + ", ";
         private static List<McpTool> _tools;
+        // How the answer of a call a tool started is shaped when get_call collects it, by call id, latest last.
+        // A call id is unique to the dispatcher that issued it, which is kept beside it, because a restarted
+        // server numbers its calls from one again
+        private const int MaximumShapedCalls = 64;
+        private static readonly List<Tuple<RpcDispatcher, int, Func<string, string>>> _shapedCalls =
+            new List<Tuple<RpcDispatcher, int, Func<string, string>>>();
 
 
         // Static methods                                                                                                           
@@ -89,9 +95,11 @@ namespace PrePoMax.Mcp
                 "takes, its size, its centroid and - for a face - its normal. This is how to find the entity " +
                 "you mean without seeing the viewport: the top face of a box is the one whose normal points " +
                 "up. Nothing is changed.\n\n" +
-                "Every part is summarized with its counts and its bounding box. The faces, edges and vertices " +
-                "of a part are listed largest first, capped per part and capped again for the whole answer, " +
-                "so on an assembly the first parts are detailed and the rest say to ask for them by name. " +
+                "Every part is summarized with its counts and its bounding box. The faces of a part are listed " +
+                "largest first, its edges longest first and its vertices in index order, each kind capped at " +
+                "limit per part, and the whole answer lists no more than " + TopologyRowBudget + " rows " +
+                "together, so on an assembly the first parts are detailed and the rest say to ask for them by " +
+                "name. " +
                 "Read the remainder of one part through get_face_data and get_edge_data on it. Part names are " +
                 "compared regardless of case, and a name that matches no part is reported under " +
                 "unmatched_part_names.",
@@ -113,8 +121,11 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
-                              "its answer. Keep it below the request timeout of your own client, or pass 0 " +
-                              "and wait through get_call for long work.\"}",
+                              "its answer. The wait for another call to finish first counts in it, and a " +
+                              "call that cannot start within it, or within the requestTimeout, is refused " +
+                              "as busy. Keep it below the " +
+                              "request timeout of your own client, or pass 0 and wait through get_call for " +
+                              "long work.\"}",
                               "\"expression\""), false));
             _tools.Add(new McpTool("run_python", "Run Python in the session",
                 "Runs Python against the model the user has open, through the same engine the Python panel in " +
@@ -132,7 +143,9 @@ namespace PrePoMax.Mcp
                 "its commands as usual, and get_call with that callId returns the answer this tool would have " +
                 "returned. Until then every other tool waits for it and is refused as busy after the " +
                 "requestTimeout - all but get_status, get_call, cancel_call, get_guide and list_sessions - and " +
-                "get_status names it.\n\n" +
+                "get_status names it. The wait for such a call counts against timeout: a run_python that is " +
+                "still waiting for its turn when timeout runs out is refused as busy and does not run, at once " +
+                "for a timeout of 0.\n\n" +
                 "If the answer says the application is busy, the user is editing something. Wait and try again " +
                 "rather than working around it.",
                 SessionSchema("\"source\": {\"type\": \"string\", \"description\": " +
@@ -144,14 +157,19 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
-                              "its answer. Keep it below the request timeout of your own client, or pass 0 " +
-                              "and wait through get_call for long work.\"}",
+                              "its answer. The wait for another call to finish first counts in it, and a " +
+                              "call that cannot start within it, or within the requestTimeout, is refused " +
+                              "as busy. Keep it below the " +
+                              "request timeout of your own client, or pass 0 and wait through get_call for " +
+                              "long work.\"}",
                               "\"source\""), false));
             _tools.Add(new McpTool("get_call", "Collect a long call",
-                "Collects the answer of a run_python or eval_expression call that was still running when its wait " +
-                "ran out and was answered with running and a callId. It waits up to timeout seconds and returns " +
-                "the answer that call would have returned - its output, its error and the commands it recorded - " +
-                "or, if it is still working, running and the callId once more; ask again. An answer is given up " +
+                "Collects the answer of a call that was still running when its wait ran out and was answered " +
+                "with running and a callId - by run_python or eval_expression, or by read_model, read_topology, " +
+                "run_job or get_job, which run Python as well. It waits up to timeout seconds and returns the " +
+                "answer the tool that started the call would have returned - for run_python its output, its " +
+                "error and the commands it recorded, for read_model the snapshot - or, if it is still working, " +
+                "running and the callId once more; ask again. An answer is given up " +
                 "once its response has been written to the client; one whose response the client gave up on or " +
                 "cancelled stays collectable, the latest 16 for an hour. get_status lists the calls that are " +
                 "running or waiting to be collected.",
@@ -162,9 +180,10 @@ namespace PrePoMax.Mcp
                               "get_status reports. Keep it below the request timeout of your own client.\"}",
                               "\"call_id\""), true));
             _tools.Add(new McpTool("cancel_call", "Stop a long call",
-                "Stops a run_python or eval_expression call that was answered with running and a callId - one " +
-                "that loops forever or is doing more than was meant. It is answered at once, also while that call " +
-                "holds the session, and in read only mode, because it changes nothing in the model itself.\n\n" +
+                "Stops a call that was answered with running and a callId - by run_python, eval_expression or " +
+                "another tool that runs Python - one that loops forever or is doing more than was meant. It is " +
+                "answered within a few seconds, also while that call holds the session, and in read only mode, " +
+                "because it changes nothing in the model itself.\n\n" +
                 "The call is interrupted at its next Python statement and ends with a KeyboardInterrupt error. " +
                 "An operation of PrePoMax it is inside - meshing, an import, a regeneration - cannot be " +
                 "interrupted and finishes first, and a blocking wait - time.sleep, a socket, input() - is not " +
@@ -239,7 +258,8 @@ namespace PrePoMax.Mcp
                               "\"field\": {\"type\": \"string\", \"description\": " +
                               "\"The result field to plot, for example DISP. Needs an open result.\"}, " +
                               "\"component\": {\"type\": \"string\", \"description\": " +
-                              "\"The component of that field, for example U3. Defaults to the first one.\"}"),
+                              "\"The component of that field, for example U3. Defaults to the first one. " +
+                              "Needs field.\"}"),
                 false));
             _tools.Add(new McpTool("exit_session", "Close a hidden session",
                 "Closes this PrePoMax, and only when it runs without a window - a session started with -g No " +
@@ -347,7 +367,12 @@ namespace PrePoMax.Mcp
                 if (callId <= 0) throw new McpException("The argument call_id is required.");
                 parameters.Add("call_id", callId);
                 AddTimeout(arguments, parameters);
-                return Call(dispatcher, "wait", parameters);
+                // A call another tool started is answered the way that tool would have answered it
+                string answer = Invoke(dispatcher, "wait", parameters);
+                Func<string, string> shape = FindShape(dispatcher, callId);
+                if (shape != null && !IsRunning(answer)) return shape(answer);
+                if (IsFailed(answer)) throw new McpException(answer);
+                return answer;
             }
             if (name == "cancel_call")
             {
@@ -369,7 +394,8 @@ namespace PrePoMax.Mcp
             {
                 string jobName = RequireString(arguments, "name");
                 string source = "print(pmx.jobs[" + Quote(jobName) + "].run(wait=False))";
-                return GetRunJobAnswer(jobName, Call(dispatcher, "exec", ExecArguments(source)));
+                return Shape(dispatcher, Invoke(dispatcher, "exec", ExecArguments(source)),
+                             delegate (string answer) { return GetRunJobAnswer(jobName, answer); });
             }
             if (name == "get_job")
             {
@@ -407,10 +433,10 @@ namespace PrePoMax.Mcp
         // The status the run started with, beside the answer of the call that started it
         private static string GetRunJobAnswer(string jobName, string answer)
         {
+            if (IsFailed(answer)) throw new McpException(answer);
             object document;
             string error;
             if (!JsonReader.TryParse(answer, out document, out error)) return answer;
-            if (JsonReader.GetBool(document, "running", false)) return answer;
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -425,15 +451,58 @@ namespace PrePoMax.Mcp
         // every time, so the Python panel shows a one line note for it instead of the whole source
         private static string CallAndReadOutput(RpcDispatcher dispatcher, string source, string echoNote)
         {
-            string result = Invoke(dispatcher, "exec", ExecArguments(source), echoNote);
+            return Shape(dispatcher, Invoke(dispatcher, "exec", ExecArguments(source), echoNote), ReadOutput);
+        }
+        private static string ReadOutput(string result)
+        {
             object document;
             string error;
             if (!JsonReader.TryParse(result, out document, out error)) return result;
-            // A snapshot of a large model that outlasted the wait comes back from get_call, in its output
-            if (JsonReader.GetBool(document, "running", false)) return result;
             if (JsonReader.GetBool(document, "failed", false))
                 throw new McpException(JsonReader.GetString(document, "error", "The script failed."));
             return JsonReader.GetString(document, "output", "");
+        }
+        // A tool that shapes the answer of the call it started shapes it whenever it arrives: at once, or - for
+        // a call that outlasted its wait and was answered with running - when get_call collects it
+        private static string Shape(RpcDispatcher dispatcher, string answer, Func<string, string> shape)
+        {
+            if (!IsRunning(answer)) return shape(answer);
+            //
+            object document;
+            string error;
+            if (JsonReader.TryParse(answer, out document, out error))
+            {
+                int callId = JsonReader.GetInt(document, "callId", 0);
+                if (callId > 0)
+                {
+                    lock (_shapedCalls)
+                    {
+                        _shapedCalls.Add(Tuple.Create(dispatcher, callId, shape));
+                        if (_shapedCalls.Count > MaximumShapedCalls) _shapedCalls.RemoveAt(0);
+                    }
+                }
+            }
+            return answer;
+        }
+        // Kept after an answer was collected, because one whose response did not reach the client stays
+        // collectable; the list is bounded instead
+        private static Func<string, string> FindShape(RpcDispatcher dispatcher, int callId)
+        {
+            lock (_shapedCalls)
+            {
+                foreach (Tuple<RpcDispatcher, int, Func<string, string>> entry in _shapedCalls)
+                {
+                    if (entry.Item1 == dispatcher && entry.Item2 == callId) return entry.Item3;
+                }
+            }
+            return null;
+        }
+        private static bool IsRunning(string result)
+        {
+            object document;
+            string error;
+            if (!JsonReader.TryParse(result, out document, out error)) return false;
+            return JsonReader.GetBool(document, "running", false);
         }
         // The pmx.view calls the optional screenshot arguments stand for, in the order they have to
         // happen: the tree first, then what is plotted in it, then the camera
@@ -444,9 +513,13 @@ namespace PrePoMax.Mcp
             if (view != null) source.Append("pmx.view.current = ").Append(Quote(view)).Append("\n");
             //
             string field = JsonReader.GetString(arguments, "field", null);
+            string component = JsonReader.GetString(arguments, "component", null);
+            // A component alone names no field to plot, and leaving it out would take a picture of a plot
+            // the caller did not ask for
+            if (field == null && component != null)
+                throw new McpException("The argument component of screenshot needs field. Nothing was done.");
             if (field != null)
             {
-                string component = JsonReader.GetString(arguments, "component", null);
                 source.Append("pmx.view.set_result_field(").Append(Quote(field));
                 if (component != null) source.Append(", ").Append(Quote(component));
                 source.Append(")\n");

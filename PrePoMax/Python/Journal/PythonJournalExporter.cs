@@ -52,7 +52,9 @@ namespace PrePoMax.Python.Journal
             if (commands != null)
             {
                 // The Netgen items of an older model close its history, but the application meshes that model
-                // the way they say from the start, so the journal adds them before the first meshing
+                // the way they say from the start, so the journal adds them before the first meshing. The items
+                // select the geometry parts the history ended with, so they stay where they are when a command
+                // between the two changes those parts.
                 int netgenMeshIndex = -1;
                 int firstMeshingIndex = -1;
                 for (int i = 0; i < commands.Count; i++)
@@ -61,6 +63,10 @@ namespace PrePoMax.Python.Journal
                     else if (firstMeshingIndex < 0 && commands[i] is CCreateMesh) firstMeshingIndex = i;
                 }
                 bool moveNetgenMesh = firstMeshingIndex >= 0 && netgenMeshIndex > firstMeshingIndex;
+                for (int i = firstMeshingIndex + 1; moveNetgenMesh && i < netgenMeshIndex; i++)
+                {
+                    if (ChangesGeometryParts(commands[i])) moveNetgenMesh = false;
+                }
                 //
                 for (int i = 0; i < commands.Count; i++)
                 {
@@ -99,6 +105,28 @@ namespace PrePoMax.Python.Journal
             {
                 writer.Unsupported(command, ex.Message);
             }
+        }
+        // A command that adds, removes, renames or rebuilds geometry parts, or one that can do anything, such as a
+        // recorded script; hiding, showing and colouring parts leave them as they are
+        private static bool ChangesGeometryParts(Command command)
+        {
+            if (command == null) return false;
+            if (command is CRenamePre rename)
+                return rename.ItemType != null && typeof(CaeMesh.BasePart).IsAssignableFrom(rename.ItemType);
+            //
+            return command is CImportFile || command is COpenFile || command is CClear || command is CRunPythonScript ||
+                   command is CCreateAndImportCompoundPart || command is CRegenerateCompoundParts ||
+                   command is CMirrorGeometryParts || command is CRemoveGeometryParts ||
+                   command is CRotateGeometryParts || command is CScaleGeometryParts ||
+                   command is CTranslateGeometryParts || command is CReplaceGeometryPartProperties ||
+                   command is CFindEdgesByAngleForGeometryParts || command is CFuseBodies ||
+                   command is CConvertShellToSolid || command is CConvertSolidToShell || command is CDefeature ||
+                   command is CDeleteCadPartFaces || command is CDeleteStlPartFaces ||
+                   command is CDeleteStlPartFacesCommand || command is CFlipFaceOrientations ||
+                   command is FlipStlPartSurfacesNormal || command is CFuseFaces || command is COffsetFace ||
+                   command is CRepairGeometry || command is CSplitGeometry || command is CSplitPeriodicFaces ||
+                   command is CSwapPartGeometries || command is CGroupSplitCells || command is CRenameSplitSubPart ||
+                   command is CSplitAFaceUsingTwoPoints || command is CExtractSurface;
         }
         private static int GetLineCount(string text)
         {

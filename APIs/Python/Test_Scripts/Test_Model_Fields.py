@@ -1,8 +1,8 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the amplitudes, the distributions and the initial conditions. A meshed model must be open
-#before the script runs.
+#Checks the amplitudes, the distributions and the initial conditions with their symbol color. A meshed
+#model must be open before the script runs.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Fields.py -g No -x Yes -w <dir>
 #
@@ -339,6 +339,20 @@ def test_initial_conditions():
     check(not conditions[PREFIX + "Temp"].visible, "the initial condition was not hidden")
     conditions.show(PREFIX + "Temp")
     check(conditions[PREFIX + "Temp"].visible, "the initial condition was not shown")
+    # The symbol color, read back as a list that goes back into the argument
+    check(list(conditions[PREFIX + "Temp"].color) == [255, 165, 0, 255],
+          "unexpected default color " + str(list(conditions[PREFIX + "Temp"].color)))
+    condition = conditions.add_translational_velocity(PREFIX + "Vel_C", selection, 1, 0, 0, color=[10, 20, 30])
+    check(list(condition.color) == [10, 20, 30, 255], "the color was not set: " + str(list(condition.color)))
+    condition = conditions.replace_translational_velocity(PREFIX + "Vel_C", v2=1)
+    check(list(condition.color) == [10, 20, 30, 255], "a replace that does not name the color must keep it")
+    condition = conditions.replace_angular_velocity(PREFIX + "Ang", color=condition.color)
+    check(list(condition.color) == [10, 20, 30, 255], "the color read back must go back into the argument")
+    message = raised_message(lambda: conditions.add_temperature(PREFIX + "Bad", selection, 20, color=[1, 2]))
+    check(message is not None and "'color'" in message,
+          "a two channel color must be refused naming the argument: " + str(message))
+    check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
+    conditions.remove([PREFIX + "Vel_C"])
 
 
 def test_amplitude_shifts():

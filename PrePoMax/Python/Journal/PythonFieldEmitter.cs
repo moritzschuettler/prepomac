@@ -159,6 +159,9 @@ namespace PrePoMax.Python.Journal
             }
             else throw new NotSupportedException("the initial condition type " + condition.GetType().Name +
                                                  " has no API form");
+            PythonStepItemEmitter.AddColor(arguments, condition.Color,
+                                           new InitialTemperature("Default", null, RegionTypeEnum.Selection, 0,
+                                                                  false).Color, oldName != null);
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, condition);

@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using CaeModel;
 
 namespace PrePoMax.Python.Journal
@@ -27,6 +28,7 @@ namespace PrePoMax.Python.Journal
             //
             string verb = oldName == null ? "add" : "replace";
             string method = verb + "_" + AddConstraintArguments(writer, arguments, constraint, oldName != null);
+            AddConstraintColors(arguments, constraint, oldName != null);
             // A replace keeps the expansion region it does not name, so one the model would discard is cleared
             if (oldName != null && constraint is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.NumberOfGraphSectors < 2)
                 arguments.Add("clear_expansion_region=" + PythonValueFormatter.Format(true));
@@ -57,8 +59,15 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("small_sliding=" +
                               PythonValueFormatter.Format(isNodeToSurface && contactPair.SmallSliding));
             arguments.Add("adjust=" + PythonValueFormatter.Format(contactPair.Adjust));
-            if (contactPair.Adjust)
+            // The Default size is stored as NaN: an add leaves it out, and a replace, which keeps a value it is not
+            // given, writes float('nan'), which the API takes as Default
+            if (contactPair.Adjust && !double.IsNaN(contactPair.AdjustmentSize))
                 arguments.Add("adjustment_size=" + PythonValueFormatter.Number(contactPair.AdjustmentSize));
+            else if (contactPair.Adjust && oldName != null) arguments.Add("adjustment_size=float('nan')");
+            Color defaultColor = new ContactPair("Default", null, null, CaeGlobals.RegionTypeEnum.Selection, null,
+                                                 CaeGlobals.RegionTypeEnum.Selection).MasterColor;
+            AddColor(arguments, "master_color", contactPair.MasterColor, defaultColor, oldName != null);
+            AddColor(arguments, "slave_color", contactPair.SlaveColor, defaultColor, oldName != null);
             //
             writer.Statement(writer.Call(collection, oldName == null ? "add" : "replace", arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, contactPair);
@@ -191,6 +200,27 @@ namespace PrePoMax.Python.Journal
             //
             throw new NotSupportedException("the constraint type " + constraint.GetType().Name +
                                             " has no API form");
+        }
+        // A tie, a cyclic symmetry and a joint color their two surfaces, every other constraint has one color
+        private static void AddConstraintColors(List<string> arguments, Constraint constraint, bool replace)
+        {
+            Color defaultColor = new Tie("Default", null, CaeGlobals.RegionTypeEnum.Selection, null,
+                                         CaeGlobals.RegionTypeEnum.Selection, false).MasterColor;
+            if (constraint is Tie || constraint is Joint)
+            {
+                AddColor(arguments, "master_color", constraint.MasterColor, defaultColor, replace);
+                AddColor(arguments, "slave_color", constraint.SlaveColor, defaultColor, replace);
+            }
+            else AddColor(arguments, "color", constraint.MasterColor, defaultColor, replace);
+        }
+        // Like PythonStepItemEmitter.AddColor, for an argument of another name: only a color other than the default
+        // on an add, and always on a replace
+        private static void AddColor(List<string> arguments, string argument, Color color, Color defaultColor,
+                                     bool replace)
+        {
+            if (!replace && color.ToArgb() == defaultColor.ToArgb()) return;
+            //
+            arguments.Add(argument + "=" + PythonValueFormatter.Channels(color));
         }
         private static void AddMasterSlave(PythonJournalWriter writer, List<string> arguments,
                                            Constraint constraint)

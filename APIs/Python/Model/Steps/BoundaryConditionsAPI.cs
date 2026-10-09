@@ -199,8 +199,7 @@ namespace APIs.Python.Model
             // The constructor takes a plain value, while the temperature can also be an equation
             TemperatureBC boundaryCondition =
                 new TemperatureBC(name, null, RegionTypeEnum.Selection, 0, _service.GetIsTwoDimensional());
-            boundaryCondition.Temperature.Equation =
-                PythonValueConverter.ToEquationString(temperature, "temperature");
+            PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (distribution_name != null)
                 boundaryCondition.DistributionName =
@@ -226,8 +225,7 @@ namespace APIs.Python.Model
                 _service.CloneForReplace<TemperatureBC>(StepName, old_name, "temperature");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (temperature != null)
-                boundaryCondition.Temperature.Equation =
-                    PythonValueConverter.ToEquationString(temperature, "temperature");
+                PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
             if (distribution_name != null)
                 boundaryCondition.DistributionName =
                     _service.ResolveScalarDistributionName(distribution_name, "a temperature");
@@ -299,12 +297,12 @@ namespace APIs.Python.Model
         private static void ApplyDegreesOfFreedom(DisplacementRotation boundaryCondition, object u1, object u2,
                                                   object u3, object ur1, object ur2, object ur3)
         {
-            if (u1 != null) boundaryCondition.U1.Equation = PythonValueConverter.ToEquationString(u1, "u1");
-            if (u2 != null) boundaryCondition.U2.Equation = PythonValueConverter.ToEquationString(u2, "u2");
+            if (u1 != null) PythonModelArgumentCheck.SetEquation(boundaryCondition.U1, u1, "u1");
+            if (u2 != null) PythonModelArgumentCheck.SetEquation(boundaryCondition.U2, u2, "u2");
             SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.U3, u3, "u3");
             SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.UR1, ur1, "ur1");
             SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.UR2, ur2, "ur2");
-            if (ur3 != null) boundaryCondition.UR3.Equation = PythonValueConverter.ToEquationString(ur3, "ur3");
+            if (ur3 != null) PythonModelArgumentCheck.SetEquation(boundaryCondition.UR3, ur3, "ur3");
         }
         // A two dimensional model leaves these degrees of freedom free whatever they are given, a fixing 0 included
         private static void SetOutOfPlaneDegreeOfFreedom(DisplacementRotation boundaryCondition,
@@ -318,7 +316,7 @@ namespace APIs.Python.Model
                 !double.IsNaN(GivenEquationValue.Evaluate(container, equation, argumentName)))
                 throw new PythonAPIException("The argument '" + argumentName + "' is a degree of freedom a two " +
                                              "dimensional model does not have. Leave it out.");
-            container.Equation = equation;
+            PythonModelArgumentCheck.SetEquation(container, equation, argumentName);
         }
         private static void FreeDegreesOfFreedom(DisplacementRotation boundaryCondition, object freeDofs,
                                                  object u1, object u2, object u3, object ur1, object ur2,
@@ -477,7 +475,7 @@ namespace APIs.Python.Model
                 EquationString equation = PythonValueConverter.ToEquationString(stepNumber, "step_id");
                 if (GivenEquationValue.Evaluate(boundaryCondition.StepNumber, equation, "step_id") < 1)
                     throw new PythonAPIException("The argument 'step_id' must be at least 1.");
-                boundaryCondition.StepNumber.Equation = equation;
+                PythonModelArgumentCheck.SetEquation(boundaryCondition.StepNumber, equation, "step_id");
             }
             if (u1 != null) boundaryCondition.U1 = PythonValueConverter.ToBool(u1, "u1");
             if (u2 != null) boundaryCondition.U2 = PythonValueConverter.ToBool(u2, "u2");

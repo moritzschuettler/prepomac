@@ -166,7 +166,7 @@ namespace APIs.Python
             ValidateRequiredString(oldName, "old_name");
             if (output == null) throw new PythonAPIException("The argument 'output' must not be None.");
             FeResults result = ResolveCurrentResult(resultName);
-            ResultHistoryOutput oldHistoryOutput = result.GetResultHistoryOutputOrNull(oldName.Trim());
+            ResultHistoryOutput oldHistoryOutput = result.GetResultHistoryOutputOrNull(oldName);
             if (oldHistoryOutput == null)
                 throw new PythonAPIException("The result history output definition '" + oldName +
                                              "' does not exist in the current result.");
@@ -211,7 +211,7 @@ namespace APIs.Python
             for (int i = 0; i < names.Length; i++)
             {
                 // Only user-defined history outputs carry a definition that can be duplicated
-                ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(names[i].Trim());
+                ResultHistoryOutput historyOutput = result.GetResultHistoryOutputOrNull(names[i]);
                 if (historyOutput == null)
                     throw new PythonAPIException("The history output '" + names[i] +
                                                  "' is not a user-defined history output and cannot be duplicated.");

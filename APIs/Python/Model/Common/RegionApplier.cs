@@ -100,6 +100,12 @@ namespace APIs.Python.Model
             if (stored == null)
                 throw new PythonAPIException("The " + region.RegionType + " region '" + region.name +
                                              "' does not exist.");
+            // The load dialog offers element based surfaces only, and a load on a node based one is invalid
+            FeSurface surface = stored as FeSurface;
+            if (item is Load && surface != null && surface.Type == FeSurfaceType.Node)
+                throw new PythonAPIException("The argument '" + argumentName + "' names the surface '" +
+                                             surface.Name + "', which is a Node surface, but a load acts on an " +
+                                             "Element surface only.");
             //
             return stored.Name;
         }

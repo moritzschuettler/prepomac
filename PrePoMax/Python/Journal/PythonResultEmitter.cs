@@ -84,12 +84,9 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonValueFormatter.Text(coordinateSystem.Name));
             //
             string method = oldName == null ? "add" : "replace";
-            // The result side names the type before the points, unlike the model side
             if (picked)
             {
                 method += "_from_selections";
-                arguments.Add("coordinate_system_type=" +
-                              PythonValueFormatter.Text(coordinateSystem.Type.ToString()));
                 AddPoint(writer, arguments, "origin", coordinateSystem.CenterCreatedFrom,
                          coordinateSystem.CenterCreationData, coordinateSystem.X1, coordinateSystem.Y1,
                          coordinateSystem.Z1);
@@ -105,9 +102,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add(Point(coordinateSystem.X1, coordinateSystem.Y1, coordinateSystem.Z1));
                 arguments.Add(Point(coordinateSystem.X2, coordinateSystem.Y2, coordinateSystem.Z2));
                 arguments.Add(Point(coordinateSystem.X3, coordinateSystem.Y3, coordinateSystem.Z3));
-                arguments.Add("coordinate_system_type=" +
-                              PythonValueFormatter.Text(coordinateSystem.Type.ToString()));
             }
+            arguments.Add("coordinate_system_type=" + PythonValueFormatter.Text(coordinateSystem.Type.ToString()));
             arguments.Add("name_visible=" + PythonValueFormatter.Format(coordinateSystem.NameVisible));
             //
             writer.Statement(writer.Call(CoordinateSystems, method, arguments.ToArray()));

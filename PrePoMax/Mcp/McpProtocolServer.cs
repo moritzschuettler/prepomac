@@ -35,7 +35,14 @@ namespace PrePoMax.Mcp
         private const string ServerName = "prepomax";
         private const string ServerVersion = "1.0.0";
         // The ids of the requests a client said it cancelled, latest last, so that the answer of a tool call it
-        // gave up on stays collectable with get_call
+        // gave up on stays collectable with get_call.
+        //
+        // They are keyed by the JSON-RPC id alone, because nothing finer tells two clients apart: no session id
+        // is issued, and a client may send each request on a connection of its own. Two clients that use the
+        // same ids at the same time can therefore cross: a request of one reuses an id the other cancelled,
+        // which clears the mark, so the cancelled call's answer is given up once written to a client that no
+        // longer reads it; or the other's cancel of that id arrives while a request of one runs, and its answer
+        // is kept collectable as well as delivered, until the bounds of the dispatcher drop it
         private const int MaximumCancelledRequestIds = 64;
         private static readonly List<string> CancelledRequestIds = new List<string>();
 

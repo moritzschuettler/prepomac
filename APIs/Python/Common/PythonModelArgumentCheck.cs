@@ -33,6 +33,28 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument '" + argumentName + "' is not valid. " + ex.Message);
             }
         }
+        // The equation setter of a container evaluates the equation and throws a CaeException that names no argument
+        // on one it cannot evaluate, so every equation the API stores goes through here
+        public static void SetEquation(EquationContainer container, EquationString equation, string argumentName)
+        {
+            try
+            {
+                container.Equation = equation;
+            }
+            catch (Exception ex)
+            {
+                throw new PythonAPIException("The argument '" + argumentName + "' is not valid. " + ex.Message);
+            }
+        }
+        public static void SetEquation(EquationContainer container, object value, string argumentName)
+        {
+            SetEquation(container, PythonValueConverter.ToEquationString(value, argumentName), argumentName);
+        }
+        public static void SetEquations(EquationContainer[] containers, EquationString[] equations, string argumentName)
+        {
+            for (int i = 0; i < containers.Length; i++)
+                SetEquation(containers[i], equations[i], argumentName + "[" + i + "]");
+        }
         // The controller and the view match part names exactly - the view hides a part by the name of its actor -
         // so a part name is passed on in the model's spelling rather than the caller's
         public static string[] ToStoredPartNames(FeMesh mesh, string[] partNames, string partKind)

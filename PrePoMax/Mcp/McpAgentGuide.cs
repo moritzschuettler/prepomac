@@ -127,7 +127,7 @@ label that is too small.
 
 A report picture is set up the same way. `rotate(azimuth_deg, elevation_deg)` turns a standard view a little,
 `look_at(point, parallel_scale)` frames a detail, `deformation_type` and `undeformed_model` control
-the deformed plot, and `set_legend_range(min, max)` gives pictures of different increments or models
+the deformed plot, and `set_legend_range(min_value, max_value)` gives pictures of different increments or models
 one color scale - reset it afterwards. `pmx.view.annotations` adds the labels: `add_text(name, text,
 anchor_point)`, `add_node(node_id)`, `add_element(element_id)`, and `show_min_max(show_min, show_max)`
 for the extreme value labels, whose setting `get_min_max()` reads so it can be put back. Every one of
@@ -143,21 +143,24 @@ it has run, and it goes on to the end and records its commands as usual.
 
 - Collect the answer with `get_call` and that `callId`. It waits again and returns exactly what the
   original call would have - output, error and `recordedCommands` - or `running` once more.
+  `read_model`, `read_topology`, `run_job` and `get_job` run Python too, so they can be answered
+  with a `callId` as well, and `get_call` then returns what that tool would have returned.
 - Do not send the same work again. Every other tool waits for the running one - all but
   `get_status`, `get_call`, `cancel_call`, `get_guide` and `list_sessions`, reading tools included -
   and is refused as busy if it waits longer than `requestTimeout`; `get_status` names the call that
-  holds it.
+  holds it. For `run_python` and `eval_expression` that wait counts against their own `timeout`,
+  so one that cannot start within it is refused as busy and does not run.
 - When you know a call is long, pass a larger `timeout` - or `timeout=0` to be answered at once with
-  the `callId` and do the waiting through `get_call`. Keep `timeout` below the request timeout of
-  your own client: a client that gives up first never sees the answer, and for long work `timeout=0`
-  and `get_call` is the safe way.
+  the `callId` and do the waiting through `get_call`; with nothing else running it starts at once.
+  Keep `timeout` below the request timeout of your own client: a client that gives up first never
+  sees the answer, and for long work `timeout=0` and `get_call` is the safe way.
 - An answer is handed over once it has reached you. One whose response never arrived - your client
   gave up on the request, or cancelled it - is kept: `get_status` lists under `calls` the ones still
   running or not collected yet, and `get_call` collects them. Uncollected answers are kept for an
   hour, the latest 16 of them.
 - A call that should not finish - a loop that never ends, or more work than you meant - is stopped
-  with `cancel_call` and its `callId`. It is answered at once, even while that call holds the
-  session, and also in read only mode. The call stops at its next Python statement with a
+  with `cancel_call` and its `callId`. It is answered within a few seconds, even while that call
+  holds the session, and also in read only mode. The call stops at its next Python statement with a
   `KeyboardInterrupt` error - one that has not reached its Python yet does not run it, and ends with
   that error or with the refusal it meets first, such as busy. An operation of PrePoMax it is
   inside - meshing, an import, a regeneration - cannot be interrupted and finishes first, and a

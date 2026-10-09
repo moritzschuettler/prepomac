@@ -46,18 +46,25 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
+            // An add leaves out the Element type it defaults to
+            string surfaceType = _surface.Type == FeSurfaceType.Element ? null :
+                                 "surface_type=" + PythonValueFormatter.Text(_surface.Type.ToString());
             if (_surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
             {
                 writer.Statement(writer.Call("pmx.model.surfaces", "add_from_node_set",
                                              PythonValueFormatter.Text(_surface.Name),
-                                             PythonValueFormatter.Text(_surface.CreatedFromNodeSetName)));
+                                             PythonValueFormatter.Text(_surface.CreatedFromNodeSetName),
+                                             surfaceType));
                 PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _surface);
                 writer.CountEmittedCommand();
             }
             else if (_surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
             {
-                PythonModelItemEmitter.AddFromSelection(writer, "pmx.model.surfaces", _surface,
-                                                        _surface.CreationData);
+                string selectionVariable = PythonSelectionEmitter.Emit(writer, _surface.CreationData);
+                writer.Statement(writer.Call("pmx.model.surfaces", "add", PythonValueFormatter.Text(_surface.Name),
+                                             selectionVariable, surfaceType));
+                PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _surface);
+                writer.CountEmittedCommand();
             }
             else writer.Unsupported(this, "a surface created from " + _surface.CreatedFrom + " has no API form");
         }

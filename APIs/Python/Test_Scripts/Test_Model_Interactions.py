@@ -281,6 +281,29 @@ def test_contact_pairs():
     check(message is not None and "'adjustment_size'" in message,
           "an adjustment size with adjust=False must be refused: " + str(message))
     check(pmx.model.contact_pairs[PAIR].method == "Massless", "a refused replace changed the contact pair")
+    # The dialog offers the adjustment size as Default, which float('nan') sets back and which reads back as None
+    pair = pairs.replace(PAIR, adjustment_size=float('nan'))
+    check(pair.adjust and pair.adjustment_size is None,
+          "float('nan') must set the adjustment size back to Default: " + str(pair.adjustment_size))
+    pair = pairs.replace(PAIR, adjustment_size=0.02)
+    pair = pairs.replace(PAIR, adjustment_size=pair.adjustment_size)
+    check(abs(pair.adjustment_size - 0.02) < 1e-12, "the adjustment size read back must go back into a replace")
+    # The colors of the two surfaces, read back as lists that go back into the arguments
+    check(list(pair.master_color) == [255, 255, 0, 255] and list(pair.slave_color) == [255, 255, 0, 255],
+          "unexpected default colors " + str(list(pair.master_color)) + ", " + str(list(pair.slave_color)))
+    pair = pairs.replace(PAIR, master_color=[10, 20, 30], slave_color="Red")
+    check(list(pair.master_color) == [10, 20, 30, 255], "the master color was not set: " + str(list(pair.master_color)))
+    check(list(pair.slave_color) == [255, 0, 0, 255], "the slave color was not set: " + str(list(pair.slave_color)))
+    pair = pairs.replace(PAIR, method="Massless")
+    check(list(pair.master_color) == [10, 20, 30, 255], "a replace that does not name the colors must keep them")
+    pair = pairs.replace(PAIR, master_color=pair.slave_color)
+    check(list(pair.master_color) == [255, 0, 0, 255], "the color read back must go back into the argument")
+    count_before = len(pairs)
+    message = raised_message(lambda: pairs.add(PREFIX + "CP_Bad", INTERACTION, surface_selection(3),
+                                               surface_selection(4), slave_color=[1, 2]))
+    check(message is not None and "'slave_color'" in message,
+          "a two channel color must be refused naming the argument: " + str(message))
+    check(len(pairs) == count_before, "a refused contact pair was recorded")
     pair = pairs.replace(PAIR, method="NodeToSurface", small_sliding=True)
     # Swap and the collection verbs
     master_before = pair.master_region_name

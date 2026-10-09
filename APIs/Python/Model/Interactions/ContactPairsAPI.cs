@@ -33,16 +33,21 @@ namespace APIs.Python.Model
                    "SurfaceToSurface, Mortar and Massless; pairs may mix methods, which the analysis warns " +
                    "about. Small sliding is written for NodeToSurface only, so small_sliding=True is " +
                    "rejected together with any other method rather than silently dropped. An " +
-                   "adjustment_size turns the adjustment on; it must be zero or larger and is refused " +
-                   "together with adjust=False. The selection target is surfaces for both sides.",
+                   "adjustment_size turns the adjustment on; it must be zero or larger, or float('nan') for " +
+                   "the Default size the dialog offers, which reads back as None, and it is refused together " +
+                   "with adjust=False. The selection target is surfaces for both sides. master_color and " +
+                   "slave_color are the colors of the two surfaces, given as [R, G, B], [R, G, B, A] or a " +
+                   "color name.",
                    Arguments = "name: str, surface_interaction_name: str, master_region: Selection or " +
                                "Region, slave_region: Selection or Region, method: str = None, " +
                                "small_sliding: bool = None, adjust: bool = None, " +
-                               "adjustment_size: float = None", Returns = "ContactPair",
+                               "adjustment_size: float = None, master_color: list[int] or str = None, " +
+                               "slave_color: list[int] or str = None", Returns = "ContactPair",
                    Example = "pmx.model.contact_pairs.add('CP-1', 'SI-1', master, slave)")]
         public ContactPairAPI add(string name, object surface_interaction_name, object master_region,
                                   object slave_region, object method = null, object small_sliding = null,
-                                  object adjust = null, object adjustment_size = null)
+                                  object adjust = null, object adjustment_size = null, object master_color = null,
+                                  object slave_color = null)
         {
             _service.ValidateName(name, null);
             ContactPair contactPair =
@@ -51,6 +56,7 @@ namespace APIs.Python.Model
             _service.ApplyMaster(contactPair, master_region);
             _service.ApplySlave(contactPair, slave_region);
             _service.ApplyValues(contactPair, method, small_sliding, adjust, adjustment_size);
+            ContactPairService.ApplyColors(contactPair, master_color, slave_color);
             _service.Add(contactPair);
             //
             return this[name];
@@ -65,7 +71,8 @@ namespace APIs.Python.Model
                                       object surface_interaction_name = null, object master_region = null,
                                       object slave_region = null, object method = null,
                                       object small_sliding = null, object adjust = null,
-                                      object adjustment_size = null)
+                                      object adjustment_size = null, object master_color = null,
+                                      object slave_color = null)
         {
             ContactPair contactPair = _service.CloneForReplace(old_name);
             if (surface_interaction_name != null)
@@ -74,6 +81,7 @@ namespace APIs.Python.Model
             if (master_region != null) _service.ApplyMaster(contactPair, master_region);
             if (slave_region != null) _service.ApplySlave(contactPair, slave_region);
             _service.ApplyValues(contactPair, method, small_sliding, adjust, adjustment_size);
+            ContactPairService.ApplyColors(contactPair, master_color, slave_color);
             if (name != null)
             {
                 _service.ValidateName(name, old_name);

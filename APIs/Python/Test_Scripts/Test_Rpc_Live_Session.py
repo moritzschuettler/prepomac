@@ -15,7 +15,11 @@
 #constants made undefined and a deactivated part; pmx.open and pmx.results.open each refuse the file the
 #other one opens. Another carries the values only the dialogs set before the API took them: a vector
 #distribution, the coordinate system of a distribution, the shifts of an amplitude, fixed degrees of
-#freedom, values taken back to Default, and a material whose values are expressions.
+#freedom, values taken back to Default, and a material whose values are expressions. One more carries
+#Element and Node surfaces, a contact adjustment size taken back to Default and the colors the
+#constraint, contact pair and initial condition dialogs set. One more carries a
+#recorded script that binds selection_1, which must not change the journal lines after it, and a global
+#results file name cleared with '' as the dialog clears it.
 #
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
@@ -492,7 +496,7 @@ def read_model_states(client):
                    steps + "['state_frequency_cleared'].get_value('upper_frequency')",
                    steps + "['state_steady'].loads.contains('state_force')",
                    steps + "['state_frequency'].bcs.contains('state_fix')",
-                   steps + "['state_static'].defined_fields['state_temperature'].get_value('type')",
+                   steps + "['state_static'].defined_fields['state_temperature'].item_type",
                    steps + "['state_static'].defined_fields['state_temperature'].amplitude_name",
                    steps + "['state_steady'].loads['state_phase'].get_equations()['phase_deg'].replace(' ', '')",
                    steps + "['state_steady'].bcs['state_rotation'].get_value('phase_deg')",
@@ -557,7 +561,7 @@ def check_journal_of_model_states(client):
         check(recorded[5] is None and recorded[6] == 50.0, "the lower limit was not cleared: " + str(recorded))
         check(recorded[7] is True and recorded[8] is True, "the propagation did not reach the steps that take " +
               "the items: " + str(recorded))
-        check(recorded[9] == "FromFile" and recorded[10] == "Default",
+        check(recorded[9] == "temperature_from_file" and recorded[10] == "Default",
               "the defined temperature was not read from a file without an amplitude: " + str(recorded))
         check(recorded[11] == "=15*2" and recorded[12] == 45, "the phases were not kept: " + str(recorded))
         check(recorded[13] is False and recorded[14] == 600, "the pre-tension took a phase: " + str(recorded))
@@ -788,6 +792,143 @@ def check_journal_of_dialog_values(client):
     print("journal: the values only the dialogs set replay to " + str(replayed))
 
 
+def read_dialog_appearance(client):
+    surfaces = "pmx.model.surfaces"
+    constraints = "pmx.model.constraints"
+    pair = "pmx.model.contact_pairs['look_pair']"
+    expressions = [surfaces + "['look_node'].surface_type",
+                   surfaces + "['look_from_set'].surface_type",
+                   surfaces + "['look_back'].surface_type",
+                   pair + ".adjust",
+                   pair + ".adjustment_size",
+                   "list(" + pair + ".master_color)",
+                   "list(" + pair + ".slave_color)",
+                   "list(" + constraints + "['look_tie'].master_color)",
+                   "list(" + constraints + "['look_tie'].slave_color)",
+                   "list(" + constraints + "['look_rigid'].color)",
+                   "list(" + constraints + "['look_spring'].color)",
+                   "list(pmx.model.initial_conditions['look_temperature'].color)"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the surface types and colors must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_dialog_appearance(client):
+    """Surface types, a contact adjustment back to Default and the dialog colors must come back from their journal."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "nodes = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4])",
+        "def face(face_id):",
+        "    return pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [face_id]})",
+        "pmx.model.node_sets.add('look_set', nodes)",
+        "pmx.model.reference_points.add('look_rp', [0, 0, 2])",
+        # A Node surface from a selection and from a node set, and one taken back to Element by a replace
+        "pmx.model.surfaces.add('look_node', face(1), surface_type='Node')",
+        "pmx.model.surfaces.add_from_node_set('look_from_set', 'look_set')",
+        "pmx.model.surfaces.replace_from_node_set('look_from_set', surface_type='Node')",
+        "pmx.model.surfaces.add('look_back', face(2), surface_type='Node')",
+        "pmx.model.surfaces.replace('look_back', surface_type='Element')",
+        # An adjustment size taken back to the Default the dialog offers, and the colors of the two surfaces
+        "pmx.model.surface_interactions.add('look_si', pmx.create.friction(0.1))",
+        "pmx.model.contact_pairs.add('look_pair', 'look_si', face(3), face(4), adjustment_size=0.01, "
+        "master_color=[10, 20, 30], slave_color='Red')",
+        "pmx.model.contact_pairs.replace('look_pair', adjustment_size=float('nan'), master_color='Yellow')",
+        # Two surface colors on a tie, taken back to the default, and one color on the other constraints
+        "pmx.model.constraints.add_tie('look_tie', face(5), face(6), master_color=[1, 2, 3], slave_color=[4, 5, 6, 7])",
+        "pmx.model.constraints.replace_tie('look_tie', slave_color='Yellow')",
+        "pmx.model.constraints.add_rigid_body('look_rigid', 'look_rp', nodes, color='Green')",
+        "pmx.model.constraints.add_point_spring('look_spring', nodes, k1=1, color=[9, 8, 7])",
+        "pmx.model.constraints.replace_point_spring('look_spring', color='Yellow')",
+        "pmx.model.initial_conditions.add_temperature('look_temperature', nodes, 20, color=[50, 60, 70])"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the surface types and colors must be accepted: " + result["error"])
+    recorded = read_dialog_appearance(client)
+    check(recorded[0:3] == ["Node", "Node", "Element"], "the surface types were not kept: " + str(recorded))
+    check(recorded[3] is True and recorded[4] is None, "the adjustment size did not go back to Default: " +
+          str(recorded))
+    check(recorded[5] == [255, 255, 0, 255] and recorded[6] == [255, 0, 0, 255],
+          "the contact pair colors were not kept: " + str(recorded))
+    check(recorded[7] == [1, 2, 3, 255] and recorded[8] == [255, 255, 0, 255],
+          "the tie colors were not kept: " + str(recorded))
+    check(recorded[9] == [0, 128, 0, 255] and recorded[10] == [255, 255, 0, 255],
+          "the constraint colors were not kept: " + str(recorded))
+    check(recorded[11] == [50, 60, 70, 255], "the initial condition color was not kept: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    # An add leaves the defaults out, a replace writes them, because a replace keeps what it is not given
+    for expected in ["surface_type='Node'", "surface_type='Element'", "adjustment_size=float('nan')",
+                     "master_color=[10, 20, 30]", "slave_color=[255, 0, 0]", "master_color=[255, 255, 0]",
+                     "slave_color=[4, 5, 6, 7]", "slave_color=[255, 255, 0]", "color=[0, 128, 0]",
+                     "color=[9, 8, 7]", "color=[255, 255, 0]", "color=[50, 60, 70]"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    check("adjustment_size=None" not in journal_source, "a Default adjustment size has no None form:" + os.linesep +
+          journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the surface types and colors must replay: " + result["error"] +
+          os.linesep + journal_source)
+    replayed = read_dialog_appearance(client)
+    check(replayed == recorded, "the replayed values differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: the surface types, the Default adjustment and the dialog colors replay to " + str(replayed))
+
+
+def read_script_states(client):
+    sets = "pmx.model.node_sets"
+    expressions = ["sorted(int(i) for i in " + sets + "['script_" + name + "'].get_node_ids())"
+                   for name in ("before", "inside", "after")]
+    expressions += ["pmx.model.properties.global_results_file_name"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the node sets and properties must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_script_and_properties(client):
+    """A recorded script that binds a name the journal uses must not change the lines after it, and a global results
+    file name cleared as the dialog clears it must come back from the journal."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    first_node = "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])"
+    result = client.result("exec", {"source": "pmx.model.node_sets.add('script_before', " + first_node + ")"})
+    check(not result["failed"], "the first node set must be added: " + result["error"])
+    # The script binds selection_1, the name the journal gives the selection of the first node set
+    script = os.linesep.join(["selection_1 = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [2, 3])",
+                              "pmx.model.node_sets.add('script_inside', selection_1)"])
+    result = client.result("exec", {"source": script, "record": "script"})
+    check(not result["failed"], "the recorded script must not fail: " + result["error"])
+    source = os.linesep.join(["pmx.model.node_sets.add('script_after', " + first_node + ")",
+                              "pmx.model.properties.replace(model_type='Submodel', "
+                              "global_results_file_name='global.frd')",
+                              "pmx.model.properties.replace(global_results_file_name='')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the node set and the cleared file name must be accepted: " + result["error"])
+    recorded = read_script_states(client)
+    check(recorded == [[1], [2, 3], [1], ""], "the recorded states are not the ones built: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    journal_source = journal["source"]
+    for expected in ["selection_1 = pmx.create.selection_by_ids", "compile(_recorded_script_source",
+                     "global_results_file_name=''"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the script must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_script_states(client)
+    check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: a recorded script and a cleared global results file replay to " + str(replayed))
+
+
 def export_deck(client, file_name):
     """The model as CalculiX reads it, without the lines that differ between two runs of the same model."""
     result = client.result("exec", {"source": "pmx.export_to_calculix(r'" + file_name + "')"})
@@ -896,6 +1037,17 @@ def check_long_calls(client):
     check(("Automation call " + str(call_id)) in error["message"] and "get_call" in error["message"],
           "the refusal must name the running call and how to collect it: " + error["message"])
     print("long call: a change behind it was refused after %.1f s - %s" % (time.time() - started, error["message"]))
+    # The wait for the turn counts against the timeout of the call, so a shorter one is refused sooner and
+    # a timeout of 0 at once, and neither runs
+    for timeout, bound in ((1, 2.5), (0, 1.5)):
+        started = time.time()
+        error = client.error("exec", {"source": "pmx.model.parameters.add('long_short_refused', 1.0)",
+                                      "timeout": timeout})
+        waited = time.time() - started
+        check(error["code"] == BUSY and ("Automation call " + str(call_id)) in error["message"],
+              "a call behind a running one must be refused as busy within its timeout: " + str(error))
+        check(waited < bound, "a timeout of %d must bound the wait for the turn, not %.1f s" % (timeout, waited))
+    print("long call: a timeout of 1 and of 0 bounded the wait for the turn, and the calls were refused")
     # Asking without waiting answers that it is still running
     answer = client.result("wait", {"call_id": call_id, "timeout": 0})
     check(check_running_answer(answer, "exec", "the call must still be running") == call_id,
@@ -920,7 +1072,8 @@ def check_long_calls(client):
     check(status["model"]["commandCount"] == before + 1,
           "the long call, and only it, must have been recorded: " + str(status["model"]["commandCount"]))
     value = client.result("eval", {"expression": "pmx.model.parameters.get_names()"})
-    check("long_a" in value["value"] and "long_refused" not in value["value"],
+    check("long_a" in value["value"] and "long_refused" not in value["value"] and
+          "long_short_refused" not in value["value"],
           "the long call must have changed the model and the refused one not: " + str(value["value"]))
     # A timeout of the call's own, shorter than the request timeout
     started = time.time()
@@ -1181,6 +1334,8 @@ def main():
         check_journal_of_jobs(client)
         check_journal_of_model_states(client)
         check_journal_of_dialog_values(client)
+        check_journal_of_dialog_appearance(client)
+        check_journal_of_script_and_properties(client)
         check_journal_of_layouts(client)
         check_result_file_opening(client)
         check_journal_round_trip(client)

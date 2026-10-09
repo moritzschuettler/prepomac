@@ -11,15 +11,15 @@ using CaeGlobals;
 using CaeModel;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 
 namespace APIs.Python.Model
 {
-    // Reads the values a concrete model type adds to its base type. The values the base type carries
-    // are exposed as properties of the wrapping object, so only the type specific ones are read here.
-    // Writing is always done with named arguments, so this is a read side only.
+    // Reads the values a model item takes as add_* and replace_* arguments. Each item type names the arguments it
+    // reads back, each with the stored values it is made of - one, or the components of a vector argument, which
+    // is read as one list - and nothing else is read, so whatever a read-back returns goes back into the replace_*
+    // method of the item. The values every type of a collection shares are properties of the wrapping object.
     internal static class ModelItemValueReader
     {
         // Variables
@@ -32,152 +32,86 @@ namespace APIs.Python.Model
 
 
         // Methods
-        public static Dictionary<string, object> GetValues(object item, Type baseType)
+        public static Dictionary<string, string[]> Arguments(params string[] argumentNames)
         {
-            Dictionary<string, object> values = new Dictionary<string, object>();
-            PropertyInfo[] properties = item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (PropertyInfo property in properties.OrderBy(entry => entry.Name))
-            {
-                if (property.DeclaringType.IsAssignableFrom(baseType)) continue;
-                if (property.GetIndexParameters().Length > 0) continue;
-                //
-                object value = property.GetValue(item, null);
-                string name = ToPythonName(property.Name);
-                //
-                EquationContainer equation = value as EquationContainer;
-                if (equation != null)
-                {
-                    // A degree of freedom that is not constrained carries a NaN
-                    values[name] = double.IsNaN(equation.Value) ? null : (object)equation.Value;
-                    continue;
-                }
-                // A damping is handed over as the part pmx.create makes, a copy, so it goes back into the step
-                // argument it came from and changing it changes nothing in the model
-                if (value is Damping || value is ModalDamping)
-                {
-                    values[name] = value.DeepClone();
-                    continue;
-                }
-                if (value != null && FlagsEnumTypes.Contains(value.GetType()))
-                {
-                    // A flag like enum is set from a list of names, so it is read back as one, even with one flag
-                    value = PythonListConverter.ToPythonList(PythonValueConverter.FromFlagsEnum(value.GetType(),
-                                                                                                 value));
-                }
-                else if (value != null && value.GetType().IsEnum) value = value.ToString();
-                // A list valued setting, such as the layer sizes of a multi layer mesh, is part of the
-                // definition, so a snapshot that leaves it out is not a complete one. It is handed over as a
-                // Python list, the form the argument that sets it takes
-                else if (property.PropertyType == typeof(double[]) || property.PropertyType == typeof(int[]))
-                {
-                    Array storedValues = value as Array;
-                    if (storedValues == null) value = null;
-                    else
-                    {
-                        object[] items = new object[storedValues.Length];
-                        storedValues.CopyTo(items, 0);
-                        value = PythonListConverter.ToPythonList(items);
-                    }
-                }
-                else if (!IsSimpleType(property.PropertyType)) continue;
-                //
-                values[name] = value;
-            }
+            Dictionary<string, string[]> argumentValueNames = new Dictionary<string, string[]>();
+            AddArguments(argumentValueNames, argumentNames);
             //
-            return values;
+            return argumentValueNames;
         }
-        // A value an add_* argument sets is reported under the argument's name, a vector argument as one
-        // list of its components; a value no argument covers keeps the name of the property it is stored in
-        public static Dictionary<string, object> GetValues(object item, Type baseType,
-                                                           Dictionary<string, string[]> argumentValueNames)
+        // An argument whose value is stored under the name of the argument itself
+        public static void AddArguments(Dictionary<string, string[]> argumentValueNames, params string[] argumentNames)
         {
-            Dictionary<string, object> storedValues = GetValues(item, baseType);
-            if (argumentValueNames == null) return storedValues;
-            //
+            foreach (string argumentName in argumentNames)
+                argumentValueNames.Add(argumentName, new string[] { argumentName });
+        }
+        public static Dictionary<string, object> GetValues(object item, Dictionary<string, string[]> argumentValueNames)
+        {
             Dictionary<string, object> values = new Dictionary<string, object>();
-            HashSet<string> coveredNames = new HashSet<string>();
             foreach (var entry in argumentValueNames)
             {
                 object[] components = new object[entry.Value.Length];
-                for (int i = 0; i < components.Length; i++)
-                {
-                    if (!storedValues.TryGetValue(entry.Value[i], out components[i]))
-                        throw new InvalidOperationException("The argument '" + entry.Key + "' of a " +
-                                                            item.GetType().Name + " names the missing value '" +
-                                                            entry.Value[i] + "'.");
-                    coveredNames.Add(entry.Value[i]);
-                }
+                for (int i = 0; i < components.Length; i++) components[i] = ReadValue(item, entry.Value[i]);
+                //
                 values[entry.Key] = components.Length == 1 ? components[0] :
                                                              PythonListConverter.ToPythonList(components);
-            }
-            foreach (var entry in storedValues)
-            {
-                if (!coveredNames.Contains(entry.Key) && !values.ContainsKey(entry.Key)) values[entry.Key] = entry.Value;
             }
             //
             return values;
         }
-        // Only what the user typed as an expression is returned: a value stored as a plain number with its unit
-        // could not be passed back as an argument, and get_value already returns it as a number
-        public static Dictionary<string, string> GetEquations(object item)
-        {
-            Dictionary<string, string> equations = new Dictionary<string, string>();
-            foreach (var entry in GetEquationContainers(item))
-            {
-                // The stored text is the expression the user entered, which is what a journal has to emit
-                if (entry.Value.IsEquation()) equations[entry.Key] = entry.Value.String;
-            }
-            //
-            return equations;
-        }
-        // The equations are named the way GetValues names the values. A vector argument is one list, so when any
-        // of its components is an expression, a component stored as a plain value stays in the list as the number
-        // get_value returns for it, and the list can be passed back; an argument without an expression is left out
+        // Only what the user typed as an expression is returned, under the names GetValues uses: a value stored as
+        // a plain number is left out, and get_value returns it as a number. A vector argument is one list, so when
+        // any of its components is an expression, a component stored as a plain value stays in the list as the
+        // number get_value returns for it, and the list can be passed back
         public static Dictionary<string, object> GetEquations(object item,
                                                               Dictionary<string, string[]> argumentValueNames)
         {
-            Dictionary<string, EquationContainer> storedEquations = GetEquationContainers(item);
             Dictionary<string, object> equations = new Dictionary<string, object>();
-            HashSet<string> coveredNames = new HashSet<string>();
-            if (argumentValueNames != null)
+            foreach (var entry in argumentValueNames)
             {
-                foreach (var entry in argumentValueNames)
+                EquationContainer[] components = new EquationContainer[entry.Value.Length];
+                bool allEquations = true;
+                for (int i = 0; i < components.Length && allEquations; i++)
                 {
-                    EquationContainer[] components = new EquationContainer[entry.Value.Length];
-                    bool allEquations = true;
-                    for (int i = 0; i < components.Length && allEquations; i++)
-                        allEquations = storedEquations.TryGetValue(entry.Value[i], out components[i]);
-                    if (!allEquations) continue;
-                    //
-                    coveredNames.UnionWith(entry.Value);
-                    object[] values = new object[components.Length];
-                    bool hasExpression = false;
-                    for (int i = 0; i < components.Length; i++)
-                    {
-                        if (components[i].IsEquation())
-                        {
-                            values[i] = components[i].String;
-                            hasExpression = true;
-                        }
-                        else values[i] = double.IsNaN(components[i].Value) ? null : (object)components[i].Value;
-                    }
-                    if (!hasExpression) continue;
-                    //
-                    equations[entry.Key] = values.Length == 1 ? values[0] : PythonListConverter.ToPythonList(values);
+                    components[i] = FindProperty(item, entry.Value[i]).GetValue(item, null) as EquationContainer;
+                    allEquations = components[i] != null;
                 }
-            }
-            foreach (var entry in storedEquations)
-            {
-                if (coveredNames.Contains(entry.Key) || equations.ContainsKey(entry.Key)) continue;
-                if (entry.Value.IsEquation()) equations[entry.Key] = entry.Value.String;
+                if (!allEquations) continue;
+                //
+                object[] values = new object[components.Length];
+                bool hasExpression = false;
+                for (int i = 0; i < components.Length; i++)
+                {
+                    // The stored text is the expression the user entered, which is what a journal has to emit
+                    if (components[i].IsEquation())
+                    {
+                        values[i] = components[i].String;
+                        hasExpression = true;
+                    }
+                    else values[i] = double.IsNaN(components[i].Value) ? null : (object)components[i].Value;
+                }
+                if (!hasExpression) continue;
+                //
+                equations[entry.Key] = values.Length == 1 ? values[0] : PythonListConverter.ToPythonList(values);
             }
             //
             return equations;
         }
-        public static object GetValue(object item, Type baseType, Dictionary<string, string[]> argumentValueNames,
-                                      string name, string itemDescription)
+        // The equations of an item type whose arguments are all single values
+        public static Dictionary<string, string> GetScalarEquations(object item,
+                                                                    Dictionary<string, string[]> argumentValueNames)
         {
-            return GetValue(GetValues(item, baseType, argumentValueNames), name, itemDescription);
+            Dictionary<string, string> equations = new Dictionary<string, string>();
+            foreach (var entry in GetEquations(item, argumentValueNames))
+            {
+                string equation = entry.Value as string;
+                if (equation == null)
+                    throw new InvalidOperationException("The argument '" + entry.Key + "' of a " +
+                                                        item.GetType().Name + " is not a single value.");
+                equations[entry.Key] = equation;
+            }
+            //
+            return equations;
         }
         public static object GetValue(Dictionary<string, object> values, string name, string itemDescription)
         {
@@ -191,25 +125,48 @@ namespace APIs.Python.Model
             return value;
         }
         //
-        private static Dictionary<string, EquationContainer> GetEquationContainers(object item)
+        private static object ReadValue(object item, string valueName)
         {
-            Dictionary<string, EquationContainer> containers = new Dictionary<string, EquationContainer>();
-            PropertyInfo[] properties = item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (PropertyInfo property in properties)
+            object value = FindProperty(item, valueName).GetValue(item, null);
+            if (value == null) return null;
+            //
+            EquationContainer equation = value as EquationContainer;
+            // A value the dialog shows as Default, and a degree of freedom that is not constrained, carry a NaN
+            if (equation != null) return double.IsNaN(equation.Value) ? null : (object)equation.Value;
+            // A damping is handed over as the part pmx.create makes, a copy, so it goes back into the step
+            // argument it came from and changing it changes nothing in the model
+            if (value is Damping || value is ModalDamping) return value.DeepClone();
+            // A flag like enum is set from a list of names, so it is read back as one, even with one flag
+            if (FlagsEnumTypes.Contains(value.GetType()))
+                return PythonListConverter.ToPythonList(PythonValueConverter.FromFlagsEnum(value.GetType(), value));
+            if (value.GetType().IsEnum) return value.ToString();
+            // A list valued setting, such as the layers of a sweep, is handed over as a Python list, the form the
+            // argument that sets it takes
+            Array storedValues = value as Array;
+            if (value is double[] || value is int[])
+            {
+                object[] items = new object[storedValues.Length];
+                storedValues.CopyTo(items, 0);
+                return PythonListConverter.ToPythonList(items);
+            }
+            if (IsSimpleType(value.GetType())) return value;
+            //
+            throw new InvalidOperationException("The value '" + valueName + "' of a " + item.GetType().Name +
+                                                " is a " + value.GetType().Name + ", which no argument takes.");
+        }
+        private static PropertyInfo FindProperty(object item, string valueName)
+        {
+            foreach (PropertyInfo property in item.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (property.GetIndexParameters().Length > 0) continue;
-                if (property.PropertyType != typeof(EquationContainer)) continue;
-                //
-                EquationContainer equation = property.GetValue(item, null) as EquationContainer;
-                if (equation != null) containers[ToPythonName(property.Name)] = equation;
+                if (ToPythonName(property.Name) == valueName) return property;
             }
             //
-            return containers;
+            throw new InvalidOperationException("A " + item.GetType().Name + " stores no value '" + valueName + "'.");
         }
         private static bool IsSimpleType(Type type)
         {
-            return type == typeof(double) || type == typeof(int) || type == typeof(bool) ||
-                   type == typeof(string) || type.IsEnum;
+            return type == typeof(double) || type == typeof(int) || type == typeof(bool) || type == typeof(string);
         }
         private static string ToPythonName(string name)
         {

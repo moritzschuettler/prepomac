@@ -43,8 +43,10 @@ names the habits.
 - **Busy** means the user has a dialog open or a mesher is running, and nothing was done. Wait and
   send the same call again rather than working around it. If it names an automation call, that is
   one of yours still running - collect it first.
-- **`running` with a `callId`** is not a failure. The call outlasted its wait and goes on to the end,
-  recording its commands as usual; collect its answer with `get_call` and do not send the work again.
+- **`running` with a `callId`** is not a failure, whichever tool answered it - `read_model`,
+  `read_topology`, `run_job` and `get_job` run Python too. The call outlasted its wait and goes on to
+  the end, recording its commands as usual; collect its answer with `get_call`, which returns what
+  that tool would have returned, and do not send the work again.
   Give a call you know is long - meshing a big part, an import, a regeneration - a larger `timeout`,
   but keep it below your client's own request timeout; for long work pass `timeout` 0 and wait with
   `get_call`. An answer your client gave up on is kept, and `get_status` lists it under `calls`.

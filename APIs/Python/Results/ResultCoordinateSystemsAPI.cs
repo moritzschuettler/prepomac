@@ -142,22 +142,22 @@ namespace APIs.Python
                    "command history. A point is given either as coordinates or as a mode and a selection, " +
                    "where the mode is OnPoint, BetweenTwoPoints or CircleCenter. A point that is not " +
                    "given keeps the default coordinates.",
-                   Arguments = "name: str, coordinate_system_type: str = None, origin: list[float] = None, " +
-                               "origin_created_from: str = None, origin_selection: Selection = None, " +
-                               "point_on_x: list[float] = None, point_on_x_created_from: str = None, " +
-                               "point_on_x_selection: Selection = None, point_in_xy: list[float] = None, " +
-                               "point_in_xy_created_from: str = None, " +
-                               "point_in_xy_selection: Selection = None, name_visible: bool = None",
+                   Arguments = "name: str, origin_created_from: str = None, origin_selection: Selection = None, " +
+                               "point_on_x_created_from: str = None, point_on_x_selection: Selection = None, " +
+                               "point_in_xy_created_from: str = None, point_in_xy_selection: Selection = None, " +
+                               "origin: list[float] = None, point_on_x: list[float] = None, " +
+                               "point_in_xy: list[float] = None, coordinate_system_type: str = None, " +
+                               "name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public ResultCoordinateSystemAPI add_from_selections(string name, string coordinate_system_type = null,
-                                                             object origin = null, string origin_created_from = null,
+        public ResultCoordinateSystemAPI add_from_selections(string name, string origin_created_from = null,
                                                              SelectionAPI origin_selection = null,
-                                                             object point_on_x = null,
                                                              string point_on_x_created_from = null,
                                                              SelectionAPI point_on_x_selection = null,
-                                                             object point_in_xy = null,
                                                              string point_in_xy_created_from = null,
                                                              SelectionAPI point_in_xy_selection = null,
+                                                             object origin = null, object point_on_x = null,
+                                                             object point_in_xy = null,
+                                                             string coordinate_system_type = null,
                                                              object name_visible = null)
         {
             ValidateName(name, null);
@@ -201,24 +201,23 @@ namespace APIs.Python
         [PythonAPI("Replaces a result coordinate system the way add_from_selections builds one. A result " +
                    "replacement re-specifies the whole definition, so every point takes either " +
                    "coordinates or a mode and a selection.",
-                   Arguments = "old_name: str, name: str = None, coordinate_system_type: str = None, " +
-                               "origin: list[float] = None, origin_created_from: str = None, " +
-                               "origin_selection: Selection = None, point_on_x: list[float] = None, " +
-                               "point_on_x_created_from: str = None, point_on_x_selection: Selection = None, " +
-                               "point_in_xy: list[float] = None, point_in_xy_created_from: str = None, " +
-                               "point_in_xy_selection: Selection = None, name_visible: bool = None",
+                   Arguments = "old_name: str, name: str = None, origin_created_from: str = None, " +
+                               "origin_selection: Selection = None, point_on_x_created_from: str = None, " +
+                               "point_on_x_selection: Selection = None, point_in_xy_created_from: str = None, " +
+                               "point_in_xy_selection: Selection = None, origin: list[float] = None, " +
+                               "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
+                               "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
         public ResultCoordinateSystemAPI replace_from_selections(string old_name, string name = null,
-                                                                 string coordinate_system_type = null,
-                                                                 object origin = null,
                                                                  string origin_created_from = null,
                                                                  SelectionAPI origin_selection = null,
-                                                                 object point_on_x = null,
                                                                  string point_on_x_created_from = null,
                                                                  SelectionAPI point_on_x_selection = null,
-                                                                 object point_in_xy = null,
                                                                  string point_in_xy_created_from = null,
                                                                  SelectionAPI point_in_xy_selection = null,
+                                                                 object origin = null, object point_on_x = null,
+                                                                 object point_in_xy = null,
+                                                                 string coordinate_system_type = null,
                                                                  object name_visible = null)
         {
             CoordinateSystem system = CloneForReplace(old_name, name);
@@ -448,23 +447,17 @@ namespace APIs.Python
             if (point == 1)
             {
                 system.CenterCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                system.X1.Equation = equations[0];
-                system.Y1.Equation = equations[1];
-                system.Z1.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { system.X1, system.Y1, system.Z1 }, equations, argumentName);
             }
             else if (point == 2)
             {
                 system.PointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                system.X2.Equation = equations[0];
-                system.Y2.Equation = equations[1];
-                system.Z2.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { system.X2, system.Y2, system.Z2 }, equations, argumentName);
             }
             else
             {
                 system.PointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                system.X3.Equation = equations[0];
-                system.Y3.Equation = equations[1];
-                system.Z3.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { system.X3, system.Y3, system.Z3 }, equations, argumentName);
             }
         }
         // A point that comes from a selection is resolved on the result mesh before the axes are

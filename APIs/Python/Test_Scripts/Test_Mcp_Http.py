@@ -15,7 +15,9 @@
 #or out of the declared range is refused rather than read as the default, a null for an optional argument
 #is taken as leaving it out, the answer of a request the client dropped or cancelled stays collectable
 #with get_call, a tools/call sent as a notification is not run, the protocol version is negotiated,
-#and the tools that run a script of their own leave the console scope as they found it.
+#and the tools that run a script of their own leave the console scope as they found it. A second session
+#with a short request timeout checks that get_call answers for read_model and read_topology the way those
+#tools answer, and that the wait for the turn counts against the timeout of a call.
 #
 #  PrePoMax.com --script Test_Mcp_Http.py -g No -x Yes -w <work directory>
 #
@@ -134,7 +136,7 @@ class Endpoint(object):
 class ChildSession(object):
     """A PrePoMax session with no window of its own, serving its own endpoint."""
 
-    def __init__(self, port):
+    def __init__(self, port, arguments=None):
         self.directory = tempfile.mkdtemp(prefix="mcp_http_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
         # The cube is given explicitly, so that what the tools report is the cube and not whatever
@@ -142,7 +144,8 @@ class ChildSession(object):
         self.process = subprocess.Popen([sys.executable, "--rpc", "On", "--rpcPort", str(port),
                                          "-g", "No", "--noSettingsSave",
                                          "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
-                                         "--timeout", str(CHILD_TIMEOUT), "-w", self.directory],
+                                         "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
+                                        (arguments or []),
                                         stdout=self.log, stderr=subprocess.STDOUT)
         self.info = None
 
@@ -331,6 +334,8 @@ def check_reading_tools(endpoint, session):
     part = topology["model"][0]
     check(part["face_count"] == 6 and part["edge_count"] == 12 and part["vertex_count"] == 8,
           "the cube topology must be 6 faces, 12 edges and 8 vertices: " + str(part))
+    check(len(part["faces"]) == 6 and len(part["edges"]) == 12 and len(part["vertices"]) == 8 and
+          "listed" not in part, "within the default limit every row must be listed: " + str(part))
     # The top face, found the way an agent finds it, and named by the ID a selection takes
     top = [face for face in part["faces"] if face["normal"] == [0.0, 0.0, 1.0]]
     check(len(top) == 1, "exactly one face must point up: " + str(part["faces"]))
@@ -348,6 +353,19 @@ def check_reading_tools(endpoint, session):
           "a name that matched no part must be reported: " + str(topology.get("unmatched_part_names")))
     check(len(topology["model"][0]["faces"]) <= 240, "the limit must bound the rows of a part")
     print("read_topology: a name in other case matched, an unknown name reported")
+    # The limit caps each kind, and what was left out is said kind by kind; the vertices, which have no
+    # size, are listed in index order
+    topology = json.loads(endpoint.tool("read_topology", {"part_names": [name], "limit": 2}))
+    part = topology["model"][0]
+    check(len(part["faces"]) == 2 and len(part["edges"]) == 2 and len(part["vertices"]) == 2,
+          "a limit of 2 must list two of each kind: " + str(part))
+    check("Listed 2 of 6 faces and 2 of 12 edges" in part["listed"] and "2 of 8 vertices" in part["listed"],
+          "the part must say what was left out: " + str(part.get("listed")))
+    first = json.loads(endpoint.tool("eval_expression", {
+        "expression": "[int(i) for i in list(pmx.model.parts[" + repr(name) + "].get_vertex_data().node_ids)][:2]"}))
+    check([vertex["node_id"] for vertex in part["vertices"]] == first["value"],
+          "the vertices must be listed in index order: " + str(part["vertices"]) + " " + str(first["value"]))
+    print("read_topology: a limit of 2 listed two of each kind, the vertices in index order")
 
 
 def check_the_guide(endpoint):
@@ -594,6 +612,13 @@ def check_screenshot(endpoint):
     view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
     check(view["value"] == "femodel", "the view must have been switched: " + str(view["value"]))
     print("screenshot: taken again after switching the view and the camera")
+    # A component without its field names nothing to plot, and is refused before the view is touched
+    text = endpoint.failing_tool("screenshot", {"view": "geometry", "component": "U3"})
+    check("component of screenshot needs field" in text and "Nothing was done" in text,
+          "a component without a field must be refused: " + text)
+    view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
+    check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
+    print("screenshot: a component without a field refused, the view left as it was")
     # A view change is not a model change, so it records nothing
     history = json.loads(endpoint.tool("get_history"))
     for command in history["commands"]:
@@ -739,6 +764,78 @@ def check_pruning(endpoint, second):
     print("list_sessions: the file of the killed session was pruned")
 
 
+# Makes the json module the tool scripts import slow, so that read_model and read_topology outlast a short
+# request timeout without a model large enough to do it honestly; mcp_slow_json.fail makes it fail as well
+SLOW_JSON = '''
+import sys, time, types
+import json as mcp_real_json
+mcp_slow_json = types.ModuleType('json')
+def mcp_slow_dumps(*arguments, **options):
+    time.sleep(7)
+    if mcp_slow_json.fail:
+        raise ValueError('mcp slow json failed')
+    return mcp_real_json.dumps(*arguments, **options)
+mcp_slow_json.dumps = mcp_slow_dumps
+mcp_slow_json.loads = mcp_real_json.loads
+mcp_slow_json.fail = False
+sys.modules['json'] = mcp_slow_json
+'''
+
+
+def check_collected_tool_answers(endpoint):
+    """read_model and read_topology that outlast their wait are collected by get_call as they would have
+    answered, and a failure is reported as they report it."""
+    result = json.loads(endpoint.tool("run_python", {"source": SLOW_JSON}))
+    check(not result["failed"], "the slow json must be installed: " + result["error"])
+    try:
+        answer = json.loads(endpoint.tool("read_model"))
+        check(answer.get("running") is True and answer["callId"] > 0,
+              "a slow read_model must be answered as running: " + str(answer)[:300])
+        model = json.loads(endpoint.tool("get_call", {"call_id": answer["callId"], "timeout": 30}))
+        check("properties" in model and "parts" in model and "recordedCommands" not in model,
+              "get_call must return the snapshot read_model would have returned: " + str(sorted(model))[:300])
+        answer = json.loads(endpoint.tool("read_topology"))
+        check(answer.get("running") is True, "a slow read_topology must be answered as running: " + str(answer)[:300])
+        topology = json.loads(endpoint.tool("get_call", {"call_id": answer["callId"], "timeout": 30}))
+        check("note" in topology and "model" in topology and "output" not in topology,
+              "get_call must return the topology read_topology would have returned: " + str(sorted(topology)))
+        # A failure is the error of the script, as read_model reports it, not the whole answer of the call
+        endpoint.tool("run_python", {"source": "mcp_slow_json.fail = True"})
+        answer = json.loads(endpoint.tool("read_model"))
+        check(answer.get("running") is True, "a failing slow read_model must be answered as running: " + str(answer))
+        text = endpoint.failing_tool("get_call", {"call_id": answer["callId"], "timeout": 30})
+        check("mcp slow json failed" in text and not text.lstrip().startswith("{"),
+              "the collected failure must be the script error read_model reports: " + text[:300])
+    finally:
+        endpoint.tool("run_python", {"source": "sys.modules['json'] = mcp_real_json"})
+    print("get_call: read_model and read_topology collected as those tools answer, a failure as its error")
+
+
+def check_turn_wait_counts(endpoint):
+    """The wait for the turn counts against the timeout of the call that waits for it."""
+    source = os.linesep.join(["import time", "time.sleep(3)"])
+    first = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 0}))
+    check(first.get("running") is True, "the first call must be answered at once: " + str(first))
+    # Behind it, a timeout of 1 is refused as busy after a second, not after the request timeout
+    started = time.time()
+    text = endpoint.failing_tool("eval_expression", {"expression": "6 * 7", "timeout": 1})
+    check(time.time() - started < 2.5 and "Busy" in text, "a call that cannot start within its timeout " +
+          "must be refused as busy within it: %.1f s, %s" % (time.time() - started, text))
+    endpoint.tool("get_call", {"call_id": first["callId"], "timeout": 30})
+    # What is left of the wait after the turn is the call's: 3 s behind the first, 2 s for the second
+    first = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 0}))
+    started = time.time()
+    second = json.loads(endpoint.tool("run_python", {"source": os.linesep.join(["import time", "time.sleep(4)"]),
+                                                     "timeout": 5}))
+    waited = time.time() - started
+    check(second.get("running") is True and waited < 6.5,
+          "a call that waited for its turn must be answered within its own timeout, not after %.1f s: %s" %
+          (waited, str(second)))
+    endpoint.tool("get_call", {"call_id": first["callId"], "timeout": 30})
+    endpoint.tool("get_call", {"call_id": second["callId"], "timeout": 30})
+    print("timeout: the wait for the turn counted against it, %.1f s for a timeout of 5" % waited)
+
+
 def check_unreachable(session):
     """The one thing this transport gives up: with the session closed, nothing answers."""
     url, token = session.info["url"], session.info["token"]
@@ -777,6 +874,17 @@ def main():
         second = check_second_instance(endpoint, session, port)
         check_pruning(endpoint, second)
         check_unreachable(session)
+    finally:
+        session.close()
+    # A session of its own with a short request timeout, so that a call outlasts it in seconds
+    session = ChildSession(free_port(port), ["--rpcTimeout", "5"])
+    try:
+        session.wait_until_listening()
+        endpoint = session.endpoint()
+        wait_until_idle(endpoint)
+        check(json.loads(endpoint.tool("get_status"))["requestTimeout"] == 5, "--rpcTimeout must set the wait")
+        check_collected_tool_answers(endpoint)
+        check_turn_wait_counts(endpoint)
     finally:
         session.close()
     print("TEST PASSED")

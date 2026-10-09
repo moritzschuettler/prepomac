@@ -40,6 +40,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the initial condition is visible.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("The symbol color as a list [R, G, B, A] of channel values, which the color argument takes " +
+                   "back.", Returns = "list[int]")]
+        public object color { get { return PythonColorConverter.ToChannels(Resolve().Color); } }
         [PythonAPI("True when the initial condition resolved during the last regeneration.", Returns = "bool")]
         public bool valid { get { return Resolve().Valid; } }
 
@@ -62,13 +65,19 @@ namespace APIs.Python.Model
                                          initialCondition.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
+        // The arguments of the replace_* method of the initial condition type, each with the stored values it sets
         private static Dictionary<string, string[]> GetArgumentValueNames(InitialCondition initialCondition)
         {
             Dictionary<string, string[]> names = new Dictionary<string, string[]>();
-            if (initialCondition is InitialAngularVelocity)
+            if (initialCondition is InitialTemperature)
+                ModelItemValueReader.AddArguments(names, "temperature", "distribution_name");
+            else if (initialCondition is InitialTranslationalVelocity)
+                ModelItemValueReader.AddArguments(names, "v1", "v2", "v3");
+            else if (initialCondition is InitialAngularVelocity)
             {
                 names.Add("axis_point", new string[] { "x", "y", "z" });
                 names.Add("axis_direction", new string[] { "n1", "n2", "n3" });
+                ModelItemValueReader.AddArguments(names, "rotational_speed");
             }
             //
             return names;
@@ -76,12 +85,13 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Returns the names of the values that are specific to this initial condition type: the " +
-                   "add_* argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this initial condition type: the names " +
+                   "of the replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the initial condition.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
             InitialCondition initialCondition = Resolve();
-            return new StringListAPI(ModelItemValueReader.GetValues(initialCondition, typeof(InitialCondition),
+            return new StringListAPI(ModelItemValueReader.GetValues(initialCondition,
                                                                     GetArgumentValueNames(initialCondition)).Keys);
         }
 
@@ -92,9 +102,9 @@ namespace APIs.Python.Model
         public object get_value(string name)
         {
             InitialCondition initialCondition = Resolve();
-            return ModelItemValueReader.GetValue(initialCondition, typeof(InitialCondition),
-                                                 GetArgumentValueNames(initialCondition), name,
-                                                 GetItemType(initialCondition) + " initial condition");
+            return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(initialCondition,
+                                                                                GetArgumentValueNames(initialCondition)),
+                                                 name, GetItemType(initialCondition) + " initial condition");
         }
         [PythonAPI("Returns the expressions the initial condition was entered with, without evaluating them, " +
                    "under the names get_value uses. Only a value entered as an expression is returned, with its " +

@@ -22973,6 +22973,7 @@ namespace PrePoMax
                 }
                 //
                 Selection selectionOut = selectionIn.DeepCopy(false, false);   // copy only properties
+                selectionOut.CurrentView = (int)ViewGeometryModelResults.Model;
                 selectionOut.Nodes.AddRange(selectionNodes);
                 return selectionOut;
             }

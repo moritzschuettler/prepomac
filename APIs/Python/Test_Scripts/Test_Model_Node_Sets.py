@@ -17,6 +17,15 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
+def check_raises(function, message):
+    try:
+        function()
+    except Exception as ex:
+        check("does not exist" in str(ex), message + ": " + str(ex)[0:200])
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     # The selection is a part, so it is created before the item that consumes it
@@ -46,6 +55,15 @@ def main():
     check("NoSuchNodeSet" not in pmx.model.node_sets, "the in operator found a missing node set")
     check(not pmx.model.node_sets.contains(" " + TEST_NAME + " "),
           "contains accepted a padded name that get does not find")
+    # Every other verb treats a padded name the same way: it names no item
+    for padded_call in [lambda: pmx.model.node_sets.get(" " + TEST_NAME),
+                        lambda: pmx.model.node_sets.rename(TEST_NAME + " ", RENAMED_NAME),
+                        lambda: pmx.model.node_sets.remove([" " + TEST_NAME]),
+                        lambda: pmx.model.node_sets.duplicate([TEST_NAME + " "])]:
+        check_raises(padded_call, "a padded name must name no node set")
+    check(pmx.model.node_sets.contains(TEST_NAME) and not pmx.model.node_sets.contains(RENAMED_NAME),
+          "a call with a padded name changed the node sets")
+    check(len(pmx.model.node_sets) == count_before + 1, "a call with a padded name was recorded")
     # The item is found in any case, and a rename to the spelling it already has changes nothing
     pmx.model.node_sets.rename(TEST_NAME.upper(), TEST_NAME)
     check(pmx.model.node_sets[TEST_NAME].name == TEST_NAME, "a rename to the stored spelling changed the name")

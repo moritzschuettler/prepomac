@@ -250,22 +250,24 @@ namespace APIs.Python.Model
                 properties.ModelType = PythonValueConverter.ToEnum<ModelType>(modelType, "model_type");
             if (globalResultsFileName != null)
             {
-                if (globalResultsFileName.Trim().Length == 0)
-                    throw new PythonAPIException("The argument 'global_results_file_name' must not be empty.");
+                if (globalResultsFileName.Length > 0 && globalResultsFileName.Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'global_results_file_name' must not be blank; " +
+                                                 "'' clears it.");
                 properties.GlobalResultsFileName = globalResultsFileName;
             }
             if (slipWearResults != null)
                 properties.SlipWearResults = PythonValueConverter.ToEnum<SlipWearResultsEnum>(slipWearResults,
                                                                                               "slip_wear_results");
             if (numberOfCycles != null)
-                properties.NumberOfCycles.Equation = ToCount(properties.NumberOfCycles, numberOfCycles, 1,
-                                                             "number_of_cycles");
+                PythonModelArgumentCheck.SetEquation(properties.NumberOfCycles,
+                    ToCount(properties.NumberOfCycles, numberOfCycles, 1, "number_of_cycles"), "number_of_cycles");
             if (cyclesIncrement != null)
-                properties.CyclesIncrement.Equation = ToCount(properties.CyclesIncrement, cyclesIncrement, 1,
-                                                              "cycles_increment");
+                PythonModelArgumentCheck.SetEquation(properties.CyclesIncrement,
+                    ToCount(properties.CyclesIncrement, cyclesIncrement, 1, "cycles_increment"), "cycles_increment");
             if (numOfSmoothingSteps != null)
-                properties.NumOfSmoothingSteps.Equation = ToCount(properties.NumOfSmoothingSteps, numOfSmoothingSteps, 0,
-                                                                  "number_of_smoothing_steps");
+                PythonModelArgumentCheck.SetEquation(properties.NumOfSmoothingSteps,
+                    ToCount(properties.NumOfSmoothingSteps, numOfSmoothingSteps, 0, "number_of_smoothing_steps"),
+                    "number_of_smoothing_steps");
             if (bdmRemeshing != null)
                 properties.BdmRemeshing = PythonValueConverter.ToBool(bdmRemeshing, "bdm_remeshing");
             properties.AbsoluteZero = ToConstant(absoluteZero, properties.AbsoluteZero, clearUndefinedConstants,

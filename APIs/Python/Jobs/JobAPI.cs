@@ -48,6 +48,20 @@ namespace APIs.Python
                 return PythonListConverter.ToPythonList(environmentVariables.DeepClone().ToArray());
             }
         }
+        [PythonAPI("True when the solver executable follows the application settings, False when the analysis " +
+                   "overrides it. Give it back as inherit_executable of replace, rather than executable, so a " +
+                   "replace keeps it following the settings.", Returns = "bool")]
+        public bool inherit_executable { get { return !Resolve().ExecutableOverridden; } }
+        [PythonAPI("True when the work directory follows the application settings, False when the analysis " +
+                   "overrides it, which inherit_work_directory of replace takes back.", Returns = "bool")]
+        public bool inherit_work_directory { get { return !Resolve().WorkDirectoryOverridden; } }
+        [PythonAPI("True when the number of solver CPUs follows the application settings, False when the " +
+                   "analysis overrides it, which inherit_number_of_cpus of replace takes back.", Returns = "bool")]
+        public bool inherit_number_of_cpus { get { return !Resolve().NumCPUsOverridden; } }
+        [PythonAPI("True when the solver environment variables follow the application settings, False when the " +
+                   "analysis overrides them, which inherit_environment_variables of replace takes back.",
+                   Returns = "bool")]
+        public bool inherit_environment_variables { get { return !Resolve().EnvironmentVariablesOverridden; } }
         [PythonAPI("The status of the last run: None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
                    "FailedWithResults.", Returns = "str")]
         public string status { get { return Resolve().JobStatus.ToString(); } }

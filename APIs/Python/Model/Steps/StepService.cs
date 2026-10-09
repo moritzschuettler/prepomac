@@ -182,6 +182,22 @@ namespace APIs.Python.Model
             //
             return stepControls.Parameters.Select(parameter => GetControlType(parameter)).ToArray();
         }
+        // Copies, so a parameter changed by the script changes nothing until it goes back into set_controls
+        public object[] GetControls(string stepName)
+        {
+            StepControls stepControls = ResolveStep(stepName).StepControls;
+            if (stepControls == null) return new object[0];
+            //
+            List<object> parameters = new List<object>();
+            foreach (StepControlParameter parameter in stepControls.Parameters)
+            {
+                // A parameter no pmx.create method makes could not go back into set_controls
+                GetControlType(parameter);
+                parameters.Add(parameter.DeepClone());
+            }
+            //
+            return parameters.ToArray();
+        }
         private static string GetControlType(StepControlParameter parameter)
         {
             string controlType;

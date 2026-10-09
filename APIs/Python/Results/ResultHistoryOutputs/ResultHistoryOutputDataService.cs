@@ -141,7 +141,7 @@ namespace APIs.Python
             HistoryResults history = result.GetHistory();
             if (historyOutputName == null || history == null) return null;
             //
-            ResultHistoryOutput definition = result.GetResultHistoryOutputOrNull(historyOutputName.Trim());
+            ResultHistoryOutput definition = result.GetResultHistoryOutputOrNull(historyOutputName);
             if (definition != null && history.Sets.ContainsKey(definition.Name)) return definition.Name;
             if (history.Sets.ContainsKey(historyOutputName)) return historyOutputName;
             string[] matchingNames = history.Sets.Keys.Where(name => PythonNameComparer.AreSame(name, historyOutputName))

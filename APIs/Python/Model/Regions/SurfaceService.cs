@@ -48,28 +48,33 @@ namespace APIs.Python.Model
             //
             return surface;
         }
-        public void Add(string name, SelectionAPI selection)
+        public void Add(string name, SelectionAPI selection, string surfaceType)
         {
             ValidateNewName(name, null);
+            FeSurfaceType type = ToSurfaceType(surfaceType, FeSurfaceType.Element);
             FeSurface surface = BuildFromSelection(name, selection);
+            surface.Type = type;
             //
             EnsureCommandsAvailable();
             ModelGateway.AddSurface(surface);
         }
-        public void AddFromNodeSet(string name, string nodeSetName)
+        public void AddFromNodeSet(string name, string nodeSetName, string surfaceType)
         {
             ValidateNewName(name, null);
+            FeSurfaceType type = ToSurfaceType(surfaceType, FeSurfaceType.Element);
             FeSurface surface = BuildFromNodeSet(name, nodeSetName);
+            surface.Type = type;
             //
             EnsureCommandsAvailable();
             ModelGateway.AddSurface(surface);
         }
-        public void Replace(string oldName, string name, SelectionAPI selection)
+        public void Replace(string oldName, string name, SelectionAPI selection, string surfaceType)
         {
             FeSurface existing = ResolveSurface(oldName);
             RefuseInternal(existing, "surface", "replaced");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
+            FeSurfaceType type = ToSurfaceType(surfaceType, existing.Type);
             FeSurface surface;
             if (selection == null)
             {
@@ -80,20 +85,23 @@ namespace APIs.Python.Model
                 surface.Name = newName;
             }
             else surface = BuildFromSelection(newName, selection);
+            surface.Type = type;
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceSurface(oldName, surface);
         }
-        public void ReplaceFromNodeSet(string oldName, string name, string nodeSetName)
+        public void ReplaceFromNodeSet(string oldName, string name, string nodeSetName, string surfaceType)
         {
             FeSurface existing = ResolveSurface(oldName);
             RefuseInternal(existing, "surface", "replaced");
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
+            FeSurfaceType type = ToSurfaceType(surfaceType, existing.Type);
             // A node set surface is fully described by its node set, so it is built rather than cloned;
             // a node set that is not given is the one the surface already uses
             string keptNodeSetName = nodeSetName != null ? nodeSetName : GetKeptNodeSetName(existing);
             FeSurface surface = BuildFromNodeSet(newName, keptNodeSetName);
+            surface.Type = type;
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceSurface(oldName, surface);
@@ -127,6 +135,12 @@ namespace APIs.Python.Model
             surface.CreatedFrom = FeSurfaceCreatedFrom.Selection;
             //
             return surface;
+        }
+        private static FeSurfaceType ToSurfaceType(string surfaceType, FeSurfaceType keptType)
+        {
+            if (surfaceType == null) return keptType;
+            //
+            return PythonValueConverter.ToEnum<FeSurfaceType>(surfaceType, "surface_type");
         }
         private static string GetKeptNodeSetName(FeSurface surface)
         {

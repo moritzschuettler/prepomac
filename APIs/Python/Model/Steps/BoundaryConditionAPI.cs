@@ -79,39 +79,56 @@ namespace APIs.Python.Model
         {
             return boundaryCondition is DisplacementRotation && boundaryCondition.Complex;
         }
-        // The phase is stored on every boundary condition, so the shared reader leaves it out; it is read back
-        // only where the phase_deg argument takes it, because elsewhere the argument is refused
+        // The arguments of the replace_* method of the boundary condition type, each with the stored value it sets.
+        // The phase is read back only where the phase_deg argument takes it, because elsewhere it is refused
+        private static Dictionary<string, string[]> GetArgumentValueNames(BoundaryCondition boundaryCondition)
+        {
+            Dictionary<string, string[]> names = new Dictionary<string, string[]>();
+            if (boundaryCondition is DisplacementRotation)
+                ModelItemValueReader.AddArguments(names, "u1", "u2", "u3", "ur1", "ur2", "ur3", "distribution_name");
+            else if (boundaryCondition is SubmodelBC)
+                ModelItemValueReader.AddArguments(names, "step_id", "u1", "u2", "u3", "ur1", "ur2", "ur3");
+            else if (boundaryCondition is TemperatureBC)
+                ModelItemValueReader.AddArguments(names, "temperature", "distribution_name");
+            if (TakesPhase(boundaryCondition)) ModelItemValueReader.AddArguments(names, "phase_deg");
+            //
+            return names;
+        }
         private static Dictionary<string, object> GetValues(BoundaryCondition boundaryCondition)
         {
-            Dictionary<string, object> values = ModelItemValueReader.GetValues(boundaryCondition,
-                                                                               typeof(BoundaryCondition), null);
-            if (TakesPhase(boundaryCondition)) values["phase_deg"] = boundaryCondition.PhaseDeg.Value;
+            Dictionary<string, object> values =
+                ModelItemValueReader.GetValues(boundaryCondition, GetArgumentValueNames(boundaryCondition));
             if (boundaryCondition is DisplacementRotation displacementRotation)
-                values["fixed_dofs"] = GetFixedDegreesOfFreedom(displacementRotation, values);
+            {
+                values["fixed_dofs"] = GetDegreesOfFreedom(displacementRotation, DOFType.Fixed, values);
+                values["free_dofs"] = GetDegreesOfFreedom(displacementRotation, DOFType.Free, values);
+            }
             //
             return values;
         }
         // A fixed degree of freedom is stored as positive infinity, which no value argument takes, so it reads back
-        // as None and is listed under fixed_dofs, the argument that sets it
-        private static object GetFixedDegreesOfFreedom(DisplacementRotation boundaryCondition,
-                                                       Dictionary<string, object> values)
+        // as None and is listed under fixed_dofs, the argument that sets it; a free one reads back as None and is
+        // listed under free_dofs, which a replace takes to free it
+        private static object GetDegreesOfFreedom(DisplacementRotation boundaryCondition, DOFType dofType,
+                                                  Dictionary<string, object> values)
         {
-            List<object> fixedDofs = new List<object>();
+            List<object> dofs = new List<object>();
             foreach (DegreeOfFreedomEnum dof in Enum.GetValues(typeof(DegreeOfFreedomEnum)))
             {
-                if (boundaryCondition.GetDofType((int)dof + 1) != DOFType.Fixed) continue;
+                if (boundaryCondition.GetDofType((int)dof + 1) != dofType) continue;
                 //
-                fixedDofs.Add(dof.ToString());
+                dofs.Add(dof.ToString());
                 values[dof.ToString().ToLowerInvariant()] = null;
             }
             //
-            return PythonListConverter.ToPythonList(fixedDofs.ToArray());
+            return PythonListConverter.ToPythonList(dofs.ToArray());
         }
 
 
         // Methods
         [PythonAPI("Returns the names of the values that are specific to this boundary condition type: the " +
-                   "add_* argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+                   "names of the replace_* arguments that set them, and nothing else, so the values go back " +
+                   "into the replace_* method of the boundary condition.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
             return new StringListAPI(GetValues(Resolve()).Keys);
@@ -119,10 +136,10 @@ namespace APIs.Python.Model
 
         [PythonAPI("Returns a value that is specific to this boundary condition type by the name of the add_* " +
                    "argument that sets it, for example u1. phase_deg is read back only for a displacement " +
-                   "rotation of a steady_state_dynamics step, which is complex and takes it. A " +
-                   "displacement degree of freedom that is not constrained reads back as None, and so does a " +
-                   "fixed one, which a displacement rotation lists under fixed_dofs instead. Use " +
-                   "get_value_names to list them.", Arguments = "name: str",
+                   "rotation of a steady_state_dynamics step, which is complex and takes it. A displacement " +
+                   "rotation lists its fixed degrees of freedom under fixed_dofs and its unconstrained ones " +
+                   "under free_dofs, the argument replace_displacement_rotation takes, and both read back as " +
+                   "None under their own name. Use get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, int, bool, str or list[str]")]
         public object get_value(string name)
         {
@@ -138,10 +155,8 @@ namespace APIs.Python.Model
         public Dictionary<string, string> get_equations()
         {
             BoundaryCondition boundaryCondition = Resolve();
-            Dictionary<string, string> equations = ModelItemValueReader.GetEquations(boundaryCondition);
-            if (!TakesPhase(boundaryCondition)) equations.Remove("phase_deg");
-            //
-            return equations;
+            return ModelItemValueReader.GetScalarEquations(boundaryCondition,
+                                                           GetArgumentValueNames(boundaryCondition));
         }
         public override string ToString()
         {

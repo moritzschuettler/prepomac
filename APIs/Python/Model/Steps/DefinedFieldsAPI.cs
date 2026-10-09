@@ -43,8 +43,7 @@ namespace APIs.Python.Model
             DefinedTemperature definedField =
                 new DefinedTemperature(name, null, RegionTypeEnum.Selection, 0);
             definedField.Type = DefinedTemperatureTypeEnum.ByValue;
-            definedField.Temperature.Equation =
-                PythonValueConverter.ToEquationString(temperature, "temperature");
+            PythonModelArgumentCheck.SetEquation(definedField.Temperature, temperature, "temperature");
             _service.ApplyRegion(definedField, region, "nodes");
             if (distribution_name != null)
                 definedField.DistributionName =
@@ -73,8 +72,7 @@ namespace APIs.Python.Model
                 definedField.Type = DefinedTemperatureTypeEnum.ByValue;
             }
             if (temperature != null)
-                definedField.Temperature.Equation =
-                    PythonValueConverter.ToEquationString(temperature, "temperature");
+                PythonModelArgumentCheck.SetEquation(definedField.Temperature, temperature, "temperature");
             if (region != null) _service.ApplyRegion(definedField, region, "nodes");
             if (distribution_name != null)
                 definedField.DistributionName =

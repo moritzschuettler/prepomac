@@ -195,7 +195,14 @@ namespace APIs.Python.Model
                 return;
             }
             //
-            foreach (string modelName in ModelResolver.GetModel().Mesh.CoordinateSystems.Keys)
+            // A coordinate system other than the global one belongs to the mesh
+            CaeMesh.FeMesh mesh = ModelResolver.GetModel().Mesh;
+            if (mesh == null)
+                throw new PythonAPIException("The coordinate system '" + name + "' given as " +
+                                             "'coordinate_system_name' does not exist, because the model has no " +
+                                             "mesh; only '" + CoordinateSystem.DefaultCoordinateSystemName +
+                                             "' can be given.");
+            foreach (string modelName in mesh.CoordinateSystems.Keys)
             {
                 if (!PythonNameComparer.AreSame(modelName, name)) continue;
                 //
@@ -214,21 +221,19 @@ namespace APIs.Python.Model
                 distribution.InterpolatorType =
                     PythonValueConverter.ToEnum<CloudInterpolatorEnum>(interpolatorType, "interpolator_type");
             if (interpolatorRadius != null)
-                distribution.InterpolatorRadius.Equation =
-                    PythonValueConverter.ToEquationString(interpolatorRadius, "interpolator_radius");
+                PythonModelArgumentCheck.SetEquation(distribution.InterpolatorRadius, interpolatorRadius,
+                                                     "interpolator_radius");
             if (scale != null)
             {
                 EquationString[] values = PythonValueConverter.ToEquationArray(scale, "scale", 3);
-                distribution.ScaleX.Equation = values[0];
-                distribution.ScaleY.Equation = values[1];
-                distribution.ScaleZ.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { distribution.ScaleX, distribution.ScaleY,
+                                                              distribution.ScaleZ }, values, "scale");
             }
             if (translate != null)
             {
                 EquationString[] values = PythonValueConverter.ToEquationArray(translate, "translate", 3);
-                distribution.TranslateX.Equation = values[0];
-                distribution.TranslateY.Equation = values[1];
-                distribution.TranslateZ.Equation = values[2];
+                PythonModelArgumentCheck.SetEquations(new[] { distribution.TranslateX, distribution.TranslateY,
+                                                              distribution.TranslateZ }, values, "translate");
             }
         }
         // Setting the file name imports the file, which decides whether the distribution is a scalar or a vector

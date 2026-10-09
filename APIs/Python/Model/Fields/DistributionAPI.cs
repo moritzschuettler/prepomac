@@ -136,7 +136,10 @@ namespace APIs.Python.Model
                    "empty dict; its equation is the equation property.", Returns = "dict[str, str or list]")]
         public Dictionary<string, object> get_equations()
         {
-            return ModelItemValueReader.GetEquations(Resolve(), MappedArgumentValueNames);
+            Distribution distribution = Resolve();
+            if (!(distribution is MappedDistribution)) return new Dictionary<string, object>();
+            //
+            return ModelItemValueReader.GetEquations(distribution, MappedArgumentValueNames);
         }
         public override string ToString()
         {

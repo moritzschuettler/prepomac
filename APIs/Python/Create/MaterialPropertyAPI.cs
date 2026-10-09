@@ -11,7 +11,6 @@ using CaeGlobals;
 using CaeModel;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace APIs.Python
@@ -114,7 +113,7 @@ namespace APIs.Python
         private static string FormatValue(object value)
         {
             if (value is string) return StringListAPI.ToDisplayString((string)value);
-            if (value is double) return ((double)value).ToString(CultureInfo.InvariantCulture);
+            if (value is double) return PythonValueConverter.ToRoundTripString((double)value);
             //
             return value.ToString();
         }

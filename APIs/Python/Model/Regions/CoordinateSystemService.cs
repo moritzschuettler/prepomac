@@ -257,23 +257,20 @@ namespace APIs.Python.Model
             if (point == 1)
             {
                 coordinateSystem.CenterCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                coordinateSystem.X1.Equation = equations[0];
-                coordinateSystem.Y1.Equation = equations[1];
-                coordinateSystem.Z1.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { coordinateSystem.X1, coordinateSystem.Y1,
+                                                              coordinateSystem.Z1 }, equations, argumentName);
             }
             else if (point == 2)
             {
                 coordinateSystem.PointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                coordinateSystem.X2.Equation = equations[0];
-                coordinateSystem.Y2.Equation = equations[1];
-                coordinateSystem.Z2.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { coordinateSystem.X2, coordinateSystem.Y2,
+                                                              coordinateSystem.Z2 }, equations, argumentName);
             }
             else
             {
                 coordinateSystem.PointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
-                coordinateSystem.X3.Equation = equations[0];
-                coordinateSystem.Y3.Equation = equations[1];
-                coordinateSystem.Z3.Equation = equations[2];
+                PythonModelArgumentCheck.SetEquations(new[] { coordinateSystem.X3, coordinateSystem.Y3,
+                                                              coordinateSystem.Z3 }, equations, argumentName);
             }
         }
     }

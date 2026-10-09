@@ -65,6 +65,13 @@ namespace APIs.Python.Model
                                          fieldOutput.GetType().Name + ", which no add_* method of the " +
                                          "Python API makes.");
         }
+        // The arguments of the replace_* method of the field output type that the types do not share
+        private static Dictionary<string, string[]> GetArgumentValueNames(FieldOutput fieldOutput)
+        {
+            if (fieldOutput is ElementFieldOutput) return ModelItemValueReader.Arguments("variables", "output");
+            //
+            return ModelItemValueReader.Arguments("variables");
+        }
 
 
         // Methods
@@ -89,11 +96,14 @@ namespace APIs.Python.Model
                                          " is not supported.");
         }
 
-        [PythonAPI("Returns the names of the values that are specific to this field output type: the add_* " +
-                   "argument names, followed by the stored values no argument sets.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this field output type: the names of " +
+                   "the replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the field output.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
-            return new StringListAPI(ModelItemValueReader.GetValues(Resolve(), typeof(FieldOutput), null).Keys);
+            FieldOutput fieldOutput = Resolve();
+            return new StringListAPI(ModelItemValueReader.GetValues(fieldOutput,
+                                                                    GetArgumentValueNames(fieldOutput)).Keys);
         }
 
         [PythonAPI("Returns a value that is specific to this field output type by the name of the add_* argument " +
@@ -103,8 +113,9 @@ namespace APIs.Python.Model
         public object get_value(string name)
         {
             FieldOutput fieldOutput = Resolve();
-            return ModelItemValueReader.GetValue(fieldOutput, typeof(FieldOutput), null, name,
-                                                 GetItemType(fieldOutput) + " field output");
+            return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(fieldOutput,
+                                                                                GetArgumentValueNames(fieldOutput)),
+                                                 name, GetItemType(fieldOutput) + " field output");
         }
         public override string ToString()
         {

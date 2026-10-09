@@ -118,7 +118,8 @@ namespace APIs.Python.Model
             if (PythonNameComparer.AreSame(name, CoordinateSystem.DefaultCoordinateSystemName))
                 return CoordinateSystem.DefaultCoordinateSystemName;
             //
-            string modelName = FindKey(_modelResolver.GetModel().Mesh.CoordinateSystems.Keys, name);
+            CaeMesh.FeMesh mesh = _modelResolver.GetModel().Mesh;
+            string modelName = mesh == null ? null : FindKey(mesh.CoordinateSystems.Keys, name);
             if (modelName == null)
                 throw new PythonAPIException("The coordinate system '" + name + "' does not exist.");
             //

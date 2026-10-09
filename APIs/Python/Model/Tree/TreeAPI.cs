@@ -267,8 +267,11 @@ namespace APIs.Python.Model
                    "groups, as get_layout returns it; a group is a dict with the keys 'group_name', " +
                    "'group_id' and 'items', and a group given without an id gets a new one. Every item of " +
                    "the collection must be named exactly once, and a list of item names alone removes every " +
-                   "group. Setting the layout the collection already has records nothing. The view is " +
-                   "'geometry', 'femodel' or 'results'.",
+                   "group. Setting the layout the collection already has records nothing. A part group of the " +
+                   "geometry and the mesh that is renamed is renamed in the other of the two views as well, as " +
+                   "rename_group does, and group names are checked against the names they carry once the " +
+                   "layout is set, so two groups may swap their names. The view is 'geometry', 'femodel' or " +
+                   "'results'.",
                    Arguments = "view: str, item_type: str, layout: list, step_name: str = None",
                    Returns = "None",
                    Example = "pmx.model.tree.set_layout('femodel', 'parts', ['Solid-2', {'group_name': 'Housing', " +
@@ -296,7 +299,12 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'layout' must name every item of the " + item_type +
                                              " collection exactly once, and it leaves out " +
                                              string.Join(", ", missingNames) + ".");
-            if (viewName != "results" && item_type == "parts") CheckPartGroupNames(groups, oldLayout.Nodes);
+            Dictionary<Guid, string> linkedRenames = new Dictionary<Guid, string>();
+            if (viewName != "results" && item_type == "parts")
+            {
+                linkedRenames = GetLinkedPartGroupRenames(groups, oldLayout.Nodes, viewName);
+                CheckPartGroupNames(groups, oldLayout.Nodes, viewName, linkedRenames);
+            }
             //
             OrderedDictionary<string, object> preview =
                 new OrderedDictionary<string, object>("Tree layout", dictionary.Comparer);
@@ -306,6 +314,14 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _modelResolver.ModelGateway.SetTreeLayout(viewName, item_type, step_name,
                                                       preview.GetItemLayoutSnapshot());
+            // The linked layout is read after the first one is set, which may rename a compound part
+            if (linkedRenames.Count > 0)
+            {
+                string linkedView = GetLinkedPartView(viewName);
+                _modelResolver.ModelGateway.SetTreeLayout(linkedView, item_type, null,
+                                                          CreateRenamedLayout(GetLinkedPartLayout(viewName),
+                                                                              linkedRenames));
+            }
         }
         public override string ToString()
         {
@@ -418,6 +434,9 @@ namespace APIs.Python.Model
             Guid parsed;
             if (!Guid.TryParse(value, out parsed))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a group id.");
+            if (parsed == Guid.Empty)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be the empty group id " +
+                                             "'" + Guid.Empty + "'.");
             //
             return parsed;
         }
@@ -705,11 +724,15 @@ namespace APIs.Python.Model
                 CheckLayoutEntries(dictionary, group.Entries, itemNames, groupIds, groups, view, itemType);
             }
         }
-        // A part group shares the namespace of the parts and of every other part group. A group that keeps its
-        // id and its name was already checked when it got them, so only a new or renamed group is checked,
-        // as the tree checks a group it creates or renames.
+        // A part group shares the namespace of the parts and of every part group of the geometry and the mesh. A
+        // group that keeps its id and its name was already checked when it got them, so only a new or renamed
+        // group is checked, as the tree checks a group it creates or renames, and against the names every group
+        // carries once the layout and its linked renames are set, so two groups may swap their names. A compound
+        // part takes the name of its group only when the group is renamed, one part after the other, so it
+        // keeps its present name here.
         private void CheckPartGroupNames(List<TreeLayoutGroup> groups,
-                                         IEnumerable<OrderedDictionaryItemNode<string>> oldNodes)
+                                         IEnumerable<OrderedDictionaryItemNode<string>> oldNodes, string view,
+                                         Dictionary<Guid, string> linkedRenames)
         {
             HashSet<string> layoutGroupNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (TreeLayoutGroup group in groups)
@@ -719,14 +742,145 @@ namespace APIs.Python.Model
                                                  "'. A part group shares the names of the parts and of the other " +
                                                  "part groups, and uppercase and lowercase letters are regarded " +
                                                  "as equal.");
+            }
+            //
+            Dictionary<string, HashSet<Guid>> groupOwners = new Dictionary<string, HashSet<Guid>>(
+                StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> partNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, Guid> compoundPartGroups = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            IOrderedDictionaryItemLayout<string> linkedLayout = GetLinkedPartLayout(view);
+            if (linkedLayout != null)
+                AddFinalGroupNames(linkedLayout.GetItemLayoutSnapshot().Nodes, linkedRenames, groupOwners);
+            foreach (TreeLayoutGroup group in groups) AddOwner(groupOwners, group.Name, group.Id);
+            AddPartNames(_modelResolver.GetModel(), partNames, compoundPartGroups);
+            //
+            List<OrderedDictionaryItemNode<string>> oldNodeList = new List<OrderedDictionaryItemNode<string>>(oldNodes);
+            foreach (TreeLayoutGroup group in groups)
+            {
                 Guid? parentId;
                 IList<OrderedDictionaryItemNode<string>> siblings;
-                OrderedDictionaryItemNode<string> oldGroup = FindNode(new List<OrderedDictionaryItemNode<string>>(oldNodes),
-                                                                      group.Id, null, out parentId, out siblings);
+                OrderedDictionaryItemNode<string> oldGroup = FindNode(oldNodeList, group.Id, null, out parentId,
+                                                                      out siblings);
                 if (oldGroup != null && oldGroup.IsGroup && oldGroup.Name == group.Name) continue;
                 //
-                CheckPartGroupName("femodel", "parts", group.Id, group.Name);
+                HashSet<Guid> owners;
+                bool otherGroup = groupOwners.TryGetValue(group.Name, out owners) &&
+                                  (owners.Count > 1 || !owners.Contains(group.Id));
+                Guid compoundGroupId;
+                bool otherCompound = compoundPartGroups.TryGetValue(group.Name, out compoundGroupId) &&
+                                     compoundGroupId != group.Id;
+                if (otherCompound && !otherGroup)
+                    throw new PythonAPIException("The group name '" + group.Name + "' is the name of the compound " +
+                                                 "part of another part group, which takes the name of its group " +
+                                                 "only after its group is renamed. Rename that group first, in " +
+                                                 "a separate set_layout or with rename_group.");
+                if (otherGroup || otherCompound || partNames.ContainsKey(group.Name))
+                    throw new PythonAPIException("The group name '" + group.Name + "' is already the name of a " +
+                                                 "part or of a part group. Uppercase and lowercase letters are " +
+                                                 "regarded as equal.");
             }
+        }
+        private static void AddFinalGroupNames(IEnumerable<OrderedDictionaryItemNode<string>> nodes,
+                                               Dictionary<Guid, string> renames,
+                                               Dictionary<string, HashSet<Guid>> groupOwners)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                //
+                string name;
+                if (!renames.TryGetValue(node.Id, out name)) name = node.Name;
+                AddOwner(groupOwners, name, node.Id);
+                AddFinalGroupNames(node.Children, renames, groupOwners);
+            }
+        }
+        private static void AddOwner(Dictionary<string, HashSet<Guid>> groupOwners, string name, Guid groupId)
+        {
+            HashSet<Guid> owners;
+            if (!groupOwners.TryGetValue(name, out owners))
+            {
+                owners = new HashSet<Guid>();
+                groupOwners.Add(name, owners);
+            }
+            owners.Add(groupId);
+        }
+        private static void AddPartNames(CaeModel.FeModel model, Dictionary<string, string> partNames,
+                                         Dictionary<string, Guid> compoundPartGroups)
+        {
+            if (model.Geometry != null && model.Geometry.Parts != null)
+            {
+                foreach (KeyValuePair<string, CaeMesh.BasePart> entry in model.Geometry.Parts)
+                {
+                    CaeMesh.CompoundGeometryPart compoundPart = entry.Value as CaeMesh.CompoundGeometryPart;
+                    if (compoundPart != null)
+                    {
+                        foreach (string subPartName in compoundPart.GetSplitSubPartNames())
+                            partNames[subPartName] = subPartName;
+                        if (compoundPart.LinkedGroupId != Guid.Empty)
+                        {
+                            compoundPartGroups[entry.Key] = compoundPart.LinkedGroupId;
+                            continue;
+                        }
+                    }
+                    partNames[entry.Key] = entry.Key;
+                }
+            }
+            if (model.Mesh != null && model.Mesh.Parts != null)
+            {
+                foreach (string partName in model.Mesh.Parts.Keys) partNames[partName] = partName;
+            }
+        }
+        // A group of the geometry parts and one of the mesh parts that carry the same id are one group shown in
+        // both views, which rename_group renames together, so a layout that renames it renames it in the other
+        // view as well
+        private Dictionary<Guid, string> GetLinkedPartGroupRenames(List<TreeLayoutGroup> groups,
+                                                                   IEnumerable<OrderedDictionaryItemNode<string>> oldNodes,
+                                                                   string view)
+        {
+            Dictionary<Guid, string> renames = new Dictionary<Guid, string>();
+            IOrderedDictionaryItemLayout<string> linkedLayout = GetLinkedPartLayout(view);
+            if (linkedLayout == null) return renames;
+            //
+            List<OrderedDictionaryItemNode<string>> oldNodeList = new List<OrderedDictionaryItemNode<string>>(oldNodes);
+            List<OrderedDictionaryItemNode<string>> linkedNodes =
+                new List<OrderedDictionaryItemNode<string>>(linkedLayout.GetItemLayoutSnapshot().Nodes);
+            foreach (TreeLayoutGroup group in groups)
+            {
+                Guid? parentId;
+                IList<OrderedDictionaryItemNode<string>> siblings;
+                OrderedDictionaryItemNode<string> oldGroup = FindNode(oldNodeList, group.Id, null, out parentId,
+                                                                      out siblings);
+                if (oldGroup == null || !oldGroup.IsGroup || oldGroup.Name == group.Name) continue;
+                OrderedDictionaryItemNode<string> linkedGroup = FindNode(linkedNodes, group.Id, null, out parentId,
+                                                                         out siblings);
+                if (linkedGroup == null || !linkedGroup.IsGroup || linkedGroup.Name == group.Name) continue;
+                //
+                renames.Add(group.Id, group.Name);
+            }
+            return renames;
+        }
+        private IOrderedDictionaryItemLayout<string> GetLinkedPartLayout(string view)
+        {
+            if (view == "results") return null;
+            //
+            return _modelResolver.ModelGateway.GetTreeLayout(GetLinkedPartView(view), "parts", null);
+        }
+        private static string GetLinkedPartView(string view)
+        {
+            return view == "geometry" ? "femodel" : "geometry";
+        }
+        // Two renamed groups may swap their names, so every one first takes a name of its own
+        private static OrderedDictionaryItemLayout<string> CreateRenamedLayout(IOrderedDictionaryItemLayout<string> layout,
+                                                                               Dictionary<Guid, string> renames)
+        {
+            OrderedDictionary<string, object> preview =
+                new OrderedDictionary<string, object>("Linked part group layout", layout.Comparer);
+            foreach (string key in layout.Keys) preview.Add(key, null);
+            preview.SetItemLayout(layout.GetItemLayoutSnapshot());
+            foreach (Guid groupId in renames.Keys) preview.RenameGroup(groupId, groupId.ToString());
+            foreach (KeyValuePair<Guid, string> rename in renames) preview.RenameGroup(rename.Key, rename.Value);
+            //
+            return preview.GetItemLayoutSnapshot();
         }
         // The items not yet placed stay at the root behind the entries already placed there, so placing every
         // entry at its own index, a group's entries before the next one of its parent, rebuilds the layout

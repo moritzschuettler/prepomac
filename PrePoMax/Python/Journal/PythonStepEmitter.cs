@@ -100,8 +100,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("lower_frequency=" + GetFrequencyLimit(frequency.LowerFrequency));
                 arguments.Add("upper_frequency=" + GetFrequencyLimit(frequency.UpperFrequency));
                 arguments.Add("storage=" + PythonValueFormatter.Format(frequency.Storage));
-                arguments.Add("cyclic_symmetry_mode_min=" + frequency.CyclicSymmetryModeMin);
-                arguments.Add("cyclic_symmetry_mode_max=" + frequency.CyclicSymmetryModeMax);
+                arguments.Add("cyclic_symmetry_mode_min=" + GetUnsetCount(frequency.CyclicSymmetryModeMin));
+                arguments.Add("cyclic_symmetry_mode_max=" + GetUnsetCount(frequency.CyclicSymmetryModeMax));
                 return "frequency";
             }
             if (step is ComplexFrequencyStep complexFrequency)
@@ -120,7 +120,7 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("harmonic=" + PythonValueFormatter.Format(steadyState.Harmonic));
                 arguments.Add("lower_frequency=" + PythonValueFormatter.Number(steadyState.LowerFrequency));
                 arguments.Add("upper_frequency=" + PythonValueFormatter.Number(steadyState.UpperFrequency));
-                arguments.Add("number_of_data_points=" + steadyState.NumDataPoints);
+                arguments.Add("number_of_data_points=" + GetUnsetCount(steadyState.NumDataPoints));
                 arguments.Add("bias=" + PythonValueFormatter.Number(steadyState.Bias));
                 arguments.Add("number_of_fourier_terms=" + steadyState.NumFourierTerms);
                 arguments.Add("time_lower=" + PythonValueFormatter.Number(steadyState.TimeLower));
@@ -152,13 +152,18 @@ namespace PrePoMax.Python.Journal
         {
             return double.IsNaN(limit) ? "float('nan')" : PythonValueFormatter.Number(limit);
         }
+        // A count that is not set is the smallest integer, which the API takes as float('nan'), as it does a limit
+        private static string GetUnsetCount(int count)
+        {
+            return count == int.MinValue ? "float('nan')" : PythonValueFormatter.Format(count);
+        }
         private static void AddCommonValues(List<string> arguments, Step step)
         {
             arguments.Add("nlgeom=" + PythonValueFormatter.Format(step.Nlgeom));
             arguments.Add("max_increments=" + step.MaxIncrements);
             arguments.Add("incrementation_type=" + PythonValueFormatter.Text(step.IncrementationType.ToString()));
             arguments.Add("solver_type=" + PythonValueFormatter.Text(step.SolverType.ToString()));
-            arguments.Add("output_frequency=" + step.OutputFrequency);
+            arguments.Add("output_frequency=" + GetUnsetCount(step.OutputFrequency));
             arguments.Add("perturbation=" + PythonValueFormatter.Format(step.Perturbation));
             arguments.Add("run_analysis=" + PythonValueFormatter.Format(step.RunAnalysis));
         }

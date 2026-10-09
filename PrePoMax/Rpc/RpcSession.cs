@@ -68,6 +68,10 @@ namespace PrePoMax.Rpc
                         writer.WriteLine(failure.Line);
                         continue;
                     }
+                    // A notification is not answered, so only shutdown is run as one: an exec sent without an id
+                    // would change the model with no way to tell the client what it did, and would hold the turn
+                    // while nobody waits for it. Any other notification is dropped, as the MCP endpoint drops it
+                    if (request.IsNotification && request.Method != "shutdown") continue;
                     // The answer of a long call stays collectable with wait when the line carrying it cannot be
                     // written, because the client went away before it came
                     RpcDispatcher dispatcher = _server.GetDispatcher();

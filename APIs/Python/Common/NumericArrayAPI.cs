@@ -157,6 +157,7 @@ namespace APIs.Python
         {
             if (value == null) return "None";
             if (value is bool) return (bool)value ? "True" : "False";
+            if (value is double) return PythonValueConverter.ToRoundTripString((double)value);
             IFormattable formattable = value as IFormattable;
             return formattable != null ? formattable.ToString(null, CultureInfo.InvariantCulture) : value.ToString();
         }

@@ -37,7 +37,21 @@ namespace APIs.Python
                 return new EquationString(text);
             }
             //
-            return new EquationString(ToDouble(value, argumentName).ToString(CultureInfo.InvariantCulture));
+            return new EquationString(ToRoundTripString(ToDouble(value, argumentName)));
+        }
+        // The shortest text that reads back as the same double. The default format of .NET Framework keeps 15 digits,
+        // so a value a journal writes as a round-trip literal would replay one unit in the last place off, and "R"
+        // itself misses a few values on .NET Framework, which "G17" then writes exactly.
+        public static string ToRoundTripString(double value)
+        {
+            string text = value.ToString("R", CultureInfo.InvariantCulture);
+            if (double.IsNaN(value) || double.IsInfinity(value)) return text;
+            //
+            double parsed;
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed) && parsed == value)
+                return text;
+            //
+            return value.ToString("G17", CultureInfo.InvariantCulture);
         }
         public static double ToDouble(object value, string argumentName)
         {
@@ -205,13 +219,18 @@ namespace APIs.Python
             if (value == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
             //
-            TEnum parsed;
-            if (!Enum.TryParse(value.Trim(), true, out parsed) || !Enum.IsDefined(typeof(TEnum), parsed))
-                throw new PythonAPIException("The value '" + value + "' is not supported for the argument '" +
-                                             argumentName + "'. Possible values are " +
-                                             string.Join(", ", Enum.GetNames(typeof(TEnum))) + ".");
+            // Enum.TryParse also takes a number and a comma separated list, which it combines into another member,
+            // so only a member name is accepted; ToFlagsEnum takes a list
+            string trimmed = value.Trim();
+            foreach (string name in Enum.GetNames(typeof(TEnum)))
+            {
+                if (string.Equals(name, trimmed, StringComparison.OrdinalIgnoreCase))
+                    return (TEnum)Enum.Parse(typeof(TEnum), name);
+            }
             //
-            return parsed;
+            throw new PythonAPIException("The value '" + value + "' is not supported for the argument '" +
+                                         argumentName + "'. Possible values are " +
+                                         string.Join(", ", Enum.GetNames(typeof(TEnum))) + ".");
         }
     }
 }

@@ -82,30 +82,66 @@ namespace APIs.Python.Model
             throw new PythonAPIException("The load '" + load.Name + "' is a " + load.GetType().Name +
                                          ", which no add_* method of the Python API makes.");
         }
+        // The arguments of the replace_* method of the load type, each with the stored values it sets. A value an
+        // argument refuses in the state the load is in - the unused group of a surface traction, the direction of
+        // a pre-tension along the surface normal, the cavity name of a radiation without cavity radiation, the
+        // phase of a load that is not complex - is not read back, so a read-back always goes back
         private static Dictionary<string, string[]> GetArgumentValueNames(Load load)
         {
             Dictionary<string, string[]> names = new Dictionary<string, string[]>();
-            if (load is HydrostaticPressure)
+            if (load is CLoad || load is GravityLoad) ModelItemValueReader.AddArguments(names, "f1", "f2", "f3");
+            else if (load is MomentLoad) ModelItemValueReader.AddArguments(names, "m1", "m2", "m3");
+            else if (load is DLoad) ModelItemValueReader.AddArguments(names, "magnitude", "distribution_name");
+            else if (load is HydrostaticPressure)
             {
                 names.Add("first_point", new string[] { "x1", "y1", "z1" });
                 names.Add("second_point", new string[] { "x2", "y2", "z2" });
                 names.Add("direction", new string[] { "n1", "n2", "n3" });
+                ModelItemValueReader.AddArguments(names, "first_point_pressure", "second_point_pressure");
                 names.Add("cutoff", new string[] { "hydrostatic_pressure_cutoff" });
+            }
+            else if (load is ImportedPressure)
+                ModelItemValueReader.AddArguments(names, "file_name", "pressure_time", "pressure_variable_name",
+                                                  "interpolator_type", "magnitude_factor", "geometry_scale_factor");
+            else if (load is STLoad)
+            {
+                // The model writes the force without a distribution and the force per area with one
+                if (PythonNameComparer.AreSame(((STLoad)load).DistributionName,
+                                               Distribution.DefaultDistributionName))
+                    ModelItemValueReader.AddArguments(names, "f1", "f2", "f3");
+                else ModelItemValueReader.AddArguments(names, "p1", "p2", "p3");
+                ModelItemValueReader.AddArguments(names, "distribution_name");
             }
             else if (load is CentrifLoad)
             {
                 names.Add("axis_point", new string[] { "x", "y", "z" });
                 names.Add("axis_direction", new string[] { "n1", "n2", "n3" });
+                ModelItemValueReader.AddArguments(names, "rotational_speed");
             }
             else if (load is PreTensionLoad)
             {
+                PreTensionLoad preTension = (PreTensionLoad)load;
                 // The magnitude is the force or the displacement, whichever the pre-tension type uses
-                bool isDisplacement = ((PreTensionLoad)load).Type == PreTensionLoadType.Displacement;
+                bool isDisplacement = preTension.Type == PreTensionLoadType.Displacement;
                 names.Add("magnitude", new string[] { isDisplacement ? "displacement_magnitude" : "force_magnitude" });
-                names.Add("direction", new string[] { "x", "y", "z" });
+                if (!preTension.AutoComputeDirection) names.Add("direction", new string[] { "x", "y", "z" });
                 names.Add("tension_type", new string[] { "type" });
                 names.Add("auto_direction", new string[] { "auto_compute_direction" });
             }
+            else if (load is CFlux) ModelItemValueReader.AddArguments(names, "magnitude", "add_flux");
+            else if (load is ShellEdgeLoad || load is DFlux || load is BodyFlux)
+                ModelItemValueReader.AddArguments(names, "magnitude");
+            else if (load is FilmHeatTransfer)
+                ModelItemValueReader.AddArguments(names, "sink_temperature", "film_coefficient",
+                                                  "coefficient_amplitude_name");
+            else if (load is RadiationHeatTransfer)
+            {
+                ModelItemValueReader.AddArguments(names, "sink_temperature", "emissivity", "cavity_radiation");
+                if (((RadiationHeatTransfer)load).CavityRadiation)
+                    ModelItemValueReader.AddArguments(names, "cavity_name");
+                ModelItemValueReader.AddArguments(names, "emissivity_amplitude_name");
+            }
+            if (TakesPhase(load)) ModelItemValueReader.AddArguments(names, "phase_deg");
             //
             return names;
         }
@@ -121,21 +157,16 @@ namespace APIs.Python.Model
         {
             return load is CLoad || load is STLoad;
         }
-        // The phase is stored on every load, so the shared reader leaves it out; it is read back only where the
-        // phase_deg argument takes it, because elsewhere the argument is refused
         private static Dictionary<string, object> GetValues(Load load)
         {
-            Dictionary<string, object> values = ModelItemValueReader.GetValues(load, typeof(Load),
-                                                                               GetArgumentValueNames(load));
-            if (TakesPhase(load)) values["phase_deg"] = load.PhaseDeg.Value;
-            //
-            return values;
+            return ModelItemValueReader.GetValues(load, GetArgumentValueNames(load));
         }
 
 
         // Methods
-        [PythonAPI("Returns the names of the values that are specific to this load type: the add_* argument " +
-                   "names, followed by the stored values no argument sets.", Returns = "StringList")]
+        [PythonAPI("Returns the names of the values that are specific to this load type: the names of the " +
+                   "replace_* arguments that set them, and nothing else, so the values go back into the " +
+                   "replace_* method of the load.", Returns = "StringList")]
         public StringListAPI get_value_names()
         {
             return new StringListAPI(GetValues(Resolve()).Keys);
@@ -143,8 +174,11 @@ namespace APIs.Python.Model
 
         [PythonAPI("Returns a value that is specific to this load type by the name of the add_* argument that " +
                    "sets it, for example f1 or magnitude; a vector argument such as axis_point returns its " +
-                   "components as a list. phase_deg is read back only for a complex load of a " +
-                   "steady_state_dynamics step, which takes it. Use get_value_names to list them.",
+                   "components as a list. A value the argument would refuse in the state the load is in is not " +
+                   "read back: phase_deg only for a complex load of a steady_state_dynamics step, a surface " +
+                   "traction's f1 to f3 only without a distribution and p1 to p3 only with one, a pre-tension's " +
+                   "direction only when auto_direction is False, and cavity_name only with cavity_radiation. " +
+                   "Use get_value_names to list them.",
                    Arguments = "name: str",
                    Returns = "float, int, bool, str or list[float]")]
         public object get_value(string name)
@@ -160,11 +194,7 @@ namespace APIs.Python.Model
         public Dictionary<string, object> get_equations()
         {
             Load load = Resolve();
-            Dictionary<string, object> equations = ModelItemValueReader.GetEquations(load,
-                                                                                     GetArgumentValueNames(load));
-            if (!TakesPhase(load)) equations.Remove("phase_deg");
-            //
-            return equations;
+            return ModelItemValueReader.GetEquations(load, GetArgumentValueNames(load));
         }
         public override string ToString()
         {

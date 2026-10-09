@@ -91,7 +91,7 @@ namespace APIs.Python.Model
             _service.ValidateNewName(name, null);
             PointMassSection section = new PointMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                             _service.GetIsTwoDimensional());
-            section.Mass.Equation = ToMass(mass, section.Mass);
+            PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             AddSection(section, region, "nodes");
             return this[name];
         }
@@ -104,7 +104,7 @@ namespace APIs.Python.Model
             _service.ValidateNewName(name, null);
             DistributedMassSection section = new DistributedMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                                         _service.GetIsTwoDimensional());
-            section.Mass.Equation = ToMass(mass, section.Mass);
+            PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             AddSection(section, region, "surfaces");
             return this[name];
         }
@@ -132,7 +132,8 @@ namespace APIs.Python.Model
         {
             ShellSection section = Clone<ShellSection>(old_name, "shell");
             ApplyThickness(section, thickness);
-            section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
+            PythonModelArgumentCheck.SetEquation(section.Offset, ToEquationOrKeep(offset, section.Offset, "offset"),
+                                                 "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
         }
@@ -147,7 +148,8 @@ namespace APIs.Python.Model
         {
             MembraneSection section = Clone<MembraneSection>(old_name, "membrane");
             ApplyThickness(section, thickness);
-            section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
+            PythonModelArgumentCheck.SetEquation(section.Offset, ToEquationOrKeep(offset, section.Offset, "offset"),
+                                                 "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
         }
@@ -159,7 +161,7 @@ namespace APIs.Python.Model
                                              object mass = null)
         {
             PointMassSection section = Clone<PointMassSection>(old_name, "point_mass");
-            if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
+            if (mass != null) PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             //
             return Replace(old_name, name, null, region, section, "nodes");
         }
@@ -171,7 +173,7 @@ namespace APIs.Python.Model
                                                    object mass = null)
         {
             DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed_mass");
-            if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
+            if (mass != null) PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             //
             return Replace(old_name, name, null, region, section, "surfaces");
         }
@@ -251,7 +253,7 @@ namespace APIs.Python.Model
             // The model refuses a thickness that is not positive with a message that names no argument
             if (!(PythonModelArgumentCheck.Evaluate(section.Thickness, equation, "thickness") > 0))
                 throw new PythonAPIException("The argument 'thickness' must be larger than 0.");
-            section.Thickness.Equation = equation;
+            PythonModelArgumentCheck.SetEquation(section.Thickness, equation, "thickness");
         }
         // The solver input carries the thickness of a solid section only in a 2D model
         private static void ApplySolidThickness(SolidSection section, object thickness)
@@ -275,7 +277,7 @@ namespace APIs.Python.Model
         {
             if (offset == null) return;
             //
-            sectionOffset.Equation = PythonValueConverter.ToEquationString(offset, "offset");
+            PythonModelArgumentCheck.SetEquation(sectionOffset, offset, "offset");
         }
     }
 }

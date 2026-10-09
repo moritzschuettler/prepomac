@@ -210,12 +210,16 @@ namespace APIs.Python.Model
             //
             return converted;
         }
-        // The model stores the smallest integer for a value that is not set, and the journal writes it out as such
+        // The model stores the smallest integer for a value that is not set. None keeps the value on a replace, so
+        // float('nan') is how a script leaves it unset, as it is for the frequency limits, and the journal writes it
         private static int ToIntAtLeastOrUnset(object value, string argumentName, int minimum)
         {
+            if (value is double && double.IsNaN((double)value)) return int.MinValue;
+            //
             int converted = PythonValueConverter.ToInt(value, argumentName);
-            if (converted != int.MinValue && converted < minimum)
-                throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
+            if (converted < minimum)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum +
+                                             ", or float('nan') to leave it unset.");
             //
             return converted;
         }

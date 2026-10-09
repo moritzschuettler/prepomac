@@ -91,7 +91,8 @@ namespace APIs.Python.Model
             // The controller follows a renamed reference point by comparing names exactly, so the name is
             // stored in the model's own spelling rather than the caller's
             FeReferencePoint referencePoint;
-            if (!_modelResolver.GetModel().Mesh.ReferencePoints.TryGetValue(name, out referencePoint))
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            if (mesh == null || !mesh.ReferencePoints.TryGetValue(name, out referencePoint))
                 throw new PythonAPIException("The reference point '" + name + "' does not exist.");
             //
             return referencePoint.Name;

@@ -143,7 +143,7 @@ namespace APIs.Python
         private static void SetValue(EquationContainer container, object value, string argumentName)
         {
             EquationString equation = PythonValueConverter.ToEquationString(value, argumentName);
-            PythonModelArgumentCheck.Apply(() => container.Equation = equation, argumentName);
+            PythonModelArgumentCheck.SetEquation(container, equation, argumentName);
         }
         // The property is built from zeros, which it takes without a check, so that every value can then be
         // set through the container of its column, with that column's unit and check
@@ -165,7 +165,7 @@ namespace APIs.Python
                     //
                     EquationContainer container = table[i][j];
                     EquationString equation = rows[i][j];
-                    PythonModelArgumentCheck.Apply(() => container.Equation = equation, argumentNames[j]);
+                    PythonModelArgumentCheck.SetEquation(container, equation, argumentNames[j]);
                 }
             }
         }
