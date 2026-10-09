@@ -771,7 +771,7 @@ namespace CaeJob
                 //
                 DataOutputEvent?.Invoke(this, outputData);
                 //
-                if (_sbAllOutput.Length > 2_000_000_000) Kill("The string builder run out of space.");
+                if (_sbAllOutput.Length > 2_000_000_000) Kill("The string builder ran out of space.");
                 //
                 _sbAllOutput.Append(_sbOutput);
                 _sbOutput.Clear();
@@ -827,7 +827,7 @@ namespace CaeJob
                         {
                             _datFileContents = _datFileContents.Substring(0, sizeLimit);
                             _datFileContents += Environment.NewLine + Environment.NewLine +
-                                                "Warning: .dat file is to log to be displayed in the Monitor form.";
+                                                "Warning: .dat file is too long to be displayed in the Monitor form.";
                         }
                         _datFileToLong = true;
                     }
