@@ -1439,10 +1439,19 @@ namespace CaeMesh
             foreach (var wallId in block.WallSurfaceIds)
             {
                 if (!surfaceIdEdgeIds.TryGetValue(wallId, out edgeIds)) continue;
+                edgeIds = edgeIds.Distinct().ToArray();
                 int[] wallSourceEdgeIds = edgeIds.Where(sourceEdgeIds.Contains).ToArray();
                 int[] wallTargetEdgeIds = edgeIds.Where(targetEdgeIds.Contains).ToArray();
-                if (wallSourceEdgeIds.Length == 0 || wallTargetEdgeIds.Length == 0 ||
-                    wallSourceEdgeIds.Length + wallTargetEdgeIds.Length != edgeIds.Length) continue;
+                if (wallSourceEdgeIds.Length == 0 || wallTargetEdgeIds.Length == 0) continue;
+                int[] seamEdgeIds = edgeIds.Where(id => !sourceEdgeIds.Contains(id) && !targetEdgeIds.Contains(id))
+                                           .ToArray();
+                if (seamEdgeIds.Length == 1)
+                {
+                    if (AddSeamWallSplitCurves(wallId, seamEdgeIds[0], wallSourceEdgeIds, wallTargetEdgeIds,
+                                               curveDimTags)) ringWallIds.Add(wallId);
+                    continue;
+                }
+                if (seamEdgeIds.Length != 0) continue;
                 int[] sourceVertexIds = GetLoopVertexIds(wallSourceEdgeIds);
                 int[] targetVertexIds = GetLoopVertexIds(wallTargetEdgeIds);
                 if (sourceVertexIds == null || targetVertexIds == null) continue;
@@ -1468,6 +1477,89 @@ namespace CaeMesh
                 ringWallIds.Add(wallId);
             }
             return ringWallIds;
+        }
+        /// <summary>
+        /// Adds straight curves across a wall closed around itself along one seam - the wall of a bore - whose rims are
+        /// not single closed edges, as an exporter leaves a rim split into arcs: from every vertex of a rim but the
+        /// seam's to the nearest point of the other rim, where the fragmentation puts a vertex unless one is there. A
+        /// periodic face closed along one seam takes a structured grid only with single edges for rims, and the pieces
+        /// are walls of four sides. A curve that does not stand across its rim at the angle given or more, or leaves
+        /// the face, is refused. Returns whether it split the wall.
+        /// </summary>
+        private bool AddSeamWallSplitCurves(int wallId, int seamEdgeId, int[] sourceRimEdgeIds, int[] targetRimEdgeIds,
+                                            List<Tuple<int, int>> curveDimTags)
+        {
+            if (sourceRimEdgeIds.Length == 1 && targetRimEdgeIds.Length == 1) return false;
+            //
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(1, seamEdgeId, out _, out vertexIds);
+            HashSet<int> seamVertexIds = new HashSet<int>(vertexIds);
+            double tolerance = 1E-4 * GetModelDiagonal();
+            List<double[][]> connectors = new List<double[][]>();
+            int numOfCurves = 0;
+            foreach (var rims in new int[][][] { new int[][] { sourceRimEdgeIds, targetRimEdgeIds },
+                                                 new int[][] { targetRimEdgeIds, sourceRimEdgeIds } })
+            {
+                HashSet<int> rimVertexIds = new HashSet<int>();
+                foreach (var edgeId in rims[0])
+                {
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    rimVertexIds.UnionWith(vertexIds);
+                }
+                HashSet<int> otherRimVertexIds = new HashSet<int>();
+                foreach (var edgeId in rims[1])
+                {
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    otherRimVertexIds.UnionWith(vertexIds);
+                }
+                foreach (var vertexId in rimVertexIds.OrderBy(id => id))
+                {
+                    if (seamVertexIds.Contains(vertexId)) continue;
+                    double[] start = GetVertexCoor(vertexId);
+                    // The nearest point of the other rim, a vertex of it when one is there
+                    double[] end = null;
+                    double distance = double.PositiveInfinity;
+                    foreach (var edgeId in rims[1])
+                    {
+                        double[] closest;
+                        Gmsh.Model.GetClosestPoint(1, edgeId, start, out closest, out _);
+                        if (closest.Length < 3 || GetDistance(start, closest) >= distance) continue;
+                        distance = GetDistance(start, closest);
+                        end = closest;
+                    }
+                    if (end == null) continue;
+                    int endVertexId = otherRimVertexIds.FirstOrDefault(id => GetDistance(GetVertexCoor(id), end) <=
+                                                                            tolerance);
+                    if (endVertexId != 0) end = GetVertexCoor(endVertexId);
+                    // A curve from the other rim to this vertex is there already
+                    if (connectors.Any(connector => GetDistance(connector[0], end) <= tolerance &&
+                                                    GetDistance(connector[1], start) <= tolerance)) continue;
+                    double[] across = new double[3];
+                    for (int c = 0; c < 3; c++) across[c] = end[c] - start[c];
+                    bool onSurface = true;
+                    foreach (var fraction in new double[] { 0.25, 0.5, 0.75 })
+                    {
+                        double[] point = new double[3];
+                        for (int c = 0; c < 3; c++) point[c] = start[c] + fraction * across[c];
+                        onSurface &= IsPointOnSurface(wallId, point);
+                    }
+                    if (!StandsAcrossLoop(across, vertexId, rims[0]) || !onSurface)
+                        throw new CaeException("Sweep: the side Surface " + wallId + " is closed along one seam, its " +
+                                               "rims are split into several edges, and the straight edge splitting " +
+                                               "it from a vertex of one rim to the other would not stand across it " +
+                                               "at " + _ringConnectorMinAngleDeg + " degrees or more, or would " +
+                                               "leave it.");
+                    int endId = endVertexId != 0 ? endVertexId : Gmsh.Model.OCC.AddPoint(end[0], end[1], end[2]);
+                    curveDimTags.Add(new Tuple<int, int>(1, Gmsh.Model.OCC.AddLine(vertexId, endId)));
+                    connectors.Add(new double[][] { start, end });
+                    numOfCurves++;
+                }
+            }
+            if (numOfCurves == 0) return false;
+            _writeOutput?.Invoke(NameGmshEntities("Sweep: the side Surface " + wallId + " is closed along one seam " +
+                                                  "with its rims split into several edges, and is split into " +
+                                                  (numOfCurves + 1) + " walls of four sides."));
+            return true;
         }
         /// <summary>
         /// The straight edges splitting a ring wall, as pairs of an index of its source loop and an index of its target

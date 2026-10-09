@@ -1424,27 +1424,60 @@ namespace CaeMesh
             //
             return loopEdgeIds;
         }
+        /// <summary>
+        /// Whether a face is closed around itself along a single seam - the wall of a bore or a boss - with the seam
+        /// as its direction edge: without the seam its edges form two closed loops, its rims, and the seam runs from
+        /// one rim to the other. A rim is a single closed edge, or a loop of several edges where the exporter split
+        /// it; the mesher splits such a wall into walls of four sides.
+        /// </summary>
         public bool IsSurfaceACylinderLike(int surfaceId, out int directionEdgeId)
         {
             directionEdgeId = -1;
-            if (_faceEdgeIds[surfaceId].Length == 3)
+            int[] edgeIds = _faceEdgeIds[surfaceId].Distinct().ToArray();
+            if (edgeIds.Length < 3) return false;
+            Dictionary<int, HashSet<int>> edgeIdVertexIds = new Dictionary<int, HashSet<int>>();
+            foreach (var edgeId in edgeIds) edgeIdVertexIds[edgeId] = GetVertexNodeIdsForEdgeIds(new int[] { edgeId });
+            foreach (var seamEdgeId in edgeIds)
             {
-                HashSet<int> closedLoopEdgeIds = new HashSet<int>();
-                HashSet<int> directionEdgeIds = new HashSet<int>();
-                for (int i = 0; i < _faceEdgeIds[surfaceId].Length; i++)
+                if (edgeIdVertexIds[seamEdgeId].Count != 2) continue;
+                // Every vertex of a rim is met twice, a closed edge meeting its own vertex twice
+                Dictionary<int, int> vertexIdDegree = new Dictionary<int, int>();
+                Dictionary<int, int> vertexIdRoot = new Dictionary<int, int>();
+                foreach (var edgeId in edgeIds)
                 {
-                    if (IsEdgeAClosedLoop(_faceEdgeIds[surfaceId][i], out _))
-                        closedLoopEdgeIds.Add(_faceEdgeIds[surfaceId][i]);
-                    else
-                        directionEdgeIds.Add(_faceEdgeIds[surfaceId][i]);
+                    if (edgeId == seamEdgeId) continue;
+                    int[] vertexIds = edgeIdVertexIds[edgeId].ToArray();
+                    foreach (var vertexId in vertexIds)
+                    {
+                        int degree;
+                        vertexIdDegree.TryGetValue(vertexId, out degree);
+                        vertexIdDegree[vertexId] = degree + (vertexIds.Length == 1 ? 2 : 1);
+                        if (!vertexIdRoot.ContainsKey(vertexId)) vertexIdRoot[vertexId] = vertexId;
+                    }
+                    if (vertexIds.Length == 2) Unite(vertexIdRoot, vertexIds[0], vertexIds[1]);
                 }
-                if (closedLoopEdgeIds.Count == 2 && directionEdgeIds.Count == 1)
-                {
-                    directionEdgeId = directionEdgeIds.First();
-                    return true;
-                }
+                if (vertexIdDegree.Values.Any(degree => degree != 2)) continue;
+                int[] seamVertexIds = edgeIdVertexIds[seamEdgeId].ToArray();
+                if (!vertexIdRoot.ContainsKey(seamVertexIds[0]) || !vertexIdRoot.ContainsKey(seamVertexIds[1])) continue;
+                HashSet<int> rims = new HashSet<int>(vertexIdRoot.Keys.ToArray().Select(id => Find(vertexIdRoot, id)));
+                if (rims.Count != 2 || Find(vertexIdRoot, seamVertexIds[0]) == Find(vertexIdRoot, seamVertexIds[1]))
+                    continue;
+                //
+                directionEdgeId = seamEdgeId;
+                return true;
             }
             return false;
+        }
+        private static int Find(Dictionary<int, int> parent, int id)
+        {
+            while (parent[id] != id) id = parent[id] = parent[parent[id]];
+            return id;
+        }
+        private static void Unite(Dictionary<int, int> parent, int id1, int id2)
+        {
+            int root1 = Find(parent, id1);
+            int root2 = Find(parent, id2);
+            if (root1 != root2) parent[root2] = root1;
         }
         /// <summary>
         /// Whether a face runs around the body as a ring by itself, without a seam: its boundary is two edge loops,
