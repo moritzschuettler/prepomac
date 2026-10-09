@@ -60,6 +60,7 @@ namespace CaeMesh
         private Dictionary<SweepRevolvedBlock, double[]> _revolvedLevels = new Dictionary<SweepRevolvedBlock, double[]>();
         private const int _maxQuadWildRounds = 4;
         private const double _sideTranslationTolerance = 0.02;
+        private const double _ringConnectorMinAngleDeg = 70;
         private static readonly Regex _entityProgress =
             new Regex(@"Meshing (curve|surface|volume) \d+", RegexOptions.Compiled);
         private static readonly Regex _entityReference =
@@ -1410,13 +1411,15 @@ namespace CaeMesh
             return count;
         }
         /// <summary>
-        /// Adds a straight curve across every wall of the block that runs around the whole block as one face - a ring
+        /// Adds straight curves across every wall of the block that runs around the whole block as one face - a ring
         /// between a loop on the source and a loop on the target, as the end of a tube swept through its wall is -
-        /// from every vertex of its source loop to the vertex of its target loop opposite it, which the fragmentation
-        /// makes edges of the face. A face without corners takes no structured grid, and the pieces are walls of four
-        /// sides. The vertices are paired in the order of the loops, turned and directed so that the curves are the
-        /// shortest; two loops of different numbers of vertices, or a curve leaving the face, are refused. Returns the
-        /// walls it splits.
+        /// which the fragmentation makes edges of the face. A face without corners takes no structured grid, and the
+        /// pieces are walls of four sides, the side on the source and the side on the target being chains of as many
+        /// edges as the loops have between two curves. A curve joins a vertex of the source loop to the nearest vertex
+        /// of the target loop when each is the nearest of the other, when it stands across both loops - at the angle
+        /// given or more to every loop edge at either end - and when it lies on the face; curves that would cross are
+        /// left out. A ring needs two of them, or one when both loops are a single closed edge, which leaves the wall
+        /// of a bore with its seam; one with fewer is refused. Returns the walls it splits.
         /// </summary>
         private HashSet<int> AddRingWallSplitCurves(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
                                                     List<Tuple<int, int>> curveDimTags)
@@ -1443,47 +1446,108 @@ namespace CaeMesh
                 int[] sourceVertexIds = GetLoopVertexIds(wallSourceEdgeIds);
                 int[] targetVertexIds = GetLoopVertexIds(wallTargetEdgeIds);
                 if (sourceVertexIds == null || targetVertexIds == null) continue;
-                if (sourceVertexIds.Length != targetVertexIds.Length)
-                    throw new CaeException("Sweep: the side Surface " + wallId + " runs around the block between a " +
-                                           "loop of " + sourceVertexIds.Length + " vertices on the source and a " +
-                                           "loop of " + targetVertexIds.Length + " vertices on the target, which no " +
-                                           "structured wall can join.");
                 //
-                int n = sourceVertexIds.Length;
-                double[][] sourceCoors = sourceVertexIds.Select(GetVertexCoor).ToArray();
-                double[][] targetCoors = targetVertexIds.Select(GetVertexCoor).ToArray();
-                int bestShift = 0;
-                int bestDirection = 1;
-                double bestLength = double.PositiveInfinity;
-                foreach (var direction in new int[] { 1, -1 })
+                List<int[]> connectors = GetRingWallConnectors(wallId, wallSourceEdgeIds, wallTargetEdgeIds,
+                                                               sourceVertexIds, targetVertexIds);
+                int numOfNeeded = wallSourceEdgeIds.Length == 1 && wallTargetEdgeIds.Length == 1 ? 1 : 2;
+                if (connectors.Count < numOfNeeded)
+                    throw new CaeException("Sweep: the side Surface " + wallId + " runs around the block, and " +
+                                           (connectors.Count == 0 ? "no" : "only one") + " straight edge from a " +
+                                           "vertex of its source loop to the nearest vertex of its target loop stands " +
+                                           "across both loops at " + _ringConnectorMinAngleDeg + " degrees or more " +
+                                           "and lies on it; it is split into walls of four sides by " + numOfNeeded +
+                                           " such edges or more.");
+                foreach (var connector in connectors)
                 {
-                    for (int shift = 0; shift < n; shift++)
-                    {
-                        double length = 0;
-                        for (int i = 0; i < n; i++)
-                            length += GetDistance(sourceCoors[i], targetCoors[((shift + direction * i) % n + n) % n]);
-                        if (length >= bestLength) continue;
-                        bestLength = length;
-                        bestShift = shift;
-                        bestDirection = direction;
-                    }
-                }
-                for (int i = 0; i < n; i++)
-                {
-                    int k = ((bestShift + bestDirection * i) % n + n) % n;
-                    double[] middle = new double[3];
-                    for (int c = 0; c < 3; c++) middle[c] = 0.5 * (sourceCoors[i][c] + targetCoors[k][c]);
-                    if (!IsPointOnSurface(wallId, middle))
-                        throw new CaeException("Sweep: the side Surface " + wallId + " runs around the block, and the " +
-                                               "straight edge splitting it into walls of four sides would leave it.");
-                    int curveId = Gmsh.Model.OCC.AddLine(sourceVertexIds[i], targetVertexIds[k]);
+                    int curveId = Gmsh.Model.OCC.AddLine(sourceVertexIds[connector[0]], targetVertexIds[connector[1]]);
                     curveDimTags.Add(new Tuple<int, int>(1, curveId));
                 }
                 _writeOutput?.Invoke(NameGmshEntities("Sweep: the side Surface " + wallId + " runs around the block " +
-                                                      "and is split into " + n + " walls of four sides."));
+                                                      "and is split into " + connectors.Count + " walls of four " +
+                                                      "sides."));
                 ringWallIds.Add(wallId);
             }
             return ringWallIds;
+        }
+        /// <summary>
+        /// The straight edges splitting a ring wall, as pairs of an index of its source loop and an index of its target
+        /// loop, in the order of the source loop; see AddRingWallSplitCurves.
+        /// </summary>
+        private static List<int[]> GetRingWallConnectors(int wallId, int[] sourceEdgeIds, int[] targetEdgeIds,
+                                                         int[] sourceVertexIds, int[] targetVertexIds)
+        {
+            int n = sourceVertexIds.Length;
+            int m = targetVertexIds.Length;
+            double[][] sourceCoors = sourceVertexIds.Select(GetVertexCoor).ToArray();
+            double[][] targetCoors = targetVertexIds.Select(GetVertexCoor).ToArray();
+            int[] nearestTarget = Enumerable.Range(0, n).Select(i => Enumerable.Range(0, m)
+                .OrderBy(j => GetDistance(sourceCoors[i], targetCoors[j])).First()).ToArray();
+            int[] nearestSource = Enumerable.Range(0, m).Select(j => Enumerable.Range(0, n)
+                .OrderBy(i => GetDistance(sourceCoors[i], targetCoors[j])).First()).ToArray();
+            List<int[]> candidates = new List<int[]>();
+            for (int i = 0; i < n; i++)
+            {
+                int j = nearestTarget[i];
+                if (nearestSource[j] != i) continue;
+                double[] across = new double[3];
+                for (int c = 0; c < 3; c++) across[c] = targetCoors[j][c] - sourceCoors[i][c];
+                if (!StandsAcrossLoop(across, sourceVertexIds[i], sourceEdgeIds) ||
+                    !StandsAcrossLoop(across, targetVertexIds[j], targetEdgeIds)) continue;
+                bool onSurface = true;
+                foreach (var fraction in new double[] { 0.25, 0.5, 0.75 })
+                {
+                    double[] point = new double[3];
+                    for (int c = 0; c < 3; c++) point[c] = sourceCoors[i][c] + fraction * across[c];
+                    onSurface &= IsPointOnSurface(wallId, point);
+                }
+                if (onSurface) candidates.Add(new int[] { i, j });
+            }
+            if (candidates.Count <= 2) return candidates;
+            // Following the source loop, the target vertices of the edges kept follow the target loop one way round
+            List<int[]> best = new List<int[]>();
+            foreach (var direction in new int[] { 1, -1 })
+            {
+                for (int start = 0; start < candidates.Count; start++)
+                {
+                    List<int[]> kept = new List<int[]>() { candidates[start] };
+                    int advanced = 0;
+                    for (int k = 1; k < candidates.Count; k++)
+                    {
+                        int[] candidate = candidates[(start + k) % candidates.Count];
+                        int step = ((direction * (candidate[1] - kept[kept.Count - 1][1])) % m + m) % m;
+                        if (step == 0 || advanced + step >= m) continue;
+                        kept.Add(candidate);
+                        advanced += step;
+                    }
+                    if (kept.Count > best.Count) best = kept;
+                }
+            }
+            return best.OrderBy(connector => connector[0]).ToList();
+        }
+        /// <summary>
+        /// Whether a straight edge leaving a vertex of a loop stands across it, at the angle given or more to every edge
+        /// of the loop at the vertex.
+        /// </summary>
+        private static bool StandsAcrossLoop(double[] direction, int vertexId, int[] loopEdgeIds)
+        {
+            int[] vertexIds;
+            double minimumCosine = Math.Cos(_ringConnectorMinAngleDeg * Math.PI / 180);
+            double length = Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                      direction[2] * direction[2]);
+            if (length == 0) return false;
+            foreach (var edgeId in loopEdgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                if (!vertexIds.Contains(vertexId)) continue;
+                double[] tangent = SweepWallTopology.GetEdgeTangent(edgeId, vertexId);
+                double tangentLength = Math.Sqrt(tangent[0] * tangent[0] + tangent[1] * tangent[1] +
+                                                 tangent[2] * tangent[2]);
+                if (tangentLength == 0) continue;
+                double cosine = Math.Abs(direction[0] * tangent[0] + direction[1] * tangent[1] +
+                                         direction[2] * tangent[2]) / (length * tangentLength);
+                if (cosine > minimumCosine) return false;
+            }
+            return true;
         }
         /// <summary>
         /// Adds the edges that split the ring walls of a block to the layer of the block's sweep lines, so that they
